@@ -197,6 +197,7 @@ export default function App() {
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         defaultEdgeOptions={{ type: "step" }}
+        minZoom={0.1}
         fitView
       >
         <Background />
