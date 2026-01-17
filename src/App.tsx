@@ -221,11 +221,9 @@ export default function App() {
     let position = { x: 0, y: 0 };
 
     if (rfInstance) {
-      const centerScreenX = window.innerWidth / 2;
-      const centerScreenY = window.innerHeight / 2;
       position = rfInstance.screenToFlowPosition({
-        x: centerScreenX,
-        y: centerScreenY,
+        x: 10,
+        y: 10,
       });
     }
 
