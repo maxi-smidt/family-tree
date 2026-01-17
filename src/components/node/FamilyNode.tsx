@@ -1,0 +1,69 @@
+import { useState } from "react";
+import { EyeIcon, EyeOffIcon, PencilIcon, PencilOffIcon } from "lucide-react";
+import { Button } from "@/components/ui/button.tsx";
+import { DetailFamilyNode } from "@/components/node/DetailFamilyNode.tsx";
+import { EditFamilyNode } from "@/components/node/EditFamilyNode.tsx";
+import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode.tsx";
+import { Handle, Node, NodeProps, Position } from "@xyflow/react";
+import { Member } from "@/types/member.ts";
+
+export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
+  const [editMode, setEditMode] = useState(false);
+  const [detailMode, setDetailMode] = useState(false);
+
+  const toggleEditMode = () => {
+    if (!editMode) {
+      setDetailMode(false);
+    }
+    setEditMode(!editMode);
+  };
+
+  const toggleDetailMode = () => {
+    if (!detailMode) {
+      setEditMode(false);
+    }
+    setDetailMode(!detailMode);
+  };
+
+  return (
+    <div
+      className="relative flex flex-col items-center shadow-sm p-2 pt-3"
+      style={{
+        border: selected ? "2px solid #2563eb" : "1px solid #777",
+        borderRadius: "8px",
+        background: "white",
+        width: "250px",
+        transition: "border 0.2s",
+      }}
+    >
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="left"
+        className="left-1/4!"
+      />
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="right"
+        className="left-3/4!"
+      />
+      <div className="absolute top-2 flex justify-between w-full px-2">
+        <Button variant="outline" size="icon-sm" onClick={toggleDetailMode}>
+          {detailMode ? <EyeOffIcon /> : <EyeIcon />}
+        </Button>
+        <Button variant="outline" size="icon-sm" onClick={toggleEditMode}>
+          {editMode ? <PencilOffIcon /> : <PencilIcon />}
+        </Button>
+      </div>
+
+      {detailMode && <DetailFamilyNode member={data} />}
+
+      {editMode && <EditFamilyNode member={data} />}
+
+      {!editMode && !detailMode && <DefaultFamilyNode member={data} />}
+
+      <Handle type="source" position={Position.Bottom} />
+    </div>
+  );
+};
