@@ -1,4 +1,4 @@
-import { Member } from "@/types/member.ts";
+import { Member } from "@/types/member";
 import { format } from "date-fns";
 
 type Props = {

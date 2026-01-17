@@ -1,11 +1,11 @@
-import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode.tsx";
-import { Member } from "@/types/member.ts";
+import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode";
+import { Member } from "@/types/member";
 import {
   Item,
   ItemContent,
   ItemDescription,
   ItemTitle,
-} from "@/components/ui/item.tsx";
+} from "@/components/ui/item";
 
 type Props = {
   member: Member;

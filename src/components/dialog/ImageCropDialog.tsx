@@ -6,12 +6,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog.tsx";
-import { Button } from "@/components/ui/button.tsx";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
 import { useEffect, useRef, useState } from "react";
-import { getCroppedImg } from "@/utils/canvasUtils.ts";
-import { Spinner } from "@/components/ui/spinner.tsx";
+import { getCroppedImg } from "@/utils/canvasUtils";
+import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
   imageData: string | null;

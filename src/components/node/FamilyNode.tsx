@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { EyeIcon, EyeOffIcon, PencilIcon, PencilOffIcon } from "lucide-react";
-import { Button } from "@/components/ui/button.tsx";
-import { DetailFamilyNode } from "@/components/node/DetailFamilyNode.tsx";
-import { EditFamilyNode } from "@/components/node/EditFamilyNode.tsx";
-import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode.tsx";
+import { Button } from "@/components/ui/button";
+import { DetailFamilyNode } from "@/components/node/DetailFamilyNode";
+import { EditFamilyNode } from "@/components/node/EditFamilyNode";
+import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
-import { Member } from "@/types/member.ts";
+import { Member } from "@/types/member";
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const [editMode, setEditMode] = useState(false);

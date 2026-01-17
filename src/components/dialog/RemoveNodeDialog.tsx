@@ -1,4 +1,4 @@
-import { Member } from "@/types/member.ts";
+import { Member } from "@/types/member";
 import {
   Dialog,
   DialogClose,
@@ -7,8 +7,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from "@/components/ui/dialog.tsx";
-import { Button } from "@/components/ui/button.tsx";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   members: Member[];

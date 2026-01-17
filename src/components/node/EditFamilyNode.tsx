@@ -1,11 +1,11 @@
 import { Input } from "@/components/ui/input";
-import { useFamilyStore } from "@/hooks/useFamilyStore.ts";
+import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { ChangeEvent, useEffect, useState } from "react";
 import { Upload } from "lucide-react";
-import { Member } from "@/types/member.ts";
-import { DatePicker } from "@/components/ui/date-picker.tsx";
-import { Textarea } from "@/components/ui/textarea.tsx";
-import { ImageCropDialog } from "@/components/dialog/ImageCropDialog.tsx";
+import { Member } from "@/types/member";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Textarea } from "@/components/ui/textarea";
+import { ImageCropDialog } from "@/components/dialog/ImageCropDialog";
 
 type Props = {
   member: Member;

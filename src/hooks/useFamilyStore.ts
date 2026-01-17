@@ -6,7 +6,7 @@ import {
   Member,
   MemberDB,
   MemberUpdate,
-} from "../types/member.ts";
+} from "../types/member";
 
 const DB_PATH = "sqlite:family_tree_v1.db";
 

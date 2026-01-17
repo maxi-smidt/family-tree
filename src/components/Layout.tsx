@@ -1,0 +1,26 @@
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { FamilyTreeSidebar } from "@/components/FamilyTreeSidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ReactNode } from "react";
+import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings.ts";
+
+export const Layout = ({ children }: { children: ReactNode }) => {
+  const { sidebarOpen, setSidebarOpen } = useFamilyTreeSettings();
+
+  return (
+    <TooltipProvider delayDuration={500}>
+      <SidebarProvider
+        open={sidebarOpen}
+        onOpenChange={(v) => setSidebarOpen(v)}
+      >
+        <FamilyTreeSidebar />
+        <main className="w-full h-screen overflow-hidden relative">
+          <div className="absolute top-4 left-4 z-50">
+            <SidebarTrigger />
+          </div>
+          {children}
+        </main>
+      </SidebarProvider>
+    </TooltipProvider>
+  );
+};
