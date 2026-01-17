@@ -12,6 +12,7 @@ import {
   Node,
   NodeChange,
   NodePositionChange,
+  OnSelectionChangeParams,
   Panel,
   ReactFlow,
   ReactFlowInstance,
@@ -24,8 +25,16 @@ import { Member } from "@/types/member.ts";
 import debounce from "lodash.debounce";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog.tsx";
 import { Toaster, toast } from "sonner";
+import { UserMinus, UserPlus } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.tsx";
 
 const nodeTypes = { familyMember: FamilyNode };
+const stepType = "straight"; // bezier, straight, step, smoothstep
 
 export default function App() {
   const {
@@ -41,6 +50,7 @@ export default function App() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
+  const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
 
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
@@ -50,54 +60,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isReady) return;
-    setNodes((currentNodes) => {
-      const nodeMap = new Map(currentNodes.map((n) => [n.id, n]));
-
-      return members.map((member) => {
-        const existingNode = nodeMap.get(member.id);
-
-        if (existingNode) {
-          return {
-            ...existingNode,
-            data: member,
-            position: existingNode.dragging
-              ? existingNode.position
-              : member.position,
-          };
-        }
-
-        return {
-          id: member.id,
-          type: "familyMember",
-          position: member.position,
-          data: member,
-        };
-      });
-    });
-
-    const newEdges: Edge[] = [];
-    members.forEach((m) => {
-      if (m.parents.first) {
-        newEdges.push({
-          id: createEdgeId(m.parents.first, m.id),
-          source: m.parents.first,
-          target: m.id,
-          targetHandle: "left",
-          type: "step",
-        });
-      }
-      if (m.parents.second) {
-        newEdges.push({
-          id: createEdgeId(m.parents.second, m.id),
-          source: m.parents.second,
-          target: m.id,
-          targetHandle: "right",
-          type: "step",
-        });
-      }
-    });
-
-    setEdges(newEdges);
+    initializeFlow();
   }, [members, isReady, setNodes, setEdges]);
 
   const debouncedSave = useRef(
@@ -141,19 +104,8 @@ export default function App() {
       }
 
       if (removeChanges.length > 0) {
-        setNodes((currentNodes) => {
-          const idsToDelete = new Set(removeChanges.map((c) => c.id));
-
-          const members = currentNodes
-            .filter((n) => idsToDelete.has(n.id))
-            .map((n) => n.data as Member);
-
-          if (members.length > 0) {
-            setMembersToDelete(members);
-          }
-
-          return currentNodes;
-        });
+        const idsToDelete = new Set(removeChanges.map((c) => c.id));
+        removeNodesById(idsToDelete);
       }
     },
     [setNodes],
@@ -184,38 +136,71 @@ export default function App() {
     [edges],
   );
 
+  const onSelectionChange = useCallback(
+    ({ nodes }: OnSelectionChangeParams) => {
+      setSelectedNodes(nodes);
+    },
+    [],
+  );
+
   if (!isReady) return null;
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      <ReactFlow
-        onInit={setRfInstance}
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        defaultEdgeOptions={{ type: "step" }}
-        minZoom={0.1}
-        fitView
-      >
-        <Background />
-        <Controls />
-        <Panel position="bottom-center">
-          <Button variant="success" onClick={onAddMember}>
-            Add Person
-          </Button>
-        </Panel>
-      </ReactFlow>
-      <RemoveNodeDialog
-        isOpen={!!membersToDelete.length}
-        members={membersToDelete}
-        onConfirm={confirmDelete}
-        onCancel={() => setMembersToDelete([])}
-      />
-      <Toaster />
-    </div>
+    <TooltipProvider delayDuration={500}>
+      <div style={{ width: "100vw", height: "100vh" }}>
+        <ReactFlow
+          onInit={setRfInstance}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          defaultEdgeOptions={{ type: stepType }}
+          onSelectionChange={onSelectionChange}
+          minZoom={0.1}
+          snapToGrid={true}
+          snapGrid={[50, 50]}
+          fitView
+        >
+          <Background />
+          <Controls />
+          <Panel position="bottom-right">
+            <div className="flex flex-col gap-2 mb-2">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="success" onClick={onAddMember}>
+                    <UserPlus />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">Add Person</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    onClick={onRemoveMembers}
+                    disabled={!selectedNodes.length}
+                  >
+                    <UserMinus />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  Remove selected people
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </Panel>
+        </ReactFlow>
+        <RemoveNodeDialog
+          isOpen={!!membersToDelete.length}
+          members={membersToDelete}
+          onConfirm={confirmDelete}
+          onCancel={() => setMembersToDelete([])}
+        />
+        <Toaster />
+      </div>
+    </TooltipProvider>
   );
 
   function onAddMember() {
@@ -238,6 +223,10 @@ export default function App() {
       additionalData: null,
       position: position,
     });
+  }
+
+  function onRemoveMembers() {
+    setMembersToDelete(selectedNodes.map((node) => node.data as Member));
   }
 
   function addMemberEdge(edge: Edge) {
@@ -268,5 +257,69 @@ export default function App() {
 
   function createEdgeId(source: string, target: string) {
     return `e-${source}-${target}`;
+  }
+
+  function removeNodesById(ids: Set<string>) {
+    setNodes((currentNodes) => {
+      const members = currentNodes
+        .filter((n) => ids.has(n.id))
+        .map((n) => n.data as Member);
+
+      if (members.length > 0) {
+        setMembersToDelete(members);
+      }
+
+      return currentNodes;
+    });
+  }
+
+  function initializeFlow() {
+    setNodes((currentNodes) => {
+      const nodeMap = new Map(currentNodes.map((n) => [n.id, n]));
+
+      return members.map((member) => {
+        const existingNode = nodeMap.get(member.id);
+
+        if (existingNode) {
+          return {
+            ...existingNode,
+            data: member,
+            position: existingNode.dragging
+              ? existingNode.position
+              : member.position,
+          };
+        }
+
+        return {
+          id: member.id,
+          type: "familyMember",
+          position: member.position,
+          data: member,
+        };
+      });
+    });
+    const newEdges: Edge[] = [];
+    members.forEach((m) => {
+      if (m.parents.first) {
+        newEdges.push({
+          id: createEdgeId(m.parents.first, m.id),
+          source: m.parents.first,
+          target: m.id,
+          targetHandle: "left",
+          type: stepType,
+        });
+      }
+      if (m.parents.second) {
+        newEdges.push({
+          id: createEdgeId(m.parents.second, m.id),
+          source: m.parents.second,
+          target: m.id,
+          targetHandle: "right",
+          type: stepType,
+        });
+      }
+    });
+
+    setEdges(newEdges);
   }
 }
