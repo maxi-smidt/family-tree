@@ -27,11 +27,10 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   return (
     <div
-      className="relative flex flex-col items-center shadow-sm p-2 pt-3"
+      className="relative flex flex-col items-center shadow-sm p-2 bg-white"
       style={{
         border: selected ? "2px solid #2563eb" : "1px solid #777",
         borderRadius: "8px",
-        background: "white",
         width: "250px",
         transition: "border 0.2s",
       }}
