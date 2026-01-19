@@ -1,5 +1,6 @@
 import { Member } from "@/types/member";
 import { format } from "date-fns";
+import { User } from "lucide-react";
 
 type Props = {
   member: Member;
@@ -16,7 +17,7 @@ export const DefaultFamilyNode = ({ member }: Props) => {
         />
       ) : (
         <div className="size-16 flex justify-center items-center rounded-full mx-auto bg-gray-200 text-2xl font-bold text-gray-500">
-          ?
+          <User size={48} />
         </div>
       )}
 
