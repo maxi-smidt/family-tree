@@ -56,7 +56,13 @@ export const EditFamilyNode = ({ member }: Props) => {
     field: "birth" | "death",
     date: Date | undefined,
   ) => {
-    const dateString = date ? date.toISOString().split("T")[0] : null;
+    let dateString = null;
+
+    if (date) {
+      const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+      const localISODate = new Date(date.getTime() - offsetMs);
+      dateString = localISODate.toISOString().split("T")[0];
+    }
 
     setFormData((prev) => ({
       ...prev,
