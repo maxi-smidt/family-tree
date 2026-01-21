@@ -8,15 +8,19 @@ interface FamilyTreeSettingsState {
   setEdgeType: (type: EdgeType) => void;
   sidebarOpen: boolean;
   setSidebarOpen: (val: boolean) => void;
+  isLockedScreen: boolean;
+  setIsLockedScreen: (val: boolean) => void;
 }
 
 export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
   persist(
     (set) => ({
       edgeType: "step",
+      isLockedScreen: false,
       sidebarOpen: true,
       setEdgeType: (type) => set({ edgeType: type }),
       setSidebarOpen: (val: boolean) => set({ sidebarOpen: val }),
+      setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
     }),
     {
       name: "app-ui-settings",

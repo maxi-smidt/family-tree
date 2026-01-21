@@ -12,6 +12,7 @@ export interface Member {
     second: string | null;
   };
   additionalData: string | null;
+  isCollapsed: boolean;
   position: {
     x: number;
     y: number;
@@ -29,6 +30,7 @@ export interface MemberDB {
   firstParentId: string | null;
   secondParentId: string | null;
   additionalData: string | null;
+  isCollapsed: number;
   positionX: number;
   positionY: number;
 }
@@ -42,6 +44,7 @@ export interface MemberUpdate {
   firstParentId?: string;
   secondParentId?: string;
   additionalData?: string;
+  isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
 }
@@ -61,6 +64,7 @@ export function mapMemberFromDB(row: MemberDB): Member {
       second: row.secondParentId,
     },
     additionalData: row.additionalData,
+    isCollapsed: !!row.isCollapsed,
     position: {
       x: row.positionX,
       y: row.positionY,
@@ -81,5 +85,6 @@ export function mapMemberToDB(member: Member): MemberDB {
     positionX: member.position.x,
     positionY: member.position.y,
     additionalData: member.additionalData ? member.additionalData : null,
+    isCollapsed: member.isCollapsed ? 1 : 0,
   };
 }
