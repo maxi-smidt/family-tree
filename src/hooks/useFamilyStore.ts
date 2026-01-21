@@ -42,6 +42,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           firstParentId TEXT,
           secondParentId TEXT,
           additionalData TEXT,
+          isCollapsed BOOLEAN DEFAULT FALSE,
           positionX REAL,
           positionY REAL
       )
@@ -100,13 +101,23 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const db = get().db;
     if (!db) return;
 
-    const keys = Object.keys(changes);
-    if (keys.length === 0) return;
+    const entries = Object.entries(changes);
+    if (entries.length === 0) return;
+
+    const keys = entries.map(([key]) => key);
+
+    const values = entries.map(([, value]) => {
+      if (typeof value === "boolean") {
+        return value ? 1 : 0;
+      }
+      return value;
+    });
 
     const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(", ");
-    const values = [id, ...Object.values(changes)];
-
-    await db.execute(`UPDATE members SET ${setClause} WHERE id = $1`, values);
+    await db.execute(`UPDATE members SET ${setClause} WHERE id = $1`, [
+      id,
+      ...values,
+    ]);
 
     await get().refreshMembers();
   },

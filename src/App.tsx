@@ -1,6 +1,6 @@
 import "./App.css";
 import { Layout } from "@/components/Layout";
-import { FlowPanel } from "@/components/FlowPanel";
+import { FlowPanel } from "@/components/flowpanel/FlowPanel";
 
 export default function App() {
   return (

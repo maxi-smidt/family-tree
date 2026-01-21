@@ -35,7 +35,7 @@ export const RemoveNodeDialog = ({
             family tree. This action cannot be undone.
           </DialogDescription>
         </DialogHeader>
-        <div>
+        <div className="max-h-[50vh] overflow-y-auto">
           Are you sure you want to delete:
           <ul className="list-disc ml-6 my-2">
             {members.map((m) => (

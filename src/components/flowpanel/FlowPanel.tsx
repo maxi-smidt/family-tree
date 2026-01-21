@@ -4,7 +4,6 @@ import {
   applyNodeChanges,
   Background,
   Connection,
-  Controls,
   Edge,
   EdgeChange,
   EdgeRemoveChange,
@@ -16,41 +15,67 @@ import {
   ReactFlow,
   ReactFlowInstance,
 } from "@xyflow/react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Button } from "@/components/ui/button";
-import { UserMinus, UserPlus } from "lucide-react";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
 import { Toaster } from "@/components/ui/sonner";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import debounce from "lodash.debounce";
 import { FamilyNode } from "@/components/node/FamilyNode";
 import { toast } from "sonner";
-import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings.ts";
+import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { FlowPanelControls } from "@/components/flowpanel/FlowPanelControls";
+import { MemberControls } from "@/components/flowpanel/MemberControls";
 
 const nodeTypes = { familyMember: FamilyNode };
 
 export const FlowPanel = () => {
-  const {
-    members,
-    isReady,
-    init,
-    addMember,
-    removeMember,
-    updateMemberPartial,
-  } = useFamilyStore();
-  const { edgeType } = useFamilyTreeSettings();
+  const { members, isReady, init, removeMember, updateMemberPartial } =
+    useFamilyStore();
+  const { edgeType, isLockedScreen } = useFamilyTreeSettings();
 
-  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | undefined>(
+    undefined,
+  );
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
+
+  const viewNodes = useMemo(() => {
+    const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+    const visibilityCache = new Map<string, boolean>();
+
+    const isNodeVisible = (nodeId: string): boolean => {
+      if (visibilityCache.has(nodeId)) return visibilityCache.get(nodeId)!;
+
+      const node = nodeMap.get(nodeId);
+      if (!node) return false;
+      const member = node.data as Member;
+      const parentIds = [member.parents.first, member.parents.second].filter(
+        Boolean,
+      );
+
+      if (parentIds.length === 0) {
+        visibilityCache.set(nodeId, true);
+        return true;
+      }
+
+      const isVisible = parentIds.every((parentId) => {
+        const parent = nodeMap.get(parentId as string);
+        if (!parent) return true;
+        return !parent.data.isCollapsed && isNodeVisible(parentId as string);
+      });
+
+      visibilityCache.set(nodeId, isVisible);
+      return isVisible;
+    };
+
+    return nodes.map((node) => ({
+      ...node,
+      hidden: !isNodeVisible(node.id),
+    }));
+  }, [nodes]);
 
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
@@ -71,6 +96,15 @@ export const FlowPanel = () => {
     if (!isReady) return;
     initializeFlow();
   }, [members, isReady, setNodes, setEdges]);
+
+  useEffect(() => {
+    setSelectedNodes((prevSelected) => {
+      const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+      return prevSelected
+        .map((node) => nodeMap.get(node.id))
+        .filter((n) => n !== undefined);
+    });
+  }, [nodes]);
 
   const debouncedSave = useRef(
     debounce(() => {
@@ -158,7 +192,7 @@ export const FlowPanel = () => {
     <div className="w-full h-full">
       <ReactFlow
         onInit={setRfInstance}
-        nodes={nodes}
+        nodes={viewNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
@@ -169,35 +203,21 @@ export const FlowPanel = () => {
         minZoom={0.1}
         snapToGrid={true}
         snapGrid={[50, 50]}
+        nodesDraggable={!isLockedScreen}
+        nodesConnectable={!isLockedScreen}
+        elementsSelectable={!isLockedScreen}
         fitView
       >
         <Background />
-        <Controls />
-        <Panel position="bottom-right">
-          <div className="flex flex-col gap-2 mb-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="success" onClick={onAddMember}>
-                  <UserPlus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Add Person</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="destructive"
-                  onClick={onRemoveMembers}
-                  disabled={!selectedNodes.length}
-                >
-                  <UserMinus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">
-                Remove selected people
-              </TooltipContent>
-            </Tooltip>
-          </div>
+        <Panel position="bottom-left" className="pb-2">
+          <FlowPanelControls rfInstance={rfInstance} />
+        </Panel>
+        <Panel position="bottom-right" className="pb-2">
+          <MemberControls
+            nodes={nodes}
+            selectedNodes={selectedNodes}
+            setMembersToDelete={setMembersToDelete}
+          />
         </Panel>
       </ReactFlow>
       <RemoveNodeDialog
@@ -209,32 +229,6 @@ export const FlowPanel = () => {
       <Toaster />
     </div>
   );
-
-  function onAddMember() {
-    let position = { x: 0, y: 0 };
-
-    if (rfInstance) {
-      position = rfInstance.screenToFlowPosition({
-        x: 10,
-        y: 10,
-      });
-    }
-
-    void addMember({
-      id: crypto.randomUUID(),
-      firstName: "New",
-      lastName: "Member",
-      imageData: null,
-      date: { birth: "2026", death: null },
-      parents: { first: null, second: null },
-      additionalData: null,
-      position: position,
-    });
-  }
-
-  function onRemoveMembers() {
-    setMembersToDelete(selectedNodes.map((node) => node.data as Member));
-  }
 
   function addMemberEdge(edge: Edge) {
     if (edges.find((e) => e.id === edge.id))

@@ -1,11 +1,18 @@
 import { useState } from "react";
-import { EyeIcon, EyeOffIcon, PencilIcon, PencilOffIcon } from "lucide-react";
+import {
+  ChevronsDownUp,
+  EyeIcon,
+  EyeOffIcon,
+  PencilIcon,
+  PencilOffIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DetailFamilyNode } from "@/components/node/DetailFamilyNode";
 import { EditFamilyNode } from "@/components/node/EditFamilyNode";
 import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { Member } from "@/types/member";
+import { NODE_WIDTH } from "@/utils/constants.ts";
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const [editMode, setEditMode] = useState(false);
@@ -31,7 +38,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       style={{
         border: selected ? "2px solid #2563eb" : "1px solid #777",
         borderRadius: "8px",
-        width: "250px",
+        width: `${NODE_WIDTH}px`,
         transition: "border 0.2s",
       }}
     >
@@ -61,6 +68,12 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       {editMode && <EditFamilyNode member={data} />}
 
       {!editMode && !detailMode && <DefaultFamilyNode member={data} />}
+
+      {data.isCollapsed && (
+        <div className="absolute bottom-1 right-1">
+          <ChevronsDownUp size="14" />
+        </div>
+      )}
 
       <Handle type="source" position={Position.Bottom} />
     </div>
