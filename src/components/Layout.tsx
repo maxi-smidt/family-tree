@@ -1,5 +1,5 @@
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { FamilyTreeSidebar } from "@/components/FamilyTreeSidebar";
+import { FamilyTreeSidebar } from "@/components/sidebar/FamilyTreeSidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ReactNode } from "react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings.ts";

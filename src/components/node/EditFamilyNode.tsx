@@ -1,11 +1,14 @@
 import { Input } from "@/components/ui/input";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
-import { ChangeEvent, useEffect, useState } from "react";
-import { Upload } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Upload, User } from "lucide-react";
 import { Member } from "@/types/member";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Textarea } from "@/components/ui/textarea";
 import { ImageCropDialog } from "@/components/dialog/ImageCropDialog";
+import { open } from "@tauri-apps/plugin-dialog";
+import { readFile } from "@tauri-apps/plugin-fs";
+import { toast } from "sonner";
 
 type Props = {
   member: Member;
@@ -29,17 +32,34 @@ export const EditFamilyNode = ({ member }: Props) => {
     void updateMemberPartial(member.id, { [field]: formData[field] });
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64String = event.target?.result as string;
-      setSelectedImage(base64String);
-    };
-    reader.readAsDataURL(file);
-    e.target.value = "";
-  };
+  async function handleSelectImage() {
+    const filePath = await open({
+      multiple: false,
+      directory: false,
+      filters: [
+        {
+          name: "Images",
+          extensions: ["png", "jpg", "jpeg", "webp", "svg"],
+        },
+      ],
+    });
+
+    if (!filePath) return;
+
+    try {
+      const fileBytes = await readFile(filePath);
+      const blob = new Blob([fileBytes]);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64String = event.target?.result as string;
+        console.log(base64String);
+        setSelectedImage(base64String);
+      };
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      toast.error("Failed to read file");
+    }
+  }
 
   const onConfirm = (imageData: string) => {
     handleChange("imageData", imageData);
@@ -89,20 +109,16 @@ export const EditFamilyNode = ({ member }: Props) => {
           />
         ) : (
           <div className="size-16 flex justify-center items-center rounded-full mx-auto bg-gray-200 text-2xl font-bold text-gray-500">
-            ?
+            <User size={48} />
           </div>
         )}
 
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+        <div
+          className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={handleSelectImage}
+        >
           <Upload className="text-white w-5 h-5" />
         </div>
-
-        <input
-          type="file"
-          className="hidden"
-          accept="image/*"
-          onChange={handleFileChange}
-        />
       </label>
       <ImageCropDialog
         isOpen={!!selectedImage}

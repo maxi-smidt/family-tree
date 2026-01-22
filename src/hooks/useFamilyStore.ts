@@ -8,14 +8,12 @@ import {
   MemberUpdate,
 } from "../types/member";
 
-const DB_PATH = "sqlite:family_tree_v1.db";
-
 interface FamilyState {
   members: Member[];
   isReady: boolean;
   db: Database | null;
 
-  init: () => Promise<void>;
+  connect: (dbPath: string) => Promise<void>;
   refreshMembers: () => Promise<void>;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
@@ -27,10 +25,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   isReady: false,
   db: null,
 
-  init: async () => {
-    if (get().isReady) return;
+  connect: async (dbPath: string) => {
+    set({
+      isReady: false,
+      members: [],
+      db: null,
+    });
 
-    const dbInstance = await Database.load(DB_PATH);
+    const dbInstance = await Database.load(dbPath);
     await dbInstance.execute(`
       CREATE TABLE IF NOT EXISTS members (
           id TEXT PRIMARY KEY,

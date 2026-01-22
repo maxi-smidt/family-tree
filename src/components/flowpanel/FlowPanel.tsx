@@ -13,7 +13,6 @@ import {
   OnSelectionChangeParams,
   Panel,
   ReactFlow,
-  ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
 import { Toaster } from "@/components/ui/sonner";
@@ -30,13 +29,11 @@ import { MemberControls } from "@/components/flowpanel/MemberControls";
 const nodeTypes = { familyMember: FamilyNode };
 
 export const FlowPanel = () => {
-  const { members, isReady, init, removeMember, updateMemberPartial } =
+  const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
+  const { members, isReady, connect, removeMember, updateMemberPartial } =
     useFamilyStore();
   const { edgeType, isLockedScreen } = useFamilyTreeSettings();
 
-  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | undefined>(
-    undefined,
-  );
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
@@ -80,8 +77,8 @@ export const FlowPanel = () => {
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
   useEffect(() => {
-    void init();
-  }, [init]);
+    void connect(activeDatabase.path);
+  }, [connect, activeDatabase]);
 
   useEffect(() => {
     setEdges((edges) =>
@@ -191,7 +188,6 @@ export const FlowPanel = () => {
   return (
     <div className="w-full h-full">
       <ReactFlow
-        onInit={setRfInstance}
         nodes={viewNodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -210,7 +206,7 @@ export const FlowPanel = () => {
       >
         <Background />
         <Panel position="bottom-left" className="pb-2">
-          <FlowPanelControls rfInstance={rfInstance} />
+          <FlowPanelControls />
         </Panel>
         <Panel position="bottom-right" className="pb-2">
           <MemberControls
