@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import Database from "@tauri-apps/plugin-sql";
 import {
   mapMemberToDB,
   mapMemberFromDB,
@@ -7,16 +6,31 @@ import {
   MemberDB,
   MemberUpdate,
 } from "../types/member";
+import { appConfigDir, join } from "@tauri-apps/api/path";
+import { DATABASE_DIRECTORY, EXTENSION } from "../../constants.json";
+import { Database as DatabaseType } from "@/types/database";
+import Database from "@tauri-apps/plugin-sql";
+import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
 
-const DB_PATH = "sqlite:family_tree_v1.db";
+interface DatabaseMetaData {
+  id?: string;
+  name?: string;
+  fileName?: string;
+  createdAt?: string;
+  lastOpened?: string;
+  appVersion?: string;
+}
 
 interface FamilyState {
   members: Member[];
+  metadata: DatabaseMetaData;
   isReady: boolean;
   db: Database | null;
 
-  init: () => Promise<void>;
+  connect: (database: DatabaseType) => Promise<void>;
+  disconnect: (database: DatabaseType) => Promise<void>;
   refreshMembers: () => Promise<void>;
+  refreshMetadata: (db: Database) => Promise<void>;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
@@ -24,13 +38,51 @@ interface FamilyState {
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   members: [],
+  metadata: {},
   isReady: false,
   db: null,
 
-  init: async () => {
-    if (get().isReady) return;
+  disconnect: async () => {
+    const { db } = get();
+    if (db) {
+      await db.close();
+      set({
+        db: null,
+        isReady: false,
+        members: [],
+        metadata: {},
+      });
+    }
+  },
 
-    const dbInstance = await Database.load(DB_PATH);
+  connect: async (database: DatabaseType) => {
+    set({
+      isReady: false,
+      metadata: {},
+      members: [],
+      db: null,
+    });
+
+    const appConfigPath = await appConfigDir();
+
+    const fullPath = await join(
+      appConfigPath,
+      DATABASE_DIRECTORY,
+      `${database.id}.${EXTENSION}`,
+    );
+
+    const dirExists = await exists(DATABASE_DIRECTORY, {
+      baseDir: BaseDirectory.AppConfig,
+    });
+    if (!dirExists) {
+      await mkdir(DATABASE_DIRECTORY, {
+        baseDir: BaseDirectory.AppConfig,
+        recursive: true,
+      });
+    }
+
+    const connectionString = `sqlite:${fullPath}`;
+    const dbInstance = await Database.load(connectionString);
     await dbInstance.execute(`
       CREATE TABLE IF NOT EXISTS members (
           id TEXT PRIMARY KEY,
@@ -48,9 +100,60 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       )
     `);
 
-    set({ db: dbInstance, isReady: true });
+    await dbInstance.execute(`
+      CREATE TABLE IF NOT EXISTS db_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    `);
 
-    await get().refreshMembers();
+    const metaCheck = await dbInstance.select<{ value: string }[]>(
+      "SELECT value FROM db_metadata WHERE key = $1",
+      ["createdAt"],
+    );
+
+    const now = new Date().toISOString();
+    if (metaCheck.length === 0) {
+      await dbInstance.execute(
+        "INSERT INTO db_metadata (key, value) VALUES ($1, $2)",
+        ["id", database.id],
+      );
+      await dbInstance.execute(
+        "INSERT INTO db_metadata (key, value) VALUES ($1, $2)",
+        ["createdAt", now],
+      );
+      await dbInstance.execute(
+        "INSERT INTO db_metadata (key, value) VALUES ($1, $2)",
+        ["name", database.name],
+      );
+    }
+
+    await dbInstance.execute(
+      "INSERT OR REPLACE INTO db_metadata (key, value) VALUES ($1, $2)",
+      ["lastOpened", now],
+    );
+
+    set({ db: dbInstance });
+
+    await Promise.all([
+      get().refreshMembers(),
+      get().refreshMetadata(dbInstance),
+    ]);
+
+    set({ isReady: true });
+  },
+
+  refreshMetadata: async (db: Database) => {
+    const rows = await db.select<{ key: string; value: string }[]>(
+      "SELECT * FROM db_metadata",
+    );
+
+    const metaObj: any = {};
+    rows.forEach((row) => {
+      metaObj[row.key] = row.value;
+    });
+
+    set({ metadata: metaObj });
   },
 
   refreshMembers: async () => {

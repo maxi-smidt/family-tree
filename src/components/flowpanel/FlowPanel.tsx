@@ -13,10 +13,8 @@ import {
   OnSelectionChangeParams,
   Panel,
   ReactFlow,
-  ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
-import { Toaster } from "@/components/ui/sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
@@ -26,17 +24,16 @@ import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/flowpanel/FlowPanelControls";
 import { MemberControls } from "@/components/flowpanel/MemberControls";
+import { NoDatabasePlaceholder } from "@/components/flowpanel/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode };
 
 export const FlowPanel = () => {
-  const { members, isReady, init, removeMember, updateMemberPartial } =
+  const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
+  const { members, isReady, connect, removeMember, updateMemberPartial } =
     useFamilyStore();
   const { edgeType, isLockedScreen } = useFamilyTreeSettings();
 
-  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | undefined>(
-    undefined,
-  );
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
@@ -80,8 +77,8 @@ export const FlowPanel = () => {
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
   useEffect(() => {
-    void init();
-  }, [init]);
+    if (activeDatabase) void connect(activeDatabase);
+  }, [connect, activeDatabase]);
 
   useEffect(() => {
     setEdges((edges) =>
@@ -186,12 +183,13 @@ export const FlowPanel = () => {
     [],
   );
 
+  if (!activeDatabase) return <NoDatabasePlaceholder />;
+
   if (!isReady) return null;
 
   return (
     <div className="w-full h-full">
       <ReactFlow
-        onInit={setRfInstance}
         nodes={viewNodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -210,7 +208,7 @@ export const FlowPanel = () => {
       >
         <Background />
         <Panel position="bottom-left" className="pb-2">
-          <FlowPanelControls rfInstance={rfInstance} />
+          <FlowPanelControls />
         </Panel>
         <Panel position="bottom-right" className="pb-2">
           <MemberControls
@@ -226,7 +224,6 @@ export const FlowPanel = () => {
         onConfirm={confirmDelete}
         onCancel={() => setMembersToDelete([])}
       />
-      <Toaster />
     </div>
   );
 

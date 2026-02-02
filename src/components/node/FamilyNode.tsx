@@ -12,7 +12,7 @@ import { EditFamilyNode } from "@/components/node/EditFamilyNode";
 import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { Member } from "@/types/member";
-import { NODE_WIDTH } from "@/utils/constants.ts";
+import { NODE_WIDTH } from "../../../constants.json";
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const [editMode, setEditMode] = useState(false);
