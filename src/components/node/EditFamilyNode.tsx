@@ -52,7 +52,6 @@ export const EditFamilyNode = ({ member }: Props) => {
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64String = event.target?.result as string;
-        console.log(base64String);
         setSelectedImage(base64String);
       };
       reader.readAsDataURL(blob);

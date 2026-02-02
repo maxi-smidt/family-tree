@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { Database } from "@/types/database.ts";
-import { DEFAULT_DB } from "@/utils/constants.ts";
+import { Database } from "@/types/database";
 
 export type EdgeType = "default" | "straight" | "step" | "smoothstep";
 
@@ -13,9 +12,10 @@ interface FamilyTreeSettingsState {
   isLockedScreen: boolean;
   setIsLockedScreen: (val: boolean) => void;
   databases: Database[];
-  setDatabases: (dbs: Database[]) => void;
-  selectedDatabase: Database;
-  setSelectedDatabase: (db: Database) => void;
+  addDatabase: (newDb: Database) => void;
+  selectedDatabase: Database | undefined;
+  setSelectedDatabase: (db: Database | undefined) => void;
+  removeDatabase: (db: Database) => void;
 }
 
 export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
@@ -24,13 +24,26 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       edgeType: "step",
       isLockedScreen: false,
       sidebarOpen: true,
-      databases: [DEFAULT_DB],
-      selectedDatabase: DEFAULT_DB,
+      databases: [],
+      selectedDatabase: undefined,
       setEdgeType: (type) => set({ edgeType: type }),
       setSidebarOpen: (val: boolean) => set({ sidebarOpen: val }),
       setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
-      setDatabases: (dbs: Database[]) => set({ databases: dbs }),
-      setSelectedDatabase: (db: Database) => set({ selectedDatabase: db }),
+      addDatabase: (newDb) =>
+        set((state) => {
+          const isDuplicate = state.databases.some((d) => d.id === newDb.id);
+          return {
+            databases: isDuplicate
+              ? state.databases.map((d) => (d.id === newDb.id ? newDb : d))
+              : [...state.databases, newDb],
+          };
+        }),
+      setSelectedDatabase: (db: Database | undefined) =>
+        set({ selectedDatabase: db }),
+      removeDatabase: (db: Database) =>
+        set((state) => ({
+          databases: state.databases.filter((d) => d.id !== db.id),
+        })),
     }),
     {
       name: "app-ui-settings",

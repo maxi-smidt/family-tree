@@ -16,7 +16,7 @@ import {
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { Member } from "@/types/member";
-import { NODE_WIDTH } from "@/utils/constants";
+import { NODE_WIDTH } from "../../../constants.json";
 
 type Props = {
   nodes: Node[];

@@ -15,7 +15,6 @@ import {
   ReactFlow,
 } from "@xyflow/react";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
-import { Toaster } from "@/components/ui/sonner";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
@@ -25,6 +24,7 @@ import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/flowpanel/FlowPanelControls";
 import { MemberControls } from "@/components/flowpanel/MemberControls";
+import { NoDatabasePlaceholder } from "@/components/flowpanel/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode };
 
@@ -77,7 +77,7 @@ export const FlowPanel = () => {
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
   useEffect(() => {
-    void connect(activeDatabase.path);
+    if (activeDatabase) void connect(activeDatabase);
   }, [connect, activeDatabase]);
 
   useEffect(() => {
@@ -183,6 +183,8 @@ export const FlowPanel = () => {
     [],
   );
 
+  if (!activeDatabase) return <NoDatabasePlaceholder />;
+
   if (!isReady) return null;
 
   return (
@@ -222,7 +224,6 @@ export const FlowPanel = () => {
         onConfirm={confirmDelete}
         onCancel={() => setMembersToDelete([])}
       />
-      <Toaster />
     </div>
   );
 
