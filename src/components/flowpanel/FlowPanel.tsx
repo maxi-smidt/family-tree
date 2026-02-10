@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/flowpanel/FlowPanelControls";
 import { MemberControls } from "@/components/flowpanel/MemberControls";
+import { MemberSheet } from "@/components/flowpanel/member-sheet/MemberSheet";
 
 const nodeTypes = { familyMember: FamilyNode };
 
@@ -37,6 +38,13 @@ export const FlowPanel = () => {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const editingMember = useMemo(
+    () => members.find((m) => m.id === editingMemberId) || null,
+    [members, editingMemberId],
+  );
 
   const viewNodes = useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -71,6 +79,17 @@ export const FlowPanel = () => {
     return nodes.map((node) => ({
       ...node,
       hidden: !isNodeVisible(node.id),
+      data: {
+        ...node.data,
+        onEdit: () => {
+          setEditingMemberId(node.id);
+          setIsEditMode(true);
+        },
+        onView: () => {
+          setEditingMemberId(node.id);
+          setIsEditMode(false);
+        },
+      },
     }));
   }, [nodes]);
 
@@ -181,7 +200,7 @@ export const FlowPanel = () => {
     [],
   );
 
-  if (!isReady) return null;
+  if (!isReady || !activeDatabase) return null;
 
   return (
     <div className="w-full h-full">
@@ -211,6 +230,10 @@ export const FlowPanel = () => {
             nodes={nodes}
             selectedNodes={selectedNodes}
             setMembersToDelete={setMembersToDelete}
+            onEditMember={(member) => {
+              setEditingMemberId(member.id);
+              setIsEditMode(true);
+            }}
           />
         </Panel>
       </ReactFlow>
@@ -219,6 +242,12 @@ export const FlowPanel = () => {
         members={membersToDelete}
         onConfirm={confirmDelete}
         onCancel={() => setMembersToDelete([])}
+      />
+      <MemberSheet
+        isOpen={!!editingMember}
+        onClose={() => setEditingMemberId(null)}
+        member={editingMember}
+        initialEditMode={isEditMode}
       />
     </div>
   );

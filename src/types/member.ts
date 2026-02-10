@@ -21,6 +21,8 @@ export interface Member {
     x: number;
     y: number;
   };
+  onEdit?: () => void;
+  onView?: () => void;
   [key: string]: unknown;
 }
 

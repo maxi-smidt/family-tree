@@ -24,12 +24,14 @@ type Props = {
   nodes: Node[];
   selectedNodes: Node[];
   setMembersToDelete: (members: Member[]) => void;
+  onEditMember: (member: Member) => void;
 };
 
 export const MemberControls = ({
   nodes,
   selectedNodes,
   setMembersToDelete,
+  onEditMember,
 }: Props) => {
   const { isLockedScreen } = useFamilyTreeSettings();
   const { addMember, updateMemberPartial, members } = useFamilyStore();
@@ -133,7 +135,7 @@ export const MemberControls = ({
     });
   }
 
-  function onAddMember() {
+  async function onAddMember() {
     const NODE_HEIGHT = 157;
     const BOTTOM_MARGIN = 50;
     const flowPoint = screenToFlowPosition({
@@ -146,7 +148,7 @@ export const MemberControls = ({
       y: flowPoint.y,
     };
 
-    void addMember({
+    const newMember: Member = {
       id: crypto.randomUUID(),
       gender: "other",
       firstName: "New",
@@ -158,7 +160,10 @@ export const MemberControls = ({
       additionalData: null,
       isCollapsed: false,
       position: position,
-    });
+    };
+
+    await addMember(newMember);
+    onEditMember(newMember);
   }
 
   function onRemoveMembers() {

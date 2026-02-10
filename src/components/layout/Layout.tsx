@@ -21,7 +21,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           </div>
           {children}
         </main>
-        <Toaster />
+        <Toaster position="bottom-center" />
       </SidebarProvider>
     </TooltipProvider>
   );

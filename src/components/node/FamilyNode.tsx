@@ -1,35 +1,21 @@
-import { useState } from "react";
-import {
-  ChevronsDownUp,
-  EyeIcon,
-  EyeOffIcon,
-  PencilIcon,
-  PencilOffIcon,
-} from "lucide-react";
+import { ChevronsDownUp, EyeIcon, PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DetailFamilyNode } from "@/components/node/DetailFamilyNode";
-import { EditFamilyNode } from "@/components/node/EditFamilyNode";
-import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode";
+import { FamilyNodeContent } from "@/components/node/FamilyNodeContent";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "../../../constants.json";
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
-  const [editMode, setEditMode] = useState(false);
-  const [detailMode, setDetailMode] = useState(false);
-
-  const toggleEditMode = () => {
-    if (!editMode) {
-      setDetailMode(false);
+  const onEditClick = () => {
+    if (data.onEdit && typeof data.onEdit === "function") {
+      data.onEdit();
     }
-    setEditMode(!editMode);
   };
 
-  const toggleDetailMode = () => {
-    if (!detailMode) {
-      setEditMode(false);
+  const onViewClick = () => {
+    if (data.onView && typeof data.onView === "function") {
+      data.onView();
     }
-    setDetailMode(!detailMode);
   };
 
   return (
@@ -55,19 +41,15 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         className="left-3/4! bg-blue-400!"
       />
       <div className="absolute top-2 flex justify-between w-full px-2">
-        <Button variant="outline" size="icon-sm" onClick={toggleDetailMode}>
-          {detailMode ? <EyeOffIcon /> : <EyeIcon />}
+        <Button variant="outline" size="icon-sm" onClick={onViewClick}>
+          <EyeIcon />
         </Button>
-        <Button variant="outline" size="icon-sm" onClick={toggleEditMode}>
-          {editMode ? <PencilOffIcon /> : <PencilIcon />}
+        <Button variant="outline" size="icon-sm" onClick={onEditClick}>
+          <PencilIcon />
         </Button>
       </div>
 
-      {detailMode && <DetailFamilyNode member={data} />}
-
-      {editMode && <EditFamilyNode member={data} />}
-
-      {!editMode && !detailMode && <DefaultFamilyNode member={data} />}
+      <FamilyNodeContent member={data} />
 
       {data.isCollapsed && (
         <div className="absolute bottom-1 right-1">

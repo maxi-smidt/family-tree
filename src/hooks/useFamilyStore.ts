@@ -86,14 +86,15 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     await dbInstance.execute(`
       CREATE TABLE IF NOT EXISTS members (
           id TEXT PRIMARY KEY,
+          gender TEXT,
           firstName TEXT,
           lastName TEXT,
           maidenName TEXT,
           imageData TEXT,
           dateOfBirth TEXT,
           dateOfDeath TEXT,
-          firstParentId TEXT,
-          secondParentId TEXT,
+          paternalParentId TEXT,
+          maternalParentId TEXT,
           additionalData TEXT,
           isCollapsed BOOLEAN DEFAULT FALSE,
           positionX REAL,
@@ -174,19 +175,20 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const row = mapMemberToDB(newMember);
     await db.execute(
       `INSERT INTO members (
-          id, firstName, lastName, maidenName, imageData, dateOfBirth, dateOfDeath,
-          firstParentId, secondParentId, additionalData, positionX, positionY
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          id, gender, firstName, lastName, maidenName, imageData, dateOfBirth, dateOfDeath,
+          paternalParentId, maternalParentId, additionalData, positionX, positionY
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         row.id,
+        row.gender,
         row.firstName,
         row.lastName,
         row.maidenName,
         row.imageData,
         row.dateOfBirth,
         row.dateOfDeath,
-        row.firstParentId,
-        row.secondParentId,
+        row.paternalParentId,
+        row.maternalParentId,
         row.additionalData,
         row.positionX,
         row.positionY,
