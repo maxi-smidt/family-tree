@@ -5,7 +5,7 @@ import {
   Member,
   MemberDB,
   MemberUpdate,
-} from "../types/member";
+} from "@/types/member";
 import { appConfigDir, join } from "@tauri-apps/api/path";
 import { DATABASE_DIRECTORY, EXTENSION } from "../../constants.json";
 import { Database as DatabaseType } from "@/types/database";
@@ -88,6 +88,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
           id TEXT PRIMARY KEY,
           firstName TEXT,
           lastName TEXT,
+          maidenName TEXT,
           imageData TEXT,
           dateOfBirth TEXT,
           dateOfDeath TEXT,
@@ -173,13 +174,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const row = mapMemberToDB(newMember);
     await db.execute(
       `INSERT INTO members (
-          id, firstName, lastName, imageData, dateOfBirth, dateOfDeath,
+          id, firstName, lastName, maidenName, imageData, dateOfBirth, dateOfDeath,
           firstParentId, secondParentId, additionalData, positionX, positionY
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         row.id,
         row.firstName,
         row.lastName,
+        row.maidenName,
         row.imageData,
         row.dateOfBirth,
         row.dateOfDeath,
