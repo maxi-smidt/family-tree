@@ -45,14 +45,14 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       <Handle
         type="target"
         position={Position.Top}
-        id="left"
-        className="left-1/4!"
+        id="maternalParent"
+        className="left-1/4! bg-pink-400!"
       />
       <Handle
         type="target"
         position={Position.Top}
-        id="right"
-        className="left-3/4!"
+        id="paternalParent"
+        className="left-3/4! bg-blue-400!"
       />
       <div className="absolute top-2 flex justify-between w-full px-2">
         <Button variant="outline" size="icon-sm" onClick={toggleDetailMode}>

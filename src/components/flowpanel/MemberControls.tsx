@@ -10,6 +10,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   ListChevronsUpDown,
+  Network,
   UserMinus,
   UserPlus,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "../../../constants.json";
+import { getLayoutedElements } from "@/utils/layoutUtils";
 
 type Props = {
   nodes: Node[];
@@ -30,11 +32,24 @@ export const MemberControls = ({
   setMembersToDelete,
 }: Props) => {
   const { isLockedScreen } = useFamilyTreeSettings();
-  const { addMember, updateMemberPartial } = useFamilyStore();
+  const { addMember, updateMemberPartial, members } = useFamilyStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (
     <div className="flex flex-col gap-2">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={onArrangeMembers}
+            disabled={isLockedScreen}
+          >
+            <Network />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">Arrange members</TooltipContent>
+      </Tooltip>
       <ButtonGroup orientation="vertical">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -107,6 +122,17 @@ export const MemberControls = ({
     </div>
   );
 
+  function onArrangeMembers() {
+    const layoutedPositions = getLayoutedElements(members);
+
+    Object.entries(layoutedPositions).forEach(([id, pos]) => {
+      void updateMemberPartial(id, {
+        positionX: pos.x,
+        positionY: pos.y,
+      });
+    });
+  }
+
   function onAddMember() {
     const NODE_HEIGHT = 157;
     const BOTTOM_MARGIN = 50;
@@ -122,11 +148,13 @@ export const MemberControls = ({
 
     void addMember({
       id: crypto.randomUUID(),
+      gender: "other",
       firstName: "New",
       lastName: "Member",
+      maidenName: null,
       imageData: null,
       date: { birth: "2026", death: null },
-      parents: { first: null, second: null },
+      parents: { paternalParent: null, maternalParent: null },
       additionalData: null,
       isCollapsed: false,
       position: position,

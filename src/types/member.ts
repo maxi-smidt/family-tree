@@ -1,5 +1,8 @@
+export type Gender = "male" | "female" | "other";
+
 export interface Member {
   id: string;
+  gender: Gender;
   firstName: string;
   lastName: string;
   maidenName: string | null;
@@ -9,8 +12,8 @@ export interface Member {
     death: string | null;
   };
   parents: {
-    first: string | null;
-    second: string | null;
+    paternalParent: string | null;
+    maternalParent: string | null;
   };
   additionalData: string | null;
   isCollapsed: boolean;
@@ -23,14 +26,15 @@ export interface Member {
 
 export interface MemberDB {
   id: string;
+  gender: string;
   firstName: string;
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
   dateOfBirth: string;
   dateOfDeath: string | null;
-  firstParentId: string | null;
-  secondParentId: string | null;
+  paternalParentId: string | null;
+  maternalParentId: string | null;
   additionalData: string | null;
   isCollapsed: number;
   positionX: number;
@@ -38,14 +42,15 @@ export interface MemberDB {
 }
 
 export interface MemberUpdate {
+  gender?: Gender;
   firstName?: string;
   lastName?: string;
   maidenName?: string;
   imageData?: string;
   dateOfBirth?: string;
   dateOfDeath?: string;
-  firstParentId?: string;
-  secondParentId?: string;
+  paternalParentId?: string;
+  maternalParentId?: string;
   additionalData?: string;
   isCollapsed?: boolean;
   positionX?: number;
@@ -55,6 +60,7 @@ export interface MemberUpdate {
 export function mapMemberFromDB(row: MemberDB): Member {
   return {
     id: row.id,
+    gender: (row.gender as Gender) || "other",
     firstName: row.firstName,
     lastName: row.lastName,
     maidenName: row.maidenName,
@@ -64,8 +70,8 @@ export function mapMemberFromDB(row: MemberDB): Member {
       death: row.dateOfDeath,
     },
     parents: {
-      first: row.firstParentId,
-      second: row.secondParentId,
+      paternalParent: row.paternalParentId,
+      maternalParent: row.maternalParentId,
     },
     additionalData: row.additionalData,
     isCollapsed: !!row.isCollapsed,
@@ -79,14 +85,15 @@ export function mapMemberFromDB(row: MemberDB): Member {
 export function mapMemberToDB(member: Member): MemberDB {
   return {
     id: member.id,
+    gender: member.gender,
     firstName: member.firstName,
     lastName: member.lastName,
     maidenName: member.maidenName,
     imageData: member.imageData,
     dateOfBirth: member.date.birth,
     dateOfDeath: member.date.death,
-    firstParentId: member.parents.first,
-    secondParentId: member.parents.second,
+    paternalParentId: member.parents.paternalParent,
+    maternalParentId: member.parents.maternalParent,
     positionX: member.position.x,
     positionY: member.position.y,
     additionalData: member.additionalData ? member.additionalData : null,

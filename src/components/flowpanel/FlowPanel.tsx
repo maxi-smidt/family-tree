@@ -48,9 +48,10 @@ export const FlowPanel = () => {
       const node = nodeMap.get(nodeId);
       if (!node) return false;
       const member = node.data as Member;
-      const parentIds = [member.parents.first, member.parents.second].filter(
-        Boolean,
-      );
+      const parentIds = [
+        member.parents.maternalParent,
+        member.parents.paternalParent,
+      ].filter(Boolean);
 
       if (parentIds.length === 0) {
         visibilityCache.set(nodeId, true);
@@ -166,13 +167,11 @@ export const FlowPanel = () => {
       try {
         addMemberEdge(newEdge);
         setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
-      } catch (e) {
-        toast.error(
-          "You cannot make a connection from the same parent to child twice.",
-        );
+      } catch (e: any) {
+        toast.error(e.message);
       }
     },
-    [edges],
+    [edges, members],
   );
 
   const onSelectionChange = useCallback(
@@ -228,19 +227,36 @@ export const FlowPanel = () => {
     if (edges.find((e) => e.id === edge.id))
       throw new Error(`Edge with id ${edge.id} already exists`);
 
-    const firstOrSecond =
-      edge.targetHandle === "left" ? "firstParentId" : "secondParentId";
-    void updateMemberPartial(edge.target, {
-      [firstOrSecond]: edge.source,
-    });
+    const parentMember = members.find((m) => m.id === edge.source);
+    if (!parentMember) throw new Error("Parent member not found");
+
+    const targetHandle = edge.targetHandle;
+
+    if (targetHandle === "maternalParent") {
+      if (parentMember.gender !== "female") {
+        throw new Error("Maternal parent must be female");
+      }
+      void updateMemberPartial(edge.target, {
+        maternalParentId: edge.source,
+      });
+    } else if (targetHandle === "paternalParent") {
+      if (parentMember.gender !== "male") {
+        throw new Error("Paternal parent must be male");
+      }
+      void updateMemberPartial(edge.target, {
+        paternalParentId: edge.source,
+      });
+    }
   }
 
   function removeMemberEdge(change: EdgeRemoveChange) {
     const edge = edges.find((e) => e.id === change.id);
     if (!edge) return;
-    const firstOrSecond =
-      edge.targetHandle === "left" ? "firstParentId" : "secondParentId";
-    void updateMemberPartial(edge.target, { [firstOrSecond]: null });
+    const parentType =
+      edge.targetHandle === "maternalParent"
+        ? "maternalParentId"
+        : "paternalParentId";
+    void updateMemberPartial(edge.target, { [parentType]: null });
   }
 
   function changeMemberPosition(change: NodePositionChange) {
@@ -295,21 +311,21 @@ export const FlowPanel = () => {
     });
     const newEdges: Edge[] = [];
     members.forEach((m) => {
-      if (m.parents.first) {
+      if (m.parents.maternalParent) {
         newEdges.push({
-          id: createEdgeId(m.parents.first, m.id),
-          source: m.parents.first,
+          id: createEdgeId(m.parents.maternalParent, m.id),
+          source: m.parents.maternalParent,
           target: m.id,
-          targetHandle: "left",
+          targetHandle: "maternalParent",
           type: edgeType,
         });
       }
-      if (m.parents.second) {
+      if (m.parents.paternalParent) {
         newEdges.push({
-          id: createEdgeId(m.parents.second, m.id),
-          source: m.parents.second,
+          id: createEdgeId(m.parents.paternalParent, m.id),
+          source: m.parents.paternalParent,
           target: m.id,
-          targetHandle: "right",
+          targetHandle: "paternalParent",
           type: edgeType,
         });
       }
