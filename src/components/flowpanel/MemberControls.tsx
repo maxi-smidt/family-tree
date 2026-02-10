@@ -10,6 +10,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   ListChevronsUpDown,
+  Network,
   UserMinus,
   UserPlus,
 } from "lucide-react";
@@ -22,12 +23,16 @@ type Props = {
   nodes: Node[];
   selectedNodes: Node[];
   setMembersToDelete: (members: Member[]) => void;
+  onEditMember: (member: Member) => void;
+  onRearrange: () => void;
 };
 
 export const MemberControls = ({
   nodes,
   selectedNodes,
   setMembersToDelete,
+  onEditMember,
+  onRearrange,
 }: Props) => {
   const { isLockedScreen } = useFamilyTreeSettings();
   const { addMember, updateMemberPartial } = useFamilyStore();
@@ -35,6 +40,19 @@ export const MemberControls = ({
 
   return (
     <div className="flex flex-col gap-2">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={onRearrange}
+            disabled={isLockedScreen}
+          >
+            <Network />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">Arrange members</TooltipContent>
+      </Tooltip>
       <ButtonGroup orientation="vertical">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -107,7 +125,7 @@ export const MemberControls = ({
     </div>
   );
 
-  function onAddMember() {
+  async function onAddMember() {
     const NODE_HEIGHT = 157;
     const BOTTOM_MARGIN = 50;
     const flowPoint = screenToFlowPosition({
@@ -120,17 +138,22 @@ export const MemberControls = ({
       y: flowPoint.y,
     };
 
-    void addMember({
+    const newMember: Member = {
       id: crypto.randomUUID(),
+      gender: "other",
       firstName: "New",
       lastName: "Member",
+      maidenName: null,
       imageData: null,
       date: { birth: "2026", death: null },
-      parents: { first: null, second: null },
+      parents: { paternalParent: null, maternalParent: null },
       additionalData: null,
       isCollapsed: false,
       position: position,
-    });
+    };
+
+    await addMember(newMember);
+    onEditMember(newMember);
   }
 
   function onRemoveMembers() {

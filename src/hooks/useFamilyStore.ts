@@ -11,6 +11,7 @@ import { DATABASE_DIRECTORY, EXTENSION } from "../../constants.json";
 import { Database as DatabaseType } from "@/types/database";
 import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
+import { getLayoutedElements } from "@/utils/layoutUtils";
 
 interface DatabaseMetaData {
   id?: string;
@@ -34,6 +35,7 @@ interface FamilyState {
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
+  updateLayout: () => Promise<void>;
 }
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
@@ -86,14 +88,15 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     await dbInstance.execute(`
       CREATE TABLE IF NOT EXISTS members (
           id TEXT PRIMARY KEY,
+          gender TEXT,
           firstName TEXT,
           lastName TEXT,
           maidenName TEXT,
           imageData TEXT,
           dateOfBirth TEXT,
           dateOfDeath TEXT,
-          firstParentId TEXT,
-          secondParentId TEXT,
+          paternalParentId TEXT,
+          maternalParentId TEXT,
           additionalData TEXT,
           isCollapsed BOOLEAN DEFAULT FALSE,
           positionX REAL,
@@ -174,19 +177,20 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const row = mapMemberToDB(newMember);
     await db.execute(
       `INSERT INTO members (
-          id, firstName, lastName, maidenName, imageData, dateOfBirth, dateOfDeath,
-          firstParentId, secondParentId, additionalData, positionX, positionY
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+          id, gender, firstName, lastName, maidenName, imageData, dateOfBirth, dateOfDeath,
+          paternalParentId, maternalParentId, additionalData, positionX, positionY
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
       [
         row.id,
+        row.gender,
         row.firstName,
         row.lastName,
         row.maidenName,
         row.imageData,
         row.dateOfBirth,
         row.dateOfDeath,
-        row.firstParentId,
-        row.secondParentId,
+        row.paternalParentId,
+        row.maternalParentId,
         row.additionalData,
         row.positionX,
         row.positionY,
@@ -215,6 +219,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       if (typeof value === "boolean") {
         return value ? 1 : 0;
       }
+      if (value === undefined) {
+        return null;
+      }
       return value;
     });
 
@@ -225,5 +232,21 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     ]);
 
     await get().refreshMembers();
+  },
+
+  updateLayout: async () => {
+    const { db, members, refreshMembers } = get();
+    if (!db) return;
+
+    const newPositions = getLayoutedElements(members);
+
+    const updateQueries = Object.entries(newPositions).map(
+      ([id, pos]) =>
+        `UPDATE members SET positionX = ${pos.x}, positionY = ${pos.y} WHERE id = '${id}'`,
+    );
+
+    await db.execute(updateQueries.join(";"));
+
+    await refreshMembers();
   },
 }));

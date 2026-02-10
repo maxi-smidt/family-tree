@@ -24,19 +24,33 @@ import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/flowpanel/FlowPanelControls";
 import { MemberControls } from "@/components/flowpanel/MemberControls";
+import { MemberSheet } from "@/components/flowpanel/member-sheet/MemberSheet";
 
 const nodeTypes = { familyMember: FamilyNode };
 
 export const FlowPanel = () => {
   const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
-  const { members, isReady, connect, removeMember, updateMemberPartial } =
-    useFamilyStore();
+  const {
+    members,
+    isReady,
+    connect,
+    removeMember,
+    updateMemberPartial,
+    updateLayout,
+  } = useFamilyStore();
   const { edgeType, isLockedScreen } = useFamilyTreeSettings();
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const editingMember = useMemo(
+    () => members.find((m) => m.id === editingMemberId) || null,
+    [members, editingMemberId],
+  );
 
   const viewNodes = useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -48,9 +62,10 @@ export const FlowPanel = () => {
       const node = nodeMap.get(nodeId);
       if (!node) return false;
       const member = node.data as Member;
-      const parentIds = [member.parents.first, member.parents.second].filter(
-        Boolean,
-      );
+      const parentIds = [
+        member.parents.maternalParent,
+        member.parents.paternalParent,
+      ].filter(Boolean);
 
       if (parentIds.length === 0) {
         visibilityCache.set(nodeId, true);
@@ -70,6 +85,17 @@ export const FlowPanel = () => {
     return nodes.map((node) => ({
       ...node,
       hidden: !isNodeVisible(node.id),
+      data: {
+        ...node.data,
+        onEdit: () => {
+          setEditingMemberId(node.id);
+          setIsEditMode(true);
+        },
+        onView: () => {
+          setEditingMemberId(node.id);
+          setIsEditMode(false);
+        },
+      },
     }));
   }, [nodes]);
 
@@ -91,7 +117,7 @@ export const FlowPanel = () => {
   useEffect(() => {
     if (!isReady) return;
     initializeFlow();
-  }, [members, isReady, setNodes, setEdges]);
+  }, [members, isReady]);
 
   useEffect(() => {
     setSelectedNodes((prevSelected) => {
@@ -102,12 +128,6 @@ export const FlowPanel = () => {
     });
   }, [nodes]);
 
-  const debouncedSave = useRef(
-    debounce(() => {
-      processUpdates();
-    }, 1000),
-  ).current;
-
   const processUpdates = useCallback(() => {
     Object.entries(pendingUpdates.current).forEach(([id, position]) => {
       void updateMemberPartial(id, {
@@ -117,6 +137,15 @@ export const FlowPanel = () => {
     });
     pendingUpdates.current = {};
   }, [updateMemberPartial]);
+
+  const debouncedSave = useRef(debounce(processUpdates, 1000)).current;
+
+  const rearrangeNodes = () => {
+    debouncedSave.cancel();
+    pendingUpdates.current = {};
+
+    updateLayout().then();
+  };
 
   const confirmDelete = () => {
     membersToDelete.forEach((member) => {
@@ -166,13 +195,11 @@ export const FlowPanel = () => {
       try {
         addMemberEdge(newEdge);
         setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
-      } catch (e) {
-        toast.error(
-          "You cannot make a connection from the same parent to child twice.",
-        );
+      } catch (e: any) {
+        toast.error(e.message);
       }
     },
-    [edges],
+    [edges, members],
   );
 
   const onSelectionChange = useCallback(
@@ -182,7 +209,7 @@ export const FlowPanel = () => {
     [],
   );
 
-  if (!isReady) return null;
+  if (!isReady || !activeDatabase) return null;
 
   return (
     <div className="w-full h-full">
@@ -212,6 +239,11 @@ export const FlowPanel = () => {
             nodes={nodes}
             selectedNodes={selectedNodes}
             setMembersToDelete={setMembersToDelete}
+            onEditMember={(member) => {
+              setEditingMemberId(member.id);
+              setIsEditMode(true);
+            }}
+            onRearrange={rearrangeNodes}
           />
         </Panel>
       </ReactFlow>
@@ -221,6 +253,12 @@ export const FlowPanel = () => {
         onConfirm={confirmDelete}
         onCancel={() => setMembersToDelete([])}
       />
+      <MemberSheet
+        isOpen={!!editingMember}
+        onClose={() => setEditingMemberId(null)}
+        member={editingMember}
+        initialEditMode={isEditMode}
+      />
     </div>
   );
 
@@ -228,19 +266,36 @@ export const FlowPanel = () => {
     if (edges.find((e) => e.id === edge.id))
       throw new Error(`Edge with id ${edge.id} already exists`);
 
-    const firstOrSecond =
-      edge.targetHandle === "left" ? "firstParentId" : "secondParentId";
-    void updateMemberPartial(edge.target, {
-      [firstOrSecond]: edge.source,
-    });
+    const parentMember = members.find((m) => m.id === edge.source);
+    if (!parentMember) throw new Error("Parent member not found");
+
+    const targetHandle = edge.targetHandle;
+
+    if (targetHandle === "maternalParent") {
+      if (parentMember.gender !== "female") {
+        throw new Error("Maternal parent must be female");
+      }
+      void updateMemberPartial(edge.target, {
+        maternalParentId: edge.source,
+      });
+    } else if (targetHandle === "paternalParent") {
+      if (parentMember.gender !== "male") {
+        throw new Error("Paternal parent must be male");
+      }
+      void updateMemberPartial(edge.target, {
+        paternalParentId: edge.source,
+      });
+    }
   }
 
   function removeMemberEdge(change: EdgeRemoveChange) {
     const edge = edges.find((e) => e.id === change.id);
     if (!edge) return;
-    const firstOrSecond =
-      edge.targetHandle === "left" ? "firstParentId" : "secondParentId";
-    void updateMemberPartial(edge.target, { [firstOrSecond]: null });
+    const parentType =
+      edge.targetHandle === "maternalParent"
+        ? "maternalParentId"
+        : "paternalParentId";
+    void updateMemberPartial(edge.target, { [parentType]: null });
   }
 
   function changeMemberPosition(change: NodePositionChange) {
@@ -269,47 +324,31 @@ export const FlowPanel = () => {
   }
 
   function initializeFlow() {
-    setNodes((currentNodes) => {
-      const nodeMap = new Map(currentNodes.map((n) => [n.id, n]));
+    const newNodes = members.map((member) => ({
+      id: member.id,
+      type: "familyMember",
+      position: member.position,
+      data: member,
+    }));
+    setNodes(newNodes);
 
-      return members.map((member) => {
-        const existingNode = nodeMap.get(member.id);
-
-        if (existingNode) {
-          return {
-            ...existingNode,
-            data: member,
-            position: existingNode.dragging
-              ? existingNode.position
-              : member.position,
-          };
-        }
-
-        return {
-          id: member.id,
-          type: "familyMember",
-          position: member.position,
-          data: member,
-        };
-      });
-    });
     const newEdges: Edge[] = [];
     members.forEach((m) => {
-      if (m.parents.first) {
+      if (m.parents.maternalParent) {
         newEdges.push({
-          id: createEdgeId(m.parents.first, m.id),
-          source: m.parents.first,
+          id: createEdgeId(m.parents.maternalParent, m.id),
+          source: m.parents.maternalParent,
           target: m.id,
-          targetHandle: "left",
+          targetHandle: "maternalParent",
           type: edgeType,
         });
       }
-      if (m.parents.second) {
+      if (m.parents.paternalParent) {
         newEdges.push({
-          id: createEdgeId(m.parents.second, m.id),
-          source: m.parents.second,
+          id: createEdgeId(m.parents.paternalParent, m.id),
+          source: m.parents.paternalParent,
           target: m.id,
-          targetHandle: "right",
+          targetHandle: "paternalParent",
           type: edgeType,
         });
       }

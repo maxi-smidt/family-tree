@@ -1,4 +1,4 @@
-import { DefaultFamilyNode } from "@/components/node/DefaultFamilyNode";
+import { FamilyNodeContent } from "@/components/node/FamilyNodeContent";
 import { Member } from "@/types/member";
 import {
   Item,
@@ -11,10 +11,10 @@ type Props = {
   member: Member;
 };
 
-export const DetailFamilyNode = ({ member }: Props) => {
+export const ViewMode = ({ member }: Props) => {
   return (
     <div className="w-full">
-      <DefaultFamilyNode member={member} />
+      <FamilyNodeContent member={member} largeImage />
       <Item variant="muted" className="mt-2">
         <ItemContent>
           <ItemTitle>Additional Information</ItemTitle>
