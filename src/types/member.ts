@@ -2,6 +2,7 @@ export interface Member {
   id: string;
   firstName: string;
   lastName: string;
+  maidenName: string | null;
   imageData: string | null;
   date: {
     birth: string;
@@ -24,6 +25,7 @@ export interface MemberDB {
   id: string;
   firstName: string;
   lastName: string;
+  maidenName: string | null;
   imageData: string | null;
   dateOfBirth: string;
   dateOfDeath: string | null;
@@ -38,6 +40,7 @@ export interface MemberDB {
 export interface MemberUpdate {
   firstName?: string;
   lastName?: string;
+  maidenName?: string;
   imageData?: string;
   dateOfBirth?: string;
   dateOfDeath?: string;
@@ -54,6 +57,7 @@ export function mapMemberFromDB(row: MemberDB): Member {
     id: row.id,
     firstName: row.firstName,
     lastName: row.lastName,
+    maidenName: row.maidenName,
     imageData: row.imageData,
     date: {
       birth: row.dateOfBirth,
@@ -77,6 +81,7 @@ export function mapMemberToDB(member: Member): MemberDB {
     id: member.id,
     firstName: member.firstName,
     lastName: member.lastName,
+    maidenName: member.maidenName,
     imageData: member.imageData,
     dateOfBirth: member.date.birth,
     dateOfDeath: member.date.death,
