@@ -30,8 +30,14 @@ const nodeTypes = { familyMember: FamilyNode };
 
 export const FlowPanel = () => {
   const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
-  const { members, isReady, connect, removeMember, updateMemberPartial } =
-    useFamilyStore();
+  const {
+    members,
+    isReady,
+    connect,
+    removeMember,
+    updateMemberPartial,
+    updateLayout,
+  } = useFamilyStore();
   const { edgeType, isLockedScreen } = useFamilyTreeSettings();
 
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -111,7 +117,7 @@ export const FlowPanel = () => {
   useEffect(() => {
     if (!isReady) return;
     initializeFlow();
-  }, [members, isReady, setNodes, setEdges]);
+  }, [members, isReady]);
 
   useEffect(() => {
     setSelectedNodes((prevSelected) => {
@@ -122,12 +128,6 @@ export const FlowPanel = () => {
     });
   }, [nodes]);
 
-  const debouncedSave = useRef(
-    debounce(() => {
-      processUpdates();
-    }, 1000),
-  ).current;
-
   const processUpdates = useCallback(() => {
     Object.entries(pendingUpdates.current).forEach(([id, position]) => {
       void updateMemberPartial(id, {
@@ -137,6 +137,15 @@ export const FlowPanel = () => {
     });
     pendingUpdates.current = {};
   }, [updateMemberPartial]);
+
+  const debouncedSave = useRef(debounce(processUpdates, 1000)).current;
+
+  const rearrangeNodes = () => {
+    debouncedSave.cancel();
+    pendingUpdates.current = {};
+
+    updateLayout().then();
+  };
 
   const confirmDelete = () => {
     membersToDelete.forEach((member) => {
@@ -234,6 +243,7 @@ export const FlowPanel = () => {
               setEditingMemberId(member.id);
               setIsEditMode(true);
             }}
+            onRearrange={rearrangeNodes}
           />
         </Panel>
       </ReactFlow>
@@ -314,30 +324,14 @@ export const FlowPanel = () => {
   }
 
   function initializeFlow() {
-    setNodes((currentNodes) => {
-      const nodeMap = new Map(currentNodes.map((n) => [n.id, n]));
+    const newNodes = members.map((member) => ({
+      id: member.id,
+      type: "familyMember",
+      position: member.position,
+      data: member,
+    }));
+    setNodes(newNodes);
 
-      return members.map((member) => {
-        const existingNode = nodeMap.get(member.id);
-
-        if (existingNode) {
-          return {
-            ...existingNode,
-            data: member,
-            position: existingNode.dragging
-              ? existingNode.position
-              : member.position,
-          };
-        }
-
-        return {
-          id: member.id,
-          type: "familyMember",
-          position: member.position,
-          data: member,
-        };
-      });
-    });
     const newEdges: Edge[] = [];
     members.forEach((m) => {
       if (m.parents.maternalParent) {

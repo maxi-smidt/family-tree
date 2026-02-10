@@ -11,6 +11,7 @@ import { DATABASE_DIRECTORY, EXTENSION } from "../../constants.json";
 import { Database as DatabaseType } from "@/types/database";
 import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
+import { getLayoutedElements } from "@/utils/layoutUtils";
 
 interface DatabaseMetaData {
   id?: string;
@@ -34,6 +35,7 @@ interface FamilyState {
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
+  updateLayout: () => Promise<void>;
 }
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
@@ -217,6 +219,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       if (typeof value === "boolean") {
         return value ? 1 : 0;
       }
+      if (value === undefined) {
+        return null;
+      }
       return value;
     });
 
@@ -227,5 +232,21 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     ]);
 
     await get().refreshMembers();
+  },
+
+  updateLayout: async () => {
+    const { db, members, refreshMembers } = get();
+    if (!db) return;
+
+    const newPositions = getLayoutedElements(members);
+
+    const updateQueries = Object.entries(newPositions).map(
+      ([id, pos]) =>
+        `UPDATE members SET positionX = ${pos.x}, positionY = ${pos.y} WHERE id = '${id}'`,
+    );
+
+    await db.execute(updateQueries.join(";"));
+
+    await refreshMembers();
   },
 }));

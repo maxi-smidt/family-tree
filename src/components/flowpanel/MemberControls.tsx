@@ -18,13 +18,13 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "../../../constants.json";
-import { getLayoutedElements } from "@/utils/layoutUtils";
 
 type Props = {
   nodes: Node[];
   selectedNodes: Node[];
   setMembersToDelete: (members: Member[]) => void;
   onEditMember: (member: Member) => void;
+  onRearrange: () => void;
 };
 
 export const MemberControls = ({
@@ -32,9 +32,10 @@ export const MemberControls = ({
   selectedNodes,
   setMembersToDelete,
   onEditMember,
+  onRearrange,
 }: Props) => {
   const { isLockedScreen } = useFamilyTreeSettings();
-  const { addMember, updateMemberPartial, members } = useFamilyStore();
+  const { addMember, updateMemberPartial } = useFamilyStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (
@@ -44,7 +45,7 @@ export const MemberControls = ({
           <Button
             variant="secondary"
             size="icon"
-            onClick={onArrangeMembers}
+            onClick={onRearrange}
             disabled={isLockedScreen}
           >
             <Network />
@@ -123,17 +124,6 @@ export const MemberControls = ({
       </ButtonGroup>
     </div>
   );
-
-  function onArrangeMembers() {
-    const layoutedPositions = getLayoutedElements(members);
-
-    Object.entries(layoutedPositions).forEach(([id, pos]) => {
-      void updateMemberPartial(id, {
-        positionX: pos.x,
-        positionY: pos.y,
-      });
-    });
-  }
 
   async function onAddMember() {
     const NODE_HEIGHT = 157;
