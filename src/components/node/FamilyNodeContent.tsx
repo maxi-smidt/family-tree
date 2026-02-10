@@ -10,15 +10,18 @@ type Props = {
 export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
   const sizeClass = largeImage ? "size-32" : "size-16";
   const iconSize = largeImage ? 64 : 48;
+  const genderIconSize = largeImage ? 20 : 12;
 
   const GenderIcon = () => {
     switch (member.gender) {
       case "male":
-        return <Mars size={12} className="text-blue-500" />;
+        return <Mars size={genderIconSize} className="text-blue-500" />;
       case "female":
-        return <Venus size={12} className="text-pink-500" />;
+        return <Venus size={genderIconSize} className="text-pink-500" />;
       default:
-        return <VenusAndMars size={12} className="text-purple-500" />;
+        return (
+          <VenusAndMars size={genderIconSize} className="text-purple-500" />
+        );
     }
   };
 
@@ -38,7 +41,11 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
             <User size={iconSize} />
           </div>
         )}
-        <div className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-sm border border-gray-200">
+        <div
+          className={`absolute bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center bottom-0 right-0 ${
+            largeImage ? "p-2" : "p-1"
+          }`}
+        >
           <GenderIcon />
         </div>
       </div>
