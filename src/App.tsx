@@ -1,11 +1,15 @@
 import "./App.css";
-import { Layout } from "@/components/Layout";
-import { FlowPanel } from "@/components/flowpanel/FlowPanel";
+import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
+import { Layout } from "@/components/layout/Layout";
+import { MainPanel } from "@/components/layout/MainPanel";
 
-export default function App() {
+export const App = () => {
+  const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
+
   return (
     <Layout>
-      <FlowPanel />
+      {activeDatabase ? <MainPanel /> : <NoDatabasePlaceholder />}
     </Layout>
   );
-}
+};

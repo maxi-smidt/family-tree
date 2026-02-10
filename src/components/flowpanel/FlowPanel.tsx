@@ -24,7 +24,6 @@ import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/flowpanel/FlowPanelControls";
 import { MemberControls } from "@/components/flowpanel/MemberControls";
-import { NoDatabasePlaceholder } from "@/components/flowpanel/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode };
 
@@ -182,8 +181,6 @@ export const FlowPanel = () => {
     },
     [],
   );
-
-  if (!activeDatabase) return <NoDatabasePlaceholder />;
 
   if (!isReady) return null;
 
