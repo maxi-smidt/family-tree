@@ -13,6 +13,7 @@ import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
+import { runMigrations } from "@/utils/db-migration";
 
 interface DatabaseMetaData {
   id?: string;
@@ -99,52 +100,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
     const connectionString = `sqlite:${fullPath}`;
     const dbInstance = await Database.load(connectionString);
-    await dbInstance.execute(`
-      CREATE TABLE IF NOT EXISTS members (
-          id TEXT PRIMARY KEY,
-          gender TEXT,
-          firstName TEXT,
-          lastName TEXT,
-          maidenName TEXT,
-          imageData TEXT,
-          dateOfBirth TEXT,
-          dateOfDeath TEXT,
-          paternalParentId TEXT,
-          maternalParentId TEXT,
-          additionalData TEXT,
-          isCollapsed BOOLEAN DEFAULT FALSE,
-          positionX REAL,
-          positionY REAL
-      )
-    `);
 
-    await dbInstance.execute(`
-      CREATE TABLE IF NOT EXISTS gallery_images (
-        id TEXT PRIMARY KEY,
-        imageData TEXT,
-        title TEXT,
-        description TEXT,
-        createdAt TEXT,
-        uploadedAt TEXT
-      )
-    `);
-
-    await dbInstance.execute(`
-      CREATE TABLE IF NOT EXISTS gallery_member_link (
-        gallery_image_id TEXT NOT NULL,
-        member_id TEXT NOT NULL,
-        PRIMARY KEY (gallery_image_id, member_id),
-        FOREIGN KEY (gallery_image_id) REFERENCES gallery_images(id) ON DELETE CASCADE,
-        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
-      );
-    `);
-
-    await dbInstance.execute(`
-      CREATE TABLE IF NOT EXISTS db_metadata (
-        key TEXT PRIMARY KEY,
-        value TEXT
-      )
-    `);
+    await runMigrations(dbInstance);
 
     const metaCheck = await dbInstance.select<{ value: string }[]>(
       "SELECT value FROM db_metadata WHERE key = $1",
