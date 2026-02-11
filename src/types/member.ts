@@ -1,5 +1,24 @@
 export type Gender = "male" | "female" | "other";
 
+export type RelationType =
+  | "parent"
+  | "sibling"
+  | "partner"
+  | "married"
+  | "divorced"
+  | "other";
+
+export interface RelationTypeDefinition {
+  id: RelationType;
+  description: string;
+}
+
+export interface Relation {
+  fromMemberId: string;
+  toMemberId: string;
+  relationType: RelationType;
+}
+
 export interface Member {
   id: string;
   gender: Gender;
@@ -21,6 +40,7 @@ export interface Member {
     x: number;
     y: number;
   };
+  relations?: Relation[];
   onEdit?: () => void;
   onView?: () => void;
   [key: string]: unknown;
@@ -35,12 +55,16 @@ export interface MemberDB {
   imageData: string | null;
   dateOfBirth: string;
   dateOfDeath: string | null;
-  paternalParentId: string | null;
-  maternalParentId: string | null;
   additionalData: string | null;
   isCollapsed: number;
   positionX: number;
   positionY: number;
+}
+
+export interface RelationDB {
+  from_member_id: string;
+  to_member_id: string;
+  relation_type: string;
 }
 
 export interface MemberUpdate {
@@ -51,15 +75,18 @@ export interface MemberUpdate {
   imageData?: string;
   dateOfBirth?: string;
   dateOfDeath?: string;
-  paternalParentId?: string;
-  maternalParentId?: string;
+  paternalParentId?: string | null;
+  maternalParentId?: string | null;
   additionalData?: string;
   isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
 }
 
-export function mapMemberFromDB(row: MemberDB): Member {
+export function mapMemberFromDB(
+  row: MemberDB,
+  relations: RelationDB[] = [],
+): Member {
   return {
     id: row.id,
     gender: (row.gender as Gender) || "other",
@@ -72,8 +99,8 @@ export function mapMemberFromDB(row: MemberDB): Member {
       death: row.dateOfDeath,
     },
     parents: {
-      paternalParent: row.paternalParentId,
-      maternalParent: row.maternalParentId,
+      paternalParent: null,
+      maternalParent: null,
     },
     additionalData: row.additionalData,
     isCollapsed: !!row.isCollapsed,
@@ -81,6 +108,11 @@ export function mapMemberFromDB(row: MemberDB): Member {
       x: row.positionX,
       y: row.positionY,
     },
+    relations: relations.map((r) => ({
+      fromMemberId: r.from_member_id,
+      toMemberId: r.to_member_id,
+      relationType: r.relation_type as RelationType,
+    })),
   };
 }
 
@@ -94,8 +126,6 @@ export function mapMemberToDB(member: Member): MemberDB {
     imageData: member.imageData,
     dateOfBirth: member.date.birth,
     dateOfDeath: member.date.death,
-    paternalParentId: member.parents.paternalParent,
-    maternalParentId: member.parents.maternalParent,
     positionX: member.position.x,
     positionY: member.position.y,
     additionalData: member.additionalData ? member.additionalData : null,

@@ -16,6 +16,8 @@ interface FamilyTreeSettingsState {
   selectedDatabase: Database | undefined;
   setSelectedDatabase: (db: Database | undefined) => void;
   removeDatabase: (db: Database) => void;
+  visibleRelationTypes: string[];
+  toggleRelationType: (type: string) => void;
 }
 
 export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
@@ -26,6 +28,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       sidebarOpen: true,
       databases: [],
       selectedDatabase: undefined,
+      visibleRelationTypes: ["parent"],
       setEdgeType: (type) => set({ edgeType: type }),
       setSidebarOpen: (val: boolean) => set({ sidebarOpen: val }),
       setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
@@ -44,6 +47,16 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
         set((state) => ({
           databases: state.databases.filter((d) => d.id !== db.id),
         })),
+      toggleRelationType: (type) =>
+        set((state) => {
+          if (type === "parent") return state;
+          const isVisible = state.visibleRelationTypes.includes(type);
+          return {
+            visibleRelationTypes: isVisible
+              ? state.visibleRelationTypes.filter((t) => t !== type)
+              : [...state.visibleRelationTypes, type],
+          };
+        }),
     }),
     {
       name: "app-ui-settings",

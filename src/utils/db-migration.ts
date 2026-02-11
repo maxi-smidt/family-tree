@@ -14,8 +14,6 @@ const migrations: Migration[] = [
           imageData TEXT,
           dateOfBirth TEXT,
           dateOfDeath TEXT,
-          paternalParentId TEXT,
-          maternalParentId TEXT,
           additionalData TEXT,
           isCollapsed BOOLEAN DEFAULT FALSE,
           positionX REAL,
@@ -45,6 +43,39 @@ const migrations: Migration[] = [
       CREATE TABLE IF NOT EXISTS db_metadata (
         key TEXT PRIMARY KEY,
         value TEXT
+      )
+    `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS relation_types (
+        id TEXT PRIMARY KEY,
+        description TEXT
+      )
+    `);
+
+    const types = [
+      "parent",
+      "sibling",
+      "partner",
+      "married",
+      "divorced",
+      "other",
+    ];
+    for (const t of types) {
+      await db.execute(
+        "INSERT OR IGNORE INTO relation_types (id, description) VALUES ($1, $2)",
+        [t, t.charAt(0).toUpperCase() + t.slice(1)],
+      );
+    }
+
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS relations (
+        from_member_id TEXT NOT NULL,
+        to_member_id TEXT NOT NULL,
+        relation_type TEXT NOT NULL,
+        PRIMARY KEY (from_member_id, to_member_id, relation_type),
+        FOREIGN KEY (from_member_id) REFERENCES members(id) ON DELETE CASCADE,
+        FOREIGN KEY (to_member_id) REFERENCES members(id) ON DELETE CASCADE,
+        FOREIGN KEY (relation_type) REFERENCES relation_types(id) ON UPDATE CASCADE
       )
     `);
   },

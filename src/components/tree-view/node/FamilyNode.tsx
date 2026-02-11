@@ -31,7 +31,20 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       <Handle
         type="target"
         position={Position.Top}
+        id="top"
         className="w-1/4! bg-slate-400! rounded-md!"
+      />
+      <Handle
+        type="source"
+        position={Position.Left}
+        id="left"
+        className="h-1/4! w-2! bg-slate-400! rounded-md!"
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        id="right"
+        className="h-1/4! w-2! bg-slate-400! rounded-md!"
       />
       <div className="absolute top-2 flex justify-between w-full px-2">
         <Button variant="outline" size="icon-sm" onClick={onViewClick}>
@@ -50,7 +63,12 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         </div>
       )}
 
-      <Handle type="source" position={Position.Bottom} />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="bottom"
+        className="w-1/4! bg-slate-400! rounded-md!"
+      />
     </div>
   );
 };
