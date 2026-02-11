@@ -18,6 +18,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "../../../constants.json";
+import { RelationControls } from "@/components/tree-view/RelationControls";
 
 type Props = {
   nodes: Node[];
@@ -40,6 +41,7 @@ export const MemberControls = ({
 
   return (
     <div className="flex flex-col gap-2">
+      <RelationControls />
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
