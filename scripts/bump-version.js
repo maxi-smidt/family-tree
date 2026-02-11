@@ -8,6 +8,7 @@ const projectRoot = path.join(__dirname, "..");
 const packageJsonPath = path.join(projectRoot, "package.json");
 const tauriConfPath = path.join(projectRoot, "src-tauri", "tauri.conf.json");
 const cargoTomlPath = path.join(projectRoot, "src-tauri", "Cargo.toml");
+const constantsJsonPath = path.join(projectRoot, "constants.json");
 
 const type = process.argv[2]; // 'major', 'minor', or 'patch'
 
@@ -54,6 +55,15 @@ cargoToml = cargoToml.replace(
 );
 fs.writeFileSync(cargoTomlPath, cargoToml);
 console.log(`Updated Cargo.toml to ${newVersion}`);
+
+// Update constants.json
+const constantsJson = JSON.parse(fs.readFileSync(constantsJsonPath, "utf8"));
+constantsJson.APP_VERSION = newVersion;
+fs.writeFileSync(
+  constantsJsonPath,
+  JSON.stringify(constantsJson, null, 2) + "\n",
+);
+console.log(`Updated constants.json to ${newVersion}`);
 
 console.log(
   `\nVersion bumped to ${newVersion}. Don't forget to commit and push!`,
