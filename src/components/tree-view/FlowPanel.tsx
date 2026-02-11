@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/tree-view/FlowPanelControls";
 import { MemberControls } from "@/components/tree-view/MemberControls";
-import { MemberSheet } from "@/components/tree-view/member-sheet/MemberSheet";
+import { MemberSheet } from "@/components/sheet/MemberSheet";
 import { FamilyNode } from "@/components/tree-view/node/FamilyNode";
 
 const nodeTypes = { familyMember: FamilyNode };

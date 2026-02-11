@@ -9,7 +9,7 @@ import { GalleryImage } from "@/types/gallery";
 import { UploadImageCard } from "@/components/gallery-view/UploadImageCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, Search } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -126,18 +126,21 @@ export const GalleryView = () => {
   return (
     <div className="p-4 h-full flex flex-col">
       <div className="flex justify-between items-center mb-4 gap-4">
-        <Input
-          placeholder="Search..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="max-w-sm"
-        />
+        <div className="relative w-72">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search image..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
         <div className="flex items-center gap-2">
           <Select
             value={sortKey}
             onValueChange={(value) => setSortKey(value as SortKey)}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-45">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>

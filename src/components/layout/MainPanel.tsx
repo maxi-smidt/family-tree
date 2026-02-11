@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GalleryView } from "@/components/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/tree-view/FlowPanel";
+import { ListView } from "@/components/list-view/ListView";
 
 const TREE_VIEW = "tree-view";
 const LIST_VIEW = "list-view";
@@ -18,7 +19,7 @@ export const MainPanel = () => {
         <FlowPanel />
       </TabsContent>
       <TabsContent value={LIST_VIEW} className="flex-1 overflow-hidden">
-        TODO
+        <ListView />
       </TabsContent>
       <TabsContent value={GALLERY_VIEW} className="flex-1 overflow-hidden">
         <GalleryView />
