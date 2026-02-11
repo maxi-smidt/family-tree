@@ -269,33 +269,44 @@ export const FlowPanel = () => {
     const parentMember = members.find((m) => m.id === edge.source);
     if (!parentMember) throw new Error("Parent member not found");
 
-    const targetHandle = edge.targetHandle;
+    const childMember = members.find((m) => m.id === edge.target);
+    if (!childMember) throw new Error("Child member not found");
 
-    if (targetHandle === "maternalParent") {
-      if (parentMember.gender !== "female") {
-        throw new Error("Maternal parent must be female");
-      }
+    if (parentMember.gender === "female") {
       void updateMemberPartial(edge.target, {
         maternalParentId: edge.source,
       });
-    } else if (targetHandle === "paternalParent") {
-      if (parentMember.gender !== "male") {
-        throw new Error("Paternal parent must be male");
-      }
+    } else if (parentMember.gender === "male") {
       void updateMemberPartial(edge.target, {
         paternalParentId: edge.source,
       });
+    } else {
+      if (!childMember.parents.paternalParent) {
+        void updateMemberPartial(edge.target, {
+          paternalParentId: edge.source,
+        });
+      } else if (!childMember.parents.maternalParent) {
+        void updateMemberPartial(edge.target, {
+          maternalParentId: edge.source,
+        });
+      } else {
+        throw new Error("Both parent slots are full");
+      }
     }
   }
 
   function removeMemberEdge(change: EdgeRemoveChange) {
     const edge = edges.find((e) => e.id === change.id);
     if (!edge) return;
-    const parentType =
-      edge.targetHandle === "maternalParent"
-        ? "maternalParentId"
-        : "paternalParentId";
-    void updateMemberPartial(edge.target, { [parentType]: null });
+
+    const childMember = members.find((m) => m.id === edge.target);
+    if (!childMember) return;
+
+    if (childMember.parents.maternalParent === edge.source) {
+      void updateMemberPartial(edge.target, { maternalParentId: undefined });
+    } else if (childMember.parents.paternalParent === edge.source) {
+      void updateMemberPartial(edge.target, { paternalParentId: undefined });
+    }
   }
 
   function changeMemberPosition(change: NodePositionChange) {
@@ -339,7 +350,6 @@ export const FlowPanel = () => {
           id: createEdgeId(m.parents.maternalParent, m.id),
           source: m.parents.maternalParent,
           target: m.id,
-          targetHandle: "maternalParent",
           type: edgeType,
         });
       }
@@ -348,7 +358,6 @@ export const FlowPanel = () => {
           id: createEdgeId(m.parents.paternalParent, m.id),
           source: m.parents.paternalParent,
           target: m.id,
-          targetHandle: "paternalParent",
           type: edgeType,
         });
       }

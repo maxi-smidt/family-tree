@@ -2,29 +2,46 @@ import { Member } from "@/types/member";
 import dagre from "@dagrejs/dagre";
 import { NODE_WIDTH, NODE_HEIGHT } from "../../constants.json";
 
-const RANK_SEPARATION = 120;
-const NODE_SEPARATION = 100;
+const RANK_SEPARATION = 90;
+const NODE_SEPARATION = 150;
 
 export const getLayoutedElements = (members: Member[]) => {
   const g = new dagre.graphlib.Graph();
   g.setGraph({
-    rankdir: "BT",
+    rankdir: "TB",
     nodesep: NODE_SEPARATION,
     ranksep: RANK_SEPARATION,
+    edgesep: 20,
+    ranker: "network-simplex",
+    acyclicer: "greedy",
   });
   g.setDefaultEdgeLabel(() => ({}));
 
-  members.forEach((member) => {
+  const sortedMembers = [...members].sort((a, b) => {
+    const dateA = new Date(a.date.birth || "9999-12-31").getTime();
+    const dateB = new Date(b.date.birth || "9999-12-31").getTime();
+
+    if (dateA === dateB) {
+      return a.id.localeCompare(b.id);
+    }
+    return dateA - dateB;
+  });
+
+  sortedMembers.forEach((member) => {
     g.setNode(member.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
   });
 
   const unions = new Map<string, string>();
 
-  members.forEach((child) => {
+  sortedMembers.forEach((child) => {
     const { maternalParent, paternalParent } = child.parents;
 
-    if (maternalParent && paternalParent) {
-      const unionKey = `${maternalParent}-${paternalParent}`;
+    if (maternalParent || paternalParent) {
+      const parentIds = [maternalParent, paternalParent].filter(
+        (id): id is string => !!id,
+      );
+      const unionKey = parentIds.sort().join("-");
+
       let unionId = unions.get(unionKey);
 
       if (!unionId) {
@@ -32,19 +49,18 @@ export const getLayoutedElements = (members: Member[]) => {
         unions.set(unionKey, unionId);
 
         g.setNode(unionId, {
-          width: 0,
-          height: 0,
+          width: 10,
+          height: 10,
         });
 
-        g.setEdge(unionId, maternalParent);
-        g.setEdge(unionId, paternalParent);
+        parentIds.forEach((pId) => {
+          if (typeof unionId === "string") {
+            g.setEdge(pId, unionId, { weight: 10, minlen: 1 });
+          }
+        });
       }
 
-      g.setEdge(child.id, unionId);
-    } else if (maternalParent) {
-      g.setEdge(child.id, maternalParent);
-    } else if (paternalParent) {
-      g.setEdge(child.id, paternalParent);
+      g.setEdge(unionId, child.id, { weight: 1, minlen: 1 });
     }
   });
 
