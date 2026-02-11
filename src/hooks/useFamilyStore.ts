@@ -12,6 +12,7 @@ import { Database as DatabaseType } from "@/types/database";
 import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { getLayoutedElements } from "@/utils/layoutUtils";
+import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 
 interface DatabaseMetaData {
   id?: string;
@@ -24,6 +25,7 @@ interface DatabaseMetaData {
 
 interface FamilyState {
   members: Member[];
+  galleryImages: GalleryImage[];
   metadata: DatabaseMetaData;
   isReady: boolean;
   db: Database | null;
@@ -31,15 +33,25 @@ interface FamilyState {
   connect: (database: DatabaseType) => Promise<void>;
   disconnect: (database: DatabaseType) => Promise<void>;
   refreshMembers: () => Promise<void>;
+  refreshGalleryImages: () => Promise<void>;
   refreshMetadata: (db: Database) => Promise<void>;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
   updateLayout: () => Promise<void>;
+  addGalleryImage: (
+    image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+  ) => Promise<void>;
+  updateGalleryImage: (
+    id: string,
+    changes: Partial<GalleryImage>,
+  ) => Promise<void>;
+  removeGalleryImage: (id: string) => Promise<void>;
 }
 
 export const useFamilyStore = create<FamilyState>((set, get) => ({
   members: [],
+  galleryImages: [],
   metadata: {},
   isReady: false,
   db: null,
@@ -52,6 +64,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         db: null,
         isReady: false,
         members: [],
+        galleryImages: [],
         metadata: {},
       });
     }
@@ -62,6 +75,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       isReady: false,
       metadata: {},
       members: [],
+      galleryImages: [],
       db: null,
     });
 
@@ -105,6 +119,27 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     `);
 
     await dbInstance.execute(`
+      CREATE TABLE IF NOT EXISTS gallery_images (
+        id TEXT PRIMARY KEY,
+        imageData TEXT,
+        title TEXT,
+        description TEXT,
+        createdAt TEXT,
+        uploadedAt TEXT
+      )
+    `);
+
+    await dbInstance.execute(`
+      CREATE TABLE IF NOT EXISTS gallery_member_link (
+        gallery_image_id TEXT NOT NULL,
+        member_id TEXT NOT NULL,
+        PRIMARY KEY (gallery_image_id, member_id),
+        FOREIGN KEY (gallery_image_id) REFERENCES gallery_images(id) ON DELETE CASCADE,
+        FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+      );
+    `);
+
+    await dbInstance.execute(`
       CREATE TABLE IF NOT EXISTS db_metadata (
         key TEXT PRIMARY KEY,
         value TEXT
@@ -142,6 +177,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     await Promise.all([
       get().refreshMembers(),
       get().refreshMetadata(dbInstance),
+      get().refreshGalleryImages(),
     ]);
 
     set({ isReady: true });
@@ -168,6 +204,30 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const appMembers = result.map(mapMemberFromDB);
 
     set({ members: appMembers });
+  },
+
+  refreshGalleryImages: async () => {
+    const db = get().db;
+    if (!db) return;
+
+    const imagesResult = await db.select<GalleryImageDB[]>(
+      "SELECT * FROM gallery_images",
+    );
+    const linksResult = await db.select<
+      { gallery_image_id: string; member_id: string }[]
+    >("SELECT * FROM gallery_member_link");
+
+    const images = imagesResult.map((row) => {
+      const linkedMemberIds = linksResult
+        .filter((link) => link.gallery_image_id === row.id)
+        .map((link) => link.member_id);
+      return {
+        ...row,
+        linkedMemberIds,
+      };
+    });
+
+    set({ galleryImages: images });
   },
 
   addMember: async (newMember: Member) => {
@@ -240,13 +300,83 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
     const newPositions = getLayoutedElements(members);
 
-    const updateQueries = Object.entries(newPositions).map(
-      ([id, pos]) =>
-        `UPDATE members SET positionX = ${pos.x}, positionY = ${pos.y} WHERE id = '${id}'`,
-    );
+    const updatePromises = Object.entries(newPositions).map(([id, pos]) => {
+      return db.execute(
+        "UPDATE members SET positionX = $1, positionY = $2 WHERE id = $3",
+        [pos.x, pos.y, id],
+      );
+    });
 
-    await db.execute(updateQueries.join(";"));
+    await Promise.all(updatePromises);
 
     await refreshMembers();
+  },
+
+  addGalleryImage: async (
+    image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+  ) => {
+    const db = get().db;
+    if (!db) return;
+
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    await db.execute(
+      "INSERT INTO gallery_images (id, imageData, title, description, createdAt, uploadedAt) VALUES ($1, $2, $3, $4, $5, $6)",
+      [id, image.imageData, image.title, image.description, now, now],
+    );
+
+    if (image.linkedMemberIds && image.linkedMemberIds.length > 0) {
+      for (const memberId of image.linkedMemberIds) {
+        await db.execute(
+          "INSERT INTO gallery_member_link (gallery_image_id, member_id) VALUES ($1, $2)",
+          [id, memberId],
+        );
+      }
+    }
+
+    await get().refreshGalleryImages();
+  },
+
+  updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
+    const db = get().db;
+    if (!db) return;
+
+    const { linkedMemberIds, ...otherChanges } = changes;
+
+    const entries = Object.entries(otherChanges).filter(
+      ([key]) => key !== "id" && key !== "uploadedAt",
+    );
+
+    if (entries.length > 0) {
+      const keys = entries.map(([key]) => key);
+      const values = entries.map(([, value]) => value);
+      const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(", ");
+      await db.execute(`UPDATE gallery_images SET ${setClause} WHERE id = $1`, [
+        id,
+        ...values,
+      ]);
+    }
+
+    if (linkedMemberIds) {
+      await db.execute(
+        "DELETE FROM gallery_member_link WHERE gallery_image_id = $1",
+        [id],
+      );
+      for (const memberId of linkedMemberIds) {
+        await db.execute(
+          "INSERT INTO gallery_member_link (gallery_image_id, member_id) VALUES ($1, $2)",
+          [id, memberId],
+        );
+      }
+    }
+
+    await get().refreshGalleryImages();
+  },
+
+  removeGalleryImage: async (id: string) => {
+    const db = get().db;
+    if (!db) return;
+    await db.execute("DELETE FROM gallery_images WHERE id = $1", [id]);
+    await get().refreshGalleryImages();
   },
 }));

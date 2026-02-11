@@ -9,8 +9,8 @@ import { Member } from "@/types/member";
 import { useEffect, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { EditMode } from "@/components/flowpanel/member-sheet/EditMode";
-import { ViewMode } from "@/components/flowpanel/member-sheet/ViewMode";
+import { EditMode } from "@/components/tree-view/member-sheet/EditMode";
+import { ViewMode } from "@/components/tree-view/member-sheet/ViewMode";
 
 type Props = {
   isOpen: boolean;
