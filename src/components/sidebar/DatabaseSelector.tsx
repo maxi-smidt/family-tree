@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SettingField } from "@/components/sidebar/SettingsField";
+import { SettingsField } from "@/components/sidebar/SettingsField";
 import { HardDriveDownload, HardDriveUpload, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -43,7 +43,7 @@ export const DatabaseSelector = () => {
   };
 
   return (
-    <SettingField label="Active Database">
+    <SettingsField label="Active Database">
       <div className="flex flex-col gap-2">
         <Select
           onValueChange={(e) =>
@@ -128,7 +128,7 @@ export const DatabaseSelector = () => {
           setImportConfirmState(null);
         }}
       />
-    </SettingField>
+    </SettingsField>
   );
 
   async function handleImportDatabase() {

@@ -1,4 +1,4 @@
-import { SettingField } from "@/components/sidebar/SettingsField";
+import { SettingsField } from "@/components/sidebar/SettingsField";
 import { EdgeType, useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import {
   Select,
@@ -7,12 +7,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "react-i18next";
 
 export const EdgeTypeSelector = () => {
   const { edgeType, setEdgeType } = useFamilyTreeSettings();
+  const { t } = useTranslation();
 
   return (
-    <SettingField label="Connection Style">
+    <SettingsField label={t("sidebar.edgeType")}>
       <Select
         value={edgeType}
         onValueChange={(val) => setEdgeType(val as EdgeType)}
@@ -27,6 +29,6 @@ export const EdgeTypeSelector = () => {
           <SelectItem value="smoothstep">Smoothstep</SelectItem>
         </SelectContent>
       </Select>
-    </SettingField>
+    </SettingsField>
   );
 };

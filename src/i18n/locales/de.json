@@ -1,0 +1,14 @@
+{
+  "sidebar": {
+    "appearance": "Erscheinung",
+    "dataManagement": "Datenverwaltung",
+    "language": "Sprache",
+    "edgeType": "Verbindungstyp",
+    "database": "Datenbank"
+  },
+  "common": {
+    "selectLanguage": "Sprache auswählen",
+    "english": "Englisch",
+    "german": "Deutsch"
+  }
+}

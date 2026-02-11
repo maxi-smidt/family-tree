@@ -1,0 +1,14 @@
+{
+  "sidebar": {
+    "appearance": "Appearance",
+    "dataManagement": "Data Management",
+    "language": "Language",
+    "edgeType": "Edge Type",
+    "database": "Database"
+  },
+  "common": {
+    "selectLanguage": "Select Language",
+    "english": "English",
+    "german": "German"
+  }
+}
