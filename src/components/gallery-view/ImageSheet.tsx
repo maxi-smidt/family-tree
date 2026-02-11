@@ -116,7 +116,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
                   variant="secondary"
                   animation={0}
                   maxCount={25}
-                  popoverSide="top"
+                  popoverSide="left"
                   hideSelectAll={true}
                 />
               </Field>
