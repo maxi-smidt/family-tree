@@ -1,0 +1,33 @@
+name: Check Version Bump
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history so we can compare with main
+
+      - name: Check if version changed
+        run: |
+          # Get version from the PR branch
+          NEW_VERSION=$(jq -r .version package.json)
+
+          # Get version from the main branch
+          git checkout origin/main
+          OLD_VERSION=$(jq -r .version package.json)
+
+          echo "Main version: $OLD_VERSION"
+          echo "PR version:   $NEW_VERSION"
+
+          if [ "$NEW_VERSION" == "$OLD_VERSION" ]; then
+            echo "Error: Version in package.json has not been bumped."
+            echo "Please run 'npm run bump:patch' (or minor/major) before merging."
+            exit 1
+          fi
