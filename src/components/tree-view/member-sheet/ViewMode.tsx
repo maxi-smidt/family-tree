@@ -9,6 +9,7 @@ import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
+import { format } from "date-fns";
 
 type Props = {
   member: Member;
@@ -31,10 +32,61 @@ export const ViewMode = ({ member }: Props) => {
     setLightboxOpen(true);
   };
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return <i>Unknown</i>;
+    return format(new Date(dateString), "dd.MM.yyyy");
+  };
+
   return (
-    <div className="w-full">
+    <div className="w-full space-y-4">
       <FamilyNodeContent member={member} largeImage />
-      <Item variant="muted" className="mt-2">
+
+      <div className="grid grid-cols-2 gap-4">
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>First Name</ItemTitle>
+            <ItemDescription>{member.firstName}</ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Last Name</ItemTitle>
+            <ItemDescription>{member.lastName}</ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Maiden Name</ItemTitle>
+            <ItemDescription>
+              {member.maidenName || <i>None</i>}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Gender</ItemTitle>
+            <ItemDescription className="capitalize">
+              {member.gender}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Date of Birth</ItemTitle>
+            <ItemDescription>{formatDate(member.date.birth)}</ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>Date of Death</ItemTitle>
+            <ItemDescription>
+              {member.date.death ? formatDate(member.date.death) : <i>Alive</i>}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      </div>
+
+      <Item variant="muted">
         <ItemContent>
           <ItemTitle>Additional Information</ItemTitle>
           <ItemDescription>
@@ -42,7 +94,8 @@ export const ViewMode = ({ member }: Props) => {
           </ItemDescription>
         </ItemContent>
       </Item>
-      <Item variant="muted" className="mt-2">
+
+      <Item variant="muted">
         <ItemContent>
           <ItemTitle>Linked Images</ItemTitle>
           {linkedImages.length > 0 ? (
@@ -52,7 +105,7 @@ export const ViewMode = ({ member }: Props) => {
                   key={image.id}
                   src={image.imageData}
                   alt={image.title || "Linked image"}
-                  className="w-full h-24 object-cover rounded-md cursor-pointer"
+                  className="w-full h-24 object-cover rounded-md cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={() => openLightbox(index)}
                 />
               ))}
@@ -64,6 +117,7 @@ export const ViewMode = ({ member }: Props) => {
           )}
         </ItemContent>
       </Item>
+
       {lightboxOpen && (
         <ImageLightbox
           images={linkedImages}

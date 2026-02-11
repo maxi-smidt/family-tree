@@ -273,7 +273,7 @@ export const EditMode = ({ member }: Props) => {
       </div>
       <SheetFooter className="mt-auto p-4 border-t bg-background">
         <Button onClick={handleSave} className="w-full" size="sm">
-          Save Changes
+          Save
         </Button>
       </SheetFooter>
     </>
