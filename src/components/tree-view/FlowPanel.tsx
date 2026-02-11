@@ -19,12 +19,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import debounce from "lodash.debounce";
-import { FamilyNode } from "@/components/node/FamilyNode";
 import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { FlowPanelControls } from "@/components/flowpanel/FlowPanelControls";
-import { MemberControls } from "@/components/flowpanel/MemberControls";
-import { MemberSheet } from "@/components/flowpanel/member-sheet/MemberSheet";
+import { FlowPanelControls } from "@/components/tree-view/FlowPanelControls";
+import { MemberControls } from "@/components/tree-view/MemberControls";
+import { MemberSheet } from "@/components/tree-view/member-sheet/MemberSheet";
+import { FamilyNode } from "@/components/tree-view/node/FamilyNode";
 
 const nodeTypes = { familyMember: FamilyNode };
 

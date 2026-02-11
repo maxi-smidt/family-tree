@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 
 type Props = {
   member: Member;
@@ -117,12 +118,12 @@ export const EditMode = ({ member }: Props) => {
     void updateMemberPartial(member.id, {
       firstName: formData.firstName,
       lastName: formData.lastName,
-      maidenName: formData.maidenName ?? undefined,
+      maidenName: formData.maidenName || undefined,
       gender: formData.gender,
-      imageData: formData.imageData ?? undefined,
+      imageData: formData.imageData || undefined,
       dateOfBirth: formData.date.birth,
-      dateOfDeath: formData.date.death ?? undefined,
-      additionalData: formData.additionalData ?? undefined,
+      dateOfDeath: formData.date.death || undefined,
+      additionalData: formData.additionalData || undefined,
     });
     toast.success("Member updated successfully");
   };
@@ -158,102 +159,116 @@ export const EditMode = ({ member }: Props) => {
             onCancel={() => setSelectedImage(null)}
           />
 
-          <div className="grid grid-cols-[60px_1fr] gap-y-2 items-center">
-            <label className="text-[12px] font-semibold text-muted-foreground text-left">
-              GENDER
-            </label>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
-              value={formData.gender}
-              onValueChange={(val) => handleGenderChange(val as Gender)}
-              className="justify-start"
-            >
-              <ToggleGroupItem
-                value="male"
-                aria-label="Male"
-                className="h-8 min-w-7 text-sm"
+          <FieldGroup className="gap-4">
+            <Field>
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                Gender
+              </FieldLabel>
+              <ToggleGroup
+                type="single"
+                variant="outline"
+                size="sm"
+                value={formData.gender}
+                onValueChange={(val) => handleGenderChange(val as Gender)}
+                className="justify-start"
               >
-                <Mars />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="female"
-                aria-label="Female"
-                className="h-8 min-w-7 text-sm"
-              >
-                <Venus />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="other"
-                aria-label="Other"
-                className="h-8 min-w-7 text-sm"
-              >
-                <VenusAndMars />
-              </ToggleGroupItem>
-            </ToggleGroup>
+                <ToggleGroupItem
+                  value="male"
+                  aria-label="Male"
+                  className="h-7 min-w-7 text-xs"
+                >
+                  <Mars />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="female"
+                  aria-label="Female"
+                  className="h-7 min-w-7 text-xs"
+                >
+                  <Venus />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="other"
+                  aria-label="Other"
+                  className="h-7 min-w-7 text-xs"
+                >
+                  <VenusAndMars />
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </Field>
 
-            <label className="text-[12px] font-semibold text-muted-foreground text-left">
-              FIRST
-            </label>
-            <Input
-              id="firstName"
-              value={formData.firstName}
-              className="h-8 text-sm! shadow-none"
-              placeholder="First Name"
-              onChange={(e) => handleChange("firstName", e.target.value)}
-            />
+            <Field>
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                First
+              </FieldLabel>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                className="h-7 text-xs! shadow-none"
+                placeholder="First Name"
+                onChange={(e) => handleChange("firstName", e.target.value)}
+              />
+            </Field>
 
-            <label className="text-[12px] font-semibold text-muted-foreground text-left">
-              LAST
-            </label>
-            <Input
-              id="lastName"
-              value={formData.lastName}
-              className="h-8 text-sm! shadow-none"
-              placeholder="Last Name"
-              onChange={(e) => handleChange("lastName", e.target.value)}
-            />
+            <Field>
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                Last
+              </FieldLabel>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                className="h-7 text-xs! shadow-none"
+                placeholder="Last Name"
+                onChange={(e) => handleChange("lastName", e.target.value)}
+              />
+            </Field>
 
-            <label className="text-[12px] font-semibold text-muted-foreground text-left">
-              MAIDEN
-            </label>
-            <Input
-              id="maidenName"
-              value={formData.maidenName || ""}
-              className="h-8 text-sm! shadow-none"
-              placeholder="Maiden Name"
-              onChange={(e) => handleChange("maidenName", e.target.value)}
-            />
+            <Field>
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                Maiden
+              </FieldLabel>
+              <Input
+                id="maidenName"
+                value={formData.maidenName || ""}
+                className="h-7 text-xs! shadow-none"
+                placeholder="Maiden Name"
+                onChange={(e) => handleChange("maidenName", e.target.value)}
+              />
+            </Field>
 
-            <label className="text-[12px] font-semibold text-muted-foreground text-left">
-              BORN
-            </label>
-            <DatePicker
-              className="h-8 text-sm shadow-none border-input"
-              value={parseDate(formData.date.birth)}
-              onChange={(date) => handleDateChange("birth", date)}
-            />
+            <Field>
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                Born
+              </FieldLabel>
+              <DatePicker
+                className="h-7 text-xs shadow-none border-input"
+                value={parseDate(formData.date.birth)}
+                onChange={(date) => handleDateChange("birth", date)}
+              />
+            </Field>
 
-            <label className="text-[12px] font-semibold text-muted-foreground text-left">
-              DIED
-            </label>
-            <DatePicker
-              className="h-8 text-sm shadow-none border-input"
-              value={parseDate(formData.date.death)}
-              onChange={(date) => handleDateChange("death", date)}
-            />
+            <Field>
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                Died
+              </FieldLabel>
+              <DatePicker
+                className="h-7 text-xs shadow-none border-input"
+                value={parseDate(formData.date.death)}
+                onChange={(date) => handleDateChange("death", date)}
+              />
+            </Field>
 
-            <label className="text-[12px] font-semibold text-muted-foreground text-left">
-              EXTRA
-            </label>
-            <Textarea
-              className="text-sm! shadow-none"
-              placeholder="Additional Information"
-              value={formData.additionalData || ""}
-              onChange={(e) => handleChange("additionalData", e.target.value)}
-            />
-          </div>
+            <Field>
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                Extra
+              </FieldLabel>
+              <Textarea
+                className="text-xs! shadow-none"
+                placeholder="Additional Information"
+                value={formData.additionalData || ""}
+                onChange={(e) => handleChange("additionalData", e.target.value)}
+              />
+            </Field>
+          </FieldGroup>
         </div>
       </div>
       <SheetFooter className="mt-auto p-4 border-t bg-background">
