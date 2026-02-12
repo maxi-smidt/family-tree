@@ -46,7 +46,7 @@ export function FamilyTreeSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <div className="text-xs text-muted-foreground p-2 text-center">
+        <div className="text-xs text-muted-foreground p-2 text-center select-none">
           v{APP_VERSION}
         </div>
       </SidebarFooter>

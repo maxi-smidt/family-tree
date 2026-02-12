@@ -21,6 +21,16 @@ fn get_db_path(app: &tauri::AppHandle) -> PathBuf {
         .expect("failed to resolve path")
 }
 
+fn get_relation_types() -> Vec<String> {
+    let v: Value = serde_json::from_str(CONSTANTS_STR).unwrap();
+    v["RELATION_TYPES"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .map(|v| v.as_str().unwrap_or("").to_string())
+        .collect()
+}
+
 fn get_metadata_from_path(path: &Path) -> Result<(String, String), String> {
     let conn = Connection::open(path).map_err(|e| e.to_string())?;
 
@@ -37,6 +47,91 @@ fn get_metadata_from_path(path: &Path) -> Result<(String, String), String> {
     ).map_err(|e| format!("Database Name error: {}", e))?;
 
     Ok((id, name))
+}
+
+fn run_migrations(conn: &Connection) -> Result<(), String> {
+    let user_version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0))
+        .map_err(|e| e.to_string())?;
+
+    let relation_types = get_relation_types();
+    let mut relation_inserts = String::new();
+    for rt in relation_types {
+        if !rt.is_empty() {
+            relation_inserts.push_str(&format!("INSERT OR IGNORE INTO relation_types (id) VALUES ('{}');\n", rt));
+        }
+    }
+
+    let migrations = vec![
+        format!("CREATE TABLE IF NOT EXISTS members (
+            id TEXT PRIMARY KEY,
+            gender TEXT,
+            firstName TEXT,
+            lastName TEXT,
+            maidenName TEXT,
+            imageData TEXT,
+            dateOfBirth TEXT,
+            dateOfDeath TEXT,
+            additionalData TEXT,
+            isCollapsed BOOLEAN DEFAULT FALSE,
+            positionX REAL,
+            positionY REAL
+        );
+        CREATE TABLE IF NOT EXISTS gallery_images (
+            id TEXT PRIMARY KEY,
+            imageData TEXT,
+            title TEXT,
+            description TEXT,
+            createdAt TEXT,
+            uploadedAt TEXT
+        );
+        CREATE TABLE IF NOT EXISTS gallery_member_link (
+            gallery_image_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            PRIMARY KEY (gallery_image_id, member_id),
+            FOREIGN KEY (gallery_image_id) REFERENCES gallery_images(id) ON DELETE CASCADE,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS db_metadata (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );
+        CREATE TABLE IF NOT EXISTS relation_types (
+            id TEXT PRIMARY KEY,
+            description TEXT
+        );
+        {}
+        CREATE TABLE IF NOT EXISTS relations (
+            from_member_id TEXT NOT NULL,
+            to_member_id TEXT NOT NULL,
+            relation_type TEXT NOT NULL,
+            PRIMARY KEY (from_member_id, to_member_id, relation_type),
+            FOREIGN KEY (from_member_id) REFERENCES members(id) ON DELETE CASCADE,
+            FOREIGN KEY (to_member_id) REFERENCES members(id) ON DELETE CASCADE,
+            FOREIGN KEY (relation_type) REFERENCES relation_types(id) ON UPDATE CASCADE
+        );", relation_inserts)
+    ];
+
+    if user_version < migrations.len() as i32 {
+        for (i, sql) in migrations.iter().enumerate().skip(user_version as usize) {
+            conn.execute_batch(sql).map_err(|e| format!("Migration {} failed: {}", i, e))?;
+            let new_version = i + 1;
+            conn.execute(&format!("PRAGMA user_version = {}", new_version), [])
+                .map_err(|e| format!("Failed to update version: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+fn initialize_database(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let extension = get_db_extension();
+    let path = get_db_path(&app).join(format!("{}.{}", id, extension));
+
+    let conn = Connection::open(&path).map_err(|e| e.to_string())?;
+    run_migrations(&conn)?;
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -124,7 +219,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![delete_database, export_database, import_database, inspect_database])
+        .invoke_handler(tauri::generate_handler![delete_database, export_database, import_database, inspect_database, initialize_database])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

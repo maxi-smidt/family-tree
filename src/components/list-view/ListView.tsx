@@ -26,6 +26,9 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Mars,
+  Venus,
+  VenusAndMars,
 } from "lucide-react";
 import { MemberSheet } from "@/components/sheet/MemberSheet";
 import { format } from "date-fns";
@@ -106,6 +109,18 @@ export const ListView = () => {
     }
   };
 
+  const GenderIcon = (member: Member) => {
+    const size = 20;
+    switch (member.gender) {
+      case "m":
+        return <Mars size={size} />;
+      case "f":
+        return <Venus size={size} />;
+      default:
+        return <VenusAndMars size={size} />;
+    }
+  };
+
   return (
     <div className="h-full flex flex-col p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -120,7 +135,7 @@ export const ListView = () => {
         </div>
         <div className="text-sm text-muted-foreground">
           {sortedMembers.length}{" "}
-          {t("select-member", { count: sortedMembers.length })}
+          {t("selected-members", { count: sortedMembers.length })}
         </div>
       </div>
 
@@ -193,7 +208,7 @@ export const ListView = () => {
                     <TableCell>{member.lastName}</TableCell>
                     <TableCell>{member.maidenName || "-"}</TableCell>
                     <TableCell className="capitalize">
-                      {member.gender}
+                      <GenderIcon {...member} />
                     </TableCell>
                     <TableCell>{formatDate(member.date.birth)}</TableCell>
                     <TableCell>{formatDate(member.date.death)}</TableCell>

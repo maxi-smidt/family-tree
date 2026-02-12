@@ -141,8 +141,7 @@
       "maiden-field": "Maiden Name",
       "born-field": "Date of Birth",
       "death-field": "Date of Death",
-      "extra-field": "Additional Information",
-      "save": "Save"
+      "extra-field": "Additional Information"
     },
     "view-mode": {
       "firstname-item": "First Name",
@@ -162,7 +161,8 @@
       "edit-title": "Edit Member",
       "detail-title": "Member Details",
       "edit-description": "Update the member's information.",
-      "detail-description": "View detailed information about this family member."
+      "detail-description": "View detailed information about this family member.",
+      "save": "Save"
     }
   },
   "tree-view": {
@@ -195,6 +195,11 @@
       "married": "Married",
       "divorced": "Divorced",
       "other": "Other"
+    },
+    "gender": {
+      "m": "male",
+      "f": "female",
+      "o": "other"
     }
   }
 }

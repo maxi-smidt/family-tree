@@ -20,6 +20,9 @@ export const ViewMode = ({ member }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
   });
+  const { t: tGender } = useTranslation(undefined, {
+    keyPrefix: "common.gender",
+  });
   const { galleryImages } = useFamilyStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
@@ -42,7 +45,7 @@ export const ViewMode = ({ member }: Props) => {
   };
 
   return (
-    <div className="w-full space-y-4 p-4 overflow-y-auto">
+    <div className="w-full space-y-4 overflow-y-auto">
       <FamilyNodeContent member={member} largeImage />
 
       <div className="grid grid-cols-2 gap-4">
@@ -70,7 +73,7 @@ export const ViewMode = ({ member }: Props) => {
           <ItemContent>
             <ItemTitle>{t("gender-item")}</ItemTitle>
             <ItemDescription className="capitalize">
-              {member.gender}
+              {tGender(member.gender)}
             </ItemDescription>
           </ItemContent>
         </Item>

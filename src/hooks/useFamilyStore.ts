@@ -1,11 +1,8 @@
 import { create } from "zustand";
 import {
-  mapMemberToDB,
   mapMemberFromDB,
   Member,
-  MemberDB,
   MemberUpdate,
-  RelationDB,
   RelationType,
   RelationTypeDefinition,
 } from "@/types/member";
@@ -15,8 +12,9 @@ import { Database as DatabaseType } from "@/types/database";
 import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { getLayoutedElements } from "@/utils/layoutUtils";
-import { GalleryImage, GalleryImageDB } from "@/types/gallery";
-import { runMigrations } from "@/utils/db-migration";
+import { GalleryImage } from "@/types/gallery";
+import { DatabaseService } from "@/services/DatabaseService";
+import { invoke } from "@tauri-apps/api/core";
 
 interface DatabaseMetaData {
   id?: string;
@@ -117,36 +115,27 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       });
     }
 
+    await invoke("initialize_database", { id: database.id });
+
     const connectionString = `sqlite:${fullPath}`;
     const dbInstance = await Database.load(connectionString);
 
-    await runMigrations(dbInstance);
-
-    const metaCheck = await dbInstance.select<{ value: string }[]>(
-      "SELECT value FROM db_metadata WHERE key = $1",
-      ["createdAt"],
+    const metaCheck = await DatabaseService.checkMetadataKey(
+      dbInstance,
+      "createdAt",
     );
 
     const now = new Date().toISOString();
     if (metaCheck.length === 0) {
-      await dbInstance.execute(
-        "INSERT INTO db_metadata (key, value) VALUES ($1, $2)",
-        ["id", database.id],
-      );
-      await dbInstance.execute(
-        "INSERT INTO db_metadata (key, value) VALUES ($1, $2)",
-        ["createdAt", now],
-      );
-      await dbInstance.execute(
-        "INSERT INTO db_metadata (key, value) VALUES ($1, $2)",
-        ["name", database.name],
+      await DatabaseService.initMetadata(
+        dbInstance,
+        database.id,
+        database.name,
+        now,
       );
     }
 
-    await dbInstance.execute(
-      "INSERT OR REPLACE INTO db_metadata (key, value) VALUES ($1, $2)",
-      ["lastOpened", now],
-    );
+    await DatabaseService.updateLastOpened(dbInstance, now);
 
     set({ db: dbInstance });
 
@@ -161,24 +150,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   },
 
   refreshMetadata: async (db: Database) => {
-    const rows = await db.select<{ key: string; value: string }[]>(
-      "SELECT * FROM db_metadata",
-    );
-
-    const metaObj: any = {};
-    rows.forEach((row) => {
-      metaObj[row.key] = row.value;
-    });
-
+    const metaObj = await DatabaseService.getMetadata(db);
     set({ metadata: metaObj });
   },
 
   refreshRelationTypes: async () => {
     const db = get().db;
     if (!db) return;
-    const types = await db.select<RelationTypeDefinition[]>(
-      "SELECT * FROM relation_types",
-    );
+    const types = await DatabaseService.getRelationTypes(db);
     set({ relationTypes: types });
   },
 
@@ -186,8 +165,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const db = get().db;
     if (!db) return;
 
-    const result = await db.select<MemberDB[]>("SELECT * FROM members");
-    const relations = await db.select<RelationDB[]>("SELECT * FROM relations");
+    const result = await DatabaseService.getMembers(db);
+    const relations = await DatabaseService.getRelations(db);
 
     const memberGenderMap = new Map<string, string>();
     result.forEach((m) => memberGenderMap.set(m.id, m.gender));
@@ -207,9 +186,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       memberRelations.forEach((r) => {
         if (r.relation_type === "parent") {
           const parentGender = memberGenderMap.get(r.to_member_id);
-          if (parentGender === "male") {
+          if (parentGender === "m") {
             mapped.parents.paternalParent = r.to_member_id;
-          } else if (parentGender === "female") {
+          } else if (parentGender === "f") {
             mapped.parents.maternalParent = r.to_member_id;
           } else {
             if (!mapped.parents.paternalParent)
@@ -229,12 +208,8 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const db = get().db;
     if (!db) return;
 
-    const imagesResult = await db.select<GalleryImageDB[]>(
-      "SELECT * FROM gallery_images",
-    );
-    const linksResult = await db.select<
-      { gallery_image_id: string; member_id: string }[]
-    >("SELECT * FROM gallery_member_link");
+    const imagesResult = await DatabaseService.getGalleryImages(db);
+    const linksResult = await DatabaseService.getGalleryMemberLinks(db);
 
     const images = imagesResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -253,37 +228,22 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const db = get().db;
     if (!db) return;
 
-    const row = mapMemberToDB(newMember);
-    await db.execute(
-      `INSERT INTO members (
-          id, gender, firstName, lastName, maidenName, imageData, dateOfBirth, dateOfDeath,
-          additionalData, positionX, positionY
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [
-        row.id,
-        row.gender,
-        row.firstName,
-        row.lastName,
-        row.maidenName,
-        row.imageData,
-        row.dateOfBirth,
-        row.dateOfDeath,
-        row.additionalData,
-        row.positionX,
-        row.positionY,
-      ],
-    );
+    await DatabaseService.addMember(db, newMember);
 
     if (newMember.parents.paternalParent) {
-      await db.execute(
-        "INSERT INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
-        [newMember.id, newMember.parents.paternalParent, "parent"],
+      await DatabaseService.addRelation(
+        db,
+        newMember.id,
+        newMember.parents.paternalParent,
+        "parent",
       );
     }
     if (newMember.parents.maternalParent) {
-      await db.execute(
-        "INSERT INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
-        [newMember.id, newMember.parents.maternalParent, "parent"],
+      await DatabaseService.addRelation(
+        db,
+        newMember.id,
+        newMember.parents.maternalParent,
+        "parent",
       );
     }
 
@@ -296,9 +256,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
         ) {
           continue;
         }
-        await db.execute(
-          "INSERT INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
-          [newMember.id, rel.toMemberId, rel.relationType],
+        await DatabaseService.addRelation(
+          db,
+          newMember.id,
+          rel.toMemberId,
+          rel.relationType,
         );
       }
     }
@@ -309,7 +271,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   removeMember: async (memberId: string) => {
     const db = get().db;
     if (!db) return;
-    await db.execute(`DELETE FROM members WHERE id = $1`, [memberId]);
+    await DatabaseService.removeMember(db, memberId);
     await get().refreshMembers();
   },
 
@@ -319,25 +281,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
     const { paternalParentId, maternalParentId, ...otherChanges } = changes;
 
-    const entries = Object.entries(otherChanges);
-    if (entries.length > 0) {
-      const keys = entries.map(([key]) => key);
-      const values = entries.map(([, value]) => {
-        if (typeof value === "boolean") {
-          return value ? 1 : 0;
-        }
-        if (value === undefined) {
-          return null;
-        }
-        return value;
-      });
-
-      const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(", ");
-      await db.execute(`UPDATE members SET ${setClause} WHERE id = $1`, [
-        id,
-        ...values,
-      ]);
-    }
+    await DatabaseService.updateMember(db, id, otherChanges);
 
     const currentMember = get().members.find((m) => m.id === id);
 
@@ -346,15 +290,19 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       const newParent = paternalParentId;
 
       if (oldParent && oldParent !== newParent) {
-        await db.execute(
-          "DELETE FROM relations WHERE from_member_id = $1 AND to_member_id = $2 AND relation_type = 'parent'",
-          [id, oldParent],
+        await DatabaseService.removeRelation(
+          db,
+          id,
+          oldParent,
+          "parent" as RelationType,
         );
       }
       if (newParent && newParent !== oldParent) {
-        await db.execute(
-          "INSERT INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
-          [id, newParent, "parent"],
+        await DatabaseService.addRelation(
+          db,
+          id,
+          newParent,
+          "parent" as RelationType,
         );
       }
     }
@@ -364,15 +312,19 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       const newParent = maternalParentId;
 
       if (oldParent && oldParent !== newParent) {
-        await db.execute(
-          "DELETE FROM relations WHERE from_member_id = $1 AND to_member_id = $2 AND relation_type = 'parent'",
-          [id, oldParent],
+        await DatabaseService.removeRelation(
+          db,
+          id,
+          oldParent,
+          "parent" as RelationType,
         );
       }
       if (newParent && newParent !== oldParent) {
-        await db.execute(
-          "INSERT INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
-          [id, newParent, "parent"],
+        await DatabaseService.addRelation(
+          db,
+          id,
+          newParent,
+          "parent" as RelationType,
         );
       }
     }
@@ -387,10 +339,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const newPositions = getLayoutedElements(members);
 
     const updatePromises = Object.entries(newPositions).map(([id, pos]) => {
-      return db.execute(
-        "UPDATE members SET positionX = $1, positionY = $2 WHERE id = $3",
-        [pos.x, pos.y, id],
-      );
+      return DatabaseService.updateMemberPosition(db, id, pos.x, pos.y);
     });
 
     await Promise.all(updatePromises);
@@ -406,17 +355,11 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await db.execute(
-      "INSERT INTO gallery_images (id, imageData, title, description, createdAt, uploadedAt) VALUES ($1, $2, $3, $4, $5, $6)",
-      [id, image.imageData, image.title, image.description, now, now],
-    );
+    await DatabaseService.addGalleryImage(db, id, image, now);
 
     if (image.linkedMemberIds && image.linkedMemberIds.length > 0) {
       for (const memberId of image.linkedMemberIds) {
-        await db.execute(
-          "INSERT INTO gallery_member_link (gallery_image_id, member_id) VALUES ($1, $2)",
-          [id, memberId],
-        );
+        await DatabaseService.linkGalleryImageToMember(db, id, memberId);
       }
     }
 
@@ -427,32 +370,14 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     const db = get().db;
     if (!db) return;
 
-    const { linkedMemberIds, ...otherChanges } = changes;
+    const { linkedMemberIds } = changes;
 
-    const entries = Object.entries(otherChanges).filter(
-      ([key]) => key !== "id" && key !== "uploadedAt",
-    );
-
-    if (entries.length > 0) {
-      const keys = entries.map(([key]) => key);
-      const values = entries.map(([, value]) => value);
-      const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(", ");
-      await db.execute(`UPDATE gallery_images SET ${setClause} WHERE id = $1`, [
-        id,
-        ...values,
-      ]);
-    }
+    await DatabaseService.updateGalleryImage(db, id, changes);
 
     if (linkedMemberIds) {
-      await db.execute(
-        "DELETE FROM gallery_member_link WHERE gallery_image_id = $1",
-        [id],
-      );
+      await DatabaseService.removeGalleryImageLinks(db, id);
       for (const memberId of linkedMemberIds) {
-        await db.execute(
-          "INSERT INTO gallery_member_link (gallery_image_id, member_id) VALUES ($1, $2)",
-          [id, memberId],
-        );
+        await DatabaseService.linkGalleryImageToMember(db, id, memberId);
       }
     }
 
@@ -462,37 +387,28 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   removeGalleryImage: async (id: string) => {
     const db = get().db;
     if (!db) return;
-    await db.execute("DELETE FROM gallery_images WHERE id = $1", [id]);
+    await DatabaseService.removeGalleryImage(db, id);
     await get().refreshGalleryImages();
   },
 
   addRelation: async (fromId: string, toId: string, type: RelationType) => {
     const db = get().db;
     if (!db) return;
-    await db.execute(
-      "INSERT INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
-      [fromId, toId, type],
-    );
+    await DatabaseService.addRelation(db, fromId, toId, type);
     await get().refreshMembers();
   },
 
   removeRelation: async (fromId: string, toId: string, type: RelationType) => {
     const db = get().db;
     if (!db) return;
-    await db.execute(
-      "DELETE FROM relations WHERE from_member_id = $1 AND to_member_id = $2 AND relation_type = $3",
-      [fromId, toId, type],
-    );
+    await DatabaseService.removeRelation(db, fromId, toId, type);
     await get().refreshMembers();
   },
 
   addRelationType: async (id: string, description: string) => {
     const db = get().db;
     if (!db) return;
-    await db.execute(
-      "INSERT INTO relation_types (id, description) VALUES ($1, $2)",
-      [id, description],
-    );
+    await DatabaseService.addRelationType(db, id, description);
     await get().refreshRelationTypes();
   },
 }));
