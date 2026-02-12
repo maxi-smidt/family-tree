@@ -8,8 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Lock, LockOpen, Maximize, Minus, Plus } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useReactFlow } from "@xyflow/react";
+import { useTranslation } from "react-i18next";
 
 export const FlowPanelControls = () => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "tree-view.controls",
+  });
   const { isLockedScreen, setIsLockedScreen } = useFamilyTreeSettings();
   const { fitView, zoomIn, zoomOut } = useReactFlow();
 
@@ -21,7 +25,7 @@ export const FlowPanelControls = () => {
             <Plus />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="right">Zoom in</TooltipContent>
+        <TooltipContent side="right">{t("zoom-in")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -29,7 +33,7 @@ export const FlowPanelControls = () => {
             <Minus />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="right">Zoom out</TooltipContent>
+        <TooltipContent side="right">{t("zoom-out")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -37,7 +41,7 @@ export const FlowPanelControls = () => {
             <Maximize />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="right">Fit view</TooltipContent>
+        <TooltipContent side="right">{t("fit-view")}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
@@ -49,7 +53,9 @@ export const FlowPanelControls = () => {
             {isLockedScreen ? <Lock /> : <LockOpen />}
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="right">Toggle interactivity</TooltipContent>
+        <TooltipContent side="right">
+          {t("toggle-interactivity")}
+        </TooltipContent>
       </Tooltip>
     </ButtonGroup>
   );

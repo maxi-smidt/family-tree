@@ -10,25 +10,32 @@ import {
 } from "@/components/ui/sidebar";
 import { EdgeTypeSelector } from "@/components/sidebar/EdgeTypeSelector.tsx";
 import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
-import { APP_VERSION } from "../../../constants.json";
+import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
+import { APP_VERSION } from "@/constants";
+import { useTranslation } from "react-i18next";
 
 export function FamilyTreeSidebar() {
+  const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
+
   return (
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Appearance</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("appearance")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
                 <EdgeTypeSelector />
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <LanguageSelector />
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Data Management</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("dataManagement")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>

@@ -1,0 +1,200 @@
+{
+  "sidebar": {
+    "appearance": "Erscheinung",
+    "dataManagement": "Datenmanagement",
+    "language": "Sprache",
+    "edge-type": "Kanten Typ",
+    "edge-type-placeholder": "Wähle Typ",
+    "database": "Datenbank",
+    "step-type": {
+      "default": "Standard",
+      "straight": "Gerade",
+      "step": "Stufe",
+      "smoothstep": "Runde Stufe"
+    },
+    "database-selector": {
+      "label": "Aktive Datenbank",
+      "placeholder": "Wähle Datenbank",
+      "database": "Datenbank",
+      "import": "Importieren",
+      "export": "Exportieren",
+      "toast-success": "Datenbank erfolgreich importiert!",
+      "toast-error": "Datenbank import fehlgeschlagen."
+    }
+  },
+  "dialog": {
+    "add-relation": {
+      "title": "Beziehung hinzufügen",
+      "description": "Wähle die Art der Beziehung aus die erstellt werden soll.",
+      "placeholder": "Wähle Beziehungstyp",
+      "cancel": "Abbrechen",
+      "add": "Beziehung hinzufügen"
+    },
+    "create-database": {
+      "title": "Datenbank erstellen",
+      "description": "Hier kann eine Datenbank erstellt werden um einen neuen Stammbaum zu starten.",
+      "id": "ID",
+      "name": "Name",
+      "create": "Erstellen",
+      "cancel": "Abbrechen"
+    },
+    "image-crop": {
+      "title": "Bild zuschneiden",
+      "description": "Wähle das Bild das zugeschnitten werden soll.",
+      "cancel": "Abbrechen",
+      "crop": "Zuschneiden"
+    },
+    "import-database": {
+      "title": "Datenbank Konflikt",
+      "description": "Eine Datenbank mit derselben ID existiert bereits. Bitte wähle was du machen willst.",
+      "cancel": "Abbrechen",
+      "overwrite": "Überschreiben",
+      "keep": "Beide behalten"
+    },
+    "remove-database": {
+      "title": "Datenbank entfernen",
+      "description": "Bist du sicher, dass die gewählte Datenbank entfernt werden soll? Diese Aktion kann nicht rückgängig gemacht werden. Um sicher zu gehen, schreibe den Namen der Datenbank: '{{name}}'",
+      "name": "Name",
+      "cancel": "Abbrechen",
+      "remove": "Entfernen",
+      "toast-warning": "Du hast die letzte Datenbank entfernt. Erstelle eine neue.",
+      "toast-success": "Datenbank erfolgreich entfernt."
+    },
+    "remove-node": {
+      "title_one": "Lösche Person",
+      "title_other": "Lösche Personen",
+      "description": "Diese Aktion löscht unwiderruflich die folgenden Personen aus dem Stammbaum.",
+      "validation": "Bis du dir sicher das folgende Personen gelöscht werden sollen?",
+      "cancel": "Abbrechen",
+      "delete": "Löschen"
+    }
+  },
+  "gallery-view": {
+    "view": {
+      "search-placeholder": "Suche Bild...",
+      "select-date-uploaded": "Datum Hochgeladen",
+      "select-date-taken": "Datum Aufgenommen",
+      "select-title": "Titel"
+    },
+    "image-sheet": {
+      "toast-success": "Details gespeichert",
+      "toast-error": "Details konnten nicht gespeichert werden",
+      "title": "Bild Details",
+      "title-field": "Titel",
+      "title-placeholder": "Bild Titel",
+      "description-field": "Beschreibung",
+      "description-placeholder": "Bild Beschreibung",
+      "date-field": "Datum aufgenommen",
+      "members-field": "Verlinkte Personen",
+      "members-placeholder": "Verlinke Personen mit diesem Bild",
+      "save": "Speichern"
+    },
+    "upload-image-card": "Bild hochgeladen"
+  },
+  "layout": {
+    "main-panel": {
+      "tree": "Stammbaum",
+      "list": "Liste",
+      "gallery": "Galerie"
+    },
+    "no-database-placeholder": {
+      "title": "Noch keine Datenbanken",
+      "description": "Du hast noch keine Datenbanken erstellt. Starte mit mit der Erstellung einer neuen.",
+      "create": "Databank erstellen",
+      "import": "Databank importieren",
+      "toast-success": "Datenbank erfolgreich importieren!",
+      "toast-error": "Datenbank import fehlgeschlagen."
+    }
+  },
+  "list-view": {
+    "view": {
+      "search-placeholder": "Suche Personen...",
+      "selected-members_one": "Person gefunden",
+      "selected-members_other": "Personen gefunden",
+      "table": {
+        "first-name": "Vorname",
+        "last-name": "Nachname",
+        "maiden-name": "Mädchenname",
+        "gender": "Geschlecht",
+        "dob": "Geburtsdatum",
+        "dod": "Sterbedatum",
+        "no-members": "Keine Personen gefunden."
+      },
+      "menu": {
+        "trigger": "Menü öffnen",
+        "actions": "Aktionen",
+        "details": "Details anzeigen",
+        "edit": "Person bearbeiten",
+        "delete": "Person löschen"
+      }
+    }
+  },
+  "sheet": {
+    "edit-mode": {
+      "toast-error-file": "Lesen des Files fehlgeschlagen",
+      "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
+      "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",
+      "toast-success": "Person aktualisiert.",
+      "gender-field": "Geschlecht",
+      "firstname-field": "Vorname",
+      "lastname-field": "Nachname",
+      "maiden-field": "Mädchenname",
+      "born-field": "Geburtsdatum",
+      "death-field": "Sterbedatum",
+      "extra-field": "Weitere Informationen",
+      "save": "Speichern"
+    },
+    "view-mode": {
+      "firstname-item": "First Name",
+      "lastname-item": "Last Name",
+      "maiden-item": "Maiden Name",
+      "maiden-fallback": "None",
+      "gender-item": "Gender",
+      "dob-item": "Date of Birth",
+      "dod-item": "Date of Death",
+      "dod-fallback": "lebt",
+      "additional-info": "Weitere Information",
+      "additional-info-fallback": "Noch keine Information hinzugefügt.",
+      "linked-images": "Verlinkte Bilder",
+      "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt."
+    },
+    "member-sheet": {
+      "edit-title": "Person bearbeiten",
+      "detail-title": "Person im Detail",
+      "edit-description": "Bearbeite die Informationen der Person.",
+      "detail-description": "Betrachte die Informationen über diese Person."
+    }
+  },
+  "tree-view": {
+    "node": {
+      "life-ongoing": "lebt",
+      "life-unknown": "ungewiss"
+    },
+    "controls": {
+      "zoom-in": "Hineinzoomen",
+      "zoom-out": "Herauszoomen",
+      "fit-view": "Sicht anpassen",
+      "toggle-interactivity": "Interaktivität umschalten",
+      "arrange-members": "Baum anordnen",
+      "collapse-children": "Kinder einklappen",
+      "expand-children": "Kinder ausklappen",
+      "expand-all-children": "Alle Kinder ausklappen",
+      "add-person": "Person hinzufügen",
+      "remove-person": "Ausgewählte Person entfernen",
+      "select-relation": "Sichtbare Beziehungen"
+    }
+  },
+  "common": {
+    "selectLanguage": "Sprache",
+    "english": "Englisch",
+    "german": "Deutsch",
+    "relation-types": {
+      "parent": "Eltern",
+      "sibling": "Geschwister",
+      "partner": "Partner",
+      "married": "Verheiratet",
+      "divorced": "Geschieden",
+      "other": "Andere"
+    }
+  }
+}

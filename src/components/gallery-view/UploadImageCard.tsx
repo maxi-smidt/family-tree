@@ -1,11 +1,16 @@
 import { Card } from "@/components/ui/card";
 import { Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   onClick: () => void;
 };
 
 export const UploadImageCard = ({ onClick }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "gallery-view",
+  });
+
   return (
     <Card
       onClick={onClick}
@@ -13,7 +18,7 @@ export const UploadImageCard = ({ onClick }: Props) => {
     >
       <div className="flex flex-col items-center">
         <Plus className="mb-2" />
-        <span>Upload Image</span>
+        <span>{t("upload-image-card")}</span>
       </div>
     </Card>
   );

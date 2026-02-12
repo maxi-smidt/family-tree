@@ -17,8 +17,9 @@ import {
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { Member } from "@/types/member";
-import { NODE_WIDTH } from "../../../constants.json";
+import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/tree-view/RelationControls";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   nodes: Node[];
@@ -35,6 +36,7 @@ export const MemberControls = ({
   onEditMember,
   onRearrange,
 }: Props) => {
+  const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const { isLockedScreen } = useFamilyTreeSettings();
   const { addMember, updateMemberPartial } = useFamilyStore();
   const { screenToFlowPosition } = useReactFlow();
@@ -53,7 +55,7 @@ export const MemberControls = ({
             <Network />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">Arrange members</TooltipContent>
+        <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
       </Tooltip>
       <ButtonGroup orientation="vertical">
         <Tooltip>
@@ -67,7 +69,7 @@ export const MemberControls = ({
               <ChevronsDownUp />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Collapse children</TooltipContent>
+          <TooltipContent side="left">{t("collapse-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -80,7 +82,7 @@ export const MemberControls = ({
               <ChevronsUpDown />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Expand children</TooltipContent>
+          <TooltipContent side="left">{t("expand-children")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -93,7 +95,9 @@ export const MemberControls = ({
               <ListChevronsUpDown />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Expand all children</TooltipContent>
+          <TooltipContent side="left">
+            {t("expand-all-children")}
+          </TooltipContent>
         </Tooltip>
       </ButtonGroup>
       <ButtonGroup orientation="vertical">
@@ -108,7 +112,7 @@ export const MemberControls = ({
               <UserPlus />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Add Person</TooltipContent>
+          <TooltipContent side="left">{t("add-person")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -121,7 +125,7 @@ export const MemberControls = ({
               <UserMinus />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Remove selected people</TooltipContent>
+          <TooltipContent side="left">{t("remove-person")}</TooltipContent>
         </Tooltip>
       </ButtonGroup>
     </div>

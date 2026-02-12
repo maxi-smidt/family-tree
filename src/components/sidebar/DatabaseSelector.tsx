@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SettingField } from "@/components/sidebar/SettingsField";
+import { SettingsField } from "@/components/sidebar/SettingsField";
 import { HardDriveDownload, HardDriveUpload, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -17,8 +17,12 @@ import { toast } from "sonner";
 import { useDatabaseManager } from "@/hooks/useDatabaseManager";
 import { ImportDatabaseDialog } from "@/components/dialog/ImportDatabaseDialog";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useTranslation } from "react-i18next";
 
 export const DatabaseSelector = () => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sidebar.database-selector",
+  });
   const databases = useFamilyTreeSettings((s) => s.databases);
   const selectedDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
   const setSelectedDatabase = useFamilyTreeSettings(
@@ -43,7 +47,7 @@ export const DatabaseSelector = () => {
   };
 
   return (
-    <SettingField label="Active Database">
+    <SettingsField label={t("label")}>
       <div className="flex flex-col gap-2">
         <Select
           onValueChange={(e) =>
@@ -56,7 +60,7 @@ export const DatabaseSelector = () => {
             className="w-full text-xs"
             value={selectedDatabase?.id ?? ""}
           >
-            <SelectValue placeholder="Select database" />
+            <SelectValue placeholder={t("placeholder")} />
           </SelectTrigger>
           <SelectContent>
             {databases.map((db) => (
@@ -75,7 +79,7 @@ export const DatabaseSelector = () => {
             onClick={() => setIsCreateDatabaseDialogOpen(true)}
           >
             <Plus />
-            Database
+            {t("database")}
           </Button>
           <Button
             variant="outline"
@@ -85,7 +89,7 @@ export const DatabaseSelector = () => {
             disabled={databases.length < 1}
           >
             <Minus />
-            Database
+            {t("database")}
           </Button>
         </ButtonGroup>
 
@@ -97,7 +101,7 @@ export const DatabaseSelector = () => {
             onClick={handleImportDatabase}
           >
             <HardDriveDownload />
-            Import
+            {t("import")}
           </Button>
           <Button
             variant="outline"
@@ -107,7 +111,7 @@ export const DatabaseSelector = () => {
             onClick={() => exportDatabase(selectedDatabase!)}
           >
             <HardDriveUpload />
-            Export
+            {t("export")}
           </Button>
         </ButtonGroup>
       </div>
@@ -128,7 +132,7 @@ export const DatabaseSelector = () => {
           setImportConfirmState(null);
         }}
       />
-    </SettingField>
+    </SettingsField>
   );
 
   async function handleImportDatabase() {
@@ -153,10 +157,10 @@ export const DatabaseSelector = () => {
       const newDatabase = await importDatabase(check.sourcePath, overwrite);
 
       setSelectedDatabase(newDatabase);
-      toast.success("Database imported successfully!");
+      toast.success(t("toast-success"));
     } catch (err) {
       console.error(err);
-      toast.error("Failed to import database.");
+      toast.error(t("toast-error"));
     }
   }
 };

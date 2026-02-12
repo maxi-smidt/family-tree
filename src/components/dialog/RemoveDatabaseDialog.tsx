@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseManager } from "@/hooks/useDatabaseManager";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   isOpen: boolean;
@@ -26,6 +27,9 @@ export const RemoveDatabaseDialog = ({
   onConfirm,
   onCancel,
 }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "dialog.remove-database",
+  });
   const databases = useFamilyTreeSettings((s) => s.databases);
   const selectedDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
   const setSelectedDatabase = useFamilyTreeSettings(
@@ -40,15 +44,13 @@ export const RemoveDatabaseDialog = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancellation()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Remove database</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to remove the selected database? This action
-            cannot be undone. To be sure, type the database name "
-            {selectedDatabase.name}" below.
+            {t("description", { name: selectedDatabase.name })}
           </DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-[50px_1fr] gap-y-2 items-center">
-          <FieldLabel htmlFor="databaseName">Name</FieldLabel>
+          <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
           <Input
             id="databaseName"
             placeholder={selectedDatabase.name}
@@ -59,7 +61,7 @@ export const RemoveDatabaseDialog = ({
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="sm" onClick={onCancellation}>
-              Cancel
+              {t("cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -68,7 +70,7 @@ export const RemoveDatabaseDialog = ({
             onClick={onConfirmation}
             disabled={typedName !== selectedDatabase.name}
           >
-            Remove
+            {t("remove")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -84,12 +86,12 @@ export const RemoveDatabaseDialog = ({
     const nextDatabase = databases.find((db) => db.id !== selectedDatabase.id);
 
     if (!nextDatabase) {
-      toast.warning("You removed the last database. Create a new one.");
+      toast.warning(t("toast-warning"));
     }
     setSelectedDatabase(nextDatabase);
     void removeDatabase(selectedDatabase);
     resetState();
-    toast.success("Database removed successfully");
+    toast.success(t("toast-success"));
     onConfirm();
   }
 

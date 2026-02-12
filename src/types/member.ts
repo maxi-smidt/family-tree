@@ -1,16 +1,18 @@
 export type Gender = "male" | "female" | "other";
 
-export type RelationType =
-  | "parent"
-  | "sibling"
-  | "partner"
-  | "married"
-  | "divorced"
-  | "other";
+export const RELATION_TYPES = [
+  "parent",
+  "sibling",
+  "partner",
+  "married",
+  "divorced",
+  "other",
+] as const;
+
+export type RelationType = (typeof RELATION_TYPES)[number];
 
 export interface RelationTypeDefinition {
   id: RelationType;
-  description: string;
 }
 
 export interface Relation {

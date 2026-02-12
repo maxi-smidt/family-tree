@@ -13,12 +13,16 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SheetFooter } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   member: Member;
 };
 
 export const EditMode = ({ member }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.edit-mode",
+  });
   const { updateMemberPartial } = useFamilyStore();
 
   const [formData, setFormData] = useState<Member>(member);
@@ -56,7 +60,7 @@ export const EditMode = ({ member }: Props) => {
       };
       reader.readAsDataURL(blob);
     } catch (e) {
-      toast.error("Failed to read file");
+      toast.error(t("toast-error-file"));
     }
   }
 
@@ -86,7 +90,7 @@ export const EditMode = ({ member }: Props) => {
       const birthDate = new Date(formData.date.birth);
       const deathDate = new Date(dateString);
       if (deathDate < birthDate) {
-        toast.error("Death date cannot be before birth date");
+        toast.error(t("toast-error-death"));
         return;
       }
     }
@@ -95,7 +99,7 @@ export const EditMode = ({ member }: Props) => {
       const birthDate = new Date(dateString);
       const deathDate = new Date(formData.date.death);
       if (deathDate < birthDate) {
-        toast.error("Birth date cannot be after death date");
+        toast.error(t("toast-error-birth"));
         return;
       }
     }
@@ -125,7 +129,7 @@ export const EditMode = ({ member }: Props) => {
       dateOfDeath: formData.date.death || undefined,
       additionalData: formData.additionalData || undefined,
     });
-    toast.success("Member updated successfully");
+    toast.success(t("toast-success"));
   };
 
   return (
@@ -162,7 +166,7 @@ export const EditMode = ({ member }: Props) => {
           <FieldGroup className="gap-4">
             <Field>
               <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                Gender
+                {t("gender-field")}
               </FieldLabel>
               <ToggleGroup
                 type="single"
@@ -198,46 +202,46 @@ export const EditMode = ({ member }: Props) => {
 
             <Field>
               <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                First
+                {t("firstname-field")}
               </FieldLabel>
               <Input
                 id="firstName"
                 value={formData.firstName}
                 className="h-7 text-xs! shadow-none"
-                placeholder="First Name"
+                placeholder={t("firstname-field")}
                 onChange={(e) => handleChange("firstName", e.target.value)}
               />
             </Field>
 
             <Field>
               <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                Last
+                {t("lastname-field")}
               </FieldLabel>
               <Input
                 id="lastName"
                 value={formData.lastName}
                 className="h-7 text-xs! shadow-none"
-                placeholder="Last Name"
+                placeholder={t("lastname-field")}
                 onChange={(e) => handleChange("lastName", e.target.value)}
               />
             </Field>
 
             <Field>
               <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                Maiden
+                {t("maiden-field")}
               </FieldLabel>
               <Input
                 id="maidenName"
                 value={formData.maidenName || ""}
                 className="h-7 text-xs! shadow-none"
-                placeholder="Maiden Name"
+                placeholder={t("lastname-field")}
                 onChange={(e) => handleChange("maidenName", e.target.value)}
               />
             </Field>
 
             <Field>
               <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                Born
+                {t("born-field")}
               </FieldLabel>
               <DatePicker
                 className="h-7 text-xs shadow-none border-input"
@@ -248,7 +252,7 @@ export const EditMode = ({ member }: Props) => {
 
             <Field>
               <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                Died
+                {t("death-field")}
               </FieldLabel>
               <DatePicker
                 className="h-7 text-xs shadow-none border-input"
@@ -259,11 +263,11 @@ export const EditMode = ({ member }: Props) => {
 
             <Field>
               <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                Extra
+                {t("extra-field")}
               </FieldLabel>
               <Textarea
                 className="text-xs! shadow-none"
-                placeholder="Additional Information"
+                placeholder={t("extra-field")}
                 value={formData.additionalData || ""}
                 onChange={(e) => handleChange("additionalData", e.target.value)}
               />
@@ -273,7 +277,7 @@ export const EditMode = ({ member }: Props) => {
       </div>
       <SheetFooter className="mt-auto p-4 border-t bg-background">
         <Button onClick={handleSave} className="w-full" size="sm">
-          Save
+          {t("save")}
         </Button>
       </SheetFooter>
     </>

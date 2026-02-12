@@ -1,4 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
+import { RELATION_TYPES } from "@/types/member";
 
 type Migration = (db: Database) => Promise<void>;
 
@@ -47,23 +48,14 @@ const migrations: Migration[] = [
     `);
     await db.execute(`
       CREATE TABLE IF NOT EXISTS relation_types (
-        id TEXT PRIMARY KEY,
-        description TEXT
+        id TEXT PRIMARY KEY
       )
     `);
 
-    const types = [
-      "parent",
-      "sibling",
-      "partner",
-      "married",
-      "divorced",
-      "other",
-    ];
-    for (const t of types) {
+    for (const t of RELATION_TYPES) {
       await db.execute(
-        "INSERT OR IGNORE INTO relation_types (id, description) VALUES ($1, $2)",
-        [t, t.charAt(0).toUpperCase() + t.slice(1)],
+        "INSERT OR IGNORE INTO relation_types (id) VALUES ($1)",
+        [t],
       );
     }
 

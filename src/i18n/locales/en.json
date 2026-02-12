@@ -1,0 +1,200 @@
+{
+  "sidebar": {
+    "appearance": "Appearance",
+    "dataManagement": "Data Management",
+    "language": "Language",
+    "edge-type": "Edge Type",
+    "edge-type-placeholder": "Select type",
+    "database": "Database",
+    "step-type": {
+      "default": "Default",
+      "straight": "Straight",
+      "step": "Step",
+      "smoothstep": "Smoothstep"
+    },
+    "database-selector": {
+      "label": "Active Database",
+      "placeholder": "Select database",
+      "database": "Database",
+      "import": "Import",
+      "export": "Export",
+      "toast-success": "Database imported successfully!",
+      "toast-error": "Failed to import database."
+    }
+  },
+  "dialog": {
+    "add-relation": {
+      "title": "Add Relationship",
+      "description": "Select the type of relationship you want to create.",
+      "placeholder": "Select relationship type",
+      "cancel": "Cancel",
+      "add": "Add Relation"
+    },
+    "create-database": {
+      "title": "Create Database",
+      "description": "Here you can create a new database to start a new family tree from scratch.",
+      "id": "ID",
+      "name": "Name",
+      "create": "Create",
+      "cancel": "Cancel"
+    },
+    "image-crop": {
+      "title": "Crop image",
+      "description": "Select the image crop.",
+      "cancel": "Cancel",
+      "crop": "Crop"
+    },
+    "import-database": {
+      "title": "Import database conflict",
+      "description": "A database with the same ID already exists. Please decide what to do.",
+      "cancel": "Cancel,",
+      "overwrite": "Overwrite",
+      "keep": "Keep both"
+    },
+    "remove-database": {
+      "title": "Remove database",
+      "description": "Are you sure you want to remove the selected database? This action cannot be undone. To be sure, type the database name '{{name}}' below.",
+      "name": "Name",
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "toast-warning": "You removed the last database. Create a new one.",
+      "toast-success": "Database removed successfully"
+    },
+    "remove-node": {
+      "title_one": "Delete Member",
+      "title_other": "Delete Members",
+      "description": "This action will permanently delete the following members from the family tree. This action cannot be undone.",
+      "validation": "Are you sure you want to delete",
+      "cancel": "Cancel",
+      "delete": "Delete"
+    }
+  },
+  "gallery-view": {
+    "view": {
+      "search-placeholder": "Search image...",
+      "select-date-uploaded": "Date Uploaded",
+      "select-date-taken": "Date Taken",
+      "select-title": "Title"
+    },
+    "image-sheet": {
+      "toast-success": "Image details saved",
+      "toast-error": "Failed to save image details",
+      "title": "Image Details",
+      "title-field": "Title",
+      "title-placeholder": "Image Title",
+      "description-field": "Description",
+      "description-placeholder": "Image Description",
+      "date-field": "Date Taken",
+      "members-field": "Linked Members",
+      "members-placeholder": "Link members to this image",
+      "save": "Save"
+    },
+    "upload-image-card": "Upload Image"
+  },
+  "layout": {
+    "main-panel": {
+      "tree": "Tree",
+      "list": "List",
+      "gallery": "Gallery"
+    },
+    "no-database-placeholder": {
+      "title": "No Databases Yet",
+      "description": "You haven't created any databases yet. Get started by creating your first database.",
+      "create": "Create Database",
+      "import": "Import Database",
+      "toast-success": "Database imported successfully!",
+      "toast-error": "Failed to import database."
+    }
+  },
+  "list-view": {
+    "view": {
+      "search-placeholder": "Search members...",
+      "selected-members_one": "member found",
+      "selected-members_other": "members found",
+      "table": {
+        "first-name": "First Name",
+        "last-name": "Last Name",
+        "maiden-name": "Maiden Name",
+        "gender": "Gender",
+        "dob": "Birth Date",
+        "dod": "Death Date",
+        "no-members": "No members found."
+      },
+      "menu": {
+        "trigger": "Open menu",
+        "actions": "Actions",
+        "details": "View Details",
+        "edit": "Edit Member",
+        "delete": "Delete Member"
+      }
+    }
+  },
+  "sheet": {
+    "edit-mode": {
+      "toast-error-file": "Failed to read file",
+      "toast-error-birth": "Death date cannot be before birth date",
+      "toast-error-death": "Birth date cannot be after death date",
+      "toast-success": "Member updated successfully",
+      "gender-field": "Gender",
+      "firstname-field": "First Name",
+      "lastname-field": "Last Name",
+      "maiden-field": "Maiden Name",
+      "born-field": "Date of Birth",
+      "death-field": "Date of Death",
+      "extra-field": "Additional Information",
+      "save": "Save"
+    },
+    "view-mode": {
+      "firstname-item": "First Name",
+      "lastname-item": "Last Name",
+      "maiden-item": "Maiden Name",
+      "maiden-fallback": "None",
+      "gender-item": "Gender",
+      "dob-item": "Date of Birth",
+      "dod-item": "Date of Death",
+      "dod-fallback": "Alive",
+      "additional-info": "Additional Information",
+      "additional-info-fallback": "No information added yet.",
+      "linked-images": "Linked Images",
+      "linked-images-fallback": "No images linked to this person yet."
+    },
+    "member-sheet": {
+      "edit-title": "Edit Member",
+      "detail-title": "Member Details",
+      "edit-description": "Update the member's information.",
+      "detail-description": "View detailed information about this family member."
+    }
+  },
+  "tree-view": {
+    "node": {
+      "life-ongoing": "ongoing",
+      "life-unknown": "unknown"
+    },
+    "controls": {
+      "zoom-in": "Zoom in",
+      "zoom-out": "Zoom out",
+      "fit-view": "Fit view",
+      "toggle-interactivity": "Toggle interactivity",
+      "arrange-members": "Arrange members",
+      "collapse-children": "Collapse children",
+      "expand-children": "Expand children",
+      "expand-all-children": "Expand all children",
+      "add-person": "Add person",
+      "remove-person": "Remove selected person",
+      "select-relation": "Visible Relations"
+    }
+  },
+  "common": {
+    "selectLanguage": "Language",
+    "english": "English",
+    "german": "German",
+    "relation-types": {
+      "parent": "Parent",
+      "sibling": "Sibling",
+      "partner": "Partner",
+      "married": "Married",
+      "divorced": "Divorced",
+      "other": "Other"
+    }
+  }
+}

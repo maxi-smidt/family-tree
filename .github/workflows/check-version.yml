@@ -31,3 +31,32 @@ jobs:
             echo "Please run 'npm run bump:patch' (or minor/major) before merging."
             exit 1
           fi
+
+          # Parse versions
+          IFS='.' read -r OLD_MAJOR OLD_MINOR OLD_PATCH <<< "$OLD_VERSION"
+          IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$NEW_VERSION"
+
+          # Check Patch Bump: x.y.z -> x.y.(z+1)
+          if [ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -eq "$OLD_MINOR" ] && [ "$NEW_PATCH" -eq $((OLD_PATCH + 1)) ]; then
+            echo "Valid patch bump."
+            exit 0
+          fi
+
+          # Check Minor Bump: x.y.z -> x.(y+1).0
+          if [ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -eq $((OLD_MINOR + 1)) ] && [ "$NEW_PATCH" -eq 0 ]; then
+             echo "Valid minor bump."
+             exit 0
+          fi
+
+          # Check Major Bump: x.y.z -> (x+1).0.0
+          if [ "$NEW_MAJOR" -eq $((OLD_MAJOR + 1)) ] && [ "$NEW_MINOR" -eq 0 ] && [ "$NEW_PATCH" -eq 0 ]; then
+             echo "Valid major bump."
+             exit 0
+          fi
+
+          echo "Error: Invalid version bump."
+          echo "Allowed transitions:"
+          echo "  - Patch: x.y.z -> x.y.(z+1)"
+          echo "  - Minor: x.y.z -> x.(y+1).0"
+          echo "  - Major: x.y.z -> (x+1).0.0"
+          exit 1

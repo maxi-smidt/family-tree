@@ -26,6 +26,7 @@ export default defineConfig(async () => ({
   },
   resolve: {
     alias: {
+      "@/constants": path.resolve(__dirname, "./constants.json"),
       "@": path.resolve(__dirname, "./src"),
     },
   },

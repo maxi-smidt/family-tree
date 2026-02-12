@@ -10,7 +10,7 @@ import {
   RelationTypeDefinition,
 } from "@/types/member";
 import { appConfigDir, join } from "@tauri-apps/api/path";
-import { DATABASE_DIRECTORY, EXTENSION } from "../../constants.json";
+import { DATABASE_DIRECTORY, EXTENSION } from "@/constants";
 import { Database as DatabaseType } from "@/types/database";
 import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
 import { useState } from "react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   isOpen: boolean;
@@ -24,6 +25,9 @@ export const CreateDatabaseDialog = ({
   onConfirm,
   onCancel,
 }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "dialog.create-database",
+  });
   const [databaseId, setDatabaseId] = useState(crypto.randomUUID());
   const [databaseName, setDatabaseName] = useState<string>("");
   const addDatabase = useFamilyTreeSettings((s) => s.addDatabase);
@@ -33,17 +37,14 @@ export const CreateDatabaseDialog = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancellation()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create database</DialogTitle>
-          <DialogDescription>
-            Here you can create a new database to start a new family tree from
-            scratch.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="grid grid-cols-[50px_1fr] gap-y-2 items-center">
-          <FieldLabel htmlFor="databaseId">ID</FieldLabel>
+          <FieldLabel htmlFor="databaseId">{t("id")}</FieldLabel>
           <Input id="databaseId" value={databaseId} disabled />
 
-          <FieldLabel htmlFor="databaseName">Name</FieldLabel>
+          <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
           <Input
             id="databaseName"
             value={databaseName}
@@ -53,7 +54,7 @@ export const CreateDatabaseDialog = ({
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="sm" onClick={onCancellation}>
-              Cancel
+              {t("cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -62,7 +63,7 @@ export const CreateDatabaseDialog = ({
             onClick={onConfirmation}
             disabled={!databaseName}
           >
-            Create
+            {t("create")}
           </Button>
         </DialogFooter>
       </DialogContent>

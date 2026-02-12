@@ -30,6 +30,7 @@ import {
 import { MemberSheet } from "@/components/sheet/MemberSheet";
 import { format } from "date-fns";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
+import { useTranslation } from "react-i18next";
 
 type SortConfig = {
   key: keyof Member | "date.birth" | "date.death";
@@ -37,6 +38,9 @@ type SortConfig = {
 };
 
 export const ListView = () => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "list-view.view",
+  });
   const { members, removeMember } = useFamilyStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -108,14 +112,15 @@ export const ListView = () => {
         <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search members..."
+            placeholder={t("search-placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8"
           />
         </div>
         <div className="text-sm text-muted-foreground">
-          {sortedMembers.length} members found
+          {sortedMembers.length}{" "}
+          {t("select-member", { count: sortedMembers.length })}
         </div>
       </div>
 
@@ -130,7 +135,7 @@ export const ListView = () => {
                     onClick={() => handleSort("firstName")}
                     className="h-8 px-2"
                   >
-                    First Name
+                    {t("table.first-name")}
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
@@ -140,19 +145,19 @@ export const ListView = () => {
                     onClick={() => handleSort("lastName")}
                     className="h-8 px-2"
                   >
-                    Last Name
+                    {t("table.last-name")}
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
-                <TableHead>Maiden Name</TableHead>
-                <TableHead>Gender</TableHead>
+                <TableHead>{t("table.maiden-name")}</TableHead>
+                <TableHead>{t("table.gender")}</TableHead>
                 <TableHead>
                   <Button
                     variant="ghost"
                     onClick={() => handleSort("date.birth")}
                     className="h-8 px-2"
                   >
-                    Birth Date
+                    {t("table.dob")}
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
@@ -162,7 +167,7 @@ export const ListView = () => {
                     onClick={() => handleSort("date.death")}
                     className="h-8 px-2"
                   >
-                    Death Date
+                    {t("table.dod")}
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
@@ -176,7 +181,7 @@ export const ListView = () => {
                     colSpan={7}
                     className="h-24 text-center text-muted-foreground"
                   >
-                    No members found.
+                    {t("table.no-members")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -196,12 +201,14 @@ export const ListView = () => {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
+                            <span className="sr-only">{t("menu.trigger")}</span>
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                          <DropdownMenuLabel>
+                            {t("menu.actions")}
+                          </DropdownMenuLabel>
                           <DropdownMenuItem
                             onClick={() => {
                               setEditingMember(member);
@@ -209,7 +216,7 @@ export const ListView = () => {
                             }}
                           >
                             <Eye className="mr-2 h-4 w-4" />
-                            View Details
+                            {t("menu.details")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
@@ -218,7 +225,7 @@ export const ListView = () => {
                             }}
                           >
                             <Pencil className="mr-2 h-4 w-4" />
-                            Edit Member
+                            {t("menu.edit")}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -226,7 +233,7 @@ export const ListView = () => {
                             onClick={() => setMemberToDelete(member)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
-                            Delete Member
+                            {t("menu.delete")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

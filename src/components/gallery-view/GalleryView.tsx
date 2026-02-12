@@ -18,11 +18,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { format } from "date-fns";
+import {
+  STORED_IMAGE_HEIGHT as MAX_HEIGHT,
+  STORED_IMAGE_WIDTH as MAX_WIDTH,
+} from "@/constants";
+import { useTranslation } from "react-i18next";
 
 type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
 
 export const GalleryView = () => {
+  const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
   const { galleryImages, addGalleryImage } = useFamilyStore();
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
@@ -52,8 +58,6 @@ export const GalleryView = () => {
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement("canvas");
-          const MAX_WIDTH = 1920;
-          const MAX_HEIGHT = 1080;
           let width = img.width;
           let height = img.height;
 
@@ -129,7 +133,7 @@ export const GalleryView = () => {
         <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search image..."
+            placeholder={t("search-placeholder")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-8"
@@ -144,9 +148,13 @@ export const GalleryView = () => {
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="uploadedAt">Date Uploaded</SelectItem>
-              <SelectItem value="createdAt">Date Taken</SelectItem>
-              <SelectItem value="title">Title</SelectItem>
+              <SelectItem value="uploadedAt">
+                {t("select-date-uploaded")}
+              </SelectItem>
+              <SelectItem value="createdAt">
+                {t("select-date-taken")}
+              </SelectItem>
+              <SelectItem value="title">{t("select-title")}</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="ghost" size="icon" onClick={toggleSortDirection}>

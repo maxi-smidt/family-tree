@@ -12,6 +12,7 @@ import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
 import { useEffect, useRef, useState } from "react";
 import { getCroppedImg } from "@/utils/canvasUtils";
 import { Spinner } from "@/components/ui/spinner";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   imageData: string | null;
@@ -26,6 +27,9 @@ export const ImageCropDialog = ({
   onConfirm,
   onCancel,
 }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "dialog.image-crop",
+  });
   const imgRef = useRef<HTMLImageElement | null>(null);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
@@ -59,8 +63,8 @@ export const ImageCropDialog = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Crop image</DialogTitle>
-          <DialogDescription>Select the image crop.</DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="flex justify-center max-h-[60vh] overflow-auto">
           <ReactCrop
@@ -82,7 +86,7 @@ export const ImageCropDialog = ({
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="sm" onClick={onCancel}>
-              Cancel
+              {t("cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -92,7 +96,7 @@ export const ImageCropDialog = ({
             disabled={!crop || isLoading}
           >
             {isLoading && <Spinner />}
-            Crop
+            {t("crop")}
           </Button>
         </DialogFooter>
       </DialogContent>

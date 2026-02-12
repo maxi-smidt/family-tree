@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { RelationType } from "@/types/member";
+import { useTranslation } from "react-i18next";
 
 interface AddRelationDialogProps {
   isOpen: boolean;
@@ -29,6 +30,10 @@ export const AddRelationDialog = ({
   onClose,
   onConfirm,
 }: AddRelationDialogProps) => {
+  const { t } = useTranslation(undefined, { keyPrefix: "dialog.add-relation" });
+  const { t: tRelation } = useTranslation(undefined, {
+    keyPrefix: "common.relation-types",
+  });
   const { relationTypes } = useFamilyStore();
   const [selectedType, setSelectedType] = useState<RelationType>("partner");
 
@@ -41,10 +46,8 @@ export const AddRelationDialog = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add Relationship</DialogTitle>
-          <DialogDescription>
-            Select the type of relationship you want to create.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="py-4">
           <Select
@@ -52,14 +55,14 @@ export const AddRelationDialog = ({
             onValueChange={(value) => setSelectedType(value as RelationType)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select relationship type" />
+              <SelectValue placeholder={t("placeholder")} />
             </SelectTrigger>
             <SelectContent>
               {relationTypes
                 .filter((t) => t.id !== "parent")
                 .map((type) => (
                   <SelectItem key={type.id} value={type.id}>
-                    {type.description}
+                    {tRelation(type.id)}
                   </SelectItem>
                 ))}
             </SelectContent>
@@ -67,9 +70,9 @@ export const AddRelationDialog = ({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
-            Cancel
+            {t("cancel")}
           </Button>
-          <Button onClick={handleConfirm}>Add Relation</Button>
+          <Button onClick={handleConfirm}>{t("add")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

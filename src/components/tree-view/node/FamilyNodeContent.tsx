@@ -1,6 +1,7 @@
 import { Member } from "@/types/member";
 import { format } from "date-fns";
 import { Mars, User, Venus, VenusAndMars } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   member: Member;
@@ -8,6 +9,9 @@ type Props = {
 };
 
 export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "tree-view.node",
+  });
   const sizeClass = largeImage ? "size-32" : "size-16";
   const iconSize = largeImage ? 64 : 48;
   const genderIconSize = largeImage ? 20 : 12;
@@ -53,7 +57,7 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
       <div className="mt-1">
         <div className="flex h-11 w-full items-center justify-center px-1">
           <span className="font-bold text-lg leading-tight text-center line-clamp-2 text-ellipsis overflow-hidden">
-            {member.firstName || "Unknown"} {member.lastName}
+            {member.firstName} {member.lastName}
           </span>
         </div>
 
@@ -69,9 +73,9 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
     const end = dates.death ? (
       format(dates.death, "dd.MM.yyyy")
     ) : dates.birth ? (
-      <i>ongoing</i>
+      <i>{t("life-ongoing")}</i>
     ) : (
-      <i>???</i>
+      <i>{t("life-unknown")}</i>
     );
 
     return (

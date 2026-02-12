@@ -2,7 +2,7 @@ import { ChevronsDownUp, EyeIcon, PencilIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { Member } from "@/types/member";
-import { NODE_WIDTH } from "../../../../constants.json";
+import { NODE_WIDTH } from "@/constants";
 import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {

@@ -13,8 +13,12 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseManager } from "@/hooks/useDatabaseManager";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { useTranslation } from "react-i18next";
 
 export const NoDatabasePlaceholder = () => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "layout.no-database-placeholder",
+  });
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
   const setSelectedDatabase = useFamilyTreeSettings(
@@ -28,18 +32,15 @@ export const NoDatabasePlaceholder = () => {
         <EmptyMedia variant="icon">
           <Database />
         </EmptyMedia>
-        <EmptyTitle>No Databases Yet</EmptyTitle>
-        <EmptyDescription>
-          You haven&apos;t created any databases yet. Get started by creating
-          your first database.
-        </EmptyDescription>
+        <EmptyTitle>{t("title")}</EmptyTitle>
+        <EmptyDescription>{t("description")}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="flex-row justify-center gap-2">
         <Button onClick={() => setIsCreateDatabaseDialogOpen(true)}>
-          Create Database
+          {t("create")}
         </Button>
         <Button variant="outline" onClick={handleImportDatabase}>
-          Import Database
+          {t("import")}
         </Button>
       </EmptyContent>
       <CreateDatabaseDialog
@@ -57,11 +58,11 @@ export const NoDatabasePlaceholder = () => {
       if (!check.collision) {
         const newDatabase = await importDatabase(check.sourcePath, false);
         setSelectedDatabase(newDatabase);
-        toast.success("Database imported successfully!");
+        toast.success(t("toast-success"));
       }
     } catch (err) {
       console.error(err);
-      toast.error("Failed to import database.");
+      toast.error(t("toast-error"));
     }
   }
 };

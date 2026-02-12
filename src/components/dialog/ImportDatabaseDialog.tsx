@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 type ImportChoice = "overwrite" | "keep" | "cancel";
 
@@ -17,15 +18,15 @@ type Props = {
 };
 
 export const ImportDatabaseDialog = ({ isOpen, onChoice }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "dialog.import-database",
+  });
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onChoice("cancel")}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Import database conflict</DialogTitle>
-          <DialogDescription>
-            A database with the same ID already exists. Please decide what to
-            do.
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <DialogClose asChild>
@@ -34,7 +35,7 @@ export const ImportDatabaseDialog = ({ isOpen, onChoice }: Props) => {
               size="sm"
               onClick={() => onChoice("cancel")}
             >
-              Cancel
+              {t("cancel")}
             </Button>
           </DialogClose>
           <Button
@@ -42,10 +43,10 @@ export const ImportDatabaseDialog = ({ isOpen, onChoice }: Props) => {
             size="sm"
             onClick={() => onChoice("overwrite")}
           >
-            Overwrite
+            {t("overwrite")}
           </Button>
           <Button variant="default" size="sm" onClick={() => onChoice("keep")}>
-            Keep both
+            {t("keep")}
           </Button>
         </DialogFooter>
       </DialogContent>
