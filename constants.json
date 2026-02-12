@@ -5,5 +5,13 @@
   "EXTENSION": "treedb",
   "DATABASE_DIRECTORY": "treedbs",
   "STORED_IMAGE_WIDTH": 1920,
-  "STORED_IMAGE_HEIGHT": 1080
+  "STORED_IMAGE_HEIGHT": 1080,
+  "RELATION_TYPES": [
+    "parent",
+    "sibling",
+    "partner",
+    "married",
+    "divorced",
+    "other"
+  ]
 }

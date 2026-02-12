@@ -179,21 +179,21 @@ export const EditMode = ({ member }: Props) => {
               className="justify-start"
             >
               <ToggleGroupItem
-                value="male"
+                value="m"
                 aria-label="Male"
                 className="h-7 min-w-7 text-xs"
               >
                 <Mars />
               </ToggleGroupItem>
               <ToggleGroupItem
-                value="female"
+                value="f"
                 aria-label="Female"
                 className="h-7 min-w-7 text-xs"
               >
                 <Venus />
               </ToggleGroupItem>
               <ToggleGroupItem
-                value="other"
+                value="o"
                 aria-label="Other"
                 className="h-7 min-w-7 text-xs"
               >

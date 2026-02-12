@@ -185,11 +185,11 @@ export const useFlowInteractions = (
         return;
       }
 
-      if (sourceMember.gender === "female") {
+      if (sourceMember.gender === "f") {
         void updateMemberPartial(edge.target, {
           maternalParentId: edge.source,
         });
-      } else if (sourceMember.gender === "male") {
+      } else if (sourceMember.gender === "m") {
         void updateMemberPartial(edge.target, {
           paternalParentId: edge.source,
         });

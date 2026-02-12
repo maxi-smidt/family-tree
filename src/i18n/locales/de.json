@@ -144,13 +144,13 @@
       "extra-field": "Weitere Informationen"
     },
     "view-mode": {
-      "firstname-item": "First Name",
-      "lastname-item": "Last Name",
-      "maiden-item": "Maiden Name",
-      "maiden-fallback": "None",
-      "gender-item": "Gender",
-      "dob-item": "Date of Birth",
-      "dod-item": "Date of Death",
+      "firstname-item": "Vorname",
+      "lastname-item": "Nachname",
+      "maiden-item": "Mädchenname",
+      "maiden-fallback": "keiner",
+      "gender-item": "Geschlecht",
+      "dob-item": "Geburtsdatum",
+      "dod-item": "Sterbedatum",
       "dod-fallback": "lebt",
       "additional-info": "Weitere Information",
       "additional-info-fallback": "Noch keine Information hinzugefügt.",
@@ -195,6 +195,11 @@
       "married": "Verheiratet",
       "divorced": "Geschieden",
       "other": "Andere"
+    },
+    "gender": {
+      "m": "männlich",
+      "f": "weiblich",
+      "o": "anderes"
     }
   }
 }

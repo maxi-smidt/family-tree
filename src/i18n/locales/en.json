@@ -195,6 +195,11 @@
       "married": "Married",
       "divorced": "Divorced",
       "other": "Other"
+    },
+    "gender": {
+      "m": "male",
+      "f": "female",
+      "o": "other"
     }
   }
 }

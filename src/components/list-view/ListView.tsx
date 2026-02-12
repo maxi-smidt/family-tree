@@ -26,6 +26,9 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Mars,
+  Venus,
+  VenusAndMars,
 } from "lucide-react";
 import { MemberSheet } from "@/components/sheet/MemberSheet";
 import { format } from "date-fns";
@@ -103,6 +106,18 @@ export const ListView = () => {
     if (memberToDelete) {
       void removeMember(memberToDelete.id);
       setMemberToDelete(null);
+    }
+  };
+
+  const GenderIcon = (member: Member) => {
+    const size = 20;
+    switch (member.gender) {
+      case "m":
+        return <Mars size={size} />;
+      case "f":
+        return <Venus size={size} />;
+      default:
+        return <VenusAndMars size={size} />;
     }
   };
 
@@ -193,7 +208,7 @@ export const ListView = () => {
                     <TableCell>{member.lastName}</TableCell>
                     <TableCell>{member.maidenName || "-"}</TableCell>
                     <TableCell className="capitalize">
-                      {member.gender}
+                      <GenderIcon {...member} />
                     </TableCell>
                     <TableCell>{formatDate(member.date.birth)}</TableCell>
                     <TableCell>{formatDate(member.date.death)}</TableCell>

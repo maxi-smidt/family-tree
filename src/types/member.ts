@@ -1,13 +1,8 @@
-export type Gender = "male" | "female" | "other";
+import { RELATION_TYPES as CONSTANT_RELATION_TYPES } from "@/constants";
 
-export const RELATION_TYPES = [
-  "parent",
-  "sibling",
-  "partner",
-  "married",
-  "divorced",
-  "other",
-] as const;
+export type Gender = "m" | "f" | "o";
+
+export const RELATION_TYPES = CONSTANT_RELATION_TYPES as readonly string[];
 
 export type RelationType = (typeof RELATION_TYPES)[number];
 
@@ -91,7 +86,7 @@ export function mapMemberFromDB(
 ): Member {
   return {
     id: row.id,
-    gender: (row.gender as Gender) || "other",
+    gender: (row.gender as Gender) || "o",
     firstName: row.firstName,
     lastName: row.lastName,
     maidenName: row.maidenName,

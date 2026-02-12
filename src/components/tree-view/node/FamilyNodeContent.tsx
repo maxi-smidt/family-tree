@@ -18,9 +18,9 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
 
   const GenderIcon = () => {
     switch (member.gender) {
-      case "male":
+      case "m":
         return <Mars size={genderIconSize} className="text-blue-500" />;
-      case "female":
+      case "f":
         return <Venus size={genderIconSize} className="text-pink-500" />;
       default:
         return (

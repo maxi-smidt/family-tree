@@ -13,8 +13,8 @@ import Database from "@tauri-apps/plugin-sql";
 import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { GalleryImage } from "@/types/gallery";
-import { runMigrations } from "@/utils/db-migration";
 import { DatabaseService } from "@/services/DatabaseService";
+import { invoke } from "@tauri-apps/api/core";
 
 interface DatabaseMetaData {
   id?: string;
@@ -115,10 +115,10 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       });
     }
 
+    await invoke("initialize_database", { id: database.id });
+
     const connectionString = `sqlite:${fullPath}`;
     const dbInstance = await Database.load(connectionString);
-
-    await runMigrations(dbInstance);
 
     const metaCheck = await DatabaseService.checkMetadataKey(
       dbInstance,
@@ -186,9 +186,9 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
       memberRelations.forEach((r) => {
         if (r.relation_type === "parent") {
           const parentGender = memberGenderMap.get(r.to_member_id);
-          if (parentGender === "male") {
+          if (parentGender === "m") {
             mapped.parents.paternalParent = r.to_member_id;
-          } else if (parentGender === "female") {
+          } else if (parentGender === "f") {
             mapped.parents.maternalParent = r.to_member_id;
           } else {
             if (!mapped.parents.paternalParent)

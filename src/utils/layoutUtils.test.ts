@@ -9,7 +9,7 @@ describe("getLayoutedElements", () => {
         id: "1",
         firstName: "John",
         lastName: "Doe",
-        gender: "male",
+        gender: "m",
         maidenName: null,
         imageData: null,
         date: { birth: "1990-01-01", death: null },
