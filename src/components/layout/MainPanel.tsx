@@ -3,10 +3,25 @@ import { GalleryView } from "@/components/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/tree-view/FlowPanel";
 import { ListView } from "@/components/list-view/ListView";
 import { useTranslation } from "react-i18next";
+import { MergeView } from "@/components/merge-view/MergeView";
+import { ReactNode } from "react";
 
 const TREE_VIEW = "tree-view";
 const LIST_VIEW = "list-view";
 const GALLERY_VIEW = "gallery-view";
+const MERGE_VIEW = "merge-view";
+
+const TabWrapper = ({
+  children,
+  value,
+}: {
+  children: ReactNode;
+  value: string;
+}) => (
+  <TabsContent value={value} className="flex-1 min-h-0 m-0">
+    {children}
+  </TabsContent>
+);
 
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
@@ -19,16 +34,20 @@ export const MainPanel = () => {
         <TabsTrigger value={TREE_VIEW}>{t("tree")}</TabsTrigger>
         <TabsTrigger value={LIST_VIEW}>{t("list")}</TabsTrigger>
         <TabsTrigger value={GALLERY_VIEW}>{t("gallery")}</TabsTrigger>
+        <TabsTrigger value={MERGE_VIEW}>{t("merge")}</TabsTrigger>
       </TabsList>
-      <TabsContent value={TREE_VIEW} className="flex-1 overflow-hidden">
+      <TabWrapper value={TREE_VIEW}>
         <FlowPanel />
-      </TabsContent>
-      <TabsContent value={LIST_VIEW} className="flex-1 overflow-hidden">
+      </TabWrapper>
+      <TabWrapper value={LIST_VIEW}>
         <ListView />
-      </TabsContent>
-      <TabsContent value={GALLERY_VIEW} className="flex-1 overflow-hidden">
+      </TabWrapper>
+      <TabWrapper value={GALLERY_VIEW}>
         <GalleryView />
-      </TabsContent>
+      </TabWrapper>
+      <TabWrapper value={MERGE_VIEW}>
+        <MergeView />
+      </TabWrapper>
     </Tabs>
   );
 };

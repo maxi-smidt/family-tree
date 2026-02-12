@@ -95,7 +95,8 @@
     "main-panel": {
       "tree": "Tree",
       "list": "List",
-      "gallery": "Gallery"
+      "gallery": "Gallery",
+      "merge": "Merge Databases"
     },
     "no-database-placeholder": {
       "title": "No Databases Yet",

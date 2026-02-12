@@ -95,7 +95,8 @@
     "main-panel": {
       "tree": "Stammbaum",
       "list": "Liste",
-      "gallery": "Galerie"
+      "gallery": "Galerie",
+      "merge": "Datenbanken vereinen"
     },
     "no-database-placeholder": {
       "title": "Noch keine Datenbanken",
