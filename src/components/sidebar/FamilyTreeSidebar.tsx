@@ -11,17 +11,17 @@ import {
 import { EdgeTypeSelector } from "@/components/sidebar/EdgeTypeSelector.tsx";
 import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
 import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
-import { APP_VERSION } from "../../../constants.json";
+import { APP_VERSION } from "@/constants";
 import { useTranslation } from "react-i18next";
 
 export function FamilyTreeSidebar() {
-  const { t } = useTranslation();
+  const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
 
   return (
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>{t("sidebar.appearance")}</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("appearance")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
@@ -35,7 +35,7 @@ export function FamilyTreeSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>{t("sidebar.dataManagement")}</SidebarGroupLabel>
+          <SidebarGroupLabel>{t("dataManagement")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>

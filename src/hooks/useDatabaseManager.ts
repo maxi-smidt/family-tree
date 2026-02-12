@@ -2,7 +2,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { Database } from "@/types/database";
 import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { EXTENSION } from "../../constants.json";
+import { EXTENSION } from "@/constants";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { save, open } from "@tauri-apps/plugin-dialog";
 

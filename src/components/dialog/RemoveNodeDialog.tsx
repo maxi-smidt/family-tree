@@ -9,6 +9,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   members: Member[];
@@ -23,20 +24,21 @@ export const RemoveNodeDialog = ({
   onConfirm,
   onCancel,
 }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "dialog.remove-node",
+  });
+
   if (members.length === 0) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Member{members.length > 1 && "s"}</DialogTitle>
-          <DialogDescription>
-            This action will permanently delete the following members from the
-            family tree. This action cannot be undone.
-          </DialogDescription>
+          <DialogTitle>{t("title", { count: members.length })}</DialogTitle>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="max-h-[50vh] overflow-y-auto">
-          Are you sure you want to delete:
+          {t("validation")}
           <ul className="list-disc ml-6 my-2">
             {members.map((m) => (
               <li key={m.id}>{`${m.firstName} ${m.lastName}`}</li>
@@ -46,11 +48,11 @@ export const RemoveNodeDialog = ({
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="sm" onClick={onCancel}>
-              Cancel
+              {t("cancel")}
             </Button>
           </DialogClose>
           <Button variant="destructive" size="sm" onClick={onConfirm}>
-            Delete
+            {t("delete")}
           </Button>
         </DialogFooter>
       </DialogContent>

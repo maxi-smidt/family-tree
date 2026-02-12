@@ -10,12 +10,16 @@ import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
 import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   member: Member;
 };
 
 export const ViewMode = ({ member }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.view-mode",
+  });
   const { galleryImages } = useFamilyStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
@@ -44,27 +48,27 @@ export const ViewMode = ({ member }: Props) => {
       <div className="grid grid-cols-2 gap-4">
         <Item variant="muted">
           <ItemContent>
-            <ItemTitle>First Name</ItemTitle>
+            <ItemTitle>{t("firstname-item")}</ItemTitle>
             <ItemDescription>{member.firstName}</ItemDescription>
           </ItemContent>
         </Item>
         <Item variant="muted">
           <ItemContent>
-            <ItemTitle>Last Name</ItemTitle>
+            <ItemTitle>{t("lastname-item")}</ItemTitle>
             <ItemDescription>{member.lastName}</ItemDescription>
           </ItemContent>
         </Item>
         <Item variant="muted">
           <ItemContent>
-            <ItemTitle>Maiden Name</ItemTitle>
+            <ItemTitle>{t("maiden-item")}</ItemTitle>
             <ItemDescription>
-              {member.maidenName || <i>None</i>}
+              {member.maidenName || <i>{t("maiden-fallback")}</i>}
             </ItemDescription>
           </ItemContent>
         </Item>
         <Item variant="muted">
           <ItemContent>
-            <ItemTitle>Gender</ItemTitle>
+            <ItemTitle>{t("gender-item")}</ItemTitle>
             <ItemDescription className="capitalize">
               {member.gender}
             </ItemDescription>
@@ -72,15 +76,19 @@ export const ViewMode = ({ member }: Props) => {
         </Item>
         <Item variant="muted">
           <ItemContent>
-            <ItemTitle>Date of Birth</ItemTitle>
+            <ItemTitle>{t("dob-item")}</ItemTitle>
             <ItemDescription>{formatDate(member.date.birth)}</ItemDescription>
           </ItemContent>
         </Item>
         <Item variant="muted">
           <ItemContent>
-            <ItemTitle>Date of Death</ItemTitle>
+            <ItemTitle>{t("dod-item")}</ItemTitle>
             <ItemDescription>
-              {member.date.death ? formatDate(member.date.death) : <i>Alive</i>}
+              {member.date.death ? (
+                formatDate(member.date.death)
+              ) : (
+                <i>{t("dod-fallback")}</i>
+              )}
             </ItemDescription>
           </ItemContent>
         </Item>
@@ -88,16 +96,16 @@ export const ViewMode = ({ member }: Props) => {
 
       <Item variant="muted">
         <ItemContent>
-          <ItemTitle>Additional Information</ItemTitle>
+          <ItemTitle>{t("additional-info")}</ItemTitle>
           <ItemDescription>
-            {member.additionalData || <i>No information added yet.</i>}
+            {member.additionalData || <i>{t("additional-info-fallback")}</i>}
           </ItemDescription>
         </ItemContent>
       </Item>
 
       <Item variant="muted">
         <ItemContent>
-          <ItemTitle>Linked Images</ItemTitle>
+          <ItemTitle>{t("linked-images")}</ItemTitle>
           {linkedImages.length > 0 ? (
             <div className="grid grid-cols-3 gap-2 mt-2">
               {linkedImages.map((image, index) => (
@@ -112,7 +120,7 @@ export const ViewMode = ({ member }: Props) => {
             </div>
           ) : (
             <ItemDescription>
-              <i>No images linked to this person yet.</i>
+              <i>{t("linked-images-fallback")}</i>
             </ItemDescription>
           )}
         </ItemContent>

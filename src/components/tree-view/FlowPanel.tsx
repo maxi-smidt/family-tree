@@ -13,13 +13,13 @@ import {
   OnSelectionChangeParams,
   Panel,
   ReactFlow,
+  ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Member, RelationType } from "@/types/member";
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import debounce from "lodash.debounce";
-import { toast } from "sonner";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/tree-view/FlowPanelControls";
 import { MemberControls } from "@/components/tree-view/MemberControls";
@@ -45,7 +45,7 @@ export const FlowPanel = () => {
   } = useFamilyStore();
   const { edgeType, isLockedScreen, visibleRelationTypes, toggleRelationType } =
     useFamilyTreeSettings();
-
+  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
@@ -150,8 +150,7 @@ export const FlowPanel = () => {
   const rearrangeNodes = () => {
     debouncedSave.cancel();
     pendingUpdates.current = {};
-
-    updateLayout().then();
+    updateLayout().then(() => rfInstance?.fitView());
   };
 
   const confirmDelete = () => {
@@ -202,7 +201,7 @@ export const FlowPanel = () => {
       try {
         addMemberEdge(newEdge as Connection);
       } catch (e: any) {
-        toast.error(e.message);
+        console.error(e.message);
       }
     },
     [edges, members],
@@ -236,7 +235,7 @@ export const FlowPanel = () => {
         nodesConnectable={!isLockedScreen}
         elementsSelectable={!isLockedScreen}
         connectionMode={ConnectionMode.Loose}
-        fitView
+        onInit={setRfInstance}
       >
         <Background />
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">

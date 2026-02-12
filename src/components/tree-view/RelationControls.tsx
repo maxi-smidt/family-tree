@@ -15,8 +15,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTranslation } from "react-i18next";
+import { RELATION_TYPES } from "@/types/member";
 
 export const RelationControls = () => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "tree-view.controls",
+  });
+  const { t: tRelation } = useTranslation(undefined, {
+    keyPrefix: "common.relation-types",
+  });
   const { visibleRelationTypes, toggleRelationType } = useFamilyTreeSettings();
   const { relationTypes } = useFamilyStore();
 
@@ -30,14 +38,14 @@ export const RelationControls = () => {
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
-        <TooltipContent side="left">Visible Relations</TooltipContent>
+        <TooltipContent side="left">{t("select-relation")}</TooltipContent>
       </Tooltip>
       <DropdownMenuContent
         className="w-56"
         side="left"
         onCloseAutoFocus={(e) => e.preventDefault()}
       >
-        <DropdownMenuLabel>Visible Relations</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("select-relation")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {relationTypes.map((type) => (
           <DropdownMenuCheckboxItem
@@ -47,9 +55,9 @@ export const RelationControls = () => {
               toggleRelationType(type.id);
             }}
             onSelect={(e) => e.preventDefault()}
-            disabled={type.id === "parent"}
+            disabled={type.id === RELATION_TYPES[0]}
           >
-            {type.description}
+            {tRelation(type.id)}
           </DropdownMenuCheckboxItem>
         ))}
       </DropdownMenuContent>

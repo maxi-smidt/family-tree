@@ -1,6 +1,6 @@
 import { Member } from "@/types/member";
 import dagre from "@dagrejs/dagre";
-import { NODE_WIDTH, NODE_HEIGHT } from "../../constants.json";
+import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 
 const RANK_SEPARATION = 90;
 const NODE_SEPARATION = 150;

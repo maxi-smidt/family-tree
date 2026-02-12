@@ -18,7 +18,7 @@ export function LanguageSelector() {
   return (
     <SettingsField label={t("common.selectLanguage")}>
       <Select value={i18n.language} onValueChange={handleLanguageChange}>
-        <SelectTrigger className="w-full">
+        <SelectTrigger size="sm" className="w-full text-xs">
           <SelectValue placeholder={t("common.selectLanguage")} />
         </SelectTrigger>
         <SelectContent>

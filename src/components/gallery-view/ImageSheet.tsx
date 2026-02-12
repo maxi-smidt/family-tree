@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { DatePicker } from "@/components/ui/date-picker";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   isOpen: boolean;
@@ -22,6 +23,9 @@ type Props = {
 };
 
 export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "gallery-view.image-sheet",
+  });
   const { members, updateGalleryImage } = useFamilyStore();
   const [formData, setFormData] = useState<Partial<GalleryImage>>(image);
 
@@ -41,10 +45,10 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
   const handleSave = () => {
     updateGalleryImage(image.id, formData)
       .then(() => {
-        toast.success("Image details saved");
+        toast.success(t("toast-success"));
         onClose();
       })
-      .catch(() => toast.error("Failed to save image details"));
+      .catch(() => toast.error(t("toast-error")));
   };
 
   const handleDateChange = (date: Date | undefined) => {
@@ -57,7 +61,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-[80vw]">
         <SheetHeader>
-          <SheetTitle>Image Details</SheetTitle>
+          <SheetTitle>{t("title")}</SheetTitle>
         </SheetHeader>
         <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
@@ -71,10 +75,10 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
             <FieldGroup className="gap-4">
               <Field>
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  Title
+                  {t("title-field")}
                 </FieldLabel>
                 <Input
-                  placeholder="Image Title"
+                  placeholder={t("title-placeholder")}
                   value={formData.title || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, title: e.target.value })
@@ -83,10 +87,10 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
               </Field>
               <Field>
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  Description
+                  {t("description-field")}
                 </FieldLabel>
                 <Textarea
-                  placeholder="Image Description"
+                  placeholder={t("description-placeholder")}
                   value={formData.description || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
@@ -95,7 +99,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
               </Field>
               <Field>
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  Date Taken
+                  {t("date-field")}
                 </FieldLabel>
                 <DatePicker
                   value={new Date(formData.createdAt || new Date())}
@@ -104,7 +108,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
               </Field>
               <Field>
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  Linked Members
+                  {t("members-field")}
                 </FieldLabel>
                 <MultiSelect
                   options={memberOptions}
@@ -112,7 +116,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
                   onValueChange={(selected) =>
                     setFormData({ ...formData, linkedMemberIds: selected })
                   }
-                  placeholder="Link members to this image"
+                  placeholder={t("members-placeholder")}
                   variant="secondary"
                   animation={0}
                   maxCount={25}
@@ -120,7 +124,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
                   hideSelectAll={true}
                 />
               </Field>
-              <Button onClick={handleSave}>Save</Button>
+              <Button onClick={handleSave}>{t("save")}</Button>
             </FieldGroup>
           </div>
         </div>

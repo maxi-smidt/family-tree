@@ -11,6 +11,7 @@ import { ViewMode } from "./ViewMode";
 import { EditMode } from "./EditMode";
 import { Button } from "@/components/ui/button";
 import { Pencil, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   isOpen: boolean;
@@ -25,6 +26,9 @@ export const MemberSheet = ({
   member,
   initialEditMode = false,
 }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet",
+  });
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
 
   useEffect(() => {
@@ -39,12 +43,10 @@ export const MemberSheet = ({
         <SheetHeader className="px-4 py-4 border-b flex flex-row items-center justify-between space-y-0">
           <div>
             <SheetTitle>
-              {isEditMode ? "Edit Member" : "Member Details"}
+              {isEditMode ? t("edit-title") : t("detail-title")}
             </SheetTitle>
             <SheetDescription>
-              {isEditMode
-                ? "Update the member's information."
-                : "View detailed information about this family member."}
+              {isEditMode ? t("edit-description") : t("detail-description")}
             </SheetDescription>
           </div>
           <div className="flex items-center gap-2">

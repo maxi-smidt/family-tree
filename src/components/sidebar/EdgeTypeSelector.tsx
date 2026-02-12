@@ -10,23 +10,25 @@ import {
 import { useTranslation } from "react-i18next";
 
 export const EdgeTypeSelector = () => {
+  const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
   const { edgeType, setEdgeType } = useFamilyTreeSettings();
-  const { t } = useTranslation();
 
   return (
-    <SettingsField label={t("sidebar.edgeType")}>
+    <SettingsField label={t("edge-type")}>
       <Select
         value={edgeType}
         onValueChange={(val) => setEdgeType(val as EdgeType)}
       >
         <SelectTrigger size="sm" className="w-full text-xs">
-          <SelectValue placeholder="Select type" />
+          <SelectValue placeholder={t("edge-type-placeholder")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="default">Default</SelectItem>
-          <SelectItem value="straight">Straight</SelectItem>
-          <SelectItem value="step">Step</SelectItem>
-          <SelectItem value="smoothstep">Smoothstep</SelectItem>
+          <SelectItem value="default">{t("step-type.default")}</SelectItem>
+          <SelectItem value="straight">{t("step-type.straight")}</SelectItem>
+          <SelectItem value="step">{t("step-type.step")}</SelectItem>
+          <SelectItem value="smoothstep">
+            {t("step-type.smoothstep")}
+          </SelectItem>
         </SelectContent>
       </Select>
     </SettingsField>
