@@ -141,8 +141,7 @@
       "maiden-field": "Mädchenname",
       "born-field": "Geburtsdatum",
       "death-field": "Sterbedatum",
-      "extra-field": "Weitere Informationen",
-      "save": "Speichern"
+      "extra-field": "Weitere Informationen"
     },
     "view-mode": {
       "firstname-item": "First Name",
@@ -160,9 +159,10 @@
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",
-      "detail-title": "Person im Detail",
+      "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
-      "detail-description": "Betrachte die Informationen über diese Person."
+      "detail-description": "Betrachte die Informationen über diese Person.",
+      "save": "Speichern"
     }
   },
   "tree-view": {

@@ -2,6 +2,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -10,7 +11,7 @@ import { useEffect, useState } from "react";
 import { ViewMode } from "./ViewMode";
 import { EditMode } from "./EditMode";
 import { Button } from "@/components/ui/button";
-import { Pencil, X } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 type Props = {
@@ -39,9 +40,9 @@ export const MemberSheet = ({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-100 sm:w-135 flex flex-col p-0 gap-0">
-        <SheetHeader className="px-4 py-4 border-b flex flex-row items-center justify-between space-y-0">
-          <div>
+      <SheetContent className="w-100 sm:w-135" showCloseButton={false}>
+        <SheetHeader className="border-b">
+          <div className="pr-10">
             <SheetTitle>
               {isEditMode ? t("edit-title") : t("detail-title")}
             </SheetTitle>
@@ -49,32 +50,36 @@ export const MemberSheet = ({
               {isEditMode ? t("edit-description") : t("detail-description")}
             </SheetDescription>
           </div>
-          <div className="flex items-center gap-2">
-            {!isEditMode && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsEditMode(true)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            )}
-            {isEditMode && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsEditMode(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
+          <div className="absolute top-4 right-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsEditMode((value) => !value)}
+            >
+              {isEditMode ? <Eye /> : <Pencil />}
+            </Button>
           </div>
         </SheetHeader>
 
-        {isEditMode ? (
-          <EditMode member={member} />
-        ) : (
-          <ViewMode member={member} />
+        <div className="p-4">
+          {isEditMode ? (
+            <EditMode member={member} />
+          ) : (
+            <ViewMode member={member} />
+          )}
+        </div>
+
+        {isEditMode && (
+          <SheetFooter className="mt-auto p-4 border-t bg-background">
+            <Button
+              type="submit"
+              form="edit-member-form"
+              className="w-full"
+              size="sm"
+            >
+              {t("save")}
+            </Button>
+          </SheetFooter>
         )}
       </SheetContent>
     </Sheet>

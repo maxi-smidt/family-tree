@@ -120,7 +120,7 @@ export const ListView = () => {
         </div>
         <div className="text-sm text-muted-foreground">
           {sortedMembers.length}{" "}
-          {t("select-member", { count: sortedMembers.length })}
+          {t("selected-members", { count: sortedMembers.length })}
         </div>
       </div>
 

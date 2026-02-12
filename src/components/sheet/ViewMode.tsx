@@ -42,7 +42,7 @@ export const ViewMode = ({ member }: Props) => {
   };
 
   return (
-    <div className="w-full space-y-4 p-4 overflow-y-auto">
+    <div className="w-full space-y-4 overflow-y-auto">
       <FamilyNodeContent member={member} largeImage />
 
       <div className="grid grid-cols-2 gap-4">
