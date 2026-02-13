@@ -6,10 +6,6 @@ export const RELATION_TYPES = CONSTANT_RELATION_TYPES as readonly string[];
 
 export type RelationType = (typeof RELATION_TYPES)[number];
 
-export interface RelationTypeDefinition {
-  id: RelationType;
-}
-
 export interface Relation {
   fromMemberId: string;
   toMemberId: string;
@@ -41,6 +37,22 @@ export interface Member {
   onEdit?: () => void;
   onView?: () => void;
   [key: string]: unknown;
+}
+
+export class MemberObject {
+  static equal(m1: Member, m2: Member) {
+    return this.equalDB(mapMemberToDB(m1), mapMemberToDB(m2));
+  }
+
+  static equalDB(m1: MemberDB, m2: MemberDB) {
+    return (
+      m1.firstName === m2.firstName &&
+      m1.lastName === m2.lastName &&
+      m1.gender === m2.gender &&
+      m1.dateOfBirth === m2.dateOfBirth &&
+      m1.dateOfDeath === m2.dateOfDeath
+    );
+  }
 }
 
 export interface MemberDB {

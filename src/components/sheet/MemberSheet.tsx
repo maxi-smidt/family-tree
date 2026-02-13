@@ -61,7 +61,7 @@ export const MemberSheet = ({
           </div>
         </SheetHeader>
 
-        <div className="p-4">
+        <div className="p-4 flex-1 overflow-y-auto">
           {isEditMode ? (
             <EditMode member={member} />
           ) : (

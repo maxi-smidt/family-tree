@@ -95,13 +95,14 @@
     "main-panel": {
       "tree": "Stammbaum",
       "list": "Liste",
-      "gallery": "Galerie"
+      "gallery": "Galerie",
+      "merge": "Datenbanken vereinen"
     },
     "no-database-placeholder": {
       "title": "Noch keine Datenbanken",
       "description": "Du hast noch keine Datenbanken erstellt. Starte mit mit der Erstellung einer neuen.",
-      "create": "Databank erstellen",
-      "import": "Databank importieren",
+      "create": "Datenbank erstellen",
+      "import": "Datenbank importieren",
       "toast-success": "Datenbank erfolgreich importieren!",
       "toast-error": "Datenbank import fehlgeschlagen."
     }
@@ -134,6 +135,7 @@
       "toast-error-file": "Lesen des Files fehlgeschlagen",
       "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
       "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",
+      "toast-error-duplicate": "Eine Person mit denselben Daten existiert bereits.",
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
       "firstname-field": "Vorname",
@@ -182,6 +184,41 @@
       "add-person": "Person hinzufügen",
       "remove-person": "Ausgewählte Person entfernen",
       "select-relation": "Sichtbare Beziehungen"
+    }
+  },
+  "merge-view": {
+    "view": {
+      "title": "Databanken vereinen",
+      "source-database-1": "Datenbank 1",
+      "source-database-2": "Datenbank 2",
+      "select-placeholder": "Datenbank auswählen",
+      "empty-database-select": "<leere Datenbank>",
+      "new-database-field": "Datenbank Name",
+      "new-database-placeholder": "Datenbank Name",
+      "merge-database": "Vereinen",
+      "merging-database": "Am Vereinen...",
+      "new-database": "Neue Datenbank",
+      "database-copy": "(Kopie)",
+      "toast-preview-error": "Die Datenbanken konnten nicht für die Vorschau geladen werden."
+    },
+    "preview": {
+      "title": "Vorschau",
+      "merge-preview-number": "Erwartetes Ergebnis: {{mergedCount}} Personen (von {{totalMembers}} insgesamt)",
+      "no-overlap": "Keine übereinstimmenden Personen gefunden. Alle Personen werden als neue Einträge hinzugefügt.",
+      "table": {
+        "firstname": "Vorname",
+        "lastname": "Nachname",
+        "birth-date": "Geburtsdatum",
+        "status": "Status",
+        "will-be-merged": "wird vereint"
+      }
+    }
+  },
+  "hooks": {
+    "merge-manager": {
+      "toast-error-name": "Es muss ein Name für die neue Datenbank angegeben werden.",
+      "toast-error-merge": "Datenbanken konnten nicht vereint werden.",
+      "toast-success-merge": "Datenbanken erfolgreich vereint."
     }
   },
   "common": {

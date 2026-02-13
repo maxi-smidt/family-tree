@@ -13,7 +13,6 @@ export interface GalleryImageDB {
   imageData: string;
   title: string | null;
   description: string | null;
-  linkedMemberIds: string;
   createdAt: string;
   uploadedAt: string;
 }

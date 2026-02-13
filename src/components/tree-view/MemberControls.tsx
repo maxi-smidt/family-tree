@@ -146,7 +146,7 @@ export const MemberControls = ({
 
     const newMember: Member = {
       id: crypto.randomUUID(),
-      gender: "other",
+      gender: "o",
       firstName: "New",
       lastName: "Member",
       maidenName: null,

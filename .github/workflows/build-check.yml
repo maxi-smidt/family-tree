@@ -1,0 +1,41 @@
+name: "Build Check"
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-check:
+    name: "Build Application"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: "Install Rust stable"
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: "Install dependencies (ubuntu only)"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            patchelf
+
+      - name: "Install frontend dependencies"
+        run: npm install
+
+      - name: "Build the application"
+        run: npm run tauri -- build
