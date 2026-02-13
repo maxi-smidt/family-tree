@@ -13,6 +13,7 @@ import {
   Network,
   UserMinus,
   UserPlus,
+  Zap,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -37,7 +38,7 @@ export const MemberControls = ({
   onRearrange,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
-  const { isLockedScreen } = useFamilyTreeSettings();
+  const { isLockedScreen, isFastMode, setIsFastMode } = useFamilyTreeSettings();
   const { addMember, updateMemberPartial } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
 
@@ -56,6 +57,21 @@ export const MemberControls = ({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={isFastMode ? "default" : "secondary"}
+            size="icon"
+            onClick={() => setIsFastMode(!isFastMode)}
+            disabled={isLockedScreen}
+          >
+            <Zap className={isFastMode ? "fill-current" : ""} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          {isFastMode ? t("disable-fast-mode") : t("enable-fast-mode")}
+        </TooltipContent>
       </Tooltip>
       <ButtonGroup orientation="vertical">
         <Tooltip>

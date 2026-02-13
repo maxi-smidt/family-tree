@@ -190,7 +190,9 @@
       "expand-all-children": "Expand all children",
       "add-person": "Add person",
       "remove-person": "Remove selected person",
-      "select-relation": "Visible Relations"
+      "select-relation": "Visible Relations",
+      "disable-fast-mode": "Disable fast mode",
+      "enable-fast-mode": "Enable fast mode"
     }
   },
   "merge-view": {

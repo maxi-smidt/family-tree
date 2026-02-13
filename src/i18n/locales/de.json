@@ -190,7 +190,9 @@
       "expand-all-children": "Alle Kinder ausklappen",
       "add-person": "Person hinzufügen",
       "remove-person": "Ausgewählte Person entfernen",
-      "select-relation": "Sichtbare Beziehungen"
+      "select-relation": "Sichtbare Beziehungen",
+      "disable-fast-mode": "Schnellmodus deaktivieren",
+      "enable-fast-mode": "Schnellmodus aktivieren"
     }
   },
   "merge-view": {

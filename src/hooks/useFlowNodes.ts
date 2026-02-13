@@ -6,16 +6,29 @@ export const useFlowNodes = (
   nodes: Node[],
   setEditingMemberId: (id: string) => void,
   setIsEditMode: (isEdit: boolean) => void,
+  onAddChild: (parentId: string) => void,
+  onAddParent: (childId: string) => void,
 ) => {
   return useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
     const visibilityCache = new Map<string, boolean>();
+    const visiting = new Set<string>();
 
     const isNodeVisible = (nodeId: string): boolean => {
       if (visibilityCache.has(nodeId)) return visibilityCache.get(nodeId)!;
+      if (visiting.has(nodeId)) {
+        // Cycle detected, assume visible to prevent crash and allow user to fix
+        return true;
+      }
+
+      visiting.add(nodeId);
 
       const node = nodeMap.get(nodeId);
-      if (!node) return false;
+      if (!node) {
+        visiting.delete(nodeId);
+        return false;
+      }
+
       const member = node.data as Member;
       const parentIds = [
         member.parents.maternalParent,
@@ -24,6 +37,7 @@ export const useFlowNodes = (
 
       if (parentIds.length === 0) {
         visibilityCache.set(nodeId, true);
+        visiting.delete(nodeId);
         return true;
       }
 
@@ -34,6 +48,7 @@ export const useFlowNodes = (
       });
 
       visibilityCache.set(nodeId, isVisible);
+      visiting.delete(nodeId);
       return isVisible;
     };
 
@@ -50,7 +65,13 @@ export const useFlowNodes = (
           setEditingMemberId(node.id);
           setIsEditMode(false);
         },
+        onAddChild: () => {
+          onAddChild(node.id);
+        },
+        onAddParent: () => {
+          onAddParent(node.id);
+        },
       },
     }));
-  }, [nodes, setEditingMemberId, setIsEditMode]);
+  }, [nodes, setEditingMemberId, setIsEditMode, onAddChild, onAddParent]);
 };

@@ -17,6 +17,8 @@ interface FamilyTreeSettingsState {
   setSidebarOpen: (val: boolean) => void;
   isLockedScreen: boolean;
   setIsLockedScreen: (val: boolean) => void;
+  isFastMode: boolean;
+  setIsFastMode: (val: boolean) => void;
   databases: Database[];
   addDatabase: (newDb: Database) => void;
   selectedDatabase: Database | undefined;
@@ -33,6 +35,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
     (set) => ({
       edgeType: "step",
       isLockedScreen: false,
+      isFastMode: false,
       sidebarOpen: true,
       databases: [],
       selectedDatabase: undefined,
@@ -41,6 +44,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       setEdgeType: (type) => set({ edgeType: type }),
       setSidebarOpen: (val: boolean) => set({ sidebarOpen: val }),
       setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
+      setIsFastMode: (val: boolean) => set({ isFastMode: val }),
       addDatabase: (newDb) =>
         set((state) => {
           const isDuplicate = state.databases.some((d) => d.id === newDb.id);

@@ -28,8 +28,14 @@ const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
   const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
-  const { members, removeMember, updateLayout, addRelation, removeRelation } =
-    useMemberStore();
+  const {
+    members,
+    removeMember,
+    updateLayout,
+    addRelation,
+    removeRelation,
+    addMember,
+  } = useMemberStore();
   const { isReady, connect } = useDatabaseStore();
   const {
     edgeType,
@@ -53,7 +59,75 @@ export const FlowPanel = () => {
     [members, editingMemberId],
   );
 
-  const viewNodes = useFlowNodes(nodes, setEditingMemberId, setIsEditMode);
+  const onAddChild = async (parentId: string) => {
+    const parent = members.find((m) => m.id === parentId);
+    if (!parent) return;
+
+    const position = {
+      x: parent.position.x,
+      y: parent.position.y + 200, // Place below parent
+    };
+
+    const newMember: Member = {
+      id: crypto.randomUUID(),
+      gender: "o",
+      firstName: "New",
+      lastName: "Child",
+      maidenName: null,
+      imageData: null,
+      date: { birth: "2026", death: null },
+      parents: { paternalParent: null, maternalParent: null },
+      additionalData: null,
+      isCollapsed: false,
+      position: position,
+    };
+
+    await addMember(newMember);
+    // Relation: Child -> Parent
+    await addRelation(newMember.id, parentId, "parent");
+
+    setEditingMemberId(newMember.id);
+    setIsEditMode(true);
+  };
+
+  const onAddParent = async (childId: string) => {
+    const child = members.find((m) => m.id === childId);
+    if (!child) return;
+
+    const position = {
+      x: child.position.x,
+      y: child.position.y - 200, // Place above child
+    };
+
+    const newMember: Member = {
+      id: crypto.randomUUID(),
+      gender: "o",
+      firstName: "New",
+      lastName: "Parent",
+      maidenName: null,
+      imageData: null,
+      date: { birth: "1980", death: null },
+      parents: { paternalParent: null, maternalParent: null },
+      additionalData: null,
+      isCollapsed: false,
+      position: position,
+    };
+
+    await addMember(newMember);
+    // Relation: Child -> Parent
+    await addRelation(childId, newMember.id, "parent");
+
+    setEditingMemberId(newMember.id);
+    setIsEditMode(true);
+  };
+
+  const viewNodes = useFlowNodes(
+    nodes,
+    setEditingMemberId,
+    setIsEditMode,
+    onAddChild,
+    onAddParent,
+  );
   const viewEdges = useFlowEdges(members, visibleRelationTypes, edgeType);
 
   const {
