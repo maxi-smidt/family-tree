@@ -54,6 +54,9 @@ export const DatabaseManagementView = () => {
     null,
   );
   const [editingName, setEditingName] = useState("");
+  const [previousSelectedDb, setPreviousSelectedDb] = useState<
+    Database | undefined
+  >(undefined);
 
   const askImportHandling = () => {
     return new Promise<"overwrite" | "keep" | "cancel">((resolve) => {
@@ -128,6 +131,25 @@ export const DatabaseManagementView = () => {
       setSelectedDatabase(database);
       await connect(database);
     }
+  };
+
+  const handleOpenRemoveDialog = (database: Database) => {
+    setPreviousSelectedDb(selectedDatabase);
+    setSelectedDatabase(database);
+    setIsRemoveDatabaseDialogOpen(true);
+  };
+
+  const handleCancelRemove = () => {
+    if (previousSelectedDb && previousSelectedDb.id !== selectedDatabase?.id) {
+      setSelectedDatabase(previousSelectedDb);
+    }
+    setPreviousSelectedDb(undefined);
+    setIsRemoveDatabaseDialogOpen(false);
+  };
+
+  const handleConfirmRemove = () => {
+    setPreviousSelectedDb(undefined);
+    setIsRemoveDatabaseDialogOpen(false);
   };
 
   return (
@@ -244,11 +266,7 @@ export const DatabaseManagementView = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setSelectedDatabase(database);
-                          setIsRemoveDatabaseDialogOpen(true);
-                        }}
-                        disabled={databases.length < 1}
+                        onClick={() => handleOpenRemoveDialog(database)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -275,8 +293,8 @@ export const DatabaseManagementView = () => {
       />
       <RemoveDatabaseDialog
         isOpen={isRemoveDatabaseDialogOpen}
-        onConfirm={() => setIsRemoveDatabaseDialogOpen(false)}
-        onCancel={() => setIsRemoveDatabaseDialogOpen(false)}
+        onConfirm={handleConfirmRemove}
+        onCancel={handleCancelRemove}
       />
       <ImportDatabaseDialog
         isOpen={!!importConfirmState?.isOpen}

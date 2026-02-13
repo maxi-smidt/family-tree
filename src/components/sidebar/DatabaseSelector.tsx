@@ -35,11 +35,7 @@ export const DatabaseSelector = () => {
         onValueChange={handleDatabaseChange}
         value={selectedDatabase?.id ?? ""}
       >
-        <SelectTrigger
-          size="sm"
-          className="w-full text-xs"
-          value={selectedDatabase?.id ?? ""}
-        >
+        <SelectTrigger size="sm" className="w-full text-xs">
           <SelectValue placeholder={t("placeholder")} />
         </SelectTrigger>
         <SelectContent>
