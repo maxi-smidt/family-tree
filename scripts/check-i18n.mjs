@@ -34,30 +34,45 @@ async function findMissingKeys() {
 
   for (const file of tsFiles) {
     const content = await fs.readFile(file, "utf-8");
+
     const useTranslationRegex =
-      /useTranslation\((?:[^,)]*,)?\s*{[^}]*keyPrefix:\s*["']([^"']+)["'][^}]*}\)/g;
-    const tFunctionRegex = /t\(\s*["']([^"']+)["']\s*\)/g;
+      /const\s*{([^}]+)}\s*=\s*useTranslation\(([^)]*)\)/g;
+    let declarationMatch;
 
-    let match;
-    const prefixes = [];
-    while ((match = useTranslationRegex.exec(content)) !== null) {
-      prefixes.push(match[1]);
-    }
-    if (prefixes.length === 0) prefixes.push("");
+    while ((declarationMatch = useTranslationRegex.exec(content)) !== null) {
+      const destructuredPart = declarationMatch[1];
+      const argsPart = declarationMatch[2];
 
-    while ((match = tFunctionRegex.exec(content)) !== null) {
-      const key = match[1];
-      for (const prefix of prefixes) {
-        const fullKey = prefix ? `${prefix}.${key}` : key;
+      let tVarName = "t";
+      const tVarRegex = /\bt\s*:\s*(\w+)/;
+      const tVarMatch = destructuredPart.match(tVarRegex);
+      if (tVarMatch) {
+        tVarName = tVarMatch[1];
+      } else if (!/\bt\b/.test(destructuredPart)) {
+        continue;
+      }
+
+      let keyPrefix = "";
+      const keyPrefixRegex = /keyPrefix:\s*["']([^"']+)["']/;
+      const keyPrefixMatch = argsPart.match(keyPrefixRegex);
+      if (keyPrefixMatch) {
+        keyPrefix = keyPrefixMatch[1];
+      }
+
+      const tFunctionRegex = new RegExp(
+        `\\b${tVarName}\\(\\s*["']([^"']+)["']\\s*\\)`,
+        "g",
+      );
+      let usageMatch;
+      while ((usageMatch = tFunctionRegex.exec(content)) !== null) {
+        const key = usageMatch[1];
+        const fullKey = keyPrefix ? `${keyPrefix}.${key}` : key;
 
         for (const lang of languages) {
           if (!getNestedValue(translations[lang], fullKey)) {
-            if (!missingKeysReport[lang]) {
-              missingKeysReport[lang] = {};
-            }
-            if (!missingKeysReport[lang][fullKey]) {
+            if (!missingKeysReport[lang]) missingKeysReport[lang] = {};
+            if (!missingKeysReport[lang][fullKey])
               missingKeysReport[lang][fullKey] = [];
-            }
             if (!missingKeysReport[lang][fullKey].includes(file)) {
               missingKeysReport[lang][fullKey].push(file);
             }
