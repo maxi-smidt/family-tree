@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useFamilyTreeSettings } from "./useFamilyTreeSettings";
-import { useFamilyStore } from "./useFamilyStore";
+import { useDatabaseStore } from "./useDatabaseStore";
 import { Database } from "@/types/database";
 import { DatabaseService } from "@/services/DatabaseService";
 import { invoke } from "@tauri-apps/api/core";
@@ -18,7 +18,7 @@ export const useMergeManager = () => {
     keyPrefix: "hooks.merge-manager",
   });
   const { addDatabase, selectedDatabase } = useFamilyTreeSettings();
-  const { connect, disconnect } = useFamilyStore();
+  const { connect, disconnect } = useDatabaseStore();
   const [isMerging, setIsMerging] = useState(false);
 
   const performMerge = async (
@@ -38,7 +38,7 @@ export const useMergeManager = () => {
 
     try {
       if (originalDb) {
-        await disconnect(originalDb);
+        await disconnect();
       }
 
       await invoke("initialize_database", { id: newDbId });
