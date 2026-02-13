@@ -14,12 +14,7 @@
     },
     "database-selector": {
       "label": "Aktive Datenbank",
-      "placeholder": "Wähle Datenbank",
-      "database": "Datenbank",
-      "import": "Importieren",
-      "export": "Exportieren",
-      "toast-success": "Datenbank erfolgreich importiert!",
-      "toast-error": "Datenbank import fehlgeschlagen."
+      "placeholder": "Wähle Datenbank"
     }
   },
   "dialog": {
@@ -107,7 +102,8 @@
       "tree": "Stammbaum",
       "list": "Liste",
       "gallery": "Galerie",
-      "merge": "Datenbanken vereinen"
+      "merge": "Datenbanken vereinen",
+      "database-management": "Datenbankverwaltung"
     },
     "no-database-placeholder": {
       "title": "Noch keine Datenbanken",
@@ -236,6 +232,21 @@
     "flow-interactions": {
       "toast-error-database-create": "Verbindung konnte nicht erstellt werden."
     }
+  },
+  "database-management-view": {
+    "title": "Datenbankverwaltung",
+    "create-button": "Datenbank erstellen",
+    "import-button": "Datenbank importieren",
+    "table-name": "Name",
+    "table-id": "ID",
+    "table-actions": "Aktionen",
+    "no-databases": "Keine Datenbanken gefunden. Erstelle oder importiere eine Datenbank, um zu beginnen.",
+    "selected-label": "Aktuell ausgewählt:",
+    "none-selected": "Keine",
+    "toast-import-success": "Datenbank erfolgreich importiert!",
+    "toast-import-error": "Datenbank import fehlgeschlagen.",
+    "toast-rename-success": "Datenbank erfolgreich umbenannt!",
+    "toast-rename-empty": "Datenbankname darf nicht leer sein."
   },
   "common": {
     "selectLanguage": "Sprache",
