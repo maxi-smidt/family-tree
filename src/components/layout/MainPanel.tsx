@@ -34,6 +34,7 @@ export const MainPanel = () => {
         <TabsTrigger value={TREE_VIEW}>{t("tree")}</TabsTrigger>
         <TabsTrigger value={LIST_VIEW}>{t("list")}</TabsTrigger>
         <TabsTrigger value={GALLERY_VIEW}>{t("gallery")}</TabsTrigger>
+        <div className="border-l border-border self-stretch h-auto mx-2" />
         <TabsTrigger value={MERGE_VIEW}>{t("merge")}</TabsTrigger>
       </TabsList>
       <TabWrapper value={TREE_VIEW}>
