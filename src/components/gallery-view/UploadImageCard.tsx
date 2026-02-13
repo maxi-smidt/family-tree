@@ -14,7 +14,7 @@ export const UploadImageCard = ({ onClick }: Props) => {
   return (
     <Card
       onClick={onClick}
-      className="cursor-pointer h-48 flex items-center justify-center border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+      className="cursor-pointer h-full flex items-center justify-center border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary transition-colors"
     >
       <div className="flex flex-col items-center">
         <Plus className="mb-2" />

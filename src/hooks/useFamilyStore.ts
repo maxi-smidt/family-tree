@@ -49,7 +49,7 @@ interface FamilyState {
     id: string,
     changes: Partial<GalleryImage>,
   ) => Promise<void>;
-  removeGalleryImage: (id: string) => Promise<void>;
+  deleteGalleryImage: (id: string) => Promise<void>;
   addRelation: (
     fromId: string,
     toId: string,
@@ -383,7 +383,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
     await get().refreshGalleryImages();
   },
 
-  removeGalleryImage: async (id: string) => {
+  deleteGalleryImage: async (id: string) => {
     const db = get().db;
     if (!db) return;
     await DatabaseService.removeGalleryImage(db, id);

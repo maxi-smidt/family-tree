@@ -1,5 +1,6 @@
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { GalleryImage } from "@/types/gallery";
+import { format } from "date-fns";
 
 type Props = {
   image: GalleryImage;
@@ -10,16 +11,25 @@ export const ImageCard = ({ image, onClick }: Props) => {
   return (
     <Card
       onClick={onClick}
-      className="cursor-pointer h-48 overflow-hidden relative group"
+      className="cursor-pointer overflow-hidden relative group flex flex-col h-full"
     >
-      <img
-        src={image.imageData}
-        alt={image.title || "Gallery Image"}
-        className="w-full h-full object-cover pointer-events-none"
-      />
-      <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-2 text-white">
-        <h3 className="font-bold truncate">{image.title}</h3>
-      </div>
+      <CardHeader className="p-0 bg-muted/20 flex-1 min-h-0">
+        <div className="overflow-hidden h-full w-full">
+          <img
+            src={image.imageData}
+            alt={image.title || "Gallery Image"}
+            className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="p-2 pb-1 shrink-0">
+        <h3 className="font-semibold truncate text-xs leading-tight">
+          {image.title}
+        </h3>
+        <p className="text-[10px] text-muted-foreground mt-0.5">
+          {format(new Date(image.createdAt), "PP")}
+        </p>
+      </CardContent>
     </Card>
   );
 };

@@ -3,7 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";
 import { ImageCard } from "@/components/gallery-view/ImageCard";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ImageSheet } from "@/components/gallery-view/ImageSheet";
 import { GalleryImage } from "@/types/gallery";
 import { UploadImageCard } from "@/components/gallery-view/UploadImageCard";
@@ -23,6 +23,7 @@ import {
   STORED_IMAGE_WIDTH as MAX_WIDTH,
 } from "@/constants";
 import { useTranslation } from "react-i18next";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
@@ -34,6 +35,15 @@ export const GalleryView = () => {
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [searchTerm, setSearchTerm] = useState("");
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: galleryImages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 300,
+    overscan: 5,
+  });
 
   const handleUploadImage = async () => {
     const filePath = await open({
@@ -144,7 +154,7 @@ export const GalleryView = () => {
             value={sortKey}
             onValueChange={(value) => setSortKey(value as SortKey)}
           >
-            <SelectTrigger className="w-45">
+            <SelectTrigger className="w-48">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -162,17 +172,26 @@ export const GalleryView = () => {
           </Button>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <UploadImageCard onClick={handleUploadImage} />
-          {filteredAndSortedImages.map((image) => (
-            <ImageCard
-              key={image.id}
-              image={image}
-              onClick={() => setSelectedImage(image)}
-            />
-          ))}
-        </div>
+      <div ref={parentRef} className="flex-1 overflow-y-auto">
+        {filteredAndSortedImages.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
+            <UploadImageCard onClick={handleUploadImage} />
+            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+              const image = filteredAndSortedImages[virtualItem.index];
+              return (
+                <ImageCard
+                  key={image.id}
+                  image={image}
+                  onClick={() => setSelectedImage(image)}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">{t("no-images")}</p>
+          </div>
+        )}
       </div>
       {selectedImage && (
         <ImageSheet
