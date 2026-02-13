@@ -14,12 +14,7 @@
     },
     "database-selector": {
       "label": "Active Database",
-      "placeholder": "Select database",
-      "database": "Database",
-      "import": "Import",
-      "export": "Export",
-      "toast-success": "Database imported successfully!",
-      "toast-error": "Failed to import database."
+      "placeholder": "Select database"
     }
   },
   "dialog": {
