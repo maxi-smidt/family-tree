@@ -74,7 +74,8 @@
       "search-placeholder": "Suche Bild...",
       "select-date-uploaded": "Datum Hochgeladen",
       "select-date-taken": "Datum Aufgenommen",
-      "select-title": "Titel"
+      "select-title": "Titel",
+      "no-images": "Noch keine Bilder"
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -87,9 +88,16 @@
       "date-field": "Datum aufgenommen",
       "members-field": "Verlinkte Personen",
       "members-placeholder": "Verlinke Personen mit diesem Bild",
-      "save": "Speichern"
+      "save": "Speichern",
+      "delete": "Löschen",
+      "delete-confirm-title": "Löschen bestätigen",
+      "delete-confirm-description": "Soll das Bild wirklich unwiderruflich gelöscht werden?",
+      "delete-confirm-cancel": "Abbrechen",
+      "delete-confirm-confirm": "Bestätigen",
+      "toast-delete-success": "Bild wurde erfolgreich gelöscht.",
+      "toast-delete-error": "Das Bild konnte nicht gelöscht werden."
     },
-    "upload-image-card": "Bild hochgeladen"
+    "upload-image-card": "Bild hochladen"
   },
   "layout": {
     "main-panel": {

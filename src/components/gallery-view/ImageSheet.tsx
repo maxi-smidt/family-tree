@@ -15,6 +15,17 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useTranslation } from "react-i18next";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Props = {
   isOpen: boolean;
@@ -26,7 +37,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "gallery-view.image-sheet",
   });
-  const { members, updateGalleryImage } = useFamilyStore();
+  const { members, updateGalleryImage, deleteGalleryImage } = useFamilyStore();
   const [formData, setFormData] = useState<Partial<GalleryImage>>(image);
 
   useEffect(() => {
@@ -51,6 +62,15 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
       .catch(() => toast.error(t("toast-error")));
   };
 
+  const handleDelete = () => {
+    deleteGalleryImage(image.id)
+      .then(() => {
+        toast.success(t("toast-delete-success"));
+        onClose();
+      })
+      .catch(() => toast.error(t("toast-delete-error")));
+  };
+
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
       setFormData({ ...formData, createdAt: date.toISOString() });
@@ -59,24 +79,22 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-[80vw]">
+      <SheetContent className="w-full sm:max-w-[80vw] flex flex-col p-4">
         <SheetHeader>
           <SheetTitle>{t("title")}</SheetTitle>
         </SheetHeader>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-hidden min-h-0">
+          <div className="flex items-start justify-center min-h-0">
             <img
               src={image.imageData}
               alt={image.title || "Gallery Image"}
-              className="w-full h-auto object-contain"
+              className="max-w-full max-h-full object-contain rounded-md"
             />
           </div>
-          <div>
-            <FieldGroup className="gap-4">
+          <div className="flex flex-col min-h-0">
+            <FieldGroup className="gap-4 flex-1 overflow-y-auto px-1">
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  {t("title-field")}
-                </FieldLabel>
+                <FieldLabel>{t("title-field")}</FieldLabel>
                 <Input
                   placeholder={t("title-placeholder")}
                   value={formData.title || ""}
@@ -86,9 +104,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
                 />
               </Field>
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  {t("description-field")}
-                </FieldLabel>
+                <FieldLabel>{t("description-field")}</FieldLabel>
                 <Textarea
                   placeholder={t("description-placeholder")}
                   value={formData.description || ""}
@@ -98,18 +114,14 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
                 />
               </Field>
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  {t("date-field")}
-                </FieldLabel>
+                <FieldLabel>{t("date-field")}</FieldLabel>
                 <DatePicker
                   value={new Date(formData.createdAt || new Date())}
                   onChange={handleDateChange}
                 />
               </Field>
               <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  {t("members-field")}
-                </FieldLabel>
+                <FieldLabel>{t("members-field")}</FieldLabel>
                 <MultiSelect
                   options={memberOptions}
                   defaultValue={formData.linkedMemberIds || []}
@@ -124,8 +136,36 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
                   hideSelectAll={true}
                 />
               </Field>
-              <Button onClick={handleSave}>{t("save")}</Button>
             </FieldGroup>
+            <div className="flex justify-end gap-2 mt-4 shrink-0">
+              <Button onClick={handleSave}>{t("save")}</Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive">{t("delete")}</Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {t("delete-confirm-title")}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t("delete-confirm-description")}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>
+                      {t("delete-confirm-cancel")}
+                    </AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      onClick={handleDelete}
+                    >
+                      {t("delete-confirm-confirm")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </div>
       </SheetContent>
