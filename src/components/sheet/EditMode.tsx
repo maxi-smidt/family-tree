@@ -21,7 +21,7 @@ export const EditMode = ({ member }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
   });
-  const { updateMemberPartial } = useFamilyStore();
+  const { updateMemberPartial, members } = useFamilyStore();
 
   const [formData, setFormData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -118,6 +118,22 @@ export const EditMode = ({ member }: Props) => {
 
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
+
+    const duplicate = members.find(
+      (m) =>
+        m.id !== member.id &&
+        m.firstName === formData.firstName &&
+        m.lastName === formData.lastName &&
+        m.gender === formData.gender &&
+        m.date.birth === formData.date.birth &&
+        m.date.death === formData.date.death,
+    );
+
+    if (duplicate) {
+      toast.error(t("toast-error-duplicate"));
+      return;
+    }
+
     void updateMemberPartial(member.id, {
       firstName: formData.firstName,
       lastName: formData.lastName,

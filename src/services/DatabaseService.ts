@@ -5,7 +5,6 @@ import {
   MemberUpdate,
   RelationDB,
   RelationType,
-  RelationTypeDefinition,
   mapMemberToDB,
 } from "@/types/member";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
@@ -24,7 +23,7 @@ export class DatabaseService {
   }
 
   static async getRelationTypes(db: Database) {
-    return await db.select<RelationTypeDefinition[]>(
+    return await db.select<{ id: RelationType }[]>(
       QUERIES.RELATION_TYPES.SELECT_ALL,
     );
   }

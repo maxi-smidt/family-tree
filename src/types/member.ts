@@ -6,10 +6,6 @@ export const RELATION_TYPES = CONSTANT_RELATION_TYPES as readonly string[];
 
 export type RelationType = (typeof RELATION_TYPES)[number];
 
-export interface RelationTypeDefinition {
-  id: RelationType;
-}
-
 export interface Relation {
   fromMemberId: string;
   toMemberId: string;

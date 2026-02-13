@@ -28,6 +28,7 @@ export const DatabaseSelector = () => {
   const setSelectedDatabase = useFamilyTreeSettings(
     (s) => s.setSelectedDatabase,
   );
+  const { connect } = useFamilyStore();
   const { exportDatabase, importDatabase, importDatabaseCheck } =
     useDatabaseManager();
 
@@ -46,13 +47,19 @@ export const DatabaseSelector = () => {
     });
   };
 
+  const handleDatabaseChange = async (dbId: string) => {
+    const db = databases.find((d) => d.id === dbId);
+    if (db) {
+      setSelectedDatabase(db);
+      await connect(db);
+    }
+  };
+
   return (
     <SettingsField label={t("label")}>
       <div className="flex flex-col gap-2">
         <Select
-          onValueChange={(e) =>
-            setSelectedDatabase(databases.find((d) => d.id === e)!)
-          }
+          onValueChange={handleDatabaseChange}
           value={selectedDatabase?.id ?? ""}
         >
           <SelectTrigger
@@ -157,6 +164,7 @@ export const DatabaseSelector = () => {
       const newDatabase = await importDatabase(check.sourcePath, overwrite);
 
       setSelectedDatabase(newDatabase);
+      await connect(newDatabase);
       toast.success(t("toast-success"));
     } catch (err) {
       console.error(err);

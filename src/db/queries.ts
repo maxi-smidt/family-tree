@@ -8,7 +8,7 @@ export const QUERIES = {
   },
   RELATION_TYPES: {
     SELECT_ALL: "SELECT * FROM relation_types",
-    INSERT: "INSERT INTO relation_types (id, description) VALUES ($1, $2)",
+    INSERT: "INSERT OR IGNORE INTO relation_types (id) VALUES ($1)",
   },
   MEMBERS: {
     SELECT_ALL: "SELECT * FROM members",
@@ -23,7 +23,7 @@ export const QUERIES = {
   RELATIONS: {
     SELECT_ALL: "SELECT * FROM relations",
     INSERT:
-      "INSERT INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
+      "INSERT OR IGNORE INTO relations (from_member_id, to_member_id, relation_type) VALUES ($1, $2, $3)",
     DELETE:
       "DELETE FROM relations WHERE from_member_id = $1 AND to_member_id = $2 AND relation_type = $3",
   },
@@ -33,7 +33,7 @@ export const QUERIES = {
     INSERT_IMAGE:
       "INSERT INTO gallery_images (id, imageData, title, description, createdAt, uploadedAt) VALUES ($1, $2, $3, $4, $5, $6)",
     INSERT_LINK:
-      "INSERT INTO gallery_member_link (gallery_image_id, member_id) VALUES ($1, $2)",
+      "INSERT OR IGNORE INTO gallery_member_link (gallery_image_id, member_id) VALUES ($1, $2)",
     DELETE_IMAGE: "DELETE FROM gallery_images WHERE id = $1",
     DELETE_LINKS: "DELETE FROM gallery_member_link WHERE gallery_image_id = $1",
   },

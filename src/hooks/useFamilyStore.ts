@@ -4,7 +4,6 @@ import {
   Member,
   MemberUpdate,
   RelationType,
-  RelationTypeDefinition,
 } from "@/types/member";
 import { appConfigDir, join } from "@tauri-apps/api/path";
 import { DATABASE_DIRECTORY, EXTENSION } from "@/constants";
@@ -28,7 +27,7 @@ interface DatabaseMetaData {
 interface FamilyState {
   members: Member[];
   galleryImages: GalleryImage[];
-  relationTypes: RelationTypeDefinition[];
+  relationTypes: { id: RelationType }[];
   metadata: DatabaseMetaData;
   isReady: boolean;
   db: Database | null;
