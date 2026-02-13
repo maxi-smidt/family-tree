@@ -9,6 +9,7 @@ import { DATABASE_DIRECTORY, EXTENSION } from "@/constants";
 import DatabaseSql from "@tauri-apps/plugin-sql";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { MemberObject } from "@/types/member";
 
 const EMPTY_DB_ID = "empty_db";
 
@@ -111,14 +112,7 @@ export const useMergeManager = () => {
       }
 
       for (const m2 of data2.members) {
-        const match1 = data1.members.find(
-          (m1) =>
-            m1.firstName === m2.firstName &&
-            m1.lastName === m2.lastName &&
-            m1.gender === m2.gender &&
-            m1.dateOfBirth === m2.dateOfBirth &&
-            m1.dateOfDeath === m2.dateOfDeath,
-        );
+        const match1 = data1.members.find((m1) => MemberObject.equalDB(m1, m2));
         if (match1) {
           idMap2.set(m2.id, match1.id);
           if (

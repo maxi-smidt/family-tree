@@ -39,6 +39,22 @@ export interface Member {
   [key: string]: unknown;
 }
 
+export class MemberObject {
+  static equal(m1: Member, m2: Member) {
+    return this.equalDB(mapMemberToDB(m1), mapMemberToDB(m2));
+  }
+
+  static equalDB(m1: MemberDB, m2: MemberDB) {
+    return (
+      m1.firstName === m2.firstName &&
+      m1.lastName === m2.lastName &&
+      m1.gender === m2.gender &&
+      m1.dateOfBirth === m2.dateOfBirth &&
+      m1.dateOfDeath === m2.dateOfDeath
+    );
+  }
+}
+
 export interface MemberDB {
   id: string;
   gender: string;

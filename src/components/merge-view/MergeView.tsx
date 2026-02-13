@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { Member } from "@/types/member";
+import { Member, MemberObject } from "@/types/member";
 import { DatabaseService } from "@/services/DatabaseService";
 import {
   Select,
@@ -70,16 +70,6 @@ export const MergeView = () => {
     }
   };
 
-  const areMembersEqual = (m1: Member, m2: Member) => {
-    return (
-      m1.firstName === m2.firstName &&
-      m1.lastName === m2.lastName &&
-      m1.gender === m2.gender &&
-      m1.date.birth === m2.date.birth &&
-      m1.date.death === m2.date.death
-    );
-  };
-
   const loadDatabaseMembers = async (dbId: string): Promise<Member[]> => {
     if (dbId === EMPTY_DB_ID) return [];
 
@@ -132,7 +122,7 @@ export const MergeView = () => {
       const duplicates: Member[] = [];
 
       members1.forEach((m1) => {
-        const match = members2.find((m2) => areMembersEqual(m1, m2));
+        const match = members2.find((m2) => MemberObject.equal(m1, m2));
         if (match) {
           duplicates.push(m1);
         }
