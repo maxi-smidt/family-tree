@@ -214,6 +214,13 @@
       }
     }
   },
+  "hooks": {
+    "merge-manager": {
+      "toast-error-name": "Please enter a name for the new database.",
+      "toast-error-merge": "Failed to merge databases.",
+      "toast-success-merge": "Database merged successfully!"
+    }
+  },
   "common": {
     "selectLanguage": "Language",
     "english": "English",

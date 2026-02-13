@@ -214,6 +214,13 @@
       }
     }
   },
+  "hooks": {
+    "merge-manager": {
+      "toast-error-name": "Es muss ein Name für die neue Datenbank angegeben werden.",
+      "toast-error-merge": "Datenbanken konnten nicht vereint werden.",
+      "toast-success-merge": "Datenbanken erfolgreich vereint."
+    }
+  },
   "common": {
     "selectLanguage": "Sprache",
     "english": "Englisch",
