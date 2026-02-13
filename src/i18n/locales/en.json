@@ -74,7 +74,11 @@
       "search-placeholder": "Search image...",
       "select-date-uploaded": "Date Uploaded",
       "select-date-taken": "Date Taken",
-      "select-title": "Title"
+      "select-title": "Title",
+      "toast-error-canvas-context": "Failed to get canvas context",
+      "toast-error-image-upload": "Failed to load image. Please ensure it's a valid image file.",
+      "toast-success-image-upload": "Image uploaded successfully.",
+      "toast-error-read-file": "Failed to read file"
     },
     "image-sheet": {
       "toast-success": "Image details saved",
@@ -228,6 +232,9 @@
       "toast-error-name": "Please enter a name for the new database.",
       "toast-error-merge": "Failed to merge databases.",
       "toast-success-merge": "Database merged successfully!"
+    },
+    "flow-interactions": {
+      "toast-error-database-create": "Failed to create connection."
     }
   },
   "common": {

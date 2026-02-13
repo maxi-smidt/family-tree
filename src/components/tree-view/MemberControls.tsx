@@ -120,12 +120,13 @@ export const MemberControls = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="success"
+              variant="secondary"
               size="icon"
               onClick={onAddMember}
               disabled={isLockedScreen}
+              className="text-green-600 hover:bg-green-50 hover:text-green-700"
             >
-              <UserPlus />
+              <UserPlus size={20} />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">{t("add-person")}</TooltipContent>
@@ -133,10 +134,11 @@ export const MemberControls = ({
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              variant="destructive"
+              variant="secondary"
               size="icon"
               onClick={onRemoveMembers}
               disabled={!selectedNodes.length || isLockedScreen}
+              className="text-red-600 hover:bg-red-50 hover:text-red-700"
             >
               <UserMinus />
             </Button>

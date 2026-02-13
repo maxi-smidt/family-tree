@@ -74,7 +74,11 @@
       "search-placeholder": "Suche Bild...",
       "select-date-uploaded": "Datum Hochgeladen",
       "select-date-taken": "Datum Aufgenommen",
-      "select-title": "Titel"
+      "select-title": "Titel",
+      "toast-error-canvas-context": "Canvas Kontext konnte nicht geladen werden.",
+      "toast-error-image-upload": "Das Bild konnte nicht geladen werden. Ist es ein gültiges Dokument?",
+      "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
+      "toast-error-read-file": "Datei konnte nicht gelesen werden."
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -228,6 +232,9 @@
       "toast-error-name": "Es muss ein Name für die neue Datenbank angegeben werden.",
       "toast-error-merge": "Datenbanken konnten nicht vereint werden.",
       "toast-success-merge": "Datenbanken erfolgreich vereint."
+    },
+    "flow-interactions": {
+      "toast-error-database-create": "Verbindung konnte nicht erstellt werden."
     }
   },
   "common": {

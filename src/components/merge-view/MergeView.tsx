@@ -86,9 +86,10 @@ export const MergeView = () => {
     await db.close();
 
     return membersDB.map((m) => {
+      const validGender = m.gender === "m" || m.gender === "f" ? m.gender : "o";
       return {
         id: m.id,
-        gender: (m.gender as any) || "o",
+        gender: validGender as "m" | "f" | "o",
         firstName: m.firstName,
         lastName: m.lastName,
         maidenName: m.maidenName,
