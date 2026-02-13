@@ -1,4 +1,4 @@
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { useState, useMemo } from "react";
 import { Member } from "@/types/member";
 import { Input } from "@/components/ui/input";
@@ -44,7 +44,7 @@ export const ListView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "list-view.view",
   });
-  const { members, removeMember } = useFamilyStore();
+  const { members, removeMember } = useMemberStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "firstName",

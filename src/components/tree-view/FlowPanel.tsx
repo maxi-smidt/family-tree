@@ -10,7 +10,8 @@ import {
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
 import { useEffect, useMemo, useState } from "react";
 import { Member } from "@/types/member";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/tree-view/FlowPanelControls";
 import { MemberControls } from "@/components/tree-view/MemberControls";
@@ -27,15 +28,9 @@ const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
   const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
-  const {
-    members,
-    isReady,
-    connect,
-    removeMember,
-    updateLayout,
-    addRelation,
-    removeRelation,
-  } = useFamilyStore();
+  const { members, removeMember, updateLayout, addRelation, removeRelation } =
+    useMemberStore();
+  const { isReady, connect } = useDatabaseStore();
   const { edgeType, isLockedScreen, visibleRelationTypes, toggleRelationType } =
     useFamilyTreeSettings();
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);

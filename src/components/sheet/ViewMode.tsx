@@ -6,7 +6,7 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
 import { format } from "date-fns";
@@ -23,7 +23,7 @@ export const ViewMode = ({ member }: Props) => {
   const { t: tGender } = useTranslation(undefined, {
     keyPrefix: "common.gender",
   });
-  const { galleryImages } = useFamilyStore();
+  const { galleryImages } = useGalleryStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 

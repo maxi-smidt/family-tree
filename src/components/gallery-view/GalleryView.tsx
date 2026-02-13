@@ -1,4 +1,4 @@
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";
@@ -30,7 +30,7 @@ type SortDirection = "asc" | "desc";
 
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
-  const { galleryImages, addGalleryImage } = useFamilyStore();
+  const { galleryImages, addGalleryImage } = useGalleryStore();
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -41,7 +41,7 @@ export const GalleryView = () => {
   const rowVirtualizer = useVirtualizer({
     count: galleryImages.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 300,
+    estimateSize: () => 150,
     overscan: 5,
   });
 
