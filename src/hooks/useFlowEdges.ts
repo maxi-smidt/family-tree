@@ -10,12 +10,13 @@ export const useFlowEdges = (
   return useMemo(() => {
     const newEdges: Edge[] = [];
     const processedPairs = new Set<string>();
+    const visibleTypesSet = new Set(visibleRelationTypes);
 
     const createEdgeId = (source: string, target: string) =>
       `e:${source}:${target}`;
 
     members.forEach((m) => {
-      if (visibleRelationTypes.includes("parent")) {
+      if (visibleTypesSet.has("parent")) {
         if (m.parents.maternalParent) {
           newEdges.push({
             id: createEdgeId(m.parents.maternalParent, m.id),
@@ -42,7 +43,7 @@ export const useFlowEdges = (
         m.relations.forEach((rel) => {
           if (
             rel.relationType !== "parent" &&
-            visibleRelationTypes.includes(rel.relationType)
+            visibleTypesSet.has(rel.relationType)
           ) {
             const pairKey = [m.id, rel.toMemberId].sort().join("-");
             if (processedPairs.has(pairKey)) return;

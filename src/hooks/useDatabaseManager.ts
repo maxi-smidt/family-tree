@@ -34,6 +34,7 @@ export const useDatabaseManager = () => {
 
   const exportDatabase = useCallback(
     async (database: Database) => {
+      let exportFailed = false;
       try {
         const savePath = await save({
           filters: [{ name: "Database", extensions: [EXTENSION] }],
@@ -43,14 +44,32 @@ export const useDatabaseManager = () => {
 
         await disconnectDatabase();
 
-        await invoke("export_database", {
-          id: database.id,
-          targetPath: savePath,
-        });
+        try {
+          await invoke("export_database", {
+            id: database.id,
+            targetPath: savePath,
+          });
+        } catch (error) {
+          // If export fails, attempt to reconnect the database
+          exportFailed = true;
+          console.error("Export failed:", error);
+          await connectDatabase(database);
+        }
 
-        await connectDatabase(database);
+        if (!exportFailed) {
+          await connectDatabase(database);
+        }
       } catch (error) {
-        console.error("Export failed:", error);
+        console.error("Export process failed:", error);
+        // Ensure we're connected again if possible
+        try {
+          await connectDatabase(database);
+        } catch (reconnectError) {
+          console.error(
+            "Failed to reconnect after export failure:",
+            reconnectError,
+          );
+        }
       }
     },
     [disconnectDatabase, connectDatabase],

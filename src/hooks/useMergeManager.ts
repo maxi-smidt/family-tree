@@ -9,7 +9,7 @@ import { DATABASE_DIRECTORY, EXTENSION } from "@/constants";
 import DatabaseSql from "@tauri-apps/plugin-sql";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { MemberObject } from "@/types/member";
+import { MemberObject, RelationType } from "@/types/member";
 
 const EMPTY_DB_ID = "empty_db";
 
@@ -101,9 +101,11 @@ export const useMergeManager = () => {
       };
 
       for (const m of data1.members) {
+        const validGender =
+          m.gender === "m" || m.gender === "f" ? m.gender : "o";
         await DatabaseService.addMember(newDb, {
           ...m,
-          gender: m.gender as any,
+          gender: validGender as "m" | "f" | "o",
           date: { birth: m.dateOfBirth, death: m.dateOfDeath },
           parents: { paternalParent: null, maternalParent: null },
           position: { x: m.positionX, y: m.positionY },
@@ -128,10 +130,12 @@ export const useMergeManager = () => {
           }
         } else {
           const newId = getNewId2(m2.id);
+          const validGender =
+            m2.gender === "m" || m2.gender === "f" ? m2.gender : "o";
           await DatabaseService.addMember(newDb, {
             ...m2,
             id: newId,
-            gender: m2.gender as any,
+            gender: validGender as "m" | "f" | "o",
             date: { birth: m2.dateOfBirth, death: m2.dateOfDeath },
             parents: { paternalParent: null, maternalParent: null },
             position: { x: m2.positionX, y: m2.positionY },
@@ -149,27 +153,22 @@ export const useMergeManager = () => {
       }
 
       for (const r of data1.relations) {
+        const relationType = r.relation_type as RelationType;
         await DatabaseService.addRelation(
           newDb,
           r.from_member_id,
           r.to_member_id,
-          r.relation_type as any,
+          relationType,
         );
       }
       for (const r of data2.relations) {
         const fromId = idMap2.get(r.from_member_id) || r.from_member_id;
         const toId = idMap2.get(r.to_member_id) || r.to_member_id;
-        await DatabaseService.addRelation(
-          newDb,
-          fromId,
-          toId,
-          r.relation_type as any,
-        );
+        const relationType = r.relation_type as RelationType;
+        await DatabaseService.addRelation(newDb, fromId, toId, relationType);
       }
 
-      // Merge Gallery Images
       const allImages = [...data1.galleryImages, ...data2.galleryImages];
-      // Use a Set to avoid duplicate images if IDs collide (unlikely with UUIDs but good practice)
       const processedImageIds = new Set<string>();
 
       for (const img of allImages) {
@@ -183,7 +182,7 @@ export const useMergeManager = () => {
             imageData: img.imageData,
             title: img.title,
             description: img.description,
-            linkedMemberIds: [], // Links are handled separately
+            linkedMemberIds: [],
           },
           img.createdAt,
         );

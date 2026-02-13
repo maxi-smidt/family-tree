@@ -1,4 +1,10 @@
-import { Dispatch, SetStateAction, useCallback, useRef } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useRef,
+  useEffect,
+} from "react";
 import {
   applyEdgeChanges,
   applyNodeChanges,
@@ -14,6 +20,8 @@ import {
 import { Member, RelationType } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import debounce from "lodash.debounce";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 export const useFlowInteractions = (
   members: Member[],
@@ -24,8 +32,13 @@ export const useFlowInteractions = (
   setSelectedNodes: Dispatch<SetStateAction<Node[]>>,
   setNewRelation: Dispatch<SetStateAction<Connection | null>>,
 ) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "hooks.flow-interactions",
+  });
   const { removeRelation, updateMemberPartial } = useMemberStore();
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
+
+  const memberMap = useRef(new Map<string, Member>()).current;
 
   const processUpdates = useCallback(() => {
     Object.entries(pendingUpdates.current).forEach(([id, position]) => {
@@ -106,7 +119,7 @@ export const useFlowInteractions = (
           const source = parts[1];
           const target = parts[2];
 
-          const childMember = members.find((m) => m.id === target);
+          const childMember = memberMap.get(target);
           if (childMember) {
             if (childMember.parents.maternalParent === source) {
               void updateMemberPartial(target, {
@@ -125,7 +138,7 @@ export const useFlowInteractions = (
       const edge = edges.find((e) => e.id === change.id);
       if (!edge) return;
 
-      const childMember = members.find((m) => m.id === edge.target);
+      const childMember = memberMap.get(edge.target);
       if (!childMember) return;
 
       if (childMember.parents.maternalParent === edge.source) {
@@ -138,7 +151,7 @@ export const useFlowInteractions = (
         });
       }
     },
-    [members, edges, removeRelation, updateMemberPartial],
+    [memberMap, edges, removeRelation, updateMemberPartial],
   );
 
   const onEdgesChange = useCallback(
@@ -153,11 +166,16 @@ export const useFlowInteractions = (
   const createEdgeId = (source: string, target: string) =>
     `e:${source}:${target}`;
 
+  useEffect(() => {
+    memberMap.clear();
+    members.forEach((m) => memberMap.set(m.id, m));
+  }, [members, memberMap]);
+
   const isDescendant = (
     potentialAncestorId: string,
     potentialDescendantId: string,
   ): boolean => {
-    const descendant = members.find((m) => m.id === potentialDescendantId);
+    const descendant = memberMap.get(potentialDescendantId);
     if (!descendant) return false;
 
     const parentIds = [
@@ -177,10 +195,10 @@ export const useFlowInteractions = (
       if (edges.find((e) => e.id === createEdgeId(edge.source, edge.target)))
         throw new Error(`Edge already exists`);
 
-      const sourceMember = members.find((m) => m.id === edge.source);
+      const sourceMember = memberMap.get(edge.source);
       if (!sourceMember) throw new Error("Source member not found");
 
-      const targetMember = members.find((m) => m.id === edge.target);
+      const targetMember = memberMap.get(edge.target);
       if (!targetMember) throw new Error("Target member not found");
 
       const isHorizontal =
@@ -232,7 +250,7 @@ export const useFlowInteractions = (
         }
       }
     },
-    [edges, members, updateMemberPartial, setNewRelation],
+    [edges, memberMap, updateMemberPartial, setNewRelation],
   );
 
   const onConnect = useCallback(
@@ -245,6 +263,7 @@ export const useFlowInteractions = (
         addMemberEdge(newEdge as Connection);
       } catch (e: any) {
         console.error(e.message);
+        toast.error(t("toast-error-database-create"));
       }
     },
     [addMemberEdge],

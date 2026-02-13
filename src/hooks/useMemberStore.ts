@@ -190,15 +190,19 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const { members, refreshMembers } = get();
     if (!db) return;
 
-    const newPositions = getLayoutedElements(members);
+    try {
+      const newPositions = getLayoutedElements(members);
 
-    const updatePromises = Object.entries(newPositions).map(([id, pos]) => {
-      return DatabaseService.updateMemberPosition(db, id, pos.x, pos.y);
-    });
+      const updatePromises = Object.entries(newPositions).map(([id, pos]) => {
+        return DatabaseService.updateMemberPosition(db, id, pos.x, pos.y);
+      });
 
-    await Promise.all(updatePromises);
-
-    await refreshMembers();
+      await Promise.all(updatePromises);
+      await refreshMembers();
+    } catch (error) {
+      console.error("Failed to update layout:", error);
+      await refreshMembers();
+    }
   },
 
   addRelation: async (fromId: string, toId: string, type: RelationType) => {

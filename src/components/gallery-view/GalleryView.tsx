@@ -85,7 +85,11 @@ export const GalleryView = () => {
           canvas.width = width;
           canvas.height = height;
           const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, width, height);
+          if (!ctx) {
+            toast.error(t("toast-error-canvas-context"));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
           const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
 
           void addGalleryImage({
@@ -94,13 +98,14 @@ export const GalleryView = () => {
             description: null,
             linkedMemberIds: [],
           });
-          toast.success("Image uploaded successfully");
+          toast.success(t("toast-success-image-upload"));
         };
+        img.onerror = () => toast.error(t("toast-error-image-upload"));
         img.src = base64String;
       };
       reader.readAsDataURL(blob);
     } catch (e) {
-      toast.error("Failed to read file");
+      toast.error(t("toast-error-read-file"));
     }
   };
 
