@@ -107,6 +107,13 @@ export const useMergeManager = () => {
         return idMap2.get(oldId)!;
       };
 
+      // Track merge statistics
+      let duplicateMembers = 0;
+      let mergedNotesCount = 0;
+      let skippedRelations = 0;
+      let skippedGalleryLinks = 0;
+      let duplicateImages = 0;
+
       for (const m of data1.members) {
         const validGender =
           m.gender === "m" || m.gender === "f" ? m.gender : "o";
@@ -123,11 +130,13 @@ export const useMergeManager = () => {
       for (const m2 of data2.members) {
         const match1 = data1.members.find((m1) => MemberObject.equalDB(m1, m2));
         if (match1) {
+          duplicateMembers++;
           idMap2.set(m2.id, match1.id);
           if (
             m2.additionalData &&
             m2.additionalData !== match1.additionalData
           ) {
+            mergedNotesCount++;
             const newText = match1.additionalData
               ? `${match1.additionalData}\n\n${m2.additionalData}`
               : m2.additionalData;
@@ -173,6 +182,7 @@ export const useMergeManager = () => {
           console.warn(
             `Skipping relation with invalid type: ${r.relation_type}`,
           );
+          skippedRelations++;
           continue;
         }
         const relationType = r.relation_type as RelationType;
@@ -194,6 +204,7 @@ export const useMergeManager = () => {
           console.warn(
             `Skipping relation with invalid type: ${r.relation_type}`,
           );
+          skippedRelations++;
           continue;
         }
 
@@ -216,6 +227,7 @@ export const useMergeManager = () => {
           // Update idMap2 if this image is from db2
           if (data2.galleryImages.some((img2) => img2.id === img.id)) {
             idMap2.set(img.id, existingId);
+            duplicateImages++;
           }
           continue;
         }
@@ -243,6 +255,7 @@ export const useMergeManager = () => {
           console.warn(
             `Skipping gallery link: member ${link.member_id} not found`,
           );
+          skippedGalleryLinks++;
           continue;
         }
         await DatabaseService.linkGalleryImageToMember(
@@ -262,6 +275,7 @@ export const useMergeManager = () => {
         // Validate member exists in merged database
         if (!allMemberIds.has(memberId)) {
           console.warn(`Skipping gallery link: member ${memberId} not found`);
+          skippedGalleryLinks++;
           continue;
         }
 
@@ -278,7 +292,25 @@ export const useMergeManager = () => {
       addDatabase(newDatabaseObj);
       await connect(newDatabaseObj);
 
-      toast.success(t("toast-success-merge"));
+      // Show detailed success message
+      const totalMembers = data1.members.length + data2.members.length;
+      const uniqueMembers = totalMembers - duplicateMembers;
+
+      let summary = `Successfully merged databases! ${uniqueMembers} unique members`;
+      if (duplicateMembers > 0) {
+        summary += `, ${duplicateMembers} duplicates merged`;
+      }
+      if (mergedNotesCount > 0) {
+        summary += `, ${mergedNotesCount} notes combined`;
+      }
+      if (duplicateImages > 0) {
+        summary += `, ${duplicateImages} duplicate images removed`;
+      }
+      if (skippedRelations > 0 || skippedGalleryLinks > 0) {
+        summary += `. Warning: ${skippedRelations + skippedGalleryLinks} items skipped due to validation errors`;
+      }
+
+      toast.success(summary, { duration: 6000 });
       return true;
     } catch (e: any) {
       console.error("Merge failed", e);
