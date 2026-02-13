@@ -36,6 +36,8 @@ export interface Member {
   relations?: Relation[];
   onEdit?: () => void;
   onView?: () => void;
+  onAddChild?: () => void;
+  onAddParent?: () => void;
   [key: string]: unknown;
 }
 

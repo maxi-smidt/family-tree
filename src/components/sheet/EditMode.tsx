@@ -223,6 +223,7 @@ export const EditMode = ({ member }: Props) => {
               {t("firstname-field")}
             </FieldLabel>
             <Input
+              autoFocus
               id="firstName"
               value={formData.firstName}
               className="h-7 text-xs! shadow-none"

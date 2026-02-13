@@ -153,6 +153,25 @@ export const useFlowInteractions = (
   const createEdgeId = (source: string, target: string) =>
     `e:${source}:${target}`;
 
+  const isDescendant = (
+    potentialAncestorId: string,
+    potentialDescendantId: string,
+  ): boolean => {
+    const descendant = members.find((m) => m.id === potentialDescendantId);
+    if (!descendant) return false;
+
+    const parentIds = [
+      descendant.parents.paternalParent,
+      descendant.parents.maternalParent,
+    ].filter(Boolean) as string[];
+
+    if (parentIds.includes(potentialAncestorId)) return true;
+
+    return parentIds.some((parentId) =>
+      isDescendant(potentialAncestorId, parentId),
+    );
+  };
+
   const addMemberEdge = useCallback(
     (edge: Connection) => {
       if (edges.find((e) => e.id === createEdgeId(edge.source, edge.target)))
@@ -183,6 +202,12 @@ export const useFlowInteractions = (
 
         setNewRelation(edge);
         return;
+      }
+
+      // Check for cycles: if we are adding Parent -> Child (edge.source -> edge.target),
+      // we must ensure that 'edge.source' is not already a descendant of 'edge.target'.
+      if (isDescendant(edge.target, edge.source)) {
+        throw new Error("Cycle detected: Cannot add ancestor as child");
       }
 
       if (sourceMember.gender === "f") {
