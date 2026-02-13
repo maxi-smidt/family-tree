@@ -135,6 +135,7 @@
       "toast-error-file": "Failed to read file",
       "toast-error-birth": "Death date cannot be before birth date",
       "toast-error-death": "Birth date cannot be after death date",
+      "toast-error-duplicate": "A member with the same details already exists.",
       "toast-success": "Member updated successfully",
       "gender-field": "Gender",
       "firstname-field": "First Name",
@@ -183,6 +184,34 @@
       "add-person": "Add person",
       "remove-person": "Remove selected person",
       "select-relation": "Visible Relations"
+    }
+  },
+  "merge-view": {
+    "view": {
+      "title": "Merge Databases",
+      "source-database-1": "Source Database 1",
+      "source-database-2": "Source Database 2",
+      "select-placeholder": "Select database",
+      "empty-database-select": "<empty database>",
+      "new-database-field": "New Database Name",
+      "new-database-placeholder": "New Database Name",
+      "merge-database": "Merge",
+      "merging-database": "Merging...",
+      "new-database": "New database",
+      "database-copy": "(copy)",
+      "toast-preview-error": "Error loading databases for preview."
+    },
+    "preview": {
+      "title": "Preview Analysis",
+      "merge-preview-number": "Estimated result: {{mergedCount}} members (from {{totalMembers}} total)",
+      "no-overlap": "No overlapping members found. All members will be added as new entries.",
+      "table": {
+        "firstname": "First Name",
+        "lastname": "Last Name",
+        "birth-date": "Birth Date",
+        "status": "Status",
+        "will-be-merged": "Will be merged"
+      }
     }
   },
   "common": {
