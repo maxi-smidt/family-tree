@@ -167,6 +167,47 @@ export const useMergeManager = () => {
         );
       }
 
+      // Merge Gallery Images
+      const allImages = [...data1.galleryImages, ...data2.galleryImages];
+      // Use a Set to avoid duplicate images if IDs collide (unlikely with UUIDs but good practice)
+      const processedImageIds = new Set<string>();
+
+      for (const img of allImages) {
+        if (processedImageIds.has(img.id)) continue;
+        processedImageIds.add(img.id);
+
+        await DatabaseService.addGalleryImage(
+          newDb,
+          img.id,
+          {
+            imageData: img.imageData,
+            title: img.title,
+            description: img.description,
+            linkedMemberIds: [], // Links are handled separately
+          },
+          img.createdAt,
+        );
+      }
+
+      // Merge Gallery Links
+      for (const link of data1.galleryLinks) {
+        await DatabaseService.linkGalleryImageToMember(
+          newDb,
+          link.gallery_image_id,
+          link.member_id,
+        );
+      }
+
+      for (const link of data2.galleryLinks) {
+        // Map member ID if it was changed during merge
+        const memberId = idMap2.get(link.member_id) || link.member_id;
+        await DatabaseService.linkGalleryImageToMember(
+          newDb,
+          link.gallery_image_id,
+          memberId,
+        );
+      }
+
       await newDb.execute("COMMIT TRANSACTION");
 
       const newDatabaseObj: Database = { id: newDbId, name: newDbName };

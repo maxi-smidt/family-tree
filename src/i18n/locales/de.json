@@ -74,8 +74,7 @@
       "search-placeholder": "Suche Bild...",
       "select-date-uploaded": "Datum Hochgeladen",
       "select-date-taken": "Datum Aufgenommen",
-      "select-title": "Titel",
-      "no-images": "Noch keine Bilder"
+      "select-title": "Titel"
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",

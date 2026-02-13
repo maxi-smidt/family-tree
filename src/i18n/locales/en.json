@@ -74,8 +74,7 @@
       "search-placeholder": "Search image...",
       "select-date-uploaded": "Date Uploaded",
       "select-date-taken": "Date Taken",
-      "select-title": "Title",
-      "no-images": "No images yet"
+      "select-title": "Title"
     },
     "image-sheet": {
       "toast-success": "Image details saved",
