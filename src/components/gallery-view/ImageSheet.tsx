@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { GalleryImage } from "@/types/gallery";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MultiSelect } from "@/components/ui/multi-select";
@@ -37,7 +38,8 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "gallery-view.image-sheet",
   });
-  const { members, updateGalleryImage, deleteGalleryImage } = useFamilyStore();
+  const { members } = useMemberStore();
+  const { updateGalleryImage, deleteGalleryImage } = useGalleryStore();
   const [formData, setFormData] = useState<Partial<GalleryImage>>(image);
 
   useEffect(() => {

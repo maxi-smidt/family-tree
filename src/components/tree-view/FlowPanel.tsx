@@ -10,7 +10,8 @@ import {
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
 import { useEffect, useMemo, useState } from "react";
 import { Member } from "@/types/member";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/tree-view/FlowPanelControls";
 import { MemberControls } from "@/components/tree-view/MemberControls";
@@ -27,17 +28,17 @@ const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
   const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
+  const { members, removeMember, updateLayout, addRelation, removeRelation } =
+    useMemberStore();
+  const { isReady, connect } = useDatabaseStore();
   const {
-    members,
-    isReady,
-    connect,
-    removeMember,
-    updateLayout,
-    addRelation,
-    removeRelation,
-  } = useFamilyStore();
-  const { edgeType, isLockedScreen, visibleRelationTypes, toggleRelationType } =
-    useFamilyTreeSettings();
+    edgeType,
+    isLockedScreen,
+    visibleRelationTypes,
+    toggleRelationType,
+    viewport,
+    setViewport,
+  } = useFamilyTreeSettings();
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -134,6 +135,8 @@ export const FlowPanel = () => {
         elementsSelectable={!isLockedScreen}
         connectionMode={ConnectionMode.Loose}
         onInit={setRfInstance}
+        defaultViewport={viewport}
+        onMoveEnd={(_, viewport) => setViewport(viewport)}
       >
         <Background />
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">

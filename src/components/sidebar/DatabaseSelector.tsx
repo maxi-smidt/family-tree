@@ -16,7 +16,7 @@ import { RemoveDatabaseDialog } from "@/components/dialog/RemoveDatabaseDialog";
 import { toast } from "sonner";
 import { useDatabaseManager } from "@/hooks/useDatabaseManager";
 import { ImportDatabaseDialog } from "@/components/dialog/ImportDatabaseDialog";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useTranslation } from "react-i18next";
 
 export const DatabaseSelector = () => {
@@ -28,7 +28,7 @@ export const DatabaseSelector = () => {
   const setSelectedDatabase = useFamilyTreeSettings(
     (s) => s.setSelectedDatabase,
   );
-  const { connect } = useFamilyStore();
+  const { connect } = useDatabaseStore();
   const { exportDatabase, importDatabase, importDatabaseCheck } =
     useDatabaseManager();
 
@@ -155,9 +155,9 @@ export const DatabaseSelector = () => {
 
     try {
       if (check.collision && overwrite) {
-        const familyStore = useFamilyStore.getState();
+        const familyStore = useDatabaseStore.getState();
         if (selectedDatabase?.id === check.collision.id) {
-          await familyStore.disconnect(check.collision);
+          await familyStore.disconnect();
         }
       }
 

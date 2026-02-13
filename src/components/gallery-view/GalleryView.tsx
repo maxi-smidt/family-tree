@@ -1,4 +1,4 @@
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";
@@ -30,7 +30,7 @@ type SortDirection = "asc" | "desc";
 
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
-  const { galleryImages, addGalleryImage } = useFamilyStore();
+  const { galleryImages, addGalleryImage } = useGalleryStore();
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -41,7 +41,7 @@ export const GalleryView = () => {
   const rowVirtualizer = useVirtualizer({
     count: galleryImages.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 300,
+    estimateSize: () => 150,
     overscan: 5,
   });
 
@@ -173,25 +173,19 @@ export const GalleryView = () => {
         </div>
       </div>
       <div ref={parentRef} className="flex-1 overflow-y-auto">
-        {filteredAndSortedImages.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
-            <UploadImageCard onClick={handleUploadImage} />
-            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-              const image = filteredAndSortedImages[virtualItem.index];
-              return (
-                <ImageCard
-                  key={image.id}
-                  image={image}
-                  onClick={() => setSelectedImage(image)}
-                />
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-muted-foreground">{t("no-images")}</p>
-          </div>
-        )}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
+          <UploadImageCard onClick={handleUploadImage} />
+          {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+            const image = filteredAndSortedImages[virtualItem.index];
+            return (
+              <ImageCard
+                key={image.id}
+                image={image}
+                onClick={() => setSelectedImage(image)}
+              />
+            );
+          })}
+        </div>
       </div>
       {selectedImage && (
         <ImageSheet

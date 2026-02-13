@@ -4,6 +4,12 @@ import { Database } from "@/types/database";
 
 export type EdgeType = "default" | "straight" | "step" | "smoothstep";
 
+interface Viewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 interface FamilyTreeSettingsState {
   edgeType: EdgeType;
   setEdgeType: (type: EdgeType) => void;
@@ -18,6 +24,8 @@ interface FamilyTreeSettingsState {
   removeDatabase: (db: Database) => void;
   visibleRelationTypes: string[];
   toggleRelationType: (type: string) => void;
+  viewport: Viewport;
+  setViewport: (viewport: Viewport) => void;
 }
 
 export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
@@ -29,6 +37,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       databases: [],
       selectedDatabase: undefined,
       visibleRelationTypes: ["parent"],
+      viewport: { x: 0, y: 0, zoom: 1 },
       setEdgeType: (type) => set({ edgeType: type }),
       setSidebarOpen: (val: boolean) => set({ sidebarOpen: val }),
       setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
@@ -57,6 +66,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
               : [...state.visibleRelationTypes, type],
           };
         }),
+      setViewport: (viewport) => set({ viewport }),
     }),
     {
       name: "app-ui-settings",

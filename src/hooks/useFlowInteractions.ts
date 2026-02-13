@@ -12,7 +12,7 @@ import {
   OnSelectionChangeParams,
 } from "@xyflow/react";
 import { Member, RelationType } from "@/types/member";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import debounce from "lodash.debounce";
 
 export const useFlowInteractions = (
@@ -24,7 +24,7 @@ export const useFlowInteractions = (
   setSelectedNodes: Dispatch<SetStateAction<Node[]>>,
   setNewRelation: Dispatch<SetStateAction<Connection | null>>,
 ) => {
-  const { removeRelation, updateMemberPartial } = useFamilyStore();
+  const { removeRelation, updateMemberPartial } = useMemberStore();
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
   const processUpdates = useCallback(() => {

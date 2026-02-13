@@ -15,7 +15,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/tree-view/RelationControls";
@@ -38,7 +38,7 @@ export const MemberControls = ({
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const { isLockedScreen } = useFamilyTreeSettings();
-  const { addMember, updateMemberPartial } = useFamilyStore();
+  const { addMember, updateMemberPartial } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (

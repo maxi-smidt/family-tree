@@ -1,5 +1,5 @@
 import { Input } from "@/components/ui/input";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { FormEvent, useEffect, useState } from "react";
 import { Mars, Upload, User, Venus, VenusAndMars } from "lucide-react";
 import { Gender, Member } from "@/types/member";
@@ -21,7 +21,7 @@ export const EditMode = ({ member }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
   });
-  const { updateMemberPartial, members } = useFamilyStore();
+  const { updateMemberPartial, members } = useMemberStore();
 
   const [formData, setFormData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);

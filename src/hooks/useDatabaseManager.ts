@@ -3,7 +3,7 @@ import { Database } from "@/types/database";
 import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { EXTENSION } from "@/constants";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { save, open } from "@tauri-apps/plugin-dialog";
 
 export const useDatabaseManager = () => {
@@ -11,14 +11,14 @@ export const useDatabaseManager = () => {
     (s) => s.removeDatabase,
   );
   const addDatabaseToSettings = useFamilyTreeSettings((s) => s.addDatabase);
-  const disconnectDatabase = useFamilyStore((s) => s.disconnect);
-  const connectDatabase = useFamilyStore((s) => s.connect);
+  const disconnectDatabase = useDatabaseStore((s) => s.disconnect);
+  const connectDatabase = useDatabaseStore((s) => s.connect);
   const databases = useFamilyTreeSettings((s) => s.databases);
 
   const removeDatabase = useCallback(
     async (database: Database) => {
       try {
-        await disconnectDatabase(database);
+        await disconnectDatabase();
 
         await invoke<number>("delete_database", {
           id: database.id,
@@ -41,7 +41,7 @@ export const useDatabaseManager = () => {
         });
         if (!savePath) return;
 
-        await disconnectDatabase(database);
+        await disconnectDatabase();
 
         await invoke("export_database", {
           id: database.id,

@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState } from "react";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { RelationType } from "@/types/member";
 import { useTranslation } from "react-i18next";
 
@@ -34,7 +34,7 @@ export const AddRelationDialog = ({
   const { t: tRelation } = useTranslation(undefined, {
     keyPrefix: "common.relation-types",
   });
-  const { relationTypes } = useFamilyStore();
+  const { relationTypes } = useDatabaseStore();
   const [selectedType, setSelectedType] = useState<RelationType>("partner");
 
   const handleConfirm = () => {
