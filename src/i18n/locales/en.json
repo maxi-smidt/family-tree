@@ -107,7 +107,8 @@
       "tree": "Tree",
       "list": "List",
       "gallery": "Gallery",
-      "merge": "Merge Databases"
+      "merge": "Merge Databases",
+      "database-management": "Database Management"
     },
     "no-database-placeholder": {
       "title": "No Databases Yet",
@@ -236,6 +237,21 @@
     "flow-interactions": {
       "toast-error-database-create": "Failed to create connection."
     }
+  },
+  "database-management-view": {
+    "title": "Database Management",
+    "create-button": "Create Database",
+    "import-button": "Import Database",
+    "table-name": "Name",
+    "table-id": "ID",
+    "table-actions": "Actions",
+    "no-databases": "No databases found. Create or import a database to get started.",
+    "selected-label": "Currently selected:",
+    "none-selected": "None",
+    "toast-import-success": "Database imported successfully!",
+    "toast-import-error": "Failed to import database.",
+    "toast-rename-success": "Database renamed successfully!",
+    "toast-rename-empty": "Database name cannot be empty."
   },
   "common": {
     "selectLanguage": "Language",
