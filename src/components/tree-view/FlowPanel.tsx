@@ -31,8 +31,14 @@ export const FlowPanel = () => {
   const { members, removeMember, updateLayout, addRelation, removeRelation } =
     useMemberStore();
   const { isReady, connect } = useDatabaseStore();
-  const { edgeType, isLockedScreen, visibleRelationTypes, toggleRelationType } =
-    useFamilyTreeSettings();
+  const {
+    edgeType,
+    isLockedScreen,
+    visibleRelationTypes,
+    toggleRelationType,
+    viewport,
+    setViewport,
+  } = useFamilyTreeSettings();
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -129,6 +135,8 @@ export const FlowPanel = () => {
         elementsSelectable={!isLockedScreen}
         connectionMode={ConnectionMode.Loose}
         onInit={setRfInstance}
+        defaultViewport={viewport}
+        onMoveEnd={(_, viewport) => setViewport(viewport)}
       >
         <Background />
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
