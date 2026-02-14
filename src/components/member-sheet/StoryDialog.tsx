@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { useTranslation } from "react-i18next";
 
 interface StoryDialogProps {
   open: boolean;
@@ -28,6 +29,9 @@ export const StoryDialog = ({
   story,
   initialMemberId,
 }: StoryDialogProps) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.stories.dialog",
+  });
   const { addStory, updateStory } = useStoryStore();
   const { members } = useMemberStore();
   const [formData, setFormData] = useState<StoryInput>({
@@ -52,7 +56,7 @@ export const StoryDialog = ({
     }
   }, [story, initialMemberId, open]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (story) {
@@ -71,49 +75,49 @@ export const StoryDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
+      <DialogContent className="sm:max-w-150 max-h-[80vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>{story ? "Edit Story" : "Add Story"}</DialogTitle>
+          <DialogTitle>{story ? t("title-edit") : t("title-add")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="space-y-4 py-4 flex-1 overflow-y-auto">
             <div className="space-y-2">
-              <Label htmlFor="members">Linked Members *</Label>
+              <Label htmlFor="members">{t("linked-members")} *</Label>
               <MultiSelect
                 options={memberOptions}
                 onValueChange={setSelectedMemberIds}
                 defaultValue={selectedMemberIds}
-                placeholder="Select members..."
+                placeholder={t("linked-members-placeholder")}
                 variant="inverted"
                 maxCount={5}
               />
               <p className="text-xs text-muted-foreground">
-                Select one or more family members this story is about
+                {t("linked-members-description")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Title *</Label>
+              <Label htmlFor="title">{t("title")} *</Label>
               <Input
                 id="title"
                 value={formData.title}
                 onChange={(e) =>
                   setFormData({ ...formData, title: e.target.value })
                 }
-                placeholder="e.g., Early Life, War Years, Marriage Story"
+                placeholder={t("title-placeholder")}
                 required
               />
             </div>
 
             <div className="space-y-2 flex-1">
-              <Label htmlFor="content">Story *</Label>
+              <Label htmlFor="content">{t("story")} *</Label>
               <Textarea
                 id="content"
                 value={formData.content}
                 onChange={(e) =>
                   setFormData({ ...formData, content: e.target.value })
                 }
-                placeholder="Write the story or biography here..."
+                placeholder={t("story-placeholder")}
                 rows={15}
                 className="resize-none"
                 required
@@ -130,6 +134,7 @@ export const StoryDialog = ({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
+              {t("cancel")}
               Cancel
             </Button>
             <Button
@@ -140,7 +145,7 @@ export const StoryDialog = ({
                 selectedMemberIds.length === 0
               }
             >
-              {story ? "Update" : "Add"} Story
+              {story ? t("update") : t("add")} Story
             </Button>
           </DialogFooter>
         </form>

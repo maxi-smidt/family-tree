@@ -27,6 +27,7 @@ import { ImportDatabaseDialog } from "@/components/dialog/ImportDatabaseDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Database } from "@/types/database";
+import { ViewLayout } from "@/components/layout/ViewLayout";
 
 export const DatabaseManagementView = () => {
   const { t } = useTranslation(undefined, {
@@ -153,25 +154,25 @@ export const DatabaseManagementView = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t("title")}</h1>
+    <ViewLayout
+      title={t("title")}
+      action={
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsCreateDatabaseDialogOpen(true)}
           >
-            <Plus className="mr-2" />
+            <Plus />
             {t("create-button")}
           </Button>
           <Button variant="outline" size="sm" onClick={handleImportDatabase}>
-            <HardDriveDownload className="mr-2" />
+            <HardDriveDownload />
             {t("import-button")}
           </Button>
         </div>
-      </div>
-
+      }
+    >
       <div className="flex-1 border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
@@ -303,6 +304,6 @@ export const DatabaseManagementView = () => {
           setImportConfirmState(null);
         }}
       />
-    </div>
+    </ViewLayout>
   );
 };

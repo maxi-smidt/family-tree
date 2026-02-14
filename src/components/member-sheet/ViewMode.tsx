@@ -11,30 +11,24 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
-import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { Calendar, MapPin, BookOpen, ExternalLink } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { MemberDetailDialog } from "@/components/member-detail/MemberDetailDialog";
+import { Calendar, MapPin, BookOpen } from "lucide-react";
+import { formatDate } from "@/utils/dateUtils";
 
 type Props = {
   member: Member;
 };
 
 export const ViewMode = ({ member }: Props) => {
-  const { t } = useTranslation(undefined, {
+  const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
-  });
-  const { t: tGender } = useTranslation(undefined, {
-    keyPrefix: "common.gender",
   });
   const { galleryImages } = useGalleryStore();
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const linkedImages = (galleryImages || []).filter((image) => {
     const linkedIds = Array.isArray(image.linkedMemberIds)
@@ -54,31 +48,8 @@ export const ViewMode = ({ member }: Props) => {
     setLightboxOpen(true);
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return <i>Unknown</i>;
-    return format(new Date(dateString), "dd.MM.yyyy");
-  };
-
-  const formatEventDate = (dateStr: string) => {
-    try {
-      return format(new Date(dateStr), "PP");
-    } catch {
-      return dateStr;
-    }
-  };
-
   return (
-    <div className="w-full space-y-4 overflow-y-auto relative">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setDetailDialogOpen(true)}
-        className="absolute top-0 right-0 z-10"
-      >
-        <ExternalLink className="w-4 h-4 mr-2" />
-        View Details
-      </Button>
-
+    <div className="w-full space-y-4 overflow-y-auto">
       <div className="flex justify-center">
         <FamilyNodeContent member={member} largeImage />
       </div>
@@ -108,14 +79,16 @@ export const ViewMode = ({ member }: Props) => {
           <ItemContent>
             <ItemTitle>{t("gender-item")}</ItemTitle>
             <ItemDescription className="capitalize">
-              {tGender(member.gender)}
+              {i18n.t(`common.gender.${member.gender}`)}
             </ItemDescription>
           </ItemContent>
         </Item>
         <Item variant="muted">
           <ItemContent>
             <ItemTitle>{t("dob-item")}</ItemTitle>
-            <ItemDescription>{formatDate(member.date.birth)}</ItemDescription>
+            <ItemDescription>
+              {formatDate(member.date.birth, i18n.t)}
+            </ItemDescription>
           </ItemContent>
         </Item>
         <Item variant="muted">
@@ -123,7 +96,7 @@ export const ViewMode = ({ member }: Props) => {
             <ItemTitle>{t("dod-item")}</ItemTitle>
             <ItemDescription>
               {member.date.death ? (
-                formatDate(member.date.death)
+                formatDate(member.date.death, i18n.t)
               ) : (
                 <i>{t("dod-fallback")}</i>
               )}
@@ -187,7 +160,7 @@ export const ViewMode = ({ member }: Props) => {
                         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            <span>{formatEventDate(event.date)}</span>
+                            <span>{formatDate(event.date, i18n.t)}</span>
                           </div>
                           {event.location && (
                             <div className="flex items-center gap-1">
@@ -256,12 +229,6 @@ export const ViewMode = ({ member }: Props) => {
           onClose={() => setLightboxOpen(false)}
         />
       )}
-
-      <MemberDetailDialog
-        member={member}
-        open={detailDialogOpen}
-        onOpenChange={setDetailDialogOpen}
-      />
     </div>
   );
 };

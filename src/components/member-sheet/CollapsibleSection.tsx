@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface CollapsibleSectionProps {
   children: (collapsed: boolean) => ReactNode;
@@ -13,6 +14,7 @@ export const CollapsibleSection = ({
   totalCount,
   collapsedCount = 3,
 }: CollapsibleSectionProps) => {
+  const { t } = useTranslation(undefined, { keyPrefix: "sheet.member-sheet" });
   const [isExpanded, setIsExpanded] = useState(false);
   const shouldCollapse = totalCount > collapsedCount;
 
@@ -28,13 +30,13 @@ export const CollapsibleSection = ({
         >
           {isExpanded ? (
             <>
-              <ChevronUp className="w-4 h-4 mr-1" />
-              Show less
+              <ChevronUp />
+              {t("show-less")}
             </>
           ) : (
             <>
-              <ChevronDown className="w-4 h-4 mr-1" />
-              Show {totalCount - collapsedCount} more
+              <ChevronDown />
+              {t("show-more", { count: totalCount - collapsedCount })}
             </>
           )}
         </Button>

@@ -15,6 +15,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { Event, EventInput } from "@/types/event";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { useTranslation } from "react-i18next";
 
 interface EventDialogProps {
   open: boolean;
@@ -29,6 +30,9 @@ export const EventDialog = ({
   event,
   initialMemberId,
 }: EventDialogProps) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.events.dialog",
+  });
   const { addEvent, updateEvent } = useEventStore();
   const { members } = useMemberStore();
   const [formData, setFormData] = useState<EventInput>({
@@ -87,69 +91,70 @@ export const EventDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-125">
         <DialogHeader>
-          <DialogTitle>{event ? "Edit Event" : "Add Event"}</DialogTitle>
+          <DialogTitle>{event ? t("title-edit") : t("title-add")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="members">Linked Members *</Label>
+              <Label htmlFor="members">{t("linked-members")} *</Label>
               <MultiSelect
                 options={memberOptions}
                 onValueChange={setSelectedMemberIds}
                 defaultValue={selectedMemberIds}
-                placeholder="Select members..."
+                placeholder={t("linked-members-placeholder")}
                 variant="inverted"
                 maxCount={5}
               />
               <p className="text-xs text-muted-foreground">
-                Select one or more family members involved in this event
+                {t("linked-members-description")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="eventType">Event Type *</Label>
+              <Label htmlFor="eventType">{t("event-type")} *</Label>
               <Input
                 id="eventType"
                 value={formData.eventType}
                 onChange={(e) =>
                   setFormData({ ...formData, eventType: e.target.value })
                 }
-                placeholder="e.g., Birth, Marriage, Graduation, Migration"
+                placeholder={t("event-type-placeholder")}
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="date">Date *</Label>
+              <Label htmlFor="date">{t("date")} *</Label>
               <DatePicker
+                placeholder={t("date-placeholder")}
                 value={new Date(formData.date)}
                 onChange={handleDateChange}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
+              <Label htmlFor="location">{t("location")}</Label>
               <Input
                 id="location"
                 value={formData.location || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, location: e.target.value })
                 }
-                placeholder="e.g., New York, USA"
+                placeholder={t("location-placeholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t("description")}</Label>
               <Textarea
                 id="description"
                 value={formData.description || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                placeholder="Add more details about this event..."
+                placeholder={t("description-placeholder")}
                 rows={4}
               />
             </div>
@@ -165,11 +170,9 @@ export const EventDialog = ({
             </Button>
             <Button
               type="submit"
-              disabled={
-                !formData.eventType || selectedMemberIds.length === 0
-              }
+              disabled={!formData.eventType || selectedMemberIds.length === 0}
             >
-              {event ? "Update" : "Add"} Event
+              {event ? t("update") : t("add")} Event
             </Button>
           </DialogFooter>
         </form>

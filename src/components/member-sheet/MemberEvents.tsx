@@ -3,7 +3,6 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Calendar, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
-import { format } from "date-fns";
 import { useState } from "react";
 import { EventDialog } from "@/components/timeline-view/EventDialog";
 import { Event } from "@/types/event";
@@ -17,12 +16,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTranslation } from "react-i18next";
+import { formatDate } from "@/utils/dateUtils";
 
 type Props = {
   member: Member;
 };
 
 export const MemberEvents = ({ member }: Props) => {
+  const { t, i18n } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.events",
+  });
   const { getEventsByMember, removeEvent } = useEventStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -31,14 +35,6 @@ export const MemberEvents = ({ member }: Props) => {
   const events = getEventsByMember(member.id).sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
-
-  const formatDate = (dateStr: string) => {
-    try {
-      return format(new Date(dateStr), "PP");
-    } catch {
-      return dateStr;
-    }
-  };
 
   const handleAddEvent = () => {
     setEditingEvent(null);
@@ -61,16 +57,16 @@ export const MemberEvents = ({ member }: Props) => {
     <Item variant="muted">
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
-          <ItemTitle>Life Events</ItemTitle>
+          <ItemTitle>{t("title")}</ItemTitle>
           <Button size="sm" variant="ghost" onClick={handleAddEvent}>
-            <Plus className="w-4 h-4 mr-1" />
-            Add
+            <Plus />
+            {t("add")}
           </Button>
         </div>
 
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            No events recorded
+            {t("no-events")}
           </p>
         ) : (
           <div className="space-y-3 mt-2">
@@ -85,7 +81,7 @@ export const MemberEvents = ({ member }: Props) => {
                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        <span>{formatDate(event.date)}</span>
+                        <span>{formatDate(event.date, i18n.t)}</span>
                       </div>
                       {event.location && (
                         <div className="flex items-center gap-1">
@@ -104,14 +100,14 @@ export const MemberEvents = ({ member }: Props) => {
                       variant="ghost"
                       onClick={() => handleEditEvent(event)}
                     >
-                      <Pencil className="w-3 h-3" />
+                      <Pencil />
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => setEventToDelete(event)}
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 />
                     </Button>
                   </div>
                 </div>
@@ -134,16 +130,18 @@ export const MemberEvents = ({ member }: Props) => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogTitle>{t("delete-dialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this event? This action cannot be
-              undone.
+              {t("delete-dialog.title")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEvent}>
-              Delete
+            <AlertDialogCancel>{t("delete-dialog.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeleteEvent}
+            >
+              {t("delete-dialog.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

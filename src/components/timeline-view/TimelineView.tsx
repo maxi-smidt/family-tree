@@ -17,10 +17,18 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Calendar, MapPin, Plus, Pencil, Trash2, Search, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Check,
+  ChevronsUpDown,
+} from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
-import { format } from "date-fns";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,8 +40,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { ViewLayout } from "@/components/layout/ViewLayout";
+import { useTranslation } from "react-i18next";
+import { formatDate } from "@/utils/dateUtils";
 
 export const TimelineView = () => {
+  const { t, i18n } = useTranslation(undefined, {
+    keyPrefix: "timeline-view.view",
+  });
   const { members } = useMemberStore();
   const { events, removeEvent } = useEventStore();
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
@@ -48,14 +62,12 @@ export const TimelineView = () => {
   const filteredEvents = useMemo(() => {
     let filtered = events;
 
-    // Filter by member
     if (selectedMemberId !== "all") {
       filtered = filtered.filter((e) =>
         e.linkedMemberIds.includes(selectedMemberId),
       );
     }
 
-    // Filter by search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -66,7 +78,6 @@ export const TimelineView = () => {
       );
     }
 
-    // Sort by date
     return filtered.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
@@ -78,7 +89,7 @@ export const TimelineView = () => {
     const member = members.find((m) => m.id === memberId);
     return member
       ? `${member.firstName} ${member.lastName}`
-      : "Unknown Member";
+      : t("member-fallback");
   };
 
   const getMemberNames = (memberIds: string[]) => {
@@ -102,30 +113,21 @@ export const TimelineView = () => {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return format(date, "PPP");
-    } catch {
-      return dateStr;
-    }
-  };
-
   return (
-    <div className="h-full flex flex-col p-6 overflow-hidden">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold">Timeline</h1>
-        <Button onClick={handleAddEvent}>
-          <Plus className="w-4 h-4 mr-2" />
-          Add Event
+    <ViewLayout
+      title={t("title")}
+      action={
+        <Button size="sm" onClick={handleAddEvent}>
+          <Plus />
+          {t("add-event")}
         </Button>
-      </div>
-
+      }
+    >
       <div className="flex gap-4 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search events..."
+            placeholder={t("search-placeholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -138,21 +140,21 @@ export const TimelineView = () => {
               variant="outline"
               role="combobox"
               aria-expanded={memberSelectOpen}
-              className="w-[250px] justify-between"
+              className="w-62.5 justify-between"
             >
               {selectedMemberId === "all"
-                ? "All Members"
+                ? t("all-members")
                 : members.find((m) => m.id === selectedMemberId)
                   ? `${members.find((m) => m.id === selectedMemberId)?.firstName} ${members.find((m) => m.id === selectedMemberId)?.lastName}`
-                  : "Select member..."}
+                  : t("member-place-holder")}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[250px] p-0">
+          <PopoverContent className="w-62.5 p-0">
             <Command>
-              <CommandInput placeholder="Search members..." />
+              <CommandInput placeholder={t("member-search-placeholder")} />
               <CommandList>
-                <CommandEmpty>No member found.</CommandEmpty>
+                <CommandEmpty>{t("no-member")}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem
                     value="all"
@@ -164,10 +166,12 @@ export const TimelineView = () => {
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        selectedMemberId === "all" ? "opacity-100" : "opacity-0",
+                        selectedMemberId === "all"
+                          ? "opacity-100"
+                          : "opacity-0",
                       )}
                     />
-                    All Members
+                    {t("all-members")}
                   </CommandItem>
                   {members.map((member) => (
                     <CommandItem
@@ -200,16 +204,15 @@ export const TimelineView = () => {
         {filteredEvents.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Calendar className="w-16 h-16 mb-4 opacity-50" />
-            <p className="text-lg">No events found</p>
+            <p className="text-lg">{t("no-events")}</p>
             <p className="text-sm">
               {searchQuery || selectedMemberId !== "all"
-                ? "Try adjusting your filters"
-                : "Add an event to get started"}
+                ? t("adjust-filters")
+                : t("add-an-event")}
             </p>
           </div>
         ) : (
           <div className="relative">
-            {/* Timeline line */}
             <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-border" />
 
             {filteredEvents.map((event) => (
@@ -217,8 +220,10 @@ export const TimelineView = () => {
                 key={event.id}
                 className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
               >
-                {/* Timeline dot - centered on line */}
-                <div className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background" style={{ left: '-40px' }} />
+                <div
+                  className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background"
+                  style={{ left: "-40px" }}
+                />
 
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -234,7 +239,7 @@ export const TimelineView = () => {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        <span>{formatDate(event.date)}</span>
+                        <span>{formatDate(event.date, i18n.t)}</span>
                       </div>
                       {event.location && (
                         <div className="flex items-center gap-1">
@@ -255,14 +260,14 @@ export const TimelineView = () => {
                       size="sm"
                       onClick={() => handleEditEvent(event)}
                     >
-                      <Pencil className="w-4 h-4" />
+                      <Pencil />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setEventToDelete(event)}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 />
                     </Button>
                   </div>
                 </div>
@@ -291,20 +296,22 @@ export const TimelineView = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Event</AlertDialogTitle>
+            <AlertDialogTitle>{t("delete-dialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this event? This action cannot be
-              undone.
+              {t("delete-dialog.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEvent}>
-              Delete
+            <AlertDialogCancel>{t("delete-dialog.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeleteEvent}
+            >
+              {t("delete-dialog.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ViewLayout>
   );
 };

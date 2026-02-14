@@ -16,12 +16,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   member: Member;
 };
 
 export const MemberStories = ({ member }: Props) => {
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.member-sheet.stories",
+  });
   const { getStoriesByMember, removeStory } = useStoryStore();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
@@ -56,16 +60,16 @@ export const MemberStories = ({ member }: Props) => {
     <Item variant="muted">
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
-          <ItemTitle>Stories & Biographies</ItemTitle>
+          <ItemTitle>{t("title")}</ItemTitle>
           <Button size="sm" variant="ghost" onClick={handleAddStory}>
-            <Plus className="w-4 h-4 mr-1" />
-            Add
+            <Plus />
+            {t("add")}
           </Button>
         </div>
 
         {stories.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            No stories written yet
+            {t("no-stories")}
           </p>
         ) : (
           <div className="space-y-3 mt-2">
@@ -89,14 +93,14 @@ export const MemberStories = ({ member }: Props) => {
                         variant="ghost"
                         onClick={() => handleEditStory(story)}
                       >
-                        <Pencil className="w-3 h-3" />
+                        <Pencil />
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => setStoryToDelete(story)}
                       >
-                        <Trash2 className="w-3 h-3" />
+                        <Trash2 />
                       </Button>
                     </div>
                   </div>
@@ -116,7 +120,7 @@ export const MemberStories = ({ member }: Props) => {
                         setExpandedStoryId(isExpanded ? null : story.id)
                       }
                     >
-                      {isExpanded ? "Show less" : "Read more"}
+                      {isExpanded ? t("show-less") : t("read-more")}
                     </Button>
                   )}
                 </div>
@@ -139,16 +143,18 @@ export const MemberStories = ({ member }: Props) => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Story</AlertDialogTitle>
+            <AlertDialogTitle> {t("delete-dialog.title")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this story? This action cannot be
-              undone.
+              {t("delete-dialog.description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteStory}>
-              Delete
+            <AlertDialogCancel> {t("delete-dialog.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeleteStory}
+            >
+              {t("delete-dialog.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

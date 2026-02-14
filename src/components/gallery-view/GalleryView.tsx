@@ -24,6 +24,7 @@ import {
 } from "@/constants";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { ViewLayout } from "@/components/layout/ViewLayout";
 
 type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
@@ -143,9 +144,7 @@ export const GalleryView = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-6 overflow-hidden">
-      <h1 className="text-xl font-semibold mb-6">Gallery</h1>
-
+    <ViewLayout title={t("title")}>
       <div className="flex justify-between items-center mb-4 gap-4">
         <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -201,6 +200,6 @@ export const GalleryView = () => {
           image={selectedImage}
         />
       )}
-    </div>
+    </ViewLayout>
   );
 };
