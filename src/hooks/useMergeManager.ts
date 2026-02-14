@@ -35,6 +35,7 @@ export const useMergeManager = () => {
     const newDbId = crypto.randomUUID();
     const originalDb = selectedDatabase;
     let db1, db2, newDb;
+    let transactionStarted = false;
 
     try {
       if (originalDb) {
@@ -85,7 +86,13 @@ export const useMergeManager = () => {
       const data1 = await loadFullData(db1);
       const data2 = await loadFullData(db2);
 
-      await newDb.execute("BEGIN TRANSACTION");
+      // Start transaction with proper error handling
+      try {
+        await newDb.execute("BEGIN TRANSACTION");
+        transactionStarted = true;
+      } catch (e) {
+        throw new Error(`Failed to start transaction: ${e}`);
+      }
 
       await DatabaseService.initMetadata(
         newDb,
@@ -99,6 +106,13 @@ export const useMergeManager = () => {
         if (!idMap2.has(oldId)) idMap2.set(oldId, crypto.randomUUID());
         return idMap2.get(oldId)!;
       };
+
+      // Track merge statistics
+      let duplicateMembers = 0;
+      let mergedNotesCount = 0;
+      let skippedRelations = 0;
+      let skippedGalleryLinks = 0;
+      let duplicateImages = 0;
 
       for (const m of data1.members) {
         const validGender =
@@ -116,11 +130,13 @@ export const useMergeManager = () => {
       for (const m2 of data2.members) {
         const match1 = data1.members.find((m1) => MemberObject.equalDB(m1, m2));
         if (match1) {
+          duplicateMembers++;
           idMap2.set(m2.id, match1.id);
           if (
             m2.additionalData &&
             m2.additionalData !== match1.additionalData
           ) {
+            mergedNotesCount++;
             const newText = match1.additionalData
               ? `${match1.additionalData}\n\n${m2.additionalData}`
               : m2.additionalData;
@@ -144,6 +160,13 @@ export const useMergeManager = () => {
         }
       }
 
+      // Create a set of all valid member IDs in the merged database
+      const allMemberIds = new Set([
+        ...data1.members.map((m) => m.id),
+        ...Array.from(idMap2.values()),
+      ]);
+
+      // Merge relation types first
       const allRelationTypes = new Set([
         ...data1.relationTypes.map((t) => t.id),
         ...data2.relationTypes.map((t) => t.id),
@@ -152,7 +175,16 @@ export const useMergeManager = () => {
         await DatabaseService.addRelationType(newDb, typeId, "");
       }
 
+      // Merge relations from db1
       for (const r of data1.relations) {
+        // Validate relation type exists
+        if (!allRelationTypes.has(r.relation_type)) {
+          console.warn(
+            `Skipping relation with invalid type: ${r.relation_type}`,
+          );
+          skippedRelations++;
+          continue;
+        }
         const relationType = r.relation_type as RelationType;
         await DatabaseService.addRelation(
           newDb,
@@ -161,19 +193,47 @@ export const useMergeManager = () => {
           relationType,
         );
       }
+
+      // Merge relations from db2
       for (const r of data2.relations) {
         const fromId = idMap2.get(r.from_member_id) || r.from_member_id;
         const toId = idMap2.get(r.to_member_id) || r.to_member_id;
+
+        // Validate relation type exists
+        if (!allRelationTypes.has(r.relation_type)) {
+          console.warn(
+            `Skipping relation with invalid type: ${r.relation_type}`,
+          );
+          skippedRelations++;
+          continue;
+        }
+
         const relationType = r.relation_type as RelationType;
         await DatabaseService.addRelation(newDb, fromId, toId, relationType);
       }
 
+      // Merge gallery images with content-based deduplication
       const allImages = [...data1.galleryImages, ...data2.galleryImages];
       const processedImageIds = new Set<string>();
+      const processedImageData = new Map<string, string>(); // Map imageData -> id
 
       for (const img of allImages) {
+        // Skip if we've already processed this exact image ID
         if (processedImageIds.has(img.id)) continue;
+
+        // Check if we've seen this exact image data before
+        const existingId = processedImageData.get(img.imageData);
+        if (existingId) {
+          // Update idMap2 if this image is from db2
+          if (data2.galleryImages.some((img2) => img2.id === img.id)) {
+            idMap2.set(img.id, existingId);
+            duplicateImages++;
+          }
+          continue;
+        }
+
         processedImageIds.add(img.id);
+        processedImageData.set(img.imageData, img.id);
 
         await DatabaseService.addGalleryImage(
           newDb,
@@ -188,8 +248,16 @@ export const useMergeManager = () => {
         );
       }
 
-      // Merge Gallery Links
+      // Merge Gallery Links with validation
       for (const link of data1.galleryLinks) {
+        // Validate member exists in merged database
+        if (!allMemberIds.has(link.member_id)) {
+          console.warn(
+            `Skipping gallery link: member ${link.member_id} not found`,
+          );
+          skippedGalleryLinks++;
+          continue;
+        }
         await DatabaseService.linkGalleryImageToMember(
           newDb,
           link.gallery_image_id,
@@ -200,9 +268,20 @@ export const useMergeManager = () => {
       for (const link of data2.galleryLinks) {
         // Map member ID if it was changed during merge
         const memberId = idMap2.get(link.member_id) || link.member_id;
+        // Map gallery image ID if it was changed during merge (duplicate image)
+        const galleryImageId =
+          idMap2.get(link.gallery_image_id) || link.gallery_image_id;
+
+        // Validate member exists in merged database
+        if (!allMemberIds.has(memberId)) {
+          console.warn(`Skipping gallery link: member ${memberId} not found`);
+          skippedGalleryLinks++;
+          continue;
+        }
+
         await DatabaseService.linkGalleryImageToMember(
           newDb,
-          link.gallery_image_id,
+          galleryImageId,
           memberId,
         );
       }
@@ -213,13 +292,32 @@ export const useMergeManager = () => {
       addDatabase(newDatabaseObj);
       await connect(newDatabaseObj);
 
-      toast.success(t("toast-success-merge"));
+      // Show detailed success message
+      const totalMembers = data1.members.length + data2.members.length;
+      const uniqueMembers = totalMembers - duplicateMembers;
+
+      let summary = `Successfully merged databases! ${uniqueMembers} unique members`;
+      if (duplicateMembers > 0) {
+        summary += `, ${duplicateMembers} duplicates merged`;
+      }
+      if (mergedNotesCount > 0) {
+        summary += `, ${mergedNotesCount} notes combined`;
+      }
+      if (duplicateImages > 0) {
+        summary += `, ${duplicateImages} duplicate images removed`;
+      }
+      if (skippedRelations > 0 || skippedGalleryLinks > 0) {
+        summary += `. Warning: ${skippedRelations + skippedGalleryLinks} items skipped due to validation errors`;
+      }
+
+      toast.success(summary, { duration: 6000 });
       return true;
     } catch (e: any) {
       console.error("Merge failed", e);
       toast.error(t("toast-error-merge"));
 
-      if (newDb) {
+      // Only attempt rollback if transaction was started
+      if (newDb && transactionStarted) {
         try {
           await newDb.execute("ROLLBACK TRANSACTION");
         } catch (rollbackErr) {

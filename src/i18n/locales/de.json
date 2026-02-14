@@ -212,7 +212,6 @@
     },
     "preview": {
       "title": "Vorschau",
-      "merge-preview-number": "Erwartetes Ergebnis: {{mergedCount}} Personen (von {{totalMembers}} insgesamt)",
       "no-overlap": "Keine übereinstimmenden Personen gefunden. Alle Personen werden als neue Einträge hinzugefügt.",
       "table": {
         "firstname": "Vorname",
@@ -220,6 +219,21 @@
         "birth-date": "Geburtsdatum",
         "status": "Status",
         "will-be-merged": "wird vereint"
+      },
+      "total-records_one": "Eintrag Insgesamt",
+      "total-records_other": "Einträge Insgesamt",
+      "unique-members_one": "Einzigartige Person",
+      "unique-members_other": "Einzigartige Personen",
+      "duplicate-members_one": "Duplikat gefunden",
+      "duplicate-members_other": "Duplikate gefunden",
+      "alert-duplicate": {
+        "title": "Duplikate werden vereint",
+        "description_one": "{{count}} Person in beiden Datenbanken gefunden die vereint werden. Zusätzliche Informationen werden kombiniert.",
+        "description_other": "{{count}} Personen in beiden Datenbanken gefunden die vereint werden. Zusätzliche Informationen werden kombiniert."
+      },
+      "alert-no-duplicate": {
+        "title": "Keine Duplikate",
+        "description": "Es gibt keine Duplikate. Die Datenbanken werden ohne Konflikt vereint."
       }
     }
   },

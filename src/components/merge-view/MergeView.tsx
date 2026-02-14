@@ -20,6 +20,17 @@ import { toast } from "sonner";
 import { useMergeManager } from "@/hooks/useMergeManager";
 import { MergePreview } from "./MergePreview";
 import { useTranslation } from "react-i18next";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { AlertCircle } from "lucide-react";
 
 const EMPTY_DB_ID = "empty_db";
 
@@ -33,6 +44,7 @@ export const MergeView = () => {
   const [db1Id, setDb1Id] = useState<string>("");
   const [db2Id, setDb2Id] = useState<string>("");
   const [newDbName, setNewDbName] = useState<string>("");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [previewData, setPreviewData] = useState<{
     conflicts: Member[];
     mergedCount: number;
@@ -156,6 +168,11 @@ export const MergeView = () => {
       setNewDbName("");
       setPreviewData(null);
     }
+    setShowConfirmDialog(false);
+  };
+
+  const handleMergeClick = () => {
+    setShowConfirmDialog(true);
   };
 
   return (
@@ -226,7 +243,10 @@ export const MergeView = () => {
                 placeholder={t("new-database-placeholder")}
                 className="w-full"
               />
-              <Button onClick={handleMerge} disabled={isMerging || !newDbName}>
+              <Button
+                onClick={handleMergeClick}
+                disabled={isMerging || !newDbName}
+              >
                 {isMerging ? t("merging-database") : t("merge-database")}
               </Button>
             </div>
@@ -235,6 +255,57 @@ export const MergeView = () => {
       )}
 
       <MergePreview previewData={previewData} />
+
+      {/* Confirmation Dialog */}
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+              Confirm Database Merge
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p>
+                You are about to merge two databases into a new database named:{" "}
+                <strong>{newDbName}</strong>
+              </p>
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-md p-3 space-y-2">
+                <p className="font-semibold text-amber-900 dark:text-amber-100 text-sm">
+                  Please note:
+                </p>
+                <ul className="list-disc list-inside space-y-1 text-sm text-amber-800 dark:text-amber-200">
+                  <li>The original databases will remain unchanged</li>
+                  <li>
+                    Duplicate members (same name, birth date, gender) will be
+                    merged
+                  </li>
+                  <li>
+                    Notes from duplicate members will be combined in the merged
+                    database
+                  </li>
+                  <li>
+                    All relationships and gallery images will be preserved
+                  </li>
+                  <li>This action cannot be undone</li>
+                </ul>
+              </div>
+              {previewData && previewData.conflicts.length > 0 && (
+                <p className="text-sm">
+                  <strong>{previewData.conflicts.length}</strong> duplicate
+                  member{previewData.conflicts.length !== 1 ? "s" : ""} will be
+                  merged.
+                </p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMerge} disabled={isMerging}>
+              {isMerging ? "Merging..." : "Confirm Merge"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
