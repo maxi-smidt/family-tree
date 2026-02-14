@@ -14,7 +14,9 @@ import { ImageLightbox } from "./ImageLightbox";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { Calendar, MapPin, BookOpen } from "lucide-react";
+import { Calendar, MapPin, BookOpen, ExternalLink } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { MemberDetailDialog } from "@/components/member-detail/MemberDetailDialog";
 
 type Props = {
   member: Member;
@@ -32,6 +34,7 @@ export const ViewMode = ({ member }: Props) => {
   const { getStoriesByMember } = useStoryStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const linkedImages = (galleryImages || []).filter((image) => {
     const linkedIds = Array.isArray(image.linkedMemberIds)
@@ -66,7 +69,18 @@ export const ViewMode = ({ member }: Props) => {
 
   return (
     <div className="w-full space-y-4 overflow-y-auto">
-      <FamilyNodeContent member={member} largeImage />
+      <div className="flex justify-between items-start gap-2">
+        <FamilyNodeContent member={member} largeImage />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setDetailDialogOpen(true)}
+          className="shrink-0"
+        >
+          <ExternalLink className="w-4 h-4 mr-2" />
+          View Details
+        </Button>
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         <Item variant="muted">
@@ -239,6 +253,12 @@ export const ViewMode = ({ member }: Props) => {
           onClose={() => setLightboxOpen(false)}
         />
       )}
+
+      <MemberDetailDialog
+        member={member}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+      />
     </div>
   );
 };

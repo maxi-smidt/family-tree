@@ -31,6 +31,7 @@ import {
   VenusAndMars,
 } from "lucide-react";
 import { MemberSheet } from "@/components/sheet/MemberSheet";
+import { MemberDetailDialog } from "@/components/member-detail/MemberDetailDialog";
 import { format } from "date-fns";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
 import { useTranslation } from "react-i18next";
@@ -51,6 +52,7 @@ export const ListView = () => {
     direction: "asc",
   });
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [viewingMember, setViewingMember] = useState<Member | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
 
@@ -230,8 +232,7 @@ export const ListView = () => {
                           </DropdownMenuLabel>
                           <DropdownMenuItem
                             onClick={() => {
-                              setEditingMember(member);
-                              setIsEditMode(false);
+                              setViewingMember(member);
                             }}
                           >
                             <Eye className="mr-2 h-4 w-4" />
@@ -270,6 +271,12 @@ export const ListView = () => {
         onClose={() => setEditingMember(null)}
         member={editingMember}
         initialEditMode={isEditMode}
+      />
+
+      <MemberDetailDialog
+        member={viewingMember}
+        open={!!viewingMember}
+        onOpenChange={(open) => !open && setViewingMember(null)}
       />
 
       <RemoveNodeDialog
