@@ -3,7 +3,7 @@ import { GalleryView } from "@/components/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/tree-view/FlowPanel";
 import { ListView } from "@/components/list-view/ListView";
 import { useTranslation } from "react-i18next";
-import { MergeView } from "@/components/merge-view/MergeView";
+import { DatabaseMergeView } from "@/components/database-merge-view/DatabaseMergeView";
 import { DatabaseManagementView } from "@/components/database-management-view/DatabaseManagementView";
 import { ReactNode } from "react";
 
@@ -55,7 +55,7 @@ export const MainPanel = () => {
         <DatabaseManagementView />
       </TabWrapper>
       <TabWrapper value={MERGE_VIEW}>
-        <MergeView />
+        <DatabaseMergeView />
       </TabWrapper>
     </Tabs>
   );

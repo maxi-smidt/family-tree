@@ -34,7 +34,7 @@ import { AlertCircle } from "lucide-react";
 
 const EMPTY_DB_ID = "empty_db";
 
-export const MergeView = () => {
+export const DatabaseMergeView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "merge-view.view",
   });
