@@ -144,7 +144,7 @@ export const GalleryView = () => {
 
   return (
     <div className="h-full flex flex-col p-6 overflow-hidden">
-      <h2 className="text-2xl font-bold mb-6">Gallery</h2>
+      <h1 className="text-xl font-semibold mb-6">Gallery</h1>
 
       <div className="flex justify-between items-center mb-4 gap-4">
         <div className="relative w-72">

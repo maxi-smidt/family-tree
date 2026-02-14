@@ -114,7 +114,7 @@ export const TimelineView = () => {
   return (
     <div className="h-full flex flex-col p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">Timeline</h2>
+        <h1 className="text-xl font-semibold">Timeline</h1>
         <Button onClick={handleAddEvent}>
           <Plus className="w-4 h-4 mr-2" />
           Add Event

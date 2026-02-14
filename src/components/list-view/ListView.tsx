@@ -126,7 +126,7 @@ export const ListView = () => {
   return (
     <div className="h-full flex flex-col p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold">List View</h2>
+        <h1 className="text-xl font-semibold">List View</h1>
         <div className="text-sm text-muted-foreground">
           {sortedMembers.length}{" "}
           {t("selected-members", { count: sortedMembers.length })}

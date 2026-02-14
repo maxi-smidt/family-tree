@@ -5,6 +5,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item";
 import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -91,7 +97,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full overflow-y-auto p-8">
+        <DialogContent className="max-w-[98vw] w-full max-h-[95vh] h-full overflow-y-auto p-8">
           <DialogHeader>
             <DialogTitle className="text-3xl font-bold">
               {member.firstName} {member.lastName}
@@ -100,59 +106,63 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
 
           <div className="space-y-8">
             {/* Profile Section */}
-            <div className="flex gap-8 items-start">
+            <div className="flex flex-col items-center gap-6">
               <FamilyNodeContent member={member} largeImage />
-              <div className="flex-1 space-y-3">
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
-                    <div className="text-sm font-semibold text-muted-foreground mb-1">
-                      First Name
-                    </div>
-                    <div className="text-lg">{member.firstName}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-muted-foreground mb-1">
-                      Last Name
-                    </div>
-                    <div className="text-lg">{member.lastName}</div>
-                  </div>
-                  {member.maidenName && (
-                    <div>
-                      <div className="text-sm font-semibold text-muted-foreground mb-1">
-                        Maiden Name
-                      </div>
-                      <div className="text-lg">{member.maidenName}</div>
-                    </div>
-                  )}
-                  <div>
-                    <div className="text-sm font-semibold text-muted-foreground mb-1">
-                      Gender
-                    </div>
-                    <div className="text-lg capitalize">
+              
+              <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Item variant="muted">
+                  <ItemContent>
+                    <ItemTitle>First Name</ItemTitle>
+                    <ItemDescription>{member.firstName}</ItemDescription>
+                  </ItemContent>
+                </Item>
+                
+                <Item variant="muted">
+                  <ItemContent>
+                    <ItemTitle>Last Name</ItemTitle>
+                    <ItemDescription>{member.lastName}</ItemDescription>
+                  </ItemContent>
+                </Item>
+                
+                {member.maidenName && (
+                  <Item variant="muted">
+                    <ItemContent>
+                      <ItemTitle>Maiden Name</ItemTitle>
+                      <ItemDescription>{member.maidenName}</ItemDescription>
+                    </ItemContent>
+                  </Item>
+                )}
+                
+                <Item variant="muted">
+                  <ItemContent>
+                    <ItemTitle>Gender</ItemTitle>
+                    <ItemDescription className="capitalize">
                       {member.gender === "m"
                         ? "Male"
                         : member.gender === "f"
                           ? "Female"
                           : "Other"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-muted-foreground mb-1">
-                      Date of Birth
-                    </div>
-                    <div className="text-lg">{formatDate(member.date.birth)}</div>
-                  </div>
-                  {member.date.death && (
-                    <div>
-                      <div className="text-sm font-semibold text-muted-foreground mb-1">
-                        Date of Death
-                      </div>
-                      <div className="text-lg">
+                    </ItemDescription>
+                  </ItemContent>
+                </Item>
+                
+                <Item variant="muted">
+                  <ItemContent>
+                    <ItemTitle>Date of Birth</ItemTitle>
+                    <ItemDescription>{formatDate(member.date.birth)}</ItemDescription>
+                  </ItemContent>
+                </Item>
+                
+                {member.date.death && (
+                  <Item variant="muted">
+                    <ItemContent>
+                      <ItemTitle>Date of Death</ItemTitle>
+                      <ItemDescription>
                         {formatDate(member.date.death)}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
+                )}
               </div>
             </div>
 
@@ -164,66 +174,56 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                 <Users className="w-6 h-6" />
                 Family Relationships
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {paternalParent && (
-                  <div className="p-4 border rounded-lg bg-accent/30">
-                    <div className="text-sm font-semibold text-muted-foreground mb-2">
-                      Paternal Parent
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <User className="w-5 h-5" />
-                      <span className="text-base">
+                  <Item variant="muted">
+                    <ItemContent>
+                      <ItemTitle>Paternal Parent</ItemTitle>
+                      <ItemDescription>
                         {paternalParent.firstName} {paternalParent.lastName}
-                      </span>
-                    </div>
-                  </div>
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
                 )}
                 {maternalParent && (
-                  <div className="p-4 border rounded-lg bg-accent/30">
-                    <div className="text-sm font-semibold text-muted-foreground mb-2">
-                      Maternal Parent
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <User className="w-5 h-5" />
-                      <span className="text-base">
+                  <Item variant="muted">
+                    <ItemContent>
+                      <ItemTitle>Maternal Parent</ItemTitle>
+                      <ItemDescription>
                         {maternalParent.firstName} {maternalParent.lastName}
-                      </span>
-                    </div>
-                  </div>
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
                 )}
                 {children.length > 0 && (
-                  <div className="p-4 border rounded-lg bg-accent/30">
-                    <div className="text-sm font-semibold text-muted-foreground mb-2">
-                      Children ({children.length})
-                    </div>
-                    <div className="space-y-2">
-                      {children.map((child) => (
-                        <div key={child.id} className="flex items-center gap-2">
-                          <User className="w-4 h-4" />
-                          <span className="text-sm">
+                  <Item variant="muted">
+                    <ItemContent>
+                      <ItemTitle>Children ({children.length})</ItemTitle>
+                      <ItemDescription>
+                        {children.map((child, idx) => (
+                          <span key={child.id}>
                             {child.firstName} {child.lastName}
+                            {idx < children.length - 1 && ", "}
                           </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                        ))}
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
                 )}
                 {siblings.length > 0 && (
-                  <div className="p-4 border rounded-lg bg-accent/30">
-                    <div className="text-sm font-semibold text-muted-foreground mb-2">
-                      Siblings ({siblings.length})
-                    </div>
-                    <div className="space-y-2">
-                      {siblings.map((sibling) => (
-                        <div key={sibling.id} className="flex items-center gap-2">
-                          <User className="w-4 h-4" />
-                          <span className="text-sm">
+                  <Item variant="muted">
+                    <ItemContent>
+                      <ItemTitle>Siblings ({siblings.length})</ItemTitle>
+                      <ItemDescription>
+                        {siblings.map((sibling, idx) => (
+                          <span key={sibling.id}>
                             {sibling.firstName} {sibling.lastName}
+                            {idx < siblings.length - 1 && ", "}
                           </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                        ))}
+                      </ItemDescription>
+                    </ItemContent>
+                  </Item>
                 )}
               </div>
             </div>

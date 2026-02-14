@@ -68,18 +68,19 @@ export const ViewMode = ({ member }: Props) => {
   };
 
   return (
-    <div className="w-full space-y-4 overflow-y-auto">
-      <div className="flex justify-between items-start gap-2">
+    <div className="w-full space-y-4 overflow-y-auto relative">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setDetailDialogOpen(true)}
+        className="absolute top-0 right-0 z-10"
+      >
+        <ExternalLink className="w-4 h-4 mr-2" />
+        View Details
+      </Button>
+
+      <div className="flex justify-center">
         <FamilyNodeContent member={member} largeImage />
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setDetailDialogOpen(true)}
-          className="shrink-0"
-        >
-          <ExternalLink className="w-4 h-4 mr-2" />
-          View Details
-        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
