@@ -62,10 +62,27 @@
       "validation": "Bis du dir sicher das folgende Personen gelöscht werden sollen?",
       "cancel": "Abbrechen",
       "delete": "Löschen"
+    },
+    "member-detail": {
+      "firstname": "Vorname",
+      "lastname": "Nachname",
+      "maiden": "Mädchenname",
+      "gender": "Geschlecht",
+      "dob": "Geburtsdatum",
+      "dod": "Sterbedatum",
+      "family-relations": "Familiäre Beziehungen",
+      "paternal-parent": "Vater",
+      "maternal-parent": "Mutter",
+      "children": "Kinder",
+      "siblings": "Geschwister",
+      "life-events": "Lebensereignisse",
+      "stories": "Geschichten & Biographien",
+      "images": "Verlinkte Bilder"
     }
   },
   "gallery-view": {
     "view": {
+      "title": "Galerie",
       "search-placeholder": "Suche Bild...",
       "select-date-uploaded": "Datum Hochgeladen",
       "select-date-taken": "Datum Aufgenommen",
@@ -102,6 +119,7 @@
       "tree": "Stammbaum",
       "list": "Liste",
       "gallery": "Galerie",
+      "timeline": "Timeline",
       "merge": "Datenbanken vereinen",
       "database-management": "Datenbankverwaltung"
     },
@@ -116,6 +134,7 @@
   },
   "list-view": {
     "view": {
+      "title": "Liste",
       "search-placeholder": "Suche Personen...",
       "selected-members_one": "Person gefunden",
       "selected-members_other": "Personen gefunden",
@@ -150,7 +169,7 @@
       "maiden-field": "Mädchenname",
       "born-field": "Geburtsdatum",
       "death-field": "Sterbedatum",
-      "extra-field": "Weitere Informationen"
+      "date-placeholder": "Wähle ein Datum"
     },
     "view-mode": {
       "firstname-item": "Vorname",
@@ -171,7 +190,66 @@
       "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
       "detail-description": "Betrachte die Informationen über diese Person.",
-      "save": "Speichern"
+      "save": "Speichern",
+      "show-less": "Weniger anzeigen",
+      "show-more": "Zeige {{count}} mehr",
+      "view-details": "Details anzeigen",
+      "events": {
+        "title": "Lebensereignisse",
+        "add": "Hinzufügen",
+        "no-events": "Keine Ereignisse gespeichert",
+        "delete-dialog": {
+          "title": "Ereignis löschen",
+          "description": "ABist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "cancel": "Abbrechen",
+          "delete": "Löschen"
+        },
+        "dialog": {
+          "title-edit": "Ereignis bearbeiten",
+          "title-add": "Ereignis hinzufügen",
+          "linked-members": "Verlinkte Personen",
+          "linked-members-placeholder": "Personen auswählen...",
+          "linked-members-description": "Wähle eine oder mehrere Personen um die es in dieser Geschichte geht",
+          "event-type": "Art des Ereignisses",
+          "event-type-placeholder": "z.B. Geburt, Heirat, Graduierung",
+          "date": "Datum",
+          "date-placeholder": "Wähle ein Datum",
+          "location": "Standort",
+          "location-placeholder": "z.B. New York, USA",
+          "description": "Beschreibung",
+          "description-placeholder": "Füge mehr Deatils zu dem Ereignis hinzu...",
+          "cancel": "Abbrechen",
+          "update": "Aktualisieren",
+          "add": "Hinzufügen"
+        }
+      },
+      "stories": {
+        "title": "Geschichten & Biographien",
+        "add": "Hinzufügen",
+        "no-stories": "Bis jetzt keine Geschichten geschrieben",
+        "show-less": "Weniger anzeigen",
+        "read-more": "Mehr lesen",
+        "delete-dialog": {
+          "title": "Geschichte Löschen",
+          "description": "Bis du dir sicher, dass diese Geschichte gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "cancel": "Abbrechen",
+          "delete": "Löschen"
+        },
+        "dialog": {
+          "title-edit": "Geschichte bearbeiten",
+          "title-add": "Geschichte hinzufügen",
+          "linked-members": "Verlinkte Personen",
+          "linked-members-placeholder": "Wähle Personen...",
+          "linked-members-description": "Wähle eine oder mehrere Personen um die es in dieser Geschichte geht",
+          "title": "Titel",
+          "title-placeholder": "z.B. Frühes Leben, Kriegsjahre, Hochzeitsgeschichten",
+          "story": "Geschichten",
+          "story-placeholder": "Schreibe hier eine Geschichte oder eine Biografie...",
+          "cancel": "Abbrechen",
+          "update": "Aktualisieren",
+          "add": "Hinzufügen"
+        }
+      }
     }
   },
   "tree-view": {
@@ -193,6 +271,27 @@
       "select-relation": "Sichtbare Beziehungen",
       "disable-fast-mode": "Schnellmodus deaktivieren",
       "enable-fast-mode": "Schnellmodus aktivieren"
+    }
+  },
+  "timeline-view": {
+    "view": {
+      "member-fallback": "Unbekannte Person",
+      "title": "Zeitleiste",
+      "add-event": "Event hinzufügen",
+      "search-placeholder": "Ereignisse suchen...",
+      "all-members": "Alle Personen",
+      "member-place-holder": "Wähle Person...",
+      "member-search-placeholder": "Suche Person...",
+      "no-member": "Keine Personen gefunden.",
+      "no-events": "Keine Ereignisse gefunden",
+      "adjust-filters": "Versuche die Filterkriterien anzupassen",
+      "add-an-event": "Füge ein Ereignis hinzu um zu beginnen",
+      "delete-dialog": {
+        "title": "Ereignis löschen",
+        "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "cancel": "Abbrechen",
+        "delete": "Löschen"
+      }
     }
   },
   "merge-view": {
@@ -278,6 +377,7 @@
       "m": "männlich",
       "f": "weiblich",
       "o": "anderes"
-    }
+    },
+    "date-unknown": "unknown"
   }
 }

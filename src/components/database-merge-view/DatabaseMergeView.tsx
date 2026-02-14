@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AlertCircle } from "lucide-react";
+import { ViewLayout } from "@/components/layout/ViewLayout";
 
 const EMPTY_DB_ID = "empty_db";
 
@@ -176,11 +177,7 @@ export const DatabaseMergeView = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">{t("title")}</h1>
-      </div>
-
+    <ViewLayout title={t("title")}>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label>{t("source-database-1")}</Label>
@@ -306,6 +303,6 @@ export const DatabaseMergeView = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </ViewLayout>
   );
 };
