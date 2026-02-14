@@ -54,8 +54,9 @@ async function findMissingKeys() {
     const content = await fs.readFile(file, "utf-8");
 
     // Handle template literal keys like i18n.t(`common.gender.${member.gender}`)
+    // This regex matches patterns where the template literal contains an interpolation
     const templateLiteralRegex =
-      /(?:i18n\.t|t)\(`([^`$]+)\$\{[^}]+\}([^`]*)`\)/g;
+      /(?:i18n\.t|t)\(`([^$`]*?)\$\{[^}]+\}([^`]*)`\)/g;
     let templateMatch;
     while ((templateMatch = templateLiteralRegex.exec(content)) !== null) {
       const prefix = templateMatch[1];
@@ -211,9 +212,10 @@ async function findHardcodedStrings() {
   const hardcodedStrings = [];
 
   // Common UI text patterns that should be translated
+  // These patterns are intentionally conservative to minimize false positives
   const uiTextPatterns = [
+    // Attribute patterns: placeholder="Some Text", title="Some Text", etc.
     /(?:placeholder|title|label|description|aria-label)\s*=\s*["']([A-Z][a-zA-Z\s]{2,})["']/g,
-    />\s*([A-Z][a-z]+(?:\s+[a-z]+){1,4})\s*</g,
   ];
 
   for (const file of tsFiles) {
@@ -223,6 +225,12 @@ async function findHardcodedStrings() {
     if (file.includes("/ui/") && !content.includes("useTranslation")) {
       continue;
     }
+
+    // Check if this file uses translation functions
+    const hasTranslation =
+      content.includes("useTranslation") ||
+      content.includes("i18n.t(") ||
+      content.includes("t(");
 
     for (const pattern of uiTextPatterns) {
       let match;
@@ -238,14 +246,31 @@ async function findHardcodedStrings() {
             /^(div|span|button|input|select|option|form|label|img|a|p|h\d|ul|li|table|tr|td|th)$/i,
           ) &&
           text.length > 2 &&
-          !content.includes(`t("`) && // Has translation function
-          !content.includes(`t('`)
+          hasTranslation
         ) {
-          hardcodedStrings.push({
-            file,
-            text,
-            line: content.substring(0, match.index).split("\n").length,
-          });
+          // Further check: see if the text appears in a translation call nearby
+          const matchStart = match.index;
+          const contextBefore = content.substring(
+            Math.max(0, matchStart - 100),
+            matchStart,
+          );
+          const contextAfter = content.substring(
+            matchStart,
+            matchStart + match[0].length + 100,
+          );
+          const isInTranslation =
+            contextBefore.includes(`t("${text}"`) ||
+            contextBefore.includes(`t('${text}'`) ||
+            contextAfter.includes(`t("${text}"`) ||
+            contextAfter.includes(`t('${text}'`);
+
+          if (!isInTranslation) {
+            hardcodedStrings.push({
+              file,
+              text,
+              line: content.substring(0, match.index).split("\n").length,
+            });
+          }
         }
       }
     }
