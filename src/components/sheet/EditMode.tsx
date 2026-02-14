@@ -148,11 +148,7 @@ export const EditMode = ({ member }: Props) => {
   };
 
   return (
-    <form
-      id="edit-member-form"
-      onSubmit={handleSave}
-      className="flex-1 overflow-y-auto flex flex-col"
-    >
+    <form id="edit-member-form" onSubmit={handleSave} className="flex flex-col">
       <div className="flex flex-col gap-1 w-full nodrag">
         <label className="block relative mb-2 cursor-pointer group w-fit mx-auto">
           {formData.imageData ? (
