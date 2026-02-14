@@ -6,11 +6,16 @@ A modern, desktop-based family tree builder application built with Tauri, React,
 
 - **Interactive Tree Visualization**: Built with React Flow, allowing for smooth panning, zooming, and dragging of family members.
 - **Member Management**: Add, edit, and remove family members with details like names, dates of birth/death, and photos.
+- **Life Events Tracking**: Record significant life events (births, marriages, migrations, etc.) with dates, locations, and descriptions.
+- **Stories & Biographies**: Write and preserve detailed stories and anecdotes about family members.
+- **Timeline View**: Visualize all life events chronologically with filtering and search capabilities.
 - **Relationship Linking**: Visually connect parents to children to build the family structure.
+- **Gallery**: Upload, manage, and link photos to family members.
 - **Local Database**: Uses SQLite for secure, local data persistence of your family trees.
 - **Multiple Databases**: Support for managing multiple distinct family trees.
 - **Modern UI**: Clean and responsive interface built with Tailwind CSS and Shadcn UI components.
 - **Dark/Light Mode**: Support for system theme preferences.
+- **Internationalization**: Multi-language support with i18next.
 
 ## Tech Stack
 

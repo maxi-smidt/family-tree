@@ -68,18 +68,30 @@ export const useMergeManager = () => {
             galleryImages: [],
             galleryLinks: [],
             relationTypes: [],
+            events: [],
+            eventLinks: [],
+            stories: [],
+            storyLinks: [],
           };
         const members = await DatabaseService.getMembers(db);
         const relations = await DatabaseService.getRelations(db);
         const galleryImages = await DatabaseService.getGalleryImages(db);
         const galleryLinks = await DatabaseService.getGalleryMemberLinks(db);
         const relationTypes = await DatabaseService.getRelationTypes(db);
+        const events = await DatabaseService.getEvents(db);
+        const eventLinks = await DatabaseService.getEventMemberLinks(db);
+        const stories = await DatabaseService.getStories(db);
+        const storyLinks = await DatabaseService.getStoryMemberLinks(db);
         return {
           members,
           relations,
           galleryImages,
           galleryLinks,
           relationTypes,
+          events,
+          eventLinks,
+          stories,
+          storyLinks,
         };
       };
 
@@ -212,32 +224,42 @@ export const useMergeManager = () => {
         await DatabaseService.addRelation(newDb, fromId, toId, relationType);
       }
 
-      // Merge gallery images with content-based deduplication
-      const allImages = [...data1.galleryImages, ...data2.galleryImages];
-      const processedImageIds = new Set<string>();
+      // Merge gallery images from db1 first
       const processedImageData = new Map<string, string>(); // Map imageData -> id
 
-      for (const img of allImages) {
-        // Skip if we've already processed this exact image ID
-        if (processedImageIds.has(img.id)) continue;
-
-        // Check if we've seen this exact image data before
-        const existingId = processedImageData.get(img.imageData);
-        if (existingId) {
-          // Update idMap2 if this image is from db2
-          if (data2.galleryImages.some((img2) => img2.id === img.id)) {
-            idMap2.set(img.id, existingId);
-            duplicateImages++;
-          }
-          continue;
-        }
-
-        processedImageIds.add(img.id);
+      for (const img of data1.galleryImages) {
         processedImageData.set(img.imageData, img.id);
-
         await DatabaseService.addGalleryImage(
           newDb,
           img.id,
+          {
+            imageData: img.imageData,
+            title: img.title,
+            description: img.description,
+            linkedMemberIds: [],
+          },
+          img.createdAt,
+        );
+      }
+
+      // Merge gallery images from db2 with content-based deduplication and ID mapping
+      for (const img of data2.galleryImages) {
+        // Check if we've seen this exact image data before
+        const existingId = processedImageData.get(img.imageData);
+        if (existingId) {
+          // This is a duplicate - map the old ID to the existing one
+          idMap2.set(img.id, existingId);
+          duplicateImages++;
+          continue;
+        }
+
+        // Not a duplicate - add with new ID
+        const newImageId = getNewId2(img.id);
+        processedImageData.set(img.imageData, newImageId);
+
+        await DatabaseService.addGalleryImage(
+          newDb,
+          newImageId,
           {
             imageData: img.imageData,
             title: img.title,
@@ -286,6 +308,120 @@ export const useMergeManager = () => {
         );
       }
 
+      // Merge Events
+      let mergedEvents = 0;
+      for (const event of data1.events) {
+        await DatabaseService.addEvent(
+          newDb,
+          event.id,
+          {
+            eventType: event.event_type,
+            date: event.date,
+            location: event.location,
+            description: event.description,
+          },
+          event.created_at,
+        );
+        mergedEvents++;
+      }
+
+      for (const event of data2.events) {
+        const newEventId = getNewId2(event.id);
+        await DatabaseService.addEvent(
+          newDb,
+          newEventId,
+          {
+            eventType: event.event_type,
+            date: event.date,
+            location: event.location,
+            description: event.description,
+          },
+          event.created_at,
+        );
+        mergedEvents++;
+      }
+
+      // Merge Event Links
+      let mergedEventLinks = 0;
+      for (const link of data1.eventLinks) {
+        // Validate member exists in merged database
+        if (allMemberIds.has(link.member_id)) {
+          await DatabaseService.linkEventToMember(
+            newDb,
+            link.event_id,
+            link.member_id,
+          );
+          mergedEventLinks++;
+        }
+      }
+
+      for (const link of data2.eventLinks) {
+        // Map both event and member IDs
+        const eventId = idMap2.get(link.event_id) || link.event_id;
+        const memberId = idMap2.get(link.member_id) || link.member_id;
+
+        // Validate member exists in merged database
+        if (allMemberIds.has(memberId)) {
+          await DatabaseService.linkEventToMember(newDb, eventId, memberId);
+          mergedEventLinks++;
+        }
+      }
+
+      // Merge Stories
+      let mergedStories = 0;
+      for (const story of data1.stories) {
+        await DatabaseService.addStory(
+          newDb,
+          story.id,
+          {
+            title: story.title,
+            content: story.content,
+          },
+          story.created_at,
+        );
+        mergedStories++;
+      }
+
+      for (const story of data2.stories) {
+        const newStoryId = getNewId2(story.id);
+        await DatabaseService.addStory(
+          newDb,
+          newStoryId,
+          {
+            title: story.title,
+            content: story.content,
+          },
+          story.created_at,
+        );
+        mergedStories++;
+      }
+
+      // Merge Story Links
+      let mergedStoryLinks = 0;
+      for (const link of data1.storyLinks) {
+        // Validate member exists in merged database
+        if (allMemberIds.has(link.member_id)) {
+          await DatabaseService.linkStoryToMember(
+            newDb,
+            link.story_id,
+            link.member_id,
+          );
+          mergedStoryLinks++;
+        }
+      }
+
+      for (const link of data2.storyLinks) {
+        // Map both story and member IDs
+        const storyId = idMap2.get(link.story_id) || link.story_id;
+        const memberId = idMap2.get(link.member_id) || link.member_id;
+
+        // Validate member exists in merged database
+        if (allMemberIds.has(memberId)) {
+          await DatabaseService.linkStoryToMember(newDb, storyId, memberId);
+          mergedStoryLinks++;
+        }
+      }
+
       await newDb.execute("COMMIT TRANSACTION");
 
       const newDatabaseObj: Database = { id: newDbId, name: newDbName };
@@ -305,6 +441,12 @@ export const useMergeManager = () => {
       }
       if (duplicateImages > 0) {
         summary += `, ${duplicateImages} duplicate images removed`;
+      }
+      if (mergedEvents > 0) {
+        summary += `, ${mergedEvents} events`;
+      }
+      if (mergedStories > 0) {
+        summary += `, ${mergedStories} stories`;
       }
       if (skippedRelations > 0 || skippedGalleryLinks > 0) {
         summary += `. Warning: ${skippedRelations + skippedGalleryLinks} items skipped due to validation errors`;

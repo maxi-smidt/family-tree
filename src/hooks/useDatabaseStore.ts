@@ -9,6 +9,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { RelationType } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
 
 interface DatabaseMetaData {
   id?: string;
@@ -51,6 +53,8 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       // Clear other stores
       await useMemberStore.getState().refreshMembers();
       await useGalleryStore.getState().refreshGalleryImages();
+      await useEventStore.getState().refreshEvents();
+      await useStoryStore.getState().refreshStories();
     }
   },
 
@@ -109,6 +113,8 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       get().refreshRelationTypes(),
       useMemberStore.getState().refreshMembers(),
       useGalleryStore.getState().refreshGalleryImages(),
+      useEventStore.getState().refreshEvents(),
+      useStoryStore.getState().refreshStories(),
     ]);
 
     set({ isReady: true });

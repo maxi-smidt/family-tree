@@ -15,7 +15,7 @@ import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/tree-view/FlowPanelControls";
 import { MemberControls } from "@/components/tree-view/MemberControls";
-import { MemberSheet } from "@/components/sheet/MemberSheet";
+import { MemberSheet } from "@/components/member-sheet/MemberSheet";
 import { FamilyNode } from "@/components/tree-view/node/FamilyNode";
 import { AddRelationDialog } from "@/components/dialog/AddRelationDialog";
 import { RelationEdge } from "@/components/tree-view/edge/RelationEdge";

@@ -30,10 +30,12 @@ import {
   Venus,
   VenusAndMars,
 } from "lucide-react";
-import { MemberSheet } from "@/components/sheet/MemberSheet";
+import { MemberSheet } from "@/components/member-sheet/MemberSheet";
+import { MemberDetailDialog } from "@/components/member-detail/MemberDetailDialog";
 import { format } from "date-fns";
 import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
 import { useTranslation } from "react-i18next";
+import { ViewLayout } from "@/components/layout/ViewLayout";
 
 type SortConfig = {
   key: keyof Member | "date.birth" | "date.death";
@@ -51,6 +53,7 @@ export const ListView = () => {
     direction: "asc",
   });
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [viewingMember, setViewingMember] = useState<Member | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
 
@@ -122,8 +125,16 @@ export const ListView = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 space-y-4">
-      <div className="flex items-center justify-between">
+    <ViewLayout
+      title={t("title")}
+      action={
+        <div className="text-sm text-muted-foreground">
+          {sortedMembers.length}{" "}
+          {t("selected-members", { count: sortedMembers.length })}
+        </div>
+      }
+    >
+      <div className="flex items-center justify-between mb-4">
         <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -132,10 +143,6 @@ export const ListView = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8"
           />
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {sortedMembers.length}{" "}
-          {t("selected-members", { count: sortedMembers.length })}
         </div>
       </div>
 
@@ -151,7 +158,7 @@ export const ListView = () => {
                     className="h-8 px-2"
                   >
                     {t("table.first-name")}
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                    <ArrowUpDown />
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -161,7 +168,7 @@ export const ListView = () => {
                     className="h-8 px-2"
                   >
                     {t("table.last-name")}
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                    <ArrowUpDown />
                   </Button>
                 </TableHead>
                 <TableHead>{t("table.maiden-name")}</TableHead>
@@ -173,7 +180,7 @@ export const ListView = () => {
                     className="h-8 px-2"
                   >
                     {t("table.dob")}
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                    <ArrowUpDown />
                   </Button>
                 </TableHead>
                 <TableHead>
@@ -183,7 +190,7 @@ export const ListView = () => {
                     className="h-8 px-2"
                   >
                     {t("table.dod")}
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                    <ArrowUpDown />
                   </Button>
                 </TableHead>
                 <TableHead className="w-12.5"></TableHead>
@@ -215,9 +222,9 @@ export const ListView = () => {
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
+                          <Button variant="ghost">
                             <span className="sr-only">{t("menu.trigger")}</span>
-                            <MoreHorizontal className="h-4 w-4" />
+                            <MoreHorizontal />
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
@@ -226,11 +233,10 @@ export const ListView = () => {
                           </DropdownMenuLabel>
                           <DropdownMenuItem
                             onClick={() => {
-                              setEditingMember(member);
-                              setIsEditMode(false);
+                              setViewingMember(member);
                             }}
                           >
-                            <Eye className="mr-2 h-4 w-4" />
+                            <Eye />
                             {t("menu.details")}
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -239,7 +245,7 @@ export const ListView = () => {
                               setIsEditMode(true);
                             }}
                           >
-                            <Pencil className="mr-2 h-4 w-4" />
+                            <Pencil />
                             {t("menu.edit")}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -247,7 +253,7 @@ export const ListView = () => {
                             className="text-destructive focus:text-destructive"
                             onClick={() => setMemberToDelete(member)}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 />
                             {t("menu.delete")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -268,12 +274,18 @@ export const ListView = () => {
         initialEditMode={isEditMode}
       />
 
+      <MemberDetailDialog
+        member={viewingMember}
+        open={!!viewingMember}
+        onOpenChange={(open) => !open && setViewingMember(null)}
+      />
+
       <RemoveNodeDialog
         isOpen={!!memberToDelete}
         members={memberToDelete ? [memberToDelete] : []}
         onConfirm={confirmDelete}
         onCancel={() => setMemberToDelete(null)}
       />
-    </div>
+    </ViewLayout>
   );
 };

@@ -8,6 +8,8 @@ import {
   mapMemberToDB,
 } from "@/types/member";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
+import { EventDB, EventInput } from "@/types/event";
+import { StoryDB, StoryInput } from "@/types/story";
 import { QUERIES } from "@/db/queries";
 
 export class DatabaseService {
@@ -197,5 +199,126 @@ export class DatabaseService {
       QUERIES.METADATA.SELECT_BY_KEY,
       [key],
     );
+  }
+
+  // Event methods
+  static async getEvents(db: Database) {
+    return await db.select<EventDB[]>(QUERIES.EVENTS.SELECT_ALL);
+  }
+
+  static async getEventMemberLinks(db: Database) {
+    return await db.select<{ event_id: string; member_id: string }[]>(
+      QUERIES.EVENTS.SELECT_LINKS,
+    );
+  }
+
+  static async getEventsByMember(db: Database, memberId: string) {
+    return await db.select<EventDB[]>(QUERIES.EVENTS.SELECT_BY_MEMBER, [
+      memberId,
+    ]);
+  }
+
+  static async addEvent(
+    db: Database,
+    id: string,
+    event: EventInput,
+    createdAt: string,
+  ) {
+    await db.execute(QUERIES.EVENTS.INSERT, [
+      id,
+      event.eventType,
+      event.date,
+      event.location || null,
+      event.description || null,
+      createdAt,
+    ]);
+  }
+
+  static async linkEventToMember(
+    db: Database,
+    eventId: string,
+    memberId: string,
+  ) {
+    await db.execute(QUERIES.EVENTS.INSERT_LINK, [eventId, memberId]);
+  }
+
+  static async updateEvent(db: Database, id: string, event: EventInput) {
+    await db.execute(QUERIES.EVENTS.UPDATE, [
+      event.eventType,
+      event.date,
+      event.location || null,
+      event.description || null,
+      id,
+    ]);
+  }
+
+  static async removeEvent(db: Database, id: string) {
+    await db.execute(QUERIES.EVENTS.DELETE, [id]);
+  }
+
+  static async removeEventLinks(db: Database, eventId: string) {
+    await db.execute(QUERIES.EVENTS.DELETE_LINKS, [eventId]);
+  }
+
+  // Story methods
+  static async getStories(db: Database) {
+    return await db.select<StoryDB[]>(QUERIES.STORIES.SELECT_ALL);
+  }
+
+  static async getStoryMemberLinks(db: Database) {
+    return await db.select<{ story_id: string; member_id: string }[]>(
+      QUERIES.STORIES.SELECT_LINKS,
+    );
+  }
+
+  static async getStoriesByMember(db: Database, memberId: string) {
+    return await db.select<StoryDB[]>(QUERIES.STORIES.SELECT_BY_MEMBER, [
+      memberId,
+    ]);
+  }
+
+  static async addStory(
+    db: Database,
+    id: string,
+    story: StoryInput,
+    now: string,
+  ) {
+    await db.execute(QUERIES.STORIES.INSERT, [
+      id,
+      story.title,
+      story.content,
+      now,
+      now,
+    ]);
+  }
+
+  static async linkStoryToMember(
+    db: Database,
+    storyId: string,
+    memberId: string,
+  ) {
+    await db.execute(QUERIES.STORIES.INSERT_LINK, [storyId, memberId]);
+  }
+
+  static async updateStory(
+    db: Database,
+    id: string,
+    story: StoryInput,
+    updatedAt: string,
+  ) {
+    await db.execute(QUERIES.STORIES.UPDATE, [
+      story.title,
+      story.content,
+      updatedAt,
+      id,
+    ]);
+  }
+
+  static async removeStory(db: Database, id: string) {
+    await db.execute(QUERIES.STORIES.DELETE, [id]);
+  }
+
+  static async removeStoryLinks(db: Database, storyId: string) {
+    await db.execute(QUERIES.STORIES.DELETE_LINKS, [storyId]);
   }
 }
