@@ -39,7 +39,7 @@ export const ConfirmDeleteDialog = ({
           <AlertDialogCancel onClick={() => onOpenChange(false)}>
             {cancelText}
           </AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>
+          <AlertDialogAction onClick={onConfirm} variant="destructive">
             {confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>

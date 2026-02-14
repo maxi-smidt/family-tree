@@ -115,7 +115,7 @@ export const MemberEvents = ({ member }: Props) => {
         onOpenChange={closeDeleteDialog}
         onConfirm={handleDelete}
         title={t("delete-dialog.title")}
-        description={t("delete-dialog.title")}
+        description={t("delete-dialog.description")}
         cancelText={t("delete-dialog.cancel")}
         confirmText={t("delete-dialog.delete")}
       />
