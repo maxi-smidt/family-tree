@@ -29,16 +29,7 @@ import {
 } from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
@@ -290,28 +281,15 @@ export const TimelineView = () => {
         }
       />
 
-      <AlertDialog
+      <ConfirmDeleteDialog
         open={!!eventToDelete}
-        onOpenChange={(open) => !open && setEventToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("delete-dialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("delete-dialog.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("delete-dialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDeleteEvent}
-            >
-              {t("delete-dialog.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={() => setEventToDelete(null)}
+        onConfirm={handleDeleteEvent}
+        title={t("delete-dialog.title")}
+        description={t("delete-dialog.description")}
+        cancelText={t("delete-dialog.cancel")}
+        confirmText={t("delete-dialog.delete")}
+      />
     </ViewLayout>
   );
 };
