@@ -262,7 +262,7 @@ export const EditMode = ({ member }: Props) => {
               className="h-7 text-xs shadow-none border-input"
               value={parseDate(formData.date.birth)}
               onChange={(date) => handleDateChange("birth", date)}
-              placeholder={"date-placeholder"}
+              placeholder={t("date-placeholder")}
             />
           </Field>
 
@@ -274,7 +274,7 @@ export const EditMode = ({ member }: Props) => {
               className="h-7 text-xs shadow-none border-input"
               value={parseDate(formData.date.death)}
               onChange={(date) => handleDateChange("death", date)}
-              placeholder={"date-placeholder"}
+              placeholder={t("date-placeholder")}
             />
           </Field>
         </FieldGroup>
