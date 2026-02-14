@@ -98,8 +98,8 @@ export const EventDialog = ({
             <div className="space-y-2">
               <Label htmlFor="date">Date *</Label>
               <DatePicker
-                date={new Date(formData.date)}
-                onDateChange={handleDateChange}
+                value={new Date(formData.date)}
+                onChange={handleDateChange}
               />
             </div>
 
@@ -107,7 +107,7 @@ export const EventDialog = ({
               <Label htmlFor="location">Location</Label>
               <Input
                 id="location"
-                value={formData.location}
+                value={formData.location || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, location: e.target.value })
                 }
@@ -119,7 +119,7 @@ export const EventDialog = ({
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                value={formData.description}
+                value={formData.description || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
