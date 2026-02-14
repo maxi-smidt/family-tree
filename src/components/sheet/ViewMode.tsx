@@ -11,6 +11,8 @@ import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
+import { MemberEvents } from "./MemberEvents";
+import { MemberStories } from "./MemberStories";
 
 type Props = {
   member: Member;
@@ -128,6 +130,10 @@ export const ViewMode = ({ member }: Props) => {
           )}
         </ItemContent>
       </Item>
+
+      <MemberEvents member={member} />
+
+      <MemberStories member={member} />
 
       {lightboxOpen && (
         <ImageLightbox

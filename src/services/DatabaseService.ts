@@ -8,6 +8,8 @@ import {
   mapMemberToDB,
 } from "@/types/member";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
+import { EventDB, EventInput } from "@/types/event";
+import { StoryDB, StoryInput } from "@/types/story";
 import { QUERIES } from "@/db/queries";
 
 export class DatabaseService {
@@ -197,5 +199,94 @@ export class DatabaseService {
       QUERIES.METADATA.SELECT_BY_KEY,
       [key],
     );
+  }
+
+  // Event methods
+  static async getEvents(db: Database) {
+    return await db.select<EventDB[]>(QUERIES.EVENTS.SELECT_ALL);
+  }
+
+  static async getEventsByMember(db: Database, memberId: string) {
+    return await db.select<EventDB[]>(QUERIES.EVENTS.SELECT_BY_MEMBER, [
+      memberId,
+    ]);
+  }
+
+  static async addEvent(
+    db: Database,
+    id: string,
+    memberId: string,
+    event: EventInput,
+    createdAt: string,
+  ) {
+    await db.execute(QUERIES.EVENTS.INSERT, [
+      id,
+      memberId,
+      event.eventType,
+      event.date,
+      event.location || null,
+      event.description || null,
+      createdAt,
+    ]);
+  }
+
+  static async updateEvent(db: Database, id: string, event: EventInput) {
+    await db.execute(QUERIES.EVENTS.UPDATE, [
+      id,
+      event.eventType,
+      event.date,
+      event.location || null,
+      event.description || null,
+    ]);
+  }
+
+  static async removeEvent(db: Database, id: string) {
+    await db.execute(QUERIES.EVENTS.DELETE, [id]);
+  }
+
+  // Story methods
+  static async getStories(db: Database) {
+    return await db.select<StoryDB[]>(QUERIES.STORIES.SELECT_ALL);
+  }
+
+  static async getStoriesByMember(db: Database, memberId: string) {
+    return await db.select<StoryDB[]>(QUERIES.STORIES.SELECT_BY_MEMBER, [
+      memberId,
+    ]);
+  }
+
+  static async addStory(
+    db: Database,
+    id: string,
+    memberId: string,
+    story: StoryInput,
+    now: string,
+  ) {
+    await db.execute(QUERIES.STORIES.INSERT, [
+      id,
+      memberId,
+      story.title,
+      story.content,
+      now,
+      now,
+    ]);
+  }
+
+  static async updateStory(
+    db: Database,
+    id: string,
+    story: StoryInput,
+    updatedAt: string,
+  ) {
+    await db.execute(QUERIES.STORIES.UPDATE, [
+      id,
+      story.title,
+      story.content,
+      updatedAt,
+    ]);
+  }
+
+  static async removeStory(db: Database, id: string) {
+    await db.execute(QUERIES.STORIES.DELETE, [id]);
   }
 }

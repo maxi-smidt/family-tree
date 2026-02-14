@@ -37,4 +37,22 @@ export const QUERIES = {
     DELETE_IMAGE: "DELETE FROM gallery_images WHERE id = $1",
     DELETE_LINKS: "DELETE FROM gallery_member_link WHERE gallery_image_id = $1",
   },
+  EVENTS: {
+    SELECT_ALL: "SELECT * FROM events",
+    SELECT_BY_MEMBER: "SELECT * FROM events WHERE member_id = $1 ORDER BY date",
+    INSERT:
+      "INSERT INTO events (id, member_id, event_type, date, location, description, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+    UPDATE:
+      "UPDATE events SET event_type = $2, date = $3, location = $4, description = $5 WHERE id = $1",
+    DELETE: "DELETE FROM events WHERE id = $1",
+  },
+  STORIES: {
+    SELECT_ALL: "SELECT * FROM stories",
+    SELECT_BY_MEMBER: "SELECT * FROM stories WHERE member_id = $1",
+    INSERT:
+      "INSERT INTO stories (id, member_id, title, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
+    UPDATE:
+      "UPDATE stories SET title = $2, content = $3, updated_at = $4 WHERE id = $1",
+    DELETE: "DELETE FROM stories WHERE id = $1",
+  },
 };

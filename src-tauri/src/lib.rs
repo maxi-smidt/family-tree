@@ -108,7 +108,26 @@ fn run_migrations(conn: &Connection) -> Result<(), String> {
             FOREIGN KEY (from_member_id) REFERENCES members(id) ON DELETE CASCADE,
             FOREIGN KEY (to_member_id) REFERENCES members(id) ON DELETE CASCADE,
             FOREIGN KEY (relation_type) REFERENCES relation_types(id) ON UPDATE CASCADE
-        );", relation_inserts)
+        );", relation_inserts),
+        "CREATE TABLE IF NOT EXISTS events (
+            id TEXT PRIMARY KEY,
+            member_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            date TEXT NOT NULL,
+            location TEXT,
+            description TEXT,
+            created_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS stories (
+            id TEXT PRIMARY KEY,
+            member_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        );".to_string(),
     ];
 
     if user_version < migrations.len() as i32 {

@@ -102,6 +102,7 @@
       "tree": "Tree",
       "list": "List",
       "gallery": "Gallery",
+      "timeline": "Timeline",
       "merge": "Merge Databases",
       "database-management": "Database Management"
     },
