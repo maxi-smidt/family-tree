@@ -5,18 +5,9 @@ import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { BookOpen, Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { StoryDialog } from "./StoryDialog";
-import { Story } from "@/types/story";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useTranslation } from "react-i18next";
+import { useContentManager } from "@/hooks/useContentManager";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 
 type Props = {
   member: Member;
@@ -27,29 +18,24 @@ export const MemberStories = ({ member }: Props) => {
     keyPrefix: "sheet.member-sheet.stories",
   });
   const { getStoriesByMember, removeStory } = useStoryStore();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingStory, setEditingStory] = useState<Story | null>(null);
-  const [storyToDelete, setStoryToDelete] = useState<Story | null>(null);
   const [expandedStoryId, setExpandedStoryId] = useState<string | null>(null);
 
-  const stories = getStoriesByMember(member.id);
-
-  const handleAddStory = () => {
-    setEditingStory(null);
-    setIsDialogOpen(true);
-  };
-
-  const handleEditStory = (story: Story) => {
-    setEditingStory(story);
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteStory = async () => {
-    if (storyToDelete) {
-      await removeStory(storyToDelete.id);
-      setStoryToDelete(null);
-    }
-  };
+  const {
+    items: stories,
+    isDialogOpen,
+    setIsDialogOpen,
+    editingItem: editingStory,
+    itemToDelete: storyToDelete,
+    handleAdd,
+    handleEdit,
+    handleDelete,
+    openDeleteDialog,
+    closeDeleteDialog,
+  } = useContentManager({
+    getItems: getStoriesByMember,
+    removeItem: removeStory,
+    memberId: member.id,
+  });
 
   const truncateText = (text: string, maxLength: number) => {
     if (text.length <= maxLength) return text;
@@ -61,7 +47,7 @@ export const MemberStories = ({ member }: Props) => {
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
           <ItemTitle>{t("title")}</ItemTitle>
-          <Button size="sm" variant="ghost" onClick={handleAddStory}>
+          <Button size="sm" variant="ghost" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
@@ -91,14 +77,14 @@ export const MemberStories = ({ member }: Props) => {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => handleEditStory(story)}
+                        onClick={() => handleEdit(story)}
                       >
                         <Pencil />
                       </Button>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => setStoryToDelete(story)}
+                        onClick={() => openDeleteDialog(story)}
                       >
                         <Trash2 />
                       </Button>
@@ -137,28 +123,15 @@ export const MemberStories = ({ member }: Props) => {
         initialMemberId={member.id}
       />
 
-      <AlertDialog
+      <ConfirmDeleteDialog
         open={!!storyToDelete}
-        onOpenChange={(open) => !open && setStoryToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle> {t("delete-dialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("delete-dialog.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel> {t("delete-dialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDeleteStory}
-            >
-              {t("delete-dialog.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={closeDeleteDialog}
+        onConfirm={handleDelete}
+        title={t("delete-dialog.title")}
+        description={t("delete-dialog.description")}
+        cancelText={t("delete-dialog.cancel")}
+        confirmText={t("delete-dialog.delete")}
+      />
     </Item>
   );
 };
