@@ -1,4 +1,4 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GalleryView } from "@/components/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/tree-view/FlowPanel";
 import { ListView } from "@/components/list-view/ListView";
@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { DatabaseMergeView } from "@/components/database-merge-view/DatabaseMergeView";
 import { DatabaseManagementView } from "@/components/database-management-view/DatabaseManagementView";
 import { TimelineView } from "@/components/timeline-view/TimelineView";
-import { ReactNode } from "react";
+import { TabWrapper } from "@/components/layout/TabWrapper";
 
 const TREE_VIEW = "tree-view";
 const LIST_VIEW = "list-view";
@@ -14,18 +14,6 @@ const GALLERY_VIEW = "gallery-view";
 const TIMELINE_VIEW = "timeline-view";
 const MERGE_VIEW = "merge-view";
 const DATABASE_MANAGEMENT_VIEW = "database-management-view";
-
-const TabWrapper = ({
-  children,
-  value,
-}: {
-  children: ReactNode;
-  value: string;
-}) => (
-  <TabsContent value={value} className="flex-1 min-h-0 m-0">
-    {children}
-  </TabsContent>
-);
 
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
