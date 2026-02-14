@@ -91,44 +91,44 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full overflow-y-auto p-8">
           <DialogHeader>
-            <DialogTitle className="text-2xl">
+            <DialogTitle className="text-3xl font-bold">
               {member.firstName} {member.lastName}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Profile Section */}
-            <div className="flex gap-6 items-start">
+            <div className="flex gap-8 items-start">
               <FamilyNodeContent member={member} largeImage />
-              <div className="flex-1 space-y-2">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="flex-1 space-y-3">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="text-sm font-semibold text-muted-foreground mb-1">
                       First Name
                     </div>
-                    <div className="text-base">{member.firstName}</div>
+                    <div className="text-lg">{member.firstName}</div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="text-sm font-semibold text-muted-foreground mb-1">
                       Last Name
                     </div>
-                    <div className="text-base">{member.lastName}</div>
+                    <div className="text-lg">{member.lastName}</div>
                   </div>
                   {member.maidenName && (
                     <div>
-                      <div className="text-sm font-medium text-muted-foreground">
+                      <div className="text-sm font-semibold text-muted-foreground mb-1">
                         Maiden Name
                       </div>
-                      <div className="text-base">{member.maidenName}</div>
+                      <div className="text-lg">{member.maidenName}</div>
                     </div>
                   )}
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="text-sm font-semibold text-muted-foreground mb-1">
                       Gender
                     </div>
-                    <div className="text-base capitalize">
+                    <div className="text-lg capitalize">
                       {member.gender === "m"
                         ? "Male"
                         : member.gender === "f"
@@ -137,17 +137,17 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                     </div>
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground">
+                    <div className="text-sm font-semibold text-muted-foreground mb-1">
                       Date of Birth
                     </div>
-                    <div className="text-base">{formatDate(member.date.birth)}</div>
+                    <div className="text-lg">{formatDate(member.date.birth)}</div>
                   </div>
                   {member.date.death && (
                     <div>
-                      <div className="text-sm font-medium text-muted-foreground">
+                      <div className="text-sm font-semibold text-muted-foreground mb-1">
                         Date of Death
                       </div>
-                      <div className="text-base">
+                      <div className="text-lg">
                         {formatDate(member.date.death)}
                       </div>
                     </div>
@@ -156,47 +156,47 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
               </div>
             </div>
 
-            <Separator />
+            <Separator className="my-6" />
 
             {/* Family Relationships */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <Users className="w-5 h-5" />
+            <div className="space-y-5">
+              <h3 className="text-2xl font-bold flex items-center gap-3">
+                <Users className="w-6 h-6" />
                 Family Relationships
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                 {paternalParent && (
-                  <div className="p-3 border rounded-lg">
-                    <div className="text-sm font-medium text-muted-foreground mb-1">
+                  <div className="p-4 border rounded-lg bg-accent/30">
+                    <div className="text-sm font-semibold text-muted-foreground mb-2">
                       Paternal Parent
                     </div>
                     <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      <span>
+                      <User className="w-5 h-5" />
+                      <span className="text-base">
                         {paternalParent.firstName} {paternalParent.lastName}
                       </span>
                     </div>
                   </div>
                 )}
                 {maternalParent && (
-                  <div className="p-3 border rounded-lg">
-                    <div className="text-sm font-medium text-muted-foreground mb-1">
+                  <div className="p-4 border rounded-lg bg-accent/30">
+                    <div className="text-sm font-semibold text-muted-foreground mb-2">
                       Maternal Parent
                     </div>
                     <div className="flex items-center gap-2">
-                      <User className="w-4 h-4" />
-                      <span>
+                      <User className="w-5 h-5" />
+                      <span className="text-base">
                         {maternalParent.firstName} {maternalParent.lastName}
                       </span>
                     </div>
                   </div>
                 )}
                 {children.length > 0 && (
-                  <div className="p-3 border rounded-lg">
-                    <div className="text-sm font-medium text-muted-foreground mb-1">
+                  <div className="p-4 border rounded-lg bg-accent/30">
+                    <div className="text-sm font-semibold text-muted-foreground mb-2">
                       Children ({children.length})
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {children.map((child) => (
                         <div key={child.id} className="flex items-center gap-2">
                           <User className="w-4 h-4" />
@@ -209,11 +209,11 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   </div>
                 )}
                 {siblings.length > 0 && (
-                  <div className="p-3 border rounded-lg">
-                    <div className="text-sm font-medium text-muted-foreground mb-1">
+                  <div className="p-4 border rounded-lg bg-accent/30">
+                    <div className="text-sm font-semibold text-muted-foreground mb-2">
                       Siblings ({siblings.length})
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {siblings.map((sibling) => (
                         <div key={sibling.id} className="flex items-center gap-2">
                           <User className="w-4 h-4" />
@@ -228,22 +228,22 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
               </div>
             </div>
 
-            <Separator />
+            <Separator className="my-6" />
 
             {/* Life Events */}
             {memberEvents.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
+              <div className="space-y-5">
+                <h3 className="text-2xl font-bold flex items-center gap-3">
+                  <Calendar className="w-6 h-6" />
                   Life Events ({memberEvents.length})
                 </h3>
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {memberEvents.map((event) => (
-                    <div key={event.id} className="border rounded-lg p-4 bg-accent/30">
-                      <div className="font-medium text-base mb-2">
+                    <div key={event.id} className="border rounded-lg p-5 bg-accent/30 hover:bg-accent/50 transition-colors">
+                      <div className="font-semibold text-lg mb-3">
                         {event.eventType}
                       </div>
-                      <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
+                      <div className="flex flex-col gap-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4" />
                           <span>{formatEventDate(event.date)}</span>
@@ -256,7 +256,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                         )}
                       </div>
                       {event.description && (
-                        <p className="text-sm mt-3 text-foreground">
+                        <p className="text-sm mt-3 text-foreground leading-relaxed">
                           {event.description}
                         </p>
                       )}
@@ -266,20 +266,20 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
               </div>
             )}
 
-            {memberEvents.length > 0 && memberStories.length > 0 && <Separator />}
+            {memberEvents.length > 0 && memberStories.length > 0 && <Separator className="my-6" />}
 
             {/* Stories */}
             {memberStories.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <BookOpen className="w-5 h-5" />
+              <div className="space-y-5">
+                <h3 className="text-2xl font-bold flex items-center gap-3">
+                  <BookOpen className="w-6 h-6" />
                   Stories & Biographies ({memberStories.length})
                 </h3>
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-5">
                   {memberStories.map((story) => (
-                    <div key={story.id} className="border rounded-lg p-4 bg-accent/30">
-                      <h4 className="font-medium text-base mb-3">{story.title}</h4>
-                      <div className="text-sm whitespace-pre-wrap">
+                    <div key={story.id} className="border rounded-lg p-6 bg-accent/30 hover:bg-accent/50 transition-colors">
+                      <h4 className="font-semibold text-xl mb-4">{story.title}</h4>
+                      <div className="text-base whitespace-pre-wrap leading-relaxed">
                         {story.content}
                       </div>
                     </div>
@@ -289,21 +289,21 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
             )}
 
             {(memberStories.length > 0 || memberEvents.length > 0) &&
-              linkedImages.length > 0 && <Separator />}
+              linkedImages.length > 0 && <Separator className="my-6" />}
 
             {/* Linked Images */}
             {linkedImages.length > 0 && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">
+              <div className="space-y-5">
+                <h3 className="text-2xl font-bold">
                   Linked Images ({linkedImages.length})
                 </h3>
-                <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {linkedImages.map((image, index) => (
                     <img
                       key={image.id}
                       src={image.imageData}
                       alt={image.title || "Linked image"}
-                      className="w-full h-32 object-cover rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+                      className="w-full h-40 object-cover rounded-lg cursor-pointer hover:opacity-90 hover:scale-105 transition-all shadow-md"
                       onClick={() => openLightbox(index)}
                     />
                   ))}

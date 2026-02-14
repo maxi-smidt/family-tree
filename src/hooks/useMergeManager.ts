@@ -224,32 +224,42 @@ export const useMergeManager = () => {
         await DatabaseService.addRelation(newDb, fromId, toId, relationType);
       }
 
-      // Merge gallery images with content-based deduplication
-      const allImages = [...data1.galleryImages, ...data2.galleryImages];
-      const processedImageIds = new Set<string>();
+      // Merge gallery images from db1 first
       const processedImageData = new Map<string, string>(); // Map imageData -> id
 
-      for (const img of allImages) {
-        // Skip if we've already processed this exact image ID
-        if (processedImageIds.has(img.id)) continue;
-
-        // Check if we've seen this exact image data before
-        const existingId = processedImageData.get(img.imageData);
-        if (existingId) {
-          // Update idMap2 if this image is from db2
-          if (data2.galleryImages.some((img2) => img2.id === img.id)) {
-            idMap2.set(img.id, existingId);
-            duplicateImages++;
-          }
-          continue;
-        }
-
-        processedImageIds.add(img.id);
+      for (const img of data1.galleryImages) {
         processedImageData.set(img.imageData, img.id);
-
         await DatabaseService.addGalleryImage(
           newDb,
           img.id,
+          {
+            imageData: img.imageData,
+            title: img.title,
+            description: img.description,
+            linkedMemberIds: [],
+          },
+          img.createdAt,
+        );
+      }
+
+      // Merge gallery images from db2 with content-based deduplication and ID mapping
+      for (const img of data2.galleryImages) {
+        // Check if we've seen this exact image data before
+        const existingId = processedImageData.get(img.imageData);
+        if (existingId) {
+          // This is a duplicate - map the old ID to the existing one
+          idMap2.set(img.id, existingId);
+          duplicateImages++;
+          continue;
+        }
+
+        // Not a duplicate - add with new ID
+        const newImageId = getNewId2(img.id);
+        processedImageData.set(img.imageData, newImageId);
+
+        await DatabaseService.addGalleryImage(
+          newDb,
+          newImageId,
           {
             imageData: img.imageData,
             title: img.title,
