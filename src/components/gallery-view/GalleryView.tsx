@@ -143,7 +143,9 @@ export const GalleryView = () => {
   };
 
   return (
-    <div className="p-4 h-full flex flex-col">
+    <div className="h-full flex flex-col p-6 overflow-hidden">
+      <h2 className="text-2xl font-bold mb-6">Gallery</h2>
+
       <div className="flex justify-between items-center mb-4 gap-4">
         <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />

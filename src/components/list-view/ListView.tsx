@@ -122,8 +122,16 @@ export const ListView = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col p-6 overflow-hidden">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold">List View</h2>
+        <div className="text-sm text-muted-foreground">
+          {sortedMembers.length}{" "}
+          {t("selected-members", { count: sortedMembers.length })}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-4">
         <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
@@ -132,10 +140,6 @@ export const ListView = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-8"
           />
-        </div>
-        <div className="text-sm text-muted-foreground">
-          {sortedMembers.length}{" "}
-          {t("selected-members", { count: sortedMembers.length })}
         </div>
       </div>
 
