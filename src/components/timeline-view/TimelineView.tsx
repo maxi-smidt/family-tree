@@ -5,13 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar, MapPin, Plus, Pencil, Trash2, Search } from "lucide-react";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Calendar, MapPin, Plus, Pencil, Trash2, Search, Check, ChevronsUpDown } from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
 import { format } from "date-fns";
@@ -25,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 
 export const TimelineView = () => {
   const { members } = useMemberStore();
@@ -32,6 +39,7 @@ export const TimelineView = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",
   );
+  const [memberSelectOpen, setMemberSelectOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
@@ -124,22 +132,68 @@ export const TimelineView = () => {
           />
         </div>
 
-        <Select
-          value={selectedMemberId}
-          onValueChange={(value) => setSelectedMemberId(value)}
-        >
-          <SelectTrigger className="w-[250px]">
-            <SelectValue placeholder="Select member" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Members</SelectItem>
-            {members.map((member) => (
-              <SelectItem key={member.id} value={member.id}>
-                {member.firstName} {member.lastName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={memberSelectOpen}
+              className="w-[250px] justify-between"
+            >
+              {selectedMemberId === "all"
+                ? "All Members"
+                : members.find((m) => m.id === selectedMemberId)
+                  ? `${members.find((m) => m.id === selectedMemberId)?.firstName} ${members.find((m) => m.id === selectedMemberId)?.lastName}`
+                  : "Select member..."}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[250px] p-0">
+            <Command>
+              <CommandInput placeholder="Search members..." />
+              <CommandList>
+                <CommandEmpty>No member found.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="all"
+                    onSelect={() => {
+                      setSelectedMemberId("all");
+                      setMemberSelectOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selectedMemberId === "all" ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    All Members
+                  </CommandItem>
+                  {members.map((member) => (
+                    <CommandItem
+                      key={member.id}
+                      value={`${member.firstName} ${member.lastName}`}
+                      onSelect={() => {
+                        setSelectedMemberId(member.id);
+                        setMemberSelectOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          selectedMemberId === member.id
+                            ? "opacity-100"
+                            : "opacity-0",
+                        )}
+                      />
+                      {member.firstName} {member.lastName}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4">
@@ -163,8 +217,8 @@ export const TimelineView = () => {
                 key={event.id}
                 className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
               >
-                {/* Timeline dot */}
-                <div className="absolute -left-[34px] top-6 w-4 h-4 rounded-full bg-primary border-4 border-background" />
+                {/* Timeline dot - centered on line */}
+                <div className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background" style={{ left: '-40px' }} />
 
                 <div className="flex items-start justify-between">
                   <div className="flex-1">

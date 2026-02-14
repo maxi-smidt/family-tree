@@ -4,7 +4,6 @@ import { FormEvent, useEffect, useState } from "react";
 import { Mars, Upload, User, Venus, VenusAndMars } from "lucide-react";
 import { Gender, Member } from "@/types/member";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Textarea } from "@/components/ui/textarea";
 import { ImageCropDialog } from "@/components/dialog/ImageCropDialog";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
@@ -12,6 +11,8 @@ import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { useTranslation } from "react-i18next";
+import { MemberEvents } from "./MemberEvents";
+import { MemberStories } from "./MemberStories";
 
 type Props = {
   member: Member;
@@ -142,7 +143,6 @@ export const EditMode = ({ member }: Props) => {
       imageData: formData.imageData || undefined,
       dateOfBirth: formData.date.birth,
       dateOfDeath: formData.date.death || undefined,
-      additionalData: formData.additionalData || undefined,
     });
     toast.success(t("toast-success"));
   };
@@ -275,19 +275,13 @@ export const EditMode = ({ member }: Props) => {
               onChange={(date) => handleDateChange("death", date)}
             />
           </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("extra-field")}
-            </FieldLabel>
-            <Textarea
-              className="text-xs! shadow-none"
-              placeholder={t("extra-field")}
-              value={formData.additionalData || ""}
-              onChange={(e) => handleChange("additionalData", e.target.value)}
-            />
-          </Field>
         </FieldGroup>
+
+        {/* Events and Stories Management */}
+        <div className="space-y-4 mt-6">
+          <MemberEvents member={member} />
+          <MemberStories member={member} />
+        </div>
       </div>
     </form>
   );
