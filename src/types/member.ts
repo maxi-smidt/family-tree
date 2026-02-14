@@ -47,9 +47,14 @@ export class MemberObject {
   }
 
   static equalDB(m1: MemberDB, m2: MemberDB) {
+    // Normalize strings for comparison (case-insensitive, trimmed)
+    const normalizeStr = (str: string | null): string => {
+      return (str || "").toLowerCase().trim();
+    };
+
     return (
-      m1.firstName === m2.firstName &&
-      m1.lastName === m2.lastName &&
+      normalizeStr(m1.firstName) === normalizeStr(m2.firstName) &&
+      normalizeStr(m1.lastName) === normalizeStr(m2.lastName) &&
       m1.gender === m2.gender &&
       m1.dateOfBirth === m2.dateOfBirth &&
       m1.dateOfDeath === m2.dateOfDeath
