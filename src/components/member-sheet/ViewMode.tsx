@@ -181,7 +181,9 @@ export const ViewMode = ({ member }: Props) => {
                         key={event.id}
                         className="border rounded-lg p-3 bg-accent/50"
                       >
-                        <div className="font-medium mb-1">{event.eventType}</div>
+                        <div className="font-medium mb-1">
+                          {event.eventType}
+                        </div>
                         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
