@@ -43,7 +43,7 @@ export const QUERIES = {
     INSERT:
       "INSERT INTO events (id, member_id, event_type, date, location, description, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
     UPDATE:
-      "UPDATE events SET event_type = $2, date = $3, location = $4, description = $5 WHERE id = $1",
+      "UPDATE events SET event_type = $1, date = $2, location = $3, description = $4 WHERE id = $5",
     DELETE: "DELETE FROM events WHERE id = $1",
   },
   STORIES: {
@@ -52,7 +52,7 @@ export const QUERIES = {
     INSERT:
       "INSERT INTO stories (id, member_id, title, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
     UPDATE:
-      "UPDATE stories SET title = $2, content = $3, updated_at = $4 WHERE id = $1",
+      "UPDATE stories SET title = $1, content = $2, updated_at = $3 WHERE id = $4",
     DELETE: "DELETE FROM stories WHERE id = $1",
   },
 };

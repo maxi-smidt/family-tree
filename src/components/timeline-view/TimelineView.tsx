@@ -215,7 +215,11 @@ export const TimelineView = () => {
         onOpenChange={setIsEventDialogOpen}
         event={editingEvent}
         memberId={
-          selectedMemberId !== "all" ? selectedMemberId : members[0]?.id
+          selectedMemberId !== "all"
+            ? selectedMemberId
+            : members.length > 0
+              ? members[0].id
+              : undefined
         }
       />
 

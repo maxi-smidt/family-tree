@@ -137,7 +137,10 @@ export const EventDialog = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!formData.eventType || !memberId}>
+            <Button
+              type="submit"
+              disabled={!formData.eventType || (!event && !memberId)}
+            >
               {event ? "Update" : "Add"} Event
             </Button>
           </DialogFooter>

@@ -279,10 +279,10 @@ export class DatabaseService {
     updatedAt: string,
   ) {
     await db.execute(QUERIES.STORIES.UPDATE, [
-      id,
       story.title,
       story.content,
       updatedAt,
+      id,
     ]);
   }
 
