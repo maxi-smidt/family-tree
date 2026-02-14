@@ -1,6 +1,6 @@
 export interface Event {
   id: string;
-  memberId: string;
+  linkedMemberIds: string[];
   eventType: string;
   date: string;
   location: string | null;
@@ -10,7 +10,6 @@ export interface Event {
 
 export interface EventDB {
   id: string;
-  member_id: string;
   event_type: string;
   date: string;
   location: string | null;
@@ -25,10 +24,10 @@ export interface EventInput {
   description?: string | null;
 }
 
-export function mapEventFromDB(row: EventDB): Event {
+export function mapEventFromDB(row: EventDB, linkedMemberIds: string[]): Event {
   return {
     id: row.id,
-    memberId: row.member_id,
+    linkedMemberIds,
     eventType: row.event_type,
     date: row.date,
     location: row.location,
@@ -40,7 +39,6 @@ export function mapEventFromDB(row: EventDB): Event {
 export function mapEventToDB(event: Event): EventDB {
   return {
     id: event.id,
-    member_id: event.memberId,
     event_type: event.eventType,
     date: event.date,
     location: event.location,

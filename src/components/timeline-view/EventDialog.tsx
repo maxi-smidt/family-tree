@@ -11,29 +11,33 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useEventStore } from "@/hooks/useEventStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { Event, EventInput } from "@/types/event";
 import { DatePicker } from "@/components/ui/date-picker";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface EventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   event?: Event | null;
-  memberId?: string;
+  initialMemberId?: string;
 }
 
 export const EventDialog = ({
   open,
   onOpenChange,
   event,
-  memberId,
+  initialMemberId,
 }: EventDialogProps) => {
   const { addEvent, updateEvent } = useEventStore();
+  const { members } = useMemberStore();
   const [formData, setFormData] = useState<EventInput>({
     eventType: "",
     date: new Date().toISOString().split("T")[0],
     location: "",
     description: "",
   });
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (event) {
@@ -43,6 +47,7 @@ export const EventDialog = ({
         location: event.location || "",
         description: event.description || "",
       });
+      setSelectedMemberIds(event.linkedMemberIds || []);
     } else {
       setFormData({
         eventType: "",
@@ -50,16 +55,17 @@ export const EventDialog = ({
         location: "",
         description: "",
       });
+      setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
     }
-  }, [event, open]);
+  }, [event, initialMemberId, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (event) {
-      await updateEvent(event.id, formData);
-    } else if (memberId) {
-      await addEvent(memberId, formData);
+      await updateEvent(event.id, formData, selectedMemberIds);
+    } else {
+      await addEvent(selectedMemberIds, formData);
     }
 
     onOpenChange(false);
@@ -74,6 +80,11 @@ export const EventDialog = ({
     }
   };
 
+  const memberOptions = members.map((m) => ({
+    label: `${m.firstName} ${m.lastName}`,
+    value: m.id,
+  }));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -82,6 +93,21 @@ export const EventDialog = ({
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="members">Linked Members *</Label>
+              <MultiSelect
+                options={memberOptions}
+                onValueChange={setSelectedMemberIds}
+                defaultValue={selectedMemberIds}
+                placeholder="Select members..."
+                variant="inverted"
+                maxCount={5}
+              />
+              <p className="text-xs text-muted-foreground">
+                Select one or more family members involved in this event
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="eventType">Event Type *</Label>
               <Input
@@ -139,7 +165,9 @@ export const EventDialog = ({
             </Button>
             <Button
               type="submit"
-              disabled={!formData.eventType || (!event && !memberId)}
+              disabled={
+                !formData.eventType || selectedMemberIds.length === 0
+              }
             >
               {event ? "Update" : "Add"} Event
             </Button>

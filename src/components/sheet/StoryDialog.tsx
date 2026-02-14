@@ -11,26 +11,30 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { Story, StoryInput } from "@/types/story";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface StoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   story?: Story | null;
-  memberId?: string;
+  initialMemberId?: string;
 }
 
 export const StoryDialog = ({
   open,
   onOpenChange,
   story,
-  memberId,
+  initialMemberId,
 }: StoryDialogProps) => {
   const { addStory, updateStory } = useStoryStore();
+  const { members } = useMemberStore();
   const [formData, setFormData] = useState<StoryInput>({
     title: "",
     content: "",
   });
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (story) {
@@ -38,25 +42,32 @@ export const StoryDialog = ({
         title: story.title,
         content: story.content,
       });
+      setSelectedMemberIds(story.linkedMemberIds || []);
     } else {
       setFormData({
         title: "",
         content: "",
       });
+      setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
     }
-  }, [story, open]);
+  }, [story, initialMemberId, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (story) {
-      await updateStory(story.id, formData);
-    } else if (memberId) {
-      await addStory(memberId, formData);
+      await updateStory(story.id, formData, selectedMemberIds);
+    } else {
+      await addStory(selectedMemberIds, formData);
     }
 
     onOpenChange(false);
   };
+
+  const memberOptions = members.map((m) => ({
+    label: `${m.firstName} ${m.lastName}`,
+    value: m.id,
+  }));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,6 +77,21 @@ export const StoryDialog = ({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           <div className="space-y-4 py-4 flex-1 overflow-y-auto">
+            <div className="space-y-2">
+              <Label htmlFor="members">Linked Members *</Label>
+              <MultiSelect
+                options={memberOptions}
+                onValueChange={setSelectedMemberIds}
+                defaultValue={selectedMemberIds}
+                placeholder="Select members..."
+                variant="inverted"
+                maxCount={5}
+              />
+              <p className="text-xs text-muted-foreground">
+                Select one or more family members this story is about
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="title">Title *</Label>
               <Input
@@ -108,7 +134,11 @@ export const StoryDialog = ({
             </Button>
             <Button
               type="submit"
-              disabled={!formData.title || !formData.content || !memberId}
+              disabled={
+                !formData.title ||
+                !formData.content ||
+                selectedMemberIds.length === 0
+              }
             >
               {story ? "Update" : "Add"} Story
             </Button>

@@ -39,20 +39,28 @@ export const QUERIES = {
   },
   EVENTS: {
     SELECT_ALL: "SELECT * FROM events",
-    SELECT_BY_MEMBER: "SELECT * FROM events WHERE member_id = $1 ORDER BY date",
+    SELECT_BY_MEMBER: "SELECT e.* FROM events e INNER JOIN event_member_link eml ON e.id = eml.event_id WHERE eml.member_id = $1 ORDER BY e.date",
+    SELECT_LINKS: "SELECT * FROM event_member_link",
     INSERT:
-      "INSERT INTO events (id, member_id, event_type, date, location, description, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      "INSERT INTO events (id, event_type, date, location, description, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
+    INSERT_LINK:
+      "INSERT OR IGNORE INTO event_member_link (event_id, member_id) VALUES ($1, $2)",
     UPDATE:
       "UPDATE events SET event_type = $1, date = $2, location = $3, description = $4 WHERE id = $5",
     DELETE: "DELETE FROM events WHERE id = $1",
+    DELETE_LINKS: "DELETE FROM event_member_link WHERE event_id = $1",
   },
   STORIES: {
     SELECT_ALL: "SELECT * FROM stories",
-    SELECT_BY_MEMBER: "SELECT * FROM stories WHERE member_id = $1",
+    SELECT_BY_MEMBER: "SELECT s.* FROM stories s INNER JOIN story_member_link sml ON s.id = sml.story_id WHERE sml.member_id = $1",
+    SELECT_LINKS: "SELECT * FROM story_member_link",
     INSERT:
-      "INSERT INTO stories (id, member_id, title, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)",
+      "INSERT INTO stories (id, title, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
+    INSERT_LINK:
+      "INSERT OR IGNORE INTO story_member_link (story_id, member_id) VALUES ($1, $2)",
     UPDATE:
       "UPDATE stories SET title = $1, content = $2, updated_at = $3 WHERE id = $4",
     DELETE: "DELETE FROM stories WHERE id = $1",
+    DELETE_LINKS: "DELETE FROM story_member_link WHERE story_id = $1",
   },
 };

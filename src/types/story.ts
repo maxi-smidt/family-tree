@@ -1,6 +1,6 @@
 export interface Story {
   id: string;
-  memberId: string;
+  linkedMemberIds: string[];
   title: string;
   content: string;
   createdAt: string;
@@ -9,7 +9,6 @@ export interface Story {
 
 export interface StoryDB {
   id: string;
-  member_id: string;
   title: string;
   content: string;
   created_at: string;
@@ -21,10 +20,10 @@ export interface StoryInput {
   content: string;
 }
 
-export function mapStoryFromDB(row: StoryDB): Story {
+export function mapStoryFromDB(row: StoryDB, linkedMemberIds: string[]): Story {
   return {
     id: row.id,
-    memberId: row.member_id,
+    linkedMemberIds,
     title: row.title,
     content: row.content,
     createdAt: row.created_at,
@@ -35,7 +34,6 @@ export function mapStoryFromDB(row: StoryDB): Story {
 export function mapStoryToDB(story: Story): StoryDB {
   return {
     id: story.id,
-    member_id: story.memberId,
     title: story.title,
     content: story.content,
     created_at: story.createdAt,

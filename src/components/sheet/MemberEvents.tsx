@@ -125,7 +125,7 @@ export const MemberEvents = ({ member }: Props) => {
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         event={editingEvent}
-        memberId={member.id}
+        initialMemberId={member.id}
       />
 
       <AlertDialog

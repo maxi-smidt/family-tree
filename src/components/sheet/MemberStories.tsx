@@ -130,7 +130,7 @@ export const MemberStories = ({ member }: Props) => {
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         story={editingStory}
-        memberId={member.id}
+        initialMemberId={member.id}
       />
 
       <AlertDialog

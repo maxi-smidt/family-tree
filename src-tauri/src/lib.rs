@@ -128,6 +128,47 @@ fn run_migrations(conn: &Connection) -> Result<(), String> {
             updated_at TEXT NOT NULL,
             FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
         );".to_string(),
+        "CREATE TABLE IF NOT EXISTS events_new (
+            id TEXT PRIMARY KEY,
+            event_type TEXT NOT NULL,
+            date TEXT NOT NULL,
+            location TEXT,
+            description TEXT,
+            created_at TEXT NOT NULL
+        );
+        INSERT INTO events_new (id, event_type, date, location, description, created_at)
+        SELECT id, event_type, date, location, description, created_at FROM events;
+        CREATE TABLE IF NOT EXISTS event_member_link (
+            event_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            PRIMARY KEY (event_id, member_id),
+            FOREIGN KEY (event_id) REFERENCES events_new(id) ON DELETE CASCADE,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        );
+        INSERT INTO event_member_link (event_id, member_id)
+        SELECT id, member_id FROM events;
+        DROP TABLE events;
+        ALTER TABLE events_new RENAME TO events;
+        CREATE TABLE IF NOT EXISTS stories_new (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        INSERT INTO stories_new (id, title, content, created_at, updated_at)
+        SELECT id, title, content, created_at, updated_at FROM stories;
+        CREATE TABLE IF NOT EXISTS story_member_link (
+            story_id TEXT NOT NULL,
+            member_id TEXT NOT NULL,
+            PRIMARY KEY (story_id, member_id),
+            FOREIGN KEY (story_id) REFERENCES stories_new(id) ON DELETE CASCADE,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        );
+        INSERT INTO story_member_link (story_id, member_id)
+        SELECT id, member_id FROM stories;
+        DROP TABLE stories;
+        ALTER TABLE stories_new RENAME TO stories;".to_string(),
     ];
 
     if user_version < migrations.len() as i32 {

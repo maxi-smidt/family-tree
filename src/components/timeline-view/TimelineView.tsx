@@ -42,7 +42,9 @@ export const TimelineView = () => {
 
     // Filter by member
     if (selectedMemberId !== "all") {
-      filtered = filtered.filter((e) => e.memberId === selectedMemberId);
+      filtered = filtered.filter((e) =>
+        e.linkedMemberIds.includes(selectedMemberId),
+      );
     }
 
     // Filter by search query
@@ -66,7 +68,13 @@ export const TimelineView = () => {
 
   const getMemberName = (memberId: string) => {
     const member = members.find((m) => m.id === memberId);
-    return member ? `${member.firstName} ${member.lastName}` : "Unknown Member";
+    return member
+      ? `${member.firstName} ${member.lastName}`
+      : "Unknown Member";
+  };
+
+  const getMemberNames = (memberIds: string[]) => {
+    return memberIds.map(getMemberName).join(", ");
   };
 
   const handleAddEvent = () => {
@@ -165,7 +173,7 @@ export const TimelineView = () => {
                         {event.eventType}
                       </h3>
                       <span className="text-sm text-muted-foreground">
-                        · {getMemberName(event.memberId)}
+                        · {getMemberNames(event.linkedMemberIds)}
                       </span>
                     </div>
 
@@ -214,7 +222,7 @@ export const TimelineView = () => {
         open={isEventDialogOpen}
         onOpenChange={setIsEventDialogOpen}
         event={editingEvent}
-        memberId={
+        initialMemberId={
           selectedMemberId !== "all"
             ? selectedMemberId
             : members.length > 0
