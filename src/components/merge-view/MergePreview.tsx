@@ -35,30 +35,29 @@ export const MergePreview = ({ previewData }: MergePreviewProps) => {
       <div className="p-4 border-b bg-muted/50">
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-medium">{t("title")}</div>
-          <div className="text-sm text-muted-foreground">
-            {t("merge-preview-number", {
-              mergedCount: previewData.mergedCount,
-              totalMembers: previewData.totalMembers,
-            })}
-          </div>
         </div>
 
-        {/* Summary statistics */}
         <div className="grid grid-cols-3 gap-2 mt-3">
           <div className="text-xs space-y-1">
-            <div className="text-muted-foreground">Total Records</div>
+            <div className="text-muted-foreground">
+              {t("total-records", { count: previewData.totalMembers })}
+            </div>
             <div className="font-semibold text-lg">
               {previewData.totalMembers}
             </div>
           </div>
           <div className="text-xs space-y-1">
-            <div className="text-muted-foreground">Unique Members</div>
+            <div className="text-muted-foreground">
+              {t("unique-members", { count: uniqueCount })}
+            </div>
             <div className="font-semibold text-lg text-green-600">
               {uniqueCount}
             </div>
           </div>
           <div className="text-xs space-y-1">
-            <div className="text-muted-foreground">Duplicates Found</div>
+            <div className="text-muted-foreground">
+              {t("duplicate-members", { count: duplicateCount })}
+            </div>
             <div className="font-semibold text-lg text-amber-600">
               {duplicateCount}
             </div>
@@ -66,18 +65,15 @@ export const MergePreview = ({ previewData }: MergePreviewProps) => {
         </div>
       </div>
 
-      {/* Info alerts */}
       {duplicateCount > 0 && (
         <div className="p-3 border-b bg-amber-50 dark:bg-amber-950/20">
           <Alert className="bg-transparent border-none p-0">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertTitle className="text-sm mb-1">
-              Duplicates Will Be Merged
+              {t("alert-duplicate.title")}
             </AlertTitle>
             <AlertDescription className="text-xs">
-              {duplicateCount} member{duplicateCount !== 1 ? "s" : ""} found in
-              both databases will be merged. Additional notes from both records
-              will be combined.
+              {t("alert-duplicate.description", { count: duplicateCount })}
             </AlertDescription>
           </Alert>
         </div>
@@ -87,10 +83,11 @@ export const MergePreview = ({ previewData }: MergePreviewProps) => {
         <div className="p-3 border-b bg-green-50 dark:bg-green-950/20">
           <Alert className="bg-transparent border-none p-0">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-sm mb-1">No Duplicates</AlertTitle>
+            <AlertTitle className="text-sm mb-1">
+              {t("alert-no-duplicate.title")}
+            </AlertTitle>
             <AlertDescription className="text-xs">
-              All members are unique. The databases will be combined without any
-              conflicts.
+              {t("alert-no-duplicate.description")}
             </AlertDescription>
           </Alert>
         </div>

@@ -212,7 +212,6 @@
     },
     "preview": {
       "title": "Preview Analysis",
-      "merge-preview-number": "Estimated result: {{mergedCount}} members (from {{totalMembers}} total)",
       "no-overlap": "No overlapping members found. All members will be added as new entries.",
       "table": {
         "firstname": "First Name",
@@ -220,6 +219,21 @@
         "birth-date": "Birth Date",
         "status": "Status",
         "will-be-merged": "Will be merged"
+      },
+      "total-records_one": "Total Record",
+      "total-records_other": "Total Records",
+      "unique-members_one": "Unique Member",
+      "unique-members_other": "Unique Members",
+      "duplicate-members_one": "Duplicate Found",
+      "duplicate-members_other": "Duplicates Found",
+      "alert-duplicate": {
+        "title": "Duplicates Will Be Merged",
+        "description_one": "{{duplicateCount}} member found in both databases will be merged. Additional notes from both records will be combined.",
+        "description_other": "{{duplicateCount}} members found in both databases will be merged. Additional notes from both records will be combined."
+      },
+      "alert-no-duplicate": {
+        "title": "No Duplicates",
+        "description": "All members are unique. The databases will be combined without any conflicts."
       }
     }
   },
