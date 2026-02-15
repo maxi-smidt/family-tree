@@ -47,9 +47,9 @@ pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| format!("Password hashing failed: {}", e))?;
     
-    let key_bytes = password_hash.hash
-        .ok_or("Failed to get hash")?
-        .as_bytes();
+    let hash = password_hash.hash
+        .ok_or("Failed to get hash")?;
+    let key_bytes = hash.as_bytes();
     
     // Ensure we have exactly 32 bytes for AES-256
     let mut key = [0u8; 32];
@@ -142,9 +142,9 @@ pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| format!("Password hashing failed: {}", e))?;
     
-    let key_bytes = password_hash.hash
-        .ok_or("Failed to get hash")?
-        .as_bytes();
+    let hash = password_hash.hash
+        .ok_or("Failed to get hash")?;
+    let key_bytes = hash.as_bytes();
     
     let mut key = [0u8; 32];
     let copy_len = key_bytes.len().min(32);
