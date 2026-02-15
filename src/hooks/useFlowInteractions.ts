@@ -123,11 +123,11 @@ export const useFlowInteractions = (
           if (childMember) {
             if (childMember.parents.maternalParent === source) {
               void updateMemberPartial(target, {
-                maternalParentId: null as unknown as string,
+                maternalParentId: null,
               });
             } else if (childMember.parents.paternalParent === source) {
               void updateMemberPartial(target, {
-                paternalParentId: null as unknown as string,
+                paternalParentId: null,
               });
             }
           }
@@ -143,11 +143,11 @@ export const useFlowInteractions = (
 
       if (childMember.parents.maternalParent === edge.source) {
         void updateMemberPartial(edge.target, {
-          maternalParentId: null as unknown as string,
+          maternalParentId: null,
         });
       } else if (childMember.parents.paternalParent === edge.source) {
         void updateMemberPartial(edge.target, {
-          paternalParentId: null as unknown as string,
+          paternalParentId: null,
         });
       }
     },
@@ -261,8 +261,9 @@ export const useFlowInteractions = (
       } as Edge;
       try {
         addMemberEdge(newEdge as Connection);
-      } catch (e: any) {
-        console.error(e.message);
+      } catch (e: unknown) {
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        console.error(errorMessage);
         toast.error(t("toast-error-database-create"));
       }
     },
@@ -275,6 +276,13 @@ export const useFlowInteractions = (
     },
     [setSelectedNodes],
   );
+
+  // Cleanup debounced function on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSave.cancel();
+    };
+  }, [debouncedSave]);
 
   return {
     onNodesChange,

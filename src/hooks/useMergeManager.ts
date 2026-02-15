@@ -454,8 +454,9 @@ export const useMergeManager = () => {
 
       toast.success(summary, { duration: 6000 });
       return true;
-    } catch (e: any) {
-      console.error("Merge failed", e);
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      console.error("Merge failed", errorMessage);
       toast.error(t("toast-error-merge"));
 
       // Only attempt rollback if transaction was started
