@@ -9,6 +9,7 @@ import { useState } from "react";
 import { Disease } from "@/types/disease";
 import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/utils/dateUtils";
 
 type Props = {
   member: Member;
@@ -107,7 +108,7 @@ export const MemberDiseases = ({ member }: Props) => {
                       )}
                       {disease.diagnosisDate && (
                         <p className="text-sm text-muted-foreground">
-                          {new Date(disease.diagnosisDate).toLocaleDateString()}
+                          {formatDate(disease.diagnosisDate)}
                         </p>
                       )}
                     </div>

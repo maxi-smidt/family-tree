@@ -5,7 +5,7 @@ import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Calendar, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
 import { EventDialog } from "@/components/timeline-view/EventDialog";
 import { useTranslation } from "react-i18next";
-import { formatDate } from "@/utils/dateUtils";
+import { formatDateWithFallback } from "@/utils/dateUtils";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 
@@ -67,7 +67,9 @@ export const MemberEvents = ({ member }: Props) => {
                     <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
-                        <span>{formatDate(event.date, i18n.t)}</span>
+                        <span>
+                          {formatDateWithFallback(event.date, i18n.t)}
+                        </span>
                       </div>
                       {event.location && (
                         <div className="flex items-center gap-1">

@@ -14,7 +14,7 @@ import { ImageLightbox } from "./ImageLightbox";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { Calendar, MapPin, BookOpen, Activity } from "lucide-react";
-import { formatDate } from "@/utils/dateUtils";
+import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
 
 type Props = {
@@ -101,7 +101,7 @@ export const ViewMode = ({ member }: Props) => {
           <ItemContent>
             <ItemTitle>{t("dob-item")}</ItemTitle>
             <ItemDescription>
-              {formatDate(member.date.birth, i18n.t)}
+              {formatDateWithFallback(member.date.birth, i18n.t)}
             </ItemDescription>
           </ItemContent>
         </Item>
@@ -110,7 +110,7 @@ export const ViewMode = ({ member }: Props) => {
             <ItemTitle>{t("dod-item")}</ItemTitle>
             <ItemDescription>
               {member.date.death ? (
-                formatDate(member.date.death, i18n.t)
+                formatDate(member.date.death)
               ) : (
                 <i>{t("dod-fallback")}</i>
               )}
@@ -174,7 +174,9 @@ export const ViewMode = ({ member }: Props) => {
                         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            <span>{formatDate(event.date, i18n.t)}</span>
+                            <span>
+                              {formatDateWithFallback(event.date, i18n.t)}
+                            </span>
                           </div>
                           {event.location && (
                             <div className="flex items-center gap-1">
