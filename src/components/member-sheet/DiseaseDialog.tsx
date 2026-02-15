@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { Disease, CarrierStatus } from "@/types/disease";
+import { Disease, CarrierStatus, InheritancePattern } from "@/types/disease";
 import { useTranslation } from "react-i18next";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -42,6 +42,8 @@ export const DiseaseDialog = ({
 
   const [name, setName] = useState("");
   const [carrierStatus, setCarrierStatus] = useState<CarrierStatus>("unknown");
+  const [inheritancePattern, setInheritancePattern] =
+    useState<InheritancePattern>("unknown");
   const [diagnosisDate, setDiagnosisDate] = useState<Date | undefined>(
     undefined,
   );
@@ -51,6 +53,7 @@ export const DiseaseDialog = ({
     if (disease) {
       setName(disease.name);
       setCarrierStatus(disease.carrierStatus);
+      setInheritancePattern(disease.inheritancePattern);
       setDiagnosisDate(
         disease.diagnosisDate ? new Date(disease.diagnosisDate) : undefined,
       );
@@ -58,6 +61,7 @@ export const DiseaseDialog = ({
     } else {
       setName("");
       setCarrierStatus("unknown");
+      setInheritancePattern("unknown");
       setDiagnosisDate(undefined);
       setNotes("");
     }
@@ -78,6 +82,7 @@ export const DiseaseDialog = ({
         disease.id,
         name,
         carrierStatus,
+        inheritancePattern,
         dateString,
         notes || null,
       );
@@ -86,6 +91,7 @@ export const DiseaseDialog = ({
         memberId,
         name,
         carrierStatus,
+        inheritancePattern,
         dateString,
         notes || null,
       );
@@ -135,6 +141,50 @@ export const DiseaseDialog = ({
                   </SelectItem>
                   <SelectItem value="unknown">
                     {t("carrier-status-unknown")}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="inheritance-pattern">
+                {t("inheritance-pattern")} *
+              </Label>
+              <Select
+                value={inheritancePattern}
+                onValueChange={(value) =>
+                  setInheritancePattern(value as InheritancePattern)
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={t("inheritance-pattern-placeholder")}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="autosomal_dominant">
+                    {t("inheritance-pattern-autosomal-dominant")}
+                  </SelectItem>
+                  <SelectItem value="autosomal_recessive">
+                    {t("inheritance-pattern-autosomal-recessive")}
+                  </SelectItem>
+                  <SelectItem value="x_linked_dominant">
+                    {t("inheritance-pattern-x-linked-dominant")}
+                  </SelectItem>
+                  <SelectItem value="x_linked_recessive">
+                    {t("inheritance-pattern-x-linked-recessive")}
+                  </SelectItem>
+                  <SelectItem value="y_linked">
+                    {t("inheritance-pattern-y-linked")}
+                  </SelectItem>
+                  <SelectItem value="mitochondrial">
+                    {t("inheritance-pattern-mitochondrial")}
+                  </SelectItem>
+                  <SelectItem value="multifactorial">
+                    {t("inheritance-pattern-multifactorial")}
+                  </SelectItem>
+                  <SelectItem value="unknown">
+                    {t("inheritance-pattern-unknown")}
                   </SelectItem>
                 </SelectContent>
               </Select>

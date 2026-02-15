@@ -340,6 +340,7 @@ export class DatabaseService {
     memberId: string,
     name: string,
     carrierStatus: string,
+    inheritancePattern: string,
     diagnosisDate: string | null,
     notes: string | null,
   ) {
@@ -348,6 +349,7 @@ export class DatabaseService {
       memberId,
       name,
       carrierStatus,
+      inheritancePattern,
       diagnosisDate,
       notes,
     ]);
@@ -358,12 +360,14 @@ export class DatabaseService {
     id: string,
     name: string,
     carrierStatus: string,
+    inheritancePattern: string,
     diagnosisDate: string | null,
     notes: string | null,
   ) {
     await db.execute(QUERIES.DISEASES.UPDATE, [
       name,
       carrierStatus,
+      inheritancePattern,
       diagnosisDate,
       notes,
       id,

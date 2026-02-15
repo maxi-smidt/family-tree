@@ -5,7 +5,11 @@ import {
   MemberUpdate,
   RelationType,
 } from "@/types/member";
-import { mapDiseaseFromDB, CarrierStatus } from "@/types/disease";
+import {
+  mapDiseaseFromDB,
+  CarrierStatus,
+  InheritancePattern,
+} from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { DatabaseService } from "@/services/DatabaseService";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
@@ -31,6 +35,7 @@ interface MemberState {
     memberId: string,
     name: string,
     carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
     diagnosisDate: string | null,
     notes: string | null,
   ) => Promise<void>;
@@ -38,6 +43,7 @@ interface MemberState {
     diseaseId: string,
     name: string,
     carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
     diagnosisDate: string | null,
     notes: string | null,
   ) => Promise<void>;
@@ -244,6 +250,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     memberId: string,
     name: string,
     carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
     diagnosisDate: string | null,
     notes: string | null,
   ) => {
@@ -256,6 +263,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       memberId,
       name,
       carrierStatus,
+      inheritancePattern,
       diagnosisDate,
       notes,
     );
@@ -266,6 +274,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     diseaseId: string,
     name: string,
     carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
     diagnosisDate: string | null,
     notes: string | null,
   ) => {
@@ -276,6 +285,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       diseaseId,
       name,
       carrierStatus,
+      inheritancePattern,
       diagnosisDate,
       notes,
     );

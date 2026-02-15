@@ -176,6 +176,7 @@ fn run_migrations(conn: &Connection) -> Result<(), String> {
             member_id TEXT NOT NULL,
             name TEXT NOT NULL,
             carrier_status TEXT NOT NULL,
+            inheritance_pattern TEXT NOT NULL DEFAULT 'unknown',
             diagnosis_date TEXT,
             notes TEXT,
             FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE

@@ -266,13 +266,22 @@ export const ViewMode = ({ member }: Props) => {
                             )}
                           </Badge>
                         </div>
-                        {disease.diagnosisDate && (
-                          <p className="text-sm text-muted-foreground">
-                            {new Date(
-                              disease.diagnosisDate,
-                            ).toLocaleDateString()}
-                          </p>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {disease.inheritancePattern !== "unknown" && (
+                            <p className="text-xs text-muted-foreground">
+                              {i18n.t(
+                                `sheet.member-sheet.diseases.dialog.inheritance-pattern-${disease.inheritancePattern.replace(/_/g, "-")}`,
+                              )}
+                            </p>
+                          )}
+                          {disease.diagnosisDate && (
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(
+                                disease.diagnosisDate,
+                              ).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
                         {disease.notes && (
                           <p className="text-sm mt-2">{disease.notes}</p>
                         )}

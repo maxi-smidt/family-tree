@@ -13,6 +13,7 @@ describe("mapDiseaseFromDB", () => {
       member_id: "member-1",
       name: "Hemophilia A",
       carrier_status: "affected",
+      inheritance_pattern: "x_linked_recessive",
       diagnosis_date: "2020-01-15",
       notes: "Type A variant",
     };
@@ -22,6 +23,7 @@ describe("mapDiseaseFromDB", () => {
     expect(result.id).toBe("1");
     expect(result.name).toBe("Hemophilia A");
     expect(result.carrierStatus).toBe("affected");
+    expect(result.inheritancePattern).toBe("x_linked_recessive");
     expect(result.diagnosisDate).toBe("2020-01-15");
     expect(result.notes).toBe("Type A variant");
   });
@@ -32,6 +34,7 @@ describe("mapDiseaseFromDB", () => {
       member_id: "member-2",
       name: "Cystic Fibrosis",
       carrier_status: "carrier",
+      inheritance_pattern: "autosomal_recessive",
       diagnosis_date: null,
       notes: null,
     };
@@ -48,6 +51,7 @@ describe("mapDiseaseFromDB", () => {
       member_id: "member-3",
       name: "Sickle Cell Disease",
       carrier_status: "invalid" as any,
+      inheritance_pattern: "autosomal_recessive",
       diagnosis_date: null,
       notes: null,
     };
@@ -55,6 +59,22 @@ describe("mapDiseaseFromDB", () => {
     const result = mapDiseaseFromDB(dbDisease);
 
     expect(result.carrierStatus).toBe("unknown");
+  });
+
+  it("should default to unknown inheritance pattern if invalid", () => {
+    const dbDisease: DiseaseDB = {
+      id: "4",
+      member_id: "member-4",
+      name: "Test Disease",
+      carrier_status: "affected",
+      inheritance_pattern: "invalid_pattern" as any,
+      diagnosis_date: null,
+      notes: null,
+    };
+
+    const result = mapDiseaseFromDB(dbDisease);
+
+    expect(result.inheritancePattern).toBe("unknown");
   });
 });
 
@@ -64,6 +84,7 @@ describe("mapDiseaseToDB", () => {
       id: "1",
       name: "Thalassemia",
       carrierStatus: "carrier",
+      inheritancePattern: "autosomal_recessive",
       diagnosisDate: "2019-05-20",
       notes: "Beta thalassemia minor",
     };
@@ -74,6 +95,7 @@ describe("mapDiseaseToDB", () => {
     expect(result.member_id).toBe("member-1");
     expect(result.name).toBe("Thalassemia");
     expect(result.carrier_status).toBe("carrier");
+    expect(result.inheritance_pattern).toBe("autosomal_recessive");
     expect(result.diagnosis_date).toBe("2019-05-20");
     expect(result.notes).toBe("Beta thalassemia minor");
   });
@@ -83,6 +105,7 @@ describe("mapDiseaseToDB", () => {
       id: "2",
       name: "Huntington's Disease",
       carrierStatus: "affected",
+      inheritancePattern: "autosomal_dominant",
       diagnosisDate: null,
       notes: null,
     };
