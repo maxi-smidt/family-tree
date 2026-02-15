@@ -208,6 +208,34 @@ async function findMissingKeys() {
           }
         }
       }
+
+      // Handle dynamic t() calls with variables (e.g., tRelation(type.id))
+      // When a translation function with keyPrefix is called with a variable,
+      // mark all keys under the keyPrefix as potentially used
+      if (keyPrefix) {
+        const tDynamicCallRegex = new RegExp(
+          `(?<!\\.)\\b${tVarName}\\(\\s*([a-zA-Z_$][a-zA-Z0-9_$.\\[\\]]*)\\s*[,)]`,
+          "g",
+        );
+        let dynamicMatch;
+        while ((dynamicMatch = tDynamicCallRegex.exec(content)) !== null) {
+          const arg = dynamicMatch[1];
+          // Check if it's a variable/expression (not a string literal)
+          // String literals would have been caught by the previous regex
+          if (arg && !arg.startsWith('"') && !arg.startsWith("'")) {
+            // Mark all child keys under this keyPrefix as used
+            for (const lang of languages) {
+              const value = getNestedValue(translations[lang], keyPrefix);
+              if (value && typeof value === "object") {
+                const childKeys = getAllKeys(value, keyPrefix);
+                childKeys.forEach((k) => usedKeys.add(k));
+              }
+            }
+            // Break after first match to avoid marking multiple times
+            break;
+          }
+        }
+      }
     }
   }
 
