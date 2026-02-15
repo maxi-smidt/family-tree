@@ -317,7 +317,7 @@ async function findHardcodedStrings() {
   const uiTextPatterns = [
     // Attribute patterns: placeholder="Some Text", title="Some Text", etc.
     // Note: aria-label is excluded as it's often used for accessibility with technical terms
-    /(?:placeholder|title|label|description)\s*=\s*["']([A-Z][a-zA-Z\s]{2,})["']/g,
+    /(?<!aria-)(?:placeholder|title|label|description)\s*=\s*["']([A-Z][a-zA-Z\s]{2,})["']/g,
   ];
 
   for (const file of tsFiles) {
