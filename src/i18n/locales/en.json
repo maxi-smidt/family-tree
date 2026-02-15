@@ -215,7 +215,13 @@
       "dod-item": "Date of Death",
       "dod-fallback": "Alive",
       "linked-images": "Linked Images",
-      "linked-images-fallback": "No images linked to this person yet."
+      "linked-images-fallback": "No images linked to this person yet.",
+      "life-events": "Life Events",
+      "no-events": "No events recorded",
+      "stories": "Stories & Biographies",
+      "no-stories": "No stories written yet",
+      "genetic-conditions": "Genetic Conditions",
+      "no-conditions": "No conditions recorded"
     },
     "member-sheet": {
       "edit-title": "Edit Member",

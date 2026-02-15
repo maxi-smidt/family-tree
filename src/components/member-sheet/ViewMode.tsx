@@ -153,7 +153,7 @@ export const ViewMode = ({ member }: Props) => {
 
       <Item variant="muted">
         <ItemContent>
-          <ItemTitle>Life Events</ItemTitle>
+          <ItemTitle>{t("life-events")}</ItemTitle>
           {memberEvents.length > 0 ? (
             <CollapsibleSection
               totalCount={memberEvents.length}
@@ -193,7 +193,7 @@ export const ViewMode = ({ member }: Props) => {
             </CollapsibleSection>
           ) : (
             <ItemDescription>
-              <i>No events recorded</i>
+              <i>{t("no-events")}</i>
             </ItemDescription>
           )}
         </ItemContent>
@@ -201,7 +201,7 @@ export const ViewMode = ({ member }: Props) => {
 
       <Item variant="muted">
         <ItemContent>
-          <ItemTitle>Stories & Biographies</ItemTitle>
+          <ItemTitle>{t("stories")}</ItemTitle>
           {memberStories.length > 0 ? (
             <CollapsibleSection
               totalCount={memberStories.length}
@@ -230,7 +230,7 @@ export const ViewMode = ({ member }: Props) => {
             </CollapsibleSection>
           ) : (
             <ItemDescription>
-              <i>No stories written yet</i>
+              <i>{t("no-stories")}</i>
             </ItemDescription>
           )}
         </ItemContent>
@@ -238,7 +238,7 @@ export const ViewMode = ({ member }: Props) => {
 
       <Item variant="muted">
         <ItemContent>
-          <ItemTitle>Genetic Conditions</ItemTitle>
+          <ItemTitle>{t("genetic-conditions")}</ItemTitle>
           {memberDiseases.length > 0 ? (
             <CollapsibleSection
               totalCount={memberDiseases.length}
@@ -283,7 +283,7 @@ export const ViewMode = ({ member }: Props) => {
             </CollapsibleSection>
           ) : (
             <ItemDescription>
-              <i>No conditions recorded</i>
+              <i>{t("no-conditions")}</i>
             </ItemDescription>
           )}
         </ItemContent>

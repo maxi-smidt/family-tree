@@ -215,7 +215,13 @@
       "dod-item": "Sterbedatum",
       "dod-fallback": "lebt",
       "linked-images": "Verlinkte Bilder",
-      "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt."
+      "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt.",
+      "life-events": "Lebensereignisse",
+      "no-events": "Keine Ereignisse erfasst",
+      "stories": "Geschichten & Biografien",
+      "no-stories": "Noch keine Geschichten geschrieben",
+      "genetic-conditions": "Genetische Erkrankungen",
+      "no-conditions": "Keine Erkrankungen erfasst"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",
