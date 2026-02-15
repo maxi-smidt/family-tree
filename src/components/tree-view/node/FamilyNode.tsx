@@ -4,6 +4,7 @@ import {
   PencilIcon,
   PlusIcon,
   Activity,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
@@ -12,9 +13,39 @@ import { NODE_WIDTH } from "@/constants";
 import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useTranslation } from "react-i18next";
+import { useMemberStore } from "@/hooks/useMemberStore";
+
+// Helper to calculate if a child might be at risk based on parent diseases
+function calculateDiseaseRisk(member: Member, allMembers: Member[]): boolean {
+  // If member already has diseases recorded, return false (we'll show actual disease indicator)
+  if (member.diseases && member.diseases.length > 0) {
+    return false;
+  }
+
+  // Check if any parent has diseases
+  const parents: Member[] = [];
+  if (member.parents.paternalParent) {
+    const parent = allMembers.find(
+      (m) => m.id === member.parents.paternalParent,
+    );
+    if (parent) parents.push(parent);
+  }
+  if (member.parents.maternalParent) {
+    const parent = allMembers.find(
+      (m) => m.id === member.parents.maternalParent,
+    );
+    if (parent) parents.push(parent);
+  }
+
+  // Check if any parent has diseases
+  return parents.some(
+    (parent) => parent.diseases && parent.diseases.length > 0,
+  );
+}
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
-  const { isFastMode } = useFamilyTreeSettings();
+  const { isFastMode, isDiseaseMode } = useFamilyTreeSettings();
+  const { members } = useMemberStore();
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.node",
   });
@@ -53,6 +84,9 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const hasCarrierDisease = data.diseases?.some(
     (d) => d.carrierStatus === "carrier",
   );
+
+  // Calculate if this person has potential disease risk from parents
+  const hasRisk = isDiseaseMode && calculateDiseaseRisk(data, members);
 
   return (
     <div
@@ -93,7 +127,8 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
       <FamilyNodeContent member={data} />
 
-      {hasDiseases && (
+      {/* Disease indicator - shown only in disease mode when person has recorded diseases */}
+      {isDiseaseMode && hasDiseases && (
         <div
           className="absolute bottom-2 left-2 rounded-full p-1"
           style={{
@@ -113,6 +148,25 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
                 : hasCarrierDisease
                   ? "rgb(251, 191, 36)"
                   : "rgb(156, 163, 175)",
+            }}
+          />
+        </div>
+      )}
+
+      {/* Risk indicator - shown only in disease mode when person doesn't have diseases but parents do */}
+      {hasRisk && (
+        <div
+          className="absolute bottom-2 left-2 rounded-full p-1 border-2 border-dashed"
+          style={{
+            backgroundColor: "rgba(234, 179, 8, 0.1)",
+            borderColor: "rgba(234, 179, 8, 0.5)",
+          }}
+          title={t("risk-indicator")}
+        >
+          <AlertTriangle
+            size={12}
+            style={{
+              color: "rgb(234, 179, 8)",
             }}
           />
         </div>

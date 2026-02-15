@@ -331,7 +331,8 @@
       "life-ongoing": "lebt",
       "life-unknown": "ungewiss",
       "disease-indicator_one": "{{count}} genetische Erkrankung",
-      "disease-indicator_other": "{{count}} genetische Erkrankungen"
+      "disease-indicator_other": "{{count}} genetische Erkrankungen",
+      "risk-indicator": "Mögliches genetisches Risiko von Eltern"
     },
     "controls": {
       "zoom-in": "Hineinzoomen",
@@ -346,7 +347,9 @@
       "remove-person": "Ausgewählte Person entfernen",
       "select-relation": "Sichtbare Beziehungen",
       "disable-fast-mode": "Schnellmodus deaktivieren",
-      "enable-fast-mode": "Schnellmodus aktivieren"
+      "enable-fast-mode": "Schnellmodus aktivieren",
+      "disable-disease-mode": "Krankheitsmodus deaktivieren",
+      "enable-disease-mode": "Krankheitsmodus aktivieren"
     }
   },
   "timeline-view": {
