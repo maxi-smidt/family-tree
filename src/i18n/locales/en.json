@@ -321,7 +321,9 @@
           "notes": "Notes",
           "notes-placeholder": "Add additional details...",
           "update": "Update",
-          "add": "Add"
+          "add": "Add",
+          "error-add": "Failed to add condition. Please try again.",
+          "error-update": "Failed to update condition. Please try again."
         }
       }
     }

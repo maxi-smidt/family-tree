@@ -321,7 +321,9 @@
           "notes": "Notizen",
           "notes-placeholder": "Zusätzliche Details hinzufügen...",
           "update": "Aktualisieren",
-          "add": "Hinzufügen"
+          "add": "Hinzufügen",
+          "error-add": "Erkrankung konnte nicht hinzugefügt werden. Bitte versuchen Sie es erneut.",
+          "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
         }
       }
     }

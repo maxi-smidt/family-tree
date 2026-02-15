@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface Props {
   open: boolean;
@@ -105,6 +106,7 @@ export const DiseaseDialog = ({
       onOpenChange(false);
     } catch (error) {
       console.error("Error saving disease:", error);
+      toast.error(disease ? t("error-update") : t("error-add"));
     }
   };
 
