@@ -10,6 +10,7 @@
 Family Tree is a desktop application that helps you document, organize, and visualize your family genealogy. Built with modern web technologies and compiled as a native desktop application, it provides a powerful yet intuitive interface for preserving your family's stories and connections.
 
 **Key Highlights:**
+
 - 🌳 Interactive visual family tree with drag-and-drop node arrangement
 - 📝 Rich biographical information and life event tracking
 - 📸 Photo gallery with member linking
@@ -20,21 +21,25 @@ Family Tree is a desktop application that helps you document, organize, and visu
 ## Features
 
 ### Family Tree Management
+
 - **Visual Tree Builder**: Interactive node-based interface for creating and exploring family relationships
 - **Member Profiles**: Store names, dates, photos, and biographical information
 - **Relationship Linking**: Connect family members through parent-child relationships
 
 ### Documentation & Storytelling
+
 - **Life Events**: Track births, marriages, migrations, and other significant moments
 - **Timeline View**: Visualize all family events chronologically
 - **Stories & Biographies**: Write and preserve detailed narratives about family members
 
 ### Data Management
+
 - **Local Database**: Secure SQLite storage on your local machine
 - **Multiple Trees**: Support for managing separate family tree databases
 - **Photo Gallery**: Upload and organize family photos
 
 ### User Experience
+
 - **Modern UI**: Built with Tailwind CSS and Shadcn UI components
 - **Responsive Design**: Smooth panning, zooming, and navigation
 - **Theme Support**: Automatic dark/light mode based on system preferences
@@ -62,6 +67,7 @@ Download the latest release for your operating system from the [Releases](https:
 See **[SETUP.md](./docs/SETUP.md)** for detailed installation and development instructions.
 
 Quick start:
+
 ```bash
 git clone https://github.com/maxi-smidt/family-tree.git
 cd family-tree
@@ -93,9 +99,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Support
 
 If you encounter any issues or have questions:
+
 - Open an issue on [GitHub Issues](https://github.com/maxi-smidt/family-tree/issues)
 - Check existing issues for solutions to common problems
-
----
-
-**Made with ❤️ for preserving family histories**
