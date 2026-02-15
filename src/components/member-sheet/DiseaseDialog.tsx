@@ -70,6 +70,10 @@ export const DiseaseDialog = ({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
+    if (!name.trim()) {
+      return;
+    }
+
     let dateString = null;
     if (diagnosisDate) {
       const offsetMs = diagnosisDate.getTimezoneOffset() * 60 * 1000;
@@ -77,27 +81,31 @@ export const DiseaseDialog = ({
       dateString = localISODate.toISOString().split("T")[0];
     }
 
-    if (disease) {
-      await updateDisease(
-        disease.id,
-        name,
-        carrierStatus,
-        inheritancePattern,
-        dateString,
-        notes || null,
-      );
-    } else {
-      await addDisease(
-        memberId,
-        name,
-        carrierStatus,
-        inheritancePattern,
-        dateString,
-        notes || null,
-      );
-    }
+    try {
+      if (disease) {
+        await updateDisease(
+          disease.id,
+          name,
+          carrierStatus,
+          inheritancePattern,
+          dateString,
+          notes || null,
+        );
+      } else {
+        await addDisease(
+          memberId,
+          name,
+          carrierStatus,
+          inheritancePattern,
+          dateString,
+          notes || null,
+        );
+      }
 
-    onOpenChange(false);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error saving disease:", error);
+    }
   };
 
   return (
