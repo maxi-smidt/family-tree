@@ -1,0 +1,397 @@
+# GitHub Copilot Development Guidelines
+
+This document provides specific instructions for GitHub Copilot agents working on the Family Tree project. It complements the [AGENTS.md](./AGENTS.md) development guidelines with Copilot-specific best practices.
+
+> **Note**: Human developers should refer to [AGENTS.md](./AGENTS.md) for comprehensive guidelines.
+
+## Table of Contents
+
+1. [Quick Reference](#quick-reference)
+2. [Project Architecture](#project-architecture)
+3. [Code Modification Guidelines](#code-modification-guidelines)
+4. [Common Tasks](#common-tasks)
+5. [Testing & Verification](#testing--verification)
+6. [Anti-Patterns to Avoid](#anti-patterns-to-avoid)
+
+---
+
+## Quick Reference
+
+### Critical Paths
+- **State Store**: `src/hooks/useFamilyStore.ts` - Single source of truth for all app state
+- **Database Service**: `src/services/DatabaseService.ts` - All database operations
+- **SQL Queries**: `src/db/queries.ts` - SQL query definitions
+- **Types**: `src/types/member.ts` - Core data model
+- **Layout Logic**: `src/utils/layoutUtils.ts` - Tree layout calculations
+- **Tauri Backend**: `src-tauri/src/lib.rs` - Rust commands and database migrations
+- **i18n Guide**: `docs/I18N_GUIDE.md` - Translation key conventions and patterns
+
+### Key Commands
+```bash
+npm run tauri dev      # Start development server
+npm test              # Run test suite
+npm run check-i18n    # Verify translations
+npm run bump:patch    # Bump version (patch)
+```
+
+### Common Imports
+```typescript
+import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { Member } from "@/types/member";
+import { DatabaseService } from "@/services/DatabaseService";
+import { useTranslation } from "react-i18next";
+```
+
+---
+
+## Project Architecture
+
+### Data Flow Pattern (Always Follow This)
+
+```
+UI Component → Store Action → DatabaseService → Tauri Command → SQLite
+     ↓              ↓              ↓
+   Render ← State Update ← Return Data
+```
+
+**Never bypass this flow**. Do not:
+- Call DatabaseService directly from components
+- Use Tauri commands directly from components
+- Modify state outside of store actions
+
+### Store-First Development
+
+All data modifications must go through the Zustand store:
+
+```typescript
+// ✅ CORRECT
+const addMember = useFamilyStore((state) => state.addMember);
+await addMember(newMember);
+
+// ❌ WRONG - Never do this
+await DatabaseService.insertMember(newMember);
+```
+
+---
+
+## Code Modification Guidelines
+
+### 1. Reading the Codebase
+
+Before making changes:
+1. **Understand the data flow**: Trace from UI → Store → Service → Tauri
+2. **Check existing patterns**: Look for similar functionality already implemented
+3. **Review types**: Understand the data structures in `src/types/`
+4. **Check translations**: Ensure i18n keys exist for any new text
+
+### 2. Making Changes
+
+#### Adding a New Feature
+
+1. **Define types** (if needed) in `src/types/`
+2. **Add SQL queries** (if needed) in `src/db/queries.ts`
+3. **Create Tauri command** (if needed) in `src-tauri/src/lib.rs`
+4. **Add DatabaseService method** that calls the Tauri command
+5. **Create store action** that uses the DatabaseService method
+6. **Update UI component** to use the store action
+7. **Add translations** for any user-facing text
+8. **Write tests** for pure logic
+
+#### Modifying Existing Code
+
+- **Minimal changes**: Change only what's necessary
+- **Preserve patterns**: Match existing code style and structure
+- **Update tests**: Modify tests if behavior changes
+- **Check dependencies**: Ensure changes don't break dependent code
+
+### 3. Database Changes
+
+If you need to modify the database schema:
+
+1. Open `src-tauri/src/lib.rs`
+2. Locate the `run_migrations` function
+3. Add a new SQL statement to the `migrations` vector
+4. The migration runs automatically on next database open
+5. Update TypeScript types to match new schema
+
+**Example**:
+```rust
+// In src-tauri/src/lib.rs, add to migrations vector:
+"ALTER TABLE members ADD COLUMN middle_name TEXT",
+```
+
+### 4. UI Components
+
+When creating or modifying UI components:
+
+- **Use Shadcn UI**: Prefer existing components from `src/components/ui/`
+- **Tailwind classes**: Use utility classes for styling
+- **Lucide icons**: Import from `lucide-react`
+- **Responsive**: Consider different window sizes
+- **Accessibility**: Include proper ARIA labels
+
+**Example Component Structure**:
+```typescript
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useTranslation } from "react-i18next";
+
+export function MyComponent() {
+  const { t } = useTranslation("namespace");
+  const action = useFamilyStore((state) => state.action);
+  
+  return (
+    <Button onClick={() => action()}>
+      <Plus className="w-4 h-4 mr-2" />
+      {t("button-label")}
+    </Button>
+  );
+}
+```
+
+---
+
+## Common Tasks
+
+### Task: Add a New Field to Member
+
+1. **Update type** in `src/types/member.ts`:
+   ```typescript
+   export interface Member {
+     // ... existing fields
+     newField?: string;
+   }
+   ```
+
+2. **Add migration** in `src-tauri/src/lib.rs`:
+   ```rust
+   "ALTER TABLE members ADD COLUMN new_field TEXT",
+   ```
+
+3. **Update queries** in `src/db/queries.ts` if needed
+
+4. **Update UI components** to display/edit the field
+
+5. **Add translations** for labels
+
+### Task: Add a New Store Action
+
+1. **Define action** in `src/hooks/useFamilyStore.ts`:
+   ```typescript
+   export interface FamilyStore {
+     // ... existing actions
+     newAction: (param: Type) => Promise<void>;
+   }
+   
+   // In the store implementation:
+   newAction: async (param) => {
+     try {
+       const result = await DatabaseService.newMethod(param);
+       set({ /* update state */ });
+     } catch (error) {
+       console.error("Error:", error);
+     }
+   },
+   ```
+
+2. **Add DatabaseService method** in `src/services/DatabaseService.ts`
+
+3. **Add Tauri command** (if needed) in `src-tauri/src/lib.rs`
+
+### Task: Add a Translation
+
+1. **Follow naming conventions** from [i18n Guide](./I18N_GUIDE.md):
+   - Use hierarchical structure: `<feature>.<component>.<element>`
+   - Example: `dialog.create-database.title` or `sheet.member-sheet.events.title`
+
+2. **Add to all locale files** in `src/i18n/locales/`:
+   ```json
+   {
+     "dialog": {
+       "create-database": {
+         "title": "Create Database"
+       }
+     }
+   }
+   ```
+
+3. **Use in component** with keyPrefix:
+   ```typescript
+   const { t } = useTranslation(undefined, {
+     keyPrefix: "dialog.create-database"
+   });
+   return <h1>{t("title")}</h1>;
+   ```
+
+4. **Verify** with `npm run check-i18n`
+
+For detailed patterns, pluralization, and interpolation, see the [i18n Guide](./I18N_GUIDE.md).
+
+---
+
+## Testing & Verification
+
+### Running Tests
+
+Always run tests after making changes:
+```bash
+npm test                 # Run all tests
+npm test -- --watch     # Watch mode
+npm test -- filename    # Run specific file
+```
+
+### Manual Verification
+
+For UI changes:
+1. Run `npm run tauri dev`
+2. Test the feature manually
+3. Try edge cases (empty data, long text, etc.)
+4. Test with existing database (if applicable)
+
+### What to Test
+
+- **Pure functions**: Data transformations, calculations
+- **Store actions**: State management logic (mock database calls)
+- **Layout algorithms**: Tree positioning calculations
+- **Type guards**: TypeScript narrowing functions
+
+---
+
+## Anti-Patterns to Avoid
+
+### ❌ Don't Do This
+
+1. **Bypassing the store**:
+   ```typescript
+   // ❌ WRONG
+   const result = await DatabaseService.getData();
+   ```
+
+2. **Modifying state directly**:
+   ```typescript
+   // ❌ WRONG
+   const members = useFamilyStore((state) => state.members);
+   members.push(newMember); // Never mutate store state
+   ```
+
+3. **Using `any` type**:
+   ```typescript
+   // ❌ WRONG
+   function process(data: any) { }
+   
+   // ✅ CORRECT
+   function process(data: Member) { }
+   ```
+
+4. **Hard-coded text**:
+   ```typescript
+   // ❌ WRONG
+   <Button>Add Member</Button>
+   
+   // ✅ CORRECT
+   <Button>{t("add-member")}</Button>
+   ```
+
+5. **Ignoring errors**:
+   ```typescript
+   // ❌ WRONG
+   try {
+     await action();
+   } catch (e) { }
+   
+   // ✅ CORRECT
+   try {
+     await action();
+   } catch (error) {
+     console.error("Failed to perform action:", error);
+     // Handle error appropriately
+   }
+   ```
+
+### ✅ Best Practices
+
+1. **Always use store actions**:
+   ```typescript
+   const action = useFamilyStore((state) => state.action);
+   await action(params);
+   ```
+
+2. **Immutable state updates**:
+   ```typescript
+   set((state) => ({
+     members: [...state.members, newMember]
+   }));
+   ```
+
+3. **Type-safe code**:
+   ```typescript
+   function process(data: Member): ProcessedMember {
+     // Type-checked transformation
+     return { ...data, processed: true };
+   }
+   ```
+
+4. **Internationalized text**:
+   ```typescript
+   const { t } = useTranslation("namespace");
+   return <div>{t("key")}</div>;
+   ```
+
+5. **Error handling**:
+   ```typescript
+   try {
+     await action();
+   } catch (error) {
+     console.error("Operation failed:", error);
+     // Show user-friendly error message
+   }
+   ```
+
+---
+
+## Debugging Tips
+
+### Common Issues
+
+1. **State not updating**: Ensure you're using store actions, not direct mutations
+2. **Translations missing**: Run `npm run check-i18n` to find missing keys
+3. **Type errors**: Check that types match between frontend and backend data
+4. **Layout issues**: Re-run layout calculation after modifying members
+
+### Useful Tools
+
+- **React DevTools**: Inspect component state and props
+- **Redux DevTools**: Works with Zustand for store inspection
+- **Console logging**: Add strategic logs in store actions and services
+- **TypeScript checking**: `npm run build` runs type checking
+
+---
+
+## Summary Checklist
+
+Before submitting changes, verify:
+
+- [ ] All data modifications use store actions
+- [ ] DatabaseService methods are only called from store
+- [ ] Types are properly defined (no `any`)
+- [ ] Translations added for new user-facing text
+- [ ] Tests written for new logic
+- [ ] Tests pass (`npm test`)
+- [ ] Code follows existing patterns
+- [ ] Error handling is in place
+- [ ] Changes are minimal and focused
+- [ ] Database migrations added if schema changed
+
+---
+
+## Additional Resources
+
+- **[AGENTS.md](./AGENTS.md)**: Comprehensive development guidelines
+- **[SETUP.md](./SETUP.md)**: Development environment setup
+- **[README.md](../README.md)**: Project overview
+- **[i18n Guide](./I18N_GUIDE.md)**: Translation conventions and patterns
+
+---
+
+**Remember**: When in doubt, follow existing patterns in the codebase. Consistency is key to maintainability.
