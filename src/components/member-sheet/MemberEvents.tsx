@@ -33,7 +33,7 @@ export const MemberEvents = ({ member }: Props) => {
   } = useContentManager({
     getItems: (id) =>
       getEventsByMember(id).sort(
-        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
       ),
     removeItem: removeEvent,
     memberId: member.id,
@@ -44,7 +44,7 @@ export const MemberEvents = ({ member }: Props) => {
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
           <ItemTitle>{t("title")}</ItemTitle>
-          <Button size="sm" variant="ghost" onClick={handleAdd}>
+          <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
@@ -84,6 +84,7 @@ export const MemberEvents = ({ member }: Props) => {
                     <Button
                       size="sm"
                       variant="ghost"
+                      type="button"
                       onClick={() => handleEdit(event)}
                     >
                       <Pencil />
@@ -91,6 +92,7 @@ export const MemberEvents = ({ member }: Props) => {
                     <Button
                       size="sm"
                       variant="ghost"
+                      type="button"
                       onClick={() => openDeleteDialog(event)}
                     >
                       <Trash2 />

@@ -22,7 +22,7 @@ export const MemberDiseases = ({ member }: Props) => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDisease, setEditingDisease] = useState<Disease | undefined>(
-    undefined
+    undefined,
   );
   const [diseaseToDelete, setDiseaseToDelete] = useState<Disease | null>(null);
 
@@ -69,7 +69,7 @@ export const MemberDiseases = ({ member }: Props) => {
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
           <ItemTitle>{t("title")}</ItemTitle>
-          <Button size="sm" variant="ghost" onClick={handleAdd}>
+          <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
@@ -91,7 +91,9 @@ export const MemberDiseases = ({ member }: Props) => {
                     <div className="flex items-center gap-2 mb-1">
                       <Activity className="w-4 h-4 text-muted-foreground" />
                       <span className="font-medium">{disease.name}</span>
-                      <Badge variant={getStatusBadgeVariant(disease.carrierStatus)}>
+                      <Badge
+                        variant={getStatusBadgeVariant(disease.carrierStatus)}
+                      >
                         {t(`dialog.carrier-status-${disease.carrierStatus}`)}
                       </Badge>
                     </div>
@@ -108,6 +110,7 @@ export const MemberDiseases = ({ member }: Props) => {
                     <Button
                       size="sm"
                       variant="ghost"
+                      type="button"
                       onClick={() => handleEdit(disease)}
                     >
                       <Pencil />
@@ -115,6 +118,7 @@ export const MemberDiseases = ({ member }: Props) => {
                     <Button
                       size="sm"
                       variant="ghost"
+                      type="button"
                       onClick={() => openDeleteDialog(disease)}
                     >
                       <Trash2 />
