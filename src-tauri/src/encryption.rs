@@ -68,7 +68,7 @@ pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         .encrypt(nonce, plaintext.as_ref())
         .map_err(|e| format!("Encryption failed: {}", e))?;
 
-    // Write encrypted file with header: MAGIC_HEADER_PASSWORD + VERSION + SALT + NONCE + CIPHERTEXT
+    // Write encrypted file with header: MAGIC_HEADER_PASSWORD + VERSION + SALT_LEN + SALT + NONCE + CIPHERTEXT
     let mut output = fs::File::create(output_path)
         .map_err(|e| format!("Failed to create output file: {}", e))?;
 
@@ -78,7 +78,13 @@ pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
     output.write_all(&[VERSION])
         .map_err(|e| format!("Failed to write version: {}", e))?;
     
-    output.write_all(salt.as_str().as_bytes())
+    // Write salt length (1 byte) then salt
+    let salt_bytes = salt.as_str().as_bytes();
+    let salt_len = salt_bytes.len() as u8;
+    output.write_all(&[salt_len])
+        .map_err(|e| format!("Failed to write salt length: {}", e))?;
+    
+    output.write_all(salt_bytes)
         .map_err(|e| format!("Failed to write salt: {}", e))?;
     
     output.write_all(&nonce_bytes)
@@ -114,8 +120,13 @@ pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         return Err(format!("Unsupported encryption version: {}", version[0]));
     }
 
-    // Read salt (Argon2 salt strings are variable length, but we'll use a fixed size approach)
-    let mut salt_bytes = vec![0u8; 88]; // Standard Argon2 salt string length
+    // Read salt length, then salt
+    let mut salt_len_byte = [0u8; 1];
+    file.read_exact(&mut salt_len_byte)
+        .map_err(|e| format!("Failed to read salt length: {}", e))?;
+    let salt_len = salt_len_byte[0] as usize;
+    
+    let mut salt_bytes = vec![0u8; salt_len];
     file.read_exact(&mut salt_bytes)
         .map_err(|e| format!("Failed to read salt: {}", e))?;
     
