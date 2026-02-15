@@ -283,6 +283,7 @@ fn import_database(app: tauri::AppHandle, source_path: String, overwrite: bool, 
     let is_password = encryption::is_password_encrypted(src)?;
     
     let _temp_dir: Option<tempfile::TempDir>;
+    let temp_db_path: PathBuf;
     let src_to_import: &Path;
     
     if is_encrypted {
@@ -299,7 +300,7 @@ fn import_database(app: tauri::AppHandle, source_path: String, overwrite: bool, 
         // Create temporary directory for decrypted file
         let temp = tempfile::tempdir()
             .map_err(|e| format!("Failed to create temp directory: {}", e))?;
-        let temp_db_path = temp.path().join("decrypted.db");
+        temp_db_path = temp.path().join("decrypted.db");
         
         // Decrypt (handles both base-only and base+password)
         encryption::decrypt_file_auto(src, &temp_db_path, password.as_deref())?;
@@ -308,6 +309,7 @@ fn import_database(app: tauri::AppHandle, source_path: String, overwrite: bool, 
     } else {
         // File is not encrypted (old format, backward compatibility)
         _temp_dir = None;
+        temp_db_path = PathBuf::new(); // Initialize to avoid uninitialized variable
         src_to_import = src;
     }
 
