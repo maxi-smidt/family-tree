@@ -161,8 +161,9 @@
       "description": "Du hast noch keine Datenbanken erstellt. Starte mit mit der Erstellung einer neuen.",
       "create": "Datenbank erstellen",
       "import": "Datenbank importieren",
-      "toast-success": "Datenbank erfolgreich importieren!",
-      "toast-error": "Datenbank import fehlgeschlagen."
+      "toast-success": "Datenbank erfolgreich importiert!",
+      "toast-error": "Datenbank import fehlgeschlagen.",
+      "toast-collision": "Eine Datenbank mit derselben ID existiert bereits. Import abgebrochen."
     }
   },
   "list-view": {
