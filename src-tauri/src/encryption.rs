@@ -93,7 +93,7 @@ pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         // Read next chunk
         let bytes_read = reader
             .read(&mut chunk_buffer)
-            .map_err(|e| format!("Failed to read chunk: {}", e))?;
+            .map_err(|e| format!("Failed to read chunk {}: {}", chunk_index, e))?;
 
         if bytes_read == 0 {
             break; // EOF
@@ -115,15 +115,15 @@ pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         let chunk_len = ciphertext.len() as u32;
         writer
             .write_all(&chunk_len.to_le_bytes())
-            .map_err(|e| format!("Failed to write chunk size: {}", e))?;
+            .map_err(|e| format!("Failed to write chunk size at chunk {}: {}", chunk_index, e))?;
 
         writer
             .write_all(&nonce_bytes)
-            .map_err(|e| format!("Failed to write nonce: {}", e))?;
+            .map_err(|e| format!("Failed to write nonce at chunk {}: {}", chunk_index, e))?;
 
         writer
             .write_all(&ciphertext)
-            .map_err(|e| format!("Failed to write ciphertext: {}", e))?;
+            .map_err(|e| format!("Failed to write ciphertext at chunk {}: {}", chunk_index, e))?;
 
         chunk_index += 1;
     }
@@ -213,15 +213,20 @@ pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
                 // End of file reached
                 break;
             }
-            Err(e) => return Err(format!("Failed to read chunk size: {}", e)),
+            Err(e) => {
+                return Err(format!(
+                    "Failed to read chunk size at chunk {}: {}",
+                    chunk_index, e
+                ))
+            }
         }
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
         // Validate chunk size to prevent memory exhaustion attacks
         if chunk_len > MAX_ENCRYPTED_CHUNK_SIZE {
             return Err(format!(
-                "Invalid chunk size {} exceeds maximum allowed size {}",
-                chunk_len, MAX_ENCRYPTED_CHUNK_SIZE
+                "Invalid chunk size {} at chunk {} exceeds maximum allowed size {}",
+                chunk_len, chunk_index, MAX_ENCRYPTED_CHUNK_SIZE
             ));
         }
 
@@ -229,14 +234,14 @@ pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         let mut nonce_bytes = [0u8; NONCE_SIZE];
         reader
             .read_exact(&mut nonce_bytes)
-            .map_err(|e| format!("Failed to read nonce: {}", e))?;
+            .map_err(|e| format!("Failed to read nonce at chunk {}: {}", chunk_index, e))?;
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         // Read encrypted chunk
         let mut ciphertext = vec![0u8; chunk_len];
         reader
             .read_exact(&mut ciphertext)
-            .map_err(|e| format!("Failed to read ciphertext chunk: {}", e))?;
+            .map_err(|e| format!("Failed to read ciphertext at chunk {}: {}", chunk_index, e))?;
 
         // Decrypt this chunk
         let plaintext = cipher.decrypt(nonce, ciphertext.as_ref()).map_err(|_| {
@@ -247,9 +252,12 @@ pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         })?;
 
         // Write decrypted chunk
-        writer
-            .write_all(&plaintext)
-            .map_err(|e| format!("Failed to write decrypted chunk: {}", e))?;
+        writer.write_all(&plaintext).map_err(|e| {
+            format!(
+                "Failed to write decrypted chunk at chunk {}: {}",
+                chunk_index, e
+            )
+        })?;
 
         chunk_index += 1;
     }
@@ -317,7 +325,7 @@ pub fn encrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), St
         // Read next chunk
         let bytes_read = reader
             .read(&mut chunk_buffer)
-            .map_err(|e| format!("Failed to read chunk: {}", e))?;
+            .map_err(|e| format!("Failed to read chunk {}: {}", chunk_index, e))?;
 
         if bytes_read == 0 {
             break; // EOF
@@ -339,15 +347,15 @@ pub fn encrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), St
         let chunk_len = ciphertext.len() as u32;
         writer
             .write_all(&chunk_len.to_le_bytes())
-            .map_err(|e| format!("Failed to write chunk size: {}", e))?;
+            .map_err(|e| format!("Failed to write chunk size at chunk {}: {}", chunk_index, e))?;
 
         writer
             .write_all(&nonce_bytes)
-            .map_err(|e| format!("Failed to write nonce: {}", e))?;
+            .map_err(|e| format!("Failed to write nonce at chunk {}: {}", chunk_index, e))?;
 
         writer
             .write_all(&ciphertext)
-            .map_err(|e| format!("Failed to write ciphertext: {}", e))?;
+            .map_err(|e| format!("Failed to write ciphertext at chunk {}: {}", chunk_index, e))?;
 
         chunk_index += 1;
     }
@@ -407,15 +415,20 @@ pub fn decrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), St
                 // End of file reached
                 break;
             }
-            Err(e) => return Err(format!("Failed to read chunk size: {}", e)),
+            Err(e) => {
+                return Err(format!(
+                    "Failed to read chunk size at chunk {}: {}",
+                    chunk_index, e
+                ))
+            }
         }
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
         // Validate chunk size to prevent memory exhaustion attacks
         if chunk_len > MAX_ENCRYPTED_CHUNK_SIZE {
             return Err(format!(
-                "Invalid chunk size {} exceeds maximum allowed size {}",
-                chunk_len, MAX_ENCRYPTED_CHUNK_SIZE
+                "Invalid chunk size {} at chunk {} exceeds maximum allowed size {}",
+                chunk_len, chunk_index, MAX_ENCRYPTED_CHUNK_SIZE
             ));
         }
 
@@ -423,14 +436,14 @@ pub fn decrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), St
         let mut nonce_bytes = [0u8; NONCE_SIZE];
         reader
             .read_exact(&mut nonce_bytes)
-            .map_err(|e| format!("Failed to read nonce: {}", e))?;
+            .map_err(|e| format!("Failed to read nonce at chunk {}: {}", chunk_index, e))?;
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         // Read encrypted chunk
         let mut ciphertext = vec![0u8; chunk_len];
         reader
             .read_exact(&mut ciphertext)
-            .map_err(|e| format!("Failed to read ciphertext chunk: {}", e))?;
+            .map_err(|e| format!("Failed to read ciphertext at chunk {}: {}", chunk_index, e))?;
 
         // Decrypt this chunk
         let plaintext = cipher.decrypt(nonce, ciphertext.as_ref()).map_err(|_| {
@@ -441,9 +454,12 @@ pub fn decrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), St
         })?;
 
         // Write decrypted chunk
-        writer
-            .write_all(&plaintext)
-            .map_err(|e| format!("Failed to write decrypted chunk: {}", e))?;
+        writer.write_all(&plaintext).map_err(|e| {
+            format!(
+                "Failed to write decrypted chunk at chunk {}: {}",
+                chunk_index, e
+            )
+        })?;
 
         chunk_index += 1;
     }
