@@ -106,6 +106,46 @@ async function findMissingKeys() {
       }
     }
 
+    // Handle standalone t() calls with absolute paths (e.g., in utility functions)
+    // These are t() calls that pass translation keys as string literals and look like
+    // absolute paths (contain dots and start with known namespaces)
+    // This catches cases like: function formatDate(t: (key: string) => string) { t("common.date-unknown") }
+    const standaloneTRegex = /\bt\(\s*["']([a-z-]+\.[a-z.-]+)["']\s*[,)]/gi;
+    let standaloneMatch;
+    while ((standaloneMatch = standaloneTRegex.exec(content)) !== null) {
+      const key = standaloneMatch[1];
+      // Only process keys that look like absolute translation paths
+      // (start with known namespace prefixes)
+      if (
+        key.startsWith("common.") ||
+        key.startsWith("dialog.") ||
+        key.startsWith("sidebar.") ||
+        key.startsWith("sheet.") ||
+        key.startsWith("gallery-view.") ||
+        key.startsWith("list-view.") ||
+        key.startsWith("tree-view.") ||
+        key.startsWith("timeline-view.") ||
+        key.startsWith("merge-view.") ||
+        key.startsWith("hooks.")
+      ) {
+        usedKeys.add(key);
+
+        for (const lang of languages) {
+          const keyExists =
+            getNestedValue(translations[lang], key) !== undefined;
+
+          if (!keyExists) {
+            if (!missingKeysReport[lang]) missingKeysReport[lang] = {};
+            if (!missingKeysReport[lang][key])
+              missingKeysReport[lang][key] = [];
+            if (!missingKeysReport[lang][key].includes(file)) {
+              missingKeysReport[lang][key].push(file);
+            }
+          }
+        }
+      }
+    }
+
     const useTranslationRegex =
       /const\s*{([^}]+)}\s*=\s*useTranslation\(([^)]*)\)/g;
     let declarationMatch;
