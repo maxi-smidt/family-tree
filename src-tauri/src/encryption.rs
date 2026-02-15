@@ -8,7 +8,6 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
 
-const SALT_SIZE: usize = 16;
 const NONCE_SIZE: usize = 12;
 const MAGIC_HEADER_PASSWORD: &[u8] = b"FTREEENC"; // 8 bytes - password encrypted
 const MAGIC_HEADER_BASE: &[u8] = b"FTREEBS1"; // 8 bytes - base encrypted only
@@ -322,15 +321,19 @@ pub fn decrypt_file_auto(input_path: &Path, output_path: &Path, password: Option
             .map_err(|e| format!("Failed to create temp directory: {}", e))?;
         let temp_base_encrypted = _temp_dir.path().join("base_encrypted.tmp");
         
-        decrypt_file(input_path, &temp_base_encrypted, pwd)?;
+        // Step 1: Decrypt password layer
+        decrypt_file(input_path, &temp_base_encrypted, pwd)
+            .map_err(|e| format!("Password decryption failed: {}", e))?;
         
-        // Now decrypt the base layer
-        decrypt_file_base(&temp_base_encrypted, output_path)?;
+        // Step 2: Decrypt base layer
+        decrypt_file_base(&temp_base_encrypted, output_path)
+            .map_err(|e| format!("Base decryption failed: {}", e))?;
         
         // _temp_dir is dropped here, cleaning up temp files
     } else {
         // Only base encrypted
-        decrypt_file_base(input_path, output_path)?;
+        decrypt_file_base(input_path, output_path)
+            .map_err(|e| format!("Base decryption failed: {}", e))?;
     }
     
     Ok(())
