@@ -47,6 +47,37 @@
       "overwrite": "Overwrite",
       "keep": "Keep both"
     },
+    "password": {
+      "title": {
+        "export": "Encrypt Database Export",
+        "import": "Encrypted Database"
+      },
+      "description": {
+        "export": "Optionally protect your exported database with a password. The database will be encrypted with AES-256.",
+        "import": "This database is encrypted. Please enter the password to import it."
+      },
+      "label": {
+        "password": "Password",
+        "confirmPassword": "Confirm Password"
+      },
+      "placeholder": {
+        "password": "Enter password",
+        "confirmPassword": "Confirm your password"
+      },
+      "button": {
+        "cancel": "Cancel",
+        "skip": "Skip (no encryption)",
+        "confirm": "Confirm"
+      },
+      "error": {
+        "empty": "Password cannot be empty",
+        "tooShort": "Password must be at least 8 characters",
+        "noMatch": "Passwords do not match"
+      },
+      "hint": {
+        "minLength": "Minimum 8 characters recommended for security"
+      }
+    },
     "remove-database": {
       "title": "Remove database",
       "description": "Are you sure you want to remove the selected database? This action cannot be undone. To be sure, type the database name '{{name}}' below.",

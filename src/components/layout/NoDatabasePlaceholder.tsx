@@ -9,6 +9,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { CreateDatabaseDialog } from "@/components/dialog/CreateDatabaseDialog";
+import { PasswordDialog } from "@/components/dialog/PasswordDialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseManager } from "@/hooks/useDatabaseManager";
@@ -21,10 +22,20 @@ export const NoDatabasePlaceholder = () => {
   });
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
+  const [passwordDialogState, setPasswordDialogState] = useState<{
+    isOpen: boolean;
+    resolve: (password: string | null) => void;
+  } | null>(null);
   const setSelectedDatabase = useFamilyTreeSettings(
     (s) => s.setSelectedDatabase,
   );
   const { importDatabase, importDatabaseCheck } = useDatabaseManager();
+
+  const askPassword = () => {
+    return new Promise<string | null>((resolve) => {
+      setPasswordDialogState({ isOpen: true, resolve });
+    });
+  };
 
   return (
     <Empty className="w-full h-full">
@@ -48,15 +59,42 @@ export const NoDatabasePlaceholder = () => {
         onConfirm={() => setIsCreateDatabaseDialogOpen(false)}
         onCancel={() => setIsCreateDatabaseDialogOpen(false)}
       />
+      <PasswordDialog
+        isOpen={!!passwordDialogState?.isOpen}
+        mode="import"
+        onConfirm={(password) => {
+          passwordDialogState?.resolve(password);
+          setPasswordDialogState(null);
+        }}
+        onCancel={() => {
+          passwordDialogState?.resolve(null);
+          setPasswordDialogState(null);
+        }}
+      />
     </Empty>
   );
 
   async function handleImportDatabase() {
     const check = await importDatabaseCheck();
     if (!check) return;
+
+    // Check if file is encrypted and ask for password
+    let password: string | null = null;
+    if (check.meta.encrypted) {
+      password = await askPassword();
+      if (password === null) {
+        // User cancelled password dialog
+        return;
+      }
+    }
+
     try {
       if (!check.collision) {
-        const newDatabase = await importDatabase(check.sourcePath, false);
+        const newDatabase = await importDatabase(
+          check.sourcePath,
+          false,
+          password || undefined,
+        );
         setSelectedDatabase(newDatabase);
         toast.success(t("toast-success"));
       }
