@@ -49,12 +49,12 @@
     },
     "password": {
       "title": {
-        "export": "Encrypt Database Export",
-        "import": "Encrypted Database"
+        "export": "Add Password Protection",
+        "import": "Password Required"
       },
       "description": {
-        "export": "Optionally protect your exported database with a password. The database will be encrypted with AES-256.",
-        "import": "This database is encrypted. Please enter the password to import it."
+        "export": "All exports are encrypted by default. Add a password for additional security. Without a password, base encryption is still applied.",
+        "import": "This database is password-protected. Please enter the password to import it."
       },
       "label": {
         "password": "Password",
@@ -66,7 +66,7 @@
       },
       "button": {
         "cancel": "Cancel",
-        "skip": "Skip (no encryption)",
+        "skip": "Skip (base encryption only)",
         "confirm": "Confirm"
       },
       "error": {

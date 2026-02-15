@@ -5,6 +5,7 @@ export interface Database {
 
 export interface InspectDatabaseResult {
   encrypted: boolean;
+  passwordRequired: boolean;
   id: string | null;
   name: string | null;
 }

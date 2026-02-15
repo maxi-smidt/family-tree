@@ -81,9 +81,9 @@ export const DatabaseManagementView = () => {
     const check = await importDatabaseCheck();
     if (!check) return;
 
-    // Check if file is encrypted and ask for password
+    // Check if file requires password (not just base encrypted)
     let password: string | null = null;
-    if (check.meta.encrypted) {
+    if (check.meta.passwordRequired) {
       password = await askPassword("import");
       if (password === null) {
         // User cancelled password dialog

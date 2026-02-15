@@ -236,16 +236,9 @@ fn export_database(app: tauri::AppHandle, id: String, target_path: String, passw
         return Err("Source database file not found".into());
     }
 
-    // If password is provided, encrypt the database during export
-    if let Some(pwd) = password {
-        if pwd.is_empty() {
-            return Err("Password cannot be empty".into());
-        }
-        encryption::encrypt_file(&src, dest, &pwd)?;
-    } else {
-        // No encryption, just copy the file
-        fs::copy(&src, dest).map_err(|e| format!("Failed to copy database: {}", e))?;
-    }
+    // Always apply base encryption, with optional password encryption on top
+    let pwd_ref = password.as_deref();
+    encryption::encrypt_file_with_base(&src, dest, pwd_ref)?;
 
     Ok(())
 }
@@ -256,20 +249,24 @@ fn inspect_database(source_path: String) -> Result<Value, String> {
     
     // Check if the file is encrypted
     let is_encrypted = encryption::is_encrypted(src_path)?;
+    let is_password = encryption::is_password_encrypted(src_path)?;
     
     if is_encrypted {
-        // Return info that the file is encrypted without metadata
+        // Return info that the file is encrypted
+        // Indicate whether it needs a password or just base encryption
         return Ok(serde_json::json!({ 
             "encrypted": true,
+            "passwordRequired": is_password,
             "id": null,
             "name": null
         }));
     }
     
-    // File is not encrypted, read metadata normally
+    // File is not encrypted (shouldn't happen with new exports, but handle for backward compatibility)
     let (id, name) = get_metadata_from_path(src_path)?;
     Ok(serde_json::json!({ 
         "encrypted": false,
+        "passwordRequired": false,
         "id": id, 
         "name": name 
     }))
@@ -281,18 +278,23 @@ fn import_database(app: tauri::AppHandle, source_path: String, overwrite: bool, 
     let src = Path::new(&source_path);
     let target_dir = get_db_path(&app);
 
-    // Check if the source file is encrypted
+    // Check if the file is encrypted
     let is_encrypted = encryption::is_encrypted(src)?;
+    let is_password = encryption::is_password_encrypted(src)?;
     
     let _temp_dir: Option<tempfile::TempDir>;
     let temp_db_path: PathBuf;
     let src_to_import: &Path;
     
     if is_encrypted {
-        // File is encrypted, need password to decrypt
-        let pwd = password.ok_or("Password required for encrypted database")?;
-        if pwd.is_empty() {
-            return Err("Password cannot be empty".into());
+        // File has encryption (base or base+password)
+        
+        // If password encryption, require password
+        if is_password {
+            let pwd = password.as_deref().ok_or("Password required for password-encrypted database")?;
+            if pwd.is_empty() {
+                return Err("Password cannot be empty".into());
+            }
         }
         
         // Create temporary directory for decrypted file
@@ -300,12 +302,12 @@ fn import_database(app: tauri::AppHandle, source_path: String, overwrite: bool, 
             .map_err(|e| format!("Failed to create temp directory: {}", e))?;
         temp_db_path = temp.path().join("decrypted.db");
         
-        // Decrypt to temporary location
-        encryption::decrypt_file(src, &temp_db_path, &pwd)?;
+        // Decrypt (handles both base-only and base+password)
+        encryption::decrypt_file_auto(src, &temp_db_path, password.as_deref())?;
         src_to_import = &temp_db_path;
         _temp_dir = Some(temp); // Keep temp dir alive
     } else {
-        // File is not encrypted, use directly
+        // File is not encrypted (old format, backward compatibility)
         _temp_dir = None;
         src_to_import = src;
         temp_db_path = PathBuf::new(); // Won't be used

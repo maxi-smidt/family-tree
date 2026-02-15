@@ -49,12 +49,12 @@
     },
     "password": {
       "title": {
-        "export": "Datenbank-Export verschlüsseln",
-        "import": "Verschlüsselte Datenbank"
+        "export": "Passwortschutz hinzufügen",
+        "import": "Passwort erforderlich"
       },
       "description": {
-        "export": "Schütze optional deine exportierte Datenbank mit einem Passwort. Die Datenbank wird mit AES-256 verschlüsselt.",
-        "import": "Diese Datenbank ist verschlüsselt. Bitte gib das Passwort ein, um sie zu importieren."
+        "export": "Alle Exporte sind standardmäßig verschlüsselt. Füge ein Passwort für zusätzliche Sicherheit hinzu. Ohne Passwort wird weiterhin Basis-Verschlüsselung angewendet.",
+        "import": "Diese Datenbank ist passwortgeschützt. Bitte gib das Passwort ein, um sie zu importieren."
       },
       "label": {
         "password": "Passwort",
@@ -66,7 +66,7 @@
       },
       "button": {
         "cancel": "Abbrechen",
-        "skip": "Überspringen (keine Verschlüsselung)",
+        "skip": "Überspringen (nur Basis-Verschlüsselung)",
         "confirm": "Bestätigen"
       },
       "error": {
