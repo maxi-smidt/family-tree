@@ -9,6 +9,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { CreateDatabaseDialog } from "@/components/dialog/CreateDatabaseDialog";
+import { PasswordDialog } from "@/components/dialog/PasswordDialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseManager } from "@/hooks/useDatabaseManager";
@@ -21,10 +22,21 @@ export const NoDatabasePlaceholder = () => {
   });
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
+  const [passwordDialogState, setPasswordDialogState] = useState<{
+    isOpen: boolean;
+    resolve: (password: string | null | undefined) => void;
+  } | null>(null);
   const setSelectedDatabase = useFamilyTreeSettings(
     (s) => s.setSelectedDatabase,
   );
-  const { importDatabase, importDatabaseCheck } = useDatabaseManager();
+  const { importDatabase, importDatabaseCheck, inspectDatabaseWithPassword } =
+    useDatabaseManager();
+
+  const askPassword = () => {
+    return new Promise<string | null | undefined>((resolve) => {
+      setPasswordDialogState({ isOpen: true, resolve });
+    });
+  };
 
   return (
     <Empty className="w-full h-full">
@@ -48,17 +60,69 @@ export const NoDatabasePlaceholder = () => {
         onConfirm={() => setIsCreateDatabaseDialogOpen(false)}
         onCancel={() => setIsCreateDatabaseDialogOpen(false)}
       />
+      <PasswordDialog
+        isOpen={!!passwordDialogState?.isOpen}
+        mode="import"
+        onConfirm={(password) => {
+          passwordDialogState?.resolve(password);
+          setPasswordDialogState(null);
+        }}
+        onCancel={() => {
+          passwordDialogState?.resolve(undefined);
+          setPasswordDialogState(null);
+        }}
+      />
     </Empty>
   );
 
   async function handleImportDatabase() {
-    const check = await importDatabaseCheck();
+    let check = await importDatabaseCheck();
     if (!check) return;
+
+    // Check if file requires password for inspection (password-encrypted and metadata not yet extracted)
+    let password: string | null | undefined = null;
+    if (check.meta.passwordRequired && check.meta.id === null) {
+      // Need password to inspect the file
+      password = await askPassword();
+      if (password === undefined) {
+        // User cancelled password dialog
+        return;
+      }
+
+      // If password is null, user confirmed with empty password field
+      if (password === null) {
+        toast.error(t("toast-error"));
+        return;
+      }
+
+      // Re-inspect with password to get metadata
+      try {
+        check = await inspectDatabaseWithPassword(check.sourcePath, password);
+      } catch (err) {
+        console.error(err);
+        toast.error(t("toast-error"));
+        return;
+      }
+    } else if (check.meta.passwordRequired) {
+      // Password required for import but metadata already extracted
+      password = await askPassword();
+      if (password === undefined) {
+        // User cancelled password dialog
+        return;
+      }
+    }
+
     try {
       if (!check.collision) {
-        const newDatabase = await importDatabase(check.sourcePath, false);
+        const newDatabase = await importDatabase(
+          check.sourcePath,
+          false,
+          password || undefined,
+        );
         setSelectedDatabase(newDatabase);
         toast.success(t("toast-success"));
+      } else {
+        toast.error(t("toast-collision"));
       }
     } catch (err) {
       console.error(err);

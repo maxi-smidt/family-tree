@@ -1,5 +1,5 @@
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { Database } from "@/types/database";
+import { Database, InspectDatabaseResult } from "@/types/database";
 import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { EXTENSION } from "@/constants";
@@ -33,7 +33,7 @@ export const useDatabaseManager = () => {
   );
 
   const exportDatabase = useCallback(
-    async (database: Database) => {
+    async (database: Database, password?: string) => {
       let exportFailed = false;
       try {
         const savePath = await save({
@@ -48,6 +48,7 @@ export const useDatabaseManager = () => {
           await invoke("export_database", {
             id: database.id,
             targetPath: savePath,
+            password: password || null,
           });
         } catch (error) {
           // If export fails, attempt to reconnect the database
@@ -83,21 +84,42 @@ export const useDatabaseManager = () => {
 
     if (!sourcePath || Array.isArray(sourcePath)) return;
 
-    const meta = await invoke<{ id: string; name: string }>(
-      "inspect_database",
-      { sourcePath },
-    );
+    const meta = await invoke<InspectDatabaseResult>("inspect_database", {
+      sourcePath,
+    });
 
-    const collision = databases.find((db) => db.id === meta.id);
+    const collision = meta.id
+      ? databases.find((db) => db.id === meta.id)
+      : undefined;
 
-    return { collision, sourcePath };
+    return { collision, sourcePath, meta };
   }, [databases]);
 
+  const inspectDatabaseWithPassword = useCallback(
+    async (sourcePath: string, password: string) => {
+      const meta = await invoke<InspectDatabaseResult>(
+        "inspect_database_with_password",
+        {
+          sourcePath,
+          password,
+        },
+      );
+
+      const collision = meta.id
+        ? databases.find((db) => db.id === meta.id)
+        : undefined;
+
+      return { collision, sourcePath, meta };
+    },
+    [databases],
+  );
+
   const importDatabase = useCallback(
-    async (sourcePath: string, overwrite: boolean) => {
+    async (sourcePath: string, overwrite: boolean, password?: string) => {
       const result = await invoke<Database>("import_database", {
         sourcePath,
         overwrite,
+        password: password || null,
       });
       addDatabaseToSettings(result);
       return result;
@@ -109,6 +131,7 @@ export const useDatabaseManager = () => {
     removeDatabase,
     exportDatabase,
     importDatabaseCheck,
+    inspectDatabaseWithPassword,
     importDatabase,
   };
 };
