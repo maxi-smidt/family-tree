@@ -1,14 +1,15 @@
 use aes_gcm::{
     aead::{Aead, KeyInit, OsRng},
-    Aes256Gcm, Nonce, Key,
+    Aes256Gcm, Key, Nonce,
 };
-use argon2::{Argon2, PasswordHasher};
 use argon2::password_hash::{rand_core::RngCore, SaltString};
+use argon2::{Argon2, PasswordHasher};
 use std::fs;
-use std::io::{Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 
 const NONCE_SIZE: usize = 12;
+const CHUNK_SIZE: usize = 64 * 1024; // 64 KB chunks for streaming
 const MAGIC_HEADER_PASSWORD: &[u8] = b"FTREEENC"; // 8 bytes - password encrypted
 const MAGIC_HEADER_BASE: &[u8] = b"FTREEBS1"; // 8 bytes - base encrypted only
 const VERSION: u8 = 1;
@@ -25,31 +26,30 @@ const VERSION: u8 = 1;
 // 3. Add a minimal barrier to casual access
 // 4. Work as a foundation for the optional password encryption layer
 const BASE_KEY: [u8; 32] = [
-    0x46, 0x61, 0x6d, 0x69, 0x6c, 0x79, 0x54, 0x72,
-    0x65, 0x65, 0x41, 0x70, 0x70, 0x4b, 0x65, 0x79,
-    0x32, 0x30, 0x32, 0x36, 0x56, 0x31, 0x53, 0x65,
-    0x63, 0x75, 0x72, 0x65, 0x44, 0x61, 0x74, 0x61,
+    0x46, 0x61, 0x6d, 0x69, 0x6c, 0x79, 0x54, 0x72, 0x65, 0x65, 0x41, 0x70, 0x70, 0x4b, 0x65, 0x79,
+    0x32, 0x30, 0x32, 0x36, 0x56, 0x31, 0x53, 0x65, 0x63, 0x75, 0x72, 0x65, 0x44, 0x61, 0x74, 0x61,
 ];
 
 /// Encrypts a file with AES-256-GCM using password-based key derivation
+/// Uses chunked encryption to avoid loading entire file into memory
 pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Result<(), String> {
-    // Read the input file
-    let plaintext = fs::read(input_path)
-        .map_err(|e| format!("Failed to read input file: {}", e))?;
+    // Open input file with buffered reader
+    let input_file =
+        fs::File::open(input_path).map_err(|e| format!("Failed to open input file: {}", e))?;
+    let mut reader = BufReader::new(input_file);
 
     // Generate a random salt for key derivation
     let salt = SaltString::generate(&mut OsRng);
-    
+
     // Derive encryption key from password using Argon2
     let argon2 = Argon2::default();
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| format!("Password hashing failed: {}", e))?;
-    
-    let hash = password_hash.hash
-        .ok_or("Failed to get hash")?;
+
+    let hash = password_hash.hash.ok_or("Failed to get hash")?;
     let key_bytes = hash.as_bytes();
-    
+
     // Ensure we have exactly 32 bytes for AES-256
     let mut key = [0u8; 32];
     let copy_len = key_bytes.len().min(32);
@@ -58,104 +58,137 @@ pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
     // Create cipher instance
     let cipher = Aes256Gcm::new(key.as_ref().into());
 
-    // Generate random nonce
-    let mut nonce_bytes = [0u8; NONCE_SIZE];
-    OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    // Encrypt the data
-    let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_ref())
-        .map_err(|e| format!("Encryption failed: {}", e))?;
-
-    // Write encrypted file with header: MAGIC_HEADER_PASSWORD + VERSION + SALT_LEN + SALT + NONCE + CIPHERTEXT
-    let mut output = fs::File::create(output_path)
+    // Create output file with buffered writer
+    let output_file = fs::File::create(output_path)
         .map_err(|e| format!("Failed to create output file: {}", e))?;
+    let mut writer = BufWriter::new(output_file);
 
-    output.write_all(MAGIC_HEADER_PASSWORD)
+    // Write header: MAGIC_HEADER_PASSWORD + VERSION + SALT_LEN + SALT
+    writer
+        .write_all(MAGIC_HEADER_PASSWORD)
         .map_err(|e| format!("Failed to write magic header: {}", e))?;
-    
-    output.write_all(&[VERSION])
+
+    writer
+        .write_all(&[VERSION])
         .map_err(|e| format!("Failed to write version: {}", e))?;
-    
+
     // Write salt length (1 byte) then salt
     let salt_bytes = salt.as_str().as_bytes();
     let salt_len = salt_bytes.len() as u8;
-    output.write_all(&[salt_len])
+    writer
+        .write_all(&[salt_len])
         .map_err(|e| format!("Failed to write salt length: {}", e))?;
-    
-    output.write_all(salt_bytes)
+
+    writer
+        .write_all(salt_bytes)
         .map_err(|e| format!("Failed to write salt: {}", e))?;
-    
-    output.write_all(&nonce_bytes)
-        .map_err(|e| format!("Failed to write nonce: {}", e))?;
-    
-    output.write_all(&ciphertext)
-        .map_err(|e| format!("Failed to write ciphertext: {}", e))?;
+
+    // Encrypt and write data in chunks
+    let mut chunk_buffer = vec![0u8; CHUNK_SIZE];
+    let mut chunk_index: u64 = 0;
+
+    loop {
+        // Read next chunk
+        let bytes_read = reader
+            .read(&mut chunk_buffer)
+            .map_err(|e| format!("Failed to read chunk: {}", e))?;
+
+        if bytes_read == 0 {
+            break; // EOF
+        }
+
+        // Generate unique nonce for this chunk using chunk index
+        // This ensures each chunk has a unique nonce
+        let mut nonce_bytes = [0u8; NONCE_SIZE];
+        nonce_bytes[0..8].copy_from_slice(&chunk_index.to_le_bytes());
+        OsRng.fill_bytes(&mut nonce_bytes[8..]); // Add randomness to remaining bytes
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        // Encrypt this chunk
+        let chunk_data = &chunk_buffer[..bytes_read];
+        let ciphertext = cipher
+            .encrypt(nonce, chunk_data)
+            .map_err(|e| format!("Encryption failed at chunk {}: {}", chunk_index, e))?;
+
+        // Write chunk size (4 bytes), nonce, and encrypted chunk
+        let chunk_len = ciphertext.len() as u32;
+        writer
+            .write_all(&chunk_len.to_le_bytes())
+            .map_err(|e| format!("Failed to write chunk size: {}", e))?;
+
+        writer
+            .write_all(&nonce_bytes)
+            .map_err(|e| format!("Failed to write nonce: {}", e))?;
+
+        writer
+            .write_all(&ciphertext)
+            .map_err(|e| format!("Failed to write ciphertext: {}", e))?;
+
+        chunk_index += 1;
+    }
+
+    // Flush writer to ensure all data is written
+    writer
+        .flush()
+        .map_err(|e| format!("Failed to flush output: {}", e))?;
 
     Ok(())
 }
 
 /// Decrypts a file encrypted with encrypt_file
+/// Uses chunked decryption to avoid loading entire file into memory
 pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Result<(), String> {
-    // Read the encrypted file
-    let mut file = fs::File::open(input_path)
-        .map_err(|e| format!("Failed to open input file: {}", e))?;
+    // Open encrypted file with buffered reader
+    let input_file =
+        fs::File::open(input_path).map_err(|e| format!("Failed to open input file: {}", e))?;
+    let mut reader = BufReader::new(input_file);
 
     // Read and verify magic header
     let mut magic = [0u8; 8];
-    file.read_exact(&mut magic)
+    reader
+        .read_exact(&mut magic)
         .map_err(|e| format!("Failed to read magic header: {}", e))?;
-    
+
     if &magic != MAGIC_HEADER_PASSWORD {
         return Err("Invalid file format: not a password-encrypted Family Tree database".into());
     }
 
     // Read version
     let mut version = [0u8; 1];
-    file.read_exact(&mut version)
+    reader
+        .read_exact(&mut version)
         .map_err(|e| format!("Failed to read version: {}", e))?;
-    
+
     if version[0] != VERSION {
         return Err(format!("Unsupported encryption version: {}", version[0]));
     }
 
     // Read salt length, then salt
     let mut salt_len_byte = [0u8; 1];
-    file.read_exact(&mut salt_len_byte)
+    reader
+        .read_exact(&mut salt_len_byte)
         .map_err(|e| format!("Failed to read salt length: {}", e))?;
     let salt_len = salt_len_byte[0] as usize;
-    
+
     let mut salt_bytes = vec![0u8; salt_len];
-    file.read_exact(&mut salt_bytes)
+    reader
+        .read_exact(&mut salt_bytes)
         .map_err(|e| format!("Failed to read salt: {}", e))?;
-    
-    let salt_str = String::from_utf8(salt_bytes)
-        .map_err(|e| format!("Invalid salt format: {}", e))?;
-    let salt = SaltString::from_b64(&salt_str)
-        .map_err(|e| format!("Failed to parse salt: {}", e))?;
 
-    // Read nonce
-    let mut nonce_bytes = [0u8; NONCE_SIZE];
-    file.read_exact(&mut nonce_bytes)
-        .map_err(|e| format!("Failed to read nonce: {}", e))?;
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    // Read ciphertext (rest of the file)
-    let mut ciphertext = Vec::new();
-    file.read_to_end(&mut ciphertext)
-        .map_err(|e| format!("Failed to read ciphertext: {}", e))?;
+    let salt_str =
+        String::from_utf8(salt_bytes).map_err(|e| format!("Invalid salt format: {}", e))?;
+    let salt =
+        SaltString::from_b64(&salt_str).map_err(|e| format!("Failed to parse salt: {}", e))?;
 
     // Derive key from password using the same salt
     let argon2 = Argon2::default();
     let password_hash = argon2
         .hash_password(password.as_bytes(), &salt)
         .map_err(|e| format!("Password hashing failed: {}", e))?;
-    
-    let hash = password_hash.hash
-        .ok_or("Failed to get hash")?;
+
+    let hash = password_hash.hash.ok_or("Failed to get hash")?;
     let key_bytes = hash.as_bytes();
-    
+
     let mut key = [0u8; 32];
     let copy_len = key_bytes.len().min(32);
     key[..copy_len].copy_from_slice(&key_bytes[..copy_len]);
@@ -163,22 +196,66 @@ pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
     // Create cipher instance
     let cipher = Aes256Gcm::new(key.as_ref().into());
 
-    // Decrypt the data
-    let plaintext = cipher
-        .decrypt(nonce, ciphertext.as_ref())
-        .map_err(|_| "Decryption failed: incorrect password or corrupted file".to_string())?;
+    // Create output file with buffered writer
+    let output_file = fs::File::create(output_path)
+        .map_err(|e| format!("Failed to create output file: {}", e))?;
+    let mut writer = BufWriter::new(output_file);
 
-    // Write decrypted file
-    fs::write(output_path, plaintext)
-        .map_err(|e| format!("Failed to write decrypted file: {}", e))?;
+    // Decrypt chunks
+    let mut chunk_index: u64 = 0;
+    loop {
+        // Read chunk size (4 bytes)
+        let mut chunk_len_bytes = [0u8; 4];
+        match reader.read_exact(&mut chunk_len_bytes) {
+            Ok(_) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                // End of file reached
+                break;
+            }
+            Err(e) => return Err(format!("Failed to read chunk size: {}", e)),
+        }
+        let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
+
+        // Read nonce for this chunk
+        let mut nonce_bytes = [0u8; NONCE_SIZE];
+        reader
+            .read_exact(&mut nonce_bytes)
+            .map_err(|e| format!("Failed to read nonce: {}", e))?;
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        // Read encrypted chunk
+        let mut ciphertext = vec![0u8; chunk_len];
+        reader
+            .read_exact(&mut ciphertext)
+            .map_err(|e| format!("Failed to read ciphertext chunk: {}", e))?;
+
+        // Decrypt this chunk
+        let plaintext = cipher.decrypt(nonce, ciphertext.as_ref()).map_err(|_| {
+            format!(
+                "Decryption failed at chunk {}: incorrect password or corrupted file",
+                chunk_index
+            )
+        })?;
+
+        // Write decrypted chunk
+        writer
+            .write_all(&plaintext)
+            .map_err(|e| format!("Failed to write decrypted chunk: {}", e))?;
+
+        chunk_index += 1;
+    }
+
+    // Flush writer to ensure all data is written
+    writer
+        .flush()
+        .map_err(|e| format!("Failed to flush output: {}", e))?;
 
     Ok(())
 }
 
 /// Checks if a file is encrypted by looking for the magic header
 pub fn is_encrypted(path: &Path) -> Result<bool, String> {
-    let mut file = fs::File::open(path)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
+    let mut file = fs::File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
 
     let mut magic = [0u8; 8];
     match file.read_exact(&mut magic) {
@@ -189,8 +266,7 @@ pub fn is_encrypted(path: &Path) -> Result<bool, String> {
 
 /// Checks if a file has password encryption (vs just base encryption)
 pub fn is_password_encrypted(path: &Path) -> Result<bool, String> {
-    let mut file = fs::File::open(path)
-        .map_err(|e| format!("Failed to open file: {}", e))?;
+    let mut file = fs::File::open(path).map_err(|e| format!("Failed to open file: {}", e))?;
 
     let mut magic = [0u8; 8];
     match file.read_exact(&mut magic) {
@@ -200,104 +276,183 @@ pub fn is_password_encrypted(path: &Path) -> Result<bool, String> {
 }
 
 /// Encrypts a file with base-level encryption (no password)
-/// This provides basic protection for all exports
+/// Uses chunked encryption to avoid loading entire file into memory
 pub fn encrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), String> {
-    // Read the input file
-    let plaintext = fs::read(input_path)
-        .map_err(|e| format!("Failed to read input file: {}", e))?;
+    // Open input file with buffered reader
+    let input_file =
+        fs::File::open(input_path).map_err(|e| format!("Failed to open input file: {}", e))?;
+    let mut reader = BufReader::new(input_file);
 
     // Use the application-level base key
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&BASE_KEY));
 
-    // Generate random nonce
-    let mut nonce_bytes = [0u8; NONCE_SIZE];
-    OsRng.fill_bytes(&mut nonce_bytes);
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    // Encrypt the data
-    let ciphertext = cipher
-        .encrypt(nonce, plaintext.as_ref())
-        .map_err(|e| format!("Base encryption failed: {}", e))?;
-
-    // Write encrypted file with header: MAGIC_HEADER_BASE + VERSION + NONCE + CIPHERTEXT
-    let mut output = fs::File::create(output_path)
+    // Create output file with buffered writer
+    let output_file = fs::File::create(output_path)
         .map_err(|e| format!("Failed to create output file: {}", e))?;
+    let mut writer = BufWriter::new(output_file);
 
-    output.write_all(MAGIC_HEADER_BASE)
+    // Write header: MAGIC_HEADER_BASE + VERSION
+    writer
+        .write_all(MAGIC_HEADER_BASE)
         .map_err(|e| format!("Failed to write magic header: {}", e))?;
-    
-    output.write_all(&[VERSION])
+
+    writer
+        .write_all(&[VERSION])
         .map_err(|e| format!("Failed to write version: {}", e))?;
-    
-    output.write_all(&nonce_bytes)
-        .map_err(|e| format!("Failed to write nonce: {}", e))?;
-    
-    output.write_all(&ciphertext)
-        .map_err(|e| format!("Failed to write ciphertext: {}", e))?;
+
+    // Encrypt and write data in chunks
+    let mut chunk_buffer = vec![0u8; CHUNK_SIZE];
+    let mut chunk_index: u64 = 0;
+
+    loop {
+        // Read next chunk
+        let bytes_read = reader
+            .read(&mut chunk_buffer)
+            .map_err(|e| format!("Failed to read chunk: {}", e))?;
+
+        if bytes_read == 0 {
+            break; // EOF
+        }
+
+        // Generate unique nonce for this chunk using chunk index
+        let mut nonce_bytes = [0u8; NONCE_SIZE];
+        nonce_bytes[0..8].copy_from_slice(&chunk_index.to_le_bytes());
+        OsRng.fill_bytes(&mut nonce_bytes[8..]); // Add randomness to remaining bytes
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        // Encrypt this chunk
+        let chunk_data = &chunk_buffer[..bytes_read];
+        let ciphertext = cipher
+            .encrypt(nonce, chunk_data)
+            .map_err(|e| format!("Base encryption failed at chunk {}: {}", chunk_index, e))?;
+
+        // Write chunk size (4 bytes), nonce, and encrypted chunk
+        let chunk_len = ciphertext.len() as u32;
+        writer
+            .write_all(&chunk_len.to_le_bytes())
+            .map_err(|e| format!("Failed to write chunk size: {}", e))?;
+
+        writer
+            .write_all(&nonce_bytes)
+            .map_err(|e| format!("Failed to write nonce: {}", e))?;
+
+        writer
+            .write_all(&ciphertext)
+            .map_err(|e| format!("Failed to write ciphertext: {}", e))?;
+
+        chunk_index += 1;
+    }
+
+    // Flush writer to ensure all data is written
+    writer
+        .flush()
+        .map_err(|e| format!("Failed to flush output: {}", e))?;
 
     Ok(())
 }
 
 /// Decrypts a file with base-level encryption (no password)
+/// Uses chunked decryption to avoid loading entire file into memory
 pub fn decrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), String> {
-    // Read the encrypted file
-    let mut file = fs::File::open(input_path)
-        .map_err(|e| format!("Failed to open input file: {}", e))?;
+    // Open encrypted file with buffered reader
+    let input_file =
+        fs::File::open(input_path).map_err(|e| format!("Failed to open input file: {}", e))?;
+    let mut reader = BufReader::new(input_file);
 
     // Read and verify magic header
     let mut magic = [0u8; 8];
-    file.read_exact(&mut magic)
+    reader
+        .read_exact(&mut magic)
         .map_err(|e| format!("Failed to read magic header: {}", e))?;
-    
+
     if &magic != MAGIC_HEADER_BASE {
         return Err("Invalid file format: not a base-encrypted Family Tree database".into());
     }
 
     // Read version
     let mut version = [0u8; 1];
-    file.read_exact(&mut version)
+    reader
+        .read_exact(&mut version)
         .map_err(|e| format!("Failed to read version: {}", e))?;
-    
+
     if version[0] != VERSION {
         return Err(format!("Unsupported encryption version: {}", version[0]));
     }
 
-    // Read nonce
-    let mut nonce_bytes = [0u8; NONCE_SIZE];
-    file.read_exact(&mut nonce_bytes)
-        .map_err(|e| format!("Failed to read nonce: {}", e))?;
-    let nonce = Nonce::from_slice(&nonce_bytes);
-
-    // Read ciphertext (rest of the file)
-    let mut ciphertext = Vec::new();
-    file.read_to_end(&mut ciphertext)
-        .map_err(|e| format!("Failed to read ciphertext: {}", e))?;
-
     // Use the application-level base key
     let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&BASE_KEY));
 
-    // Decrypt the data
-    let plaintext = cipher
-        .decrypt(nonce, ciphertext.as_ref())
-        .map_err(|_| "Base decryption failed: corrupted file".to_string())?;
+    // Create output file with buffered writer
+    let output_file = fs::File::create(output_path)
+        .map_err(|e| format!("Failed to create output file: {}", e))?;
+    let mut writer = BufWriter::new(output_file);
 
-    // Write decrypted file
-    fs::write(output_path, plaintext)
-        .map_err(|e| format!("Failed to write decrypted file: {}", e))?;
+    // Decrypt chunks
+    let mut chunk_index: u64 = 0;
+    loop {
+        // Read chunk size (4 bytes)
+        let mut chunk_len_bytes = [0u8; 4];
+        match reader.read_exact(&mut chunk_len_bytes) {
+            Ok(_) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
+                // End of file reached
+                break;
+            }
+            Err(e) => return Err(format!("Failed to read chunk size: {}", e)),
+        }
+        let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
+
+        // Read nonce for this chunk
+        let mut nonce_bytes = [0u8; NONCE_SIZE];
+        reader
+            .read_exact(&mut nonce_bytes)
+            .map_err(|e| format!("Failed to read nonce: {}", e))?;
+        let nonce = Nonce::from_slice(&nonce_bytes);
+
+        // Read encrypted chunk
+        let mut ciphertext = vec![0u8; chunk_len];
+        reader
+            .read_exact(&mut ciphertext)
+            .map_err(|e| format!("Failed to read ciphertext chunk: {}", e))?;
+
+        // Decrypt this chunk
+        let plaintext = cipher.decrypt(nonce, ciphertext.as_ref()).map_err(|_| {
+            format!(
+                "Base decryption failed at chunk {}: corrupted file",
+                chunk_index
+            )
+        })?;
+
+        // Write decrypted chunk
+        writer
+            .write_all(&plaintext)
+            .map_err(|e| format!("Failed to write decrypted chunk: {}", e))?;
+
+        chunk_index += 1;
+    }
+
+    // Flush writer to ensure all data is written
+    writer
+        .flush()
+        .map_err(|e| format!("Failed to flush output: {}", e))?;
 
     Ok(())
 }
 
 /// Encrypts a file with base encryption first, then password encryption on top
 /// This provides layered security
-pub fn encrypt_file_with_base(input_path: &Path, output_path: &Path, password: Option<&str>) -> Result<(), String> {
+pub fn encrypt_file_with_base(
+    input_path: &Path,
+    output_path: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
     // First apply base encryption to a temporary file
-    let temp_dir = tempfile::tempdir()
-        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+    let temp_dir =
+        tempfile::tempdir().map_err(|e| format!("Failed to create temp directory: {}", e))?;
     let temp_base_encrypted = temp_dir.path().join("base_encrypted.tmp");
-    
+
     encrypt_file_base(input_path, &temp_base_encrypted)?;
-    
+
     // If password is provided and non-empty, encrypt the base-encrypted file with password
     // Otherwise, just use the base-encrypted file
     match password {
@@ -310,43 +465,47 @@ pub fn encrypt_file_with_base(input_path: &Path, output_path: &Path, password: O
                 .map_err(|e| format!("Failed to copy file: {}", e))?;
         }
     }
-    
+
     // Temp dir is cleaned up automatically
     Ok(())
 }
 
 /// Decrypts a file, handling both base-only and base+password encryption
-pub fn decrypt_file_auto(input_path: &Path, output_path: &Path, password: Option<&str>) -> Result<(), String> {
+pub fn decrypt_file_auto(
+    input_path: &Path,
+    output_path: &Path,
+    password: Option<&str>,
+) -> Result<(), String> {
     // Check what type of encryption we have
     let is_pwd_encrypted = is_password_encrypted(input_path)?;
-    
+
     if is_pwd_encrypted {
         // Password encrypted - decrypt password layer first
         let pwd = password.ok_or("Password required for password-encrypted database")?;
         if pwd.is_empty() {
             return Err("Password cannot be empty".into());
         }
-        
+
         // Decrypt password layer to temp file
-        let _temp_dir = tempfile::tempdir()
-            .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+        let _temp_dir =
+            tempfile::tempdir().map_err(|e| format!("Failed to create temp directory: {}", e))?;
         let temp_base_encrypted = _temp_dir.path().join("base_encrypted.tmp");
-        
+
         // Step 1: Decrypt password layer
         decrypt_file(input_path, &temp_base_encrypted, pwd)
             .map_err(|e| format!("Password decryption failed: {}", e))?;
-        
+
         // Step 2: Decrypt base layer
         decrypt_file_base(&temp_base_encrypted, output_path)
             .map_err(|e| format!("Base decryption failed: {}", e))?;
-        
+
         // _temp_dir is dropped here, cleaning up temp files
     } else {
         // Only base encrypted
         decrypt_file_base(input_path, output_path)
             .map_err(|e| format!("Base decryption failed: {}", e))?;
     }
-    
+
     Ok(())
 }
 
@@ -373,7 +532,10 @@ mod tests {
 
         // Verify encrypted file is different from original
         let encrypted_data = fs::read(&encrypted_file).unwrap();
-        assert_ne!(&encrypted_data[..test_data.len().min(encrypted_data.len())], test_data);
+        assert_ne!(
+            &encrypted_data[..test_data.len().min(encrypted_data.len())],
+            test_data
+        );
 
         // Verify magic header
         assert!(is_encrypted(&encrypted_file).unwrap());
@@ -412,7 +574,7 @@ mod tests {
 
         // Create plain SQLite file (mock header)
         fs::write(&plain_file, b"SQLite format 3\x00").unwrap();
-        
+
         // Create encrypted file
         let test_data = b"Test data";
         fs::write(&plain_file, test_data).unwrap();
