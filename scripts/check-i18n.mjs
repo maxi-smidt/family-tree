@@ -86,6 +86,26 @@ async function findMissingKeys() {
       }
     }
 
+    // Handle i18n.t() calls - these always use absolute paths, never keyPrefix
+    const i18nTFunctionRegex = /\bi18n\.t\(\s*["']([^"']+)["']\s*[,)]/g;
+    let i18nMatch;
+    while ((i18nMatch = i18nTFunctionRegex.exec(content)) !== null) {
+      const key = i18nMatch[1];
+      usedKeys.add(key);
+
+      for (const lang of languages) {
+        const keyExists = getNestedValue(translations[lang], key) !== undefined;
+
+        if (!keyExists) {
+          if (!missingKeysReport[lang]) missingKeysReport[lang] = {};
+          if (!missingKeysReport[lang][key]) missingKeysReport[lang][key] = [];
+          if (!missingKeysReport[lang][key].includes(file)) {
+            missingKeysReport[lang][key].push(file);
+          }
+        }
+      }
+    }
+
     const useTranslationRegex =
       /const\s*{([^}]+)}\s*=\s*useTranslation\(([^)]*)\)/g;
     let declarationMatch;
@@ -95,12 +115,24 @@ async function findMissingKeys() {
       const argsPart = declarationMatch[2];
 
       let tVarName = "t";
+      let i18nVarName = null;
+
+      // Check for t variable (possibly renamed)
       const tVarRegex = /\bt\s*:\s*(\w+)/;
       const tVarMatch = destructuredPart.match(tVarRegex);
       if (tVarMatch) {
         tVarName = tVarMatch[1];
       } else if (!/\bt\b/.test(destructuredPart)) {
-        continue;
+        // If 't' is not destructured, check if i18n is
+        const i18nRegex = /\bi18n\b/;
+        if (!i18nRegex.test(destructuredPart)) {
+          continue;
+        }
+      }
+
+      // Check if i18n is also destructured
+      if (/\bi18n\b/.test(destructuredPart)) {
+        i18nVarName = "i18n";
       }
 
       let keyPrefix = "";
@@ -110,8 +142,9 @@ async function findMissingKeys() {
         keyPrefix = keyPrefixMatch[1];
       }
 
+      // Handle regular t() calls (but not i18n.t() calls)
       const tFunctionRegex = new RegExp(
-        `\\b${tVarName}\\(\\s*["']([^"']+)["']\\s*[,)]`,
+        `(?<!\\.)\\b${tVarName}\\(\\s*["']([^"']+)["']\\s*[,)]`,
         "g",
       );
       let usageMatch;
@@ -215,7 +248,8 @@ async function findHardcodedStrings() {
   // These patterns are intentionally conservative to minimize false positives
   const uiTextPatterns = [
     // Attribute patterns: placeholder="Some Text", title="Some Text", etc.
-    /(?:placeholder|title|label|description|aria-label)\s*=\s*["']([A-Z][a-zA-Z\s]{2,})["']/g,
+    // Note: aria-label is excluded as it's often used for accessibility with technical terms
+    /(?:placeholder|title|label|description)\s*=\s*["']([A-Z][a-zA-Z\s]{2,})["']/g,
   ];
 
   for (const file of tsFiles) {
