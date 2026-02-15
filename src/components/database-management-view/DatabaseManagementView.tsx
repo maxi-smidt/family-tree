@@ -59,7 +59,7 @@ export const DatabaseManagementView = () => {
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
     mode: "export" | "import";
-    resolve: (password: string | null) => void;
+    resolve: (password: string | null | undefined) => void;
   } | null>(null);
   const [editingDatabaseId, setEditingDatabaseId] = useState<string | null>(
     null,
@@ -76,7 +76,7 @@ export const DatabaseManagementView = () => {
   };
 
   const askPassword = (mode: "export" | "import") => {
-    return new Promise<string | null>((resolve) => {
+    return new Promise<string | null | undefined>((resolve) => {
       setPasswordDialogState({ isOpen: true, mode, resolve });
     });
   };
@@ -373,7 +373,7 @@ export const DatabaseManagementView = () => {
           setPasswordDialogState(null);
         }}
         onCancel={() => {
-          passwordDialogState?.resolve(null);
+          passwordDialogState?.resolve(undefined);
           setPasswordDialogState(null);
         }}
       />

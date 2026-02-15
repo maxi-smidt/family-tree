@@ -24,7 +24,7 @@ export const NoDatabasePlaceholder = () => {
     useState(false);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
-    resolve: (password: string | null) => void;
+    resolve: (password: string | null | undefined) => void;
   } | null>(null);
   const setSelectedDatabase = useFamilyTreeSettings(
     (s) => s.setSelectedDatabase,
@@ -33,7 +33,7 @@ export const NoDatabasePlaceholder = () => {
     useDatabaseManager();
 
   const askPassword = () => {
-    return new Promise<string | null>((resolve) => {
+    return new Promise<string | null | undefined>((resolve) => {
       setPasswordDialogState({ isOpen: true, resolve });
     });
   };
@@ -68,7 +68,7 @@ export const NoDatabasePlaceholder = () => {
           setPasswordDialogState(null);
         }}
         onCancel={() => {
-          passwordDialogState?.resolve(null);
+          passwordDialogState?.resolve(undefined);
           setPasswordDialogState(null);
         }}
       />
@@ -121,6 +121,8 @@ export const NoDatabasePlaceholder = () => {
         );
         setSelectedDatabase(newDatabase);
         toast.success(t("toast-success"));
+      } else {
+        toast.error(t("toast-collision"));
       }
     } catch (err) {
       console.error(err);

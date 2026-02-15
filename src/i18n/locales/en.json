@@ -162,7 +162,8 @@
       "create": "Create Database",
       "import": "Import Database",
       "toast-success": "Database imported successfully!",
-      "toast-error": "Failed to import database."
+      "toast-error": "Failed to import database.",
+      "toast-collision": "Database with the same ID already exists. Import cancelled."
     }
   },
   "list-view": {
