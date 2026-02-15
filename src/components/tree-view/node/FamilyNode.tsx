@@ -1,4 +1,10 @@
-import { ChevronsDownUp, EyeIcon, PencilIcon, PlusIcon } from "lucide-react";
+import {
+  ChevronsDownUp,
+  EyeIcon,
+  PencilIcon,
+  PlusIcon,
+  Activity,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { Member } from "@/types/member";
@@ -35,6 +41,14 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   const borderColor = selected ? "#2563eb" : "#777";
   const borderWidth = selected ? "2px" : "1px";
+
+  const hasDiseases = data.diseases && data.diseases.length > 0;
+  const hasAffectedDisease = data.diseases?.some(
+    (d) => d.carrierStatus === "affected",
+  );
+  const hasCarrierDisease = data.diseases?.some(
+    (d) => d.carrierStatus === "carrier",
+  );
 
   return (
     <div
@@ -74,6 +88,31 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       </div>
 
       <FamilyNodeContent member={data} />
+
+      {hasDiseases && (
+        <div
+          className="absolute top-2 right-2 rounded-full p-1"
+          style={{
+            backgroundColor: hasAffectedDisease
+              ? "rgba(239, 68, 68, 0.15)"
+              : hasCarrierDisease
+                ? "rgba(251, 191, 36, 0.15)"
+                : "rgba(156, 163, 175, 0.15)",
+          }}
+          title={`${data.diseases?.length} genetic condition${data.diseases && data.diseases.length > 1 ? "s" : ""}`}
+        >
+          <Activity
+            size={12}
+            style={{
+              color: hasAffectedDisease
+                ? "rgb(239, 68, 68)"
+                : hasCarrierDisease
+                  ? "rgb(251, 191, 36)"
+                  : "rgb(156, 163, 175)",
+            }}
+          />
+        </div>
+      )}
 
       {data.isCollapsed && (
         <div className="absolute bottom-1 right-1">

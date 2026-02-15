@@ -13,8 +13,9 @@ import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { Calendar, MapPin, BookOpen } from "lucide-react";
+import { Calendar, MapPin, BookOpen, Activity } from "lucide-react";
 import { formatDate } from "@/utils/dateUtils";
+import { Badge } from "@/components/ui/badge";
 
 type Props = {
   member: Member;
@@ -43,9 +44,22 @@ export const ViewMode = ({ member }: Props) => {
 
   const memberStories = getStoriesByMember(member.id);
 
+  const memberDiseases = member.diseases || [];
+
   const openLightbox = (index: number) => {
     setStartIndex(index);
     setLightboxOpen(true);
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "affected":
+        return "destructive";
+      case "carrier":
+        return "secondary";
+      default:
+        return "outline";
+    }
   };
 
   return (
@@ -217,6 +231,59 @@ export const ViewMode = ({ member }: Props) => {
           ) : (
             <ItemDescription>
               <i>No stories written yet</i>
+            </ItemDescription>
+          )}
+        </ItemContent>
+      </Item>
+
+      <Item variant="muted">
+        <ItemContent>
+          <ItemTitle>Genetic Conditions</ItemTitle>
+          {memberDiseases.length > 0 ? (
+            <CollapsibleSection
+              totalCount={memberDiseases.length}
+              collapsedCount={3}
+            >
+              {(showAll) => (
+                <div className="space-y-3 mt-2">
+                  {memberDiseases
+                    .slice(0, showAll ? memberDiseases.length : 3)
+                    .map((disease) => (
+                      <div
+                        key={disease.id}
+                        className="border rounded-lg p-3 bg-accent/50"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Activity className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{disease.name}</span>
+                          <Badge
+                            variant={getStatusBadgeVariant(
+                              disease.carrierStatus,
+                            )}
+                          >
+                            {i18n.t(
+                              `sheet.member-sheet.diseases.dialog.carrier-status-${disease.carrierStatus}`,
+                            )}
+                          </Badge>
+                        </div>
+                        {disease.diagnosisDate && (
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(
+                              disease.diagnosisDate,
+                            ).toLocaleDateString()}
+                          </p>
+                        )}
+                        {disease.notes && (
+                          <p className="text-sm mt-2">{disease.notes}</p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </CollapsibleSection>
+          ) : (
+            <ItemDescription>
+              <i>No conditions recorded</i>
             </ItemDescription>
           )}
         </ItemContent>
