@@ -15,8 +15,16 @@ const MAGIC_HEADER_BASE: &[u8] = b"FTREEBS1"; // 8 bytes - base encrypted only
 const VERSION: u8 = 1;
 
 // Application-level encryption key (32 bytes for AES-256)
-// This provides base-level security for all exports
-// Note: This is obfuscation, not strong security without a user password
+// WARNING: This provides only OBFUSCATION-LEVEL protection, not real security!
+// The key is embedded in the compiled binary and can be easily extracted.
+// This base encryption prevents casual viewing of exported files but should NOT be
+// relied upon for protecting sensitive data. Always use password protection for
+// any data that requires real security.
+// The purpose of this base layer is to:
+// 1. Ensure exports are never plaintext SQLite files
+// 2. Provide a consistent file format
+// 3. Add a minimal barrier to casual access
+// 4. Work as a foundation for the optional password encryption layer
 const BASE_KEY: [u8; 32] = [
     0x46, 0x61, 0x6d, 0x69, 0x6c, 0x79, 0x54, 0x72,
     0x65, 0x65, 0x41, 0x70, 0x70, 0x4b, 0x65, 0x79,
@@ -280,19 +288,17 @@ pub fn encrypt_file_with_base(input_path: &Path, output_path: &Path, password: O
     
     encrypt_file_base(input_path, &temp_base_encrypted)?;
     
-    // If password is provided, encrypt the base-encrypted file with password
-    if let Some(pwd) = password {
-        if !pwd.is_empty() {
+    // If password is provided and non-empty, encrypt the base-encrypted file with password
+    // Otherwise, just use the base-encrypted file
+    match password {
+        Some(pwd) if !pwd.is_empty() => {
             encrypt_file(&temp_base_encrypted, output_path, pwd)?;
-        } else {
-            // Just copy the base-encrypted file
+        }
+        _ => {
+            // No password or empty password - just copy the base-encrypted file
             fs::copy(&temp_base_encrypted, output_path)
                 .map_err(|e| format!("Failed to copy file: {}", e))?;
         }
-    } else {
-        // No password, just copy the base-encrypted file
-        fs::copy(&temp_base_encrypted, output_path)
-            .map_err(|e| format!("Failed to copy file: {}", e))?;
     }
     
     // Temp dir is cleaned up automatically
