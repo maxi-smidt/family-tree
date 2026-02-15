@@ -9,21 +9,23 @@ import {
 import { SettingsField } from "@/components/sidebar/SettingsField";
 
 export function LanguageSelector() {
-  const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation(undefined, {
+    keyPrefix: "sidebar.language-selector",
+  });
 
   const handleLanguageChange = (value: string) => {
     i18n.changeLanguage(value).then();
   };
 
   return (
-    <SettingsField label={t("common.selectLanguage")}>
+    <SettingsField label={t("select")}>
       <Select value={i18n.language} onValueChange={handleLanguageChange}>
         <SelectTrigger size="sm" className="w-full text-xs">
-          <SelectValue placeholder={t("common.selectLanguage")} />
+          <SelectValue placeholder={t("select")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="en">{t("common.english")}</SelectItem>
-          <SelectItem value="de">{t("common.german")}</SelectItem>
+          <SelectItem value="en">{i18n.t("common.english")}</SelectItem>
+          <SelectItem value="de">{i18n.t("common.german")}</SelectItem>
         </SelectContent>
       </Select>
     </SettingsField>

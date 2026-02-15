@@ -71,6 +71,20 @@ npm run tauri build
   - `/hooks`: Custom React hooks (State management, Settings).
   - `/types`: TypeScript type definitions.
   - `/utils`: Helper functions.
+  - `/i18n`: Internationalization configuration and translations.
+- `/docs`: Documentation for developers.
+
+## Development
+
+### Internationalization
+
+The application supports multiple languages. For adding or modifying translations, see the [i18n Guide](docs/I18N_GUIDE.md).
+
+To validate i18n implementation:
+
+```bash
+npm run check-i18n
+```
 
 ## License
 
