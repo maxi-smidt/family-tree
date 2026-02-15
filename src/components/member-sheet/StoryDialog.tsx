@@ -73,12 +73,12 @@ export const StoryDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-150 max-h-[80vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-150 max-h-[80vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6">
           <DialogTitle>{story ? t("title-edit") : t("title-add")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          <div className="space-y-4 py-4 flex-1 overflow-y-auto">
+          <div className="space-y-4 px-6 py-4 flex-1 overflow-y-auto">
             <div className="space-y-2">
               <Label htmlFor="members">{t("linked-members")} *</Label>
               <MultiSelect
@@ -126,14 +126,13 @@ export const StoryDialog = ({
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
               {t("cancel")}
-              Cancel
             </Button>
             <Button
               type="submit"
@@ -143,7 +142,7 @@ export const StoryDialog = ({
                 selectedMemberIds.length === 0
               }
             >
-              {story ? t("update") : t("add")} Story
+              {story ? t("update") : t("add")}
             </Button>
           </DialogFooter>
         </form>

@@ -47,7 +47,7 @@ export const MemberStories = ({ member }: Props) => {
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
           <ItemTitle>{t("title")}</ItemTitle>
-          <Button size="sm" variant="ghost" onClick={handleAdd}>
+          <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
@@ -77,6 +77,7 @@ export const MemberStories = ({ member }: Props) => {
                       <Button
                         size="sm"
                         variant="ghost"
+                        type="button"
                         onClick={() => handleEdit(story)}
                       >
                         <Pencil />
@@ -84,6 +85,7 @@ export const MemberStories = ({ member }: Props) => {
                       <Button
                         size="sm"
                         variant="ghost"
+                        type="button"
                         onClick={() => openDeleteDialog(story)}
                       >
                         <Trash2 />
@@ -101,6 +103,7 @@ export const MemberStories = ({ member }: Props) => {
                     <Button
                       variant="link"
                       size="sm"
+                      type="button"
                       className="mt-1 p-0 h-auto"
                       onClick={() =>
                         setExpandedStoryId(isExpanded ? null : story.id)

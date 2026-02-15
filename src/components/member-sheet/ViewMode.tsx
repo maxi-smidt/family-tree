@@ -13,8 +13,9 @@ import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { Calendar, MapPin, BookOpen } from "lucide-react";
-import { formatDate } from "@/utils/dateUtils";
+import { Calendar, MapPin, BookOpen, Activity } from "lucide-react";
+import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
+import { Badge } from "@/components/ui/badge";
 
 type Props = {
   member: Member;
@@ -43,9 +44,22 @@ export const ViewMode = ({ member }: Props) => {
 
   const memberStories = getStoriesByMember(member.id);
 
+  const memberDiseases = member.diseases || [];
+
   const openLightbox = (index: number) => {
     setStartIndex(index);
     setLightboxOpen(true);
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case "affected":
+        return "destructive";
+      case "carrier":
+        return "secondary";
+      default:
+        return "outline";
+    }
   };
 
   return (
@@ -87,7 +101,7 @@ export const ViewMode = ({ member }: Props) => {
           <ItemContent>
             <ItemTitle>{t("dob-item")}</ItemTitle>
             <ItemDescription>
-              {formatDate(member.date.birth, i18n.t)}
+              {formatDateWithFallback(member.date.birth, i18n.t)}
             </ItemDescription>
           </ItemContent>
         </Item>
@@ -96,7 +110,7 @@ export const ViewMode = ({ member }: Props) => {
             <ItemTitle>{t("dod-item")}</ItemTitle>
             <ItemDescription>
               {member.date.death ? (
-                formatDate(member.date.death, i18n.t)
+                formatDate(member.date.death)
               ) : (
                 <i>{t("dod-fallback")}</i>
               )}
@@ -139,7 +153,7 @@ export const ViewMode = ({ member }: Props) => {
 
       <Item variant="muted">
         <ItemContent>
-          <ItemTitle>Life Events</ItemTitle>
+          <ItemTitle>{t("life-events")}</ItemTitle>
           {memberEvents.length > 0 ? (
             <CollapsibleSection
               totalCount={memberEvents.length}
@@ -160,7 +174,9 @@ export const ViewMode = ({ member }: Props) => {
                         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            <span>{formatDate(event.date, i18n.t)}</span>
+                            <span>
+                              {formatDateWithFallback(event.date, i18n.t)}
+                            </span>
                           </div>
                           {event.location && (
                             <div className="flex items-center gap-1">
@@ -179,7 +195,7 @@ export const ViewMode = ({ member }: Props) => {
             </CollapsibleSection>
           ) : (
             <ItemDescription>
-              <i>No events recorded</i>
+              <i>{t("no-events")}</i>
             </ItemDescription>
           )}
         </ItemContent>
@@ -187,7 +203,7 @@ export const ViewMode = ({ member }: Props) => {
 
       <Item variant="muted">
         <ItemContent>
-          <ItemTitle>Stories & Biographies</ItemTitle>
+          <ItemTitle>{t("stories")}</ItemTitle>
           {memberStories.length > 0 ? (
             <CollapsibleSection
               totalCount={memberStories.length}
@@ -216,7 +232,69 @@ export const ViewMode = ({ member }: Props) => {
             </CollapsibleSection>
           ) : (
             <ItemDescription>
-              <i>No stories written yet</i>
+              <i>{t("no-stories")}</i>
+            </ItemDescription>
+          )}
+        </ItemContent>
+      </Item>
+
+      <Item variant="muted">
+        <ItemContent>
+          <ItemTitle>{t("genetic-conditions")}</ItemTitle>
+          {memberDiseases.length > 0 ? (
+            <CollapsibleSection
+              totalCount={memberDiseases.length}
+              collapsedCount={3}
+            >
+              {(showAll) => (
+                <div className="space-y-3 mt-2">
+                  {memberDiseases
+                    .slice(0, showAll ? memberDiseases.length : 3)
+                    .map((disease) => (
+                      <div
+                        key={disease.id}
+                        className="border rounded-lg p-3 bg-accent/50"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Activity className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{disease.name}</span>
+                          <Badge
+                            variant={getStatusBadgeVariant(
+                              disease.carrierStatus,
+                            )}
+                          >
+                            {i18n.t(
+                              `sheet.member-sheet.diseases.dialog.carrier-status-${disease.carrierStatus}`,
+                            )}
+                          </Badge>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {disease.inheritancePattern !== "unknown" && (
+                            <p className="text-xs text-muted-foreground">
+                              {i18n.t(
+                                `sheet.member-sheet.diseases.dialog.inheritance-pattern-${disease.inheritancePattern.replace(/_/g, "-")}`,
+                              )}
+                            </p>
+                          )}
+                          {disease.diagnosisDate && (
+                            <p className="text-sm text-muted-foreground">
+                              {new Date(
+                                disease.diagnosisDate,
+                              ).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                        {disease.notes && (
+                          <p className="text-sm mt-2">{disease.notes}</p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </CollapsibleSection>
+          ) : (
+            <ItemDescription>
+              <i>{t("no-conditions")}</i>
             </ItemDescription>
           )}
         </ItemContent>

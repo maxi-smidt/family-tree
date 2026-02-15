@@ -215,7 +215,13 @@
       "dod-item": "Sterbedatum",
       "dod-fallback": "lebt",
       "linked-images": "Verlinkte Bilder",
-      "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt."
+      "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt.",
+      "life-events": "Lebensereignisse",
+      "no-events": "Keine Ereignisse erfasst",
+      "stories": "Geschichten & Biografien",
+      "no-stories": "Noch keine Geschichten geschrieben",
+      "genetic-conditions": "Genetische Erkrankungen",
+      "no-conditions": "Keine Erkrankungen erfasst"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",
@@ -225,7 +231,6 @@
       "save": "Speichern",
       "show-less": "Weniger anzeigen",
       "show-more": "Zeige {{count}} mehr",
-      "view-details": "Details anzeigen",
       "events": {
         "title": "Lebensereignisse",
         "add": "Hinzufügen",
@@ -280,13 +285,56 @@
           "update": "Aktualisieren",
           "add": "Hinzufügen"
         }
+      },
+      "diseases": {
+        "title": "Genetische Erkrankungen",
+        "add": "Hinzufügen",
+        "no-diseases": "Keine Erkrankungen erfasst",
+        "delete-dialog": {
+          "title": "Erkrankung löschen",
+          "description": "Möchtest du diese Erkrankung wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "cancel": "Abbrechen",
+          "delete": "Löschen"
+        },
+        "dialog": {
+          "title-edit": "Erkrankung bearbeiten",
+          "title-add": "Erkrankung hinzufügen",
+          "name": "Name der Erkrankung",
+          "name-placeholder": "z.B. Hämophilie, Mukoviszidose",
+          "carrier-status": "Status",
+          "carrier-status-placeholder": "Status auswählen",
+          "carrier-status-affected": "Betroffen",
+          "carrier-status-carrier": "Überträger",
+          "carrier-status-unknown": "Unbekannt",
+          "inheritance-pattern": "Vererbungsmuster",
+          "inheritance-pattern-placeholder": "Vererbungsmuster auswählen",
+          "inheritance-pattern-autosomal-dominant": "Autosomal-Dominant",
+          "inheritance-pattern-autosomal-recessive": "Autosomal-Rezessiv",
+          "inheritance-pattern-x-linked-dominant": "X-Chromosomal Dominant",
+          "inheritance-pattern-x-linked-recessive": "X-Chromosomal Rezessiv",
+          "inheritance-pattern-y-linked": "Y-Chromosomal",
+          "inheritance-pattern-mitochondrial": "Mitochondrial",
+          "inheritance-pattern-multifactorial": "Multifaktoriell",
+          "inheritance-pattern-unknown": "Unbekannt",
+          "diagnosis-date": "Diagnosedatum",
+          "diagnosis-date-placeholder": "Datum auswählen",
+          "notes": "Notizen",
+          "notes-placeholder": "Zusätzliche Details hinzufügen...",
+          "update": "Aktualisieren",
+          "add": "Hinzufügen",
+          "error-add": "Erkrankung konnte nicht hinzugefügt werden. Bitte versuchen Sie es erneut.",
+          "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
+        }
       }
     }
   },
   "tree-view": {
     "node": {
       "life-ongoing": "lebt",
-      "life-unknown": "ungewiss"
+      "life-unknown": "ungewiss",
+      "disease-indicator_one": "{{count}} genetische Erkrankung",
+      "disease-indicator_other": "{{count}} genetische Erkrankungen",
+      "risk-indicator": "Mögliches genetisches Risiko von Eltern"
     },
     "controls": {
       "zoom-in": "Hineinzoomen",
@@ -301,7 +349,9 @@
       "remove-person": "Ausgewählte Person entfernen",
       "select-relation": "Sichtbare Beziehungen",
       "disable-fast-mode": "Schnellmodus deaktivieren",
-      "enable-fast-mode": "Schnellmodus aktivieren"
+      "enable-fast-mode": "Schnellmodus aktivieren",
+      "disable-disease-mode": "Krankheitsmodus deaktivieren",
+      "enable-disease-mode": "Krankheitsmodus aktivieren"
     }
   },
   "timeline-view": {
