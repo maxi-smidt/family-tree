@@ -36,6 +36,7 @@ Family Tree is a desktop application that helps you document, organize, and visu
 
 - **Local Database**: Secure SQLite storage on your local machine
 - **Multiple Trees**: Support for managing separate family tree databases
+- **Export/Import**: Share databases with encrypted protection (AES-256)
 - **Photo Gallery**: Upload and organize family photos
 
 ### User Experience
@@ -80,7 +81,8 @@ npm run tauri dev
 - **[SETUP.md](./docs/SETUP.md)** - Development environment setup and build instructions
 - **[AGENTS.md](./docs/AGENTS.md)** - Architecture and development guidelines for contributors
 - **[COPILOT.md](./docs/COPILOT.md)** - Guidelines for GitHub Copilot-assisted development
-- **[docs/I18N_GUIDE.md](./docs/I18N_GUIDE.md)** - Internationalization conventions and patterns
+- **[SECURITY.md](./docs/SECURITY.md)** - Security features and database encryption guide
+- **[I18N_GUIDE.md](./docs/I18N_GUIDE.md)** - Internationalization conventions and patterns
 
 ## Contributing
 

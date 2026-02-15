@@ -43,9 +43,40 @@
     "import-database": {
       "title": "Import database conflict",
       "description": "A database with the same ID already exists. Please decide what to do.",
-      "cancel": "Cancel,",
+      "cancel": "Cancel",
       "overwrite": "Overwrite",
       "keep": "Keep both"
+    },
+    "password": {
+      "title": {
+        "export": "Add Password Protection",
+        "import": "Password Required"
+      },
+      "description": {
+        "export": "All exports are encrypted by default. Add a password for additional security. Without a password, base encryption is still applied.",
+        "import": "This database is password-protected. Please enter the password to import it."
+      },
+      "label": {
+        "password": "Password",
+        "confirmPassword": "Confirm Password"
+      },
+      "placeholder": {
+        "password": "Enter password",
+        "confirmPassword": "Confirm your password"
+      },
+      "button": {
+        "cancel": "Cancel",
+        "skip": "Skip (base encryption only)",
+        "confirm": "Confirm"
+      },
+      "error": {
+        "empty": "Password cannot be empty",
+        "tooShort": "Password must be at least 8 characters",
+        "noMatch": "Passwords do not match"
+      },
+      "hint": {
+        "minLength": "Minimum 8 characters recommended for security"
+      }
     },
     "remove-database": {
       "title": "Remove database",

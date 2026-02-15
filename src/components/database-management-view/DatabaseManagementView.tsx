@@ -24,6 +24,7 @@ import {
 import { CreateDatabaseDialog } from "@/components/dialog/CreateDatabaseDialog";
 import { RemoveDatabaseDialog } from "@/components/dialog/RemoveDatabaseDialog";
 import { ImportDatabaseDialog } from "@/components/dialog/ImportDatabaseDialog";
+import { PasswordDialog } from "@/components/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Database } from "@/types/database";
@@ -51,6 +52,11 @@ export const DatabaseManagementView = () => {
     isOpen: boolean;
     resolve: (choice: "overwrite" | "keep" | "cancel") => void;
   } | null>(null);
+  const [passwordDialogState, setPasswordDialogState] = useState<{
+    isOpen: boolean;
+    mode: "export" | "import";
+    resolve: (password: string | null) => void;
+  } | null>(null);
   const [editingDatabaseId, setEditingDatabaseId] = useState<string | null>(
     null,
   );
@@ -65,9 +71,25 @@ export const DatabaseManagementView = () => {
     });
   };
 
+  const askPassword = (mode: "export" | "import") => {
+    return new Promise<string | null>((resolve) => {
+      setPasswordDialogState({ isOpen: true, mode, resolve });
+    });
+  };
+
   const handleImportDatabase = async () => {
     const check = await importDatabaseCheck();
     if (!check) return;
+
+    // Check if file requires password (not just base encrypted)
+    let password: string | null | undefined = null;
+    if (check.meta.passwordRequired) {
+      password = await askPassword("import");
+      if (password === undefined) {
+        // User cancelled password dialog
+        return;
+      }
+    }
 
     let overwrite = false;
     if (check.collision) {
@@ -84,7 +106,11 @@ export const DatabaseManagementView = () => {
         }
       }
 
-      const newDatabase = await importDatabase(check.sourcePath, overwrite);
+      const newDatabase = await importDatabase(
+        check.sourcePath,
+        overwrite,
+        password || undefined,
+      );
 
       setSelectedDatabase(newDatabase);
       await connect(newDatabase);
@@ -95,8 +121,16 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportDatabase = (database: Database) => {
-    exportDatabase(database);
+  const handleExportDatabase = async (database: Database) => {
+    const password = await askPassword("export");
+
+    // User cancelled
+    if (password === undefined) {
+      return;
+    }
+
+    // password can be null (skip/no password) or a string (encrypt with password)
+    exportDatabase(database, password || undefined);
   };
 
   const handleStartRename = (database: Database) => {
@@ -302,6 +336,18 @@ export const DatabaseManagementView = () => {
         onChoice={(choice) => {
           importConfirmState?.resolve(choice);
           setImportConfirmState(null);
+        }}
+      />
+      <PasswordDialog
+        isOpen={!!passwordDialogState?.isOpen}
+        mode={passwordDialogState?.mode || "export"}
+        onConfirm={(password) => {
+          passwordDialogState?.resolve(password);
+          setPasswordDialogState(null);
+        }}
+        onCancel={() => {
+          passwordDialogState?.resolve(undefined);
+          setPasswordDialogState(null);
         }}
       />
     </ViewLayout>
