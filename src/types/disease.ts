@@ -18,10 +18,17 @@ export interface DiseaseDB {
 }
 
 export function mapDiseaseFromDB(row: DiseaseDB): Disease {
+  const validStatuses: CarrierStatus[] = ["affected", "carrier", "unknown"];
+  const carrierStatus = validStatuses.includes(
+    row.carrier_status as CarrierStatus,
+  )
+    ? (row.carrier_status as CarrierStatus)
+    : "unknown";
+
   return {
     id: row.id,
     name: row.name,
-    carrierStatus: (row.carrier_status as CarrierStatus) || "unknown",
+    carrierStatus: carrierStatus,
     diagnosisDate: row.diagnosis_date,
     notes: row.notes,
   };

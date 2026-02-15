@@ -5,7 +5,7 @@ import {
   MemberUpdate,
   RelationType,
 } from "@/types/member";
-import { mapDiseaseFromDB, Disease, CarrierStatus } from "@/types/disease";
+import { mapDiseaseFromDB, CarrierStatus } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { DatabaseService } from "@/services/DatabaseService";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
@@ -68,7 +68,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       const memberDiseases = diseases
         .filter((d) => d.member_id === member.id)
         .map(mapDiseaseFromDB);
-      
+
       const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
 
       // Reconstruct parents from relations
