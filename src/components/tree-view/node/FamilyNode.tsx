@@ -37,7 +37,6 @@ function calculateDiseaseRisk(member: Member, allMembers: Member[]): boolean {
     if (parent) parents.push(parent);
   }
 
-  // Check if any parent has diseases
   return parents.some(
     (parent) => parent.diseases && parent.diseases.length > 0,
   );
