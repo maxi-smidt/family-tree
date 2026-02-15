@@ -252,14 +252,34 @@ fn inspect_database(source_path: String) -> Result<Value, String> {
     let is_password = encryption::is_password_encrypted(src_path)?;
     
     if is_encrypted {
-        // Return info that the file is encrypted
-        // Indicate whether it needs a password or just base encryption
-        return Ok(serde_json::json!({ 
-            "encrypted": true,
-            "passwordRequired": is_password,
-            "id": null,
-            "name": null
-        }));
+        if is_password {
+            // Password-encrypted file - cannot extract metadata without password
+            return Ok(serde_json::json!({ 
+                "encrypted": true,
+                "passwordRequired": true,
+                "id": null,
+                "name": null
+            }));
+        } else {
+            // Base-encrypted only - decrypt temporarily to extract metadata
+            let temp_dir = tempfile::tempdir()
+                .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+            let temp_decrypted = temp_dir.path().join("decrypted.db");
+            
+            // Decrypt base layer
+            encryption::decrypt_file_base(src_path, &temp_decrypted)?;
+            
+            // Extract metadata from decrypted file
+            let (id, name) = get_metadata_from_path(&temp_decrypted)?;
+            
+            // Temp dir is cleaned up automatically
+            return Ok(serde_json::json!({ 
+                "encrypted": true,
+                "passwordRequired": false,
+                "id": id,
+                "name": name
+            }));
+        }
     }
     
     // File is not encrypted (shouldn't happen with new exports, but handle for backward compatibility)
@@ -269,6 +289,37 @@ fn inspect_database(source_path: String) -> Result<Value, String> {
         "passwordRequired": false,
         "id": id, 
         "name": name 
+    }))
+}
+
+#[tauri::command]
+fn inspect_database_with_password(source_path: String, password: String) -> Result<Value, String> {
+    let src_path = Path::new(&source_path);
+    
+    // Check if the file is password-encrypted
+    let is_password = encryption::is_password_encrypted(src_path)?;
+    
+    if !is_password {
+        return Err("File is not password-encrypted".into());
+    }
+    
+    // Create temp directory for decryption
+    let temp_dir = tempfile::tempdir()
+        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+    let temp_decrypted = temp_dir.path().join("decrypted.db");
+    
+    // Decrypt with password (this will decrypt both password and base layers)
+    encryption::decrypt_file_auto(src_path, &temp_decrypted, Some(&password))?;
+    
+    // Extract metadata from fully decrypted file
+    let (id, name) = get_metadata_from_path(&temp_decrypted)?;
+    
+    // Temp dir is cleaned up automatically
+    Ok(serde_json::json!({ 
+        "encrypted": true,
+        "passwordRequired": true,
+        "id": id,
+        "name": name
     }))
 }
 
@@ -347,7 +398,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_sql::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![delete_database, export_database, import_database, inspect_database, initialize_database])
+        .invoke_handler(tauri::generate_handler![delete_database, export_database, import_database, inspect_database, inspect_database_with_password, initialize_database])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
