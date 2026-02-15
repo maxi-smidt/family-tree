@@ -63,18 +63,18 @@ export const MemberSheet = ({
           </div>
         </SheetHeader>
 
-        <div className={"relative m-0"}>
+        <div className="relative flex-1 overflow-hidden flex flex-col">
           <Button
             variant="outline"
             size="sm"
             onClick={() => setDetailDialogOpen(true)}
-            className="absolute -top-2 right-2 z-10"
+            className="absolute top-2 right-2 z-10"
           >
             <ExternalLink />
             {t("view-details")}
           </Button>
 
-          <div className="p-4 flex-1 overflow-y-auto">
+          <div className="p-4 overflow-y-auto flex-1">
             {isEditMode ? (
               <EditMode member={member} />
             ) : (
