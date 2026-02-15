@@ -78,7 +78,7 @@ export const PasswordDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {mode === "export" ? t("title.export") : t("title.import")}
@@ -90,7 +90,7 @@ export const PasswordDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="password">{t("label.password")}</Label>
             <div className="relative">
@@ -142,7 +142,7 @@ export const PasswordDialog = ({
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           {mode === "export" && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               {t("hint.minLength")}
             </p>
           )}

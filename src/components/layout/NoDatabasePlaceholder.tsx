@@ -67,7 +67,7 @@ export const NoDatabasePlaceholder = () => {
           setPasswordDialogState(null);
         }}
         onCancel={() => {
-          passwordDialogState?.resolve(null);
+          passwordDialogState?.resolve(undefined);
           setPasswordDialogState(null);
         }}
       />
@@ -79,10 +79,10 @@ export const NoDatabasePlaceholder = () => {
     if (!check) return;
 
     // Check if file requires password (not just base encrypted)
-    let password: string | null = null;
+    let password: string | null | undefined = null;
     if (check.meta.passwordRequired) {
       password = await askPassword();
-      if (password === null) {
+      if (password === undefined) {
         // User cancelled password dialog
         return;
       }

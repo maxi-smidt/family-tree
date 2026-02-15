@@ -82,10 +82,10 @@ export const DatabaseManagementView = () => {
     if (!check) return;
 
     // Check if file requires password (not just base encrypted)
-    let password: string | null = null;
+    let password: string | null | undefined = null;
     if (check.meta.passwordRequired) {
       password = await askPassword("import");
-      if (password === null) {
+      if (password === undefined) {
         // User cancelled password dialog
         return;
       }
@@ -124,12 +124,12 @@ export const DatabaseManagementView = () => {
   const handleExportDatabase = async (database: Database) => {
     const password = await askPassword("export");
 
+    // User cancelled
     if (password === undefined) {
-      // User cancelled
       return;
     }
 
-    // password can be null (no encryption) or a string (encrypt with password)
+    // password can be null (skip/no password) or a string (encrypt with password)
     exportDatabase(database, password || undefined);
   };
 
@@ -346,7 +346,7 @@ export const DatabaseManagementView = () => {
           setPasswordDialogState(null);
         }}
         onCancel={() => {
-          passwordDialogState?.resolve(null);
+          passwordDialogState?.resolve(undefined);
           setPasswordDialogState(null);
         }}
       />
