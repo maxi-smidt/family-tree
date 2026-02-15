@@ -309,7 +309,10 @@ fn import_database(app: tauri::AppHandle, source_path: String, overwrite: bool, 
     } else {
         // File is not encrypted (old format, backward compatibility)
         _temp_dir = None;
-        temp_db_path = PathBuf::new(); // Initialize to avoid uninitialized variable
+        #[allow(unused_assignments)]
+        {
+            temp_db_path = PathBuf::new(); // Initialize to avoid uninitialized variable
+        }
         src_to_import = src;
     }
 
