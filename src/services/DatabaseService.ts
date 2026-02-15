@@ -10,6 +10,7 @@ import {
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryDB, StoryInput } from "@/types/story";
+import { DiseaseDB } from "@/types/disease";
 import { QUERIES } from "@/db/queries";
 
 export class DatabaseService {
@@ -320,5 +321,60 @@ export class DatabaseService {
 
   static async removeStoryLinks(db: Database, storyId: string) {
     await db.execute(QUERIES.STORIES.DELETE_LINKS, [storyId]);
+  }
+
+  // Disease methods
+  static async getDiseases(db: Database) {
+    return await db.select<DiseaseDB[]>(QUERIES.DISEASES.SELECT_ALL);
+  }
+
+  static async getDiseasesByMember(db: Database, memberId: string) {
+    return await db.select<DiseaseDB[]>(QUERIES.DISEASES.SELECT_BY_MEMBER, [
+      memberId,
+    ]);
+  }
+
+  static async addDisease(
+    db: Database,
+    id: string,
+    memberId: string,
+    name: string,
+    carrierStatus: string,
+    inheritancePattern: string,
+    diagnosisDate: string | null,
+    notes: string | null,
+  ) {
+    await db.execute(QUERIES.DISEASES.INSERT, [
+      id,
+      memberId,
+      name,
+      carrierStatus,
+      inheritancePattern,
+      diagnosisDate,
+      notes,
+    ]);
+  }
+
+  static async updateDisease(
+    db: Database,
+    id: string,
+    name: string,
+    carrierStatus: string,
+    inheritancePattern: string,
+    diagnosisDate: string | null,
+    notes: string | null,
+  ) {
+    await db.execute(QUERIES.DISEASES.UPDATE, [
+      name,
+      carrierStatus,
+      inheritancePattern,
+      diagnosisDate,
+      notes,
+      id,
+    ]);
+  }
+
+  static async removeDisease(db: Database, id: string) {
+    await db.execute(QUERIES.DISEASES.DELETE, [id]);
   }
 }

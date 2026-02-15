@@ -1,4 +1,5 @@
 import { RELATION_TYPES as CONSTANT_RELATION_TYPES } from "@/constants";
+import { Disease } from "./disease";
 
 export type Gender = "m" | "f" | "o";
 
@@ -34,6 +35,7 @@ export interface Member {
     y: number;
   };
   relations?: Relation[];
+  diseases?: Disease[];
   onEdit?: () => void;
   onView?: () => void;
   onAddChild?: () => void;
@@ -102,6 +104,7 @@ export interface MemberUpdate {
 export function mapMemberFromDB(
   row: MemberDB,
   relations: RelationDB[] = [],
+  diseases: Disease[] = [],
 ): Member {
   return {
     id: row.id,
@@ -129,6 +132,7 @@ export function mapMemberFromDB(
       toMemberId: r.to_member_id,
       relationType: r.relation_type as RelationType,
     })),
+    diseases: diseases,
   };
 }
 

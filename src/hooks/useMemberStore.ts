@@ -5,6 +5,11 @@ import {
   MemberUpdate,
   RelationType,
 } from "@/types/member";
+import {
+  mapDiseaseFromDB,
+  CarrierStatus,
+  InheritancePattern,
+} from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { DatabaseService } from "@/services/DatabaseService";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
@@ -26,6 +31,23 @@ interface MemberState {
     toId: string,
     type: RelationType,
   ) => Promise<void>;
+  addDisease: (
+    memberId: string,
+    name: string,
+    carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
+    diagnosisDate: string | null,
+    notes: string | null,
+  ) => Promise<void>;
+  updateDisease: (
+    diseaseId: string,
+    name: string,
+    carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
+    diagnosisDate: string | null,
+    notes: string | null,
+  ) => Promise<void>;
+  removeDisease: (diseaseId: string) => Promise<void>;
 }
 
 export const useMemberStore = create<MemberState>((set, get) => ({
@@ -40,6 +62,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     const result = await DatabaseService.getMembers(db);
     const relations = await DatabaseService.getRelations(db);
+    const diseases = await DatabaseService.getDiseases(db);
 
     const memberGenderMap = new Map<string, string>();
     result.forEach((m) => memberGenderMap.set(m.id, m.gender));
@@ -48,7 +71,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       const memberRelations = relations.filter(
         (r) => r.from_member_id === member.id,
       );
-      const mapped = mapMemberFromDB(member, memberRelations);
+      const memberDiseases = diseases
+        .filter((d) => d.member_id === member.id)
+        .map(mapDiseaseFromDB);
+
+      const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
 
       // Reconstruct parents from relations
       mapped.parents = {
@@ -216,6 +243,59 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const db = useDatabaseStore.getState().db;
     if (!db) return;
     await DatabaseService.removeRelation(db, fromId, toId, type);
+    await get().refreshMembers();
+  },
+
+  addDisease: async (
+    memberId: string,
+    name: string,
+    carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
+    diagnosisDate: string | null,
+    notes: string | null,
+  ) => {
+    const db = useDatabaseStore.getState().db;
+    if (!db) return;
+    const id = crypto.randomUUID();
+    await DatabaseService.addDisease(
+      db,
+      id,
+      memberId,
+      name,
+      carrierStatus,
+      inheritancePattern,
+      diagnosisDate,
+      notes,
+    );
+    await get().refreshMembers();
+  },
+
+  updateDisease: async (
+    diseaseId: string,
+    name: string,
+    carrierStatus: CarrierStatus,
+    inheritancePattern: InheritancePattern,
+    diagnosisDate: string | null,
+    notes: string | null,
+  ) => {
+    const db = useDatabaseStore.getState().db;
+    if (!db) return;
+    await DatabaseService.updateDisease(
+      db,
+      diseaseId,
+      name,
+      carrierStatus,
+      inheritancePattern,
+      diagnosisDate,
+      notes,
+    );
+    await get().refreshMembers();
+  },
+
+  removeDisease: async (diseaseId: string) => {
+    const db = useDatabaseStore.getState().db;
+    if (!db) return;
+    await DatabaseService.removeDisease(db, diseaseId);
     await get().refreshMembers();
   },
 }));

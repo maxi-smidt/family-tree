@@ -21,7 +21,7 @@ import { ImageLightbox } from "@/components/member-sheet/ImageLightbox";
 import { Calendar, MapPin, BookOpen, Users } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
-import { formatDate } from "@/utils/dateUtils";
+import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 
 type Props = {
   member: Member | null;
@@ -133,7 +133,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   <ItemContent>
                     <ItemTitle>{t("dob")}</ItemTitle>
                     <ItemDescription>
-                      {formatDate(member.date.birth, i18n.t)}
+                      {formatDateWithFallback(member.date.birth, i18n.t)}
                     </ItemDescription>
                   </ItemContent>
                 </Item>
@@ -141,9 +141,9 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                 {member.date.death && (
                   <Item variant="muted">
                     <ItemContent>
-                      <ItemTitle>t("dod")</ItemTitle>
+                      <ItemTitle>{t("dod")}</ItemTitle>
                       <ItemDescription>
-                        {formatDate(member.date.death, i18n.t)}
+                        {formatDate(member.date.death)}
                       </ItemDescription>
                     </ItemContent>
                   </Item>
@@ -236,7 +236,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                       <div className="flex flex-col gap-2 text-sm text-muted-foreground">
                         <div className="flex items-center gap-2">
                           <Calendar />
-                          <span>{formatDate(event.date, t)}</span>
+                          <span>{formatDateWithFallback(event.date, t)}</span>
                         </div>
                         {event.location && (
                           <div className="flex items-center gap-2">

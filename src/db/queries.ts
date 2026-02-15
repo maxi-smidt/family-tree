@@ -39,7 +39,8 @@ export const QUERIES = {
   },
   EVENTS: {
     SELECT_ALL: "SELECT * FROM events",
-    SELECT_BY_MEMBER: "SELECT e.* FROM events e INNER JOIN event_member_link eml ON e.id = eml.event_id WHERE eml.member_id = $1 ORDER BY e.date",
+    SELECT_BY_MEMBER:
+      "SELECT e.* FROM events e INNER JOIN event_member_link eml ON e.id = eml.event_id WHERE eml.member_id = $1 ORDER BY e.date",
     SELECT_LINKS: "SELECT * FROM event_member_link",
     INSERT:
       "INSERT INTO events (id, event_type, date, location, description, created_at) VALUES ($1, $2, $3, $4, $5, $6)",
@@ -52,7 +53,8 @@ export const QUERIES = {
   },
   STORIES: {
     SELECT_ALL: "SELECT * FROM stories",
-    SELECT_BY_MEMBER: "SELECT s.* FROM stories s INNER JOIN story_member_link sml ON s.id = sml.story_id WHERE sml.member_id = $1",
+    SELECT_BY_MEMBER:
+      "SELECT s.* FROM stories s INNER JOIN story_member_link sml ON s.id = sml.story_id WHERE sml.member_id = $1",
     SELECT_LINKS: "SELECT * FROM story_member_link",
     INSERT:
       "INSERT INTO stories (id, title, content, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)",
@@ -62,5 +64,14 @@ export const QUERIES = {
       "UPDATE stories SET title = $1, content = $2, updated_at = $3 WHERE id = $4",
     DELETE: "DELETE FROM stories WHERE id = $1",
     DELETE_LINKS: "DELETE FROM story_member_link WHERE story_id = $1",
+  },
+  DISEASES: {
+    SELECT_ALL: "SELECT * FROM member_diseases",
+    SELECT_BY_MEMBER: "SELECT * FROM member_diseases WHERE member_id = $1",
+    INSERT:
+      "INSERT INTO member_diseases (id, member_id, name, carrier_status, inheritance_pattern, diagnosis_date, notes) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+    UPDATE:
+      "UPDATE member_diseases SET name = $1, carrier_status = $2, inheritance_pattern = $3, diagnosis_date = $4, notes = $5 WHERE id = $6",
+    DELETE: "DELETE FROM member_diseases WHERE id = $1",
   },
 };

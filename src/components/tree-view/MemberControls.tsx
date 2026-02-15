@@ -14,6 +14,7 @@ import {
   UserMinus,
   UserPlus,
   Zap,
+  Activity,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -21,6 +22,7 @@ import { Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/tree-view/RelationControls";
 import { useTranslation } from "react-i18next";
+import { Separator } from "@/components/ui/separator";
 
 type Props = {
   nodes: Node[];
@@ -38,13 +40,62 @@ export const MemberControls = ({
   onRearrange,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
-  const { isLockedScreen, isFastMode, setIsFastMode } = useFamilyTreeSettings();
+  const {
+    isLockedScreen,
+    isFastMode,
+    setIsFastMode,
+    isDiseaseMode,
+    setIsDiseaseMode,
+  } = useFamilyTreeSettings();
   const { addMember, updateMemberPartial } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (
     <div className="flex flex-col gap-2">
+      {/* Relations */}
       <RelationControls />
+
+      <Separator className="my-1" />
+
+      {/* View Modes */}
+      <ButtonGroup orientation="vertical">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isFastMode ? "default" : "secondary"}
+              size="icon"
+              onClick={() => setIsFastMode(!isFastMode)}
+              disabled={isLockedScreen}
+            >
+              <Zap className={isFastMode ? "fill-current" : ""} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            {isFastMode ? t("disable-fast-mode") : t("enable-fast-mode")}
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isDiseaseMode ? "default" : "secondary"}
+              size="icon"
+              onClick={() => setIsDiseaseMode(!isDiseaseMode)}
+              disabled={isLockedScreen}
+            >
+              <Activity className={isDiseaseMode ? "fill-current" : ""} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left">
+            {isDiseaseMode
+              ? t("disable-disease-mode")
+              : t("enable-disease-mode")}
+          </TooltipContent>
+        </Tooltip>
+      </ButtonGroup>
+
+      <Separator className="my-1" />
+
+      {/* Layout */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
@@ -58,21 +109,10 @@ export const MemberControls = ({
         </TooltipTrigger>
         <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isFastMode ? "default" : "secondary"}
-            size="icon"
-            onClick={() => setIsFastMode(!isFastMode)}
-            disabled={isLockedScreen}
-          >
-            <Zap className={isFastMode ? "fill-current" : ""} />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">
-          {isFastMode ? t("disable-fast-mode") : t("enable-fast-mode")}
-        </TooltipContent>
-      </Tooltip>
+
+      <Separator className="my-1" />
+
+      {/* Collapse/Expand Controls */}
       <ButtonGroup orientation="vertical">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -116,6 +156,10 @@ export const MemberControls = ({
           </TooltipContent>
         </Tooltip>
       </ButtonGroup>
+
+      <Separator className="my-1" />
+
+      {/* Member Add/Remove */}
       <ButtonGroup orientation="vertical">
         <Tooltip>
           <TooltipTrigger asChild>

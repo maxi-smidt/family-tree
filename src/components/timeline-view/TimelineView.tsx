@@ -33,7 +33,7 @@ import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
-import { formatDate } from "@/utils/dateUtils";
+import { formatDateWithFallback } from "@/utils/dateUtils";
 
 export const TimelineView = () => {
   const { t, i18n } = useTranslation(undefined, {
@@ -230,7 +230,9 @@ export const TimelineView = () => {
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                       <div className="flex items-center gap-1">
                         <Calendar className="w-4 h-4" />
-                        <span>{formatDate(event.date, i18n.t)}</span>
+                        <span>
+                          {formatDateWithFallback(event.date, i18n.t)}
+                        </span>
                       </div>
                       {event.location && (
                         <div className="flex items-center gap-1">
