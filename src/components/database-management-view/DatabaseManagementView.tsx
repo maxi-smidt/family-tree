@@ -346,7 +346,7 @@ export const DatabaseManagementView = () => {
           setPasswordDialogState(null);
         }}
         onCancel={() => {
-          passwordDialogState?.resolve(undefined);
+          passwordDialogState?.resolve(null);
           setPasswordDialogState(null);
         }}
       />

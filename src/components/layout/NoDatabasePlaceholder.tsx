@@ -67,7 +67,7 @@ export const NoDatabasePlaceholder = () => {
           setPasswordDialogState(null);
         }}
         onCancel={() => {
-          passwordDialogState?.resolve(undefined);
+          passwordDialogState?.resolve(null);
           setPasswordDialogState(null);
         }}
       />
