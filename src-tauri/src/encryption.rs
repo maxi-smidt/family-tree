@@ -421,4 +421,179 @@ mod tests {
         assert!(!is_encrypted(&plain_file).unwrap());
         assert!(is_encrypted(&encrypted_file).unwrap());
     }
+
+    #[test]
+    fn test_base_encryption_roundtrip() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_file = temp_dir.path().join("original.db");
+        let encrypted_file = temp_dir.path().join("encrypted.db");
+        let decrypted_file = temp_dir.path().join("decrypted.db");
+
+        // Create test data
+        let test_data = b"This is a base encrypted database content";
+        fs::write(&original_file, test_data).unwrap();
+
+        // Encrypt with base encryption only
+        encrypt_file_base(&original_file, &encrypted_file).unwrap();
+
+        // Verify encrypted file is different from original
+        let encrypted_data = fs::read(&encrypted_file).unwrap();
+        assert_ne!(&encrypted_data[..test_data.len().min(encrypted_data.len())], test_data);
+
+        // Verify it's encrypted but NOT password encrypted
+        assert!(is_encrypted(&encrypted_file).unwrap());
+        assert!(!is_password_encrypted(&encrypted_file).unwrap());
+
+        // Decrypt with base decryption
+        decrypt_file_base(&encrypted_file, &decrypted_file).unwrap();
+
+        // Verify decrypted data matches original
+        let decrypted_data = fs::read(&decrypted_file).unwrap();
+        assert_eq!(&decrypted_data, test_data);
+    }
+
+    #[test]
+    fn test_layered_encryption_with_password_roundtrip() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_file = temp_dir.path().join("original.db");
+        let encrypted_file = temp_dir.path().join("encrypted.db");
+        let decrypted_file = temp_dir.path().join("decrypted.db");
+
+        // Create test data
+        let test_data = b"This is a layered encrypted database with password";
+        fs::write(&original_file, test_data).unwrap();
+
+        // Encrypt with base + password (layered encryption)
+        let password = "test_password_123";
+        encrypt_file_with_base(&original_file, &encrypted_file, Some(password)).unwrap();
+
+        // Verify encrypted file is different from original
+        let encrypted_data = fs::read(&encrypted_file).unwrap();
+        assert_ne!(&encrypted_data[..test_data.len().min(encrypted_data.len())], test_data);
+
+        // Verify it's encrypted AND password encrypted
+        assert!(is_encrypted(&encrypted_file).unwrap());
+        assert!(is_password_encrypted(&encrypted_file).unwrap());
+
+        // Decrypt with auto-detection (should handle layered decryption)
+        decrypt_file_auto(&encrypted_file, &decrypted_file, Some(password)).unwrap();
+
+        // Verify decrypted data matches original
+        let decrypted_data = fs::read(&decrypted_file).unwrap();
+        assert_eq!(&decrypted_data, test_data);
+    }
+
+    #[test]
+    fn test_layered_encryption_base_only_roundtrip() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_file = temp_dir.path().join("original.db");
+        let encrypted_file = temp_dir.path().join("encrypted.db");
+        let decrypted_file = temp_dir.path().join("decrypted.db");
+
+        // Create test data
+        let test_data = b"This is a base-only layered encryption";
+        fs::write(&original_file, test_data).unwrap();
+
+        // Encrypt with base only (no password)
+        encrypt_file_with_base(&original_file, &encrypted_file, None).unwrap();
+
+        // Verify it's encrypted but NOT password encrypted
+        assert!(is_encrypted(&encrypted_file).unwrap());
+        assert!(!is_password_encrypted(&encrypted_file).unwrap());
+
+        // Decrypt with auto-detection (should handle base-only)
+        decrypt_file_auto(&encrypted_file, &decrypted_file, None).unwrap();
+
+        // Verify decrypted data matches original
+        let decrypted_data = fs::read(&decrypted_file).unwrap();
+        assert_eq!(&decrypted_data, test_data);
+    }
+
+    #[test]
+    fn test_layered_encryption_empty_password_treated_as_none() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_file = temp_dir.path().join("original.db");
+        let encrypted_file = temp_dir.path().join("encrypted.db");
+        let decrypted_file = temp_dir.path().join("decrypted.db");
+
+        // Create test data
+        let test_data = b"Test data with empty password";
+        fs::write(&original_file, test_data).unwrap();
+
+        // Encrypt with empty password (should be treated as base-only)
+        encrypt_file_with_base(&original_file, &encrypted_file, Some("")).unwrap();
+
+        // Verify it's encrypted but NOT password encrypted
+        assert!(is_encrypted(&encrypted_file).unwrap());
+        assert!(!is_password_encrypted(&encrypted_file).unwrap());
+
+        // Decrypt without password
+        decrypt_file_auto(&encrypted_file, &decrypted_file, None).unwrap();
+
+        // Verify decrypted data matches original
+        let decrypted_data = fs::read(&decrypted_file).unwrap();
+        assert_eq!(&decrypted_data, test_data);
+    }
+
+    #[test]
+    fn test_decrypt_auto_requires_password_for_password_encrypted() {
+        let temp_dir = TempDir::new().unwrap();
+        let original_file = temp_dir.path().join("original.db");
+        let encrypted_file = temp_dir.path().join("encrypted.db");
+        let decrypted_file = temp_dir.path().join("decrypted.db");
+
+        let test_data = b"Password protected data";
+        fs::write(&original_file, test_data).unwrap();
+
+        // Encrypt with password
+        encrypt_file_with_base(&original_file, &encrypted_file, Some("password123")).unwrap();
+
+        // Verify it's password encrypted
+        assert!(is_password_encrypted(&encrypted_file).unwrap());
+
+        // Try to decrypt without password - should fail
+        let result = decrypt_file_auto(&encrypted_file, &decrypted_file, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Password required"));
+
+        // Try to decrypt with empty password - should fail
+        let result = decrypt_file_auto(&encrypted_file, &decrypted_file, Some(""));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Password cannot be empty"));
+
+        // Try to decrypt with wrong password - should fail
+        let result = decrypt_file_auto(&encrypted_file, &decrypted_file, Some("wrong_password"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Password decryption failed"));
+    }
+
+    #[test]
+    fn test_is_password_encrypted_detection() {
+        let temp_dir = TempDir::new().unwrap();
+        let plain_file = temp_dir.path().join("plain.db");
+        let base_encrypted_file = temp_dir.path().join("base_encrypted.db");
+        let password_encrypted_file = temp_dir.path().join("password_encrypted.db");
+
+        // Create test data
+        let test_data = b"Test data for encryption detection";
+        fs::write(&plain_file, test_data).unwrap();
+
+        // Create base-only encrypted file
+        encrypt_file_base(&plain_file, &base_encrypted_file).unwrap();
+
+        // Create password-encrypted file
+        encrypt_file(&plain_file, &password_encrypted_file, "password").unwrap();
+
+        // Plain file should not be detected as encrypted
+        assert!(!is_encrypted(&plain_file).unwrap());
+        assert!(!is_password_encrypted(&plain_file).unwrap());
+
+        // Base encrypted file should be detected as encrypted but not password encrypted
+        assert!(is_encrypted(&base_encrypted_file).unwrap());
+        assert!(!is_password_encrypted(&base_encrypted_file).unwrap());
+
+        // Password encrypted file should be detected as both encrypted and password encrypted
+        assert!(is_encrypted(&password_encrypted_file).unwrap());
+        assert!(is_password_encrypted(&password_encrypted_file).unwrap());
+    }
 }
