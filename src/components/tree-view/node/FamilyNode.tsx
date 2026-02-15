@@ -95,7 +95,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
       {hasDiseases && (
         <div
-          className="absolute top-2 right-2 rounded-full p-1"
+          className="absolute bottom-2 left-2 rounded-full p-1"
           style={{
             backgroundColor: hasAffectedDisease
               ? "rgba(239, 68, 68, 0.15)"

@@ -11,9 +11,8 @@ import { useEffect, useState } from "react";
 import { ViewMode } from "./ViewMode";
 import { EditMode } from "./EditMode";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Eye, Pencil } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { MemberDetailDialog } from "@/components/member-detail/MemberDetailDialog";
 
 type Props = {
   isOpen: boolean;
@@ -32,7 +31,6 @@ export const MemberSheet = ({
     keyPrefix: "sheet.member-sheet",
   });
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsEditMode(initialEditMode);
@@ -64,17 +62,7 @@ export const MemberSheet = ({
         </SheetHeader>
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setDetailDialogOpen(true)}
-            className="absolute top-2 right-2 z-10"
-          >
-            <ExternalLink />
-            {t("view-details")}
-          </Button>
-
-          <div className="p-4 overflow-y-auto flex-1">
+          <div className="px-4 pb-4 overflow-y-auto flex-1">
             {isEditMode ? (
               <EditMode member={member} />
             ) : (
@@ -96,11 +84,6 @@ export const MemberSheet = ({
           </SheetFooter>
         )}
       </SheetContent>
-      <MemberDetailDialog
-        member={member}
-        open={detailDialogOpen}
-        onOpenChange={setDetailDialogOpen}
-      />
     </Sheet>
   );
 };
