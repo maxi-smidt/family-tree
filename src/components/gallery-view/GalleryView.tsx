@@ -161,7 +161,7 @@ export const GalleryView = () => {
             onValueChange={(value) => setSortKey(value as SortKey)}
           >
             <SelectTrigger className="w-48">
-              <SelectValue placeholder="Sort by" />
+              <SelectValue placeholder={t("sort-placeholder")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="uploadedAt">

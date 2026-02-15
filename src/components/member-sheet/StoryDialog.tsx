@@ -15,6 +15,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
+import { getMemberOptions } from "@/utils/memberUtils";
 
 interface StoryDialogProps {
   open: boolean;
@@ -68,10 +69,7 @@ export const StoryDialog = ({
     onOpenChange(false);
   };
 
-  const memberOptions = members.map((m) => ({
-    label: `${m.firstName} ${m.lastName}`,
-    value: m.id,
-  }));
+  const memberOptions = getMemberOptions(members);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

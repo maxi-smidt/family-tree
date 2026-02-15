@@ -16,6 +16,7 @@ import { Event, EventInput } from "@/types/event";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
+import { getMemberOptions } from "@/utils/memberUtils";
 
 interface EventDialogProps {
   open: boolean;
@@ -84,10 +85,7 @@ export const EventDialog = ({
     }
   };
 
-  const memberOptions = members.map((m) => ({
-    label: `${m.firstName} ${m.lastName}`,
-    value: m.id,
-  }));
+  const memberOptions = getMemberOptions(members);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

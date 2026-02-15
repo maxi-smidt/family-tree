@@ -3,21 +3,11 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Calendar, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
 import { EventDialog } from "@/components/timeline-view/EventDialog";
-import { Event } from "@/types/event";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useTranslation } from "react-i18next";
 import { formatDate } from "@/utils/dateUtils";
+import { useContentManager } from "@/hooks/useContentManager";
+import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
 
 type Props = {
   member: Member;
@@ -28,37 +18,33 @@ export const MemberEvents = ({ member }: Props) => {
     keyPrefix: "sheet.member-sheet.events",
   });
   const { getEventsByMember, removeEvent } = useEventStore();
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
 
-  const events = getEventsByMember(member.id).sort((a, b) => {
-    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  const {
+    items: events,
+    isDialogOpen,
+    setIsDialogOpen,
+    editingItem: editingEvent,
+    itemToDelete: eventToDelete,
+    handleAdd,
+    handleEdit,
+    handleDelete,
+    openDeleteDialog,
+    closeDeleteDialog,
+  } = useContentManager({
+    getItems: (id) =>
+      getEventsByMember(id).sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      ),
+    removeItem: removeEvent,
+    memberId: member.id,
   });
-
-  const handleAddEvent = () => {
-    setEditingEvent(null);
-    setIsDialogOpen(true);
-  };
-
-  const handleEditEvent = (event: Event) => {
-    setEditingEvent(event);
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteEvent = async () => {
-    if (eventToDelete) {
-      await removeEvent(eventToDelete.id);
-      setEventToDelete(null);
-    }
-  };
 
   return (
     <Item variant="muted">
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
           <ItemTitle>{t("title")}</ItemTitle>
-          <Button size="sm" variant="ghost" onClick={handleAddEvent}>
+          <Button size="sm" variant="ghost" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
@@ -98,14 +84,14 @@ export const MemberEvents = ({ member }: Props) => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleEditEvent(event)}
+                      onClick={() => handleEdit(event)}
                     >
                       <Pencil />
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setEventToDelete(event)}
+                      onClick={() => openDeleteDialog(event)}
                     >
                       <Trash2 />
                     </Button>
@@ -124,28 +110,15 @@ export const MemberEvents = ({ member }: Props) => {
         initialMemberId={member.id}
       />
 
-      <AlertDialog
+      <ConfirmDeleteDialog
         open={!!eventToDelete}
-        onOpenChange={(open) => !open && setEventToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("delete-dialog.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("delete-dialog.title")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("delete-dialog.cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDeleteEvent}
-            >
-              {t("delete-dialog.delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={closeDeleteDialog}
+        onConfirm={handleDelete}
+        title={t("delete-dialog.title")}
+        description={t("delete-dialog.description")}
+        cancelText={t("delete-dialog.cancel")}
+        confirmText={t("delete-dialog.delete")}
+      />
     </Item>
   );
 };
