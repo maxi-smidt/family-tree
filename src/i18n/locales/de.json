@@ -280,6 +280,34 @@
           "update": "Aktualisieren",
           "add": "Hinzufügen"
         }
+      },
+      "diseases": {
+        "title": "Genetische Erkrankungen",
+        "add": "Hinzufügen",
+        "no-diseases": "Keine Erkrankungen erfasst",
+        "delete-dialog": {
+          "title": "Erkrankung löschen",
+          "description": "Möchtest du diese Erkrankung wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "cancel": "Abbrechen",
+          "delete": "Löschen"
+        },
+        "dialog": {
+          "title-edit": "Erkrankung bearbeiten",
+          "title-add": "Erkrankung hinzufügen",
+          "name": "Name der Erkrankung",
+          "name-placeholder": "z.B. Hämophilie, Mukoviszidose",
+          "carrier-status": "Status",
+          "carrier-status-placeholder": "Status auswählen",
+          "carrier-status-affected": "Betroffen",
+          "carrier-status-carrier": "Überträger",
+          "carrier-status-unknown": "Unbekannt",
+          "diagnosis-date": "Diagnosedatum",
+          "diagnosis-date-placeholder": "Datum auswählen",
+          "notes": "Notizen",
+          "notes-placeholder": "Zusätzliche Details hinzufügen...",
+          "update": "Aktualisieren",
+          "add": "Hinzufügen"
+        }
       }
     }
   },

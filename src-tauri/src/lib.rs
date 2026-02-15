@@ -171,6 +171,15 @@ fn run_migrations(conn: &Connection) -> Result<(), String> {
         SELECT id, member_id FROM stories;
         DROP TABLE stories;
         ALTER TABLE stories_new RENAME TO stories;".to_string(),
+        "CREATE TABLE IF NOT EXISTS member_diseases (
+            id TEXT PRIMARY KEY,
+            member_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            carrier_status TEXT NOT NULL,
+            diagnosis_date TEXT,
+            notes TEXT,
+            FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
+        );".to_string(),
     ];
 
     if user_version < migrations.len() as i32 {

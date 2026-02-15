@@ -13,6 +13,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { useTranslation } from "react-i18next";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
+import { MemberDiseases } from "./MemberDiseases";
 
 type Props = {
   member: Member;
@@ -282,6 +283,7 @@ export const EditMode = ({ member }: Props) => {
         <div className="space-y-4 mt-6">
           <MemberEvents member={member} />
           <MemberStories member={member} />
+          <MemberDiseases member={member} />
         </div>
       </div>
     </form>

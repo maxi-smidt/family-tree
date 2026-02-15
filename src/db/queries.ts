@@ -63,4 +63,13 @@ export const QUERIES = {
     DELETE: "DELETE FROM stories WHERE id = $1",
     DELETE_LINKS: "DELETE FROM story_member_link WHERE story_id = $1",
   },
+  DISEASES: {
+    SELECT_ALL: "SELECT * FROM member_diseases",
+    SELECT_BY_MEMBER: "SELECT * FROM member_diseases WHERE member_id = $1",
+    INSERT:
+      "INSERT INTO member_diseases (id, member_id, name, carrier_status, diagnosis_date, notes) VALUES ($1, $2, $3, $4, $5, $6)",
+    UPDATE:
+      "UPDATE member_diseases SET name = $1, carrier_status = $2, diagnosis_date = $3, notes = $4 WHERE id = $5",
+    DELETE: "DELETE FROM member_diseases WHERE id = $1",
+  },
 };
