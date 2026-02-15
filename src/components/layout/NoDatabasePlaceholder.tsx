@@ -29,7 +29,8 @@ export const NoDatabasePlaceholder = () => {
   const setSelectedDatabase = useFamilyTreeSettings(
     (s) => s.setSelectedDatabase,
   );
-  const { importDatabase, importDatabaseCheck } = useDatabaseManager();
+  const { importDatabase, importDatabaseCheck, inspectDatabaseWithPassword } =
+    useDatabaseManager();
 
   const askPassword = () => {
     return new Promise<string | null>((resolve) => {
@@ -75,12 +76,35 @@ export const NoDatabasePlaceholder = () => {
   );
 
   async function handleImportDatabase() {
-    const check = await importDatabaseCheck();
+    let check = await importDatabaseCheck();
     if (!check) return;
 
-    // Check if file requires password (not just base encrypted)
+    // Check if file requires password for inspection (password-encrypted and metadata not yet extracted)
     let password: string | null | undefined = null;
-    if (check.meta.passwordRequired) {
+    if (check.meta.passwordRequired && check.meta.id === null) {
+      // Need password to inspect the file
+      password = await askPassword();
+      if (password === undefined) {
+        // User cancelled password dialog
+        return;
+      }
+
+      // If password is null here, user provided an empty password which shouldn't happen for inspect
+      if (password === null) {
+        toast.error(t("toast-error"));
+        return;
+      }
+
+      // Re-inspect with password to get metadata
+      try {
+        check = await inspectDatabaseWithPassword(check.sourcePath, password);
+      } catch (err) {
+        console.error(err);
+        toast.error(t("toast-error"));
+        return;
+      }
+    } else if (check.meta.passwordRequired) {
+      // Password required for import but metadata already extracted
       password = await askPassword();
       if (password === undefined) {
         // User cancelled password dialog
