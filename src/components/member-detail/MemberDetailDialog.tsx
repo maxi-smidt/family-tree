@@ -85,7 +85,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[95vw] w-full max-h-[95vh] h-full overflow-y-auto p-8">
+        <DialogContent className="sm:max-w-[90%] w-full max-h-[95vh] h-full overflow-y-auto p-8">
           <DialogHeader>
             <DialogTitle className="text-3xl font-bold">
               {member.firstName} {member.lastName}
