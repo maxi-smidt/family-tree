@@ -43,7 +43,7 @@
     "import-database": {
       "title": "Import database conflict",
       "description": "A database with the same ID already exists. Please decide what to do.",
-      "cancel": "Cancel,",
+      "cancel": "Cancel",
       "overwrite": "Overwrite",
       "keep": "Keep both"
     },

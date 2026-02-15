@@ -335,9 +335,6 @@ fn import_database(app: tauri::AppHandle, source_path: String, overwrite: bool, 
     Ok(serde_json::json!({ "id": final_id, "name": db_name }))
 }
 
-    Ok(serde_json::json!({ "id": final_id, "name": db_name }))
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
