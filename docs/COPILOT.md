@@ -201,7 +201,7 @@ export function MyComponent() {
 
 ### Task: Add a Translation
 
-1. **Follow naming conventions** from [i18n Guide](./docs/I18N_GUIDE.md):
+1. **Follow naming conventions** from [i18n Guide](./I18N_GUIDE.md):
    - Use hierarchical structure: `<feature>.<component>.<element>`
    - Example: `dialog.create-database.title` or `sheet.member-sheet.events.title`
 
@@ -226,7 +226,7 @@ export function MyComponent() {
 
 4. **Verify** with `npm run check-i18n`
 
-For detailed patterns, pluralization, and interpolation, see the [i18n Guide](./docs/I18N_GUIDE.md).
+For detailed patterns, pluralization, and interpolation, see the [i18n Guide](./I18N_GUIDE.md).
 
 ---
 
@@ -389,8 +389,8 @@ Before submitting changes, verify:
 
 - **[AGENTS.md](./AGENTS.md)**: Comprehensive development guidelines
 - **[SETUP.md](./SETUP.md)**: Development environment setup
-- **[README.md](./README.md)**: Project overview
-- **[i18n Guide](./docs/I18N_GUIDE.md)**: Translation conventions and patterns
+- **[README.md](../README.md)**: Project overview
+- **[i18n Guide](./I18N_GUIDE.md)**: Translation conventions and patterns
 
 ---
 

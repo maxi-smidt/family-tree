@@ -188,7 +188,7 @@ When working with the family tree visualization:
 - All user-facing text must use i18next translations
 - Translation keys are in `src/i18n/locales/`
 - Use the `useTranslation` hook: `const { t } = useTranslation('namespace');`
-- Follow the naming conventions in the **[i18n Guide](./docs/I18N_GUIDE.md)** for consistent key structure
+- Follow the naming conventions in the **[i18n Guide](./I18N_GUIDE.md)** for consistent key structure
 - Run `npm run check-i18n` to verify translation completeness
 
 **Quick Example:**
@@ -199,7 +199,7 @@ const { t } = useTranslation(undefined, {
 return <h1>{t("title")}</h1>;
 ```
 
-For detailed patterns, pluralization, and best practices, see the [i18n Guide](./docs/I18N_GUIDE.md).
+For detailed patterns, pluralization, and best practices, see the [i18n Guide](./I18N_GUIDE.md).
 
 ---
 
@@ -365,7 +365,7 @@ If your changes require database schema modifications:
 
 ## Additional Resources
 
-- **[i18n Guide](./docs/I18N_GUIDE.md)**: Translation conventions and patterns
+- **[i18n Guide](./I18N_GUIDE.md)**: Translation conventions and patterns
 - **Tauri**: [Documentation](https://tauri.app/) | [API Reference](https://tauri.app/v1/api/js/)
 - **React Flow**: [Documentation](https://reactflow.dev/)
 - **Zustand**: [Documentation](https://zustand-demo.pmnd.rs/)

@@ -59,7 +59,7 @@ Download the latest release for your operating system from the [Releases](https:
 
 ### For Developers
 
-See **[SETUP.md](./SETUP.md)** for detailed installation and development instructions.
+See **[SETUP.md](./docs/SETUP.md)** for detailed installation and development instructions.
 
 Quick start:
 ```bash
@@ -71,14 +71,14 @@ npm run tauri dev
 
 ## Documentation
 
-- **[SETUP.md](./SETUP.md)** - Development environment setup and build instructions
-- **[AGENTS.md](./AGENTS.md)** - Architecture and development guidelines for contributors
-- **[COPILOT.md](./COPILOT.md)** - Guidelines for GitHub Copilot-assisted development
+- **[SETUP.md](./docs/SETUP.md)** - Development environment setup and build instructions
+- **[AGENTS.md](./docs/AGENTS.md)** - Architecture and development guidelines for contributors
+- **[COPILOT.md](./docs/COPILOT.md)** - Guidelines for GitHub Copilot-assisted development
 - **[docs/I18N_GUIDE.md](./docs/I18N_GUIDE.md)** - Internationalization conventions and patterns
 
 ## Contributing
 
-Contributions are welcome! Please read our development guidelines in [AGENTS.md](./AGENTS.md) before submitting pull requests.
+Contributions are welcome! Please read our development guidelines in [AGENTS.md](./docs/AGENTS.md) before submitting pull requests.
 
 For internationalization work, see the [i18n Guide](docs/I18N_GUIDE.md). Validate translations with:
 
