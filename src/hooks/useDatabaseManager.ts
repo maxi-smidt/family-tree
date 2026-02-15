@@ -95,6 +95,25 @@ export const useDatabaseManager = () => {
     return { collision, sourcePath, meta };
   }, [databases]);
 
+  const inspectDatabaseWithPassword = useCallback(
+    async (sourcePath: string, password: string) => {
+      const meta = await invoke<InspectDatabaseResult>(
+        "inspect_database_with_password",
+        {
+          sourcePath,
+          password,
+        },
+      );
+
+      const collision = meta.id
+        ? databases.find((db) => db.id === meta.id)
+        : undefined;
+
+      return { collision, sourcePath, meta };
+    },
+    [databases],
+  );
+
   const importDatabase = useCallback(
     async (sourcePath: string, overwrite: boolean, password?: string) => {
       const result = await invoke<Database>("import_database", {
@@ -112,6 +131,7 @@ export const useDatabaseManager = () => {
     removeDatabase,
     exportDatabase,
     importDatabaseCheck,
+    inspectDatabaseWithPassword,
     importDatabase,
   };
 };
