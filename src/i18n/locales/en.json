@@ -2,10 +2,8 @@
   "sidebar": {
     "appearance": "Appearance",
     "dataManagement": "Data Management",
-    "language": "Language",
     "edge-type": "Edge Type",
     "edge-type-placeholder": "Select type",
-    "database": "Database",
     "step-type": {
       "default": "Default",
       "straight": "Straight",
@@ -15,6 +13,9 @@
     "database-selector": {
       "label": "Active Database",
       "placeholder": "Select database"
+    },
+    "language-selector": {
+      "select": "Language"
     }
   },
   "dialog": {
@@ -87,6 +88,7 @@
       "select-date-uploaded": "Date Uploaded",
       "select-date-taken": "Date Taken",
       "select-title": "Title",
+      "sort-placeholder": "Sort by",
       "toast-error-canvas-context": "Failed to get canvas context",
       "toast-error-image-upload": "Failed to load image. Please ensure it's a valid image file.",
       "toast-success-image-upload": "Image uploaded successfully.",
@@ -180,8 +182,6 @@
       "dob-item": "Date of Birth",
       "dod-item": "Date of Death",
       "dod-fallback": "Alive",
-      "additional-info": "Additional Information",
-      "additional-info-fallback": "No information added yet.",
       "linked-images": "Linked Images",
       "linked-images-fallback": "No images linked to this person yet."
     },
@@ -218,7 +218,6 @@
           "location-placeholder": "e.g., New York, USA",
           "description": "Description",
           "description-placeholder": "Add more details about this event...",
-          "cancel": "Cancel",
           "update": "Update",
           "add": "Add"
         }
@@ -339,8 +338,7 @@
   "hooks": {
     "merge-manager": {
       "toast-error-name": "Please enter a name for the new database.",
-      "toast-error-merge": "Failed to merge databases.",
-      "toast-success-merge": "Database merged successfully!"
+      "toast-error-merge": "Failed to merge databases."
     },
     "flow-interactions": {
       "toast-error-database-create": "Failed to create connection."
@@ -362,7 +360,6 @@
     "toast-rename-empty": "Database name cannot be empty."
   },
   "common": {
-    "selectLanguage": "Language",
     "english": "English",
     "german": "German",
     "relation-types": {
