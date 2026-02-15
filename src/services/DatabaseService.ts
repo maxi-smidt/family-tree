@@ -18,7 +18,7 @@ export class DatabaseService {
     const rows = await db.select<{ key: string; value: string }[]>(
       QUERIES.METADATA.SELECT_ALL,
     );
-    const metaObj: any = {};
+    const metaObj: Record<string, string> = {};
     rows.forEach((row) => {
       metaObj[row.key] = row.value;
     });

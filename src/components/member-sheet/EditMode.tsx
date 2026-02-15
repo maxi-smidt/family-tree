@@ -32,7 +32,7 @@ export const EditMode = ({ member }: Props) => {
     setFormData(member);
   }, [member]);
 
-  const handleChange = (field: keyof Member, value: any) => {
+  const handleChange = (field: keyof Member, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
