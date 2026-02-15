@@ -95,7 +95,7 @@ export const DatabaseManagementView = () => {
         return;
       }
 
-      // If password is null here, user provided an empty password which shouldn't happen for inspect
+      // If password is null, user confirmed with empty password field
       if (password === null) {
         toast.error(t("toast-import-error"));
         return;

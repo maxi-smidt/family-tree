@@ -262,17 +262,18 @@ fn inspect_database(source_path: String) -> Result<Value, String> {
             }));
         } else {
             // Base-encrypted only - decrypt temporarily to extract metadata
-            let temp_dir = tempfile::tempdir()
-                .map_err(|e| format!("Failed to create temp directory: {}", e))?;
-            let temp_decrypted = temp_dir.path().join("decrypted.db");
+            // Use a unique temporary file to avoid race conditions
+            let temp_file = tempfile::NamedTempFile::new()
+                .map_err(|e| format!("Failed to create temp file: {}", e))?;
+            let temp_decrypted = temp_file.path();
             
             // Decrypt base layer
-            encryption::decrypt_file_base(src_path, &temp_decrypted)?;
+            encryption::decrypt_file_base(src_path, temp_decrypted)?;
             
             // Extract metadata from decrypted file
-            let (id, name) = get_metadata_from_path(&temp_decrypted)?;
+            let (id, name) = get_metadata_from_path(temp_decrypted)?;
             
-            // Temp dir is cleaned up automatically
+            // Temp file is cleaned up automatically when temp_file is dropped
             return Ok(serde_json::json!({ 
                 "encrypted": true,
                 "passwordRequired": false,
@@ -303,18 +304,18 @@ fn inspect_database_with_password(source_path: String, password: String) -> Resu
         return Err("File is not password-encrypted".into());
     }
     
-    // Create temp directory for decryption
-    let temp_dir = tempfile::tempdir()
-        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
-    let temp_decrypted = temp_dir.path().join("decrypted.db");
+    // Create temp file for decryption with unique name to avoid race conditions
+    let temp_file = tempfile::NamedTempFile::new()
+        .map_err(|e| format!("Failed to create temp file: {}", e))?;
+    let temp_decrypted = temp_file.path();
     
     // Decrypt with password (this will decrypt both password and base layers)
-    encryption::decrypt_file_auto(src_path, &temp_decrypted, Some(&password))?;
+    encryption::decrypt_file_auto(src_path, temp_decrypted, Some(&password))?;
     
     // Extract metadata from fully decrypted file
-    let (id, name) = get_metadata_from_path(&temp_decrypted)?;
+    let (id, name) = get_metadata_from_path(temp_decrypted)?;
     
-    // Temp dir is cleaned up automatically
+    // Temp file is cleaned up automatically when temp_file is dropped
     Ok(serde_json::json!({ 
         "encrypted": true,
         "passwordRequired": true,
