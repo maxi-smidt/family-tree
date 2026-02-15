@@ -159,6 +159,7 @@ After completing the setup:
 2. Explore the [src/components](./src/components) directory to understand the UI structure
 3. Check [src/hooks/useFamilyStore.ts](./src/hooks/useFamilyStore.ts) for state management patterns
 4. Read [COPILOT.md](./COPILOT.md) if you're using GitHub Copilot for development
+5. See [docs/I18N_GUIDE.md](./docs/I18N_GUIDE.md) for internationalization conventions
 
 ---
 

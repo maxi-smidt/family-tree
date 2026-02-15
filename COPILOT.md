@@ -24,6 +24,7 @@ This document provides specific instructions for GitHub Copilot agents working o
 - **Types**: `src/types/member.ts` - Core data model
 - **Layout Logic**: `src/utils/layoutUtils.ts` - Tree layout calculations
 - **Tauri Backend**: `src-tauri/src/lib.rs` - Rust commands and database migrations
+- **i18n Guide**: `docs/I18N_GUIDE.md` - Translation key conventions and patterns
 
 ### Key Commands
 ```bash
@@ -200,22 +201,32 @@ export function MyComponent() {
 
 ### Task: Add a Translation
 
-1. **Add to all locale files** in `src/i18n/locales/`:
+1. **Follow naming conventions** from [i18n Guide](./docs/I18N_GUIDE.md):
+   - Use hierarchical structure: `<feature>.<component>.<element>`
+   - Example: `dialog.create-database.title` or `sheet.member-sheet.events.title`
+
+2. **Add to all locale files** in `src/i18n/locales/`:
    ```json
    {
-     "namespace": {
-       "key": "English Text"
+     "dialog": {
+       "create-database": {
+         "title": "Create Database"
+       }
      }
    }
    ```
 
-2. **Use in component**:
+3. **Use in component** with keyPrefix:
    ```typescript
-   const { t } = useTranslation("namespace");
-   return <div>{t("key")}</div>;
+   const { t } = useTranslation(undefined, {
+     keyPrefix: "dialog.create-database"
+   });
+   return <h1>{t("title")}</h1>;
    ```
 
-3. **Verify** with `npm run check-i18n`
+4. **Verify** with `npm run check-i18n`
+
+For detailed patterns, pluralization, and interpolation, see the [i18n Guide](./docs/I18N_GUIDE.md).
 
 ---
 
@@ -379,6 +390,7 @@ Before submitting changes, verify:
 - **[AGENTS.md](./AGENTS.md)**: Comprehensive development guidelines
 - **[SETUP.md](./SETUP.md)**: Development environment setup
 - **[README.md](./README.md)**: Project overview
+- **[i18n Guide](./docs/I18N_GUIDE.md)**: Translation conventions and patterns
 
 ---
 

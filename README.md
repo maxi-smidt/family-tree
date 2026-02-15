@@ -74,10 +74,17 @@ npm run tauri dev
 - **[SETUP.md](./SETUP.md)** - Development environment setup and build instructions
 - **[AGENTS.md](./AGENTS.md)** - Architecture and development guidelines for contributors
 - **[COPILOT.md](./COPILOT.md)** - Guidelines for GitHub Copilot-assisted development
+- **[docs/I18N_GUIDE.md](./docs/I18N_GUIDE.md)** - Internationalization conventions and patterns
 
 ## Contributing
 
 Contributions are welcome! Please read our development guidelines in [AGENTS.md](./AGENTS.md) before submitting pull requests.
+
+For internationalization work, see the [i18n Guide](docs/I18N_GUIDE.md). Validate translations with:
+
+```bash
+npm run check-i18n
+```
 
 ## License
 

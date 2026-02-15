@@ -2,10 +2,8 @@
   "sidebar": {
     "appearance": "Erscheinung",
     "dataManagement": "Datenmanagement",
-    "language": "Sprache",
     "edge-type": "Kanten Typ",
     "edge-type-placeholder": "Wähle Typ",
-    "database": "Datenbank",
     "step-type": {
       "default": "Standard",
       "straight": "Gerade",
@@ -15,6 +13,9 @@
     "database-selector": {
       "label": "Aktive Datenbank",
       "placeholder": "Wähle Datenbank"
+    },
+    "language-selector": {
+      "select": "Sprache"
     }
   },
   "dialog": {
@@ -87,6 +88,7 @@
       "select-date-uploaded": "Datum Hochgeladen",
       "select-date-taken": "Datum Aufgenommen",
       "select-title": "Titel",
+      "sort-placeholder": "Sortiere nach",
       "toast-error-canvas-context": "Canvas Kontext konnte nicht geladen werden.",
       "toast-error-image-upload": "Das Bild konnte nicht geladen werden. Ist es ein gültiges Dokument?",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
@@ -180,8 +182,6 @@
       "dob-item": "Geburtsdatum",
       "dod-item": "Sterbedatum",
       "dod-fallback": "lebt",
-      "additional-info": "Weitere Information",
-      "additional-info-fallback": "Noch keine Information hinzugefügt.",
       "linked-images": "Verlinkte Bilder",
       "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt."
     },
@@ -217,8 +217,7 @@
           "location": "Standort",
           "location-placeholder": "z.B. New York, USA",
           "description": "Beschreibung",
-          "description-placeholder": "Füge mehr Deatils zu dem Ereignis hinzu...",
-          "cancel": "Abbrechen",
+          "description-placeholder": "Füge mehr Details zu dem Ereignis hinzu...",
           "update": "Aktualisieren",
           "add": "Hinzufügen"
         }
@@ -339,8 +338,7 @@
   "hooks": {
     "merge-manager": {
       "toast-error-name": "Es muss ein Name für die neue Datenbank angegeben werden.",
-      "toast-error-merge": "Datenbanken konnten nicht vereint werden.",
-      "toast-success-merge": "Datenbanken erfolgreich vereint."
+      "toast-error-merge": "Datenbanken konnten nicht vereint werden."
     },
     "flow-interactions": {
       "toast-error-database-create": "Verbindung konnte nicht erstellt werden."
@@ -362,7 +360,6 @@
     "toast-rename-empty": "Datenbankname darf nicht leer sein."
   },
   "common": {
-    "selectLanguage": "Sprache",
     "english": "Englisch",
     "german": "Deutsch",
     "relation-types": {
