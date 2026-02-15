@@ -2,7 +2,12 @@
 
 ## Database File Encryption
 
-Family Tree supports optional AES-256-GCM encryption for exported database files (.treedb). This feature allows you to protect sensitive family information when sharing or storing database exports.
+Family Tree implements a **two-layer security model** for exported database files (.treedb):
+
+1. **Base Encryption Layer** (Always Applied): All exports are automatically encrypted with application-level AES-256-GCM encryption
+2. **Password Encryption Layer** (Optional): Additional password-based encryption for enhanced security
+
+This defense-in-depth approach ensures that all exported files have at least basic encryption protection, with the option to add a user password for additional security.
 
 ### How It Works
 
@@ -10,67 +15,104 @@ Family Tree supports optional AES-256-GCM encryption for exported database files
 
 1. **Navigate** to the Database Management view (Sidebar → Data Management)
 2. **Click** the export button (upload icon) for the database you want to export
-3. **Choose** whether to encrypt:
-   - **"Skip (no encryption)"**: Export as a regular, unencrypted .treedb file
-   - **"Confirm"**: Encrypt the export with a password
-4. **Enter password** (if encrypting):
+3. **Password Protection Dialog** appears:
+   - **"Skip (base encryption only)"**: Export with automatic base encryption (no password required)
+   - **"Confirm"**: Add password encryption on top of base encryption
+4. **Enter password** (if adding password protection):
    - Minimum 8 characters recommended
    - Confirm password to avoid typos
 5. **Select** save location and the database will be exported
+
+**Note**: All exports are encrypted. The choice is whether to add an additional password layer.
 
 #### Importing Encrypted Databases
 
 1. **Navigate** to the Database Management view or use the import button
 2. **Select** the .treedb file to import
-3. **If encrypted**, you'll be prompted for the password automatically
-4. **Enter password** and the database will be decrypted and imported
+3. **Automatic Detection**: The app detects whether a password is needed
+   - **Base-encrypted only**: Imports automatically (no password prompt)
+   - **Password-protected**: You'll be prompted for the password
+4. **Enter password** (if needed) and the database will be decrypted and imported
 
 ### Technical Details
 
-- **Encryption Algorithm**: AES-256-GCM (Galois/Counter Mode)
+**Base Encryption (Always Applied):**
+
+- **Algorithm**: AES-256-GCM (Galois/Counter Mode)
+- **Key**: Application-level 256-bit key embedded in the application
+- **Purpose**: Prevents casual reading of exported files
+- **File Header**: `FTREEBS1` magic header identifies base-encrypted files
+- **Automatic**: No user action required; applied transparently
+
+**Password Encryption (Optional):**
+
+- **Algorithm**: AES-256-GCM (Galois/Counter Mode)
 - **Key Derivation**: Argon2 password hashing
-- **Salt & Nonce**: Randomly generated per export
-- **File Format**: Magic header `FTREEENC` identifies encrypted files
-- **Backward Compatibility**: Unencrypted .treedb files continue to work as before
+- **Applied To**: The base-encrypted data (layered encryption)
+- **File Header**: `FTREEENC` magic header identifies password-encrypted files
+- **Salt & Nonce**: Randomly generated per export for both layers
+
+**Security Architecture:**
+
+```
+Plaintext SQLite DB
+    ↓ [Base Layer]
+Base-Encrypted (FTREEBS1)
+    ↓ [Password Layer] (optional)
+Password-Encrypted (FTREEENC)
+```
+
+**Backward Compatibility**:
+
+- Old unencrypted .treedb files (before this feature) can still be imported
+- New exports always have at least base encryption
+- Password protection is optional but recommended for sensitive data
 
 ### Security Considerations
 
 ✅ **Strengths:**
 
-- Industry-standard AES-256 encryption
+- **Defense-in-Depth**: Two layers of encryption provide better protection
+- Industry-standard AES-256-GCM encryption for both layers
 - Strong password-based key derivation with Argon2
 - Authenticated encryption (GCM mode prevents tampering)
 - Random salt and nonce per export
+- **All exports protected**: Even without a password, files are not plaintext
 
 ⚠️ **Important Notes:**
 
-- **Password strength matters**: Use a strong, unique password (8+ characters, mix of letters, numbers, symbols)
+- **Base encryption is obfuscation-level**: The application key is embedded in the app, so it provides basic protection but not strong security without a password
+- **Password strength matters**: Use a strong, unique password (8+ characters, mix of letters, numbers, symbols) for real security
 - **Password recovery**: If you forget the password, the database **cannot be recovered**
 - **Password sharing**: Only share encrypted databases and passwords through secure channels
 - **Storage**: Keep backups of both the file and password in secure locations
 
 ### Use Cases
 
-**When to use encryption:**
+**When to add password protection:**
 
 - Sharing family databases via email or cloud storage
 - Storing backups on shared/public storage
 - Collaborating with others on family history research
-- Protecting sensitive information in exported databases
+- Extra protection for highly sensitive information
 
-**When encryption may not be needed:**
+**When base encryption alone is sufficient:**
 
-- Local backups on encrypted drives
-- Internal storage on your personal computer
-- Databases without sensitive information
+- Local backups on encrypted drives (base encryption + drive encryption = good security)
+- Personal storage on your own computer
+- Quick exports for personal use
+- Databases without highly sensitive information
+
+**Note**: All exports have base encryption, so even without a password, files are not readable as plain SQLite databases.
 
 ### Best Practices
 
-1. **Strong Passwords**: Use at least 12 characters with a mix of uppercase, lowercase, numbers, and symbols
-2. **Password Manager**: Consider using a password manager to generate and store strong passwords
-3. **Multiple Backups**: Keep both encrypted and unencrypted backups in secure locations
-4. **Document Passwords**: Store passwords securely and share the storage method with trusted family members
-5. **Test Imports**: After exporting an encrypted database, test importing it to verify the password works
+1. **Add Passwords for Sharing**: Always use password protection when sharing files with others
+2. **Strong Passwords**: Use at least 12 characters with a mix of uppercase, lowercase, numbers, and symbols
+3. **Password Manager**: Consider using a password manager to generate and store strong passwords
+4. **Multiple Backups**: Keep backups with different protection levels in secure locations
+5. **Document Passwords**: Store passwords securely and share the storage method with trusted family members
+6. **Test Imports**: After exporting a password-protected database, test importing it to verify the password works
 
 ### Troubleshooting
 
@@ -80,15 +122,22 @@ Family Tree supports optional AES-256-GCM encryption for exported database files
 - Ensure the file wasn't corrupted during transfer
 - Try re-exporting the database
 
-**"Password required for encrypted database"**
+**"Password required for password-encrypted database"**
 
-- The file is encrypted and requires the password used during export
+- The file was exported with password protection
+- You must enter the correct password to import
 - If you don't have the password, the database cannot be recovered
 
-**File won't import**
+**File imports automatically without asking for password**
 
-- Verify the file has the correct .treedb extension
-- Check if the file is corrupted (try opening on the computer where it was exported)
+- This is normal for base-encrypted files (exported without password protection)
+- The base encryption is automatically handled by the application
+- If you expected password protection, re-export with a password
+
+**"Base decryption failed: corrupted file"**
+
+- The file may have been corrupted during transfer or storage
+- Try re-exporting from the original source
 - Ensure you're using a compatible version of Family Tree
 
 ## Security Updates
