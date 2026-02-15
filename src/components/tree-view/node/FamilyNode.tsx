@@ -11,9 +11,13 @@ import { Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { useTranslation } from "react-i18next";
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const { isFastMode } = useFamilyTreeSettings();
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "tree-view.node",
+  });
 
   const onEditClick = () => {
     if (data.onEdit && typeof data.onEdit === "function") {
@@ -99,7 +103,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
                 ? "rgba(251, 191, 36, 0.15)"
                 : "rgba(156, 163, 175, 0.15)",
           }}
-          title={`${data.diseases?.length} genetic condition${data.diseases && data.diseases.length > 1 ? "s" : ""}`}
+          title={t("disease-indicator", { count: data.diseases?.length || 0 })}
         >
           <Activity
             size={12}

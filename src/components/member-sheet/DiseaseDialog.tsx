@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-interface DiseaseDialogProps {
+interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   disease?: Disease;
@@ -34,7 +34,7 @@ export const DiseaseDialog = ({
   onOpenChange,
   disease,
   memberId,
-}: DiseaseDialogProps) => {
+}: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.diseases.dialog",
   });
@@ -43,7 +43,7 @@ export const DiseaseDialog = ({
   const [name, setName] = useState("");
   const [carrierStatus, setCarrierStatus] = useState<CarrierStatus>("unknown");
   const [diagnosisDate, setDiagnosisDate] = useState<Date | undefined>(
-    undefined
+    undefined,
   );
   const [notes, setNotes] = useState("");
 
@@ -52,7 +52,7 @@ export const DiseaseDialog = ({
       setName(disease.name);
       setCarrierStatus(disease.carrierStatus);
       setDiagnosisDate(
-        disease.diagnosisDate ? new Date(disease.diagnosisDate) : undefined
+        disease.diagnosisDate ? new Date(disease.diagnosisDate) : undefined,
       );
       setNotes(disease.notes || "");
     } else {
@@ -79,10 +79,16 @@ export const DiseaseDialog = ({
         name,
         carrierStatus,
         dateString,
-        notes || null
+        notes || null,
       );
     } else {
-      await addDisease(memberId, name, carrierStatus, dateString, notes || null);
+      await addDisease(
+        memberId,
+        name,
+        carrierStatus,
+        dateString,
+        notes || null,
+      );
     }
 
     onOpenChange(false);

@@ -320,7 +320,9 @@
   "tree-view": {
     "node": {
       "life-ongoing": "lebt",
-      "life-unknown": "ungewiss"
+      "life-unknown": "ungewiss",
+      "disease-indicator_one": "{{count}} genetische Erkrankung",
+      "disease-indicator_other": "{{count}} genetische Erkrankungen"
     },
     "controls": {
       "zoom-in": "Hineinzoomen",
