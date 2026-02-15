@@ -10,6 +10,8 @@ use std::path::Path;
 
 const NONCE_SIZE: usize = 12;
 const CHUNK_SIZE: usize = 64 * 1024; // 64 KB chunks for streaming
+const AES_GCM_TAG_SIZE: usize = 16; // AES-GCM authentication tag size
+const MAX_ENCRYPTED_CHUNK_SIZE: usize = CHUNK_SIZE + AES_GCM_TAG_SIZE; // Maximum size of encrypted chunk
 const MAGIC_HEADER_PASSWORD: &[u8] = b"FTREEENC"; // 8 bytes - password encrypted
 const MAGIC_HEADER_BASE: &[u8] = b"FTREEBS1"; // 8 bytes - base encrypted only
 const VERSION: u8 = 1;
@@ -97,11 +99,10 @@ pub fn encrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
             break; // EOF
         }
 
-        // Generate unique nonce for this chunk using chunk index
-        // This ensures each chunk has a unique nonce
+        // Generate unique nonce for this chunk
+        // Use fully random nonce to ensure maximum entropy and avoid nonce reuse
         let mut nonce_bytes = [0u8; NONCE_SIZE];
-        nonce_bytes[0..8].copy_from_slice(&chunk_index.to_le_bytes());
-        OsRng.fill_bytes(&mut nonce_bytes[8..]); // Add randomness to remaining bytes
+        OsRng.fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         // Encrypt this chunk
@@ -216,6 +217,14 @@ pub fn decrypt_file(input_path: &Path, output_path: &Path, password: &str) -> Re
         }
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
 
+        // Validate chunk size to prevent memory exhaustion attacks
+        if chunk_len > MAX_ENCRYPTED_CHUNK_SIZE {
+            return Err(format!(
+                "Invalid chunk size {} exceeds maximum allowed size {}",
+                chunk_len, MAX_ENCRYPTED_CHUNK_SIZE
+            ));
+        }
+
         // Read nonce for this chunk
         let mut nonce_bytes = [0u8; NONCE_SIZE];
         reader
@@ -314,10 +323,10 @@ pub fn encrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), St
             break; // EOF
         }
 
-        // Generate unique nonce for this chunk using chunk index
+        // Generate unique nonce for this chunk
+        // Use fully random nonce to ensure maximum entropy and avoid nonce reuse
         let mut nonce_bytes = [0u8; NONCE_SIZE];
-        nonce_bytes[0..8].copy_from_slice(&chunk_index.to_le_bytes());
-        OsRng.fill_bytes(&mut nonce_bytes[8..]); // Add randomness to remaining bytes
+        OsRng.fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         // Encrypt this chunk
@@ -401,6 +410,14 @@ pub fn decrypt_file_base(input_path: &Path, output_path: &Path) -> Result<(), St
             Err(e) => return Err(format!("Failed to read chunk size: {}", e)),
         }
         let chunk_len = u32::from_le_bytes(chunk_len_bytes) as usize;
+
+        // Validate chunk size to prevent memory exhaustion attacks
+        if chunk_len > MAX_ENCRYPTED_CHUNK_SIZE {
+            return Err(format!(
+                "Invalid chunk size {} exceeds maximum allowed size {}",
+                chunk_len, MAX_ENCRYPTED_CHUNK_SIZE
+            ));
+        }
 
         // Read nonce for this chunk
         let mut nonce_bytes = [0u8; NONCE_SIZE];
