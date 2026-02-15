@@ -318,14 +318,16 @@ pub fn decrypt_file_auto(input_path: &Path, output_path: &Path, password: Option
         }
         
         // Decrypt password layer to temp file
-        let temp_dir = tempfile::tempdir()
+        let _temp_dir = tempfile::tempdir()
             .map_err(|e| format!("Failed to create temp directory: {}", e))?;
-        let temp_base_encrypted = temp_dir.path().join("base_encrypted.tmp");
+        let temp_base_encrypted = _temp_dir.path().join("base_encrypted.tmp");
         
         decrypt_file(input_path, &temp_base_encrypted, pwd)?;
         
         // Now decrypt the base layer
         decrypt_file_base(&temp_base_encrypted, output_path)?;
+        
+        // _temp_dir is dropped here, cleaning up temp files
     } else {
         // Only base encrypted
         decrypt_file_base(input_path, output_path)?;

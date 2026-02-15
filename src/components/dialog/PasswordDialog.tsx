@@ -78,12 +78,12 @@ export const PasswordDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
             {mode === "export" ? t("title.export") : t("title.import")}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="whitespace-normal">
             {mode === "export"
               ? t("description.export")
               : t("description.import")}
