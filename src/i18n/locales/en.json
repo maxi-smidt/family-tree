@@ -262,6 +262,7 @@
           "location-placeholder": "e.g., New York, USA",
           "description": "Description",
           "description-placeholder": "Add more details about this event...",
+          "cancel": "Cancel",
           "update": "Update",
           "add": "Add"
         }
@@ -327,6 +328,7 @@
           "diagnosis-date-placeholder": "Pick a date",
           "notes": "Notes",
           "notes-placeholder": "Add additional details...",
+          "cancel": "Cancel",
           "update": "Update",
           "add": "Add",
           "error-add": "Failed to add condition. Please try again.",

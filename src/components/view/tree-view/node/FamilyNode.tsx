@@ -184,7 +184,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         <>
           <Button
             variant="ghost"
-            className="absolute -top-6 left-1/2 -translate-x-1/2 translate-y-0.5 w-16 h-6 rounded-t-full rounded-b-none bg-card hover:bg-accent z-10 p-0"
+            className="absolute -top-6 left-1/2 -translate-x-1/2 translate-y-0.5 w-16 h-6 rounded-t-full rounded-b-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderTop: `${borderWidth} solid ${borderColor}`,
               borderLeft: `${borderWidth} solid ${borderColor}`,
@@ -193,11 +193,11 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddParentClick}
           >
-            <PlusIcon />
+            <PlusIcon className="text-card" />
           </Button>
           <Button
             variant="ghost"
-            className="absolute -bottom-6 left-1/2 -translate-x-1/2 -translate-y-0.5 w-16 h-6 rounded-b-full rounded-t-none bg-card hover:bg-accent z-10 p-0"
+            className="absolute -bottom-6 left-1/2 -translate-x-1/2 -translate-y-0.5 w-16 h-6 rounded-b-full rounded-t-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderBottom: `${borderWidth} solid ${borderColor}`,
               borderLeft: `${borderWidth} solid ${borderColor}`,
@@ -206,7 +206,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddChildClick}
           >
-            <PlusIcon />
+            <PlusIcon className="text-card" />
           </Button>
         </>
       )}

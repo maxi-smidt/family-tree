@@ -262,6 +262,7 @@
           "location-placeholder": "z.B. New York, USA",
           "description": "Beschreibung",
           "description-placeholder": "Füge mehr Details zu dem Ereignis hinzu...",
+          "cancel": "Abbrechen",
           "update": "Aktualisieren",
           "add": "Hinzufügen"
         }
@@ -327,6 +328,7 @@
           "diagnosis-date-placeholder": "Datum auswählen",
           "notes": "Notizen",
           "notes-placeholder": "Zusätzliche Details hinzufügen...",
+          "cancel": "Abbrechen",
           "update": "Aktualisieren",
           "add": "Hinzufügen",
           "error-add": "Erkrankung konnte nicht hinzugefügt werden. Bitte versuchen Sie es erneut.",
