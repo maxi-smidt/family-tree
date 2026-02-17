@@ -1,0 +1,159 @@
+name: 📚 Documentation
+description: Report an issue with documentation or suggest documentation improvements
+title: "[Docs]: "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation! Please provide details about the documentation issue or enhancement.
+        
+        💡 **Tip for Copilot**: Specific file paths and clear descriptions help Copilot make accurate documentation updates.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Documentation Issue Summary
+      description: What documentation needs to be added, updated, or fixed?
+      placeholder: |
+        Example: The AGENTS.md file doesn't explain how to add a new Tauri command
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Issue Type
+      description: What kind of documentation issue is this?
+      options:
+        - Missing documentation
+        - Incorrect or outdated information
+        - Unclear or confusing explanation
+        - Typo or formatting issue
+        - New documentation needed
+        - Code example needed
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation located or where should it be added?
+      options:
+        - README.md
+        - docs/AGENTS.md
+        - docs/COPILOT.md
+        - docs/SETUP.md
+        - docs/I18N_GUIDE.md
+        - Code comments (specify file below)
+        - New file needed
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: file-path
+    attributes:
+      label: Specific File Path
+      description: |
+        If applicable, provide the exact path to the file that needs documentation changes.
+        💡 For Copilot: Exact file paths make it easier to locate and update documentation.
+      placeholder: |
+        Example: docs/AGENTS.md, lines 150-175
+        or: src/hooks/useFamilyStore.ts (needs JSDoc comments)
+
+  - type: textarea
+    id: current
+    attributes:
+      label: Current Documentation
+      description: If updating existing documentation, paste or describe the current content
+      placeholder: |
+        Paste the current text that needs to be changed, or describe what's currently documented.
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed Documentation
+      description: |
+        What should the documentation say? Be as specific as possible.
+        💡 For Copilot: Provide example text or detailed outline of what should be documented.
+      placeholder: |
+        Provide the new/updated documentation text, or a detailed outline of what needs to be covered.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why is this needed?
+      description: Explain why this documentation is important or helpful
+      placeholder: |
+        Example: New contributors are confused about how to add Tauri commands because it involves changes across multiple files (Rust backend, TypeScript service, and store actions).
+    validations:
+      required: true
+
+  - type: textarea
+    id: code-example
+    attributes:
+      label: Code Example
+      description: If applicable, provide code examples that should be included in the documentation
+      placeholder: |
+        Example:
+        ```typescript
+        // Add new action to useFamilyStore
+        exportData: async () => {
+          const data = await DatabaseService.getAllMembers();
+          // ... export logic
+        }
+        ```
+      render: typescript
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Related References
+      description: Links to related documentation, issues, or external resources
+      placeholder: |
+        Examples:
+        - Link to Tauri documentation
+        - Related GitHub issue
+        - Stack Overflow thread
+        - Relevant code files
+
+  - type: textarea
+    id: audience
+    attributes:
+      label: Target Audience
+      description: Who is this documentation for?
+      placeholder: |
+        Examples:
+        - New contributors
+        - GitHub Copilot agents
+        - End users
+        - Maintainers
+      value: |
+        - [ ] New contributors
+        - [ ] GitHub Copilot / AI agents
+        - [ ] End users
+        - [ ] Maintainers / advanced developers
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have checked that this documentation doesn't already exist elsewhere
+          required: true
+        - label: I have provided clear and actionable suggestions
+          required: true
+        - label: I have considered the target audience for this documentation
+          required: true

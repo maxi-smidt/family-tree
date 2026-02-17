@@ -1,0 +1,165 @@
+name: ✨ Feature Request
+description: Suggest a new feature or enhancement for the Family Tree application
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please provide detailed information to help GitHub Copilot and maintainers understand and implement your idea.
+        
+        💡 **Tip for Copilot**: Clear technical requirements, file paths, and UI mockups help Copilot generate accurate implementations.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A clear and concise description of the feature you'd like to see
+      placeholder: |
+        Example: Add ability to export family tree as PDF with customizable layout options
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Why is it needed?
+      placeholder: |
+        Example: Currently, users can only view their family tree within the app. There's no way to share a printed or digital copy with family members who don't have the app installed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this feature to work? Be as detailed as possible.
+      placeholder: |
+        Example:
+        1. Add an "Export" button in the tree view toolbar
+        2. Open a dialog with export options (format: PDF/PNG, orientation: portrait/landscape, paper size: A4/Letter)
+        3. Generate a high-quality export of the current tree view
+        4. Save the file to user's chosen location
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: Which area of the application does this feature relate to?
+      options:
+        - Tree View / Visualization
+        - Member Management / Profiles
+        - Gallery / Photos
+        - Timeline / Events
+        - Database Management
+        - Import / Export
+        - UI / UX
+        - Internationalization
+        - Performance
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical Details
+      description: |
+        If you have technical knowledge, provide implementation suggestions.
+        💡 For Copilot: Include file paths, component names, libraries, or APIs that might be relevant.
+      placeholder: |
+        Examples:
+        - Could use jsPDF library for PDF generation
+        - Should add new action to useFamilyStore: exportTreeAsPdf()
+        - Might need new Tauri command for file save dialog
+        - Related components: src/components/view/tree-view/FlowPanel.tsx
+        - Could extend existing export functionality in src/services/DatabaseService.ts
+
+  - type: textarea
+    id: ui-mockup
+    attributes:
+      label: UI Mockup / Design
+      description: |
+        If this involves UI changes, describe or show what it should look like.
+        You can drag and drop images, or describe the layout.
+      placeholder: |
+        Example:
+        - Add toolbar button next to "Auto Layout" and "Reset View"
+        - Button icon: Download icon from lucide-react
+        - Dialog should match existing dialog styles (MemberDetailDialog pattern)
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: |
+        What needs to be true for this feature to be considered complete?
+        💡 For Copilot: Clear, testable criteria help ensure correct implementation.
+      placeholder: |
+        - [ ] User can click Export button in tree view
+        - [ ] Export dialog opens with format and layout options
+        - [ ] Selected export format is generated correctly
+        - [ ] File is saved to user-selected location
+        - [ ] Success/error messages are shown
+        - [ ] Feature works on all supported platforms (Windows, macOS, Linux)
+      value: |
+        - [ ] 
+        - [ ] 
+        - [ ] 
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative solutions or features?
+      placeholder: |
+        Example: Instead of PDF export, could also support SVG export for vector editing, or direct printing from the app.
+
+  - type: textarea
+    id: related-files
+    attributes:
+      label: Related Files / Components
+      description: |
+        List files or components that might need to be modified.
+        💡 For Copilot: This helps scope the implementation.
+      placeholder: |
+        Examples:
+        - src/components/view/tree-view/FlowPanel.tsx (add export button)
+        - src/hooks/useFamilyStore.ts (add export action)
+        - src/services/ExportService.ts (create new service)
+        - src-tauri/src/lib.rs (add Tauri command if needed)
+        - package.json (add any required dependencies)
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Low - Nice to have
+        - Medium - Would significantly improve my workflow
+        - High - Critical for my use case
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or information about the feature request
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues and discussions to ensure this is not a duplicate
+          required: true
+        - label: I have provided clear acceptance criteria
+          required: true
+        - label: This feature aligns with the project's goals (family tree management and visualization)
+          required: true
