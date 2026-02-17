@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/maxi-smidt/family-tree/discussions
+    about: Ask questions, share ideas, or discuss the project with the community
+  - name: 🤝 Contributing Guide
+    url: https://github.com/maxi-smidt/family-tree/blob/main/docs/AGENTS.md
+    about: Learn how to contribute to the project
+  - name: 📖 Documentation
+    url: https://github.com/maxi-smidt/family-tree/tree/main/docs
+    about: Read the project documentation (AGENTS.md, COPILOT.md, SETUP.md, I18N_GUIDE.md)
