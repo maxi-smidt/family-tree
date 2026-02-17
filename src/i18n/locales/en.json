@@ -16,6 +16,13 @@
     },
     "language-selector": {
       "select": "Language"
+    },
+    "theme-selector": {
+      "label": "Theme",
+      "placeholder": "Select theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
     }
   },
   "dialog": {

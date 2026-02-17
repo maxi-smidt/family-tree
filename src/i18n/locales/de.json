@@ -16,6 +16,13 @@
     },
     "language-selector": {
       "select": "Sprache"
+    },
+    "theme-selector": {
+      "label": "Design",
+      "placeholder": "Wähle Design",
+      "light": "Hell",
+      "dark": "Dunkel",
+      "system": "System"
     }
   },
   "dialog": {
