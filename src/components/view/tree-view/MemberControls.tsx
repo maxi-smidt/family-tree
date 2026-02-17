@@ -20,7 +20,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
-import { RelationControls } from "@/components/tree-view/RelationControls";
+import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
 

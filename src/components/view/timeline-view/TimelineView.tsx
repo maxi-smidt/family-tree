@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
-import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
+import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";

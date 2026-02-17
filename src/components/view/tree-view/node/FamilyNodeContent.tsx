@@ -4,7 +4,7 @@ import { ExternalLink, Mars, User, Venus, VenusAndMars } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-import { MemberDetailDialog } from "@/components/member-detail/MemberDetailDialog";
+import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
 
 type Props = {
   member: Member;

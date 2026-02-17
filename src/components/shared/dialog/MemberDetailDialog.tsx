@@ -11,13 +11,13 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
-import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
+import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useState } from "react";
-import { ImageLightbox } from "@/components/member-sheet/ImageLightbox";
+import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
 import { Calendar, MapPin, BookOpen, Users } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";

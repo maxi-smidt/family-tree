@@ -18,7 +18,7 @@ type Props = {
   onCancel: () => void;
 };
 
-export const RemoveNodeDialog = ({
+export const RemoveMemberDialog = ({
   members,
   isOpen,
   onConfirm,

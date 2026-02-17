@@ -1,6 +1,6 @@
 [package]
 name = "family-tree"
-version = "0.2.0"
+version = "0.2.1"
 description = "A Tauri App"
 authors = ["Maximilian Smidt"]
 edition = "2021"

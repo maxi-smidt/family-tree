@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
-import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
+import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";

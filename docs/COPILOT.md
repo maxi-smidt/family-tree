@@ -18,6 +18,7 @@ This document provides specific instructions for GitHub Copilot agents working o
 ## Quick Reference
 
 ### Critical Paths
+
 - **State Store**: `src/hooks/useFamilyStore.ts` - Single source of truth for all app state
 - **Database Service**: `src/services/DatabaseService.ts` - All database operations
 - **SQL Queries**: `src/db/queries.ts` - SQL query definitions
@@ -27,6 +28,7 @@ This document provides specific instructions for GitHub Copilot agents working o
 - **i18n Guide**: `docs/I18N_GUIDE.md` - Translation key conventions and patterns
 
 ### Key Commands
+
 ```bash
 npm run tauri dev      # Start development server
 npm test              # Run test suite
@@ -35,6 +37,7 @@ npm run bump:patch    # Bump version (patch)
 ```
 
 ### Common Imports
+
 ```typescript
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { Member } from "@/types/member";
@@ -55,6 +58,7 @@ UI Component → Store Action → DatabaseService → Tauri Command → SQLite
 ```
 
 **Never bypass this flow**. Do not:
+
 - Call DatabaseService directly from components
 - Use Tauri commands directly from components
 - Modify state outside of store actions
@@ -76,15 +80,46 @@ await DatabaseService.insertMember(newMember);
 
 ## Code Modification Guidelines
 
-### 1. Reading the Codebase
+### 1. Component Organization
+
+Components are organized by category in `src/components/`:
+
+- **`layout/`** - App-wide layout components
+  - MainPanel, Layout, ErrorBoundary, TabWrapper
+- **`shared/`** - Reusable components used across features
+  - `dialog/` - All dialog components (MemberDetailDialog, PasswordDialog, etc.)
+  - `member-sheet/` - Member detail sheet and related components
+- **`view/`** - Feature-specific view components
+  - `tree-view/` - Family tree visualization (FlowPanel, nodes, edges)
+  - `gallery-view/` - Photo gallery view
+  - `list-view/` - List/table view of members
+  - `timeline-view/` - Timeline view of events
+  - `database-management-view/` - Database management
+  - `database-merge-view/` - Database merging
+- **`sidebar/`** - Sidebar components
+  - DatabaseSelector, LanguageSelector, FamilyTreeSidebar
+- **`ui/`** - Base UI library components (Shadcn UI)
+  - button, dialog, input, select, etc.
+
+**Import examples**:
+
+```typescript
+import { MainPanel } from "@/components/layout/MainPanel";
+import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
+import { FlowPanel } from "@/components/view/tree-view/FlowPanel";
+import { Button } from "@/components/ui/button";
+```
+
+### 2. Reading the Codebase
 
 Before making changes:
+
 1. **Understand the data flow**: Trace from UI → Store → Service → Tauri
 2. **Check existing patterns**: Look for similar functionality already implemented
 3. **Review types**: Understand the data structures in `src/types/`
 4. **Check translations**: Ensure i18n keys exist for any new text
 
-### 2. Making Changes
+### 3. Making Changes
 
 #### Adding a New Feature
 
@@ -104,7 +139,7 @@ Before making changes:
 - **Update tests**: Modify tests if behavior changes
 - **Check dependencies**: Ensure changes don't break dependent code
 
-### 3. Database Changes
+### 4. Database Changes
 
 If you need to modify the database schema:
 
@@ -115,12 +150,13 @@ If you need to modify the database schema:
 5. Update TypeScript types to match new schema
 
 **Example**:
+
 ```rust
 // In src-tauri/src/lib.rs, add to migrations vector:
 "ALTER TABLE members ADD COLUMN middle_name TEXT",
 ```
 
-### 4. UI Components
+### 5. UI Components
 
 When creating or modifying UI components:
 
@@ -131,6 +167,7 @@ When creating or modifying UI components:
 - **Accessibility**: Include proper ARIA labels
 
 **Example Component Structure**:
+
 ```typescript
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
@@ -140,7 +177,7 @@ import { useTranslation } from "react-i18next";
 export function MyComponent() {
   const { t } = useTranslation("namespace");
   const action = useFamilyStore((state) => state.action);
-  
+
   return (
     <Button onClick={() => action()}>
       <Plus className="w-4 h-4 mr-2" />
@@ -157,6 +194,7 @@ export function MyComponent() {
 ### Task: Add a New Field to Member
 
 1. **Update type** in `src/types/member.ts`:
+
    ```typescript
    export interface Member {
      // ... existing fields
@@ -165,6 +203,7 @@ export function MyComponent() {
    ```
 
 2. **Add migration** in `src-tauri/src/lib.rs`:
+
    ```rust
    "ALTER TABLE members ADD COLUMN new_field TEXT",
    ```
@@ -178,12 +217,13 @@ export function MyComponent() {
 ### Task: Add a New Store Action
 
 1. **Define action** in `src/hooks/useFamilyStore.ts`:
+
    ```typescript
    export interface FamilyStore {
      // ... existing actions
      newAction: (param: Type) => Promise<void>;
    }
-   
+
    // In the store implementation:
    newAction: async (param) => {
      try {
@@ -206,6 +246,7 @@ export function MyComponent() {
    - Example: `dialog.create-database.title` or `sheet.member-sheet.events.title`
 
 2. **Add to all locale files** in `src/i18n/locales/`:
+
    ```json
    {
      "dialog": {
@@ -217,6 +258,7 @@ export function MyComponent() {
    ```
 
 3. **Use in component** with keyPrefix:
+
    ```typescript
    const { t } = useTranslation(undefined, {
      keyPrefix: "dialog.create-database"
@@ -235,6 +277,7 @@ For detailed patterns, pluralization, and interpolation, see the [i18n Guide](./
 ### Running Tests
 
 Always run tests after making changes:
+
 ```bash
 npm test                 # Run all tests
 npm test -- --watch     # Watch mode
@@ -244,6 +287,7 @@ npm test -- filename    # Run specific file
 ### Manual Verification
 
 For UI changes:
+
 1. Run `npm run tauri dev`
 2. Test the feature manually
 3. Try edge cases (empty data, long text, etc.)
@@ -263,12 +307,14 @@ For UI changes:
 ### ❌ Don't Do This
 
 1. **Bypassing the store**:
+
    ```typescript
    // ❌ WRONG
    const result = await DatabaseService.getData();
    ```
 
 2. **Modifying state directly**:
+
    ```typescript
    // ❌ WRONG
    const members = useFamilyStore((state) => state.members);
@@ -276,30 +322,33 @@ For UI changes:
    ```
 
 3. **Using `any` type**:
+
    ```typescript
    // ❌ WRONG
-   function process(data: any) { }
-   
+   function process(data: any) {}
+
    // ✅ CORRECT
-   function process(data: Member) { }
+   function process(data: Member) {}
    ```
 
 4. **Hard-coded text**:
+
    ```typescript
    // ❌ WRONG
    <Button>Add Member</Button>
-   
+
    // ✅ CORRECT
    <Button>{t("add-member")}</Button>
    ```
 
 5. **Ignoring errors**:
+
    ```typescript
    // ❌ WRONG
    try {
      await action();
-   } catch (e) { }
-   
+   } catch (e) {}
+
    // ✅ CORRECT
    try {
      await action();
@@ -312,19 +361,22 @@ For UI changes:
 ### ✅ Best Practices
 
 1. **Always use store actions**:
+
    ```typescript
    const action = useFamilyStore((state) => state.action);
    await action(params);
    ```
 
 2. **Immutable state updates**:
+
    ```typescript
    set((state) => ({
-     members: [...state.members, newMember]
+     members: [...state.members, newMember],
    }));
    ```
 
 3. **Type-safe code**:
+
    ```typescript
    function process(data: Member): ProcessedMember {
      // Type-checked transformation
@@ -333,6 +385,7 @@ For UI changes:
    ```
 
 4. **Internationalized text**:
+
    ```typescript
    const { t } = useTranslation("namespace");
    return <div>{t("key")}</div>;

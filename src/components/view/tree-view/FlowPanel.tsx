@@ -7,18 +7,18 @@ import {
   ReactFlow,
   ReactFlowInstance,
 } from "@xyflow/react";
-import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
+import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { useEffect, useMemo, useState } from "react";
 import { Member } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { FlowPanelControls } from "@/components/tree-view/FlowPanelControls";
-import { MemberControls } from "@/components/tree-view/MemberControls";
-import { MemberSheet } from "@/components/member-sheet/MemberSheet";
-import { FamilyNode } from "@/components/tree-view/node/FamilyNode";
-import { AddRelationDialog } from "@/components/dialog/AddRelationDialog";
-import { RelationEdge } from "@/components/tree-view/edge/RelationEdge";
+import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
+import { MemberControls } from "@/components/view/tree-view/MemberControls";
+import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
+import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
+import { AddRelationDialog } from "@/components/view/tree-view/dialog/AddRelationDialog";
+import { RelationEdge } from "@/components/view/tree-view/edge/RelationEdge";
 import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
@@ -229,7 +229,7 @@ export const FlowPanel = () => {
           />
         </Panel>
       </ReactFlow>
-      <RemoveNodeDialog
+      <RemoveMemberDialog
         isOpen={!!membersToDelete.length}
         members={membersToDelete}
         onConfirm={confirmDelete}
