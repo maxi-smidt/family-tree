@@ -7,7 +7,7 @@ import { DiseaseDialog } from "./DiseaseDialog";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Disease } from "@/types/disease";
-import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
+import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/utils/dateUtils";
 

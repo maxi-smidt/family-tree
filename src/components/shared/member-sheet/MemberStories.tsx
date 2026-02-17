@@ -7,7 +7,7 @@ import { useState } from "react";
 import { StoryDialog } from "./StoryDialog";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
-import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
+import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 
 type Props = {
   member: Member;

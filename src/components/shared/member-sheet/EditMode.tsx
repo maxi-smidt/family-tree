@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Mars, Upload, User, Venus, VenusAndMars } from "lucide-react";
 import { Gender, Member } from "@/types/member";
 import { DatePicker } from "@/components/ui/date-picker";
-import { ImageCropDialog } from "@/components/dialog/ImageCropDialog";
+import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";

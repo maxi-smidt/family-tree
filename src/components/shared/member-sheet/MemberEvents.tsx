@@ -3,11 +3,11 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Calendar, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
-import { EventDialog } from "@/components/timeline-view/EventDialog";
+import { EventDialog } from "@/components/view/timeline-view/EventDialog";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
 import { useContentManager } from "@/hooks/useContentManager";
-import { ConfirmDeleteDialog } from "@/components/shared/ConfirmDeleteDialog";
+import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 
 type Props = {
   member: Member;

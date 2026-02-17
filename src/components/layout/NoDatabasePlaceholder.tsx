@@ -8,8 +8,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty";
-import { CreateDatabaseDialog } from "@/components/dialog/CreateDatabaseDialog";
-import { PasswordDialog } from "@/components/dialog/PasswordDialog";
+import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
+import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useDatabaseManager } from "@/hooks/useDatabaseManager";

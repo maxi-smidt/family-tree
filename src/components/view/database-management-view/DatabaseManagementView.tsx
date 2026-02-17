@@ -21,10 +21,10 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { CreateDatabaseDialog } from "@/components/dialog/CreateDatabaseDialog";
-import { RemoveDatabaseDialog } from "@/components/dialog/RemoveDatabaseDialog";
-import { ImportDatabaseDialog } from "@/components/dialog/ImportDatabaseDialog";
-import { PasswordDialog } from "@/components/dialog/PasswordDialog";
+import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
+import { RemoveDatabaseDialog } from "@/components/view/database-management-view/dialog/RemoveDatabaseDialog";
+import { ImportDatabaseDialog } from "@/components/view/database-management-view/dialog/ImportDatabaseDialog";
+import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Database } from "@/types/database";

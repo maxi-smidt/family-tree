@@ -5,7 +5,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
-import { FamilyNodeContent } from "@/components/tree-view/node/FamilyNodeContent";
+import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";

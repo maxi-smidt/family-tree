@@ -30,10 +30,10 @@ import {
   Venus,
   VenusAndMars,
 } from "lucide-react";
-import { MemberSheet } from "@/components/member-sheet/MemberSheet";
-import { MemberDetailDialog } from "@/components/member-detail/MemberDetailDialog";
+import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
+import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
 import { format } from "date-fns";
-import { RemoveNodeDialog } from "@/components/dialog/RemoveNodeDialog";
+import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 
@@ -280,7 +280,7 @@ export const ListView = () => {
         onOpenChange={(open) => !open && setViewingMember(null)}
       />
 
-      <RemoveNodeDialog
+      <RemoveMemberDialog
         isOpen={!!memberToDelete}
         members={memberToDelete ? [memberToDelete] : []}
         onConfirm={confirmDelete}
