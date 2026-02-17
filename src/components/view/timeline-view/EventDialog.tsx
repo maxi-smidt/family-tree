@@ -94,7 +94,7 @@ export const EventDialog = ({
           <DialogTitle>{event ? t("title-edit") : t("title-add")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 px-1">
             <div className="space-y-2">
               <Label htmlFor="members">{t("linked-members")} *</Label>
               <MultiSelect

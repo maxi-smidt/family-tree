@@ -90,7 +90,7 @@ export const PasswordDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 px-1">
           <div className="space-y-2">
             <Label htmlFor="password">{t("label.password")}</Label>
             <div className="relative">

@@ -64,7 +64,7 @@ Unified the styling across all dialog forms to provide a consistent and intuitiv
 **After (CreateDatabaseDialog):**
 
 ```tsx
-<div className="space-y-4 py-4">
+<div className="space-y-4 py-4 px-1">
   <div className="space-y-2">
     <FieldLabel htmlFor="databaseId">{t("id")}</FieldLabel>
     <Input id="databaseId" value={databaseId} disabled />
@@ -118,7 +118,7 @@ All dialogs now follow this consistent pattern:
     </DialogHeader>
 
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-4 py-4">
+      <div className="space-y-4 py-4 px-1">
         <div className="space-y-2">
           <Label htmlFor="fieldId">{label}</Label>
           <Input id="fieldId" {...props} />
@@ -144,7 +144,7 @@ All dialogs now follow this consistent pattern:
 ### 1. Consistent Spacing
 
 - **Form level**: `space-y-4` creates uniform gaps between sections
-- **Content level**: `space-y-4 py-4` provides consistent padding and field gaps
+- **Content level**: `space-y-4 py-4 px-1` provides consistent padding and field gaps, with minimal horizontal padding to prevent focus ring clipping
 - **Field level**: `space-y-2` ensures uniform label-to-input spacing
 
 ### 2. Better Visual Hierarchy

@@ -24,7 +24,7 @@ All dialog forms should follow this consistent pattern:
     </DialogHeader>
 
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-4 py-4">
+      <div className="space-y-4 py-4 px-1">
         <div className="space-y-2">
           <Label htmlFor="fieldId">{label}</Label>
           <Input id="fieldId" {...props} />
@@ -48,7 +48,7 @@ All dialog forms should follow this consistent pattern:
 **Key Rules:**
 
 - Form element has `className="space-y-4"`
-- Content container uses `className="space-y-4 py-4"`
+- Content container uses `className="space-y-4 py-4 px-1"`
 - Each field wraps label + input with `className="space-y-2"`
 - Use `Label` component from `ui/label` for field labels
 - All dialog buttons use `size="sm"`
@@ -90,7 +90,7 @@ For side sheets with forms, use the Field component pattern:
 
 - **Field Groups**: `space-y-4` or `gap-4` (4 = 1rem = 16px)
 - **Individual Fields**: `space-y-2` (2 = 0.5rem = 8px)
-- **Dialog/Sheet Content**: `py-4` for top and bottom padding
+- **Dialog/Sheet Content**: `py-4 px-1` for top/bottom padding and minimal horizontal padding to prevent focus ring clipping
 - **Sections**: `space-y-6` for major section breaks
 
 #### Horizontal Spacing
@@ -236,7 +236,7 @@ This is intentional for the compact side sheet layout.
 
 Uses a custom layout with:
 
-- Space between fields: `space-y-4 py-4`
+- Space between fields: `space-y-4 py-4 px-1`
 - Inline button for password visibility toggle
 - Conditional error messages with `text-destructive`
 
@@ -287,9 +287,9 @@ When updating existing components to follow this guide:
 
 - [ ] Replace custom label elements with `Label` or `FieldLabel`
 - [ ] Standardize spacing: `space-y-4` for forms, `space-y-2` for fields
+- [ ] Add `py-4 px-1` padding to form content containers to prevent focus ring clipping
 - [ ] Add `size="sm"` to dialog buttons
 - [ ] Replace `text-red-500` with `text-destructive`
-- [ ] Add `py-4` padding to form content containers
 - [ ] Ensure consistent DialogFooter structure
 - [ ] Update any hardcoded colors to use theme variables
 - [ ] Test keyboard navigation and screen reader compatibility

@@ -49,7 +49,7 @@ export const AddRelationDialog = ({
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-4 px-1">
           <Select
             value={selectedType}
             onValueChange={(value) => setSelectedType(value as RelationType)}

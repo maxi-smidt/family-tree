@@ -40,7 +40,7 @@ export const CreateDatabaseDialog = ({
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 px-1">
           <div className="space-y-2">
             <FieldLabel htmlFor="databaseId">{t("id")}</FieldLabel>
             <Input id="databaseId" value={databaseId} disabled />

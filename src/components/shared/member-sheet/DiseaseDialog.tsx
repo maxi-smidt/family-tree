@@ -119,7 +119,7 @@ export const DiseaseDialog = ({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 px-1">
             <div className="space-y-2">
               <Label htmlFor="name">{t("name")} *</Label>
               <Input

@@ -49,7 +49,7 @@ export const RemoveDatabaseDialog = ({
             {t("description", { name: selectedDatabase.name })}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 py-4 px-1">
           <div className="space-y-2">
             <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
             <Input
