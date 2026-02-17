@@ -8,26 +8,26 @@ When users click "New Issue", they will see three template options:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Choose an issue template                                    │
+│  Choose an issue template                                   │
 ├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  🐛 Bug Report                                  [Get started] │
-│  Report a bug or unexpected behavior in the                  │
-│  Family Tree application                                     │
-│                                                               │
-│  ✨ Feature Request                             [Get started] │
-│  Suggest a new feature or enhancement for the                │
-│  Family Tree application                                     │
-│                                                               │
-│  📚 Documentation                               [Get started] │
-│  Report an issue with documentation or suggest               │
-│  documentation improvements                                  │
-│                                                               │
+│                                                             │
+│  🐛 Bug Report                                [Get started] │
+│  Report a bug or unexpected behavior in the                 │
+│  Family Tree application                                    │
+│                                                             │
+│  ✨ Feature Request                           [Get started] │
+│  Suggest a new feature or enhancement for the               │
+│  Family Tree application                                    │
+│                                                             │
+│  📚 Documentation                             [Get started] │
+│  Report an issue with documentation or suggest              │
+│  documentation improvements                                 │
+│                                                             │
 ├─────────────────────────────────────────────────────────────┤
-│  Don't see your issue here?                                  │
-│  💬 GitHub Discussions                                       │
-│  🤝 Contributing Guide                                       │
-│  📖 Documentation                                            │
+│  Don't see your issue here?                                 │
+│  💬 GitHub Discussions                                      │
+│  🤝 Contributing Guide                                      │
+│  📖 Documentation                                           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -189,32 +189,40 @@ When users click "New Issue", they will see three template options:
 ## Copilot-Friendly Features
 
 ### 💡 Tooltips Throughout
+
 Each template includes helpful tips like:
+
 - "The more specific you are about file paths, error messages, and expected behavior, the better Copilot can assist"
 - "Clear technical requirements, file paths, and UI mockups help Copilot generate accurate implementations"
 - "Specific file paths and clear descriptions help Copilot make accurate documentation updates"
 
 ### Structured Data Collection
+
 - Dropdowns for categorization
 - Pre-formatted text areas
 - Checklists for acceptance criteria
 - Code blocks with syntax highlighting
 
 ### File Path Emphasis
+
 Every template includes dedicated sections asking for:
+
 - Relevant files
 - Related components
 - Specific paths
 - Component names
 
 ### Technical Context Sections
+
 Prompts users to provide:
+
 - Implementation hints
 - Library suggestions
 - API references
 - Code examples
 
 ### Clear Success Criteria
+
 - Acceptance criteria in checklist format
 - Expected vs. actual behavior separation
 - Target audience identification
@@ -223,6 +231,7 @@ Prompts users to provide:
 ## Configuration Benefits
 
 The `config.yml` file:
+
 - **Disables blank issues**: Ensures all issues use templates
 - **Links to resources**: Guides users to appropriate channels
 - **Reduces noise**: Filters general questions to Discussions
@@ -230,11 +239,13 @@ The `config.yml` file:
 ## Example Issue Title Formats
 
 Templates pre-fill titles with:
+
 - `[Bug]: ` for bug reports
 - `[Feature]: ` for feature requests
 - `[Docs]: ` for documentation
 
 This helps with:
+
 - Issue filtering and search
 - Automated labeling
 - Quick identification of issue type
@@ -242,6 +253,7 @@ This helps with:
 ## Validation and Quality
 
 Pre-submission checklists ensure:
+
 - No duplicate issues
 - Complete information provided
 - Appropriate template used
