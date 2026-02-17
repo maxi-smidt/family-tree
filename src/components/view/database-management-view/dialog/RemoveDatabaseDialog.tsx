@@ -49,14 +49,16 @@ export const RemoveDatabaseDialog = ({
             {t("description", { name: selectedDatabase.name })}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-[50px_1fr] gap-y-2 items-center">
-          <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
-          <Input
-            id="databaseName"
-            placeholder={selectedDatabase.name}
-            value={typedName}
-            onChange={(e) => setTypedName(e.target.value)}
-          />
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
+            <Input
+              id="databaseName"
+              placeholder={selectedDatabase.name}
+              value={typedName}
+              onChange={(e) => setTypedName(e.target.value)}
+            />
+          </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>

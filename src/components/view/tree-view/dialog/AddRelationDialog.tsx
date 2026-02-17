@@ -69,10 +69,12 @@ export const AddRelationDialog = ({
           </Select>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" size="sm" onClick={onClose}>
             {t("cancel")}
           </Button>
-          <Button onClick={handleConfirm}>{t("add")}</Button>
+          <Button size="sm" onClick={handleConfirm}>
+            {t("add")}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

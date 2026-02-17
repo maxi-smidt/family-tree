@@ -93,7 +93,7 @@ export const EventDialog = ({
         <DialogHeader>
           <DialogTitle>{event ? t("title-edit") : t("title-add")}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="members">{t("linked-members")} *</Label>
@@ -162,15 +162,17 @@ export const EventDialog = ({
             <Button
               type="button"
               variant="outline"
+              size="sm"
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {t("cancel")}
             </Button>
             <Button
               type="submit"
+              size="sm"
               disabled={!formData.eventType || selectedMemberIds.length === 0}
             >
-              {event ? t("update") : t("add")} Event
+              {event ? t("update") : t("add")}
             </Button>
           </DialogFooter>
         </form>
