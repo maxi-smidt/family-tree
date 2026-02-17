@@ -49,24 +49,24 @@ export const useFlowEdges = (
             if (processedPairs.has(pairKey)) return;
             processedPairs.add(pairKey);
 
-            let strokeColor = "#999";
+            let strokeColor = "hsl(var(--muted-foreground))";
             let strokeDasharray = "5,5";
 
             switch (rel.relationType) {
               case "married":
-                strokeColor = "#22c55e";
+                strokeColor = "hsl(142 76% 36%)"; // green-600
                 strokeDasharray = "0";
                 break;
               case "divorced":
-                strokeColor = "#ef4444";
+                strokeColor = "hsl(var(--destructive))";
                 strokeDasharray = "5,5";
                 break;
               case "partner":
-                strokeColor = "#3b82f6";
+                strokeColor = "hsl(217 91% 60%)"; // blue-500
                 strokeDasharray = "5,5";
                 break;
               case "sibling":
-                strokeColor = "#eab308";
+                strokeColor = "hsl(45 93% 47%)"; // yellow-500
                 strokeDasharray = "0";
                 break;
             }
