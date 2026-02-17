@@ -78,7 +78,12 @@ Automatic layout is handled in `src/utils/layoutUtils.ts` using `dagre` for topo
 
 ### File Organization
 
-- **Components**: Located in `src/components/`, organized by feature (e.g., `member-sheet/`, `timeline/`)
+- **Components**: Located in `src/components/`, organized by category:
+  - `layout/` - App-wide layout components (MainPanel, Layout, ErrorBoundary)
+  - `shared/` - Reusable components used across features (dialogs, member-sheet)
+  - `view/` - Feature-specific view components (tree-view, gallery-view, list-view, timeline-view, etc.)
+  - `sidebar/` - Sidebar components (DatabaseSelector, LanguageSelector)
+  - `ui/` - Base UI library components from Shadcn UI
 - **Hooks**: Custom hooks in `src/hooks/`, including the main store
 - **Services**: Business logic and database operations in `src/services/`
 - **Types**: TypeScript definitions in `src/types/`
@@ -132,6 +137,7 @@ This approach leverages Rust's performance and reliability for critical database
 ### Database Schema
 
 The database schema is defined in the migration SQL statements. Key tables include:
+
 - `members`: Core family member data
 - `life_events`: Timeline events for members
 - `stories`: Biographical stories and narratives
@@ -159,10 +165,10 @@ interface ComponentProps {
 export function Component({ prop }: ComponentProps) {
   // Hooks
   const state = useStore();
-  
+
   // Event handlers
   const handleClick = () => { };
-  
+
   // Render
   return <div>...</div>;
 }
@@ -178,8 +184,10 @@ export function Component({ prop }: ComponentProps) {
 ### React Flow Integration
 
 When working with the family tree visualization:
+
 - Use `@xyflow/react` for the flow canvas
-- Custom node types are defined in `src/components/flow-panel/CustomNode.tsx`
+- Custom node types are defined in `src/components/view/tree-view/node/FamilyNode.tsx`
+- Custom edge types are defined in `src/components/view/tree-view/edge/RelationEdge.tsx`
 - Layout calculations are in `src/utils/layoutUtils.ts`
 - Never modify node positions manually; always recalculate the full layout
 
@@ -192,6 +200,7 @@ When working with the family tree visualization:
 - Run `npm run check-i18n` to verify translation completeness
 
 **Quick Example:**
+
 ```typescript
 const { t } = useTranslation(undefined, {
   keyPrefix: "dialog.create-database"
@@ -219,6 +228,7 @@ fn command_name(param: Type) -> Result<ReturnType, String> {
 ### When to Add New Commands
 
 Add new Tauri commands when you need to:
+
 - Access the file system
 - Perform native OS operations
 - Execute CPU-intensive tasks that should run in native code
@@ -227,6 +237,7 @@ Add new Tauri commands when you need to:
 ### Database Operations
 
 Database operations should:
+
 1. Be defined in Rust commands
 2. Use parameterized queries to prevent SQL injection
 3. Handle errors gracefully and return Result types
@@ -258,16 +269,16 @@ The project uses **Vitest** for unit testing.
 ### Writing Tests
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import { functionToTest } from './module';
+import { describe, it, expect } from "vitest";
+import { functionToTest } from "./module";
 
-describe('functionToTest', () => {
-  it('should handle expected case', () => {
+describe("functionToTest", () => {
+  it("should handle expected case", () => {
     const result = functionToTest(input);
     expect(result).toBe(expected);
   });
-  
-  it('should handle edge case', () => {
+
+  it("should handle edge case", () => {
     const result = functionToTest(edgeCase);
     expect(result).toBe(edgeExpected);
   });
@@ -346,6 +357,7 @@ describe('functionToTest', () => {
 ### Code Review Focus
 
 Reviewers will check for:
+
 - Adherence to architectural patterns (store → service → Tauri)
 - Proper error handling
 - Type safety (no `any` types)
@@ -356,6 +368,7 @@ Reviewers will check for:
 ### Migration Changes
 
 If your changes require database schema modifications:
+
 1. Add a new migration in `src-tauri/src/lib.rs`
 2. Increment the schema version
 3. Document the migration in your PR description
