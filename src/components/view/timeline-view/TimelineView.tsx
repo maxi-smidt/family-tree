@@ -16,6 +16,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Calendar,
@@ -29,11 +30,21 @@ import {
 } from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
+import { Member } from "@/types/member";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
+
+interface VitalEvent {
+  kind: "vital";
+  id: string;
+  member: Member;
+  type: "birth" | "death";
+  date: string;
+}
 
 export const TimelineView = () => {
   const { t, i18n } = useTranslation(undefined, {
@@ -49,6 +60,7 @@ export const TimelineView = () => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+  const [showVitalEvents, setShowVitalEvents] = useState(true);
 
   const filteredEvents = useMemo(() => {
     let filtered = events;
@@ -75,6 +87,72 @@ export const TimelineView = () => {
       return dateB - dateA; // Most recent first
     });
   }, [events, selectedMemberId, searchQuery]);
+
+  const filteredVitalEvents = useMemo(() => {
+    const vitals: VitalEvent[] = [];
+
+    for (const member of members) {
+      if (member.date.birth) {
+        vitals.push({
+          kind: "vital",
+          id: `birth-${member.id}`,
+          member,
+          type: "birth",
+          date: member.date.birth,
+        });
+      }
+      if (member.date.death) {
+        vitals.push({
+          kind: "vital",
+          id: `death-${member.id}`,
+          member,
+          type: "death",
+          date: member.date.death,
+        });
+      }
+    }
+
+    let filtered = vitals;
+
+    if (selectedMemberId !== "all") {
+      filtered = filtered.filter((v) => v.member.id === selectedMemberId);
+    }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (v) =>
+          t(v.type).toLowerCase().includes(query) ||
+          `${v.member.firstName} ${v.member.lastName}`
+            .toLowerCase()
+            .includes(query),
+      );
+    }
+
+    return filtered;
+  }, [members, selectedMemberId, searchQuery, t]);
+
+  type TimelineItem =
+    | { kind: "event"; data: Event }
+    | { kind: "vital"; data: VitalEvent };
+
+  const timelineItems = useMemo((): TimelineItem[] => {
+    const eventItems: TimelineItem[] = filteredEvents.map((e) => ({
+      kind: "event",
+      data: e,
+    }));
+    const vitalItems: TimelineItem[] = showVitalEvents
+      ? filteredVitalEvents.map((v) => ({
+          kind: "vital",
+          data: v,
+        }))
+      : [];
+    return [...eventItems, ...vitalItems].sort((a, b) => {
+      const dateA = new Date(a.data.date).getTime();
+      const dateB = new Date(b.data.date).getTime();
+      return dateB - dateA;
+    });
+  }, [filteredEvents, filteredVitalEvents, showVitalEvents]);
 
   const getMemberName = (memberId: string) => {
     const member = members.find((m) => m.id === memberId);
@@ -114,7 +192,7 @@ export const TimelineView = () => {
         </Button>
       }
     >
-      <div className="flex gap-4 mb-6 p-1">
+      <div className="flex gap-4 mb-6 p-1 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -123,6 +201,20 @@ export const TimelineView = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-vital-events"
+            checked={showVitalEvents}
+            onCheckedChange={setShowVitalEvents}
+          />
+          <label
+            htmlFor="show-vital-events"
+            className="text-sm text-muted-foreground cursor-pointer select-none"
+          >
+            {t("show-vital-events")}
+          </label>
         </div>
 
         <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
@@ -164,6 +256,7 @@ export const TimelineView = () => {
                     />
                     {t("all-members")}
                   </CommandItem>
+                  <CommandSeparator />
                   {members.map((member) => (
                     <CommandItem
                       key={member.id}
@@ -192,7 +285,7 @@ export const TimelineView = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-4">
-        {filteredEvents.length === 0 ? (
+        {timelineItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Calendar className="w-16 h-16 mb-4 opacity-50" />
             <p className="text-lg">{t("no-events")}</p>
@@ -206,66 +299,100 @@ export const TimelineView = () => {
           <div className="relative">
             <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-border" />
 
-            {filteredEvents.map((event) => (
-              <Card
-                key={event.id}
-                className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
-              >
-                <div
-                  className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background"
-                  style={{ left: "-40px" }}
-                />
+            {timelineItems.map((item) =>
+              item.kind === "event" ? (
+                <Card
+                  key={item.data.id}
+                  className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
+                >
+                  <div
+                    className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background"
+                    style={{ left: "-40px" }}
+                  />
 
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-lg">
-                        {event.eventType}
-                      </h3>
-                      <span className="text-sm text-muted-foreground">
-                        · {getMemberNames(event.linkedMemberIds)}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {formatDateWithFallback(event.date, i18n.t)}
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-lg">
+                          {item.data.eventType}
+                        </h3>
+                        <span className="text-sm text-muted-foreground">
+                          · {getMemberNames(item.data.linkedMemberIds)}
                         </span>
                       </div>
-                      {event.location && (
+
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                         <div className="flex items-center gap-1">
-                          <MapPin className="w-4 h-4" />
-                          <span>{event.location}</span>
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {formatDateWithFallback(item.data.date, i18n.t)}
+                          </span>
                         </div>
+                        {item.data.location && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-4 h-4" />
+                            <span>{item.data.location}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {item.data.description && (
+                        <p className="text-sm">{item.data.description}</p>
                       )}
                     </div>
 
-                    {event.description && (
-                      <p className="text-sm">{event.description}</p>
-                    )}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditEvent(item.data)}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEventToDelete(item.data)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
                   </div>
+                </Card>
+              ) : (
+                <Card
+                  key={item.data.id}
+                  className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
+                >
+                  <div
+                    className="absolute top-6 w-4 h-4 rounded-full bg-muted-foreground border-4 border-background"
+                    style={{ left: "-40px" }}
+                  />
 
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditEvent(event)}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEventToDelete(event)}
-                    >
-                      <Trash2 />
-                    </Button>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="font-semibold text-lg">
+                          {t(item.data.type)}
+                        </h3>
+                        <span className="text-sm text-muted-foreground">
+                          · {getMemberName(item.data.member.id)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          <span>
+                            {formatDateWithFallback(item.data.date, i18n.t)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ),
+            )}
           </div>
         )}
       </div>
