@@ -1,6 +1,6 @@
 import { Member } from "@/types/member";
 import { format } from "date-fns";
-import { ExternalLink, Mars, User, Venus, VenusAndMars } from "lucide-react";
+import { Mars, User, Venus, VenusAndMars } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -60,18 +60,15 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
 
       <div className="mt-1">
         <div className="flex h-11 w-full items-center justify-center px-1">
-          <div className="flex items-center gap-1">
+          <Button
+            variant="link"
+            className="h-auto p-1 w-full max-w-full block whitespace-normal"
+            onClick={() => setDetailDialogOpen(true)}
+          >
             <span className="font-bold text-lg leading-tight text-center line-clamp-2 text-ellipsis overflow-hidden">
               {member.firstName} {member.lastName}
             </span>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              onClick={() => setDetailDialogOpen(true)}
-            >
-              <ExternalLink />
-            </Button>
-          </div>
+          </Button>
         </div>
 
         <div className="text-xs text-muted-foreground text-center">

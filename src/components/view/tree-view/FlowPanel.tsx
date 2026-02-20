@@ -9,7 +9,7 @@ import {
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { useEffect, useMemo, useState } from "react";
-import { Member } from "@/types/member";
+import { createMember, Member } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -68,19 +68,7 @@ export const FlowPanel = () => {
       y: parent.position.y + 200, // Place below parent
     };
 
-    const newMember: Member = {
-      id: crypto.randomUUID(),
-      gender: "o",
-      firstName: "New",
-      lastName: "Child",
-      maidenName: null,
-      imageData: null,
-      date: { birth: "2026", death: null },
-      parents: { paternalParent: null, maternalParent: null },
-      additionalData: null,
-      isCollapsed: false,
-      position: position,
-    };
+    const newMember = createMember(position);
 
     await addMember(newMember);
     // Relation: Child -> Parent
@@ -99,19 +87,7 @@ export const FlowPanel = () => {
       y: child.position.y - 200, // Place above child
     };
 
-    const newMember: Member = {
-      id: crypto.randomUUID(),
-      gender: "o",
-      firstName: "New",
-      lastName: "Parent",
-      maidenName: null,
-      imageData: null,
-      date: { birth: "1980", death: null },
-      parents: { paternalParent: null, maternalParent: null },
-      additionalData: null,
-      isCollapsed: false,
-      position: position,
-    };
+    const newMember = createMember(position);
 
     await addMember(newMember);
     // Relation: Child -> Parent

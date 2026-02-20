@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { Member } from "@/types/member";
+import { createMember, Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { useTranslation } from "react-i18next";
@@ -206,19 +206,7 @@ export const MemberControls = ({
       y: flowPoint.y,
     };
 
-    const newMember: Member = {
-      id: crypto.randomUUID(),
-      gender: "o",
-      firstName: "New",
-      lastName: "Member",
-      maidenName: null,
-      imageData: null,
-      date: { birth: "2026", death: null },
-      parents: { paternalParent: null, maternalParent: null },
-      additionalData: null,
-      isCollapsed: false,
-      position: position,
-    };
+    const newMember = createMember(position);
 
     await addMember(newMember);
     onEditMember(newMember);

@@ -152,3 +152,20 @@ export function mapMemberToDB(member: Member): MemberDB {
     isCollapsed: member.isCollapsed ? 1 : 0,
   };
 }
+
+export function createMember(position: { x: number; y: number }): Member {
+  const currentYear = new Date().getFullYear().toString();
+  return {
+    id: crypto.randomUUID(),
+    gender: "o",
+    firstName: "",
+    lastName: "",
+    maidenName: null,
+    imageData: null,
+    date: { birth: currentYear, death: null },
+    parents: { paternalParent: null, maternalParent: null },
+    additionalData: null,
+    isCollapsed: false,
+    position: position,
+  };
+}
