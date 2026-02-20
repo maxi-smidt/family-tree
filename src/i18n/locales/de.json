@@ -378,6 +378,7 @@
       "add-an-event": "Füge ein Ereignis hinzu um zu beginnen",
       "birth": "Geburt",
       "death": "Tod",
+      "show-vital-events": "Geburten & Todesfälle anzeigen",
       "delete-dialog": {
         "title": "Ereignis löschen",
         "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",

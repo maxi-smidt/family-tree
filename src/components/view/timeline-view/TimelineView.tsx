@@ -31,6 +31,7 @@ import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
 import { Member } from "@/types/member";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
@@ -58,6 +59,7 @@ export const TimelineView = () => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+  const [showVitalEvents, setShowVitalEvents] = useState(true);
 
   const filteredEvents = useMemo(() => {
     let filtered = events;
@@ -138,16 +140,18 @@ export const TimelineView = () => {
       kind: "event",
       data: e,
     }));
-    const vitalItems: TimelineItem[] = filteredVitalEvents.map((v) => ({
-      kind: "vital",
-      data: v,
-    }));
+    const vitalItems: TimelineItem[] = showVitalEvents
+      ? filteredVitalEvents.map((v) => ({
+          kind: "vital",
+          data: v,
+        }))
+      : [];
     return [...eventItems, ...vitalItems].sort((a, b) => {
       const dateA = new Date(a.data.date).getTime();
       const dateB = new Date(b.data.date).getTime();
       return dateB - dateA;
     });
-  }, [filteredEvents, filteredVitalEvents]);
+  }, [filteredEvents, filteredVitalEvents, showVitalEvents]);
 
   const getMemberName = (memberId: string) => {
     const member = members.find((m) => m.id === memberId);
@@ -187,7 +191,7 @@ export const TimelineView = () => {
         </Button>
       }
     >
-      <div className="flex gap-4 mb-6 p-1">
+      <div className="flex gap-4 mb-6 p-1 items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -196,6 +200,20 @@ export const TimelineView = () => {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
           />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-vital-events"
+            checked={showVitalEvents}
+            onCheckedChange={setShowVitalEvents}
+          />
+          <label
+            htmlFor="show-vital-events"
+            className="text-sm text-muted-foreground cursor-pointer select-none"
+          >
+            {t("show-vital-events")}
+          </label>
         </div>
 
         <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
