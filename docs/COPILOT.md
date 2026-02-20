@@ -448,3 +448,141 @@ Before submitting changes, verify:
 ---
 
 **Remember**: When in doubt, follow existing patterns in the codebase. Consistency is key to maintainability.
+
+---
+
+## UI Styling Guidelines
+
+### Dialog Form Pattern
+
+All dialog forms follow a consistent pattern for spacing and structure:
+
+```tsx
+<Dialog open={isOpen} onOpenChange={onOpenChange}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>{title}</DialogTitle>
+    </DialogHeader>
+
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-4 py-4 px-1">
+        <div className="space-y-2">
+          <Label htmlFor="field">{label}</Label>
+          <Input id="field" {...props} />
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button size="sm" type="submit">
+          Confirm
+        </Button>
+      </DialogFooter>
+    </form>
+  </DialogContent>
+</Dialog>
+```
+
+**Key Rules:**
+- Form: `className="space-y-4"`
+- Content: `className="space-y-4 py-4 px-1"` (px-1 prevents focus ring clipping)
+- Fields: `className="space-y-2"` (wraps label + input)
+- Dialog buttons: `size="sm"`
+- Cancel button: `variant="outline"`
+
+### Focus Ring Prevention
+
+Input components have a 3px focus ring. To prevent clipping:
+- Add `px-1` (or `p-1` for all sides) padding to containers
+- Applies to dialogs, search fields, and form containers
+
+### Theme Colors
+
+Always use semantic theme colors, never hardcoded values:
+
+```tsx
+// ✅ CORRECT
+<p className="text-destructive">{error}</p>
+<div className="bg-card border-border">...</div>
+
+// ❌ WRONG
+<p className="text-red-500">{error}</p>
+<div className="bg-white border-gray-200">...</div>
+```
+
+**Common Theme Colors:**
+- `text-foreground` - Primary text
+- `text-muted-foreground` - Secondary text
+- `text-destructive` - Error text
+- `bg-card` - Card backgrounds
+- `bg-background` - Page background
+- `border-border` - Default borders
+
+### Dark Mode Support
+
+All components automatically support dark mode via CSS variables. The app uses `next-themes` for theme switching:
+
+```tsx
+import { useTheme } from "next-themes";
+
+function MyComponent() {
+  const { theme, setTheme } = useTheme();
+  // theme values: "light" | "dark" | "system"
+}
+```
+
+**Best Practices:**
+- Use theme color classes (see above)
+- Test in both light and dark modes
+- Avoid hardcoded colors
+- Use `bg-card` for cards (not `bg-white`)
+- Use `text-foreground` for text (not `text-black`)
+
+### Destructive Button Style
+
+Destructive buttons use a subtle red tone:
+
+```tsx
+<Button variant="destructive" size="sm">
+  Delete
+</Button>
+```
+
+Style: 10% red background, red border, red text - maintains accessibility while being less intense.
+
+### Component Spacing
+
+**Vertical Spacing:**
+- Field groups: `space-y-4` or `gap-4` (16px)
+- Individual fields: `space-y-2` (8px)
+- Dialog/sheet content: `py-4 px-1`
+- Major sections: `space-y-6` (24px)
+
+**Button Spacing:**
+- Dialog buttons: `gap-2` in DialogFooter
+- Use `size="sm"` for all dialog buttons
+
+### Search Field Pattern
+
+Search fields with icon:
+
+```tsx
+<div className="flex items-center gap-4 p-1">
+  <div className="relative w-72">
+    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+    <Input
+      placeholder={t("search")}
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      className="pl-8"
+    />
+  </div>
+</div>
+```
+
+Note the `p-1` on the outer container to prevent focus ring clipping.
+
+---
+
