@@ -16,6 +16,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Calendar,
@@ -255,6 +256,7 @@ export const TimelineView = () => {
                     />
                     {t("all-members")}
                   </CommandItem>
+                  <CommandSeparator />
                   {members.map((member) => (
                     <CommandItem
                       key={member.id}
