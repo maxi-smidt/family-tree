@@ -8,23 +8,12 @@ import {
 } from "@/components/ui/select";
 import { SettingsField } from "@/components/sidebar/SettingsField";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 
 export function ThemeSelector() {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sidebar.theme-selector",
   });
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  // useEffect only runs on the client, so now we can safely show the UI
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
 
   return (
     <SettingsField label={t("label")}>
