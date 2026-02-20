@@ -90,7 +90,7 @@ export const PasswordDialog = ({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="space-y-4 py-4 px-1">
           <div className="space-y-2">
             <Label htmlFor="password">{t("label.password")}</Label>
             <div className="relative">
@@ -139,7 +139,7 @@ export const PasswordDialog = ({
             </div>
           )}
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           {mode === "export" && (
             <p className="text-xs text-muted-foreground">

@@ -39,18 +39,18 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
         {member.imageData ? (
           <img
             src={member.imageData}
-            className={`${sizeClass} rounded-full object-cover bg-gray-100`}
+            className={`${sizeClass} rounded-full object-cover bg-muted`}
             alt="Profile"
           />
         ) : (
           <div
-            className={`${sizeClass} flex justify-center items-center rounded-full bg-gray-200 text-2xl font-bold text-gray-500`}
+            className={`${sizeClass} flex justify-center items-center rounded-full bg-muted text-2xl font-bold text-muted-foreground`}
           >
             <User size={iconSize} />
           </div>
         )}
         <div
-          className={`absolute bg-white rounded-full shadow-sm border border-gray-200 flex items-center justify-center bottom-0 right-0 ${
+          className={`absolute bg-card rounded-full shadow-sm border border-border flex items-center justify-center bottom-0 right-0 ${
             largeImage ? "p-2" : "p-1"
           }`}
         >
@@ -74,7 +74,7 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
           </div>
         </div>
 
-        <div className="text-xs text-gray-500 text-center">
+        <div className="text-xs text-muted-foreground text-center">
           {formatDate(member.date)}
         </div>
       </div>

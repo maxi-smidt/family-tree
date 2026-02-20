@@ -118,8 +118,8 @@ export const DiseaseDialog = ({
             {disease ? t("title-edit") : t("title-add")}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4 py-4 px-1">
             <div className="space-y-2">
               <Label htmlFor="name">{t("name")} *</Label>
               <Input
@@ -222,7 +222,17 @@ export const DiseaseDialog = ({
           </div>
 
           <DialogFooter>
-            <Button type="submit">{disease ? t("update") : t("add")}</Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onOpenChange(false)}
+            >
+              {t("cancel")}
+            </Button>
+            <Button type="submit" size="sm">
+              {disease ? t("update") : t("add")}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -11,6 +11,7 @@ import {
 import { EdgeTypeSelector } from "@/components/sidebar/EdgeTypeSelector.tsx";
 import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
 import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
+import { ThemeSelector } from "@/components/sidebar/ThemeSelector.tsx";
 import { APP_VERSION } from "@/constants";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +25,9 @@ export function FamilyTreeSidebar() {
           <SidebarGroupLabel>{t("appearance")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <ThemeSelector />
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <EdgeTypeSelector />
               </SidebarMenuItem>

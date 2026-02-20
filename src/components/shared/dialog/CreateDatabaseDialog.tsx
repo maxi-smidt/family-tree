@@ -40,16 +40,20 @@ export const CreateDatabaseDialog = ({
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-[50px_1fr] gap-y-2 items-center">
-          <FieldLabel htmlFor="databaseId">{t("id")}</FieldLabel>
-          <Input id="databaseId" value={databaseId} disabled />
+        <div className="space-y-4 py-4 px-1">
+          <div className="space-y-2">
+            <FieldLabel htmlFor="databaseId">{t("id")}</FieldLabel>
+            <Input id="databaseId" value={databaseId} disabled />
+          </div>
 
-          <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
-          <Input
-            id="databaseName"
-            value={databaseName}
-            onChange={(e) => setDatabaseName(e.target.value)}
-          />
+          <div className="space-y-2">
+            <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
+            <Input
+              id="databaseName"
+              value={databaseName}
+              onChange={(e) => setDatabaseName(e.target.value)}
+            />
+          </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>

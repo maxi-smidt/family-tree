@@ -49,7 +49,7 @@ export const AddRelationDialog = ({
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <div className="py-4">
+        <div className="py-4 px-1">
           <Select
             value={selectedType}
             onValueChange={(value) => setSelectedType(value as RelationType)}
@@ -69,10 +69,12 @@ export const AddRelationDialog = ({
           </Select>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" size="sm" onClick={onClose}>
             {t("cancel")}
           </Button>
-          <Button onClick={handleConfirm}>{t("add")}</Button>
+          <Button size="sm" onClick={handleConfirm}>
+            {t("add")}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

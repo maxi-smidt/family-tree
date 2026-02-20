@@ -73,7 +73,10 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     }
   };
 
-  const borderColor = selected ? "#2563eb" : "#777";
+  // Use CSS variables for theme-aware colors
+  const borderColor = selected
+    ? "hsl(var(--primary))"
+    : "hsl(var(--border))";
   const borderWidth = selected ? "2px" : "1px";
 
   const hasDiseases = data.diseases && data.diseases.length > 0;
@@ -89,7 +92,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   return (
     <div
-      className="relative flex flex-col items-center shadow-sm p-2 bg-white"
+      className="relative flex flex-col items-center shadow-sm p-2 bg-card"
       style={{
         border: `${borderWidth} solid ${borderColor}`,
         borderRadius: "8px",
@@ -101,19 +104,19 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="target"
         position={Position.Top}
         id="top"
-        className={`${isFastMode ? "w-1/2!" : "w-1/4!"} bg-slate-400! rounded-md!`}
+        className={`${isFastMode ? "w-1/2!" : "w-1/4!"} bg-muted-foreground! rounded-md!`}
       />
       <Handle
         type="source"
         position={Position.Left}
         id="left"
-        className="h-1/4! w-2! bg-slate-400! rounded-md!"
+        className="h-1/4! w-2! bg-muted-foreground! rounded-md!"
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        className="h-1/4! w-2! bg-slate-400! rounded-md!"
+        className="h-1/4! w-2! bg-muted-foreground! rounded-md!"
       />
       <div className="absolute top-2 flex justify-between w-full px-2">
         <Button variant="outline" size="icon-sm" onClick={onViewClick}>
@@ -181,7 +184,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         <>
           <Button
             variant="ghost"
-            className="absolute -top-6 left-1/2 -translate-x-1/2 translate-y-0.5 w-16 h-6 rounded-t-full rounded-b-none bg-white hover:bg-slate-100 z-10 p-0"
+            className="absolute -top-6 left-1/2 -translate-x-1/2 translate-y-0.5 w-16 h-6 rounded-t-full rounded-b-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderTop: `${borderWidth} solid ${borderColor}`,
               borderLeft: `${borderWidth} solid ${borderColor}`,
@@ -190,11 +193,11 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddParentClick}
           >
-            <PlusIcon />
+            <PlusIcon className="text-card" />
           </Button>
           <Button
             variant="ghost"
-            className="absolute -bottom-6 left-1/2 -translate-x-1/2 -translate-y-0.5 w-16 h-6 rounded-b-full rounded-t-none bg-white hover:bg-slate-100 z-10 p-0"
+            className="absolute -bottom-6 left-1/2 -translate-x-1/2 -translate-y-0.5 w-16 h-6 rounded-b-full rounded-t-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderBottom: `${borderWidth} solid ${borderColor}`,
               borderLeft: `${borderWidth} solid ${borderColor}`,
@@ -203,7 +206,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddChildClick}
           >
-            <PlusIcon />
+            <PlusIcon className="text-card" />
           </Button>
         </>
       )}
@@ -212,7 +215,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="source"
         position={Position.Bottom}
         id="bottom"
-        className={`${isFastMode ? "w-1/2!" : "w-1/4!"} bg-slate-400! rounded-md!`}
+        className={`${isFastMode ? "w-1/2!" : "w-1/4!"} bg-muted-foreground! rounded-md!`}
       />
     </div>
   );

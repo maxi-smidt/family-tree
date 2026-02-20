@@ -145,7 +145,7 @@ export const GalleryView = () => {
 
   return (
     <ViewLayout title={t("title")}>
-      <div className="flex justify-between items-center mb-4 gap-4">
+      <div className="flex justify-between items-center mb-4 gap-4 p-1">
         <div className="relative w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
