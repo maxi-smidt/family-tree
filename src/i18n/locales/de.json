@@ -236,6 +236,11 @@
       "edit-description": "Bearbeite die Informationen der Person.",
       "detail-description": "Betrachte die Informationen über diese Person.",
       "save": "Speichern",
+      "delete": "Löschen",
+      "delete-confirm-title": "Person löschen",
+      "delete-confirm-description": "Bist du sicher, dass diese Person unwiderruflich gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "delete-confirm-cancel": "Abbrechen",
+      "delete-confirm-confirm": "Löschen",
       "show-less": "Weniger anzeigen",
       "show-more": "Zeige {{count}} mehr",
       "events": {
@@ -462,6 +467,9 @@
       "partner": "Partner",
       "married": "Verheiratet",
       "divorced": "Geschieden",
+      "step-parent": "Stiefelternteil",
+      "step-sibling": "Stiefgeschwister",
+      "half-sibling": "Halbgeschwister",
       "other": "Andere"
     },
     "gender": {

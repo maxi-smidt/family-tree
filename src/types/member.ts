@@ -40,6 +40,8 @@ export interface Member {
   onView?: () => void;
   onAddChild?: () => void;
   onAddParent?: () => void;
+  onAddLeft?: () => void;
+  onAddRight?: () => void;
   [key: string]: unknown;
 }
 

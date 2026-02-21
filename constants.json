@@ -12,6 +12,9 @@
     "partner",
     "married",
     "divorced",
+    "step-parent",
+    "step-sibling",
+    "half-sibling",
     "other"
   ]
 }

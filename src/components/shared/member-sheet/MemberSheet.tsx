@@ -13,6 +13,8 @@ import { EditMode } from "./EditMode";
 import { Button } from "@/components/ui/button";
 import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { useMemberStore } from "@/hooks/useMemberStore";
 
 type Props = {
   isOpen: boolean;
@@ -30,13 +32,21 @@ export const MemberSheet = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
   });
+  const { removeMember } = useMemberStore();
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     setIsEditMode(initialEditMode);
   }, [initialEditMode, isOpen]);
 
   if (!member) return null;
+
+  const handleDelete = async () => {
+    await removeMember(member.id);
+    setIsDeleteDialogOpen(false);
+    onClose();
+  };
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -64,7 +74,7 @@ export const MemberSheet = ({
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-4 overflow-y-auto flex-1">
             {isEditMode ? (
-              <EditMode member={member} />
+              <EditMode member={member} onSaved={onClose} />
             ) : (
               <ViewMode member={member} />
             )}
@@ -74,9 +84,17 @@ export const MemberSheet = ({
         {isEditMode && (
           <SheetFooter className="mt-auto p-4 border-t bg-background">
             <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
+              {t("delete")}
+            </Button>
+            <Button
               type="submit"
               form="edit-member-form"
-              className="w-full"
+              className="flex-1"
               size="sm"
             >
               {t("save")}
@@ -84,6 +102,15 @@ export const MemberSheet = ({
           </SheetFooter>
         )}
       </SheetContent>
+      <ConfirmDeleteDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        onConfirm={() => void handleDelete()}
+        title={t("delete-confirm-title")}
+        description={t("delete-confirm-description")}
+        cancelText={t("delete-confirm-cancel")}
+        confirmText={t("delete-confirm-confirm")}
+      />
     </Sheet>
   );
 };

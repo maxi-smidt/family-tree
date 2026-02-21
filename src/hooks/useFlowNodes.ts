@@ -8,6 +8,8 @@ export const useFlowNodes = (
   setIsEditMode: (isEdit: boolean) => void,
   onAddChild: (parentId: string) => void,
   onAddParent: (childId: string) => void,
+  onAddLeft: (memberId: string) => void,
+  onAddRight: (memberId: string) => void,
 ) => {
   return useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -71,7 +73,21 @@ export const useFlowNodes = (
         onAddParent: () => {
           onAddParent(node.id);
         },
+        onAddLeft: () => {
+          onAddLeft(node.id);
+        },
+        onAddRight: () => {
+          onAddRight(node.id);
+        },
       },
     }));
-  }, [nodes, setEditingMemberId, setIsEditMode, onAddChild, onAddParent]);
+  }, [
+    nodes,
+    setEditingMemberId,
+    setIsEditMode,
+    onAddChild,
+    onAddParent,
+    onAddLeft,
+    onAddRight,
+  ]);
 };

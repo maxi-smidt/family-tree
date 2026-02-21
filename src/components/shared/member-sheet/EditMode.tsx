@@ -17,9 +17,10 @@ import { MemberDiseases } from "./MemberDiseases";
 
 type Props = {
   member: Member;
+  onSaved?: () => void;
 };
 
-export const EditMode = ({ member }: Props) => {
+export const EditMode = ({ member, onSaved }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
   });
@@ -146,6 +147,7 @@ export const EditMode = ({ member }: Props) => {
       dateOfDeath: formData.date.death || undefined,
     });
     toast.success(t("toast-success"));
+    onSaved?.();
   };
 
   return (

@@ -53,6 +53,10 @@ export const FlowPanel = () => {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [newRelation, setNewRelation] = useState<any | null>(null);
+  const [pendingHorizontalRelation, setPendingHorizontalRelation] = useState<{
+    sourceId: string;
+    targetId: string;
+  } | null>(null);
 
   const editingMember = useMemo(
     () => members.find((m) => m.id === editingMemberId) || null,
@@ -97,12 +101,37 @@ export const FlowPanel = () => {
     setIsEditMode(true);
   };
 
+  const onAddHorizontal = async (memberId: string, side: "left" | "right") => {
+    const member = members.find((m) => m.id === memberId);
+    if (!member) return;
+
+    const offsetX = side === "left" ? -300 : 300;
+    const position = {
+      x: member.position.x + offsetX,
+      y: member.position.y,
+    };
+
+    const newMember = createMember(position);
+    await addMember(newMember);
+
+    setPendingHorizontalRelation({
+      sourceId: memberId,
+      targetId: newMember.id,
+    });
+  };
+
   const viewNodes = useFlowNodes(
     nodes,
     setEditingMemberId,
     setIsEditMode,
     onAddChild,
     onAddParent,
+    (id) => {
+      void onAddHorizontal(id, "left");
+    },
+    (id) => {
+      void onAddHorizontal(id, "right");
+    },
   );
   const viewEdges = useFlowEdges(members, visibleRelationTypes, edgeType);
 
@@ -218,8 +247,11 @@ export const FlowPanel = () => {
         initialEditMode={isEditMode}
       />
       <AddRelationDialog
-        isOpen={!!newRelation}
-        onClose={() => setNewRelation(null)}
+        isOpen={!!newRelation || !!pendingHorizontalRelation}
+        onClose={() => {
+          setNewRelation(null);
+          setPendingHorizontalRelation(null);
+        }}
         onConfirm={(type) => {
           if (newRelation) {
             const fromId = newRelation.source;
@@ -245,8 +277,17 @@ export const FlowPanel = () => {
             if (!visibleRelationTypes.includes(type)) {
               toggleRelationType(type);
             }
+          } else if (pendingHorizontalRelation) {
+            const { sourceId, targetId } = pendingHorizontalRelation;
+            void addRelation(sourceId, targetId, type);
+            if (!visibleRelationTypes.includes(type)) {
+              toggleRelationType(type);
+            }
+            setEditingMemberId(targetId);
+            setIsEditMode(true);
           }
           setNewRelation(null);
+          setPendingHorizontalRelation(null);
         }}
       />
     </div>

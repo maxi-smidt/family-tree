@@ -236,6 +236,11 @@
       "edit-description": "Update the member's information.",
       "detail-description": "View detailed information about this family member.",
       "save": "Save",
+      "delete": "Delete",
+      "delete-confirm-title": "Delete Member",
+      "delete-confirm-description": "Are you sure you want to permanently delete this member? This action cannot be undone.",
+      "delete-confirm-cancel": "Cancel",
+      "delete-confirm-confirm": "Delete",
       "show-less": "Show less",
       "show-more": "Show {{count}} more",
       "events": {
@@ -462,6 +467,9 @@
       "partner": "Partner",
       "married": "Married",
       "divorced": "Divorced",
+      "step-parent": "Step Parent",
+      "step-sibling": "Step Sibling",
+      "half-sibling": "Half Sibling",
       "other": "Other"
     },
     "gender": {
