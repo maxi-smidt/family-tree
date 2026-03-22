@@ -29,6 +29,7 @@ type Props = {
   selectedNodes: Node[];
   setMembersToDelete: (members: Member[]) => void;
   onEditMember: (member: Member) => void;
+  onCreateNewMember: (member: Member) => void;
   onRearrange: () => void;
 };
 
@@ -36,7 +37,7 @@ export const MemberControls = ({
   nodes,
   selectedNodes,
   setMembersToDelete,
-  onEditMember,
+  onCreateNewMember,
   onRearrange,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
@@ -47,7 +48,7 @@ export const MemberControls = ({
     isDiseaseMode,
     setIsDiseaseMode,
   } = useFamilyTreeSettings();
-  const { addMember, updateMemberPartial } = useMemberStore();
+  const { updateMemberPartial } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (
@@ -207,9 +208,7 @@ export const MemberControls = ({
     };
 
     const newMember = createMember(position);
-
-    await addMember(newMember);
-    onEditMember(newMember);
+    onCreateNewMember(newMember);
   }
 
   function onRemoveMembers() {
