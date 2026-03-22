@@ -33,6 +33,7 @@ type Props = {
   initialEditMode?: boolean;
   isNewMember?: boolean;
   onDiscardNewMember?: () => Promise<void> | void;
+  onSaveNewMember?: (data: Member) => Promise<void> | void;
 };
 
 export const MemberSheet = ({
@@ -42,6 +43,7 @@ export const MemberSheet = ({
   initialEditMode = false,
   isNewMember = false,
   onDiscardNewMember,
+  onSaveNewMember,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
@@ -65,7 +67,7 @@ export const MemberSheet = ({
   };
 
   const handleCloseRequest = () => {
-    if (isDirty) {
+    if (isDirty && isEditMode) {
       setIsUnsavedDialogOpen(true);
       return;
     }
@@ -116,7 +118,13 @@ export const MemberSheet = ({
             {isEditMode ? (
               <EditMode
                 member={member}
-                onSaved={onClose}
+                isNew={isNewMember}
+                onSaved={async (data) => {
+                  if (isNewMember && onSaveNewMember) {
+                    await onSaveNewMember(data);
+                  }
+                  onClose();
+                }}
                 onDirtyChange={setIsDirty}
               />
             ) : (

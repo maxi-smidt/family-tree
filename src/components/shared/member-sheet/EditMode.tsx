@@ -17,11 +17,17 @@ import { MemberDiseases } from "./MemberDiseases";
 
 type Props = {
   member: Member;
-  onSaved?: () => void;
+  isNew?: boolean;
+  onSaved?: (data: Member) => void;
   onDirtyChange?: (dirty: boolean) => void;
 };
 
-export const EditMode = ({ member, onSaved, onDirtyChange }: Props) => {
+export const EditMode = ({
+  member,
+  isNew = false,
+  onSaved,
+  onDirtyChange,
+}: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
   });
@@ -139,6 +145,12 @@ export const EditMode = ({ member, onSaved, onDirtyChange }: Props) => {
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
 
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast.error(t("toast-error-required"));
+      return;
+    }
+
+    if (!isNew) {
     const duplicate = members.find(
       (m) =>
         m.id !== member.id &&
@@ -153,6 +165,12 @@ export const EditMode = ({ member, onSaved, onDirtyChange }: Props) => {
       toast.error(t("toast-error-duplicate"));
       return;
     }
+    }
+
+    if (isNew) {
+      onSaved?.(formData);
+      return;
+    }
 
     void updateMemberPartial(member.id, {
       firstName: formData.firstName,
@@ -164,7 +182,7 @@ export const EditMode = ({ member, onSaved, onDirtyChange }: Props) => {
       dateOfDeath: formData.date.death || undefined,
     });
     toast.success(t("toast-success"));
-    onSaved?.();
+    onSaved?.(formData);
   };
 
   return (
