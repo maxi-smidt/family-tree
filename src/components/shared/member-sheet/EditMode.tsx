@@ -18,20 +18,37 @@ import { MemberDiseases } from "./MemberDiseases";
 type Props = {
   member: Member;
   onSaved?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
-export const EditMode = ({ member, onSaved }: Props) => {
+export const EditMode = ({ member, onSaved, onDirtyChange }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
   });
   const { updateMemberPartial, members } = useMemberStore();
 
   const [formData, setFormData] = useState<Member>(member);
+  const [initialData, setInitialData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     setFormData(member);
+    setInitialData(member);
+    onDirtyChange?.(false);
   }, [member]);
+
+  useEffect(() => {
+    const isDirty =
+      formData.firstName !== initialData.firstName ||
+      formData.lastName !== initialData.lastName ||
+      (formData.maidenName || "") !== (initialData.maidenName || "") ||
+      formData.gender !== initialData.gender ||
+      (formData.imageData || "") !== (initialData.imageData || "") ||
+      formData.date.birth !== initialData.date.birth ||
+      (formData.date.death || "") !== (initialData.date.death || "");
+
+    onDirtyChange?.(isDirty);
+  }, [formData, initialData, onDirtyChange]);
 
   const handleChange = (field: keyof Member, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));

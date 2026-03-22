@@ -15,12 +15,24 @@ import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   member: Member | null;
   initialEditMode?: boolean;
+  isNewMember?: boolean;
+  onDiscardNewMember?: () => Promise<void> | void;
 };
 
 export const MemberSheet = ({
@@ -28,6 +40,8 @@ export const MemberSheet = ({
   onClose,
   member,
   initialEditMode = false,
+  isNewMember = false,
+  onDiscardNewMember,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
@@ -35,6 +49,8 @@ export const MemberSheet = ({
   const { removeMember } = useMemberStore();
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     setIsEditMode(initialEditMode);
@@ -48,8 +64,32 @@ export const MemberSheet = ({
     onClose();
   };
 
+  const handleCloseRequest = () => {
+    if (isDirty) {
+      setIsUnsavedDialogOpen(true);
+      return;
+    }
+    onClose();
+  };
+
+  const handleDiscard = async () => {
+    if (isNewMember && onDiscardNewMember) {
+      await onDiscardNewMember();
+    }
+    setIsUnsavedDialogOpen(false);
+    onClose();
+  };
+
+  const handleSaveAndClose = () => {
+    const form = document.getElementById(
+      "edit-member-form",
+    ) as HTMLFormElement | null;
+    form?.requestSubmit();
+    setIsUnsavedDialogOpen(false);
+  };
+
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && handleCloseRequest()}>
       <SheetContent className="w-100 sm:w-135" showCloseButton={false}>
         <SheetHeader className="border-b">
           <div className="pr-10">
@@ -74,7 +114,11 @@ export const MemberSheet = ({
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-4 overflow-y-auto flex-1">
             {isEditMode ? (
-              <EditMode member={member} onSaved={onClose} />
+              <EditMode
+                member={member}
+                onSaved={onClose}
+                onDirtyChange={setIsDirty}
+              />
             ) : (
               <ViewMode member={member} />
             )}
@@ -105,6 +149,33 @@ export const MemberSheet = ({
           </SheetFooter>
         )}
       </SheetContent>
+      <AlertDialog
+        open={isUnsavedDialogOpen}
+        onOpenChange={setIsUnsavedDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("unsaved.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("unsaved.description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel onClick={() => setIsUnsavedDialogOpen(false)}>
+              {t("unsaved.stay")}
+            </AlertDialogCancel>
+            <AlertDialogAction variant="secondary" onClick={handleSaveAndClose}>
+              {t("unsaved.save")}
+            </AlertDialogAction>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => void handleDiscard()}
+            >
+              {t("unsaved.discard")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <ConfirmDeleteDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}

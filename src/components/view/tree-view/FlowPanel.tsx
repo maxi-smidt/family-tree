@@ -53,6 +53,7 @@ export const FlowPanel = () => {
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [newRelation, setNewRelation] = useState<any | null>(null);
+  const [isNewMemberSession, setIsNewMemberSession] = useState(false);
   const [pendingHorizontalRelation, setPendingHorizontalRelation] = useState<{
     sourceId: string;
     targetId: string;
@@ -80,6 +81,7 @@ export const FlowPanel = () => {
 
     setEditingMemberId(newMember.id);
     setIsEditMode(true);
+    setIsNewMemberSession(true);
   };
 
   const onAddParent = async (childId: string) => {
@@ -99,6 +101,7 @@ export const FlowPanel = () => {
 
     setEditingMemberId(newMember.id);
     setIsEditMode(true);
+    setIsNewMemberSession(true);
   };
 
   const onAddHorizontal = async (memberId: string, side: "left" | "right") => {
@@ -118,6 +121,7 @@ export const FlowPanel = () => {
       sourceId: memberId,
       targetId: newMember.id,
     });
+    setIsNewMemberSession(true);
   };
 
   const viewNodes = useFlowNodes(
@@ -229,6 +233,7 @@ export const FlowPanel = () => {
             onEditMember={(member) => {
               setEditingMemberId(member.id);
               setIsEditMode(true);
+              setIsNewMemberSession(false);
             }}
             onRearrange={rearrangeNodes}
           />
@@ -242,9 +247,16 @@ export const FlowPanel = () => {
       />
       <MemberSheet
         isOpen={!!editingMember}
-        onClose={() => setEditingMemberId(null)}
+        onClose={() => {
+          setEditingMemberId(null);
+          setIsNewMemberSession(false);
+        }}
         member={editingMember}
         initialEditMode={isEditMode}
+        isNewMember={isNewMemberSession}
+        onDiscardNewMember={async () => {
+          if (editingMemberId) await removeMember(editingMemberId);
+        }}
       />
       <AddRelationDialog
         isOpen={!!newRelation || !!pendingHorizontalRelation}

@@ -241,6 +241,13 @@
       "delete-confirm-description": "Bist du sicher, dass diese Person unwiderruflich gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
       "delete-confirm-cancel": "Abbrechen",
       "delete-confirm-confirm": "Löschen",
+      "unsaved": {
+        "title": "Ungespeicherte Änderungen",
+        "description": "Es gibt ungespeicherte Änderungen. Was möchtest du tun?",
+        "stay": "Bleiben",
+        "save": "Speichern & schließen",
+        "discard": "Verwerfen & schließen"
+      },
       "show-less": "Weniger anzeigen",
       "show-more": "Zeige {{count}} mehr",
       "events": {
