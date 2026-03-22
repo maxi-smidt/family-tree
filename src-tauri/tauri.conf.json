@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "family-tree",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "identifier": "com.msmidt.family-tree",
   "build": {
     "beforeDevCommand": "npm run dev",
