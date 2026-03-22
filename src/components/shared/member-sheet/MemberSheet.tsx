@@ -15,16 +15,7 @@ import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { UnsavedChangesDialog } from "@/components/shared/member-sheet/dialog/UnsavedChangesDialog";
 
 type Props = {
   isOpen: boolean;
@@ -160,33 +151,13 @@ export const MemberSheet = ({
           </SheetFooter>
         )}
       </SheetContent>
-      <AlertDialog
+      <UnsavedChangesDialog
         open={isUnsavedDialogOpen}
         onOpenChange={setIsUnsavedDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("unsaved.title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("unsaved.description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel onClick={() => setIsUnsavedDialogOpen(false)}>
-              {t("unsaved.stay")}
-            </AlertDialogCancel>
-            <AlertDialogAction variant="secondary" onClick={handleSaveAndClose}>
-              {t("unsaved.save")}
-            </AlertDialogAction>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => void handleDiscard()}
-            >
-              {t("unsaved.discard")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onStay={() => setIsUnsavedDialogOpen(false)}
+        onSave={handleSaveAndClose}
+        onDiscard={() => void handleDiscard()}
+      />
       <ConfirmDeleteDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
