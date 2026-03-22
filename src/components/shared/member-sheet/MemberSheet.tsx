@@ -82,11 +82,12 @@ export const MemberSheet = ({
         </div>
 
         {isEditMode && (
-          <SheetFooter className="mt-auto p-4 border-t bg-background">
+          <SheetFooter className="mt-auto p-4 border-t bg-background gap-2">
             <Button
               type="button"
               variant="destructive"
               size="sm"
+              className="flex-1"
               onClick={() => setIsDeleteDialogOpen(true)}
             >
               {t("delete")}
