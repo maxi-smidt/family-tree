@@ -37,7 +37,6 @@ export const MemberControls = ({
   nodes,
   selectedNodes,
   setMembersToDelete,
-  onEditMember,
   onCreateNewMember,
   onRearrange,
 }: Props) => {
@@ -49,7 +48,7 @@ export const MemberControls = ({
     isDiseaseMode,
     setIsDiseaseMode,
   } = useFamilyTreeSettings();
-  const { addMember, updateMemberPartial } = useMemberStore();
+  const { updateMemberPartial } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (

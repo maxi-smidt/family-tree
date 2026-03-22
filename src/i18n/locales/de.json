@@ -244,10 +244,10 @@
       "delete-confirm-confirm": "Löschen",
       "unsaved": {
         "title": "Ungespeicherte Änderungen",
-        "description": "Es gibt ungespeicherte Änderungen. Was möchtest du tun?",
+        "description": "Es gibt ungespeicherte Änderungen.",
         "stay": "Bleiben",
-        "save": "Speichern & schließen",
-        "discard": "Verwerfen & schließen"
+        "save": "Speichern",
+        "discard": "Verwerfen"
       },
       "show-less": "Weniger anzeigen",
       "show-more": "Zeige {{count}} mehr",

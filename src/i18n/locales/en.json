@@ -246,8 +246,8 @@
         "title": "Unsaved changes",
         "description": "You have unsaved changes. What would you like to do?",
         "stay": "Stay",
-        "save": "Save & Close",
-        "discard": "Discard & Close"
+        "save": "Save",
+        "discard": "Discard"
       },
       "show-less": "Show less",
       "show-more": "Show {{count}} more",
