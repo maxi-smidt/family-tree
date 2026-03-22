@@ -71,6 +71,9 @@ export const MemberSheet = ({
       setIsUnsavedDialogOpen(true);
       return;
     }
+    if (isNewMember && onDiscardNewMember) {
+      void onDiscardNewMember();
+    }
     onClose();
   };
 

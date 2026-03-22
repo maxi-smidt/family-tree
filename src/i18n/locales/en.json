@@ -203,6 +203,7 @@
       "toast-error-birth": "Death date cannot be before birth date",
       "toast-error-death": "Birth date cannot be after death date",
       "toast-error-duplicate": "A member with the same details already exists.",
+      "toast-error-required": "First name and last name are required.",
       "toast-success": "Member updated successfully",
       "gender-field": "Gender",
       "firstname-field": "First Name",

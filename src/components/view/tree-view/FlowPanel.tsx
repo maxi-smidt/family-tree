@@ -54,14 +54,18 @@ export const FlowPanel = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [newRelation, setNewRelation] = useState<any | null>(null);
   const [isNewMemberSession, setIsNewMemberSession] = useState(false);
+  const [pendingNewMember, setPendingNewMember] = useState<Member | null>(null);
   const [pendingHorizontalRelation, setPendingHorizontalRelation] = useState<{
     sourceId: string;
     targetId: string;
   } | null>(null);
 
   const editingMember = useMemo(
-    () => members.find((m) => m.id === editingMemberId) || null,
-    [members, editingMemberId],
+    () =>
+      pendingNewMember && editingMemberId === pendingNewMember.id
+        ? pendingNewMember
+        : members.find((m) => m.id === editingMemberId) || null,
+    [members, editingMemberId, pendingNewMember],
   );
 
   const onAddChild = async (parentId: string) => {
@@ -235,6 +239,12 @@ export const FlowPanel = () => {
               setIsEditMode(true);
               setIsNewMemberSession(false);
             }}
+            onCreateNewMember={(member) => {
+              setPendingNewMember(member);
+              setEditingMemberId(member.id);
+              setIsEditMode(true);
+              setIsNewMemberSession(true);
+            }}
             onRearrange={rearrangeNodes}
           />
         </Panel>
@@ -250,12 +260,22 @@ export const FlowPanel = () => {
         onClose={() => {
           setEditingMemberId(null);
           setIsNewMemberSession(false);
+          setPendingNewMember(null);
         }}
         member={editingMember}
         initialEditMode={isEditMode}
         isNewMember={isNewMemberSession}
         onDiscardNewMember={async () => {
-          if (editingMemberId) await removeMember(editingMemberId);
+          if (pendingNewMember) setPendingNewMember(null);
+          if (editingMemberId && !pendingNewMember)
+            await removeMember(editingMemberId);
+        }}
+        onSaveNewMember={async (data) => {
+          if (pendingNewMember) {
+            const newMemberToSave = { ...pendingNewMember, ...data };
+            await addMember(newMemberToSave);
+            setPendingNewMember(null);
+          }
         }}
       />
       <AddRelationDialog

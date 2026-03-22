@@ -29,6 +29,7 @@ type Props = {
   selectedNodes: Node[];
   setMembersToDelete: (members: Member[]) => void;
   onEditMember: (member: Member) => void;
+  onCreateNewMember: (member: Member) => void;
   onRearrange: () => void;
 };
 
@@ -37,6 +38,7 @@ export const MemberControls = ({
   selectedNodes,
   setMembersToDelete,
   onEditMember,
+  onCreateNewMember,
   onRearrange,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
@@ -207,9 +209,7 @@ export const MemberControls = ({
     };
 
     const newMember = createMember(position);
-
-    await addMember(newMember);
-    onEditMember(newMember);
+    onCreateNewMember(newMember);
   }
 
   function onRemoveMembers() {

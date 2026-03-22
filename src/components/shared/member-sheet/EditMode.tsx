@@ -150,7 +150,6 @@ export const EditMode = ({
       return;
     }
 
-    if (!isNew) {
     const duplicate = members.find(
       (m) =>
         m.id !== member.id &&
@@ -164,7 +163,6 @@ export const EditMode = ({
     if (duplicate) {
       toast.error(t("toast-error-duplicate"));
       return;
-    }
     }
 
     if (isNew) {

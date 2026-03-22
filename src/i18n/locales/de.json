@@ -203,6 +203,7 @@
       "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
       "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",
       "toast-error-duplicate": "Eine Person mit denselben Daten existiert bereits.",
+      "toast-error-required": "Vor- und Nachname sind erforderlich.",
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
       "firstname-field": "Vorname",
