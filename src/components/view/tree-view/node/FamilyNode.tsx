@@ -120,13 +120,13 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="source"
         position={Position.Left}
         id="left"
-        className={`${isFastMode ? "h-1/2!" : "h-1/4!"} w-2! bg-muted-foreground! rounded-md!`}
+        className={`${isFastMode ? "h-3/5!" : "h-1/4!"} bg-muted-foreground! rounded-md!`}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        className={`${isFastMode ? "h-1/2!" : "h-1/4!"} w-2! bg-muted-foreground! rounded-md!`}
+        className={`${isFastMode ? "h-3/5!" : "h-1/4!"} bg-muted-foreground! rounded-md!`}
       />
       <div className="absolute top-2 flex justify-between w-full px-2">
         <Button variant="outline" size="icon-sm" onClick={onViewClick}>

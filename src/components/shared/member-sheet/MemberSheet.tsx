@@ -83,23 +83,25 @@ export const MemberSheet = ({
 
         {isEditMode && (
           <SheetFooter className="mt-auto p-4 border-t bg-background gap-2">
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              className="flex-1"
-              onClick={() => setIsDeleteDialogOpen(true)}
-            >
-              {t("delete")}
-            </Button>
-            <Button
-              type="submit"
-              form="edit-member-form"
-              className="flex-1"
-              size="sm"
-            >
-              {t("save")}
-            </Button>
+            <div className="grid grid-cols-2 gap-4">
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="flex-1"
+                onClick={() => setIsDeleteDialogOpen(true)}
+              >
+                {t("delete")}
+              </Button>
+              <Button
+                type="submit"
+                form="edit-member-form"
+                className="flex-1"
+                size="sm"
+              >
+                {t("save")}
+              </Button>
+            </div>
           </SheetFooter>
         )}
       </SheetContent>
