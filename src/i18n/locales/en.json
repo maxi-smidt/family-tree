@@ -39,7 +39,8 @@
       "id": "ID",
       "name": "Name",
       "create": "Create",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "toast-error": "Could not create the tree."
     },
     "image-crop": {
       "title": "Crop image",
@@ -117,6 +118,17 @@
       "life-events": "Life Events",
       "stories": "Stories & Biographies",
       "images": "Linked Images"
+    },
+    "share-tree": {
+      "title": "Share \"{{name}}\"",
+      "description": "Give other users access to this tree.",
+      "shared": "Access updated.",
+      "share-error": "Could not share the tree.",
+      "revoke-error": "Could not revoke access.",
+      "username-placeholder": "Username",
+      "role-owner": "Owner",
+      "role-editor": "Editor",
+      "role-viewer": "Viewer"
     }
   },
   "gallery-view": {
@@ -400,7 +412,9 @@
       "merging-database": "Merging...",
       "new-database": "New database",
       "database-copy": "(copy)",
-      "toast-preview-error": "Error loading databases for preview."
+      "toast-preview-error": "Error loading databases for preview.",
+      "unavailable-title": "Merging is not available yet",
+      "unavailable-description": "Tree merging is being reworked for the web version and will return in a future update."
     },
     "preview": {
       "title": "Preview Analysis",
@@ -451,7 +465,9 @@
     "toast-import-success": "Database imported successfully!",
     "toast-import-error": "Failed to import database.",
     "toast-rename-success": "Database renamed successfully!",
-    "toast-rename-empty": "Database name cannot be empty."
+    "toast-rename-empty": "Database name cannot be empty.",
+    "share-button": "Share",
+    "toast-export-error": "Could not export the tree."
   },
   "common": {
     "english": "English",
@@ -470,5 +486,61 @@
       "o": "other"
     },
     "date-unknown": "unknown"
+  },
+  "auth": {
+    "login": {
+      "title": "Family Tree",
+      "subtitle": "Sign in to your account",
+      "register-subtitle": "Create your account",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "sign-in": "Sign in",
+      "register": "Create account",
+      "sign-in-authentik": "Sign in with Authentik",
+      "switch-to-register": "Need an account? Register",
+      "switch-to-login": "Already have an account? Sign in",
+      "login-error": "Incorrect username or password.",
+      "register-error": "Could not create account."
+    },
+    "change-password": {
+      "title": "Change password",
+      "description": "Update the password for your account.",
+      "current": "Current password",
+      "new": "New password",
+      "cancel": "Cancel",
+      "save": "Save",
+      "success": "Password changed.",
+      "error": "Could not change password."
+    },
+    "user-menu": {
+      "change-password": "Change password",
+      "admin": "Administration",
+      "logout": "Log out"
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "description": "Manage users and instance settings.",
+    "users-tab": "Users",
+    "settings-tab": "Settings",
+    "col-username": "Username",
+    "col-provider": "Provider",
+    "col-admin": "Admin",
+    "col-active": "Active",
+    "user-created": "User created.",
+    "user-create-error": "Could not create user.",
+    "user-update-error": "Could not update user.",
+    "user-delete-error": "Could not delete user.",
+    "settings-saved": "Settings saved.",
+    "settings-error": "Could not save settings.",
+    "new-password": "Password",
+    "email": "Email",
+    "add-user": "Add user",
+    "instance-name": "Instance name",
+    "default-language": "Default language",
+    "self-registration": "Allow self-registration",
+    "self-registration-hint": "Let anyone create their own account.",
+    "save-settings": "Save settings"
   }
 }

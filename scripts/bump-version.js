@@ -6,8 +6,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, "..");
 
 const packageJsonPath = path.join(projectRoot, "package.json");
-const tauriConfPath = path.join(projectRoot, "src-tauri", "tauri.conf.json");
-const cargoTomlPath = path.join(projectRoot, "src-tauri", "Cargo.toml");
 const constantsJsonPath = path.join(projectRoot, "constants.json");
 
 const type = process.argv[2]; // 'major', 'minor', or 'patch'
@@ -38,23 +36,6 @@ const newVersion = bumpVersion(packageJson.version, type);
 packageJson.version = newVersion;
 fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2) + "\n");
 console.log(`Updated package.json to ${newVersion}`);
-
-// Update tauri.conf.json
-const tauriConf = JSON.parse(fs.readFileSync(tauriConfPath, "utf8"));
-tauriConf.version = newVersion;
-fs.writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2) + "\n");
-console.log(`Updated tauri.conf.json to ${newVersion}`);
-
-// Update Cargo.toml
-let cargoToml = fs.readFileSync(cargoTomlPath, "utf8");
-// Replace version = "x.y.z" inside [package] block
-// This regex looks for version = "..." specifically in the top section usually
-cargoToml = cargoToml.replace(
-  /^version = "[^"]+"/m,
-  `version = "${newVersion}"`,
-);
-fs.writeFileSync(cargoTomlPath, cargoToml);
-console.log(`Updated Cargo.toml to ${newVersion}`);
 
 // Update constants.json
 const constantsJson = JSON.parse(fs.readFileSync(constantsJsonPath, "utf8"));

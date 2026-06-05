@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.github
+.husky
+.idea
+.vscode
+backend
+appdata
+data
+*.log
+.DS_Store
+.env

@@ -1,137 +1,85 @@
-import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { Database, InspectDatabaseResult } from "@/types/database";
 import { useCallback } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import { EXTENSION } from "@/constants";
+import { Database as Tree } from "@/types/database";
+import { api } from "@/services/api";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
-import { save, open } from "@tauri-apps/plugin-dialog";
+
+interface InspectResult {
+  password_required: boolean;
+  name: string | null;
+}
+
+/** Opens the browser file picker and resolves with the chosen file (or null). */
+export function pickFile(accept = ".treedb"): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.onchange = () => resolve(input.files?.[0] ?? null);
+    // If the dialog is dismissed no change fires; that simply never resolves,
+    // which is fine because the surrounding flow is user-initiated.
+    input.click();
+  });
+}
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 export const useDatabaseManager = () => {
-  const removeDatabaseFromSettings = useFamilyTreeSettings(
-    (s) => s.removeDatabase,
-  );
-  const addDatabaseToSettings = useFamilyTreeSettings((s) => s.addDatabase);
-  const disconnectDatabase = useDatabaseStore((s) => s.disconnect);
-  const connectDatabase = useDatabaseStore((s) => s.connect);
-  const databases = useFamilyTreeSettings((s) => s.databases);
+  const deleteDatabase = useDatabaseStore((s) => s.deleteDatabase);
+  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
+  const loadTrees = useDatabaseStore((s) => s.loadTrees);
 
   const removeDatabase = useCallback(
-    async (database: Database) => {
-      try {
-        await disconnectDatabase();
-
-        await invoke<number>("delete_database", {
-          id: database.id,
-        });
-
-        removeDatabaseFromSettings(database);
-      } catch (e) {
-        console.error(e);
-      }
+    async (tree: Tree) => {
+      await deleteDatabase(tree);
     },
-    [removeDatabaseFromSettings],
+    [deleteDatabase],
   );
 
-  const exportDatabase = useCallback(
-    async (database: Database, password?: string) => {
-      let exportFailed = false;
-      try {
-        const savePath = await save({
-          filters: [{ name: "Database", extensions: [EXTENSION] }],
-          defaultPath: `${database.name}.${EXTENSION}`,
-        });
-        if (!savePath) return;
+  const exportDatabase = useCallback(async (tree: Tree, password?: string) => {
+    const response = await api.getRaw(
+      `/trees/${tree.id}/export`,
+      password ? { password } : undefined,
+    );
+    const blob = await response.blob();
+    triggerDownload(blob, `${tree.name || "family-tree"}.treedb`);
+  }, []);
 
-        await disconnectDatabase();
-
-        try {
-          await invoke("export_database", {
-            id: database.id,
-            targetPath: savePath,
-            password: password || null,
-          });
-        } catch (error) {
-          // If export fails, attempt to reconnect the database
-          exportFailed = true;
-          console.error("Export failed:", error);
-          await connectDatabase(database);
-        }
-
-        if (!exportFailed) {
-          await connectDatabase(database);
-        }
-      } catch (error) {
-        console.error("Export process failed:", error);
-        // Ensure we're connected again if possible
-        try {
-          await connectDatabase(database);
-        } catch (reconnectError) {
-          console.error(
-            "Failed to reconnect after export failure:",
-            reconnectError,
-          );
-        }
-      }
+  const inspectImport = useCallback(
+    async (file: File): Promise<InspectResult> => {
+      const form = new FormData();
+      form.append("file", file);
+      return api.postForm<InspectResult>("/trees/import/inspect", form);
     },
-    [disconnectDatabase, connectDatabase],
-  );
-
-  const importDatabaseCheck = useCallback(async () => {
-    const sourcePath = await open({
-      multiple: false,
-      filters: [{ name: "Database", extensions: [EXTENSION] }],
-    });
-
-    if (!sourcePath || Array.isArray(sourcePath)) return;
-
-    const meta = await invoke<InspectDatabaseResult>("inspect_database", {
-      sourcePath,
-    });
-
-    const collision = meta.id
-      ? databases.find((db) => db.id === meta.id)
-      : undefined;
-
-    return { collision, sourcePath, meta };
-  }, [databases]);
-
-  const inspectDatabaseWithPassword = useCallback(
-    async (sourcePath: string, password: string) => {
-      const meta = await invoke<InspectDatabaseResult>(
-        "inspect_database_with_password",
-        {
-          sourcePath,
-          password,
-        },
-      );
-
-      const collision = meta.id
-        ? databases.find((db) => db.id === meta.id)
-        : undefined;
-
-      return { collision, sourcePath, meta };
-    },
-    [databases],
+    [],
   );
 
   const importDatabase = useCallback(
-    async (sourcePath: string, overwrite: boolean, password?: string) => {
-      const result = await invoke<Database>("import_database", {
-        sourcePath,
-        overwrite,
-        password: password || null,
-      });
-      addDatabaseToSettings(result);
-      return result;
+    async (file: File, password?: string, name?: string) => {
+      const form = new FormData();
+      form.append("file", file);
+      if (password) form.append("password", password);
+      if (name) form.append("name", name);
+      const tree = await api.postForm<Tree>("/trees/import", form);
+      await loadTrees();
+      await selectDatabase(tree);
+      return tree;
     },
-    [addDatabaseToSettings],
+    [loadTrees, selectDatabase],
   );
 
   return {
     removeDatabase,
     exportDatabase,
-    importDatabaseCheck,
-    inspectDatabaseWithPassword,
+    inspectImport,
     importDatabase,
   };
 };

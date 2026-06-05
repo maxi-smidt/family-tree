@@ -3,25 +3,21 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
-const host = process.env.TAURI_DEV_HOST;
+// Backend the dev server proxies `/api` to. Override with VITE_PROXY_TARGET.
+const apiTarget = process.env.VITE_PROXY_TARGET || "http://localhost:8000";
 
 // https://vite.dev/config/
-export default defineConfig(async () => ({
+export default defineConfig({
   plugins: [react(), tailwindcss()],
-  clearScreen: false,
   server: {
     port: 1420,
-    strictPort: true,
-    host: host || false,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
-    watch: {
-      ignored: ["**/src-tauri/**"],
+    // Proxy API + media calls to FastAPI so the SPA can use same-origin
+    // relative URLs (e.g. /api/media/...) in both dev and production.
+    proxy: {
+      "/api": {
+        target: apiTarget,
+        changeOrigin: true,
+      },
     },
   },
   resolve: {
@@ -35,4 +31,4 @@ export default defineConfig(async () => ({
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
   },
-}));
+});

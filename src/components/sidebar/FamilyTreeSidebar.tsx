@@ -12,6 +12,7 @@ import { EdgeTypeSelector } from "@/components/sidebar/EdgeTypeSelector.tsx";
 import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
 import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
 import { ThemeSelector } from "@/components/sidebar/ThemeSelector.tsx";
+import { UserMenu } from "@/components/auth/UserMenu";
 import { APP_VERSION } from "@/constants";
 import { useTranslation } from "react-i18next";
 
@@ -50,6 +51,7 @@ export function FamilyTreeSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        <UserMenu />
         <div className="text-xs text-muted-foreground p-2 text-center select-none">
           v{APP_VERSION}
         </div>

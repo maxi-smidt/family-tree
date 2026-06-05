@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { Story, StoryInput, mapStoryFromDB } from "@/types/story";
 import { DatabaseService } from "@/services/DatabaseService";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { activeTreeId } from "@/hooks/useDatabaseStore";
 
 interface StoryState {
   stories: Story[];
@@ -20,14 +20,14 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   stories: [],
 
   refreshStories: async () => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) {
+    const treeId = activeTreeId();
+    if (!treeId) {
       set({ stories: [] });
       return;
     }
 
-    const storiesResult = await DatabaseService.getStories(db);
-    const linksResult = await DatabaseService.getStoryMemberLinks(db);
+    const storiesResult = await DatabaseService.getStories(treeId);
+    const linksResult = await DatabaseService.getStoryMemberLinks(treeId);
 
     const stories = storiesResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -44,43 +44,43 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   },
 
   addStory: async (memberIds: string[], story: StoryInput) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await DatabaseService.addStory(db, id, story, now);
+    await DatabaseService.addStory(treeId, id, story, now);
 
     // Link story to all selected members
     for (const memberId of memberIds) {
-      await DatabaseService.linkStoryToMember(db, id, memberId);
+      await DatabaseService.linkStoryToMember(treeId, id, memberId);
     }
 
     await get().refreshStories();
   },
 
   updateStory: async (id: string, story: StoryInput, memberIds: string[]) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
     const now = new Date().toISOString();
-    await DatabaseService.updateStory(db, id, story, now);
+    await DatabaseService.updateStory(treeId, id, story, now);
 
     // Remove old links and add new ones
-    await DatabaseService.removeStoryLinks(db, id);
+    await DatabaseService.removeStoryLinks(treeId, id);
     for (const memberId of memberIds) {
-      await DatabaseService.linkStoryToMember(db, id, memberId);
+      await DatabaseService.linkStoryToMember(treeId, id, memberId);
     }
 
     await get().refreshStories();
   },
 
   removeStory: async (id: string) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
-    await DatabaseService.removeStory(db, id);
+    await DatabaseService.removeStory(treeId, id);
     await get().refreshStories();
   },
 }));

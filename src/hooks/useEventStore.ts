@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { Event, EventInput, mapEventFromDB } from "@/types/event";
 import { DatabaseService } from "@/services/DatabaseService";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { activeTreeId } from "@/hooks/useDatabaseStore";
 
 interface EventState {
   events: Event[];
@@ -20,14 +20,14 @@ export const useEventStore = create<EventState>((set, get) => ({
   events: [],
 
   refreshEvents: async () => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) {
+    const treeId = activeTreeId();
+    if (!treeId) {
       set({ events: [] });
       return;
     }
 
-    const eventsResult = await DatabaseService.getEvents(db);
-    const linksResult = await DatabaseService.getEventMemberLinks(db);
+    const eventsResult = await DatabaseService.getEvents(treeId);
+    const linksResult = await DatabaseService.getEventMemberLinks(treeId);
 
     const events = eventsResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -44,42 +44,42 @@ export const useEventStore = create<EventState>((set, get) => ({
   },
 
   addEvent: async (memberIds: string[], event: EventInput) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await DatabaseService.addEvent(db, id, event, now);
+    await DatabaseService.addEvent(treeId, id, event, now);
 
     // Link event to all selected members
     for (const memberId of memberIds) {
-      await DatabaseService.linkEventToMember(db, id, memberId);
+      await DatabaseService.linkEventToMember(treeId, id, memberId);
     }
 
     await get().refreshEvents();
   },
 
   updateEvent: async (id: string, event: EventInput, memberIds: string[]) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
-    await DatabaseService.updateEvent(db, id, event);
+    await DatabaseService.updateEvent(treeId, id, event);
 
     // Remove old links and add new ones
-    await DatabaseService.removeEventLinks(db, id);
+    await DatabaseService.removeEventLinks(treeId, id);
     for (const memberId of memberIds) {
-      await DatabaseService.linkEventToMember(db, id, memberId);
+      await DatabaseService.linkEventToMember(treeId, id, memberId);
     }
 
     await get().refreshEvents();
   },
 
   removeEvent: async (id: string) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
-    await DatabaseService.removeEvent(db, id);
+    await DatabaseService.removeEvent(treeId, id);
     await get().refreshEvents();
   },
 }));

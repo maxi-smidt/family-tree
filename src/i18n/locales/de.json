@@ -39,7 +39,8 @@
       "id": "ID",
       "name": "Name",
       "create": "Erstellen",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "toast-error": "Stammbaum konnte nicht erstellt werden."
     },
     "image-crop": {
       "title": "Bild zuschneiden",
@@ -117,6 +118,17 @@
       "life-events": "Lebensereignisse",
       "stories": "Geschichten & Biographien",
       "images": "Verlinkte Bilder"
+    },
+    "share-tree": {
+      "title": "\"{{name}}\" teilen",
+      "description": "Anderen Benutzern Zugriff auf diesen Stammbaum geben.",
+      "shared": "Zugriff aktualisiert.",
+      "share-error": "Stammbaum konnte nicht geteilt werden.",
+      "revoke-error": "Zugriff konnte nicht entzogen werden.",
+      "username-placeholder": "Benutzername",
+      "role-owner": "Eigentümer",
+      "role-editor": "Bearbeiter",
+      "role-viewer": "Betrachter"
     }
   },
   "gallery-view": {
@@ -400,7 +412,9 @@
       "merging-database": "Am Vereinen...",
       "new-database": "Neue Datenbank",
       "database-copy": "(Kopie)",
-      "toast-preview-error": "Die Datenbanken konnten nicht für die Vorschau geladen werden."
+      "toast-preview-error": "Die Datenbanken konnten nicht für die Vorschau geladen werden.",
+      "unavailable-title": "Zusammenführen ist noch nicht verfügbar",
+      "unavailable-description": "Das Zusammenführen von Stammbäumen wird für die Web-Version überarbeitet und kehrt in einem zukünftigen Update zurück."
     },
     "preview": {
       "title": "Vorschau",
@@ -451,7 +465,9 @@
     "toast-import-success": "Datenbank erfolgreich importiert!",
     "toast-import-error": "Datenbank import fehlgeschlagen.",
     "toast-rename-success": "Datenbank erfolgreich umbenannt!",
-    "toast-rename-empty": "Datenbankname darf nicht leer sein."
+    "toast-rename-empty": "Datenbankname darf nicht leer sein.",
+    "share-button": "Teilen",
+    "toast-export-error": "Stammbaum konnte nicht exportiert werden."
   },
   "common": {
     "english": "Englisch",
@@ -470,5 +486,61 @@
       "o": "anderes"
     },
     "date-unknown": "unknown"
+  },
+  "auth": {
+    "login": {
+      "title": "Stammbaum",
+      "subtitle": "Bei deinem Konto anmelden",
+      "register-subtitle": "Konto erstellen",
+      "username": "Benutzername",
+      "email": "E-Mail",
+      "password": "Passwort",
+      "sign-in": "Anmelden",
+      "register": "Konto erstellen",
+      "sign-in-authentik": "Mit Authentik anmelden",
+      "switch-to-register": "Kein Konto? Registrieren",
+      "switch-to-login": "Bereits ein Konto? Anmelden",
+      "login-error": "Benutzername oder Passwort ist falsch.",
+      "register-error": "Konto konnte nicht erstellt werden."
+    },
+    "change-password": {
+      "title": "Passwort ändern",
+      "description": "Aktualisiere das Passwort für dein Konto.",
+      "current": "Aktuelles Passwort",
+      "new": "Neues Passwort",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "success": "Passwort geändert.",
+      "error": "Passwort konnte nicht geändert werden."
+    },
+    "user-menu": {
+      "change-password": "Passwort ändern",
+      "admin": "Verwaltung",
+      "logout": "Abmelden"
+    }
+  },
+  "admin": {
+    "title": "Verwaltung",
+    "description": "Benutzer und Instanzeinstellungen verwalten.",
+    "users-tab": "Benutzer",
+    "settings-tab": "Einstellungen",
+    "col-username": "Benutzername",
+    "col-provider": "Anbieter",
+    "col-admin": "Admin",
+    "col-active": "Aktiv",
+    "user-created": "Benutzer erstellt.",
+    "user-create-error": "Benutzer konnte nicht erstellt werden.",
+    "user-update-error": "Benutzer konnte nicht aktualisiert werden.",
+    "user-delete-error": "Benutzer konnte nicht gelöscht werden.",
+    "settings-saved": "Einstellungen gespeichert.",
+    "settings-error": "Einstellungen konnten nicht gespeichert werden.",
+    "new-password": "Passwort",
+    "email": "E-Mail",
+    "add-user": "Benutzer hinzufügen",
+    "instance-name": "Instanzname",
+    "default-language": "Standardsprache",
+    "self-registration": "Selbstregistrierung erlauben",
+    "self-registration-hint": "Jeder kann ein eigenes Konto erstellen.",
+    "save-settings": "Einstellungen speichern"
   }
 }

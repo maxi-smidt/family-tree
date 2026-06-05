@@ -27,7 +27,7 @@ const nodeTypes = { familyMember: FamilyNode };
 const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
-  const activeDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
+  const activeDatabase = useDatabaseStore((s) => s.selectedDatabase);
   const {
     members,
     removeMember,
@@ -36,7 +36,7 @@ export const FlowPanel = () => {
     removeRelation,
     addMember,
   } = useMemberStore();
-  const { isReady, connect } = useDatabaseStore();
+  const { isReady } = useDatabaseStore();
   const {
     edgeType,
     isLockedScreen,
@@ -122,10 +122,6 @@ export const FlowPanel = () => {
     setSelectedNodes,
     setNewRelation,
   );
-
-  useEffect(() => {
-    if (activeDatabase) void connect(activeDatabase);
-  }, [connect, activeDatabase]);
 
   useEffect(() => {
     setEdges(viewEdges);

@@ -1,9 +1,7 @@
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";
 import { ImageCard } from "@/components/view/gallery-view/ImageCard";
-import { useMemo, useRef, useState } from "react";
+import { ChangeEvent, useMemo, useRef, useState } from "react";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 import { GalleryImage } from "@/types/gallery";
 import { UploadImageCard } from "@/components/view/gallery-view/UploadImageCard";
@@ -38,6 +36,7 @@ export const GalleryView = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const parentRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const rowVirtualizer = useVirtualizer({
     count: galleryImages.length,
@@ -46,23 +45,16 @@ export const GalleryView = () => {
     overscan: 5,
   });
 
-  const handleUploadImage = async () => {
-    const filePath = await open({
-      multiple: false,
-      directory: false,
-      filters: [
-        {
-          name: "Images",
-          extensions: ["png", "jpg", "jpeg", "webp"],
-        },
-      ],
-    });
+  const handleUploadImage = () => {
+    fileInputRef.current?.click();
+  };
 
-    if (!filePath) return;
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
 
     try {
-      const fileBytes = await readFile(filePath);
-      const blob = new Blob([fileBytes]);
       const reader = new FileReader();
       reader.onload = (event) => {
         const base64String = event.target?.result as string;
@@ -104,7 +96,8 @@ export const GalleryView = () => {
         img.onerror = () => toast.error(t("toast-error-image-upload"));
         img.src = base64String;
       };
-      reader.readAsDataURL(blob);
+      reader.onerror = () => toast.error(t("toast-error-read-file"));
+      reader.readAsDataURL(file);
     } catch (e) {
       toast.error(t("toast-error-read-file"));
     }
@@ -178,6 +171,13 @@ export const GalleryView = () => {
           </Button>
         </div>
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
       <div ref={parentRef} className="flex-1 overflow-y-auto">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
           <UploadImageCard onClick={handleUploadImage} />

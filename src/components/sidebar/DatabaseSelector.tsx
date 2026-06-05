@@ -6,7 +6,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SettingsField } from "@/components/sidebar/SettingsField";
-import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useTranslation } from "react-i18next";
 
@@ -14,19 +13,13 @@ export const DatabaseSelector = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sidebar.database-selector",
   });
-  const databases = useFamilyTreeSettings((s) => s.databases);
-  const selectedDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
-  const setSelectedDatabase = useFamilyTreeSettings(
-    (s) => s.setSelectedDatabase,
-  );
-  const { connect } = useDatabaseStore();
+  const databases = useDatabaseStore((s) => s.databases);
+  const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
+  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
 
   const handleDatabaseChange = async (dbId: string) => {
     const db = databases.find((d) => d.id === dbId);
-    if (db) {
-      setSelectedDatabase(db);
-      await connect(db);
-    }
+    if (db) await selectDatabase(db);
   };
 
   return (

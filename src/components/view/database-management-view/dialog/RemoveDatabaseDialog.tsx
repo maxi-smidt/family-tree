@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
@@ -30,11 +30,9 @@ export const RemoveDatabaseDialog = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.remove-database",
   });
-  const databases = useFamilyTreeSettings((s) => s.databases);
-  const selectedDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
-  const setSelectedDatabase = useFamilyTreeSettings(
-    (s) => s.setSelectedDatabase,
-  );
+  const databases = useDatabaseStore((s) => s.databases);
+  const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
+  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
   const { removeDatabase } = useDatabaseManager();
   const [typedName, setTypedName] = useState("");
 
@@ -83,15 +81,16 @@ export const RemoveDatabaseDialog = ({
     resetState();
     onCancel();
   }
-  function onConfirmation() {
+  async function onConfirmation() {
     if (typedName !== selectedDatabase?.name) return;
-    const nextDatabase = databases.find((db) => db.id !== selectedDatabase.id);
+    const toRemove = selectedDatabase;
+    const nextDatabase = databases.find((db) => db.id !== toRemove.id);
 
     if (!nextDatabase) {
       toast.warning(t("toast-warning"));
     }
-    setSelectedDatabase(nextDatabase);
-    void removeDatabase(selectedDatabase);
+    await selectDatabase(nextDatabase);
+    await removeDatabase(toRemove);
     resetState();
     toast.success(t("toast-success"));
     onConfirm();

@@ -1,11 +1,7 @@
 import { create } from "zustand";
-import { appConfigDir, join } from "@tauri-apps/api/path";
-import { DATABASE_DIRECTORY, EXTENSION } from "@/constants";
-import { Database as DatabaseType } from "@/types/database";
-import Database from "@tauri-apps/plugin-sql";
-import { BaseDirectory, exists, mkdir } from "@tauri-apps/plugin-fs";
+import { Database as Tree } from "@/types/database";
+import { api } from "@/services/api";
 import { DatabaseService } from "@/services/DatabaseService";
-import { invoke } from "@tauri-apps/api/core";
 import { RelationType } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -15,127 +11,152 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 interface DatabaseMetaData {
   id?: string;
   name?: string;
-  fileName?: string;
   createdAt?: string;
   lastOpened?: string;
-  appVersion?: string;
 }
 
 interface DatabaseState {
+  databases: Tree[];
+  selectedDatabase: Tree | undefined;
   metadata: DatabaseMetaData;
   relationTypes: { id: RelationType }[];
   isReady: boolean;
-  db: Database | null;
 
-  connect: (database: DatabaseType) => Promise<void>;
+  loadTrees: () => Promise<void>;
+  createDatabase: (name: string, id?: string) => Promise<Tree>;
+  renameDatabase: (tree: Tree, name: string) => Promise<void>;
+  deleteDatabase: (tree: Tree) => Promise<void>;
+  selectDatabase: (tree: Tree | undefined) => Promise<void>;
+  connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
-  refreshMetadata: (db: Database) => Promise<void>;
+  refreshMetadata: () => Promise<void>;
   refreshRelationTypes: () => Promise<void>;
   addRelationType: (id: string, description: string) => Promise<void>;
 }
 
+const clearDataStores = async () => {
+  await Promise.all([
+    useMemberStore.getState().refreshMembers(),
+    useGalleryStore.getState().refreshGalleryImages(),
+    useEventStore.getState().refreshEvents(),
+    useStoryStore.getState().refreshStories(),
+  ]);
+};
+
 export const useDatabaseStore = create<DatabaseState>((set, get) => ({
+  databases: [],
+  selectedDatabase: undefined,
   metadata: {},
   relationTypes: [],
   isReady: false,
-  db: null,
 
-  disconnect: async () => {
-    const { db } = get();
-    if (db) {
-      await db.close();
-      set({
-        db: null,
-        isReady: false,
-        metadata: {},
-        relationTypes: [],
-      });
-      // Clear other stores
-      await useMemberStore.getState().refreshMembers();
-      await useGalleryStore.getState().refreshGalleryImages();
-      await useEventStore.getState().refreshEvents();
-      await useStoryStore.getState().refreshStories();
+  loadTrees: async () => {
+    const trees = await api.get<Tree[]>("/trees");
+    set({ databases: trees });
+    // Drop a stale selection that no longer exists / is no longer accessible.
+    const selected = get().selectedDatabase;
+    if (selected && !trees.some((t) => t.id === selected.id)) {
+      await get().disconnect();
     }
   },
 
-  connect: async (database: DatabaseType) => {
+  createDatabase: async (name: string, id?: string) => {
+    const tree = await api.post<Tree>("/trees", { name, id });
+    set((s) => ({ databases: [tree, ...s.databases] }));
+    await get().selectDatabase(tree);
+    return tree;
+  },
+
+  renameDatabase: async (tree: Tree, name: string) => {
+    const updated = await api.patch<Tree>(`/trees/${tree.id}`, { name });
+    set((s) => ({
+      databases: s.databases.map((t) => (t.id === tree.id ? updated : t)),
+      selectedDatabase:
+        s.selectedDatabase?.id === tree.id ? updated : s.selectedDatabase,
+    }));
+  },
+
+  deleteDatabase: async (tree: Tree) => {
+    await api.del(`/trees/${tree.id}`);
+    const wasSelected = get().selectedDatabase?.id === tree.id;
+    set((s) => ({
+      databases: s.databases.filter((t) => t.id !== tree.id),
+    }));
+    if (wasSelected) await get().disconnect();
+  },
+
+  selectDatabase: async (tree: Tree | undefined) => {
+    if (!tree) {
+      await get().disconnect();
+      return;
+    }
+    set({ selectedDatabase: tree });
+    await get().connect(tree);
+  },
+
+  connect: async (tree: Tree) => {
     set({
+      selectedDatabase: tree,
       isReady: false,
       metadata: {},
       relationTypes: [],
-      db: null,
     });
-
-    const appConfigPath = await appConfigDir();
-
-    const fullPath = await join(
-      appConfigPath,
-      DATABASE_DIRECTORY,
-      `${database.id}.${EXTENSION}`,
-    );
-
-    const dirExists = await exists(DATABASE_DIRECTORY, {
-      baseDir: BaseDirectory.AppConfig,
-    });
-    if (!dirExists) {
-      await mkdir(DATABASE_DIRECTORY, {
-        baseDir: BaseDirectory.AppConfig,
-        recursive: true,
-      });
+    // Marks the tree as "opened" server-side and returns the latest role.
+    try {
+      const fresh = await api.get<Tree>(`/trees/${tree.id}`);
+      set((s) => ({
+        selectedDatabase: fresh,
+        databases: s.databases.map((t) => (t.id === fresh.id ? fresh : t)),
+      }));
+    } catch {
+      // non-fatal; continue with what we have
     }
-
-    await invoke("initialize_database", { id: database.id });
-
-    const connectionString = `sqlite:${fullPath}`;
-    const dbInstance = await Database.load(connectionString);
-
-    const metaCheck = await DatabaseService.checkMetadataKey(
-      dbInstance,
-      "createdAt",
-    );
-
-    const now = new Date().toISOString();
-    if (metaCheck.length === 0) {
-      await DatabaseService.initMetadata(
-        dbInstance,
-        database.id,
-        database.name,
-        now,
-      );
-    }
-
-    await DatabaseService.updateLastOpened(dbInstance, now);
-
-    set({ db: dbInstance });
 
     await Promise.all([
-      get().refreshMetadata(dbInstance),
+      get().refreshMetadata(),
       get().refreshRelationTypes(),
       useMemberStore.getState().refreshMembers(),
       useGalleryStore.getState().refreshGalleryImages(),
       useEventStore.getState().refreshEvents(),
       useStoryStore.getState().refreshStories(),
     ]);
-
     set({ isReady: true });
   },
 
-  refreshMetadata: async (db: Database) => {
-    const metaObj = await DatabaseService.getMetadata(db);
-    set({ metadata: metaObj });
+  disconnect: async () => {
+    set({
+      selectedDatabase: undefined,
+      isReady: false,
+      metadata: {},
+      relationTypes: [],
+    });
+    await clearDataStores();
+  },
+
+  refreshMetadata: async () => {
+    const tree = get().selectedDatabase;
+    if (!tree) return;
+    const metadata = await api.get<DatabaseMetaData>(
+      `/trees/${tree.id}/metadata`,
+    );
+    set({ metadata });
   },
 
   refreshRelationTypes: async () => {
-    const db = get().db;
-    if (!db) return;
-    const types = await DatabaseService.getRelationTypes(db);
+    const tree = get().selectedDatabase;
+    if (!tree) return;
+    const types = await DatabaseService.getRelationTypes(tree.id);
     set({ relationTypes: types });
   },
 
   addRelationType: async (id: string, description: string) => {
-    const db = get().db;
-    if (!db) return;
-    await DatabaseService.addRelationType(db, id, description);
+    const tree = get().selectedDatabase;
+    if (!tree) return;
+    await DatabaseService.addRelationType(tree.id, id, description);
     await get().refreshRelationTypes();
   },
 }));
+
+/** Convenience accessor used by the data stores. */
+export const activeTreeId = (): string | undefined =>
+  useDatabaseStore.getState().selectedDatabase?.id;

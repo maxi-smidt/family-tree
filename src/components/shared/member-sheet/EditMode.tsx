@@ -1,12 +1,10 @@
 import { Input } from "@/components/ui/input";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { Mars, Upload, User, Venus, VenusAndMars } from "lucide-react";
 import { Gender, Member } from "@/types/member";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
-import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
@@ -27,6 +25,7 @@ export const EditMode = ({ member }: Props) => {
 
   const [formData, setFormData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(member);
@@ -36,32 +35,21 @@ export const EditMode = ({ member }: Props) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  async function handleSelectImage() {
-    const filePath = await open({
-      multiple: false,
-      directory: false,
-      filters: [
-        {
-          name: "Images",
-          extensions: ["png", "jpg", "jpeg", "webp", "svg"],
-        },
-      ],
-    });
+  function handleSelectImage() {
+    fileInputRef.current?.click();
+  }
 
-    if (!filePath) return;
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
 
-    try {
-      const fileBytes = await readFile(filePath);
-      const blob = new Blob([fileBytes]);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64String = event.target?.result as string;
-        setSelectedImage(base64String);
-      };
-      reader.readAsDataURL(blob);
-    } catch (e) {
-      toast.error(t("toast-error-file"));
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setSelectedImage(event.target?.result as string);
+    };
+    reader.onerror = () => toast.error(t("toast-error-file"));
+    reader.readAsDataURL(file);
   }
 
   const onConfirm = (imageData: string) => {
@@ -171,6 +159,13 @@ export const EditMode = ({ member }: Props) => {
             <Upload className="text-white w-8 h-8" />
           </div>
         </label>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          className="hidden"
+        />
         <ImageCropDialog
           isOpen={!!selectedImage}
           imageData={selectedImage}

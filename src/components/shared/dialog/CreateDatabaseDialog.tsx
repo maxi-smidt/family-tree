@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
 import { useState } from "react";
-import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 type Props = {
@@ -30,8 +31,7 @@ export const CreateDatabaseDialog = ({
   });
   const [databaseId, setDatabaseId] = useState(crypto.randomUUID());
   const [databaseName, setDatabaseName] = useState<string>("");
-  const addDatabase = useFamilyTreeSettings((s) => s.addDatabase);
-  const selectDatabase = useFamilyTreeSettings((s) => s.setSelectedDatabase);
+  const createDatabase = useDatabaseStore((s) => s.createDatabase);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancellation()}>
@@ -79,16 +79,16 @@ export const CreateDatabaseDialog = ({
     onCancel();
   }
 
-  function onConfirmation() {
+  async function onConfirmation() {
     if (!databaseName) return;
-    const newDatabase = {
-      id: databaseId,
-      name: databaseName,
-    };
-    addDatabase(newDatabase);
-    selectDatabase(newDatabase);
-    resetState();
-    onConfirm();
+    try {
+      await createDatabase(databaseName, databaseId);
+      resetState();
+      onConfirm();
+    } catch (e) {
+      console.error(e);
+      toast.error(t("toast-error"));
+    }
   }
 
   function resetState() {

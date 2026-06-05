@@ -1,4 +1,13 @@
-import Database from "@tauri-apps/plugin-sql";
+/**
+ * Data-access layer for the FastAPI backend.
+ *
+ * Method names and return shapes intentionally match the previous SQLite-backed
+ * service so the Zustand stores barely changed: each method now takes a
+ * `treeId` instead of a database handle and issues an HTTP request whose JSON
+ * payload mirrors the original row shapes (`MemberDB`, `RelationDB`, ...).
+ */
+
+import { api } from "@/services/api";
 import {
   Member,
   MemberDB,
@@ -11,331 +20,242 @@ import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB } from "@/types/disease";
-import { QUERIES } from "@/db/queries";
+
+const base = (treeId: string) => `/trees/${treeId}`;
 
 export class DatabaseService {
-  static async getMetadata(db: Database) {
-    const rows = await db.select<{ key: string; value: string }[]>(
-      QUERIES.METADATA.SELECT_ALL,
-    );
-    const metaObj: Record<string, string> = {};
-    rows.forEach((row) => {
-      metaObj[row.key] = row.value;
-    });
-    return metaObj;
+  // --- Relation types ------------------------------------------------------
+  static getRelationTypes(treeId: string) {
+    return api.get<{ id: RelationType }[]>(`${base(treeId)}/relation-types`);
   }
 
-  static async getRelationTypes(db: Database) {
-    return await db.select<{ id: RelationType }[]>(
-      QUERIES.RELATION_TYPES.SELECT_ALL,
-    );
+  static addRelationType(treeId: string, id: string, description: string) {
+    return api.post(`${base(treeId)}/relation-types`, { id, description });
   }
 
-  static async getMembers(db: Database) {
-    return await db.select<MemberDB[]>(QUERIES.MEMBERS.SELECT_ALL);
+  // --- Members -------------------------------------------------------------
+  static getMembers(treeId: string) {
+    return api.get<MemberDB[]>(`${base(treeId)}/members`);
   }
 
-  static async getRelations(db: Database) {
-    return await db.select<RelationDB[]>(QUERIES.RELATIONS.SELECT_ALL);
+  static getRelations(treeId: string) {
+    return api.get<RelationDB[]>(`${base(treeId)}/relations`);
   }
 
-  static async getGalleryImages(db: Database) {
-    return await db.select<GalleryImageDB[]>(QUERIES.GALLERY.SELECT_IMAGES);
+  static addMember(treeId: string, member: Member) {
+    return api.post(`${base(treeId)}/members`, mapMemberToDB(member));
   }
 
-  static async getGalleryMemberLinks(db: Database) {
-    return await db.select<{ gallery_image_id: string; member_id: string }[]>(
-      QUERIES.GALLERY.SELECT_LINKS,
-    );
+  static removeMember(treeId: string, memberId: string) {
+    return api.del(`${base(treeId)}/members/${memberId}`);
   }
 
-  static async addMember(db: Database, member: Member) {
-    const row = mapMemberToDB(member);
-    await db.execute(QUERIES.MEMBERS.INSERT, [
-      row.id,
-      row.gender,
-      row.firstName,
-      row.lastName,
-      row.maidenName,
-      row.imageData,
-      row.dateOfBirth,
-      row.dateOfDeath,
-      row.additionalData,
-      row.positionX,
-      row.positionY,
-    ]);
-  }
-
-  static async addRelation(
-    db: Database,
-    fromId: string,
-    toId: string,
-    type: RelationType,
-  ) {
-    await db.execute(QUERIES.RELATIONS.INSERT, [fromId, toId, type]);
-  }
-
-  static async removeMember(db: Database, memberId: string) {
-    await db.execute(QUERIES.MEMBERS.DELETE, [memberId]);
-  }
-
-  static async updateMember(
-    db: Database,
+  static updateMember(
+    treeId: string,
     id: string,
     changes: Omit<MemberUpdate, "paternalParentId" | "maternalParentId">,
   ) {
-    const entries = Object.entries(changes);
-    if (entries.length === 0) return;
-
-    const keys = entries.map(([key]) => key);
-    const values = entries.map(([, value]) => {
-      if (typeof value === "boolean") {
-        return value ? 1 : 0;
-      }
-      if (value === undefined) {
-        return null;
-      }
-      return value;
-    });
-
-    const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(", ");
-    await db.execute(`UPDATE members SET ${setClause} WHERE id = $1`, [
-      id,
-      ...values,
-    ]);
+    if (Object.keys(changes).length === 0) return Promise.resolve();
+    return api.patch(`${base(treeId)}/members/${id}`, changes);
   }
 
-  static async removeRelation(
-    db: Database,
-    fromId: string,
-    toId: string,
-    type: RelationType,
-  ) {
-    await db.execute(QUERIES.RELATIONS.DELETE, [fromId, toId, type]);
-  }
-
-  static async updateMemberPosition(
-    db: Database,
+  static updateMemberPosition(
+    treeId: string,
     id: string,
     x: number,
     y: number,
   ) {
-    await db.execute(QUERIES.MEMBERS.UPDATE_POSITION, [x, y, id]);
+    return api.patch(`${base(treeId)}/members/${id}`, {
+      positionX: x,
+      positionY: y,
+    });
   }
 
-  static async addGalleryImage(
-    db: Database,
+  static addRelation(
+    treeId: string,
+    fromId: string,
+    toId: string,
+    type: RelationType,
+  ) {
+    return api.post(`${base(treeId)}/relations`, {
+      from_member_id: fromId,
+      to_member_id: toId,
+      relation_type: type,
+    });
+  }
+
+  static removeRelation(
+    treeId: string,
+    fromId: string,
+    toId: string,
+    type: RelationType,
+  ) {
+    return api.del(`${base(treeId)}/relations`, {
+      from_member_id: fromId,
+      to_member_id: toId,
+      relation_type: type,
+    });
+  }
+
+  // --- Gallery -------------------------------------------------------------
+  static getGalleryImages(treeId: string) {
+    return api.get<GalleryImageDB[]>(`${base(treeId)}/gallery/images`);
+  }
+
+  static getGalleryMemberLinks(treeId: string) {
+    return api.get<{ gallery_image_id: string; member_id: string }[]>(
+      `${base(treeId)}/gallery/links`,
+    );
+  }
+
+  static addGalleryImage(
+    treeId: string,
     id: string,
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
     now: string,
   ) {
-    await db.execute(QUERIES.GALLERY.INSERT_IMAGE, [
+    return api.post(`${base(treeId)}/gallery/images`, {
       id,
-      image.imageData,
-      image.title,
-      image.description,
-      now,
-      now,
-    ]);
+      imageData: image.imageData,
+      title: image.title,
+      description: image.description,
+      createdAt: now,
+      uploadedAt: now,
+    });
   }
 
-  static async linkGalleryImageToMember(
-    db: Database,
+  static linkGalleryImageToMember(
+    treeId: string,
     imageId: string,
     memberId: string,
   ) {
-    await db.execute(QUERIES.GALLERY.INSERT_LINK, [imageId, memberId]);
+    return api.post(`${base(treeId)}/gallery/images/${imageId}/links`, {
+      member_id: memberId,
+    });
   }
 
-  static async updateGalleryImage(
-    db: Database,
+  static updateGalleryImage(
+    treeId: string,
     id: string,
     changes: Partial<GalleryImage>,
   ) {
-    const { linkedMemberIds, ...otherChanges } = changes;
-    const entries = Object.entries(otherChanges).filter(
-      ([key]) => key !== "id" && key !== "uploadedAt",
-    );
-
-    if (entries.length > 0) {
-      const keys = entries.map(([key]) => key);
-      const values = entries.map(([, value]) => value);
-      const setClause = keys.map((key, i) => `${key} = $${i + 2}`).join(", ");
-      await db.execute(`UPDATE gallery_images SET ${setClause} WHERE id = $1`, [
-        id,
-        ...values,
-      ]);
-    }
+    const body: Record<string, unknown> = {};
+    if (changes.imageData !== undefined) body.imageData = changes.imageData;
+    if (changes.title !== undefined) body.title = changes.title;
+    if (changes.description !== undefined)
+      body.description = changes.description;
+    if (Object.keys(body).length === 0) return Promise.resolve();
+    return api.patch(`${base(treeId)}/gallery/images/${id}`, body);
   }
 
-  static async removeGalleryImageLinks(db: Database, imageId: string) {
-    await db.execute(QUERIES.GALLERY.DELETE_LINKS, [imageId]);
+  static removeGalleryImageLinks(treeId: string, imageId: string) {
+    return api.del(`${base(treeId)}/gallery/images/${imageId}/links`);
   }
 
-  static async removeGalleryImage(db: Database, id: string) {
-    await db.execute(QUERIES.GALLERY.DELETE_IMAGE, [id]);
+  static removeGalleryImage(treeId: string, id: string) {
+    return api.del(`${base(treeId)}/gallery/images/${id}`);
   }
 
-  static async addRelationType(db: Database, id: string, description: string) {
-    await db.execute(QUERIES.RELATION_TYPES.INSERT, [id, description]);
+  // --- Events --------------------------------------------------------------
+  static getEvents(treeId: string) {
+    return api.get<EventDB[]>(`${base(treeId)}/events`);
   }
 
-  static async initMetadata(
-    db: Database,
-    id: string,
-    name: string,
-    createdAt: string,
-  ) {
-    await db.execute(QUERIES.METADATA.INSERT, ["id", id]);
-    await db.execute(QUERIES.METADATA.INSERT, ["createdAt", createdAt]);
-    await db.execute(QUERIES.METADATA.INSERT, ["name", name]);
-  }
-
-  static async updateLastOpened(db: Database, now: string) {
-    await db.execute(QUERIES.METADATA.UPDATE_LAST_OPENED, ["lastOpened", now]);
-  }
-
-  static async checkMetadataKey(db: Database, key: string) {
-    return await db.select<{ value: string }[]>(
-      QUERIES.METADATA.SELECT_BY_KEY,
-      [key],
+  static getEventMemberLinks(treeId: string) {
+    return api.get<{ event_id: string; member_id: string }[]>(
+      `${base(treeId)}/events/links`,
     );
   }
 
-  // Event methods
-  static async getEvents(db: Database) {
-    return await db.select<EventDB[]>(QUERIES.EVENTS.SELECT_ALL);
-  }
-
-  static async getEventMemberLinks(db: Database) {
-    return await db.select<{ event_id: string; member_id: string }[]>(
-      QUERIES.EVENTS.SELECT_LINKS,
-    );
-  }
-
-  static async getEventsByMember(db: Database, memberId: string) {
-    return await db.select<EventDB[]>(QUERIES.EVENTS.SELECT_BY_MEMBER, [
-      memberId,
-    ]);
-  }
-
-  static async addEvent(
-    db: Database,
-    id: string,
-    event: EventInput,
-    createdAt: string,
-  ) {
-    await db.execute(QUERIES.EVENTS.INSERT, [
+  static addEvent(treeId: string, id: string, event: EventInput, now: string) {
+    return api.post(`${base(treeId)}/events`, {
       id,
-      event.eventType,
-      event.date,
-      event.location || null,
-      event.description || null,
-      createdAt,
-    ]);
+      event_type: event.eventType,
+      date: event.date,
+      location: event.location || null,
+      description: event.description || null,
+      created_at: now,
+    });
   }
 
-  static async linkEventToMember(
-    db: Database,
-    eventId: string,
-    memberId: string,
-  ) {
-    await db.execute(QUERIES.EVENTS.INSERT_LINK, [eventId, memberId]);
+  static linkEventToMember(treeId: string, eventId: string, memberId: string) {
+    return api.post(`${base(treeId)}/events/${eventId}/links`, {
+      member_id: memberId,
+    });
   }
 
-  static async updateEvent(db: Database, id: string, event: EventInput) {
-    await db.execute(QUERIES.EVENTS.UPDATE, [
-      event.eventType,
-      event.date,
-      event.location || null,
-      event.description || null,
-      id,
-    ]);
+  static updateEvent(treeId: string, id: string, event: EventInput) {
+    return api.patch(`${base(treeId)}/events/${id}`, {
+      event_type: event.eventType,
+      date: event.date,
+      location: event.location || null,
+      description: event.description || null,
+    });
   }
 
-  static async removeEvent(db: Database, id: string) {
-    await db.execute(QUERIES.EVENTS.DELETE, [id]);
+  static removeEvent(treeId: string, id: string) {
+    return api.del(`${base(treeId)}/events/${id}`);
   }
 
-  static async removeEventLinks(db: Database, eventId: string) {
-    await db.execute(QUERIES.EVENTS.DELETE_LINKS, [eventId]);
+  static removeEventLinks(treeId: string, eventId: string) {
+    return api.del(`${base(treeId)}/events/${eventId}/links`);
   }
 
-  // Story methods
-  static async getStories(db: Database) {
-    return await db.select<StoryDB[]>(QUERIES.STORIES.SELECT_ALL);
+  // --- Stories -------------------------------------------------------------
+  static getStories(treeId: string) {
+    return api.get<StoryDB[]>(`${base(treeId)}/stories`);
   }
 
-  static async getStoryMemberLinks(db: Database) {
-    return await db.select<{ story_id: string; member_id: string }[]>(
-      QUERIES.STORIES.SELECT_LINKS,
+  static getStoryMemberLinks(treeId: string) {
+    return api.get<{ story_id: string; member_id: string }[]>(
+      `${base(treeId)}/stories/links`,
     );
   }
 
-  static async getStoriesByMember(db: Database, memberId: string) {
-    return await db.select<StoryDB[]>(QUERIES.STORIES.SELECT_BY_MEMBER, [
-      memberId,
-    ]);
-  }
-
-  static async addStory(
-    db: Database,
-    id: string,
-    story: StoryInput,
-    now: string,
-  ) {
-    await db.execute(QUERIES.STORIES.INSERT, [
+  static addStory(treeId: string, id: string, story: StoryInput, now: string) {
+    return api.post(`${base(treeId)}/stories`, {
       id,
-      story.title,
-      story.content,
-      now,
-      now,
-    ]);
+      title: story.title,
+      content: story.content,
+      created_at: now,
+      updated_at: now,
+    });
   }
 
-  static async linkStoryToMember(
-    db: Database,
-    storyId: string,
-    memberId: string,
-  ) {
-    await db.execute(QUERIES.STORIES.INSERT_LINK, [storyId, memberId]);
+  static linkStoryToMember(treeId: string, storyId: string, memberId: string) {
+    return api.post(`${base(treeId)}/stories/${storyId}/links`, {
+      member_id: memberId,
+    });
   }
 
-  static async updateStory(
-    db: Database,
+  static updateStory(
+    treeId: string,
     id: string,
     story: StoryInput,
     updatedAt: string,
   ) {
-    await db.execute(QUERIES.STORIES.UPDATE, [
-      story.title,
-      story.content,
-      updatedAt,
-      id,
-    ]);
+    return api.patch(`${base(treeId)}/stories/${id}`, {
+      title: story.title,
+      content: story.content,
+      updated_at: updatedAt,
+    });
   }
 
-  static async removeStory(db: Database, id: string) {
-    await db.execute(QUERIES.STORIES.DELETE, [id]);
+  static removeStory(treeId: string, id: string) {
+    return api.del(`${base(treeId)}/stories/${id}`);
   }
 
-  static async removeStoryLinks(db: Database, storyId: string) {
-    await db.execute(QUERIES.STORIES.DELETE_LINKS, [storyId]);
+  static removeStoryLinks(treeId: string, storyId: string) {
+    return api.del(`${base(treeId)}/stories/${storyId}/links`);
   }
 
-  // Disease methods
-  static async getDiseases(db: Database) {
-    return await db.select<DiseaseDB[]>(QUERIES.DISEASES.SELECT_ALL);
+  // --- Diseases ------------------------------------------------------------
+  static getDiseases(treeId: string) {
+    return api.get<DiseaseDB[]>(`${base(treeId)}/diseases`);
   }
 
-  static async getDiseasesByMember(db: Database, memberId: string) {
-    return await db.select<DiseaseDB[]>(QUERIES.DISEASES.SELECT_BY_MEMBER, [
-      memberId,
-    ]);
-  }
-
-  static async addDisease(
-    db: Database,
+  static addDisease(
+    treeId: string,
     id: string,
     memberId: string,
     name: string,
@@ -344,19 +264,19 @@ export class DatabaseService {
     diagnosisDate: string | null,
     notes: string | null,
   ) {
-    await db.execute(QUERIES.DISEASES.INSERT, [
+    return api.post(`${base(treeId)}/diseases`, {
       id,
-      memberId,
+      member_id: memberId,
       name,
-      carrierStatus,
-      inheritancePattern,
-      diagnosisDate,
+      carrier_status: carrierStatus,
+      inheritance_pattern: inheritancePattern,
+      diagnosis_date: diagnosisDate,
       notes,
-    ]);
+    });
   }
 
-  static async updateDisease(
-    db: Database,
+  static updateDisease(
+    treeId: string,
     id: string,
     name: string,
     carrierStatus: string,
@@ -364,17 +284,16 @@ export class DatabaseService {
     diagnosisDate: string | null,
     notes: string | null,
   ) {
-    await db.execute(QUERIES.DISEASES.UPDATE, [
+    return api.patch(`${base(treeId)}/diseases/${id}`, {
       name,
-      carrierStatus,
-      inheritancePattern,
-      diagnosisDate,
+      carrier_status: carrierStatus,
+      inheritance_pattern: inheritancePattern,
+      diagnosis_date: diagnosisDate,
       notes,
-      id,
-    ]);
+    });
   }
 
-  static async removeDisease(db: Database, id: string) {
-    await db.execute(QUERIES.DISEASES.DELETE, [id]);
+  static removeDisease(treeId: string, id: string) {
+    return api.del(`${base(treeId)}/diseases/${id}`);
   }
 }

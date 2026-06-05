@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { GalleryImage } from "@/types/gallery";
 import { DatabaseService } from "@/services/DatabaseService";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { activeTreeId } from "@/hooks/useDatabaseStore";
 
 interface GalleryState {
   galleryImages: GalleryImage[];
@@ -20,14 +20,14 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   galleryImages: [],
 
   refreshGalleryImages: async () => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) {
+    const treeId = activeTreeId();
+    if (!treeId) {
       set({ galleryImages: [] });
       return;
     }
 
-    const imagesResult = await DatabaseService.getGalleryImages(db);
-    const linksResult = await DatabaseService.getGalleryMemberLinks(db);
+    const imagesResult = await DatabaseService.getGalleryImages(treeId);
+    const linksResult = await DatabaseService.getGalleryMemberLinks(treeId);
 
     const images = imagesResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -45,16 +45,16 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   addGalleryImage: async (
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
   ) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await DatabaseService.addGalleryImage(db, id, image, now);
+    await DatabaseService.addGalleryImage(treeId, id, image, now);
 
     if (image.linkedMemberIds && image.linkedMemberIds.length > 0) {
       for (const memberId of image.linkedMemberIds) {
-        await DatabaseService.linkGalleryImageToMember(db, id, memberId);
+        await DatabaseService.linkGalleryImageToMember(treeId, id, memberId);
       }
     }
 
@@ -62,17 +62,17 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
+    const treeId = activeTreeId();
+    if (!treeId) return;
 
     const { linkedMemberIds } = changes;
 
-    await DatabaseService.updateGalleryImage(db, id, changes);
+    await DatabaseService.updateGalleryImage(treeId, id, changes);
 
     if (linkedMemberIds) {
-      await DatabaseService.removeGalleryImageLinks(db, id);
+      await DatabaseService.removeGalleryImageLinks(treeId, id);
       for (const memberId of linkedMemberIds) {
-        await DatabaseService.linkGalleryImageToMember(db, id, memberId);
+        await DatabaseService.linkGalleryImageToMember(treeId, id, memberId);
       }
     }
 
@@ -80,9 +80,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   },
 
   deleteGalleryImage: async (id: string) => {
-    const db = useDatabaseStore.getState().db;
-    if (!db) return;
-    await DatabaseService.removeGalleryImage(db, id);
+    const treeId = activeTreeId();
+    if (!treeId) return;
+    await DatabaseService.removeGalleryImage(treeId, id);
     await get().refreshGalleryImages();
   },
 }));

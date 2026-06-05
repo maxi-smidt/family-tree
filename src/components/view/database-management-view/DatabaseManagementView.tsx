@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useDatabaseManager } from "@/hooks/useDatabaseManager";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { pickFile, useDatabaseManager } from "@/hooks/useDatabaseManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,12 +17,13 @@ import {
   Edit2,
   HardDriveDownload,
   HardDriveUpload,
+  Share2,
   Check,
   X,
 } from "lucide-react";
 import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
 import { RemoveDatabaseDialog } from "@/components/view/database-management-view/dialog/RemoveDatabaseDialog";
-import { ImportDatabaseDialog } from "@/components/view/database-management-view/dialog/ImportDatabaseDialog";
+import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -34,28 +34,18 @@ export const DatabaseManagementView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "database-management-view",
   });
-  const databases = useFamilyTreeSettings((s) => s.databases);
-  const selectedDatabase = useFamilyTreeSettings((s) => s.selectedDatabase);
-  const setSelectedDatabase = useFamilyTreeSettings(
-    (s) => s.setSelectedDatabase,
-  );
-  const addDatabase = useFamilyTreeSettings((s) => s.addDatabase);
-  const { connect } = useDatabaseStore();
-  const {
-    exportDatabase,
-    importDatabase,
-    importDatabaseCheck,
-    inspectDatabaseWithPassword,
-  } = useDatabaseManager();
+  const databases = useDatabaseStore((s) => s.databases);
+  const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
+  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
+  const renameDatabase = useDatabaseStore((s) => s.renameDatabase);
+  const { exportDatabase, importDatabase, inspectImport } =
+    useDatabaseManager();
 
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
   const [isRemoveDatabaseDialogOpen, setIsRemoveDatabaseDialogOpen] =
     useState(false);
-  const [importConfirmState, setImportConfirmState] = useState<{
-    isOpen: boolean;
-    resolve: (choice: "overwrite" | "keep" | "cancel") => void;
-  } | null>(null);
+  const [shareTree, setShareTree] = useState<Database | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
     mode: "export" | "import";
@@ -65,15 +55,6 @@ export const DatabaseManagementView = () => {
     null,
   );
   const [editingName, setEditingName] = useState("");
-  const [previousSelectedDb, setPreviousSelectedDb] = useState<
-    Database | undefined
-  >(undefined);
-
-  const askImportHandling = () => {
-    return new Promise<"overwrite" | "keep" | "cancel">((resolve) => {
-      setImportConfirmState({ isOpen: true, resolve });
-    });
-  };
 
   const askPassword = (mode: "export" | "import") => {
     return new Promise<string | null | undefined>((resolve) => {
@@ -82,65 +63,23 @@ export const DatabaseManagementView = () => {
   };
 
   const handleImportDatabase = async () => {
-    let check = await importDatabaseCheck();
-    if (!check) return;
-
-    // Check if file requires password for inspection (password-encrypted and metadata not yet extracted)
-    let password: string | null | undefined = null;
-    if (check.meta.passwordRequired && check.meta.id === null) {
-      // Need password to inspect the file
-      password = await askPassword("import");
-      if (password === undefined) {
-        // User cancelled password dialog
-        return;
-      }
-
-      // If password is null, user confirmed with empty password field
-      if (password === null) {
-        toast.error(t("toast-import-error"));
-        return;
-      }
-
-      // Re-inspect with password to get metadata
-      try {
-        check = await inspectDatabaseWithPassword(check.sourcePath, password);
-      } catch (err) {
-        console.error(err);
-        toast.error(t("toast-import-error"));
-        return;
-      }
-    } else if (check.meta.passwordRequired) {
-      // Password required for import but metadata already extracted
-      password = await askPassword("import");
-      if (password === undefined) {
-        // User cancelled password dialog
-        return;
-      }
-    }
-
-    let overwrite = false;
-    if (check.collision) {
-      const choice = await askImportHandling();
-      if (choice === "cancel") return;
-      overwrite = choice === "overwrite";
-    }
+    const file = await pickFile(".treedb");
+    if (!file) return;
 
     try {
-      if (check.collision && overwrite) {
-        const familyStore = useDatabaseStore.getState();
-        if (selectedDatabase?.id === check.collision.id) {
-          await familyStore.disconnect();
+      const info = await inspectImport(file);
+      let password: string | undefined;
+      if (info.password_required) {
+        const pw = await askPassword("import");
+        if (pw === undefined) return;
+        if (!pw) {
+          toast.error(t("toast-import-error"));
+          return;
         }
+        password = pw;
       }
 
-      const newDatabase = await importDatabase(
-        check.sourcePath,
-        overwrite,
-        password || undefined,
-      );
-
-      setSelectedDatabase(newDatabase);
-      await connect(newDatabase);
+      await importDatabase(file, password);
       toast.success(t("toast-import-success"));
     } catch (err) {
       console.error(err);
@@ -150,14 +89,13 @@ export const DatabaseManagementView = () => {
 
   const handleExportDatabase = async (database: Database) => {
     const password = await askPassword("export");
-
-    // User cancelled
-    if (password === undefined) {
-      return;
+    if (password === undefined) return; // cancelled
+    try {
+      await exportDatabase(database, password || undefined);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("toast-export-error"));
     }
-
-    // password can be null (skip/no password) or a string (encrypt with password)
-    exportDatabase(database, password || undefined);
   };
 
   const handleStartRename = (database: Database) => {
@@ -170,19 +108,12 @@ export const DatabaseManagementView = () => {
     setEditingName("");
   };
 
-  const handleSaveRename = (database: Database) => {
+  const handleSaveRename = async (database: Database) => {
     if (!editingName.trim()) {
       toast.error(t("toast-rename-empty"));
       return;
     }
-
-    const updatedDatabase = { ...database, name: editingName.trim() };
-    addDatabase(updatedDatabase);
-
-    if (selectedDatabase?.id === database.id) {
-      setSelectedDatabase(updatedDatabase);
-    }
-
+    await renameDatabase(database, editingName.trim());
     toast.success(t("toast-rename-success"));
     setEditingDatabaseId(null);
     setEditingName("");
@@ -190,28 +121,13 @@ export const DatabaseManagementView = () => {
 
   const handleSelectDatabase = async (database: Database) => {
     if (selectedDatabase?.id !== database.id) {
-      setSelectedDatabase(database);
-      await connect(database);
+      await selectDatabase(database);
     }
   };
 
-  const handleOpenRemoveDialog = (database: Database) => {
-    setPreviousSelectedDb(selectedDatabase);
-    setSelectedDatabase(database);
+  const handleOpenRemoveDialog = async (database: Database) => {
+    await selectDatabase(database);
     setIsRemoveDatabaseDialogOpen(true);
-  };
-
-  const handleCancelRemove = () => {
-    if (previousSelectedDb && previousSelectedDb.id !== selectedDatabase?.id) {
-      setSelectedDatabase(previousSelectedDb);
-    }
-    setPreviousSelectedDb(undefined);
-    setIsRemoveDatabaseDialogOpen(false);
-  };
-
-  const handleConfirmRemove = () => {
-    setPreviousSelectedDb(undefined);
-    setIsRemoveDatabaseDialogOpen(false);
   };
 
   return (
@@ -280,7 +196,7 @@ export const DatabaseManagementView = () => {
                           autoFocus
                           onKeyDown={(e) => {
                             if (e.key === "Enter") {
-                              handleSaveRename(database);
+                              void handleSaveRename(database);
                             } else if (e.key === "Escape") {
                               handleCancelRename();
                             }
@@ -310,6 +226,16 @@ export const DatabaseManagementView = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
+                      {database.role === "owner" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShareTree(database)}
+                          title={t("share-button")}
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -329,6 +255,7 @@ export const DatabaseManagementView = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => handleOpenRemoveDialog(database)}
+                        disabled={database.role !== "owner"}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -355,16 +282,16 @@ export const DatabaseManagementView = () => {
       />
       <RemoveDatabaseDialog
         isOpen={isRemoveDatabaseDialogOpen}
-        onConfirm={handleConfirmRemove}
-        onCancel={handleCancelRemove}
+        onConfirm={() => setIsRemoveDatabaseDialogOpen(false)}
+        onCancel={() => setIsRemoveDatabaseDialogOpen(false)}
       />
-      <ImportDatabaseDialog
-        isOpen={!!importConfirmState?.isOpen}
-        onChoice={(choice) => {
-          importConfirmState?.resolve(choice);
-          setImportConfirmState(null);
-        }}
-      />
+      {shareTree && (
+        <ShareTreeDialog
+          tree={shareTree}
+          isOpen={!!shareTree}
+          onClose={() => setShareTree(null)}
+        />
+      )}
       <PasswordDialog
         isOpen={!!passwordDialogState?.isOpen}
         mode={passwordDialogState?.mode || "export"}
