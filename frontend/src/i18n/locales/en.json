@@ -1,0 +1,563 @@
+{
+  "sidebar": {
+    "appearance": "Appearance",
+    "dataManagement": "Data Management",
+    "edge-type": "Edge Type",
+    "edge-type-placeholder": "Select type",
+    "step-type": {
+      "default": "Default",
+      "straight": "Straight",
+      "step": "Step",
+      "smoothstep": "Smoothstep"
+    },
+    "database-selector": {
+      "label": "Active Database",
+      "placeholder": "Select database"
+    },
+    "language-selector": {
+      "select": "Language"
+    },
+    "theme-selector": {
+      "label": "Theme",
+      "placeholder": "Select theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    }
+  },
+  "dialog": {
+    "add-relation": {
+      "title": "Add Relationship",
+      "description": "Select the type of relationship you want to create.",
+      "placeholder": "Select relationship type",
+      "cancel": "Cancel",
+      "add": "Add Relation"
+    },
+    "create-database": {
+      "title": "Create Database",
+      "description": "Here you can create a new database to start a new family tree from scratch.",
+      "id": "ID",
+      "name": "Name",
+      "create": "Create",
+      "cancel": "Cancel",
+      "toast-error": "Could not create the tree."
+    },
+    "image-crop": {
+      "title": "Crop image",
+      "description": "Select the image crop.",
+      "cancel": "Cancel",
+      "crop": "Crop"
+    },
+    "import-database": {
+      "title": "Import database conflict",
+      "description": "A database with the same ID already exists. Please decide what to do.",
+      "cancel": "Cancel",
+      "overwrite": "Overwrite",
+      "keep": "Keep both"
+    },
+    "password": {
+      "title": {
+        "export": "Add Password Protection",
+        "import": "Password Required"
+      },
+      "description": {
+        "export": "All exports are encrypted by default. Add a password for additional security. Without a password, base encryption is still applied.",
+        "import": "This database is password-protected. Please enter the password to import it."
+      },
+      "label": {
+        "password": "Password",
+        "confirmPassword": "Confirm Password"
+      },
+      "placeholder": {
+        "password": "Enter password",
+        "confirmPassword": "Confirm your password"
+      },
+      "button": {
+        "cancel": "Cancel",
+        "skip": "Skip (base encryption only)",
+        "confirm": "Confirm"
+      },
+      "error": {
+        "empty": "Password cannot be empty",
+        "tooShort": "Password must be at least 8 characters",
+        "noMatch": "Passwords do not match"
+      },
+      "hint": {
+        "minLength": "Minimum 8 characters recommended for security"
+      }
+    },
+    "remove-database": {
+      "title": "Remove database",
+      "description": "Are you sure you want to remove the selected database? This action cannot be undone. To be sure, type the database name '{{name}}' below.",
+      "name": "Name",
+      "cancel": "Cancel",
+      "remove": "Remove",
+      "toast-warning": "You removed the last database. Create a new one.",
+      "toast-success": "Database removed successfully"
+    },
+    "remove-node": {
+      "title_one": "Delete Member",
+      "title_other": "Delete Members",
+      "description": "This action will permanently delete the following members from the family tree. This action cannot be undone.",
+      "validation": "Are you sure you want to delete",
+      "cancel": "Cancel",
+      "delete": "Delete"
+    },
+    "member-detail": {
+      "firstname": "First Name",
+      "lastname": "Last Name",
+      "maiden": "Maiden Name",
+      "gender": "Gender",
+      "dob": "Date of Birth",
+      "dod": "Date of Death",
+      "family-relations": "Family Relationships",
+      "paternal-parent": "Father",
+      "maternal-parent": "Mother",
+      "children": "Children",
+      "siblings": "Siblings",
+      "life-events": "Life Events",
+      "stories": "Stories & Biographies",
+      "images": "Linked Images"
+    },
+    "share-tree": {
+      "title": "Share \"{{name}}\"",
+      "description": "Give other users access to this tree.",
+      "shared": "Access updated.",
+      "share-error": "Could not share the tree.",
+      "revoke-error": "Could not revoke access.",
+      "username-placeholder": "Username",
+      "role-owner": "Owner",
+      "role-editor": "Editor",
+      "role-viewer": "Viewer"
+    }
+  },
+  "gallery-view": {
+    "view": {
+      "title": "Gallery",
+      "search-placeholder": "Search image...",
+      "select-date-uploaded": "Date Uploaded",
+      "select-date-taken": "Date Taken",
+      "select-title": "Title",
+      "sort-placeholder": "Sort by",
+      "toast-error-canvas-context": "Failed to get canvas context",
+      "toast-error-image-upload": "Failed to load image. Please ensure it's a valid image file.",
+      "toast-success-image-upload": "Image uploaded successfully.",
+      "toast-error-read-file": "Failed to read file"
+    },
+    "image-sheet": {
+      "toast-success": "Image details saved",
+      "toast-error": "Failed to save image details",
+      "title": "Image Details",
+      "title-field": "Title",
+      "title-placeholder": "Image Title",
+      "description-field": "Description",
+      "description-placeholder": "Image Description",
+      "date-field": "Date Taken",
+      "members-field": "Linked Members",
+      "members-placeholder": "Link members to this image",
+      "save": "Save",
+      "delete": "Delete",
+      "delete-confirm-title": "Confirm deletion",
+      "delete-confirm-description": "Should this image be permanently deleted?",
+      "delete-confirm-cancel": "Cancel",
+      "delete-confirm-confirm": "Confirm",
+      "toast-delete-success": "Image deleted successfully.",
+      "toast-delete-error": "The image could not be deleted."
+    },
+    "upload-image-card": "Upload Image"
+  },
+  "layout": {
+    "main-panel": {
+      "tree": "Tree",
+      "list": "List",
+      "gallery": "Gallery",
+      "timeline": "Timeline",
+      "merge": "Merge Databases",
+      "database-management": "Database Management"
+    },
+    "no-database-placeholder": {
+      "title": "No Databases Yet",
+      "description": "You haven't created any databases yet. Get started by creating your first database.",
+      "create": "Create Database",
+      "import": "Import Database",
+      "toast-success": "Database imported successfully!",
+      "toast-error": "Failed to import database.",
+      "toast-collision": "Database with the same ID already exists. Import cancelled."
+    }
+  },
+  "list-view": {
+    "view": {
+      "title": "List",
+      "search-placeholder": "Search members...",
+      "selected-members_one": "member found",
+      "selected-members_other": "members found",
+      "table": {
+        "first-name": "First Name",
+        "last-name": "Last Name",
+        "maiden-name": "Maiden Name",
+        "gender": "Gender",
+        "dob": "Birth Date",
+        "dod": "Death Date",
+        "no-members": "No members found."
+      },
+      "menu": {
+        "trigger": "Open menu",
+        "actions": "Actions",
+        "details": "View Details",
+        "edit": "Edit Member",
+        "delete": "Delete Member"
+      }
+    }
+  },
+  "sheet": {
+    "edit-mode": {
+      "toast-error-file": "Failed to read file",
+      "toast-error-birth": "Death date cannot be before birth date",
+      "toast-error-death": "Birth date cannot be after death date",
+      "toast-error-duplicate": "A member with the same details already exists.",
+      "toast-error-required": "First name and last name are required.",
+      "toast-success": "Member updated successfully",
+      "gender-field": "Gender",
+      "firstname-field": "First Name",
+      "lastname-field": "Last Name",
+      "maiden-field": "Maiden Name",
+      "born-field": "Date of Birth",
+      "death-field": "Date of Death",
+      "date-placeholder": "Pick a date"
+    },
+    "view-mode": {
+      "firstname-item": "First Name",
+      "lastname-item": "Last Name",
+      "maiden-item": "Maiden Name",
+      "maiden-fallback": "None",
+      "gender-item": "Gender",
+      "dob-item": "Date of Birth",
+      "dod-item": "Date of Death",
+      "dod-fallback": "Alive",
+      "linked-images": "Linked Images",
+      "linked-images-fallback": "No images linked to this person yet.",
+      "life-events": "Life Events",
+      "no-events": "No events recorded",
+      "stories": "Stories & Biographies",
+      "no-stories": "No stories written yet",
+      "genetic-conditions": "Genetic Conditions",
+      "no-conditions": "No conditions recorded"
+    },
+    "member-sheet": {
+      "edit-title": "Edit Member",
+      "detail-title": "Member Details",
+      "edit-description": "Update the member's information.",
+      "detail-description": "View detailed information about this family member.",
+      "save": "Save",
+      "delete": "Delete",
+      "delete-confirm-title": "Delete Member",
+      "delete-confirm-description": "Are you sure you want to permanently delete this member? This action cannot be undone.",
+      "delete-confirm-cancel": "Cancel",
+      "delete-confirm-confirm": "Delete",
+      "unsaved": {
+        "title": "Unsaved changes",
+        "description": "You have unsaved changes. What would you like to do?",
+        "stay": "Stay",
+        "save": "Save",
+        "discard": "Discard"
+      },
+      "show-less": "Show less",
+      "show-more": "Show {{count}} more",
+      "events": {
+        "title": "Life Events",
+        "add": "Add",
+        "no-events": "No events recorded",
+        "delete-dialog": {
+          "title": "Delete Event",
+          "description": "Are you sure you want to delete this event? This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "dialog": {
+          "title-edit": "Edit Event",
+          "title-add": "Add Event",
+          "linked-members": "Linked Members",
+          "linked-members-placeholder": "Select members...",
+          "linked-members-description": "Select one or more family members this story is about",
+          "event-type": "Event Type",
+          "event-type-placeholder": "e.g., Birth, Marriage, Graduation, Migration",
+          "date": "Date",
+          "date-placeholder": "Pick a date",
+          "location": "Location",
+          "location-placeholder": "e.g., New York, USA",
+          "description": "Description",
+          "description-placeholder": "Add more details about this event...",
+          "cancel": "Cancel",
+          "update": "Update",
+          "add": "Add"
+        }
+      },
+      "stories": {
+        "title": "Stories & Biographies",
+        "add": "Add",
+        "no-stories": "No stories written yet",
+        "show-less": "Show less",
+        "read-more": "Read more",
+        "delete-dialog": {
+          "title": "Delete Story",
+          "description": "Are you sure you want to delete this story? This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "dialog": {
+          "title-edit": "Edit Story",
+          "title-add": "Add Story",
+          "linked-members": "Linked Members",
+          "linked-members-placeholder": "Select members...",
+          "linked-members-description": "Select one or more family members this story is about",
+          "title": "Title",
+          "title-placeholder": "e.g., Early Life, War Years, Marriage Story",
+          "story": "Story",
+          "story-placeholder": "Write the story or biography here...",
+          "cancel": "Cancel",
+          "update": "Update",
+          "add": "Add"
+        }
+      },
+      "diseases": {
+        "title": "Genetic Conditions",
+        "add": "Add",
+        "no-diseases": "No conditions recorded",
+        "delete-dialog": {
+          "title": "Delete Condition",
+          "description": "Are you sure you want to delete this condition? This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "dialog": {
+          "title-edit": "Edit Condition",
+          "title-add": "Add Condition",
+          "name": "Condition Name",
+          "name-placeholder": "e.g., Hemophilia, Cystic Fibrosis",
+          "carrier-status": "Status",
+          "carrier-status-placeholder": "Select status",
+          "carrier-status-affected": "Affected",
+          "carrier-status-carrier": "Carrier",
+          "carrier-status-unknown": "Unknown",
+          "inheritance-pattern": "Inheritance Pattern",
+          "inheritance-pattern-placeholder": "Select inheritance pattern",
+          "inheritance-pattern-autosomal-dominant": "Autosomal Dominant",
+          "inheritance-pattern-autosomal-recessive": "Autosomal Recessive",
+          "inheritance-pattern-x-linked-dominant": "X-Linked Dominant",
+          "inheritance-pattern-x-linked-recessive": "X-Linked Recessive",
+          "inheritance-pattern-y-linked": "Y-Linked",
+          "inheritance-pattern-mitochondrial": "Mitochondrial",
+          "inheritance-pattern-multifactorial": "Multifactorial",
+          "inheritance-pattern-unknown": "Unknown",
+          "diagnosis-date": "Diagnosis Date",
+          "diagnosis-date-placeholder": "Pick a date",
+          "notes": "Notes",
+          "notes-placeholder": "Add additional details...",
+          "cancel": "Cancel",
+          "update": "Update",
+          "add": "Add",
+          "error-add": "Failed to add condition. Please try again.",
+          "error-update": "Failed to update condition. Please try again."
+        }
+      }
+    }
+  },
+  "tree-view": {
+    "node": {
+      "life-ongoing": "ongoing",
+      "life-unknown": "unknown",
+      "disease-indicator_one": "{{count}} genetic condition",
+      "disease-indicator_other": "{{count}} genetic conditions",
+      "risk-indicator": "Potential genetic risk from parents"
+    },
+    "controls": {
+      "zoom-in": "Zoom in",
+      "zoom-out": "Zoom out",
+      "fit-view": "Fit view",
+      "toggle-interactivity": "Toggle interactivity",
+      "arrange-members": "Arrange members",
+      "collapse-children": "Collapse children",
+      "expand-children": "Expand children",
+      "expand-all-children": "Expand all children",
+      "add-person": "Add person",
+      "remove-person": "Remove selected person",
+      "select-relation": "Visible Relations",
+      "disable-fast-mode": "Disable fast mode",
+      "enable-fast-mode": "Enable fast mode",
+      "disable-disease-mode": "Disable disease mode",
+      "enable-disease-mode": "Enable disease mode"
+    }
+  },
+  "timeline-view": {
+    "view": {
+      "member-fallback": "Unknown Member",
+      "title": "Timeline",
+      "add-event": "Add Event",
+      "search-placeholder": "Search events...",
+      "all-members": "All Members",
+      "member-place-holder": "Select member...",
+      "member-search-placeholder": "Search members...",
+      "no-member": "No member found.",
+      "no-events": "No events found",
+      "adjust-filters": "Try adjusting your filters",
+      "add-an-event": "Add an event to get started",
+      "birth": "Birth",
+      "death": "Death",
+      "show-vital-events": "Show births & deaths",
+      "delete-dialog": {
+        "title": "Delete Event",
+        "description": "Are you sure you want to delete this event? This action cannot be undone.",
+        "cancel": "Cancel",
+        "delete": "Delete"
+      }
+    }
+  },
+  "merge-view": {
+    "view": {
+      "title": "Merge Databases",
+      "source-database-1": "Source Database 1",
+      "source-database-2": "Source Database 2",
+      "select-placeholder": "Select database",
+      "empty-database-select": "<empty database>",
+      "new-database-field": "New Database Name",
+      "new-database-placeholder": "New Database Name",
+      "merge-database": "Merge",
+      "merging-database": "Merging...",
+      "new-database": "New database",
+      "database-copy": "(copy)",
+      "toast-preview-error": "Error loading databases for preview.",
+      "toast-merge-success": "Databases merged successfully.",
+      "toast-error-name": "Please provide a name for the new database.",
+      "toast-error-merge": "Failed to merge databases.",
+      "confirm-title": "Confirm merge",
+      "confirm-description": "Merge the selected databases into a new database named \"{{name}}\"? The source databases are left unchanged and duplicate members are combined.",
+      "confirm-cancel": "Cancel",
+      "confirm-merge": "Confirm merge"
+    },
+    "preview": {
+      "title": "Preview Analysis",
+      "no-overlap": "No overlapping members found. All members will be added as new entries.",
+      "table": {
+        "firstname": "First Name",
+        "lastname": "Last Name",
+        "birth-date": "Birth Date",
+        "status": "Status",
+        "will-be-merged": "Will be merged"
+      },
+      "total-records_one": "Total Record",
+      "total-records_other": "Total Records",
+      "unique-members_one": "Unique Member",
+      "unique-members_other": "Unique Members",
+      "duplicate-members_one": "Duplicate Found",
+      "duplicate-members_other": "Duplicates Found",
+      "alert-duplicate": {
+        "title": "Duplicates Will Be Merged",
+        "description_one": "{{duplicateCount}} member found in both databases will be merged. Additional notes from both records will be combined.",
+        "description_other": "{{duplicateCount}} members found in both databases will be merged. Additional notes from both records will be combined."
+      },
+      "alert-no-duplicate": {
+        "title": "No Duplicates",
+        "description": "All members are unique. The databases will be combined without any conflicts."
+      }
+    }
+  },
+  "hooks": {
+    "flow-interactions": {
+      "toast-error-database-create": "Failed to create connection."
+    }
+  },
+  "database-management-view": {
+    "title": "Database Management",
+    "create-button": "Create Database",
+    "import-button": "Import Database",
+    "table-name": "Name",
+    "table-id": "ID",
+    "table-actions": "Actions",
+    "no-databases": "No databases found. Create or import a database to get started.",
+    "selected-label": "Currently selected:",
+    "none-selected": "None",
+    "toast-import-success": "Database imported successfully!",
+    "toast-import-error": "Failed to import database.",
+    "toast-rename-success": "Database renamed successfully!",
+    "toast-rename-empty": "Database name cannot be empty.",
+    "share-button": "Share",
+    "toast-export-error": "Could not export the tree."
+  },
+  "common": {
+    "english": "English",
+    "german": "German",
+    "relation-types": {
+      "parent": "Parent",
+      "sibling": "Sibling",
+      "partner": "Partner",
+      "married": "Married",
+      "divorced": "Divorced",
+      "step-parent": "Step Parent",
+      "step-sibling": "Step Sibling",
+      "half-sibling": "Half Sibling",
+      "other": "Other"
+    },
+    "gender": {
+      "m": "male",
+      "f": "female",
+      "o": "other"
+    },
+    "date-unknown": "unknown"
+  },
+  "auth": {
+    "login": {
+      "title": "Family Tree",
+      "subtitle": "Sign in to your account",
+      "register-subtitle": "Create your account",
+      "username": "Username",
+      "email": "Email",
+      "password": "Password",
+      "sign-in": "Sign in",
+      "register": "Create account",
+      "sign-in-authentik": "Sign in with Authentik",
+      "switch-to-register": "Need an account? Register",
+      "switch-to-login": "Already have an account? Sign in",
+      "login-error": "Incorrect username or password.",
+      "register-error": "Could not create account."
+    },
+    "change-password": {
+      "title": "Change password",
+      "description": "Update the password for your account.",
+      "current": "Current password",
+      "new": "New password",
+      "cancel": "Cancel",
+      "save": "Save",
+      "success": "Password changed.",
+      "error": "Could not change password."
+    },
+    "user-menu": {
+      "change-password": "Change password",
+      "admin": "Administration",
+      "logout": "Log out"
+    }
+  },
+  "admin": {
+    "title": "Administration",
+    "description": "Manage users and instance settings.",
+    "users-tab": "Users",
+    "settings-tab": "Settings",
+    "col-username": "Username",
+    "col-provider": "Provider",
+    "col-admin": "Admin",
+    "col-active": "Active",
+    "user-created": "User created.",
+    "user-create-error": "Could not create user.",
+    "user-update-error": "Could not update user.",
+    "user-delete-error": "Could not delete user.",
+    "settings-saved": "Settings saved.",
+    "settings-error": "Could not save settings.",
+    "new-password": "Password",
+    "email": "Email",
+    "add-user": "Add user",
+    "instance-name": "Instance name",
+    "default-language": "Default language",
+    "self-registration": "Allow self-registration",
+    "self-registration-hint": "Let anyone create their own account.",
+    "save-settings": "Save settings"
+  }
+}

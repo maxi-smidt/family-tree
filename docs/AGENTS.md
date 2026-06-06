@@ -11,7 +11,7 @@ This document outlines the core architectural decisions, development practices, 
 2.  [Architecture Overview](#architecture-overview)
 3.  [Core Concepts](#core-concepts)
 4.  [State Management (Zustand)](#state-management-zustand)
-5.  [Database Migration Framework](#database-migration-framework)
+5.  [Backend & Persistence](#backend--persistence)
 6.  [Frontend Guidelines](#frontend-guidelines)
 7.  [Backend Guidelines](#backend-guidelines)
 8.  [Testing](#testing)
@@ -23,15 +23,17 @@ This document outlines the core architectural decisions, development practices, 
 ## Tech Stack
 
 - **Framework**: React (Vite) + TypeScript
-- **Native Runtime**: Tauri (Rust)
-- **State Management**: Zustand (`useFamilyStore`)
+- **Backend**: FastAPI (Python) + SQLAlchemy 2.0
+- **State Management**: Zustand (per-domain stores)
 - **UI Library**: Shadcn UI + Tailwind CSS
 - **Graph/Visualization**: @xyflow/react (React Flow)
 - **Layout Engine**: Dagre.js (`layoutUtils.ts`)
 - **Icons**: Lucide React
 - **Internationalization**: i18next
-- **Testing**: Vitest + React Testing Library
-- **Database**: SQLite (via Tauri SQL plugin)
+- **Testing**: Vitest + React Testing Library (frontend)
+- **Database**: PostgreSQL
+- **Auth**: JWT (local accounts) + Authentik OIDC (optional)
+- **Deployment**: Docker Compose (nginx + FastAPI + Postgres)
 
 ---
 
@@ -41,28 +43,34 @@ This document outlines the core architectural decisions, development practices, 
 
 The application follows a **frontend-backend separation** pattern:
 
-- **Frontend (React/TypeScript)**: Handles UI, user interactions, and state management
-- **Backend (Rust/Tauri)**: Manages database operations, file system access, and native OS integration
+- **Frontend (React/TypeScript)**: UI, user interactions, and state management
+- **Backend (FastAPI/Python)**: REST API, authentication, database access, and media storage
 
 ### Communication Flow
 
 ```
 User Interaction → React Component → Zustand Store Action
                                           ↓
-                                   DatabaseService
+                                   DatabaseService (HTTP client)
                                           ↓
-                                   Tauri Commands (Rust)
+                                   FastAPI REST API (/api/...)
                                           ↓
-                                      SQLite DB
+                                   SQLAlchemy → PostgreSQL
 ```
+
+`DatabaseService` keeps the same method names and return shapes the stores
+expect (`MemberDB`, `RelationDB`, ...), so swapping the storage backend left the
+stores and components almost untouched — each method now takes a `treeId` and
+issues an HTTP request instead of a SQL query.
 
 ### Key Design Decisions
 
-1. **Local-First**: All data is stored locally using SQLite
-2. **Single Store Pattern**: One Zustand store (`useFamilyStore`) manages all application state
-3. **Service Layer**: DatabaseService encapsulates all database interactions
-4. **Migration Framework**: Version-based schema migrations managed by Rust backend
-5. **Component-Based UI**: Reusable UI components from Shadcn UI library
+1. **Client/Server**: Data lives in PostgreSQL behind the FastAPI API
+2. **Per-domain stores**: Zustand stores (`useMemberStore`, `useGalleryStore`, ...) own their slice of state
+3. **Service Layer**: `DatabaseService` encapsulates all API calls
+4. **Owned + shared trees**: each tree has an owner and can be shared as viewer/editor
+5. **Auth**: JWT-based; local accounts plus optional Authentik OIDC; admin-managed users
+6. **Component-Based UI**: Reusable UI components from Shadcn UI library
 
 ---
 
@@ -70,34 +78,37 @@ User Interaction → React Component → Zustand Store Action
 
 ### Data Model (`Member`)
 
-The core entity is the `Member` (defined in `src/types/member.ts`). It includes identification, genealogical links, personal attributes, and layout information.
+The core entity is the `Member` (defined in `frontend/src/types/member.ts`). It includes identification, genealogical links, personal attributes, and layout information.
 
 ### Layout Logic
 
-Automatic layout is handled in `src/utils/layoutUtils.ts` using `dagre` for topological sorting. The layout algorithm enforces a "Paternal (Father) on the Left" and "Maternal (Mother) on the Right" convention.
+Automatic layout is handled in `frontend/src/utils/layoutUtils.ts` using `dagre` for topological sorting. The layout algorithm enforces a "Paternal (Father) on the Left" and "Maternal (Mother) on the Right" convention.
 
 ### File Organization
 
-- **Components**: Located in `src/components/`, organized by category:
+- **Components**: Located in `frontend/src/components/`, organized by category:
   - `layout/` - App-wide layout components (MainPanel, Layout, ErrorBoundary)
   - `shared/` - Reusable components used across features (dialogs, member-sheet)
   - `view/` - Feature-specific view components (tree-view, gallery-view, list-view, timeline-view, etc.)
   - `sidebar/` - Sidebar components (DatabaseSelector, LanguageSelector)
   - `ui/` - Base UI library components from Shadcn UI
-- **Hooks**: Custom hooks in `src/hooks/`, including the main store
-- **Services**: Business logic and database operations in `src/services/`
-- **Types**: TypeScript definitions in `src/types/`
-- **Utilities**: Helper functions in `src/utils/`
+- **Hooks**: Custom hooks in `frontend/src/hooks/`, including the main store
+- **Services**: Business logic and database operations in `frontend/src/services/`
+- **Types**: TypeScript definitions in `frontend/src/types/`
+- **Utilities**: Helper functions in `frontend/src/utils/`
 
 ---
 
 ## State Management (Zustand)
 
-Global application state is managed by a single Zustand store located at `src/hooks/useFamilyStore.ts`. This store is the single source of truth for all family data, gallery images, and database metadata.
+Application state is split across per-domain Zustand stores in `frontend/src/hooks/`:
+`useDatabaseStore` (the selected tree, its metadata and relation types),
+`useMemberStore`, `useGalleryStore`, `useEventStore`, `useStoryStore`, plus
+`useAuthStore` for the current session.
 
-- **Actions**: All interactions with the database (reads and writes) are handled through actions within the store.
-- **Data Flow**: Components should call actions from the store to modify state and then rely on the reactive state updates to re-render.
-- **Database Service**: The store delegates direct database operations to `src/services/DatabaseService.ts`, which encapsulates all SQL queries (defined in `src/db/queries.ts`).
+- **Actions**: All interactions with the backend (reads and writes) are handled through actions within the stores.
+- **Data Flow**: Components call store actions to modify state and rely on reactive updates to re-render.
+- **Database Service**: The stores delegate to `frontend/src/services/DatabaseService.ts`, an HTTP client over the FastAPI API (`frontend/src/services/api.ts`). The active `treeId` comes from `useDatabaseStore`.
 
 ### Best Practices
 
@@ -106,42 +117,43 @@ Global application state is managed by a single Zustand store located at `src/ho
 3. **Keep components pure**: Components should only read from store state and call actions
 4. **Selective subscriptions**: Use selective store subscriptions to avoid unnecessary re-renders:
    ```typescript
-   const members = useFamilyStore((state) => state.members);
+   const members = useMemberStore((state) => state.members);
    ```
 
 ---
 
-## Database Migration Framework
+## Backend & Persistence
 
-To ensure smooth schema evolution and prevent data loss, the project uses a version-based migration framework managed by the Rust backend.
+The backend lives in `backend/` (FastAPI). See [backend/README.md](../backend/README.md) for its internal layout.
 
-### How It Works
+### Schema management
 
-1.  **Versioning**: The database schema version is tracked using SQLite's `PRAGMA user_version`.
+The ORM models in `backend/app/models/` are the source of truth, and the schema
+is versioned with **Alembic** (`backend/alembic/`). On startup the service runs
+`alembic upgrade head` automatically, then seeds the admin + default settings.
 
-2.  **Migration Runner**: The migration logic resides in `src-tauri/src/lib.rs`. The `run_migrations` function checks the current `user_version` and executes pending SQL statements.
+### Adding a field / table
 
-3.  **Execution**: When a user opens a database, the frontend invokes the `initialize_database` Tauri command. This command opens the SQLite connection, runs any necessary migrations, and ensures the schema is up-to-date before the frontend connects.
+1. Update the relevant model in `backend/app/models/`.
+2. Generate a migration: `uv run alembic revision --autogenerate -m "..."`,
+   review it, then it is applied on the next startup (or `uv run alembic upgrade head`).
+3. Update the matching Pydantic schema in `backend/app/schemas/` (keep the field
+   names aligned with the frontend `*DB` contracts).
+4. Expose it through the relevant router in `backend/app/api/routes/`.
+5. Wire the frontend through `frontend/src/services/DatabaseService.ts` and the store.
 
-### Adding a New Migration
+### Database schema (per tree)
 
-To update the database schema:
+All content tables carry a `tree_id`. Key tables:
 
-1.  Open `src-tauri/src/lib.rs`.
-2.  Locate the `run_migrations` function.
-3.  Add a new SQL string to the `migrations` vector.
-4.  The Rust backend will automatically apply this migration the next time the database is opened.
+- `users`, `trees`, `tree_memberships` — accounts and the owned + shared model
+- `members`, `relations`, `relation_types`, `member_diseases`
+- `events` / `event_member_link`, `stories` / `story_member_link`
+- `gallery_images` / `gallery_member_link`
+- `app_settings` — instance-wide settings (key/value)
 
-This approach leverages Rust's performance and reliability for critical database operations.
-
-### Database Schema
-
-The database schema is defined in the migration SQL statements. Key tables include:
-
-- `members`: Core family member data
-- `life_events`: Timeline events for members
-- `stories`: Biographical stories and narratives
-- `gallery`: Photo storage and metadata
+Member photos and gallery images are stored on the filesystem (`DATA_PATH/media`)
+and referenced by URL.
 
 ---
 
@@ -176,7 +188,7 @@ export function Component({ prop }: ComponentProps) {
 
 ### UI Component Guidelines
 
-- **Use Shadcn UI components**: Prefer pre-built components from `src/components/ui/`
+- **Use Shadcn UI components**: Prefer pre-built components from `frontend/src/components/ui/`
 - **Tailwind CSS**: Use utility classes for styling
 - **Lucide Icons**: Use consistent icon set throughout the app
 - **Responsive Design**: Ensure components work on different window sizes
@@ -186,15 +198,15 @@ export function Component({ prop }: ComponentProps) {
 When working with the family tree visualization:
 
 - Use `@xyflow/react` for the flow canvas
-- Custom node types are defined in `src/components/view/tree-view/node/FamilyNode.tsx`
-- Custom edge types are defined in `src/components/view/tree-view/edge/RelationEdge.tsx`
-- Layout calculations are in `src/utils/layoutUtils.ts`
+- Custom node types are defined in `frontend/src/components/view/tree-view/node/FamilyNode.tsx`
+- Custom edge types are defined in `frontend/src/components/view/tree-view/edge/RelationEdge.tsx`
+- Layout calculations are in `frontend/src/utils/layoutUtils.ts`
 - Never modify node positions manually; always recalculate the full layout
 
 ### Internationalization
 
 - All user-facing text must use i18next translations
-- Translation keys are in `src/i18n/locales/`
+- Translation keys are in `frontend/src/i18n/locales/`
 - Use the `useTranslation` hook: `const { t } = useTranslation('namespace');`
 - Follow the naming conventions in the **[i18n Guide](./I18N_GUIDE.md)** for consistent key structure
 - Run `npm run check-i18n` to verify translation completeness
@@ -214,34 +226,31 @@ For detailed patterns, pluralization, and best practices, see the [i18n Guide](.
 
 ## Backend Guidelines
 
-### Tauri Commands
+The backend is a FastAPI app in `backend/app/`. Each resource is a router in
+`backend/app/api/routes/`, returning Pydantic schemas whose field names match
+the frontend `*DB` contracts.
 
-Rust commands are exposed to the frontend via Tauri's command system. Located in `src-tauri/src/lib.rs`:
+### Adding an endpoint
 
-```rust
-#[tauri::command]
-fn command_name(param: Type) -> Result<ReturnType, String> {
-    // Implementation
-}
+```python
+@router.get("/members", response_model=list[MemberOut])
+def list_members(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
+    return db.scalars(select(Member).where(Member.tree_id == tree.id)).all()
 ```
 
-### When to Add New Commands
+- Use `Depends(get_readable_tree)` for reads and `Depends(get_writable_tree)`
+  for writes — these enforce the owned + shared access model and 404/403 as
+  appropriate.
+- Admin-only routes use `Depends(require_admin)`.
+- Keep request/response field names aligned with the frontend types so
+  `DatabaseService` and the stores keep working unchanged.
 
-Add new Tauri commands when you need to:
+### Database operations
 
-- Access the file system
-- Perform native OS operations
-- Execute CPU-intensive tasks that should run in native code
-- Access system APIs not available in the browser
-
-### Database Operations
-
-Database operations should:
-
-1. Be defined in Rust commands
-2. Use parameterized queries to prevent SQL injection
-3. Handle errors gracefully and return Result types
-4. Update the schema version when modifying the database structure
+1. Go through SQLAlchemy models — never build raw SQL strings.
+2. Scope every query by `tree_id`.
+3. Commit within the request; let FastAPI return the serialized model.
+4. Update the model in `backend/app/models/` when changing the schema.
 
 ---
 
@@ -249,7 +258,7 @@ Database operations should:
 
 The project uses **Vitest** for unit testing.
 
-- **Location**: Tests are co-located with the files they test (e.g., `src/types/member.test.ts`).
+- **Location**: Tests are co-located with the files they test (e.g., `frontend/src/types/member.test.ts`).
 - **Running Tests**: Run `npm test` to execute the test suite.
 - **Scope**: Focus on testing pure logic, data mapping functions, and utility algorithms (like layout calculations).
 
@@ -263,7 +272,7 @@ The project uses **Vitest** for unit testing.
 ### What Not to Test
 
 - UI components (no React Testing Library tests currently)
-- Tauri commands (Rust backend has its own testing)
+- Backend endpoints (covered separately on the Python side)
 - Third-party library integrations
 
 ### Writing Tests
@@ -299,7 +308,7 @@ describe("functionToTest", () => {
 ### Naming Conventions
 
 - **Components**: PascalCase (e.g., `MemberSheet.tsx`)
-- **Hooks**: camelCase with "use" prefix (e.g., `useFamilyStore.ts`)
+- **Hooks**: camelCase with "use" prefix (e.g., `useMemberStore.ts`)
 - **Utilities**: camelCase (e.g., `layoutUtils.ts`)
 - **Constants**: UPPER_SNAKE_CASE (e.g., `NODE_WIDTH`)
 - **Types/Interfaces**: PascalCase (e.g., `Member`, `LifeEvent`)
@@ -358,7 +367,7 @@ describe("functionToTest", () => {
 
 Reviewers will check for:
 
-- Adherence to architectural patterns (store → service → Tauri)
+- Adherence to architectural patterns (store → service → API)
 - Proper error handling
 - Type safety (no `any` types)
 - Test coverage for new logic
@@ -369,17 +378,18 @@ Reviewers will check for:
 
 If your changes require database schema modifications:
 
-1. Add a new migration in `src-tauri/src/lib.rs`
-2. Increment the schema version
-3. Document the migration in your PR description
-4. Test with an existing database to ensure smooth upgrades
+1. Update the relevant model in `backend/app/models/`
+2. Update the matching Pydantic schema and router
+3. Document the change in your PR description
+4. Test that the schema still creates cleanly on a fresh database
 
 ---
 
 ## Additional Resources
 
 - **[i18n Guide](./I18N_GUIDE.md)**: Translation conventions and patterns
-- **Tauri**: [Documentation](https://tauri.app/) | [API Reference](https://tauri.app/v1/api/js/)
+- **FastAPI**: [Documentation](https://fastapi.tiangolo.com/)
+- **SQLAlchemy**: [Documentation](https://docs.sqlalchemy.org/)
 - **React Flow**: [Documentation](https://reactflow.dev/)
 - **Zustand**: [Documentation](https://zustand-demo.pmnd.rs/)
 - **Shadcn UI**: [Component Library](https://ui.shadcn.com/)

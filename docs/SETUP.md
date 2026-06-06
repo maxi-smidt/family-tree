@@ -1,166 +1,91 @@
 # Setup Guide
 
-This guide will help you set up the Family Tree application for development on your local machine.
+Two ways to run it: the full **production** stack with Docker Compose, or
+**development** where you start the database in a container and run the two dev
+servers directly (with hot reload).
+
+The web app lives in `frontend/`, the API in `backend/`. The repo root holds
+only the Docker Compose stack and shared tooling (prettier + git hooks).
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed on your system:
+- **Docker** + **Docker Compose** — runs production, and the database in dev
+- **Node.js** v20.19+ (or v22.12+) — for the frontend dev server
+- **Python** 3.12+ and **[uv](https://docs.astral.sh/uv/)** — for the backend dev server
 
-### Required Software
-
-- **Node.js** (v16 or newer)
-  - Download from [nodejs.org](https://nodejs.org/)
-  - Verify installation: `node --version`
-
-- **Rust** (latest stable version)
-  - Install via [rustup](https://www.rust-lang.org/tools/install)
-  - Verify installation: `rustc --version`
-
-- **System Dependencies for Tauri**
-  - Follow the [Tauri Prerequisites Guide](https://tauri.app/v1/guides/getting-started/prerequisites) for your operating system:
-    - **Linux**: Install required libraries (webkit2gtk, libssl-dev, etc.)
-    - **macOS**: Xcode Command Line Tools
-    - **Windows**: Microsoft Visual Studio C++ Build Tools
-
-## Installation Steps
-
-### 1. Clone the Repository
+## Production
 
 ```bash
 git clone https://github.com/maxi-smidt/family-tree.git
 cd family-tree
+
+cp .env.example .env
+# Set SECRET_KEY and FIRST_ADMIN_PASSWORD at minimum.
+
+docker compose up -d --build
 ```
 
-### 2. Install Dependencies
+Open `http://localhost:${UI_PORT}` (default `8080`) and sign in with the seeded
+admin (`FIRST_ADMIN_USERNAME` / `FIRST_ADMIN_PASSWORD`). Migrations run
+automatically on first start.
 
-Install all Node.js dependencies:
+## Development
+
+### 1. Start the database
+
+The `db` service is published on `127.0.0.1:5432`, so start just that one
+(from the terminal, or your IDE's Docker/Services panel):
 
 ```bash
-npm install
+docker compose up -d db
 ```
 
-This will install both frontend and Tauri CLI dependencies.
-
-### 3. Development Mode
-
-Run the application in development mode:
+### 2. Backend (hot reload)
 
 ```bash
-npm run tauri dev
+cd backend
+uv sync                 # creates .venv from uv.lock (first time only)
+cp .env.example .env    # points at the db above; edit if you changed credentials
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
-This command will:
-- Start the Vite development server for hot module replacement
-- Compile the Rust backend
-- Open the Tauri application window
+`backend/.env` is loaded automatically and real env vars override it. Migrations
+are applied on startup and the seeded admin (`admin` / `admin`) is created on
+first run. API docs: `http://localhost:8000/api/docs`.
 
-**Note**: The first build may take several minutes as Rust compiles all dependencies.
+> No database running? Set `DATABASE_URL=sqlite:///./dev.db` in `backend/.env`
+> for a zero-setup run.
 
-### 4. Build for Production
-
-To create a production build for your operating system:
+### 3. Frontend (hot reload)
 
 ```bash
-npm run tauri build
+cd frontend
+npm install             # first time only
+npm run dev             # → http://localhost:1420
 ```
 
-The compiled application will be available in `src-tauri/target/release/`.
+The Vite dev server proxies `/api` to `http://localhost:8000` (override with
+`VITE_PROXY_TARGET`), so the SPA uses the same relative URLs as in production.
 
-## Development Workflow
+> Optional: a fully containerized hot-reload stack (db + API + Vite, one
+> command) is available via `docker compose -f docker-compose.dev.yml up --build`.
 
-### Running Tests
-
-Execute the test suite with Vitest:
+## Useful commands
 
 ```bash
-npm test
+# Frontend (from ./frontend)
+npm run build        # type-check + production build
+npm run test         # frontend unit tests (Vitest)
+npm run check-i18n   # validate translation parity
+
+# Backend (from ./backend)
+uv run uvicorn app.main:app --reload --port 8000
+uv run alembic revision --autogenerate -m "msg"   # after model changes
 ```
 
-For watch mode during development:
+## Authentik (optional)
 
-```bash
-npm test -- --watch
-```
-
-### Code Quality
-
-The project uses **Prettier** for code formatting. Git hooks (via Husky) automatically format code on commit.
-
-To manually format all files:
-
-```bash
-npx prettier --write .
-```
-
-### Version Management
-
-Bump the application version using the provided scripts:
-
-```bash
-npm run bump:patch  # 0.1.0 -> 0.1.1
-npm run bump:minor  # 0.1.0 -> 0.2.0
-npm run bump:major  # 0.1.0 -> 1.0.0
-```
-
-## Project Structure
-
-```
-family-tree/
-├── src/                    # Frontend React application
-│   ├── components/         # React components
-│   ├── hooks/              # Custom React hooks (including Zustand store)
-│   ├── types/              # TypeScript type definitions
-│   ├── utils/              # Helper functions and utilities
-│   ├── services/           # Database and business logic services
-│   ├── db/                 # Database queries and schemas
-│   └── i18n/               # Internationalization files
-├── src-tauri/              # Rust backend
-│   ├── src/                # Rust source code
-│   ├── Cargo.toml          # Rust dependencies
-│   └── tauri.conf.json     # Tauri configuration
-├── public/                 # Static assets
-├── scripts/                # Build and utility scripts
-└── package.json            # Node.js dependencies and scripts
-```
-
-## Common Issues
-
-### Database Not Opening
-
-If the database fails to open or create:
-- Ensure SQLite is properly installed
-- Check file permissions in the application data directory
-- Try deleting and recreating the database file
-
-### Tauri Build Fails
-
-If the Tauri build fails:
-- Ensure all system dependencies are installed (see Prerequisites)
-- Clear Rust build cache: `cd src-tauri && cargo clean`
-- Update Rust: `rustup update`
-
-### Frontend Hot Reload Not Working
-
-If hot module replacement isn't working:
-- Clear Vite cache: `rm -rf node_modules/.vite`
-- Restart the development server
-
-## Additional Resources
-
-- [Tauri Documentation](https://tauri.app/)
-- [React Documentation](https://react.dev/)
-- [Vite Documentation](https://vitejs.dev/)
-- [Zustand Documentation](https://zustand-demo.pmnd.rs/)
-
-## Next Steps
-
-After completing the setup:
-1. Review [AGENTS.md](./AGENTS.md) for architecture and development guidelines
-2. Explore the [src/components](./src/components) directory to understand the UI structure
-3. Check [src/hooks/useFamilyStore.ts](./src/hooks/useFamilyStore.ts) for state management patterns
-4. Read [COPILOT.md](./COPILOT.md) if you're using GitHub Copilot for development
-5. See [I18N_GUIDE.md](./I18N_GUIDE.md) for internationalization conventions
-
----
-
-For questions or issues, please open an issue on the [GitHub repository](https://github.com/maxi-smidt/family-tree/issues).
+To enable single sign-on, register an OAuth2/OpenID Connect provider in Authentik
+with redirect URI `${FRONTEND_URL}/api/auth/oauth/authentik/callback`, then set
+`AUTHENTIK_CLIENT_ID`, `AUTHENTIK_CLIENT_SECRET`, and `AUTHENTIK_DISCOVERY_URL`
+in your environment. The "Sign in with Authentik" button appears automatically.
