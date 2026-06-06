@@ -1,0 +1,14 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Family Tree">
+  <rect width="512" height="512" rx="112" fill="#171717"/>
+  <g stroke="#FAFAFA" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 206 V292"/>
+    <path d="M160 292 H352"/>
+    <path d="M160 292 V314"/>
+    <path d="M352 292 V314"/>
+  </g>
+  <g fill="#FAFAFA">
+    <circle cx="256" cy="158" r="48"/>
+    <circle cx="160" cy="362" r="48"/>
+    <circle cx="352" cy="362" r="48"/>
+  </g>
+</svg>
