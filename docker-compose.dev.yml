@@ -1,0 +1,89 @@
+# Hot-reload development stack — run with:
+#
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Then open http://localhost:1420 (Vite dev server, HMR enabled).
+# - Backend reloads on Python changes (source mounted, uvicorn --reload).
+# - Frontend hot-reloads on edits (Vite with polling for Docker bind mounts).
+# - Postgres + backend ports are published so you can also poke them directly.
+#
+# This file is self-contained and dev-only (credentials are throwaway); it does
+# NOT use the production docker-compose.yml.
+name: family-tree-dev
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: familytree
+      POSTGRES_PASSWORD: familytree
+      POSTGRES_DB: familytree
+      PGDATA: /var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    volumes:
+      - dev_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U familytree"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SECRET_KEY: dev-secret-change-me
+      POSTGRES_HOST: db
+      POSTGRES_USER: familytree
+      POSTGRES_PASSWORD: familytree
+      POSTGRES_DB: familytree
+      DATA_PATH: /data
+      APP_DATA_PATH: /appdata
+      FRONTEND_URL: http://localhost:1420
+      CORS_ORIGINS: http://localhost:1420
+      FIRST_ADMIN_USERNAME: admin
+      FIRST_ADMIN_PASSWORD: admin
+    volumes:
+      # Mount source so uvicorn --reload picks up changes. Dependencies stay in
+      # the image's baked-in /app/.venv.
+      - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
+      - dev_media:/data
+      - dev_appdata:/appdata
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 1420"
+    depends_on:
+      - backend
+    environment:
+      # Proxy /api to the backend container; poll for file changes (reliable in
+      # Docker on macOS/Windows where bind mounts don't emit fs events).
+      VITE_PROXY_TARGET: http://backend:8000
+      VITE_USE_POLLING: "true"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "1420:1420"
+
+volumes:
+  dev_pgdata:
+  dev_media:
+  dev_appdata:

@@ -27,7 +27,25 @@ docker compose up -d --build
 Open `http://localhost:${UI_PORT}` (default `8080`) and sign in with the seeded
 admin account (`FIRST_ADMIN_USERNAME` / `FIRST_ADMIN_PASSWORD`).
 
-## Option B — Local development (hot reload)
+## Option B — Hot-reload dev with Docker (one command)
+
+The simplest dev setup — Postgres, the API (with `uvicorn --reload`), and the
+Vite dev server (with HMR), all wired together:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Open **http://localhost:1420**. Backend code changes reload automatically and
+frontend edits hot-reload in the browser. The seeded admin is `admin` / `admin`.
+Postgres (`5432`) and the API (`8000`) are published too, so you can connect to
+them directly.
+
+> macOS/Windows note: HMR uses polling inside Docker (`VITE_USE_POLLING`), which
+> can be CPU-heavy. If you prefer native file watching, use Option C below (run
+> the frontend on the host).
+
+## Option C — Hot-reload dev on the host
 
 Run Postgres (via Docker is easiest), then the backend and frontend dev servers.
 
