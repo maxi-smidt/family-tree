@@ -6,8 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_readable_tree, get_writable_tree
 from app.db.session import get_db
-from app.models import Event, EventMemberLink, Tree
-from app.schemas.content import EventCreate, EventLinkOut, EventOut, EventUpdate, LinkCreate
+from app.models import Event, EventMemberLink, Member, Tree
+from app.schemas.content import EventCreate, EventLinkOut, EventOut, EventUpdate, LinksSet
 
 router = APIRouter(prefix="/trees/{tree_id}/events", tags=["events"])
 
@@ -17,6 +17,20 @@ def _get_event(db: Session, tree: Tree, event_id: str) -> Event:
     if event is None or event.tree_id != tree.id:
         raise HTTPException(status_code=404, detail="Event not found")
     return event
+
+
+def _set_links(db: Session, tree: Tree, event_id: str, member_ids: list[str]) -> None:
+    """Replace the event's member links, keeping only members of this tree."""
+    db.query(EventMemberLink).filter(EventMemberLink.event_id == event_id).delete()
+    if not member_ids:
+        return
+    valid = db.scalars(
+        select(Member.id).where(
+            Member.tree_id == tree.id, Member.id.in_(set(member_ids))
+        )
+    ).all()
+    for member_id in valid:
+        db.add(EventMemberLink(event_id=event_id, member_id=member_id))
 
 
 @router.get("", response_model=list[EventOut])
@@ -39,8 +53,12 @@ def create_event(
     tree: Tree = Depends(get_writable_tree),
     db: Session = Depends(get_db),
 ):
-    event = Event(tree_id=tree.id, **payload.model_dump())
+    data = payload.model_dump()
+    member_ids = data.pop("member_ids")
+    event = Event(tree_id=tree.id, **data)
     db.add(event)
+    db.flush()  # event row must exist before its links reference it
+    _set_links(db, tree, event.id, member_ids)
     db.commit()
     db.refresh(event)
     return event
@@ -72,25 +90,14 @@ def delete_event(
     db.commit()
 
 
-@router.post("/{event_id}/links", status_code=204)
-def add_link(
+@router.put("/{event_id}/links", status_code=204)
+def set_links(
     event_id: str,
-    payload: LinkCreate,
+    payload: LinksSet,
     tree: Tree = Depends(get_writable_tree),
     db: Session = Depends(get_db),
 ):
+    """Replace the full set of members linked to this event."""
     _get_event(db, tree, event_id)
-    if db.get(EventMemberLink, (event_id, payload.member_id)) is None:
-        db.add(EventMemberLink(event_id=event_id, member_id=payload.member_id))
-        db.commit()
-
-
-@router.delete("/{event_id}/links", status_code=204)
-def clear_links(
-    event_id: str,
-    tree: Tree = Depends(get_writable_tree),
-    db: Session = Depends(get_db),
-):
-    _get_event(db, tree, event_id)
-    db.query(EventMemberLink).filter(EventMemberLink.event_id == event_id).delete()
+    _set_links(db, tree, event_id, payload.member_ids)
     db.commit()

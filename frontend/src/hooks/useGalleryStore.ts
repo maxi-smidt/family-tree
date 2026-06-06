@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { GalleryImage } from "@/types/gallery";
-import { DatabaseService } from "@/services/DatabaseService";
-import { activeTreeId } from "@/hooks/useDatabaseStore";
+import { TreeService } from "@/services/TreeService";
+import { activeTreeId } from "@/hooks/useTreeStore";
 
 interface GalleryState {
   galleryImages: GalleryImage[];
@@ -26,8 +26,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       return;
     }
 
-    const imagesResult = await DatabaseService.getGalleryImages(treeId);
-    const linksResult = await DatabaseService.getGalleryMemberLinks(treeId);
+    const [imagesResult, linksResult] = await Promise.all([
+      TreeService.getGalleryImages(treeId),
+      TreeService.getGalleryMemberLinks(treeId),
+    ]);
 
     const images = imagesResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -50,13 +52,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    await DatabaseService.addGalleryImage(treeId, id, image, now);
-
-    if (image.linkedMemberIds && image.linkedMemberIds.length > 0) {
-      for (const memberId of image.linkedMemberIds) {
-        await DatabaseService.linkGalleryImageToMember(treeId, id, memberId);
-      }
-    }
+    // Member links are created in the same request (image.linkedMemberIds).
+    await TreeService.addGalleryImage(treeId, id, image, now);
 
     await get().refreshGalleryImages();
   },
@@ -67,13 +64,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     const { linkedMemberIds } = changes;
 
-    await DatabaseService.updateGalleryImage(treeId, id, changes);
+    await TreeService.updateGalleryImage(treeId, id, changes);
 
     if (linkedMemberIds) {
-      await DatabaseService.removeGalleryImageLinks(treeId, id);
-      for (const memberId of linkedMemberIds) {
-        await DatabaseService.linkGalleryImageToMember(treeId, id, memberId);
-      }
+      await TreeService.setGalleryImageLinks(treeId, id, linkedMemberIds);
     }
 
     await get().refreshGalleryImages();
@@ -82,7 +76,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   deleteGalleryImage: async (id: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
-    await DatabaseService.removeGalleryImage(treeId, id);
+    await TreeService.removeGalleryImage(treeId, id);
     await get().refreshGalleryImages();
   },
 }));

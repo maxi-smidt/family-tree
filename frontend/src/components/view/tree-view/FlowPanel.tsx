@@ -11,7 +11,7 @@ import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialo
 import { useEffect, useMemo, useState } from "react";
 import { createMember, Member } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
@@ -27,7 +27,7 @@ const nodeTypes = { familyMember: FamilyNode };
 const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
-  const activeDatabase = useDatabaseStore((s) => s.selectedDatabase);
+  const activeTree = useTreeStore((s) => s.selectedTree);
   const {
     members,
     removeMember,
@@ -36,7 +36,7 @@ export const FlowPanel = () => {
     removeRelation,
     addMember,
   } = useMemberStore();
-  const { isReady } = useDatabaseStore();
+  const { isReady } = useTreeStore();
   const {
     edgeType,
     isLockedScreen,
@@ -196,7 +196,7 @@ export const FlowPanel = () => {
     setMembersToDelete([]);
   };
 
-  if (!isReady || !activeDatabase) return null;
+  if (!isReady || !activeTree) return null;
 
   return (
     <div className="w-full h-full">

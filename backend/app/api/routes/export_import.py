@@ -130,8 +130,8 @@ async def import_tree(
     blob = await file.read()
     try:
         bundle = crypto_export.decrypt_bundle(blob, password or None)
-    except PermissionError:
-        raise HTTPException(status_code=401, detail="Password required")
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail="Password required") from exc
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail="Could not read export file") from exc
 

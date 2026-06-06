@@ -8,7 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { Settings2 } from "lucide-react";
 import {
   Tooltip,
@@ -26,7 +26,7 @@ export const RelationControls = () => {
     keyPrefix: "common.relation-types",
   });
   const { visibleRelationTypes, toggleRelationType } = useFamilyTreeSettings();
-  const { relationTypes } = useDatabaseStore();
+  const { relationTypes } = useTreeStore();
 
   return (
     <DropdownMenu>

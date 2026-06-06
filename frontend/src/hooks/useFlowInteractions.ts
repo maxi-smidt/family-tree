@@ -35,20 +35,19 @@ export const useFlowInteractions = (
   const { t } = useTranslation(undefined, {
     keyPrefix: "hooks.flow-interactions",
   });
-  const { removeRelation, updateMemberPartial } = useMemberStore();
+  const { removeRelation, updateMemberPartial, persistPositions } =
+    useMemberStore();
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
   const memberMap = useRef(new Map<string, Member>()).current;
 
   const processUpdates = useCallback(() => {
-    Object.entries(pendingUpdates.current).forEach(([id, position]) => {
-      void updateMemberPartial(id, {
-        positionX: position.x,
-        positionY: position.y,
-      });
-    });
+    const positions = Object.entries(pendingUpdates.current).map(
+      ([id, position]) => ({ id, x: position.x, y: position.y }),
+    );
     pendingUpdates.current = {};
-  }, [updateMemberPartial]);
+    void persistPositions(positions);
+  }, [persistPositions]);
 
   const debouncedSave = useRef(debounce(processUpdates, 1000)).current;
 
@@ -174,7 +173,13 @@ export const useFlowInteractions = (
   const isDescendant = (
     potentialAncestorId: string,
     potentialDescendantId: string,
+    visited: Set<string> = new Set(),
   ): boolean => {
+    // Guard against pre-existing cycles in the data so a malformed tree can't
+    // send this recursion into an infinite loop / stack overflow.
+    if (visited.has(potentialDescendantId)) return false;
+    visited.add(potentialDescendantId);
+
     const descendant = memberMap.get(potentialDescendantId);
     if (!descendant) return false;
 
@@ -186,7 +191,7 @@ export const useFlowInteractions = (
     if (parentIds.includes(potentialAncestorId)) return true;
 
     return parentIds.some((parentId) =>
-      isDescendant(potentialAncestorId, parentId),
+      isDescendant(potentialAncestorId, parentId, visited),
     );
   };
 

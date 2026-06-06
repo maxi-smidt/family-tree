@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
-import { pickFile, useDatabaseManager } from "@/hooks/useDatabaseManager";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -34,26 +34,25 @@ import { ShareTreeDialog } from "@/components/view/database-management-view/dial
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Database } from "@/types/database";
+import { Tree } from "@/types/tree";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 
 export const DatabaseManagementView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "database-management-view",
   });
-  const databases = useDatabaseStore((s) => s.databases);
-  const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
-  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
-  const renameDatabase = useDatabaseStore((s) => s.renameDatabase);
-  const loadTrees = useDatabaseStore((s) => s.loadTrees);
-  const { exportDatabase, importDatabase, inspectImport } =
-    useDatabaseManager();
+  const trees = useTreeStore((s) => s.trees);
+  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const selectTree = useTreeStore((s) => s.selectTree);
+  const renameTree = useTreeStore((s) => s.renameTree);
+  const loadTrees = useTreeStore((s) => s.loadTrees);
+  const { exportDatabase, importDatabase, inspectImport } = useTreeManager();
 
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
   const [isRemoveDatabaseDialogOpen, setIsRemoveDatabaseDialogOpen] =
     useState(false);
-  const [shareTree, setShareTree] = useState<Database | null>(null);
+  const [shareTree, setShareTree] = useState<Tree | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
     mode: "export" | "import";
@@ -95,7 +94,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportDatabase = async (database: Database) => {
+  const handleExportDatabase = async (database: Tree) => {
     const password = await askPassword("export");
     if (password === undefined) return; // cancelled
     try {
@@ -106,7 +105,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleStartRename = (database: Database) => {
+  const handleStartRename = (database: Tree) => {
     setEditingDatabaseId(database.id);
     setEditingName(database.name);
   };
@@ -116,32 +115,32 @@ export const DatabaseManagementView = () => {
     setEditingName("");
   };
 
-  const handleSaveRename = async (database: Database) => {
+  const handleSaveRename = async (database: Tree) => {
     if (!editingName.trim()) {
       toast.error(t("toast-rename-empty"));
       return;
     }
-    await renameDatabase(database, editingName.trim());
+    await renameTree(database, editingName.trim());
     toast.success(t("toast-rename-success"));
     setEditingDatabaseId(null);
     setEditingName("");
   };
 
-  const handleSelectDatabase = async (database: Database) => {
-    if (selectedDatabase?.id !== database.id) {
-      await selectDatabase(database);
+  const handleSelectDatabase = async (database: Tree) => {
+    if (selectedTree?.id !== database.id) {
+      await selectTree(database);
     }
   };
 
-  const handleOpenRemoveDialog = async (database: Database) => {
-    await selectDatabase(database);
+  const handleOpenRemoveDialog = async (database: Tree) => {
+    await selectTree(database);
     setIsRemoveDatabaseDialogOpen(true);
   };
 
-  const ownedDatabases = databases.filter((d) => d.role === "owner");
-  const sharedDatabases = databases.filter((d) => d.role !== "owner");
+  const ownedDatabases = trees.filter((d) => d.role === "owner");
+  const sharedDatabases = trees.filter((d) => d.role !== "owner");
 
-  const renderStatusCell = (database: Database) => {
+  const renderStatusCell = (database: Tree) => {
     if (database.role === "owner") {
       if (database.shared_count && database.shared_count > 0) {
         return (
@@ -165,17 +164,17 @@ export const DatabaseManagementView = () => {
     return <Badge variant="outline">{t(`role-${database.role}`)}</Badge>;
   };
 
-  const renderRow = (database: Database) => {
+  const renderRow = (database: Tree) => {
     const isOwned = database.role === "owner";
     return (
       <TableRow
         key={database.id}
-        className={selectedDatabase?.id === database.id ? "bg-muted" : ""}
+        className={selectedTree?.id === database.id ? "bg-muted" : ""}
       >
         <TableCell>
           <input
             type="radio"
-            checked={selectedDatabase?.id === database.id}
+            checked={selectedTree?.id === database.id}
             onChange={() => handleSelectDatabase(database)}
             className="cursor-pointer"
           />
@@ -258,7 +257,7 @@ export const DatabaseManagementView = () => {
 
   const renderSection = (
     heading: string,
-    rows: Database[],
+    rows: Tree[],
     emptyLabel: string,
     statusHeader: string,
   ) => (
@@ -332,7 +331,7 @@ export const DatabaseManagementView = () => {
       <div className="text-sm text-muted-foreground">
         {t("selected-label")}{" "}
         <span className="font-medium">
-          {selectedDatabase?.name || t("none-selected")}
+          {selectedTree?.name || t("none-selected")}
         </span>
       </div>
 

@@ -1,8 +1,8 @@
 /**
- * A "Database" in the UI is now a server-side family **tree**. The name is kept
- * for backwards compatibility with the existing components.
+ * A server-side family **tree**. (The UI still presents these to users as
+ * "databases", but in code they are trees, matching the backend.)
  */
-export interface Database {
+export interface Tree {
   id: string;
   name: string;
   owner_id?: string;
@@ -13,8 +13,6 @@ export interface Database {
   // Number of other users this tree is shared with (owner-relevant).
   shared_count?: number;
 }
-
-export type Tree = Database;
 
 export type ShareRole = "viewer" | "editor";
 

@@ -9,12 +9,12 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_readable_tree, get_writable_tree
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Story, StoryAttachment, StoryMemberLink, Tree
+from app.models import Member, Story, StoryAttachment, StoryMemberLink, Tree
 from app.schemas.content import (
     AttachmentCreate,
     AttachmentOut,
     AttachmentUpdate,
-    LinkCreate,
+    LinksSet,
     StoryCreate,
     StoryLinkOut,
     StoryOut,
@@ -44,6 +44,20 @@ def _get_attachment(db: Session, story: Story, attachment_id: str) -> StoryAttac
     return att
 
 
+def _set_links(db: Session, tree: Tree, story_id: str, member_ids: list[str]) -> None:
+    """Replace the story's member links, keeping only members of this tree."""
+    db.query(StoryMemberLink).filter(StoryMemberLink.story_id == story_id).delete()
+    if not member_ids:
+        return
+    valid = db.scalars(
+        select(Member.id).where(
+            Member.tree_id == tree.id, Member.id.in_(set(member_ids))
+        )
+    ).all()
+    for member_id in valid:
+        db.add(StoryMemberLink(story_id=story_id, member_id=member_id))
+
+
 @router.get("", response_model=list[StoryOut])
 def list_stories(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
     return db.scalars(
@@ -68,8 +82,12 @@ def create_story(
     tree: Tree = Depends(get_writable_tree),
     db: Session = Depends(get_db),
 ):
-    story = Story(tree_id=tree.id, **payload.model_dump())
+    data = payload.model_dump()
+    member_ids = data.pop("member_ids")
+    story = Story(tree_id=tree.id, **data)
     db.add(story)
+    db.flush()  # story row must exist before its links reference it
+    _set_links(db, tree, story.id, member_ids)
     db.commit()
     db.refresh(story)
     return story
@@ -104,27 +122,16 @@ def delete_story(
     db.commit()
 
 
-@router.post("/{story_id}/links", status_code=204)
-def add_link(
+@router.put("/{story_id}/links", status_code=204)
+def set_links(
     story_id: str,
-    payload: LinkCreate,
+    payload: LinksSet,
     tree: Tree = Depends(get_writable_tree),
     db: Session = Depends(get_db),
 ):
+    """Replace the full set of members linked to this story."""
     _get_story(db, tree, story_id)
-    if db.get(StoryMemberLink, (story_id, payload.member_id)) is None:
-        db.add(StoryMemberLink(story_id=story_id, member_id=payload.member_id))
-        db.commit()
-
-
-@router.delete("/{story_id}/links", status_code=204)
-def clear_links(
-    story_id: str,
-    tree: Tree = Depends(get_writable_tree),
-    db: Session = Depends(get_db),
-):
-    _get_story(db, tree, story_id)
-    db.query(StoryMemberLink).filter(StoryMemberLink.story_id == story_id).delete()
+    _set_links(db, tree, story_id, payload.member_ids)
     db.commit()
 
 

@@ -54,10 +54,16 @@ jobs:
       - name: "Install dependencies"
         run: uv sync --frozen
 
+      - name: "Lint (ruff)"
+        run: uv run ruff check
+
       - name: "Compile & import checks"
         run: |
           uv run python -m compileall -q app alembic
           uv run python -c "import app.main; print('app imports OK')"
+
+      - name: "Unit tests"
+        run: uv run pytest
 
   # Aggregate gate so the existing required status check named
   # "Check Application Build" (branch protection) keeps being reported.

@@ -61,6 +61,7 @@ in with the seeded admin account.
 For production environments or NAS systems like **Unraid**, we provide a `docker-compose.prod.yml` that pulls the pre-built images from the GitHub Container Registry (`ghcr.io`), so you do not need to build them from source.
 
 **For general Linux (Ubuntu, Debian, etc):**
+
 ```bash
 wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/docker-compose.prod.yml -O docker-compose.yml
 wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/.env.example -O .env
@@ -69,6 +70,7 @@ docker compose up -d
 ```
 
 **For Unraid:**
+
 1. Go to the **Apps** tab (Community Applications) and install the **Docker Compose Manager** plugin.
 2. In the Docker tab, scroll down to Compose and click **Add New Stack**. Name it `family-tree`.
 3. Click the gear icon next to the new stack and click **Edit Compose File**. Paste the contents of [`docker-compose.prod.yml`](./docker-compose.prod.yml) into it and save.

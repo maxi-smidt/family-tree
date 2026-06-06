@@ -25,9 +25,33 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3.4",
+    "ruff>=0.9.0",
 ]
 
 # This is an application, not a distributable package — uv installs the
 # dependencies into a virtualenv without trying to build the project itself.
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 90
+target-version = "py312"
+extend-exclude = ["alembic/versions"]
+
+[tool.ruff.lint]
+# pyflakes (F), pycodestyle (E/W), isort (I), flake8-bugbear (B),
+# pyupgrade (UP). Matches the conventions already used in the codebase.
+select = ["E", "W", "F", "I", "B", "UP"]
+# B008: FastAPI's `Depends(...)` / `Query(...)` defaults are the framework's
+# intended dependency-injection idiom, not an accidental shared mutable.
+ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+# The local ``alembic/`` migrations dir makes ruff treat the installed
+# ``alembic`` package as first-party; correct that so imports group sensibly.
+known-third-party = ["alembic"]

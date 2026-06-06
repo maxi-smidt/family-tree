@@ -42,6 +42,12 @@ def _seed_admin(db) -> None:
     user_count = db.scalar(select(func.count()).select_from(User))
     if user_count and user_count > 0:
         return
+    if settings.FIRST_ADMIN_PASSWORD == "admin":
+        logger.warning(
+            "Seeding the admin account with the insecure default password "
+            "'admin'. Set FIRST_ADMIN_PASSWORD to a strong value and change it "
+            "after first login."
+        )
     admin = User(
         username=settings.FIRST_ADMIN_USERNAME,
         email=settings.FIRST_ADMIN_EMAIL,

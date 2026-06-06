@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
 import { useState } from "react";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -31,7 +31,7 @@ export const CreateDatabaseDialog = ({
   });
   const [databaseId, setDatabaseId] = useState(crypto.randomUUID());
   const [databaseName, setDatabaseName] = useState<string>("");
-  const createDatabase = useDatabaseStore((s) => s.createDatabase);
+  const createTree = useTreeStore((s) => s.createTree);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancellation()}>
@@ -82,7 +82,7 @@ export const CreateDatabaseDialog = ({
   async function onConfirmation() {
     if (!databaseName) return;
     try {
-      await createDatabase(databaseName, databaseId);
+      await createTree(databaseName, databaseId);
       resetState();
       onConfirm();
     } catch (e) {

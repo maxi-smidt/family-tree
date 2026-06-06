@@ -8,12 +8,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useDatabaseManager } from "@/hooks/useDatabaseManager";
+import { useTreeManager } from "@/hooks/useTreeManager";
 import { useTranslation } from "react-i18next";
 
 type Props = {
@@ -30,13 +30,13 @@ export const RemoveDatabaseDialog = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.remove-database",
   });
-  const databases = useDatabaseStore((s) => s.databases);
-  const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
-  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
-  const { removeDatabase } = useDatabaseManager();
+  const trees = useTreeStore((s) => s.trees);
+  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const selectTree = useTreeStore((s) => s.selectTree);
+  const { removeDatabase } = useTreeManager();
   const [typedName, setTypedName] = useState("");
 
-  if (!selectedDatabase) return null;
+  if (!selectedTree) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancellation()}>
@@ -44,7 +44,7 @@ export const RemoveDatabaseDialog = ({
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
-            {t("description", { name: selectedDatabase.name })}
+            {t("description", { name: selectedTree.name })}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4 px-1">
@@ -52,7 +52,7 @@ export const RemoveDatabaseDialog = ({
             <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
             <Input
               id="databaseName"
-              placeholder={selectedDatabase.name}
+              placeholder={selectedTree.name}
               value={typedName}
               onChange={(e) => setTypedName(e.target.value)}
             />
@@ -68,7 +68,7 @@ export const RemoveDatabaseDialog = ({
             variant="destructive"
             size="sm"
             onClick={onConfirmation}
-            disabled={typedName !== selectedDatabase.name}
+            disabled={typedName !== selectedTree.name}
           >
             {t("remove")}
           </Button>
@@ -82,14 +82,14 @@ export const RemoveDatabaseDialog = ({
     onCancel();
   }
   async function onConfirmation() {
-    if (typedName !== selectedDatabase?.name) return;
-    const toRemove = selectedDatabase;
-    const nextDatabase = databases.find((db) => db.id !== toRemove.id);
+    if (typedName !== selectedTree?.name) return;
+    const toRemove = selectedTree;
+    const nextDatabase = trees.find((db) => db.id !== toRemove.id);
 
     if (!nextDatabase) {
       toast.warning(t("toast-warning"));
     }
-    await selectDatabase(nextDatabase);
+    await selectTree(nextDatabase);
     await removeDatabase(toRemove);
     resetState();
     toast.success(t("toast-success"));

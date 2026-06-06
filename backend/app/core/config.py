@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     # --- Authentication ----------------------------------------------------
     ALLOW_SELF_REGISTRATION: bool = False
 
+    # Brute-force protection for /auth/login: after LOGIN_MAX_ATTEMPTS failed
+    # attempts (per client IP + username) within the window, further attempts
+    # are rejected with 429 until the window rolls off.
+    LOGIN_MAX_ATTEMPTS: int = 5
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
+
     # Seed admin account, created on first start if no users exist.
     FIRST_ADMIN_USERNAME: str = "admin"
     FIRST_ADMIN_PASSWORD: str = "admin"

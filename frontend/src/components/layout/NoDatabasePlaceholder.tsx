@@ -12,7 +12,7 @@ import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseD
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { useState } from "react";
 import { toast } from "sonner";
-import { pickFile, useDatabaseManager } from "@/hooks/useDatabaseManager";
+import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
 import { useTranslation } from "react-i18next";
 
 export const NoDatabasePlaceholder = () => {
@@ -25,7 +25,7 @@ export const NoDatabasePlaceholder = () => {
     isOpen: boolean;
     resolve: (password: string | null | undefined) => void;
   } | null>(null);
-  const { importDatabase, inspectImport } = useDatabaseManager();
+  const { importDatabase, inspectImport } = useTreeManager();
 
   const askPassword = () => {
     return new Promise<string | null | undefined>((resolve) => {

@@ -19,11 +19,11 @@ import {
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
-import { DiseaseDB } from "@/types/disease";
+import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 
 const base = (treeId: string) => `/trees/${treeId}`;
 
-export class DatabaseService {
+export class TreeService {
   // --- Relation types ------------------------------------------------------
   static getRelationTypes(treeId: string) {
     return api.get<{ id: RelationType }[]>(`${base(treeId)}/relation-types`);
@@ -69,6 +69,15 @@ export class DatabaseService {
       positionX: x,
       positionY: y,
     });
+  }
+
+  /** Persist many member positions in a single request (re-layout / drag). */
+  static updateMemberPositions(
+    treeId: string,
+    positions: { id: string; positionX: number; positionY: number }[],
+  ) {
+    if (positions.length === 0) return Promise.resolve();
+    return api.patch(`${base(treeId)}/members/positions`, positions);
   }
 
   static addRelation(
@@ -121,16 +130,17 @@ export class DatabaseService {
       description: image.description,
       createdAt: now,
       uploadedAt: now,
+      member_ids: image.linkedMemberIds ?? [],
     });
   }
 
-  static linkGalleryImageToMember(
+  static setGalleryImageLinks(
     treeId: string,
     imageId: string,
-    memberId: string,
+    memberIds: string[],
   ) {
-    return api.post(`${base(treeId)}/gallery/images/${imageId}/links`, {
-      member_id: memberId,
+    return api.put(`${base(treeId)}/gallery/images/${imageId}/links`, {
+      member_ids: memberIds,
     });
   }
 
@@ -148,10 +158,6 @@ export class DatabaseService {
     return api.patch(`${base(treeId)}/gallery/images/${id}`, body);
   }
 
-  static removeGalleryImageLinks(treeId: string, imageId: string) {
-    return api.del(`${base(treeId)}/gallery/images/${imageId}/links`);
-  }
-
   static removeGalleryImage(treeId: string, id: string) {
     return api.del(`${base(treeId)}/gallery/images/${id}`);
   }
@@ -167,7 +173,13 @@ export class DatabaseService {
     );
   }
 
-  static addEvent(treeId: string, id: string, event: EventInput, now: string) {
+  static addEvent(
+    treeId: string,
+    id: string,
+    event: EventInput,
+    now: string,
+    memberIds: string[] = [],
+  ) {
     return api.post(`${base(treeId)}/events`, {
       id,
       event_type: event.eventType,
@@ -175,12 +187,13 @@ export class DatabaseService {
       location: event.location || null,
       description: event.description || null,
       created_at: now,
+      member_ids: memberIds,
     });
   }
 
-  static linkEventToMember(treeId: string, eventId: string, memberId: string) {
-    return api.post(`${base(treeId)}/events/${eventId}/links`, {
-      member_id: memberId,
+  static setEventLinks(treeId: string, eventId: string, memberIds: string[]) {
+    return api.put(`${base(treeId)}/events/${eventId}/links`, {
+      member_ids: memberIds,
     });
   }
 
@@ -197,10 +210,6 @@ export class DatabaseService {
     return api.del(`${base(treeId)}/events/${id}`);
   }
 
-  static removeEventLinks(treeId: string, eventId: string) {
-    return api.del(`${base(treeId)}/events/${eventId}/links`);
-  }
-
   // --- Stories -------------------------------------------------------------
   static getStories(treeId: string) {
     return api.get<StoryDB[]>(`${base(treeId)}/stories`);
@@ -212,19 +221,26 @@ export class DatabaseService {
     );
   }
 
-  static addStory(treeId: string, id: string, story: StoryInput, now: string) {
+  static addStory(
+    treeId: string,
+    id: string,
+    story: StoryInput,
+    now: string,
+    memberIds: string[] = [],
+  ) {
     return api.post(`${base(treeId)}/stories`, {
       id,
       title: story.title,
       content: story.content,
       created_at: now,
       updated_at: now,
+      member_ids: memberIds,
     });
   }
 
-  static linkStoryToMember(treeId: string, storyId: string, memberId: string) {
-    return api.post(`${base(treeId)}/stories/${storyId}/links`, {
-      member_id: memberId,
+  static setStoryLinks(treeId: string, storyId: string, memberIds: string[]) {
+    return api.put(`${base(treeId)}/stories/${storyId}/links`, {
+      member_ids: memberIds,
     });
   }
 
@@ -243,10 +259,6 @@ export class DatabaseService {
 
   static removeStory(treeId: string, id: string) {
     return api.del(`${base(treeId)}/stories/${id}`);
-  }
-
-  static removeStoryLinks(treeId: string, storyId: string) {
-    return api.del(`${base(treeId)}/stories/${storyId}/links`);
   }
 
   static addStoryAttachment(
@@ -292,39 +304,20 @@ export class DatabaseService {
     treeId: string,
     id: string,
     memberId: string,
-    name: string,
-    carrierStatus: string,
-    inheritancePattern: string,
-    diagnosisDate: string | null,
-    notes: string | null,
+    disease: DiseaseInput,
   ) {
     return api.post(`${base(treeId)}/diseases`, {
       id,
       member_id: memberId,
-      name,
-      carrier_status: carrierStatus,
-      inheritance_pattern: inheritancePattern,
-      diagnosis_date: diagnosisDate,
-      notes,
+      ...mapDiseaseInputToDB(disease),
     });
   }
 
-  static updateDisease(
-    treeId: string,
-    id: string,
-    name: string,
-    carrierStatus: string,
-    inheritancePattern: string,
-    diagnosisDate: string | null,
-    notes: string | null,
-  ) {
-    return api.patch(`${base(treeId)}/diseases/${id}`, {
-      name,
-      carrier_status: carrierStatus,
-      inheritance_pattern: inheritancePattern,
-      diagnosis_date: diagnosisDate,
-      notes,
-    });
+  static updateDisease(treeId: string, id: string, disease: DiseaseInput) {
+    return api.patch(
+      `${base(treeId)}/diseases/${id}`,
+      mapDiseaseInputToDB(disease),
+    );
   }
 
   static removeDisease(treeId: string, id: string) {

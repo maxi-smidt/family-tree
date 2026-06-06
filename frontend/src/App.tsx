@@ -1,7 +1,7 @@
 import "./App.css";
 import { useEffect } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { Layout } from "@/components/layout/Layout";
 import { MainPanel } from "@/components/layout/MainPanel";
@@ -12,8 +12,8 @@ import { Spinner } from "@/components/ui/spinner";
 export const App = () => {
   const status = useAuthStore((s) => s.status);
   const init = useAuthStore((s) => s.init);
-  const loadTrees = useDatabaseStore((s) => s.loadTrees);
-  const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
+  const loadTrees = useTreeStore((s) => s.loadTrees);
+  const selectedTree = useTreeStore((s) => s.selectedTree);
 
   useEffect(() => {
     void init();
@@ -25,10 +25,9 @@ export const App = () => {
       await loadTrees();
       // Re-open the most recently used tree (the API returns them sorted by
       // last_opened, newest first) so the user lands back where they left off.
-      const { selectedDatabase, databases, selectDatabase } =
-        useDatabaseStore.getState();
-      if (!selectedDatabase && databases.length > 0) {
-        await selectDatabase(databases[0]);
+      const { selectedTree, trees, selectTree } = useTreeStore.getState();
+      if (!selectedTree && trees.length > 0) {
+        await selectTree(trees[0]);
       }
     })();
   }, [status, loadTrees]);
@@ -48,7 +47,7 @@ export const App = () => {
   return (
     <ErrorBoundary>
       <Layout>
-        {selectedDatabase ? <MainPanel /> : <NoDatabasePlaceholder />}
+        {selectedTree ? <MainPanel /> : <NoDatabasePlaceholder />}
       </Layout>
     </ErrorBoundary>
   );

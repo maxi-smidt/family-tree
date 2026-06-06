@@ -5,15 +5,11 @@ import {
   MemberUpdate,
   RelationType,
 } from "@/types/member";
-import {
-  mapDiseaseFromDB,
-  CarrierStatus,
-  InheritancePattern,
-} from "@/types/disease";
+import { mapDiseaseFromDB, DiseaseInput } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { reconstructParents } from "@/utils/memberUtils";
-import { DatabaseService } from "@/services/DatabaseService";
-import { activeTreeId } from "@/hooks/useDatabaseStore";
+import { TreeService } from "@/services/TreeService";
+import { activeTreeId } from "@/hooks/useTreeStore";
 
 interface MemberState {
   members: Member[];
@@ -21,6 +17,9 @@ interface MemberState {
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
+  persistPositions: (
+    positions: { id: string; x: number; y: number }[],
+  ) => Promise<void>;
   updateLayout: () => Promise<void>;
   addRelation: (
     fromId: string,
@@ -32,22 +31,8 @@ interface MemberState {
     toId: string,
     type: RelationType,
   ) => Promise<void>;
-  addDisease: (
-    memberId: string,
-    name: string,
-    carrierStatus: CarrierStatus,
-    inheritancePattern: InheritancePattern,
-    diagnosisDate: string | null,
-    notes: string | null,
-  ) => Promise<void>;
-  updateDisease: (
-    diseaseId: string,
-    name: string,
-    carrierStatus: CarrierStatus,
-    inheritancePattern: InheritancePattern,
-    diagnosisDate: string | null,
-    notes: string | null,
-  ) => Promise<void>;
+  addDisease: (memberId: string, disease: DiseaseInput) => Promise<void>;
+  updateDisease: (diseaseId: string, disease: DiseaseInput) => Promise<void>;
   removeDisease: (diseaseId: string) => Promise<void>;
 }
 
@@ -61,9 +46,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       return;
     }
 
-    const result = await DatabaseService.getMembers(treeId);
-    const relations = await DatabaseService.getRelations(treeId);
-    const diseases = await DatabaseService.getDiseases(treeId);
+    const [result, relations, diseases] = await Promise.all([
+      TreeService.getMembers(treeId),
+      TreeService.getRelations(treeId),
+      TreeService.getDiseases(treeId),
+    ]);
 
     const memberGenderMap = new Map<string, string>();
     result.forEach((m) => memberGenderMap.set(m.id, m.gender));
@@ -94,10 +81,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
 
-    await DatabaseService.addMember(treeId, newMember);
+    await TreeService.addMember(treeId, newMember);
 
     if (newMember.parents.paternalParent) {
-      await DatabaseService.addRelation(
+      await TreeService.addRelation(
         treeId,
         newMember.id,
         newMember.parents.paternalParent,
@@ -105,7 +92,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     }
     if (newMember.parents.maternalParent) {
-      await DatabaseService.addRelation(
+      await TreeService.addRelation(
         treeId,
         newMember.id,
         newMember.parents.maternalParent,
@@ -122,7 +109,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         ) {
           continue;
         }
-        await DatabaseService.addRelation(
+        await TreeService.addRelation(
           treeId,
           newMember.id,
           rel.toMemberId,
@@ -137,7 +124,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   removeMember: async (memberId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
-    await DatabaseService.removeMember(treeId, memberId);
+    await TreeService.removeMember(treeId, memberId);
     await get().refreshMembers();
   },
 
@@ -147,71 +134,84 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     const { paternalParentId, maternalParentId, ...otherChanges } = changes;
 
-    await DatabaseService.updateMember(treeId, id, otherChanges);
+    await TreeService.updateMember(treeId, id, otherChanges);
 
     const currentMember = get().members.find((m) => m.id === id);
 
+    // Re-point one parent slot: drop the previous "parent" relation (if it
+    // changed) and add the new one. A no-op when old and new are the same.
+    const syncParentSlot = async (
+      oldParent: string | null | undefined,
+      newParent: string | null,
+    ) => {
+      if (oldParent && oldParent !== newParent) {
+        await TreeService.removeRelation(
+          treeId,
+          id,
+          oldParent,
+          "parent" as RelationType,
+        );
+      }
+      if (newParent && newParent !== oldParent) {
+        await TreeService.addRelation(
+          treeId,
+          id,
+          newParent,
+          "parent" as RelationType,
+        );
+      }
+    };
+
     if (paternalParentId !== undefined) {
-      const oldParent = currentMember?.parents.paternalParent;
-      const newParent = paternalParentId;
-
-      if (oldParent && oldParent !== newParent) {
-        await DatabaseService.removeRelation(
-          treeId,
-          id,
-          oldParent,
-          "parent" as RelationType,
-        );
-      }
-      if (newParent && newParent !== oldParent) {
-        await DatabaseService.addRelation(
-          treeId,
-          id,
-          newParent,
-          "parent" as RelationType,
-        );
-      }
+      await syncParentSlot(
+        currentMember?.parents.paternalParent,
+        paternalParentId,
+      );
     }
-
     if (maternalParentId !== undefined) {
-      const oldParent = currentMember?.parents.maternalParent;
-      const newParent = maternalParentId;
-
-      if (oldParent && oldParent !== newParent) {
-        await DatabaseService.removeRelation(
-          treeId,
-          id,
-          oldParent,
-          "parent" as RelationType,
-        );
-      }
-      if (newParent && newParent !== oldParent) {
-        await DatabaseService.addRelation(
-          treeId,
-          id,
-          newParent,
-          "parent" as RelationType,
-        );
-      }
+      await syncParentSlot(
+        currentMember?.parents.maternalParent,
+        maternalParentId,
+      );
     }
 
     await get().refreshMembers();
   },
 
+  // Persist node positions (drag / re-layout) in one request and reflect them
+  // locally, instead of re-fetching the whole tree — only coordinates changed.
+  persistPositions: async (positions) => {
+    const treeId = activeTreeId();
+    if (!treeId || positions.length === 0) return;
+
+    const byId = new Map(positions.map((p) => [p.id, p]));
+    set({
+      members: get().members.map((m) => {
+        const p = byId.get(m.id);
+        return p ? { ...m, position: { x: p.x, y: p.y } } : m;
+      }),
+    });
+
+    await TreeService.updateMemberPositions(
+      treeId,
+      positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
+    );
+  },
+
   updateLayout: async () => {
     const treeId = activeTreeId();
-    const { members, refreshMembers } = get();
+    const { members, refreshMembers, persistPositions } = get();
     if (!treeId) return;
 
     try {
       const newPositions = getLayoutedElements(members);
-
-      const updatePromises = Object.entries(newPositions).map(([id, pos]) => {
-        return DatabaseService.updateMemberPosition(treeId, id, pos.x, pos.y);
-      });
-
-      await Promise.all(updatePromises);
-      await refreshMembers();
+      await persistPositions(
+        Object.entries(newPositions).map(([id, pos]) => ({
+          id,
+          x: pos.x,
+          y: pos.y,
+        })),
+      );
     } catch (error) {
       console.error("Failed to update layout:", error);
       await refreshMembers();
@@ -221,67 +221,36 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   addRelation: async (fromId: string, toId: string, type: RelationType) => {
     const treeId = activeTreeId();
     if (!treeId) return;
-    await DatabaseService.addRelation(treeId, fromId, toId, type);
+    await TreeService.addRelation(treeId, fromId, toId, type);
     await get().refreshMembers();
   },
 
   removeRelation: async (fromId: string, toId: string, type: RelationType) => {
     const treeId = activeTreeId();
     if (!treeId) return;
-    await DatabaseService.removeRelation(treeId, fromId, toId, type);
+    await TreeService.removeRelation(treeId, fromId, toId, type);
     await get().refreshMembers();
   },
 
-  addDisease: async (
-    memberId: string,
-    name: string,
-    carrierStatus: CarrierStatus,
-    inheritancePattern: InheritancePattern,
-    diagnosisDate: string | null,
-    notes: string | null,
-  ) => {
+  addDisease: async (memberId: string, disease: DiseaseInput) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     const id = crypto.randomUUID();
-    await DatabaseService.addDisease(
-      treeId,
-      id,
-      memberId,
-      name,
-      carrierStatus,
-      inheritancePattern,
-      diagnosisDate,
-      notes,
-    );
+    await TreeService.addDisease(treeId, id, memberId, disease);
     await get().refreshMembers();
   },
 
-  updateDisease: async (
-    diseaseId: string,
-    name: string,
-    carrierStatus: CarrierStatus,
-    inheritancePattern: InheritancePattern,
-    diagnosisDate: string | null,
-    notes: string | null,
-  ) => {
+  updateDisease: async (diseaseId: string, disease: DiseaseInput) => {
     const treeId = activeTreeId();
     if (!treeId) return;
-    await DatabaseService.updateDisease(
-      treeId,
-      diseaseId,
-      name,
-      carrierStatus,
-      inheritancePattern,
-      diagnosisDate,
-      notes,
-    );
+    await TreeService.updateDisease(treeId, diseaseId, disease);
     await get().refreshMembers();
   },
 
   removeDisease: async (diseaseId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
-    await DatabaseService.removeDisease(treeId, diseaseId);
+    await TreeService.removeDisease(treeId, diseaseId);
     await get().refreshMembers();
   },
 }));

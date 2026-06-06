@@ -51,6 +51,14 @@ class MemberUpdate(BaseModel):
     positionY: float | None = None
 
 
+class MemberPositionUpdate(BaseModel):
+    """One entry in a bulk position update (used after a re-layout / drag)."""
+
+    id: str
+    positionX: float
+    positionY: float
+
+
 # --- Relations -------------------------------------------------------------
 class RelationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
