@@ -13,6 +13,7 @@ from app.schemas.family import (
     DiseaseUpdate,
     MemberCreate,
     MemberOut,
+    MemberPositionUpdate,
     MemberUpdate,
     RelationCreate,
     RelationOut,
@@ -48,6 +49,34 @@ def create_member(
     db.commit()
     db.refresh(member)
     return member
+
+
+@router.patch("/members/positions", status_code=204)
+def update_member_positions(
+    payload: list[MemberPositionUpdate],
+    tree: Tree = Depends(get_writable_tree),
+    db: Session = Depends(get_db),
+):
+    """Persist many member positions in one round-trip (re-layout / drag).
+
+    Declared before ``/members/{member_id}`` so the literal ``positions`` path
+    isn't captured as a member id. Unknown ids are silently skipped.
+    """
+    if not payload:
+        return
+    ids = [p.id for p in payload]
+    members = {
+        m.id: m
+        for m in db.scalars(
+            select(Member).where(Member.tree_id == tree.id, Member.id.in_(ids))
+        )
+    }
+    for p in payload:
+        member = members.get(p.id)
+        if member is not None:
+            member.positionX = p.positionX
+            member.positionY = p.positionY
+    db.commit()
 
 
 @router.patch("/members/{member_id}", response_model=MemberOut)

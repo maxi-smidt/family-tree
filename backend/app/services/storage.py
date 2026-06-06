@@ -190,17 +190,10 @@ def _maybe_normalize(raw: bytes, ext: str) -> tuple[bytes, str]:
         return raw, ext
 
 
-_EXT_MIME = {
-    "jpg": "image/jpeg",
-    "jpeg": "image/jpeg",
-    "png": "image/png",
-    "webp": "image/webp",
-    "gif": "image/gif",
-    "avif": "image/avif",
-    # Document attachment types, so exports inline them with a MIME that
-    # ``store_document`` recognizes on re-import.
-    **_DOC_EXT_MIME,
-}
+# Document attachment types already cover the common image extensions; only
+# avif is image-gallery-specific. Reusing ``_DOC_EXT_MIME`` keeps exports
+# inlined with a MIME that ``store_document`` recognizes on re-import.
+_EXT_MIME = {**_DOC_EXT_MIME, "avif": "image/avif"}
 
 
 def media_url_to_data_url(value: str | None) -> str | None:

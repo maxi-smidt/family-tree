@@ -82,25 +82,19 @@ export const DiseaseDialog = ({
       dateString = localISODate.toISOString().split("T")[0];
     }
 
+    const input = {
+      name,
+      carrierStatus,
+      inheritancePattern,
+      diagnosisDate: dateString,
+      notes: notes || null,
+    };
+
     try {
       if (disease) {
-        await updateDisease(
-          disease.id,
-          name,
-          carrierStatus,
-          inheritancePattern,
-          dateString,
-          notes || null,
-        );
+        await updateDisease(disease.id, input);
       } else {
-        await addDisease(
-          memberId,
-          name,
-          carrierStatus,
-          inheritancePattern,
-          dateString,
-          notes || null,
-        );
+        await addDisease(memberId, input);
       }
 
       onOpenChange(false);

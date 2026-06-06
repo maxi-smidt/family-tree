@@ -1,7 +1,7 @@
 import { useCallback } from "react";
-import { Database as Tree } from "@/types/database";
+import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 
 interface InspectResult {
   password_required: boolean;
@@ -32,16 +32,16 @@ function triggerDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export const useDatabaseManager = () => {
-  const deleteDatabase = useDatabaseStore((s) => s.deleteDatabase);
-  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
-  const loadTrees = useDatabaseStore((s) => s.loadTrees);
+export const useTreeManager = () => {
+  const deleteTree = useTreeStore((s) => s.deleteTree);
+  const selectTree = useTreeStore((s) => s.selectTree);
+  const loadTrees = useTreeStore((s) => s.loadTrees);
 
   const removeDatabase = useCallback(
     async (tree: Tree) => {
-      await deleteDatabase(tree);
+      await deleteTree(tree);
     },
-    [deleteDatabase],
+    [deleteTree],
   );
 
   const exportDatabase = useCallback(async (tree: Tree, password?: string) => {
@@ -70,10 +70,10 @@ export const useDatabaseManager = () => {
       if (name) form.append("name", name);
       const tree = await api.postForm<Tree>("/trees/import", form);
       await loadTrees();
-      await selectDatabase(tree);
+      await selectTree(tree);
       return tree;
     },
-    [loadTrees, selectDatabase],
+    [loadTrees, selectTree],
   );
 
   return {

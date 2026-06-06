@@ -18,6 +18,9 @@ export interface Disease {
   notes: string | null;
 }
 
+/** The editable fields of a disease (everything except its id). */
+export type DiseaseInput = Omit<Disease, "id">;
+
 export interface DiseaseDB {
   id: string;
   member_id: string;
@@ -59,6 +62,17 @@ export function mapDiseaseFromDB(row: DiseaseDB): Disease {
     inheritancePattern: inheritancePattern,
     diagnosisDate: row.diagnosis_date,
     notes: row.notes,
+  };
+}
+
+/** Map the editable disease fields to the backend's snake_case body. */
+export function mapDiseaseInputToDB(input: DiseaseInput) {
+  return {
+    name: input.name,
+    carrier_status: input.carrierStatus,
+    inheritance_pattern: input.inheritancePattern,
+    diagnosis_date: input.diagnosisDate,
+    notes: input.notes,
   };
 }
 

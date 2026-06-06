@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.rate_limit import login_rate_limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models import User
@@ -29,24 +30,39 @@ def auth_config(db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = f"{client_ip}:{payload.username.lower()}"
+    retry_after = login_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
     user = db.scalar(select(User).where(User.username == payload.username))
     if (
         user is None
         or user.hashed_password is None
         or not verify_password(payload.password, user.hashed_password)
     ):
+        login_rate_limiter.record_failure(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
 
+    login_rate_limiter.reset(rate_key)
     token = create_access_token(user.id)
     return Token(access_token=token, user=UserOut.model_validate(user))
 
 
 @router.post("/register", response_model=Token)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
-    if not (settings.ALLOW_SELF_REGISTRATION or get_bool_setting(db, "allow_self_registration", False)):
+    self_registration = settings.ALLOW_SELF_REGISTRATION or get_bool_setting(
+        db, "allow_self_registration", False
+    )
+    if not self_registration:
         raise HTTPException(status_code=403, detail="Self-registration is disabled")
 
     exists = db.scalar(select(User).where(User.username == payload.username))

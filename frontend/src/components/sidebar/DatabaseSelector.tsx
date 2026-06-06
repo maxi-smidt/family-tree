@@ -6,7 +6,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SettingsField } from "@/components/sidebar/SettingsField";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { useTranslation } from "react-i18next";
 import { Crown, Users } from "lucide-react";
 
@@ -14,26 +14,26 @@ export const DatabaseSelector = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sidebar.database-selector",
   });
-  const databases = useDatabaseStore((s) => s.databases);
-  const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
-  const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
+  const trees = useTreeStore((s) => s.trees);
+  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const selectTree = useTreeStore((s) => s.selectTree);
 
   const handleDatabaseChange = async (dbId: string) => {
-    const db = databases.find((d) => d.id === dbId);
-    if (db) await selectDatabase(db);
+    const db = trees.find((d) => d.id === dbId);
+    if (db) await selectTree(db);
   };
 
   return (
     <SettingsField label={t("label")}>
       <Select
         onValueChange={handleDatabaseChange}
-        value={selectedDatabase?.id ?? ""}
+        value={selectedTree?.id ?? ""}
       >
         <SelectTrigger size="sm" className="w-full text-xs">
           <SelectValue placeholder={t("placeholder")} />
         </SelectTrigger>
         <SelectContent>
-          {databases.map((db) => (
+          {trees.map((db) => (
             <SelectItem key={db.id} value={db.id}>
               <span className="flex items-center gap-2">
                 {db.role === "owner" ? (

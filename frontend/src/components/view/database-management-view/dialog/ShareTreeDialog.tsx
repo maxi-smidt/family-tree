@@ -31,17 +31,12 @@ import { Badge } from "@/components/ui/badge";
 import { Check, ChevronsUpDown, UserPlus, X } from "lucide-react";
 import { api } from "@/services/api";
 import { cn } from "@/lib/utils";
-import {
-  Database,
-  ShareCandidate,
-  ShareRole,
-  TreeAccess,
-} from "@/types/database";
+import { Tree, ShareCandidate, ShareRole, TreeAccess } from "@/types/tree";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 type Props = {
-  tree: Database;
+  tree: Tree;
   isOpen: boolean;
   onClose: () => void;
 };

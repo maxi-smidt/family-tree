@@ -78,4 +78,6 @@ def delete_user(
 
 
 def _admin_count(db: Session) -> int:
-    return db.scalar(select(func.count()).select_from(User).where(User.is_admin.is_(True)))
+    return db.scalar(
+        select(func.count()).select_from(User).where(User.is_admin.is_(True))
+    )

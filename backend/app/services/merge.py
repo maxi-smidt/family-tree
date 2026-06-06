@@ -123,7 +123,6 @@ def merge_trees(
                 db.add(clone)
                 dedup[key] = clone
 
-    valid_member_ids = set(member_map.values())
     # Members must exist before relations/diseases/links reference them.
     db.flush()
 

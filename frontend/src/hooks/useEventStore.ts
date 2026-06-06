@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { Event, EventInput, mapEventFromDB } from "@/types/event";
-import { DatabaseService } from "@/services/DatabaseService";
-import { activeTreeId } from "@/hooks/useDatabaseStore";
+import { TreeService } from "@/services/TreeService";
+import { activeTreeId } from "@/hooks/useTreeStore";
 
 interface EventState {
   events: Event[];
@@ -26,8 +26,10 @@ export const useEventStore = create<EventState>((set, get) => ({
       return;
     }
 
-    const eventsResult = await DatabaseService.getEvents(treeId);
-    const linksResult = await DatabaseService.getEventMemberLinks(treeId);
+    const [eventsResult, linksResult] = await Promise.all([
+      TreeService.getEvents(treeId),
+      TreeService.getEventMemberLinks(treeId),
+    ]);
 
     const events = eventsResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -50,12 +52,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await DatabaseService.addEvent(treeId, id, event, now);
-
-    // Link event to all selected members
-    for (const memberId of memberIds) {
-      await DatabaseService.linkEventToMember(treeId, id, memberId);
-    }
+    await TreeService.addEvent(treeId, id, event, now, memberIds);
 
     await get().refreshEvents();
   },
@@ -64,13 +61,8 @@ export const useEventStore = create<EventState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
 
-    await DatabaseService.updateEvent(treeId, id, event);
-
-    // Remove old links and add new ones
-    await DatabaseService.removeEventLinks(treeId, id);
-    for (const memberId of memberIds) {
-      await DatabaseService.linkEventToMember(treeId, id, memberId);
-    }
+    await TreeService.updateEvent(treeId, id, event);
+    await TreeService.setEventLinks(treeId, id, memberIds);
 
     await get().refreshEvents();
   },
@@ -79,7 +71,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
 
-    await DatabaseService.removeEvent(treeId, id);
+    await TreeService.removeEvent(treeId, id);
     await get().refreshEvents();
   },
 }));

@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_readable_tree, get_writable_tree
 from app.db.session import get_db
-from app.models import GalleryImage, GalleryMemberLink, Tree
+from app.models import GalleryImage, GalleryMemberLink, Member, Tree
 from app.schemas.content import (
     GalleryImageCreate,
     GalleryImageOut,
     GalleryImageUpdate,
     GalleryLinkOut,
-    LinkCreate,
+    LinksSet,
 )
 from app.services.storage import process_image_field
 
@@ -24,6 +24,22 @@ def _get_image(db: Session, tree: Tree, image_id: str) -> GalleryImage:
     if image is None or image.tree_id != tree.id:
         raise HTTPException(status_code=404, detail="Image not found")
     return image
+
+
+def _set_links(db: Session, tree: Tree, image_id: str, member_ids: list[str]) -> None:
+    """Replace the image's member links, keeping only members of this tree."""
+    db.query(GalleryMemberLink).filter(
+        GalleryMemberLink.gallery_image_id == image_id
+    ).delete()
+    if not member_ids:
+        return
+    valid = db.scalars(
+        select(Member.id).where(
+            Member.tree_id == tree.id, Member.id.in_(set(member_ids))
+        )
+    ).all()
+    for member_id in valid:
+        db.add(GalleryMemberLink(gallery_image_id=image_id, member_id=member_id))
 
 
 @router.get("/images", response_model=list[GalleryImageOut])
@@ -49,9 +65,12 @@ def create_image(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
+    member_ids = data.pop("member_ids")
     data["imageData"] = process_image_field(tree.id, data.get("imageData"))
     image = GalleryImage(tree_id=tree.id, **data)
     db.add(image)
+    db.flush()  # image row must exist before its links reference it
+    _set_links(db, tree, image.id, member_ids)
     db.commit()
     db.refresh(image)
     return image
@@ -86,30 +105,14 @@ def delete_image(
     db.commit()
 
 
-@router.post("/images/{image_id}/links", status_code=204)
-def add_link(
+@router.put("/images/{image_id}/links", status_code=204)
+def set_links(
     image_id: str,
-    payload: LinkCreate,
+    payload: LinksSet,
     tree: Tree = Depends(get_writable_tree),
     db: Session = Depends(get_db),
 ):
+    """Replace the full set of members linked to this image."""
     _get_image(db, tree, image_id)
-    key = (image_id, payload.member_id)
-    if db.get(GalleryMemberLink, key) is None:
-        db.add(
-            GalleryMemberLink(gallery_image_id=image_id, member_id=payload.member_id)
-        )
-        db.commit()
-
-
-@router.delete("/images/{image_id}/links", status_code=204)
-def clear_links(
-    image_id: str,
-    tree: Tree = Depends(get_writable_tree),
-    db: Session = Depends(get_db),
-):
-    _get_image(db, tree, image_id)
-    db.query(GalleryMemberLink).filter(
-        GalleryMemberLink.gallery_image_id == image_id
-    ).delete()
+    _set_links(db, tree, image_id, payload.member_ids)
     db.commit()

@@ -1,0 +1,118 @@
+"""Pytest fixtures.
+
+Tests run against a throwaway SQLite database (one file per test) with the
+production ``get_db`` dependency overridden, so no Postgres or Alembic run is
+needed. The ORM models are storage-agnostic, so this exercises the real routes,
+schemas and authorization logic.
+"""
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session, sessionmaker
+
+import app.models  # noqa: F401  (registers every table on Base.metadata)
+from app.api.router import api_router
+from app.core.config import settings
+from app.core.rate_limit import login_rate_limiter
+from app.core.security import create_access_token, hash_password
+from app.db.base import Base
+from app.db.session import get_db
+from app.models import Member, Tree, TreeMembership, User
+
+
+@pytest.fixture()
+def session_factory(tmp_path):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'test.db'}",
+        connect_args={"check_same_thread": False},
+        future=True,
+    )
+
+    @event.listens_for(engine, "connect")
+    def _enable_fk(dbapi_connection, _record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    Base.metadata.create_all(engine)
+    yield sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    engine.dispose()
+
+
+@pytest.fixture()
+def db(session_factory) -> Session:
+    session = session_factory()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+@pytest.fixture()
+def client(session_factory) -> TestClient:
+    app = FastAPI()
+    app.include_router(api_router, prefix=settings.API_PREFIX)
+
+    def override_get_db():
+        session = session_factory()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    login_rate_limiter.clear()
+    return TestClient(app)
+
+
+# --- Helpers ---------------------------------------------------------------
+API = settings.API_PREFIX
+
+
+def make_user(
+    db: Session,
+    username: str = "alice",
+    *,
+    password: str | None = "secret",
+    is_admin: bool = False,
+    is_active: bool = True,
+) -> User:
+    user = User(
+        username=username,
+        email=f"{username}@example.com",
+        full_name=username.title(),
+        hashed_password=hash_password(password) if password else None,
+        is_admin=is_admin,
+        is_active=is_active,
+        auth_provider="local",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def auth(user: User) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(user.id)}"}
+
+
+def make_tree(db: Session, owner: User, name: str = "Tree") -> Tree:
+    tree = Tree(name=name, owner_id=owner.id)
+    db.add(tree)
+    db.commit()
+    db.refresh(tree)
+    return tree
+
+
+def share(db: Session, tree: Tree, user: User, role: str = "editor") -> None:
+    db.add(TreeMembership(tree_id=tree.id, user_id=user.id, role=role))
+    db.commit()
+
+
+def add_member(db: Session, tree: Tree, member_id: str, **kw) -> Member:
+    member = Member(id=member_id, tree_id=tree.id, **kw)
+    db.add(member)
+    db.commit()
+    return member

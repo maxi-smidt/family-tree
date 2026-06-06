@@ -13,6 +13,23 @@
 - **Owned + shared trees**: every tree has an owner and can be shared with other
   users as `viewer` (read-only) or `editor` (read/write). The backend enforces
   this on every request (`get_readable_tree` / `get_writable_tree`).
+- **Login rate limiting**: `/auth/login` is throttled per client IP + username
+  (`LOGIN_MAX_ATTEMPTS` failures within `LOGIN_RATE_LIMIT_WINDOW_SECONDS` →
+  `429`) to blunt brute-force attempts. The limiter is in-memory and so is
+  process-local; a multi-replica deployment would need a shared store.
+- **Initial admin password**: `FIRST_ADMIN_PASSWORD` is **required** by the
+  production `docker-compose.yml`. If the seed ever runs with the placeholder
+  value `admin`, a warning is logged — set a strong password and change it after
+  first login.
+
+### Token storage (known trade-off)
+
+The JWT is stored in the browser's `localStorage`, which is readable by any
+script running on the page and therefore exposed to XSS. This keeps the client
+simple and avoids CSRF handling. Moving to an `HttpOnly`, `SameSite` cookie
+would remove the XSS exposure at the cost of adding CSRF protection and reworking
+the OAuth redirect (which currently hands the token back in the URL fragment).
+This is a deliberate, documented trade-off rather than an oversight.
 
 ## Data at rest
 

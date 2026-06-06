@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
-import { useDatabaseStore } from "@/hooks/useDatabaseStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { mapMemberFromDB, Member, MemberObject } from "@/types/member";
-import { DatabaseService } from "@/services/DatabaseService";
+import { TreeService } from "@/services/TreeService";
 import {
   Select,
   SelectContent,
@@ -33,9 +33,9 @@ const EMPTY_DB_ID = "empty_db";
 
 export const DatabaseMergeView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "merge-view.view" });
-  const databases = useDatabaseStore((s) => s.databases);
-  const mergeDatabases = useDatabaseStore((s) => s.mergeDatabases);
-  const createDatabase = useDatabaseStore((s) => s.createDatabase);
+  const trees = useTreeStore((s) => s.trees);
+  const mergeTrees = useTreeStore((s) => s.mergeTrees);
+  const createTree = useTreeStore((s) => s.createTree);
 
   const [db1Id, setDb1Id] = useState<string>("");
   const [db2Id, setDb2Id] = useState<string>("");
@@ -48,7 +48,7 @@ export const DatabaseMergeView = () => {
     totalMembers: number;
   } | null>(null);
 
-  const availableDatabases = useMemo(() => databases, [databases]);
+  const availableDatabases = useMemo(() => trees, [trees]);
 
   const handleDb1Change = (val: string) => {
     setDb1Id(val);
@@ -79,7 +79,7 @@ export const DatabaseMergeView = () => {
 
   const loadDatabaseMembers = async (dbId: string): Promise<Member[]> => {
     if (dbId === EMPTY_DB_ID) return [];
-    const rows = await DatabaseService.getMembers(dbId);
+    const rows = await TreeService.getMembers(dbId);
     return rows.map((m) => mapMemberFromDB(m));
   };
 
@@ -103,7 +103,7 @@ export const DatabaseMergeView = () => {
         totalMembers: members1.length + members2.length,
       });
     } catch (e) {
-      console.error("Error loading databases for preview", e);
+      console.error("Error loading trees for preview", e);
       toast.error(t("toast-preview-error"));
     }
   };
@@ -131,9 +131,9 @@ export const DatabaseMergeView = () => {
     setIsMerging(true);
     try {
       if (sources.length === 0) {
-        await createDatabase(newDbName);
+        await createTree(newDbName);
       } else {
-        await mergeDatabases(newDbName, sources[0], sources[1]);
+        await mergeTrees(newDbName, sources[0], sources[1]);
       }
       setDb1Id("");
       setDb2Id("");

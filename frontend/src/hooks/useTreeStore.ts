@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import { Database as Tree } from "@/types/database";
+import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
-import { DatabaseService } from "@/services/DatabaseService";
+import { TreeService } from "@/services/TreeService";
 import { RelationType } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -16,22 +16,22 @@ interface DatabaseMetaData {
 }
 
 interface DatabaseState {
-  databases: Tree[];
-  selectedDatabase: Tree | undefined;
+  trees: Tree[];
+  selectedTree: Tree | undefined;
   metadata: DatabaseMetaData;
   relationTypes: { id: RelationType }[];
   isReady: boolean;
 
   loadTrees: () => Promise<void>;
-  createDatabase: (name: string, id?: string) => Promise<Tree>;
-  renameDatabase: (tree: Tree, name: string) => Promise<void>;
-  deleteDatabase: (tree: Tree) => Promise<void>;
-  mergeDatabases: (
+  createTree: (name: string, id?: string) => Promise<Tree>;
+  renameTree: (tree: Tree, name: string) => Promise<void>;
+  deleteTree: (tree: Tree) => Promise<void>;
+  mergeTrees: (
     name: string,
     sourceA: string,
     sourceB?: string,
   ) => Promise<Tree>;
-  selectDatabase: (tree: Tree | undefined) => Promise<void>;
+  selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
   refreshMetadata: () => Promise<void>;
@@ -48,71 +48,70 @@ const clearDataStores = async () => {
   ]);
 };
 
-export const useDatabaseStore = create<DatabaseState>((set, get) => ({
-  databases: [],
-  selectedDatabase: undefined,
+export const useTreeStore = create<DatabaseState>((set, get) => ({
+  trees: [],
+  selectedTree: undefined,
   metadata: {},
   relationTypes: [],
   isReady: false,
 
   loadTrees: async () => {
     const trees = await api.get<Tree[]>("/trees");
-    set({ databases: trees });
+    set({ trees: trees });
     // Drop a stale selection that no longer exists / is no longer accessible.
-    const selected = get().selectedDatabase;
+    const selected = get().selectedTree;
     if (selected && !trees.some((t) => t.id === selected.id)) {
       await get().disconnect();
     }
   },
 
-  createDatabase: async (name: string, id?: string) => {
+  createTree: async (name: string, id?: string) => {
     const tree = await api.post<Tree>("/trees", { name, id });
-    set((s) => ({ databases: [tree, ...s.databases] }));
-    await get().selectDatabase(tree);
+    set((s) => ({ trees: [tree, ...s.trees] }));
+    await get().selectTree(tree);
     return tree;
   },
 
-  renameDatabase: async (tree: Tree, name: string) => {
+  renameTree: async (tree: Tree, name: string) => {
     const updated = await api.patch<Tree>(`/trees/${tree.id}`, { name });
     set((s) => ({
-      databases: s.databases.map((t) => (t.id === tree.id ? updated : t)),
-      selectedDatabase:
-        s.selectedDatabase?.id === tree.id ? updated : s.selectedDatabase,
+      trees: s.trees.map((t) => (t.id === tree.id ? updated : t)),
+      selectedTree: s.selectedTree?.id === tree.id ? updated : s.selectedTree,
     }));
   },
 
-  deleteDatabase: async (tree: Tree) => {
+  deleteTree: async (tree: Tree) => {
     await api.del(`/trees/${tree.id}`);
-    const wasSelected = get().selectedDatabase?.id === tree.id;
+    const wasSelected = get().selectedTree?.id === tree.id;
     set((s) => ({
-      databases: s.databases.filter((t) => t.id !== tree.id),
+      trees: s.trees.filter((t) => t.id !== tree.id),
     }));
     if (wasSelected) await get().disconnect();
   },
 
-  mergeDatabases: async (name: string, sourceA: string, sourceB?: string) => {
+  mergeTrees: async (name: string, sourceA: string, sourceB?: string) => {
     const tree = await api.post<Tree>("/trees/merge", {
       name,
       source_a: sourceA,
       source_b: sourceB ?? null,
     });
     await get().loadTrees();
-    await get().selectDatabase(tree);
+    await get().selectTree(tree);
     return tree;
   },
 
-  selectDatabase: async (tree: Tree | undefined) => {
+  selectTree: async (tree: Tree | undefined) => {
     if (!tree) {
       await get().disconnect();
       return;
     }
-    set({ selectedDatabase: tree });
+    set({ selectedTree: tree });
     await get().connect(tree);
   },
 
   connect: async (tree: Tree) => {
     set({
-      selectedDatabase: tree,
+      selectedTree: tree,
       isReady: false,
       metadata: {},
       relationTypes: [],
@@ -121,8 +120,8 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
     try {
       const fresh = await api.get<Tree>(`/trees/${tree.id}`);
       set((s) => ({
-        selectedDatabase: fresh,
-        databases: s.databases.map((t) => (t.id === fresh.id ? fresh : t)),
+        selectedTree: fresh,
+        trees: s.trees.map((t) => (t.id === fresh.id ? fresh : t)),
       }));
     } catch {
       // non-fatal; continue with what we have
@@ -141,7 +140,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
 
   disconnect: async () => {
     set({
-      selectedDatabase: undefined,
+      selectedTree: undefined,
       isReady: false,
       metadata: {},
       relationTypes: [],
@@ -150,7 +149,7 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   },
 
   refreshMetadata: async () => {
-    const tree = get().selectedDatabase;
+    const tree = get().selectedTree;
     if (!tree) return;
     const metadata = await api.get<DatabaseMetaData>(
       `/trees/${tree.id}/metadata`,
@@ -159,20 +158,20 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
   },
 
   refreshRelationTypes: async () => {
-    const tree = get().selectedDatabase;
+    const tree = get().selectedTree;
     if (!tree) return;
-    const types = await DatabaseService.getRelationTypes(tree.id);
+    const types = await TreeService.getRelationTypes(tree.id);
     set({ relationTypes: types });
   },
 
   addRelationType: async (id: string, description: string) => {
-    const tree = get().selectedDatabase;
+    const tree = get().selectedTree;
     if (!tree) return;
-    await DatabaseService.addRelationType(tree.id, id, description);
+    await TreeService.addRelationType(tree.id, id, description);
     await get().refreshRelationTypes();
   },
 }));
 
 /** Convenience accessor used by the data stores. */
 export const activeTreeId = (): string | undefined =>
-  useDatabaseStore.getState().selectedDatabase?.id;
+  useTreeStore.getState().selectedTree?.id;

@@ -22,6 +22,8 @@ class GalleryImageCreate(BaseModel):
     description: str | None = None
     createdAt: str | None = None
     uploadedAt: str | None = None
+    # Members to link the new image to, in a single request.
+    member_ids: list[str] = []
 
 
 class GalleryImageUpdate(BaseModel):
@@ -30,8 +32,10 @@ class GalleryImageUpdate(BaseModel):
     description: str | None = None
 
 
-class LinkCreate(BaseModel):
-    member_id: str
+class LinksSet(BaseModel):
+    """Replace the full set of members linked to a content item."""
+
+    member_ids: list[str] = []
 
 
 # --- Events ----------------------------------------------------------------
@@ -53,6 +57,7 @@ class EventCreate(BaseModel):
     location: str | None = None
     description: str | None = None
     created_at: str
+    member_ids: list[str] = []
 
 
 class EventUpdate(BaseModel):
@@ -100,6 +105,7 @@ class StoryCreate(BaseModel):
     content: str | None = None
     created_at: str
     updated_at: str
+    member_ids: list[str] = []
 
 
 class StoryUpdate(BaseModel):

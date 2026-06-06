@@ -5,8 +5,8 @@ import {
   StoryInput,
   mapStoryFromDB,
 } from "@/types/story";
-import { DatabaseService } from "@/services/DatabaseService";
-import { activeTreeId } from "@/hooks/useDatabaseStore";
+import { TreeService } from "@/services/TreeService";
+import { activeTreeId } from "@/hooks/useTreeStore";
 
 const NO_OPS: AttachmentOps = { added: [], removedIds: [], renamed: [] };
 
@@ -34,13 +34,13 @@ async function applyAttachmentOps(
   ops: AttachmentOps,
 ) {
   for (const id of ops.removedIds) {
-    await DatabaseService.removeStoryAttachment(treeId, storyId, id);
+    await TreeService.removeStoryAttachment(treeId, storyId, id);
   }
   for (const { id, filename } of ops.renamed) {
-    await DatabaseService.updateStoryAttachment(treeId, storyId, id, filename);
+    await TreeService.updateStoryAttachment(treeId, storyId, id, filename);
   }
   for (const att of ops.added) {
-    await DatabaseService.addStoryAttachment(
+    await TreeService.addStoryAttachment(
       treeId,
       storyId,
       att.filename,
@@ -59,8 +59,10 @@ export const useStoryStore = create<StoryState>((set, get) => ({
       return;
     }
 
-    const storiesResult = await DatabaseService.getStories(treeId);
-    const linksResult = await DatabaseService.getStoryMemberLinks(treeId);
+    const [storiesResult, linksResult] = await Promise.all([
+      TreeService.getStories(treeId),
+      TreeService.getStoryMemberLinks(treeId),
+    ]);
 
     const stories = storiesResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -87,12 +89,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await DatabaseService.addStory(treeId, id, story, now);
-
-    // Link story to all selected members
-    for (const memberId of memberIds) {
-      await DatabaseService.linkStoryToMember(treeId, id, memberId);
-    }
+    await TreeService.addStory(treeId, id, story, now, memberIds);
 
     await applyAttachmentOps(treeId, id, attachments);
 
@@ -109,13 +106,8 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     if (!treeId) return;
 
     const now = new Date().toISOString();
-    await DatabaseService.updateStory(treeId, id, story, now);
-
-    // Remove old links and add new ones
-    await DatabaseService.removeStoryLinks(treeId, id);
-    for (const memberId of memberIds) {
-      await DatabaseService.linkStoryToMember(treeId, id, memberId);
-    }
+    await TreeService.updateStory(treeId, id, story, now);
+    await TreeService.setStoryLinks(treeId, id, memberIds);
 
     await applyAttachmentOps(treeId, id, attachments);
 
@@ -126,7 +118,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
 
-    await DatabaseService.removeStory(treeId, id);
+    await TreeService.removeStory(treeId, id);
     await get().refreshStories();
   },
 }));
