@@ -1,18 +1,19 @@
 # Setup Guide
 
-This guide helps you set up the Family Tree web application for development.
+Two ways to run it: the full **production** stack with Docker Compose, or
+**development** where you start the database in a container and run the two dev
+servers directly (with hot reload).
+
+The web app lives in `frontend/`, the API in `backend/`. The repo root holds
+only the Docker Compose stack and shared tooling (prettier + git hooks).
 
 ## Prerequisites
 
-- **Node.js** v20.19+ (or v22.12+) — for the frontend
-- **Python** 3.12+ and **[uv](https://docs.astral.sh/uv/)** — for the backend
-- **PostgreSQL** 14+ — or just use Docker
-- **Docker** + **Docker Compose** — recommended for running the full stack
+- **Docker** + **Docker Compose** — runs production, and the database in dev
+- **Node.js** v20.19+ (or v22.12+) — for the frontend dev server
+- **Python** 3.12+ and **[uv](https://docs.astral.sh/uv/)** — for the backend dev server
 
-> The web app lives in `frontend/`, the API in `backend/`. The repo root holds
-> only the Docker Compose stack and shared tooling (prettier + git hooks).
-
-## Option A — Run everything with Docker (recommended)
+## Production
 
 ```bash
 git clone https://github.com/maxi-smidt/family-tree.git
@@ -25,64 +26,49 @@ docker compose up -d --build
 ```
 
 Open `http://localhost:${UI_PORT}` (default `8080`) and sign in with the seeded
-admin account (`FIRST_ADMIN_USERNAME` / `FIRST_ADMIN_PASSWORD`).
+admin (`FIRST_ADMIN_USERNAME` / `FIRST_ADMIN_PASSWORD`). Migrations run
+automatically on first start.
 
-## Option B — Hot-reload dev with Docker (one command)
+## Development
 
-The simplest dev setup — Postgres, the API (with `uvicorn --reload`), and the
-Vite dev server (with HMR), all wired together:
+### 1. Start the database
 
-```bash
-docker compose -f docker-compose.dev.yml up --build
-```
-
-Open **http://localhost:1420**. Backend code changes reload automatically and
-frontend edits hot-reload in the browser. The seeded admin is `admin` / `admin`.
-Postgres (`5432`) and the API (`8000`) are published too, so you can connect to
-them directly.
-
-> macOS/Windows note: HMR uses polling inside Docker (`VITE_USE_POLLING`), which
-> can be CPU-heavy. If you prefer native file watching, use Option C below (run
-> the frontend on the host).
-
-## Option C — Hot-reload dev on the host
-
-Run Postgres (via Docker is easiest), then the backend and frontend dev servers.
-
-### 1. Database
+The `db` service is published on `127.0.0.1:5432`, so start just that one
+(from the terminal, or your IDE's Docker/Services panel):
 
 ```bash
-docker run -d --name ft-db \
-  -e POSTGRES_USER=familytree -e POSTGRES_PASSWORD=familytree -e POSTGRES_DB=familytree \
-  -p 5432:5432 postgres:18-alpine
+docker compose up -d db
 ```
 
-### 2. Backend
+### 2. Backend (hot reload)
 
 ```bash
 cd backend
-uv sync                       # creates .venv from uv.lock
-cp .env.example .env          # SQLite by default; switch DATABASE_URL to Postgres to match prod
-
+uv sync                 # creates .venv from uv.lock (first time only)
+cp .env.example .env    # points at the db above; edit if you changed credentials
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-`backend/.env` is loaded automatically (from any working directory) — no manual
-`export`s needed; real environment variables still override it. Migrations are
-applied automatically on startup, and the seeded admin (`admin` / `admin` by
-default) is created on first start.
-API docs: `http://localhost:8000/api/docs`.
+`backend/.env` is loaded automatically and real env vars override it. Migrations
+are applied on startup and the seeded admin (`admin` / `admin`) is created on
+first run. API docs: `http://localhost:8000/api/docs`.
 
-### 3. Frontend
+> No database running? Set `DATABASE_URL=sqlite:///./dev.db` in `backend/.env`
+> for a zero-setup run.
+
+### 3. Frontend (hot reload)
 
 ```bash
 cd frontend
-npm install
-npm run dev          # serves on http://localhost:1420
+npm install             # first time only
+npm run dev             # → http://localhost:1420
 ```
 
 The Vite dev server proxies `/api` to `http://localhost:8000` (override with
 `VITE_PROXY_TARGET`), so the SPA uses the same relative URLs as in production.
+
+> Optional: a fully containerized hot-reload stack (db + API + Vite, one
+> command) is available via `docker compose -f docker-compose.dev.yml up --build`.
 
 ## Useful commands
 

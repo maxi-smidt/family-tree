@@ -16,6 +16,12 @@ services:
       # Postgres 18's image moved the default data dir to a versioned path; pin
       # it back so the bind mount below keeps persisting the data.
       PGDATA: /var/lib/postgresql/data
+    ports:
+      # Published on localhost only, so during development you can `up -d db`
+      # (e.g. from PyCharm) and have a host-run backend reach it. In production
+      # the backend talks to the db over the internal network, not this port —
+      # remove it if you don't want host access to the database.
+      - "127.0.0.1:5432:5432"
     volumes:
       - ${APP_DATA_PATH:-./appdata}/postgres:/var/lib/postgresql/data
     healthcheck:
