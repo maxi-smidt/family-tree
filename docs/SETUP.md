@@ -36,7 +36,7 @@ Run Postgres (via Docker is easiest), then the backend and frontend dev servers.
 ```bash
 docker run -d --name ft-db \
   -e POSTGRES_USER=familytree -e POSTGRES_PASSWORD=familytree -e POSTGRES_DB=familytree \
-  -p 5432:5432 postgres:16-alpine
+  -p 5432:5432 postgres:18-alpine
 ```
 
 ### 2. Backend
