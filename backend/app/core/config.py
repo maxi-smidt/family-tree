@@ -40,8 +40,12 @@ class Settings(BaseSettings):
     # --- Filesystem paths --------------------------------------------------
     # DATA_PATH      -> the "real" user data (member photos, gallery media).
     # APP_DATA_PATH  -> application working data (exports, temp files, ...).
-    DATA_PATH: Path = Path("/data")
-    APP_DATA_PATH: Path = Path("/appdata")
+    #
+    # Defaults are dev-friendly relative paths so running the backend directly
+    # (e.g. `uv run uvicorn ...`) works out of the box. In Docker these are set
+    # to absolute /data and /appdata via the compose environment.
+    DATA_PATH: Path = Path("./.data")
+    APP_DATA_PATH: Path = Path("./.appdata")
 
     # --- CORS / frontend ---------------------------------------------------
     # Comma separated list of allowed origins for the browser SPA.
