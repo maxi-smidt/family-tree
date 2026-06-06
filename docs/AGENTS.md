@@ -11,7 +11,7 @@ This document outlines the core architectural decisions, development practices, 
 2.  [Architecture Overview](#architecture-overview)
 3.  [Core Concepts](#core-concepts)
 4.  [State Management (Zustand)](#state-management-zustand)
-5.  [Database Migration Framework](#database-migration-framework)
+5.  [Backend & Persistence](#backend--persistence)
 6.  [Frontend Guidelines](#frontend-guidelines)
 7.  [Backend Guidelines](#backend-guidelines)
 8.  [Testing](#testing)
@@ -78,37 +78,37 @@ issues an HTTP request instead of a SQL query.
 
 ### Data Model (`Member`)
 
-The core entity is the `Member` (defined in `src/types/member.ts`). It includes identification, genealogical links, personal attributes, and layout information.
+The core entity is the `Member` (defined in `frontend/src/types/member.ts`). It includes identification, genealogical links, personal attributes, and layout information.
 
 ### Layout Logic
 
-Automatic layout is handled in `src/utils/layoutUtils.ts` using `dagre` for topological sorting. The layout algorithm enforces a "Paternal (Father) on the Left" and "Maternal (Mother) on the Right" convention.
+Automatic layout is handled in `frontend/src/utils/layoutUtils.ts` using `dagre` for topological sorting. The layout algorithm enforces a "Paternal (Father) on the Left" and "Maternal (Mother) on the Right" convention.
 
 ### File Organization
 
-- **Components**: Located in `src/components/`, organized by category:
+- **Components**: Located in `frontend/src/components/`, organized by category:
   - `layout/` - App-wide layout components (MainPanel, Layout, ErrorBoundary)
   - `shared/` - Reusable components used across features (dialogs, member-sheet)
   - `view/` - Feature-specific view components (tree-view, gallery-view, list-view, timeline-view, etc.)
   - `sidebar/` - Sidebar components (DatabaseSelector, LanguageSelector)
   - `ui/` - Base UI library components from Shadcn UI
-- **Hooks**: Custom hooks in `src/hooks/`, including the main store
-- **Services**: Business logic and database operations in `src/services/`
-- **Types**: TypeScript definitions in `src/types/`
-- **Utilities**: Helper functions in `src/utils/`
+- **Hooks**: Custom hooks in `frontend/src/hooks/`, including the main store
+- **Services**: Business logic and database operations in `frontend/src/services/`
+- **Types**: TypeScript definitions in `frontend/src/types/`
+- **Utilities**: Helper functions in `frontend/src/utils/`
 
 ---
 
 ## State Management (Zustand)
 
-Application state is split across per-domain Zustand stores in `src/hooks/`:
+Application state is split across per-domain Zustand stores in `frontend/src/hooks/`:
 `useDatabaseStore` (the selected tree, its metadata and relation types),
 `useMemberStore`, `useGalleryStore`, `useEventStore`, `useStoryStore`, plus
 `useAuthStore` for the current session.
 
 - **Actions**: All interactions with the backend (reads and writes) are handled through actions within the stores.
 - **Data Flow**: Components call store actions to modify state and rely on reactive updates to re-render.
-- **Database Service**: The stores delegate to `src/services/DatabaseService.ts`, an HTTP client over the FastAPI API (`src/services/api.ts`). The active `treeId` comes from `useDatabaseStore`.
+- **Database Service**: The stores delegate to `frontend/src/services/DatabaseService.ts`, an HTTP client over the FastAPI API (`frontend/src/services/api.ts`). The active `treeId` comes from `useDatabaseStore`.
 
 ### Best Practices
 
@@ -128,18 +128,19 @@ The backend lives in `backend/` (FastAPI). See [backend/README.md](../backend/RE
 
 ### Schema management
 
-The ORM models in `backend/app/models/` are the single source of truth. On
-startup the service runs `Base.metadata.create_all`, which creates any missing
-tables and keeps the schema in lock-step with the models. Alembic can be layered
-on for versioned migrations as the schema grows.
+The ORM models in `backend/app/models/` are the source of truth, and the schema
+is versioned with **Alembic** (`backend/alembic/`). On startup the service runs
+`alembic upgrade head` automatically, then seeds the admin + default settings.
 
 ### Adding a field / table
 
 1. Update the relevant model in `backend/app/models/`.
-2. Update the matching Pydantic schema in `backend/app/schemas/` (keep the field
+2. Generate a migration: `uv run alembic revision --autogenerate -m "..."`,
+   review it, then it is applied on the next startup (or `uv run alembic upgrade head`).
+3. Update the matching Pydantic schema in `backend/app/schemas/` (keep the field
    names aligned with the frontend `*DB` contracts).
-3. Expose it through the relevant router in `backend/app/api/routes/`.
-4. Wire the frontend through `src/services/DatabaseService.ts` and the store.
+4. Expose it through the relevant router in `backend/app/api/routes/`.
+5. Wire the frontend through `frontend/src/services/DatabaseService.ts` and the store.
 
 ### Database schema (per tree)
 
@@ -187,7 +188,7 @@ export function Component({ prop }: ComponentProps) {
 
 ### UI Component Guidelines
 
-- **Use Shadcn UI components**: Prefer pre-built components from `src/components/ui/`
+- **Use Shadcn UI components**: Prefer pre-built components from `frontend/src/components/ui/`
 - **Tailwind CSS**: Use utility classes for styling
 - **Lucide Icons**: Use consistent icon set throughout the app
 - **Responsive Design**: Ensure components work on different window sizes
@@ -197,15 +198,15 @@ export function Component({ prop }: ComponentProps) {
 When working with the family tree visualization:
 
 - Use `@xyflow/react` for the flow canvas
-- Custom node types are defined in `src/components/view/tree-view/node/FamilyNode.tsx`
-- Custom edge types are defined in `src/components/view/tree-view/edge/RelationEdge.tsx`
-- Layout calculations are in `src/utils/layoutUtils.ts`
+- Custom node types are defined in `frontend/src/components/view/tree-view/node/FamilyNode.tsx`
+- Custom edge types are defined in `frontend/src/components/view/tree-view/edge/RelationEdge.tsx`
+- Layout calculations are in `frontend/src/utils/layoutUtils.ts`
 - Never modify node positions manually; always recalculate the full layout
 
 ### Internationalization
 
 - All user-facing text must use i18next translations
-- Translation keys are in `src/i18n/locales/`
+- Translation keys are in `frontend/src/i18n/locales/`
 - Use the `useTranslation` hook: `const { t } = useTranslation('namespace');`
 - Follow the naming conventions in the **[i18n Guide](./I18N_GUIDE.md)** for consistent key structure
 - Run `npm run check-i18n` to verify translation completeness
@@ -257,7 +258,7 @@ def list_members(tree: Tree = Depends(get_readable_tree), db: Session = Depends(
 
 The project uses **Vitest** for unit testing.
 
-- **Location**: Tests are co-located with the files they test (e.g., `src/types/member.test.ts`).
+- **Location**: Tests are co-located with the files they test (e.g., `frontend/src/types/member.test.ts`).
 - **Running Tests**: Run `npm test` to execute the test suite.
 - **Scope**: Focus on testing pure logic, data mapping functions, and utility algorithms (like layout calculations).
 

@@ -9,6 +9,7 @@ relative URL (``/api/media/...``) that the browser can use directly in an
 import base64
 import binascii
 import re
+import shutil
 from io import BytesIO
 from uuid import uuid4
 
@@ -104,6 +105,25 @@ def media_url_to_data_url(value: str | None) -> str | None:
     mime = _EXT_MIME.get(ext, "application/octet-stream")
     encoded = base64.b64encode(path.read_bytes()).decode("ascii")
     return f"data:{mime};base64,{encoded}"
+
+
+def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
+    """Copy a stored media file into another tree's directory (used by merge).
+
+    Returns a new media URL, or the input unchanged when it isn't one of our
+    media URLs, or ``None`` if the source file is missing.
+    """
+    if not value or not value.startswith(MEDIA_URL_PREFIX):
+        return value
+    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
+    src = settings.media_root / rel
+    if not src.is_file():
+        return None
+    ext = src.suffix.lstrip(".") or "bin"
+    filename = f"{uuid4().hex}.{ext}"
+    dest = _tree_media_dir(new_tree_id) / filename
+    shutil.copyfile(src, dest)
+    return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
 def process_image_field(tree_id: str, value: str | None) -> str | None:

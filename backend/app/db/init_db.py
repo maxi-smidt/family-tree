@@ -1,22 +1,29 @@
-"""Database bootstrap: create tables and seed the initial admin + settings.
-
-Schema is created from the ORM metadata (``create_all``) which keeps the schema
-and models perfectly in sync. For richer, versioned migrations Alembic can be
-layered on later without changing the models.
-"""
+"""Database bootstrap: run migrations and seed the initial admin + settings."""
 
 import logging
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import func, select
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.db.base import Base
-from app.db.session import SessionLocal, engine
+from app.db.session import SessionLocal
 from app.models import User
 from app.services.settings_service import ensure_defaults
 
 logger = logging.getLogger("app.init")
+
+# backend/app/db/init_db.py -> backend/
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+
+def run_migrations() -> None:
+    cfg = Config(str(BACKEND_DIR / "alembic.ini"))
+    cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_uri)
+    command.upgrade(cfg, "head")
 
 
 def init_db() -> None:
@@ -24,7 +31,7 @@ def init_db() -> None:
     settings.media_root.mkdir(parents=True, exist_ok=True)
     settings.APP_DATA_PATH.mkdir(parents=True, exist_ok=True)
 
-    Base.metadata.create_all(bind=engine)
+    run_migrations()
 
     with SessionLocal() as db:
         ensure_defaults(db)

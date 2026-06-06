@@ -28,6 +28,13 @@ class TreeShare(BaseModel):
     role: str = "editor"  # "viewer" or "editor"
 
 
+class TreeMerge(BaseModel):
+    name: str
+    source_a: str
+    # Optional second source; when omitted the merge is effectively a copy.
+    source_b: str | None = None
+
+
 class TreeMemberOut(BaseModel):
     """A user that has access to a tree, with their role."""
 

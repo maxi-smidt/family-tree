@@ -26,6 +26,11 @@ interface DatabaseState {
   createDatabase: (name: string, id?: string) => Promise<Tree>;
   renameDatabase: (tree: Tree, name: string) => Promise<void>;
   deleteDatabase: (tree: Tree) => Promise<void>;
+  mergeDatabases: (
+    name: string,
+    sourceA: string,
+    sourceB?: string,
+  ) => Promise<Tree>;
   selectDatabase: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -83,6 +88,17 @@ export const useDatabaseStore = create<DatabaseState>((set, get) => ({
       databases: s.databases.filter((t) => t.id !== tree.id),
     }));
     if (wasSelected) await get().disconnect();
+  },
+
+  mergeDatabases: async (name: string, sourceA: string, sourceB?: string) => {
+    const tree = await api.post<Tree>("/trees/merge", {
+      name,
+      source_a: sourceA,
+      source_b: sourceB ?? null,
+    });
+    await get().loadTrees();
+    await get().selectDatabase(tree);
+    return tree;
   },
 
   selectDatabase: async (tree: Tree | undefined) => {

@@ -413,8 +413,13 @@
       "new-database": "Neue Datenbank",
       "database-copy": "(Kopie)",
       "toast-preview-error": "Die Datenbanken konnten nicht für die Vorschau geladen werden.",
-      "unavailable-title": "Zusammenführen ist noch nicht verfügbar",
-      "unavailable-description": "Das Zusammenführen von Stammbäumen wird für die Web-Version überarbeitet und kehrt in einem zukünftigen Update zurück."
+      "toast-merge-success": "Datenbanken erfolgreich zusammengeführt.",
+      "toast-error-name": "Bitte gib einen Namen für die neue Datenbank an.",
+      "toast-error-merge": "Datenbanken konnten nicht zusammengeführt werden.",
+      "confirm-title": "Zusammenführen bestätigen",
+      "confirm-description": "Die ausgewählten Datenbanken in eine neue Datenbank \"{{name}}\" zusammenführen? Die Quelldatenbanken bleiben unverändert und doppelte Mitglieder werden kombiniert.",
+      "confirm-cancel": "Abbrechen",
+      "confirm-merge": "Zusammenführen"
     },
     "preview": {
       "title": "Vorschau",
@@ -444,10 +449,6 @@
     }
   },
   "hooks": {
-    "merge-manager": {
-      "toast-error-name": "Es muss ein Name für die neue Datenbank angegeben werden.",
-      "toast-error-merge": "Datenbanken konnten nicht vereint werden."
-    },
     "flow-interactions": {
       "toast-error-database-create": "Verbindung konnte nicht erstellt werden."
     }

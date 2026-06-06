@@ -4,6 +4,11 @@ This document provides specific instructions for GitHub Copilot agents working o
 
 > **Note**: Human developers should refer to [AGENTS.md](./AGENTS.md) for comprehensive guidelines.
 
+> **Stack update**: This project is now a **web app** — React (in `frontend/`) +
+> FastAPI/PostgreSQL (in `backend/`). The old Tauri/SQLite desktop layer has been
+> removed. Treat [AGENTS.md](./AGENTS.md) as the source of truth; some
+> Tauri/SQLite-specific examples below are retained only as historical context.
+
 ## Table of Contents
 
 1. [Quick Reference](#quick-reference)
@@ -19,12 +24,12 @@ This document provides specific instructions for GitHub Copilot agents working o
 
 ### Critical Paths
 
-- **State Store**: `src/hooks/useFamilyStore.ts` - Single source of truth for all app state
-- **Database Service**: `src/services/DatabaseService.ts` - All database operations
-- **SQL Queries**: `src/db/queries.ts` - SQL query definitions
-- **Types**: `src/types/member.ts` - Core data model
-- **Layout Logic**: `src/utils/layoutUtils.ts` - Tree layout calculations
-- **Tauri Backend**: `src-tauri/src/lib.rs` - Rust commands and database migrations
+- **State Stores**: `frontend/src/hooks/` - per-domain Zustand stores (`useMemberStore`, `useDatabaseStore`, ...)
+- **Database Service**: `frontend/src/services/DatabaseService.ts` - HTTP client for the API
+- **API Client**: `frontend/src/services/api.ts` - fetch wrapper + auth token
+- **Types**: `frontend/src/types/member.ts` - Core data model
+- **Layout Logic**: `frontend/src/utils/layoutUtils.ts` - Tree layout calculations
+- **Backend**: `backend/app/` - FastAPI routes, models, schemas (migrations in `backend/alembic/`)
 - **i18n Guide**: `docs/I18N_GUIDE.md` - Translation key conventions and patterns
 
 ### Key Commands
@@ -486,6 +491,7 @@ All dialog forms follow a consistent pattern for spacing and structure:
 ```
 
 **Key Rules:**
+
 - Form: `className="space-y-4"`
 - Content: `className="space-y-4 py-4 px-1"` (px-1 prevents focus ring clipping)
 - Fields: `className="space-y-2"` (wraps label + input)
@@ -495,6 +501,7 @@ All dialog forms follow a consistent pattern for spacing and structure:
 ### Focus Ring Prevention
 
 Input components have a 3px focus ring. To prevent clipping:
+
 - Add `px-1` (or `p-1` for all sides) padding to containers
 - Applies to dialogs, search fields, and form containers
 
@@ -513,6 +520,7 @@ Always use semantic theme colors, never hardcoded values:
 ```
 
 **Common Theme Colors:**
+
 - `text-foreground` - Primary text
 - `text-muted-foreground` - Secondary text
 - `text-destructive` - Error text
@@ -534,6 +542,7 @@ function MyComponent() {
 ```
 
 **Best Practices:**
+
 - Use theme color classes (see above)
 - Test in both light and dark modes
 - Avoid hardcoded colors
@@ -555,12 +564,14 @@ Style: 10% red background, red border, red text - maintains accessibility while 
 ### Component Spacing
 
 **Vertical Spacing:**
+
 - Field groups: `space-y-4` or `gap-4` (16px)
 - Individual fields: `space-y-2` (8px)
 - Dialog/sheet content: `py-4 px-1`
 - Major sections: `space-y-6` (24px)
 
 **Button Spacing:**
+
 - Dialog buttons: `gap-2` in DialogFooter
 - Use `size="sm"` for all dialog buttons
 
@@ -585,4 +596,3 @@ Search fields with icon:
 Note the `p-1` on the outer container to prevent focus ring clipping.
 
 ---
-

@@ -2,7 +2,6 @@
 # backend so the whole app is reachable on a single origin/port.
 FROM node:22-alpine AS build
 
-ENV HUSKY=0
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -12,6 +11,6 @@ COPY . .
 RUN npm run build
 
 FROM nginx:alpine
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80

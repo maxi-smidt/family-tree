@@ -5,9 +5,12 @@ This guide helps you set up the Family Tree web application for development.
 ## Prerequisites
 
 - **Node.js** v20.19+ (or v22.12+) — for the frontend
-- **Python** 3.12+ — for the backend
+- **Python** 3.12+ and **[uv](https://docs.astral.sh/uv/)** — for the backend
 - **PostgreSQL** 14+ — or just use Docker
 - **Docker** + **Docker Compose** — recommended for running the full stack
+
+> The web app lives in `frontend/`, the API in `backend/`. The repo root holds
+> only the Docker Compose stack and shared tooling (prettier + git hooks).
 
 ## Option A — Run everything with Docker (recommended)
 
@@ -40,8 +43,7 @@ docker run -d --name ft-db \
 
 ```bash
 cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync                       # creates .venv from uv.lock
 
 export SECRET_KEY=dev-secret
 export DATABASE_URL=postgresql+psycopg2://familytree:familytree@localhost:5432/familytree
@@ -49,15 +51,17 @@ export DATA_PATH=./.data APP_DATA_PATH=./.appdata
 export CORS_ORIGINS=http://localhost:1420
 export FRONTEND_URL=http://localhost:1420
 
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
-The seeded admin (`admin` / `admin` by default) is created on first start.
+Migrations are applied automatically on startup, and the seeded admin
+(`admin` / `admin` by default) is created on first start.
 API docs: `http://localhost:8000/api/docs`.
 
 ### 3. Frontend
 
 ```bash
+cd frontend
 npm install
 npm run dev          # serves on http://localhost:1420
 ```
@@ -68,12 +72,14 @@ The Vite dev server proxies `/api` to `http://localhost:8000` (override with
 ## Useful commands
 
 ```bash
+# Frontend (from ./frontend)
 npm run build        # type-check + production build
 npm run test         # frontend unit tests (Vitest)
 npm run check-i18n   # validate translation parity
 
-# Backend (from ./backend, venv active)
-uvicorn app.main:app --reload --port 8000
+# Backend (from ./backend)
+uv run uvicorn app.main:app --reload --port 8000
+uv run alembic revision --autogenerate -m "msg"   # after model changes
 ```
 
 ## Authentik (optional)

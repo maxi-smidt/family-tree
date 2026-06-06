@@ -16,7 +16,15 @@ from app.db.base import new_uuid, utcnow_iso
 from app.db.session import get_db
 from app.models import RelationType, Tree, TreeMembership, User
 from app.schemas.family import RelationTypeCreate, RelationTypeOut
-from app.schemas.tree import TreeCreate, TreeMemberOut, TreeOut, TreeShare, TreeUpdate
+from app.schemas.tree import (
+    TreeCreate,
+    TreeMemberOut,
+    TreeMerge,
+    TreeOut,
+    TreeShare,
+    TreeUpdate,
+)
+from app.services.merge import merge_trees
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -56,6 +64,18 @@ def create_tree(
         db.add(RelationType(tree_id=tree.id, id=rt))
     db.commit()
     db.refresh(tree)
+    return _tree_out(db, tree, user)
+
+
+@router.post("/merge", response_model=TreeOut, status_code=201)
+def merge(
+    payload: TreeMerge,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="A name is required")
+    tree = merge_trees(db, user, payload.name, payload.source_a, payload.source_b)
     return _tree_out(db, tree, user)
 
 

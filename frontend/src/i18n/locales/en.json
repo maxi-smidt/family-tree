@@ -413,8 +413,13 @@
       "new-database": "New database",
       "database-copy": "(copy)",
       "toast-preview-error": "Error loading databases for preview.",
-      "unavailable-title": "Merging is not available yet",
-      "unavailable-description": "Tree merging is being reworked for the web version and will return in a future update."
+      "toast-merge-success": "Databases merged successfully.",
+      "toast-error-name": "Please provide a name for the new database.",
+      "toast-error-merge": "Failed to merge databases.",
+      "confirm-title": "Confirm merge",
+      "confirm-description": "Merge the selected databases into a new database named \"{{name}}\"? The source databases are left unchanged and duplicate members are combined.",
+      "confirm-cancel": "Cancel",
+      "confirm-merge": "Confirm merge"
     },
     "preview": {
       "title": "Preview Analysis",
@@ -444,10 +449,6 @@
     }
   },
   "hooks": {
-    "merge-manager": {
-      "toast-error-name": "Please enter a name for the new database.",
-      "toast-error-merge": "Failed to merge databases."
-    },
     "flow-interactions": {
       "toast-error-database-create": "Failed to create connection."
     }

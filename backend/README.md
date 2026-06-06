@@ -6,7 +6,8 @@ the Family Tree web application.
 ## Stack
 
 - **FastAPI** + **Uvicorn**
-- **SQLAlchemy 2.0** (sync) on **PostgreSQL**
+- **SQLAlchemy 2.0** (sync) on **PostgreSQL**, with **Alembic** migrations
+- **uv** for dependency management (`pyproject.toml` + `uv.lock`)
 - **PyJWT** + **bcrypt** for local authentication
 - **Authlib** for Authentik (OIDC) single sign-on
 - **cryptography** for encrypted tree exports
@@ -15,12 +16,14 @@ the Family Tree web application.
 ## Layout
 
 ```
+pyproject.toml / uv.lock   dependencies (managed by uv)
+alembic.ini / alembic/     database migrations
 app/
   core/        config, security (JWT/passwords), constants
-  db/          engine/session, declarative base, bootstrap (create_all + seed)
+  db/          engine/session, declarative base, bootstrap (migrate + seed)
   models/      SQLAlchemy ORM models
   schemas/     Pydantic request/response models (mirror the frontend contracts)
-  services/    media storage, Authentik client, encrypted export, settings
+  services/    media storage, Authentik client, encrypted export, tree merge
   api/
     deps.py    auth + tree-authorization dependencies
     routes/    auth, oauth, users, settings, trees, members, gallery,
@@ -33,24 +36,32 @@ app/
 
 ```bash
 cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+uv sync                       # creates .venv from uv.lock
 
 export SECRET_KEY=dev-secret
 export DATABASE_URL=postgresql+psycopg2://familytree:familytree@localhost:5432/familytree
 export DATA_PATH=./.data APP_DATA_PATH=./.appdata
 
-uvicorn app.main:app --reload --port 8000
+uv run uvicorn app.main:app --reload --port 8000
 ```
 
 Interactive API docs are then available at `http://localhost:8000/api/docs`.
 
-## Database schema
+## Database migrations (Alembic)
 
-On startup the service creates any missing tables from the ORM metadata
-(`Base.metadata.create_all`) and seeds the initial admin account plus default
-settings. This keeps the schema in lock-step with the models; Alembic can be
-layered on for versioned migrations as the schema evolves.
+Migrations live in `alembic/versions/`. On startup the service runs
+`alembic upgrade head` automatically (then seeds the admin + default settings),
+so a fresh database is provisioned without manual steps.
+
+To change the schema:
+
+```bash
+# 1. edit the models in app/models/
+# 2. generate a migration
+uv run alembic revision --autogenerate -m "describe change"
+# 3. review the generated file, then apply
+uv run alembic upgrade head
+```
 
 ## Notes
 

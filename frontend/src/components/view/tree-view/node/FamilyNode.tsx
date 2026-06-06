@@ -74,9 +74,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   };
 
   // Use CSS variables for theme-aware colors
-  const borderColor = selected
-    ? "hsl(var(--primary))"
-    : "hsl(var(--border))";
+  const borderColor = selected ? "hsl(var(--primary))" : "hsl(var(--border))";
   const borderWidth = selected ? "2px" : "1px";
 
   const hasDiseases = data.diseases && data.diseases.length > 0;

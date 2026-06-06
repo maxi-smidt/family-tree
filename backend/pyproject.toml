@@ -1,0 +1,33 @@
+[project]
+name = "family-tree-backend"
+version = "1.0.0"
+description = "FastAPI backend for the Family Tree web application"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.6",
+    "uvicorn[standard]>=0.34.0",
+    "sqlalchemy>=2.0.36",
+    "psycopg2-binary>=2.9.10",
+    "alembic>=1.14.0",
+    "pydantic>=2.10.4",
+    "pydantic-settings>=2.7.1",
+    "python-multipart>=0.0.20",
+    "pyjwt>=2.10.1",
+    "bcrypt>=4.2.1",
+    "authlib>=1.4.0",
+    "httpx>=0.28.1",
+    "itsdangerous>=2.2.0",
+    "cryptography>=44.0.0",
+    "email-validator>=2.2.0",
+    "pillow>=11.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+]
+
+# This is an application, not a distributable package — uv installs the
+# dependencies into a virtualenv without trying to build the project itself.
+[tool.uv]
+package = false

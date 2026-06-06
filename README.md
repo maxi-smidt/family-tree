@@ -23,12 +23,21 @@ FastAPI backend backed by PostgreSQL, all wired together with Docker Compose.
 
 ## Tech Stack
 
-- **Frontend**: React + TypeScript + Vite, Shadcn UI + Tailwind CSS, React Flow, Zustand
-- **Backend**: FastAPI (Python), SQLAlchemy 2.0
+- **Frontend** (`frontend/`): React + TypeScript + Vite, Shadcn UI + Tailwind CSS, React Flow, Zustand
+- **Backend** (`backend/`): FastAPI (Python, managed with **uv**), SQLAlchemy 2.0 + Alembic
 - **Database**: PostgreSQL
 - **Auth**: JWT (local accounts) + Authentik OIDC (optional)
 - **Media**: stored on the host filesystem, served by the backend
 - **Deployment**: Docker Compose (frontend served by nginx, which proxies `/api`)
+
+### Project structure
+
+```
+frontend/   React single-page app (its own Dockerfile + nginx config)
+backend/    FastAPI service (uv + Alembic; its own Dockerfile)
+docker-compose.yml, .env.example   the deployment stack
+package.json (root)   repo-level tooling only (prettier + git hooks)
+```
 
 ## Quick Start (Docker Compose)
 
@@ -76,8 +85,8 @@ Browser (React SPA)
 ```
 
 - The React data layer talks to the backend through a small typed HTTP client
-  (`src/services/api.ts` + `src/services/DatabaseService.ts`); the Zustand stores
-  are otherwise unchanged from the desktop version.
+  (`frontend/src/services/api.ts` + `DatabaseService.ts`); the Zustand stores are
+  otherwise unchanged from the desktop version.
 - A "tree" replaces the old per-file SQLite database. Each tree is owned by a
   user and can be shared with others as `viewer` or `editor`.
 - Member photos and gallery images are uploaded as data URLs, persisted to the
