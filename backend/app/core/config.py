@@ -6,14 +6,20 @@ which makes the service straightforward to configure from ``docker-compose``.
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+# Load backend/.env regardless of the process working directory. Real
+# environment variables (e.g. those injected by docker-compose) still take
+# precedence over the file, so containers don't need a .env at all.
+_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=str(_ENV_FILE), env_file_encoding="utf-8", extra="ignore"
     )
 
     # --- General -----------------------------------------------------------
@@ -48,8 +54,13 @@ class Settings(BaseSettings):
     APP_DATA_PATH: Path = Path("./.appdata")
 
     # --- CORS / frontend ---------------------------------------------------
-    # Comma separated list of allowed origins for the browser SPA.
-    CORS_ORIGINS: list[str] = ["http://localhost", "http://localhost:1420"]
+    # Comma separated list of allowed origins for the browser SPA. NoDecode
+    # stops pydantic-settings from JSON-parsing the env value so the validator
+    # below can split a plain comma-separated string.
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = [
+        "http://localhost",
+        "http://localhost:1420",
+    ]
     # Absolute URL the SPA is served from; used to redirect back after OAuth.
     FRONTEND_URL: str = "http://localhost"
 

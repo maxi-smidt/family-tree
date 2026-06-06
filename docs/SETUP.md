@@ -62,18 +62,15 @@ docker run -d --name ft-db \
 ```bash
 cd backend
 uv sync                       # creates .venv from uv.lock
-
-export SECRET_KEY=dev-secret
-export DATABASE_URL=postgresql+psycopg2://familytree:familytree@localhost:5432/familytree
-export DATA_PATH=./.data APP_DATA_PATH=./.appdata
-export CORS_ORIGINS=http://localhost:1420
-export FRONTEND_URL=http://localhost:1420
+cp .env.example .env          # adjust DATABASE_URL if needed (SQLite works too)
 
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-Migrations are applied automatically on startup, and the seeded admin
-(`admin` / `admin` by default) is created on first start.
+`backend/.env` is loaded automatically (from any working directory) — no manual
+`export`s needed; real environment variables still override it. Migrations are
+applied automatically on startup, and the seeded admin (`admin` / `admin` by
+default) is created on first start.
 API docs: `http://localhost:8000/api/docs`.
 
 ### 3. Frontend
