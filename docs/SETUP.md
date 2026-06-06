@@ -62,7 +62,7 @@ docker run -d --name ft-db \
 ```bash
 cd backend
 uv sync                       # creates .venv from uv.lock
-cp .env.example .env          # adjust DATABASE_URL if needed (SQLite works too)
+cp .env.example .env          # SQLite by default; switch DATABASE_URL to Postgres to match prod
 
 uv run uvicorn app.main:app --reload --port 8000
 ```
