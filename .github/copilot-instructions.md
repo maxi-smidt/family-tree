@@ -4,155 +4,147 @@ This file is automatically detected by GitHub Copilot and other AI coding assist
 
 ## Project Overview
 
-Family Tree is a modern, cross-platform desktop application for building and exploring family history through an interactive visual interface. Built with Tauri, React, and TypeScript.
+Family Tree is a self-hostable **web application** for building and exploring family history through an interactive visual interface. A React single-page app talks to a FastAPI backend backed by PostgreSQL, deployed with Docker Compose.
+
+## Repo structure
+
+```
+frontend/   React + TypeScript + Vite SPA (own Dockerfile + nginx.conf)
+backend/    FastAPI service — SQLAlchemy 2.0 + Alembic, managed with uv (own Dockerfile)
+docker-compose.yml / docker-compose.dev.yml / .env.example
+package.json (root)   repo-level tooling only (prettier + husky)
+```
 
 ## Key Architecture
 
-- **Frontend**: React + TypeScript + Vite
-- **Desktop Framework**: Tauri (Rust)
-- **State Management**: Zustand (single store pattern)
-- **UI**: Shadcn UI + Tailwind CSS
-- **Database**: SQLite (local-first)
-- **Visualization**: React Flow (@xyflow/react)
+- **Frontend**: React + TypeScript + Vite, Shadcn UI + Tailwind, React Flow (`@xyflow/react`)
+- **State**: Zustand — per-domain stores (`useMemberStore`, `useGalleryStore`, `useEventStore`, `useStoryStore`, `useDatabaseStore`, `useAuthStore`)
+- **Backend**: FastAPI + SQLAlchemy 2.0 on PostgreSQL, Alembic migrations
+- **Auth**: JWT local accounts + optional Authentik (OIDC); owned + shared trees
+- **Deployment**: Docker Compose (nginx serves the SPA and proxies `/api` to FastAPI)
 
-## Data Flow Pattern (CRITICAL - Always Follow)
+## Data Flow Pattern (CRITICAL — Always Follow)
 
 ```
-UI Component → Store Action → DatabaseService → Tauri Command → SQLite
-     ↓              ↓              ↓
-   Render ← State Update ← Return Data
+UI Component → Store Action → DatabaseService (HTTP client) → FastAPI (/api) → SQLAlchemy → PostgreSQL
+     ↓              ↓                      ↓
+   Render ← State Update ←           Return Data
 ```
 
 **Never bypass this flow:**
-- Do NOT call DatabaseService directly from components
-- Do NOT use Tauri commands directly from components
+
+- Do NOT call `DatabaseService` directly from components
+- Do NOT call `fetch`/the API directly from components
 - All data modifications MUST go through store actions
+
+`DatabaseService` (`frontend/src/services/DatabaseService.ts`) is a thin HTTP client over `frontend/src/services/api.ts`; each method takes a `treeId` and returns the `*DB` row shapes the stores map. Keep backend response field names aligned with the frontend `*DB` types.
 
 ## Essential Documentation
 
-Before making changes, consult these files in the `docs/` directory:
+Before making changes, consult these in the `docs/` directory:
 
-1. **[docs/AGENTS.md](../docs/AGENTS.md)** - Complete architecture and development guidelines
-   - Architecture overview and data flow
-   - Frontend and backend patterns
-   - Component structure and conventions
-   - Testing guidelines
-   - Code style and naming conventions
-
-2. **[docs/COPILOT.md](../docs/COPILOT.md)** - AI agent-specific instructions
-   - Quick reference for common tasks
-   - Code modification patterns with examples
-   - Anti-patterns to avoid
-   - Common operations (add field, add store action, add translation)
-
-3. **[docs/SETUP.md](../docs/SETUP.md)** - Development environment setup
-   - Prerequisites and installation
-   - Development workflow
-   - Common issues and troubleshooting
-
-4. **[docs/I18N_GUIDE.md](../docs/I18N_GUIDE.md)** - Internationalization conventions
-   - Translation key naming patterns
-   - How to add/modify translations
-   - Best practices for i18n
+1. **[docs/AGENTS.md](../docs/AGENTS.md)** — architecture, data flow, frontend & backend patterns, conventions
+2. **[docs/COPILOT.md](../docs/COPILOT.md)** — AI quick reference and common-task recipes
+3. **[docs/SETUP.md](../docs/SETUP.md)** — production vs development setup
+4. **[docs/I18N_GUIDE.md](../docs/I18N_GUIDE.md)** — internationalization conventions
+5. **[backend/README.md](../backend/README.md)** — backend service details
 
 ## Quick Rules for Code Changes
 
-### State Management
-- Use Zustand store (`useFamilyStore`) for all app state
-- Never mutate state directly - use store actions
-- Components should only read state and call actions
+### State management
+
+- Use the relevant Zustand store for app state; never mutate state directly — use store actions
+- Components only read state and call actions
 
 ### TypeScript
-- Use strict mode (no `any` types)
-- Define interfaces for all data structures
-- Export return types for functions
+
+- Strict mode, no `any`; define interfaces for data structures
 
 ### Internationalization
-- ALL user-facing text must use i18next translations
-- Follow hierarchical key structure: `<feature>.<component>.<element>`
-- Use `keyPrefix` for cleaner code
-- Run `npm run check-i18n` to validate
+
+- ALL user-facing text uses i18next; keys are hierarchical: `<feature>.<component>.<element>`
+- Translations live in `frontend/src/i18n/locales/`; run `npm run check-i18n` (from `frontend/`)
 
 ### Testing
-- Co-locate tests with files: `filename.test.ts`
-- Test pure functions, business logic, and calculations
-- Run `npm test` before committing
 
-### Component Structure
+- Co-locate frontend tests: `filename.test.ts`; run `npm test` (from `frontend/`)
+
+### Component structure
+
 ```typescript
-// 1. Imports
 import { Component } from "library";
-import { useFamilyStore } from "@/hooks/useFamilyStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTranslation } from "react-i18next";
 
-// 2. Types/Interfaces
-interface ComponentProps { }
+interface ComponentProps {}
 
-// 3. Component
 export function Component({ prop }: ComponentProps) {
-  // Hooks first
   const { t } = useTranslation(undefined, { keyPrefix: "feature.component" });
-  const action = useFamilyStore((state) => state.action);
-  
-  // Event handlers
-  const handleClick = () => { };
-  
-  // Render
+  const action = useMemberStore((state) => state.action);
+
+  const handleClick = () => {};
+
   return <div>{t("label")}</div>;
 }
 ```
 
 ## Common Tasks
 
-### Adding a New Field to Member
-1. Update interface in `src/types/member.ts`
-2. Add migration in `src-tauri/src/lib.rs`
-3. Update queries in `src/db/queries.ts`
-4. Update UI components
-5. Add translations
+### Adding a new field to Member
 
-### Adding a Store Action
-1. Define in `src/hooks/useFamilyStore.ts`
-2. Add DatabaseService method
-3. Add Tauri command (if needed)
-4. Use action in components
+1. Add the column to the model in `backend/app/models/family.py`
+2. Generate a migration: `uv run alembic revision --autogenerate -m "..."` (review it)
+3. Update the Pydantic schema in `backend/app/schemas/family.py` (keep names aligned with the frontend `*DB` type)
+4. Expose it via the relevant router in `backend/app/api/routes/`
+5. Update `frontend/src/types/member.ts` and wire it through `DatabaseService` + the store
+6. Update UI components and add translations
 
-### Adding Translations
-1. Follow naming conventions from I18N_GUIDE.md
-2. Add to all locale files in `src/i18n/locales/`
-3. Run `npm run check-i18n` to verify
+### Adding a backend endpoint
+
+1. Add the route in `backend/app/api/routes/` using `Depends(get_readable_tree)` / `get_writable_tree` (or `require_admin`)
+2. Return a Pydantic schema whose field names match the frontend contract
+3. Add the matching `DatabaseService` method and call it from a store action
+
+### Adding translations
+
+1. Follow `docs/I18N_GUIDE.md`
+2. Add to all locale files in `frontend/src/i18n/locales/`
+3. Run `npm run check-i18n` (from `frontend/`)
 
 ## What NOT to Do
 
-❌ Never bypass the store to call DatabaseService
+❌ Never bypass the store to call `DatabaseService` or `fetch`
 ❌ Never mutate store state directly
-❌ Never use `any` type
+❌ Never use `any`
 ❌ Never hardcode user-visible text
-❌ Never modify state outside store actions
-❌ Never remove tests without understanding their purpose
+❌ Never build raw SQL on the backend — go through SQLAlchemy models, scoped by `tree_id`
 
 ## Key Files
 
-- `src/hooks/useFamilyStore.ts` - Single source of truth for app state
-- `src/services/DatabaseService.ts` - All database operations
-- `src/db/queries.ts` - SQL query definitions
-- `src/types/member.ts` - Core data model
-- `src/utils/layoutUtils.ts` - Tree layout calculations
-- `src-tauri/src/lib.rs` - Rust backend and migrations
+- `frontend/src/hooks/` — per-domain Zustand stores
+- `frontend/src/services/DatabaseService.ts` — HTTP data-access layer
+- `frontend/src/services/api.ts` — fetch wrapper + auth token
+- `frontend/src/types/member.ts` — core data model
+- `frontend/src/utils/layoutUtils.ts` — tree layout calculations
+- `backend/app/api/routes/` — FastAPI routers
+- `backend/app/models/` — SQLAlchemy models (migrations in `backend/alembic/`)
 
 ## Development Commands
 
 ```bash
-npm run tauri dev      # Start development server
-npm test               # Run test suite
-npm run check-i18n     # Verify translations
-npm run bump:patch     # Bump version
+# Frontend (from ./frontend)
+npm run dev            # Vite dev server (proxies /api to the backend)
+npm test               # unit tests
+npm run check-i18n     # verify translations
+npm run bump:major     # bump version (package.json + constants.json)
+
+# Backend (from ./backend)
+uv run uvicorn app.main:app --reload --port 8000
+
+# Full stack
+docker compose up -d --build
 ```
 
 ## For More Details
 
-See the comprehensive documentation in the `docs/` directory:
-- Full architecture patterns in `docs/AGENTS.md`
-- AI-specific guidance in `docs/COPILOT.md`
-- Setup instructions in `docs/SETUP.md`
-- i18n conventions in `docs/I18N_GUIDE.md`
+See the comprehensive documentation in the `docs/` directory and `backend/README.md`.
