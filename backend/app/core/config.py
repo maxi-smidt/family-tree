@@ -36,8 +36,11 @@ class Settings(BaseSettings):
 
     # --- Database ----------------------------------------------------------
     # Either provide a full DATABASE_URL or the individual POSTGRES_* parts.
+    # The default host is "localhost" so a host-run dev backend connects to the
+    # db published by `docker compose up -d db` with no extra config; in
+    # production docker-compose sets POSTGRES_HOST=db (the service name).
     DATABASE_URL: str | None = None
-    POSTGRES_HOST: str = "db"
+    POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "familytree"
     POSTGRES_PASSWORD: str = "familytree"
