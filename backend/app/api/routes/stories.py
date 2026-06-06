@@ -1,13 +1,31 @@
-"""Stories and their links to members."""
+"""Stories and their links to members, plus file attachments."""
+
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_readable_tree, get_writable_tree
+from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Story, StoryMemberLink, Tree
-from app.schemas.content import LinkCreate, StoryCreate, StoryLinkOut, StoryOut, StoryUpdate
+from app.models import Story, StoryAttachment, StoryMemberLink, Tree
+from app.schemas.content import (
+    AttachmentCreate,
+    AttachmentOut,
+    AttachmentUpdate,
+    LinkCreate,
+    StoryCreate,
+    StoryLinkOut,
+    StoryOut,
+    StoryUpdate,
+)
+from app.services.storage import (
+    FileTooLarge,
+    UnsupportedFileType,
+    delete_media,
+    store_document,
+)
 
 router = APIRouter(prefix="/trees/{tree_id}/stories", tags=["stories"])
 
@@ -19,9 +37,20 @@ def _get_story(db: Session, tree: Tree, story_id: str) -> Story:
     return story
 
 
+def _get_attachment(db: Session, story: Story, attachment_id: str) -> StoryAttachment:
+    att = db.get(StoryAttachment, attachment_id)
+    if att is None or att.story_id != story.id:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    return att
+
+
 @router.get("", response_model=list[StoryOut])
 def list_stories(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(select(Story).where(Story.tree_id == tree.id)).all()
+    return db.scalars(
+        select(Story)
+        .where(Story.tree_id == tree.id)
+        .options(selectinload(Story.attachments))
+    ).all()
 
 
 @router.get("/links", response_model=list[StoryLinkOut])
@@ -68,6 +97,9 @@ def delete_story(
     db: Session = Depends(get_db),
 ):
     story = _get_story(db, tree, story_id)
+    # Remove the on-disk files before the rows cascade away.
+    for att in story.attachments:
+        delete_media(att.url)
     db.delete(story)
     db.commit()
 
@@ -93,4 +125,70 @@ def clear_links(
 ):
     _get_story(db, tree, story_id)
     db.query(StoryMemberLink).filter(StoryMemberLink.story_id == story_id).delete()
+    db.commit()
+
+
+# --- Attachments -----------------------------------------------------------
+@router.post("/{story_id}/attachments", response_model=AttachmentOut, status_code=201)
+def add_attachment(
+    story_id: str,
+    payload: AttachmentCreate,
+    tree: Tree = Depends(get_writable_tree),
+    db: Session = Depends(get_db),
+):
+    story = _get_story(db, tree, story_id)
+    try:
+        url, mime, size = store_document(tree.id, payload.filename, payload.data)
+    except FileTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except UnsupportedFileType as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    att = StoryAttachment(
+        id=str(uuid4()),
+        tree_id=tree.id,
+        story_id=story.id,
+        filename=payload.filename,
+        url=url,
+        mime_type=mime,
+        size=size,
+        created_at=utcnow_iso(),
+    )
+    db.add(att)
+    db.commit()
+    db.refresh(att)
+    return att
+
+
+@router.patch(
+    "/{story_id}/attachments/{attachment_id}", response_model=AttachmentOut
+)
+def rename_attachment(
+    story_id: str,
+    attachment_id: str,
+    payload: AttachmentUpdate,
+    tree: Tree = Depends(get_writable_tree),
+    db: Session = Depends(get_db),
+):
+    story = _get_story(db, tree, story_id)
+    att = _get_attachment(db, story, attachment_id)
+    att.filename = payload.filename
+    db.commit()
+    db.refresh(att)
+    return att
+
+
+@router.delete("/{story_id}/attachments/{attachment_id}", status_code=204)
+def delete_attachment(
+    story_id: str,
+    attachment_id: str,
+    tree: Tree = Depends(get_writable_tree),
+    db: Session = Depends(get_db),
+):
+    story = _get_story(db, tree, story_id)
+    att = _get_attachment(db, story, attachment_id)
+    delete_media(att.url)
+    db.delete(att)
     db.commit()

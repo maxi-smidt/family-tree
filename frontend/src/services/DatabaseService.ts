@@ -18,7 +18,7 @@ import {
 } from "@/types/member";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
-import { StoryDB, StoryInput } from "@/types/story";
+import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB } from "@/types/disease";
 
 const base = (treeId: string) => `/trees/${treeId}`;
@@ -247,6 +247,40 @@ export class DatabaseService {
 
   static removeStoryLinks(treeId: string, storyId: string) {
     return api.del(`${base(treeId)}/stories/${storyId}/links`);
+  }
+
+  static addStoryAttachment(
+    treeId: string,
+    storyId: string,
+    filename: string,
+    data: string,
+  ) {
+    return api.post<StoryAttachmentDB>(
+      `${base(treeId)}/stories/${storyId}/attachments`,
+      { filename, data },
+    );
+  }
+
+  static updateStoryAttachment(
+    treeId: string,
+    storyId: string,
+    attachmentId: string,
+    filename: string,
+  ) {
+    return api.patch(
+      `${base(treeId)}/stories/${storyId}/attachments/${attachmentId}`,
+      { filename },
+    );
+  }
+
+  static removeStoryAttachment(
+    treeId: string,
+    storyId: string,
+    attachmentId: string,
+  ) {
+    return api.del(
+      `${base(treeId)}/stories/${storyId}/attachments/${attachmentId}`,
+    );
   }
 
   // --- Diseases ------------------------------------------------------------

@@ -63,27 +63,48 @@ class EventUpdate(BaseModel):
 
 
 # --- Stories ---------------------------------------------------------------
+class AttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    filename: str
+    url: str
+    mime_type: str | None = None
+    size: int | None = None
+    created_at: str
+
+
+class AttachmentCreate(BaseModel):
+    filename: str
+    data: str  # base64 data URL
+
+
+class AttachmentUpdate(BaseModel):
+    filename: str
+
+
 class StoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     title: str
-    content: str
+    content: str | None = None
     created_at: str
     updated_at: str
+    attachments: list[AttachmentOut] = []
 
 
 class StoryCreate(BaseModel):
     id: str
     title: str
-    content: str
+    content: str | None = None
     created_at: str
     updated_at: str
 
 
 class StoryUpdate(BaseModel):
     title: str
-    content: str
+    content: str | None = None
     updated_at: str
 
 

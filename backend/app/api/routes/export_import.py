@@ -25,13 +25,18 @@ from app.models import (
     Relation,
     RelationType,
     Story,
+    StoryAttachment,
     StoryMemberLink,
     Tree,
     User,
 )
 from app.schemas.tree import TreeOut
 from app.services import crypto_export
-from app.services.storage import media_url_to_data_url, process_image_field
+from app.services.storage import (
+    media_url_to_data_url,
+    process_image_field,
+    store_document,
+)
 
 router = APIRouter(prefix="/trees", tags=["export"])
 
@@ -58,6 +63,9 @@ def export_tree(
     gallery = _rows(db, GalleryImage, tree.id)
     for g in gallery:
         g["imageData"] = media_url_to_data_url(g.get("imageData"))
+    story_attachments = _rows(db, StoryAttachment, tree.id)
+    for a in story_attachments:
+        a["url"] = media_url_to_data_url(a.get("url"))
 
     bundle = {
         "version": BUNDLE_VERSION,
@@ -72,6 +80,7 @@ def export_tree(
         "event_links": _link_rows(db, EventMemberLink, Event, tree.id),
         "stories": _rows(db, Story, tree.id),
         "story_links": _link_rows(db, StoryMemberLink, Story, tree.id),
+        "story_attachments": story_attachments,
     }
 
     blob = crypto_export.encrypt_bundle(bundle, password or None)
@@ -200,6 +209,29 @@ async def import_tree(
         db.add(Story(tree_id=tree.id, **data))
     _import_links(db, bundle.get("story_links", []), StoryMemberLink,
                   "story_id", story_map, member_map)
+
+    # Story attachments: re-persist each inlined file under the new tree.
+    db.flush()  # stories must exist before their attachments
+    for row in bundle.get("story_attachments", []):
+        story_id = story_map.get(row.get("story_id"))
+        if story_id is None:
+            continue
+        try:
+            url, mime, size = store_document(tree.id, row["filename"], row["url"])
+        except ValueError:
+            continue  # skip an attachment we can't decode rather than fail the import
+        db.add(
+            StoryAttachment(
+                id=str(uuid4()),
+                tree_id=tree.id,
+                story_id=story_id,
+                filename=row["filename"],
+                url=url,
+                mime_type=mime,
+                size=size,
+                created_at=row.get("created_at") or utcnow_iso(),
+            )
+        )
 
     db.commit()
     db.refresh(tree)

@@ -118,7 +118,7 @@
       "children": "Kinder",
       "siblings": "Geschwister",
       "life-events": "Lebensereignisse",
-      "stories": "Geschichten & Biographien",
+      "stories": "Dokumente & Geschichten",
       "images": "Verlinkte Bilder"
     },
     "share-tree": {
@@ -249,8 +249,8 @@
       "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt.",
       "life-events": "Lebensereignisse",
       "no-events": "Keine Ereignisse erfasst",
-      "stories": "Geschichten & Biografien",
-      "no-stories": "Noch keine Geschichten geschrieben",
+      "stories": "Dokumente & Geschichten",
+      "no-stories": "Noch nichts gespeichert",
       "genetic-conditions": "Genetische Erkrankungen",
       "no-conditions": "Keine Erkrankungen erfasst"
     },
@@ -304,27 +304,42 @@
         }
       },
       "stories": {
-        "title": "Geschichten & Biographien",
+        "title": "Dokumente & Geschichten",
         "add": "Hinzufügen",
-        "no-stories": "Bis jetzt keine Geschichten geschrieben",
+        "no-stories": "Noch nichts gespeichert",
         "show-less": "Weniger anzeigen",
         "read-more": "Mehr lesen",
+        "attachments": {
+          "download": "Herunterladen"
+        },
         "delete-dialog": {
-          "title": "Geschichte Löschen",
-          "description": "Bis du dir sicher, dass diese Geschichte gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "title": "Eintrag löschen",
+          "description": "Bist du dir sicher, dass dieser Eintrag und seine Dateien gelöscht werden sollen? Diese Aktion kann nicht rückgängig gemacht werden.",
           "cancel": "Abbrechen",
           "delete": "Löschen"
         },
         "dialog": {
-          "title-edit": "Geschichte bearbeiten",
-          "title-add": "Geschichte hinzufügen",
+          "title-edit": "Eintrag bearbeiten",
+          "title-add": "Eintrag hinzufügen",
           "linked-members": "Verlinkte Personen",
           "linked-members-placeholder": "Wähle Personen...",
-          "linked-members-description": "Wähle eine oder mehrere Personen um die es in dieser Geschichte geht",
+          "linked-members-description": "Wähle eine oder mehrere Personen um die es in diesem Eintrag geht",
           "title": "Titel",
-          "title-placeholder": "z.B. Frühes Leben, Kriegsjahre, Hochzeitsgeschichten",
-          "story": "Geschichten",
-          "story-placeholder": "Schreibe hier eine Geschichte oder eine Biografie...",
+          "title-placeholder": "z.B. Frühes Leben, Geburtsurkunde, Kriegsjahre",
+          "story": "Notizen",
+          "story-placeholder": "Schreibe hier eine Geschichte, Biografie oder beliebige Notizen...",
+          "attachments": {
+            "heading": "Dateien",
+            "add": "Datei hinzufügen",
+            "empty": "Noch keine Dateien angehängt",
+            "new": "Neu",
+            "download": "Herunterladen",
+            "remove": "Datei entfernen",
+            "filename": "Dateiname",
+            "hint": "Bilder, PDF und Dokumente bis 25 MB.",
+            "error-type": "Nicht unterstützter Dateityp",
+            "error-size": "Datei ist zu groß (max. 25 MB)"
+          },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
           "add": "Hinzufügen"

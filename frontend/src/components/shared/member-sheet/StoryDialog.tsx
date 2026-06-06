@@ -1,4 +1,4 @@
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,16 +12,38 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { Story, StoryInput } from "@/types/story";
+import { AttachmentOps, Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
 import { getMemberOptions } from "@/utils/memberUtils";
+import {
+  ATTACHMENT_ACCEPT,
+  attachmentError,
+  isImageAttachment,
+  readFileAsDataUrl,
+} from "@/utils/attachmentUtils";
+import { AttachmentIcon } from "./StoryAttachments";
+import { Download, Paperclip, Plus, X } from "lucide-react";
 
 interface StoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   story?: Story | null;
   initialMemberId?: string;
+}
+
+interface ExistingAttachment {
+  id: string;
+  filename: string;
+  url: string;
+  mimeType: string | null;
+  size: number | null;
+}
+
+interface PendingFile {
+  tempId: string;
+  filename: string;
+  dataUrl: string;
 }
 
 export const StoryDialog = ({
@@ -40,33 +62,85 @@ export const StoryDialog = ({
     content: "",
   });
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [existing, setExisting] = useState<ExistingAttachment[]>([]);
+  const [added, setAdded] = useState<PendingFile[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    setFileError(null);
+    setAdded([]);
     if (story) {
-      setFormData({
-        title: story.title,
-        content: story.content,
-      });
+      setFormData({ title: story.title, content: story.content });
       setSelectedMemberIds(story.linkedMemberIds || []);
+      setExisting(
+        story.attachments.map((a) => ({
+          id: a.id,
+          filename: a.filename,
+          url: a.url,
+          mimeType: a.mimeType,
+          size: a.size,
+        })),
+      );
     } else {
-      setFormData({
-        title: "",
-        content: "",
-      });
+      setFormData({ title: "", content: "" });
       setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
+      setExisting([]);
     }
   }, [story, initialMemberId, open]);
 
+  const handleFilesPicked = async (fileList: FileList | null) => {
+    if (!fileList) return;
+    setFileError(null);
+    for (const file of Array.from(fileList)) {
+      const err = attachmentError(file);
+      if (err) {
+        setFileError(t(`attachments.error-${err}`));
+        continue;
+      }
+      const dataUrl = await readFileAsDataUrl(file);
+      setAdded((prev) => [
+        ...prev,
+        { tempId: crypto.randomUUID(), filename: file.name, dataUrl },
+      ]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const buildAttachmentOps = (): AttachmentOps => {
+    const original = story?.attachments ?? [];
+    const keptIds = new Set(existing.map((a) => a.id));
+    const removedIds = original
+      .filter((a) => !keptIds.has(a.id))
+      .map((a) => a.id);
+    const renamed = existing
+      .filter((a) => {
+        const orig = original.find((o) => o.id === a.id);
+        return orig && orig.filename !== a.filename && a.filename.trim() !== "";
+      })
+      .map((a) => ({ id: a.id, filename: a.filename.trim() }));
+    const addedOps = added.map((a) => ({
+      filename: a.filename.trim() || "file",
+      dataUrl: a.dataUrl,
+    }));
+    return { added: addedOps, removedIds, renamed };
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
-    if (story) {
-      await updateStory(story.id, formData, selectedMemberIds);
-    } else {
-      await addStory(selectedMemberIds, formData);
+    setSubmitting(true);
+    try {
+      const ops = buildAttachmentOps();
+      if (story) {
+        await updateStory(story.id, formData, selectedMemberIds, ops);
+      } else {
+        await addStory(selectedMemberIds, formData, ops);
+      }
+      onOpenChange(false);
+    } finally {
+      setSubmitting(false);
     }
-
-    onOpenChange(false);
   };
 
   const memberOptions = getMemberOptions(members);
@@ -110,8 +184,8 @@ export const StoryDialog = ({
               />
             </div>
 
-            <div className="space-y-2 flex-1">
-              <Label htmlFor="content">{t("story")} *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="content">{t("story")}</Label>
               <Textarea
                 id="content"
                 value={formData.content}
@@ -119,13 +193,136 @@ export const StoryDialog = ({
                   setFormData({ ...formData, content: e.target.value })
                 }
                 placeholder={t("story-placeholder")}
-                rows={15}
+                rows={10}
                 className="resize-none"
-                required
               />
-              <p className="text-xs text-muted-foreground">
-                {formData.content.length} characters
-              </p>
+            </div>
+
+            {/* Files */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t("attachments.heading")}</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Plus />
+                  {t("attachments.add")}
+                </Button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept={ATTACHMENT_ACCEPT}
+                className="hidden"
+                onChange={(e) => handleFilesPicked(e.target.files)}
+              />
+
+              {existing.length === 0 && added.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">
+                  {t("attachments.empty")}
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {existing.map((a) => (
+                    <div key={a.id} className="flex items-center gap-2">
+                      <AttachmentPreview
+                        filename={a.filename}
+                        mimeType={a.mimeType}
+                        src={a.url}
+                      />
+                      <Input
+                        value={a.filename}
+                        onChange={(e) =>
+                          setExisting((prev) =>
+                            prev.map((x) =>
+                              x.id === a.id
+                                ? { ...x, filename: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                        className="h-8 flex-1"
+                        aria-label={t("attachments.filename")}
+                      />
+                      <a
+                        href={a.url}
+                        download={a.filename}
+                        className="text-muted-foreground hover:text-foreground"
+                        title={t("attachments.download")}
+                      >
+                        <Download className="w-4 h-4" />
+                      </a>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title={t("attachments.remove")}
+                        onClick={() =>
+                          setExisting((prev) =>
+                            prev.filter((x) => x.id !== a.id),
+                          )
+                        }
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+
+                  {added.map((a) => (
+                    <div key={a.tempId} className="flex items-center gap-2">
+                      <AttachmentPreview
+                        filename={a.filename}
+                        src={a.dataUrl}
+                      />
+                      <Input
+                        value={a.filename}
+                        onChange={(e) =>
+                          setAdded((prev) =>
+                            prev.map((x) =>
+                              x.tempId === a.tempId
+                                ? { ...x, filename: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                        className="h-8 flex-1"
+                        aria-label={t("attachments.filename")}
+                      />
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {t("attachments.new")}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title={t("attachments.remove")}
+                        onClick={() =>
+                          setAdded((prev) =>
+                            prev.filter((x) => x.tempId !== a.tempId),
+                          )
+                        }
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {fileError ? (
+                <p className="text-xs text-destructive">{fileError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Paperclip className="w-3 h-3" />
+                  {t("attachments.hint")}
+                </p>
+              )}
             </div>
           </div>
 
@@ -142,9 +339,7 @@ export const StoryDialog = ({
               type="submit"
               size="sm"
               disabled={
-                !formData.title ||
-                !formData.content ||
-                selectedMemberIds.length === 0
+                submitting || !formData.title || selectedMemberIds.length === 0
               }
             >
               {story ? t("update") : t("add")}
@@ -153,5 +348,31 @@ export const StoryDialog = ({
         </form>
       </DialogContent>
     </Dialog>
+  );
+};
+
+/** Small thumbnail (image) or file icon used in the dialog's attachment rows. */
+const AttachmentPreview = ({
+  filename,
+  mimeType,
+  src,
+}: {
+  filename: string;
+  mimeType?: string | null;
+  src: string;
+}) => {
+  if (isImageAttachment({ filename, mimeType })) {
+    return (
+      <img
+        src={src}
+        alt={filename}
+        className="w-9 h-9 rounded object-cover border shrink-0"
+      />
+    );
+  }
+  return (
+    <span className="w-9 h-9 rounded border flex items-center justify-center shrink-0">
+      <AttachmentIcon filename={filename} mimeType={mimeType} />
+    </span>
   );
 };
