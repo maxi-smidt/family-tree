@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>FamilyTree-Frontend</Name>
+  <Repository>ghcr.io/maxi-smidt/family-tree-frontend</Repository>
+  <Registry>https://github.com/maxi-smidt/family-tree/pkgs/container/family-tree-frontend</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/maxi-smidt/family-tree/issues</Support>
+  <Project>https://github.com/maxi-smidt/family-tree</Project>
+  <Overview>Frontend for Family Tree application. Needs to run alongside the Backend.</Overview>
+  <Category>Tools:Utilities</Category>
+  <WebUI>http://[IP]:[PORT:80]</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/maxi-smidt/family-tree/main/docs/logo.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>FamilyTree-Backend</Requires>
+  <Config Name="Web UI Port" Target="80" Default="8080" Mode="tcp" Description="Port for Web UI" Type="Port" Display="always" Required="true" Mask="false"/>
+</Container>

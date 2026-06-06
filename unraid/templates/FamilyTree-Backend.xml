@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>FamilyTree-Backend</Name>
+  <Repository>ghcr.io/maxi-smidt/family-tree-backend</Repository>
+  <Registry>https://github.com/maxi-smidt/family-tree/pkgs/container/family-tree-backend</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/maxi-smidt/family-tree/issues</Support>
+  <Project>https://github.com/maxi-smidt/family-tree</Project>
+  <Overview>Backend for Family Tree application.</Overview>
+  <Category>Tools:Utilities</Category>
+  <WebUI/>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/maxi-smidt/family-tree/main/docs/logo.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires/>
+  <Config Name="Secret Key" Target="SECRET_KEY" Default="" Mode="" Description="Django/FastAPI Secret Key (generate a random string)" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Postgres Host" Target="POSTGRES_HOST" Default="db" Mode="" Description="PostgreSQL database host" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Postgres Port" Target="POSTGRES_PORT" Default="5432" Mode="" Description="PostgreSQL port" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Postgres User" Target="POSTGRES_USER" Default="familytree" Mode="" Description="PostgreSQL user" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Postgres Password" Target="POSTGRES_PASSWORD" Default="familytree" Mode="" Description="PostgreSQL password" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Postgres DB" Target="POSTGRES_DB" Default="familytree" Mode="" Description="PostgreSQL database name" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Frontend URL" Target="FRONTEND_URL" Default="http://localhost:8080" Mode="" Description="URL of the frontend" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="CORS Origins" Target="CORS_ORIGINS" Default="http://localhost:8080" Mode="" Description="Allowed CORS origins" Type="Variable" Display="always" Required="false" Mask="false"/>
+  <Config Name="Data Path" Target="/data" Default="/mnt/user/appdata/family-tree/data" Mode="rw" Description="Container path for actual member photos, gallery media" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="App Data Path" Target="/appdata" Default="/mnt/user/appdata/family-tree/backend" Mode="rw" Description="Container path for backend app data" Type="Path" Display="always" Required="true" Mask="false"/>
+  <Config Name="First Admin Username" Target="FIRST_ADMIN_USERNAME" Default="admin" Mode="" Description="First Admin Username" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="First Admin Password" Target="FIRST_ADMIN_PASSWORD" Default="admin" Mode="" Description="First Admin Password" Type="Variable" Display="advanced" Required="false" Mask="true"/>
+  <Config Name="First Admin Email" Target="FIRST_ADMIN_EMAIL" Default="admin@example.com" Mode="" Description="First Admin Email" Type="Variable" Display="advanced" Required="false" Mask="false"/>
+</Container>
