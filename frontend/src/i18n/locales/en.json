@@ -12,7 +12,9 @@
     },
     "database-selector": {
       "label": "Active Database",
-      "placeholder": "Select database"
+      "placeholder": "Select database",
+      "owned": "Owned by you",
+      "shared": "Shared with you"
     },
     "language-selector": {
       "select": "Language"
@@ -125,7 +127,16 @@
       "shared": "Access updated.",
       "share-error": "Could not share the tree.",
       "revoke-error": "Could not revoke access.",
-      "username-placeholder": "Username",
+      "current-access": "People with access",
+      "add-people": "Add people",
+      "select-users": "Select users…",
+      "no-candidates": "Everyone already has access",
+      "search-placeholder": "Search users…",
+      "no-users": "No users found.",
+      "share-button_one": "Share with {{count}} person",
+      "share-button_other": "Share with {{count}} people",
+      "revoke": "Remove access",
+      "remove": "Remove",
       "role-owner": "Owner",
       "role-editor": "Editor",
       "role-viewer": "Viewer"
@@ -473,7 +484,6 @@
     "table-name": "Name",
     "table-id": "ID",
     "table-actions": "Actions",
-    "no-databases": "No databases found. Create or import a database to get started.",
     "selected-label": "Currently selected:",
     "none-selected": "None",
     "toast-import-success": "Database imported successfully!",
@@ -481,7 +491,18 @@
     "toast-rename-success": "Database renamed successfully!",
     "toast-rename-empty": "Database name cannot be empty.",
     "share-button": "Share",
-    "toast-export-error": "Could not export the tree."
+    "toast-export-error": "Could not export the tree.",
+    "owned-section": "Owned by me",
+    "shared-section": "Shared with me",
+    "no-owned": "You don't own any databases yet. Create or import one to get started.",
+    "no-shared": "No databases have been shared with you yet.",
+    "table-sharing": "Sharing",
+    "table-your-role": "Your role",
+    "shared-with-count_one": "Shared with {{count}} person",
+    "shared-with-count_other": "Shared with {{count}} people",
+    "not-shared": "Private",
+    "role-editor": "Editor",
+    "role-viewer": "Viewer"
   },
   "common": {
     "english": "English",

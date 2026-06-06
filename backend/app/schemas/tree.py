@@ -11,6 +11,9 @@ class TreeOut(BaseModel):
     last_opened: str | None = None
     # Access level of the requesting user: "owner", "editor" or "viewer".
     role: str = "owner"
+    # Number of other users this tree is shared with (memberships). Lets owners
+    # see at a glance whether a tree is shared, without a second request.
+    shared_count: int = 0
 
 
 class TreeCreate(BaseModel):
@@ -41,3 +44,10 @@ class TreeMemberOut(BaseModel):
     user_id: str
     username: str
     role: str  # "owner", "editor" or "viewer"
+
+
+class ShareCandidate(BaseModel):
+    """A user that a tree can be shared with (not yet a member or the owner)."""
+
+    user_id: str
+    username: str

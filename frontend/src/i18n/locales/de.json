@@ -12,7 +12,9 @@
     },
     "database-selector": {
       "label": "Aktive Datenbank",
-      "placeholder": "Wähle Datenbank"
+      "placeholder": "Wähle Datenbank",
+      "owned": "Gehört dir",
+      "shared": "Mit dir geteilt"
     },
     "language-selector": {
       "select": "Sprache"
@@ -125,7 +127,16 @@
       "shared": "Zugriff aktualisiert.",
       "share-error": "Stammbaum konnte nicht geteilt werden.",
       "revoke-error": "Zugriff konnte nicht entzogen werden.",
-      "username-placeholder": "Benutzername",
+      "current-access": "Personen mit Zugriff",
+      "add-people": "Personen hinzufügen",
+      "select-users": "Benutzer auswählen…",
+      "no-candidates": "Alle haben bereits Zugriff",
+      "search-placeholder": "Benutzer suchen…",
+      "no-users": "Keine Benutzer gefunden.",
+      "share-button_one": "Mit {{count}} Person teilen",
+      "share-button_other": "Mit {{count}} Personen teilen",
+      "revoke": "Zugriff entziehen",
+      "remove": "Entfernen",
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter"
@@ -473,7 +484,6 @@
     "table-name": "Name",
     "table-id": "ID",
     "table-actions": "Aktionen",
-    "no-databases": "Keine Datenbanken gefunden. Erstelle oder importiere eine Datenbank, um zu beginnen.",
     "selected-label": "Aktuell ausgewählt:",
     "none-selected": "Keine",
     "toast-import-success": "Datenbank erfolgreich importiert!",
@@ -481,7 +491,18 @@
     "toast-rename-success": "Datenbank erfolgreich umbenannt!",
     "toast-rename-empty": "Datenbankname darf nicht leer sein.",
     "share-button": "Teilen",
-    "toast-export-error": "Stammbaum konnte nicht exportiert werden."
+    "toast-export-error": "Stammbaum konnte nicht exportiert werden.",
+    "owned-section": "Meine Datenbanken",
+    "shared-section": "Mit mir geteilt",
+    "no-owned": "Dir gehört noch keine Datenbank. Erstelle oder importiere eine, um zu beginnen.",
+    "no-shared": "Es wurden noch keine Datenbanken mit dir geteilt.",
+    "table-sharing": "Freigabe",
+    "table-your-role": "Deine Rolle",
+    "shared-with-count_one": "Mit {{count}} Person geteilt",
+    "shared-with-count_other": "Mit {{count}} Personen geteilt",
+    "not-shared": "Privat",
+    "role-editor": "Bearbeiter",
+    "role-viewer": "Betrachter"
   },
   "common": {
     "english": "Englisch",

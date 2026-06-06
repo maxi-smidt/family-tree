@@ -46,17 +46,31 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 
 
 def role_for(db: Session, tree: Tree, user: User) -> str | None:
-    """Returns 'owner' | 'editor' | 'viewer', or None when no access."""
-    if tree.owner_id == user.id or user.is_admin:
+    """The user's genuine relationship to the tree: 'owner' | 'editor' |
+    'viewer', or None when they have no explicit access.
+
+    Admin god-mode is intentionally NOT applied here: an admin who has been
+    granted access to someone else's tree should see their real role (e.g.
+    editor) instead of appearing as the owner. Admin authorization is enforced
+    separately in ``_resolve_tree``. Admins with no explicit grant still fall
+    back to 'owner' so every tree they can see lands in a sensible bucket.
+    """
+    if tree.owner_id == user.id:
         return "owner"
     membership = db.get(TreeMembership, (tree.id, user.id))
-    return membership.role if membership else None
+    if membership:
+        return membership.role
+    return "owner" if user.is_admin else None
 
 
 def _resolve_tree(db: Session, tree_id: str, user: User, *, write: bool) -> Tree:
     tree = db.get(Tree, tree_id)
     if tree is None:
         raise HTTPException(status_code=404, detail="Tree not found")
+    # Admins always have full read/write access, regardless of any explicit
+    # (possibly read-only) membership they were granted.
+    if user.is_admin:
+        return tree
     role = role_for(db, tree, user)
     if role is None:
         raise HTTPException(status_code=403, detail="No access to this tree")

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GalleryView } from "@/components/view/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/view/tree-view/FlowPanel";
@@ -15,13 +16,38 @@ const TIMELINE_VIEW = "timeline-view";
 const MERGE_VIEW = "merge-view";
 const DATABASE_MANAGEMENT_VIEW = "database-management-view";
 
+const ALL_VIEWS = [
+  TREE_VIEW,
+  LIST_VIEW,
+  GALLERY_VIEW,
+  TIMELINE_VIEW,
+  MERGE_VIEW,
+  DATABASE_MANAGEMENT_VIEW,
+];
+const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
+
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "layout.main-panel",
   });
 
+  // Persist the selected tab so a page refresh keeps the user where they were.
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    return stored && ALL_VIEWS.includes(stored) ? stored : TREE_VIEW;
+  });
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, value);
+  };
+
   return (
-    <Tabs defaultValue={TREE_VIEW} className="h-full flex flex-col">
+    <Tabs
+      value={activeTab}
+      onValueChange={handleTabChange}
+      className="h-full flex flex-col"
+    >
       <TabsList variant="line" className="ml-16 mt-3">
         <TabsTrigger value={TREE_VIEW}>{t("tree")}</TabsTrigger>
         <TabsTrigger value={LIST_VIEW}>{t("list")}</TabsTrigger>

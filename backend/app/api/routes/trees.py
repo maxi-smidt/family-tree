@@ -1,7 +1,7 @@
 """Tree lifecycle, sharing, metadata and relation types."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -17,6 +17,7 @@ from app.db.session import get_db
 from app.models import RelationType, Tree, TreeMembership, User
 from app.schemas.family import RelationTypeCreate, RelationTypeOut
 from app.schemas.tree import (
+    ShareCandidate,
     TreeCreate,
     TreeMemberOut,
     TreeMerge,
@@ -29,9 +30,18 @@ from app.services.merge import merge_trees
 router = APIRouter(prefix="/trees", tags=["trees"])
 
 
-def _tree_out(db: Session, tree: Tree, user: User) -> TreeOut:
+def _tree_out(
+    db: Session, tree: Tree, user: User, shared_count: int | None = None
+) -> TreeOut:
     out = TreeOut.model_validate(tree)
     out.role = role_for(db, tree, user) or "viewer"
+    if shared_count is None:
+        shared_count = db.scalar(
+            select(func.count())
+            .select_from(TreeMembership)
+            .where(TreeMembership.tree_id == tree.id)
+        )
+    out.shared_count = shared_count or 0
     return out
 
 
@@ -43,7 +53,19 @@ def list_trees(
     ids = accessible_tree_ids(db, user)
     trees = list(db.scalars(select(Tree).where(Tree.id.in_(ids))).all()) if ids else []
     trees.sort(key=lambda t: (t.last_opened or "", t.created_at), reverse=True)
-    return [_tree_out(db, t, user) for t in trees]
+    # Bulk-count memberships to avoid one query per tree.
+    counts: dict[str, int] = (
+        dict(
+            db.execute(
+                select(TreeMembership.tree_id, func.count())
+                .where(TreeMembership.tree_id.in_(ids))
+                .group_by(TreeMembership.tree_id)
+            ).all()
+        )
+        if ids
+        else {}
+    )
+    return [_tree_out(db, t, user, counts.get(t.id, 0)) for t in trees]
 
 
 @router.post("", response_model=TreeOut, status_code=201)
@@ -150,6 +172,30 @@ def list_access(
                 )
             )
     return result
+
+
+@router.get("/{tree_id}/access/candidates", response_model=list[ShareCandidate])
+def list_share_candidates(
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Active users this tree can still be shared with (excludes the owner and
+    anyone who already has access). Only the owner may enumerate them."""
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the owner can share a tree")
+    member_ids = set(
+        db.scalars(
+            select(TreeMembership.user_id).where(TreeMembership.tree_id == tree.id)
+        ).all()
+    )
+    member_ids.add(tree.owner_id)
+    candidates = db.scalars(
+        select(User)
+        .where(User.id.notin_(member_ids), User.is_active.is_(True))
+        .order_by(User.username)
+    ).all()
+    return [ShareCandidate(user_id=u.id, username=u.username) for u in candidates]
 
 
 @router.post("/{tree_id}/access", response_model=list[TreeMemberOut])
