@@ -35,10 +35,16 @@ This document provides specific instructions for GitHub Copilot agents working o
 ### Key Commands
 
 ```bash
-npm run tauri dev      # Start development server
-npm test              # Run test suite
-npm run check-i18n    # Verify translations
-npm run bump:patch    # Bump version (patch)
+# Frontend (from ./frontend)
+npm run dev            # Start the Vite dev server (proxies /api to the backend)
+npm test               # Run test suite
+npm run check-i18n     # Verify translations
+
+# Backend (from ./backend)
+uv run uvicorn app.main:app --reload --port 8000
+
+# Full stack
+docker compose up -d --build
 ```
 
 ### Common Imports
