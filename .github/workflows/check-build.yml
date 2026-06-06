@@ -1,15 +1,20 @@
-name: "Build Check"
+name: CI
 
 on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
 
 jobs:
-  check-build:
-    name: "Check Application Build"
+  frontend:
+    name: "Frontend (build + test)"
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v4
@@ -17,27 +22,39 @@ jobs:
       - name: "Set up Node.js"
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: "Rust Cache"
-        uses: swatinem/rust-cache@v2
-
-      - name: "Install Rust stable"
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: "Install dependencies (ubuntu only)"
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            patchelf
-
-      - name: "Install frontend dependencies"
+      - name: "Install dependencies"
         run: npm ci
 
-      - name: "Build the application"
-        run: npm run tauri build -- --debug
+      - name: "Type-check & build"
+        run: npm run build
+
+      - name: "Unit tests"
+        run: npx vitest run
+
+  backend:
+    name: "Backend (deps + checks)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up uv"
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: "Install dependencies"
+        run: uv sync --frozen
+
+      - name: "Compile & import checks"
+        run: |
+          uv run python -m compileall -q app alembic
+          uv run python -c "import app.main; print('app imports OK')"

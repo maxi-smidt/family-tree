@@ -17,19 +17,26 @@ jobs:
 
       - name: Check if version changed
         run: |
+          # The app version now lives in frontend/package.json (fall back to a
+          # root package.json so the check still works across the restructure).
+          get_version() {
+            jq -r .version frontend/package.json 2>/dev/null \
+              || jq -r .version package.json
+          }
+
           # Get version from the PR branch
-          NEW_VERSION=$(jq -r .version package.json)
+          NEW_VERSION=$(get_version)
 
           # Get version from the main branch
           git checkout origin/main
-          OLD_VERSION=$(jq -r .version package.json)
+          OLD_VERSION=$(get_version)
 
           echo "Main version: $OLD_VERSION"
           echo "PR version:   $NEW_VERSION"
 
           if [ "$NEW_VERSION" == "$OLD_VERSION" ]; then
-            echo "Error: Version in package.json has not been bumped."
-            echo "Please run 'npm run bump:patch' (or minor/major) before merging."
+            echo "Error: Version in frontend/package.json has not been bumped."
+            echo "Please run 'npm run bump:patch' (or minor/major) in frontend/ before merging."
             exit 1
           fi
 
