@@ -228,26 +228,36 @@ export const useFlowInteractions = (
         throw new Error("Cycle detected: Cannot add ancestor as child");
       }
 
-      if (sourceMember.gender === "f") {
+      const { paternalParent, maternalParent } = targetMember.parents;
+
+      if (paternalParent === edge.source || maternalParent === edge.source) {
+        throw new Error("This parent is already linked to the child");
+      }
+      if (paternalParent && maternalParent) {
+        throw new Error("Both parent slots are full");
+      }
+
+      // Prefer the slot matching the parent's gender, but never evict an
+      // existing parent: fall back to whichever slot is still free.
+      const wantsPaternal = sourceMember.gender === "m";
+      const wantsMaternal = sourceMember.gender === "f";
+
+      if (wantsPaternal && !paternalParent) {
+        void updateMemberPartial(edge.target, {
+          paternalParentId: edge.source,
+        });
+      } else if (wantsMaternal && !maternalParent) {
         void updateMemberPartial(edge.target, {
           maternalParentId: edge.source,
         });
-      } else if (sourceMember.gender === "m") {
+      } else if (!paternalParent) {
         void updateMemberPartial(edge.target, {
           paternalParentId: edge.source,
         });
       } else {
-        if (!targetMember.parents.paternalParent) {
-          void updateMemberPartial(edge.target, {
-            paternalParentId: edge.source,
-          });
-        } else if (!targetMember.parents.maternalParent) {
-          void updateMemberPartial(edge.target, {
-            maternalParentId: edge.source,
-          });
-        } else {
-          throw new Error("Both parent slots are full");
-        }
+        void updateMemberPartial(edge.target, {
+          maternalParentId: edge.source,
+        });
       }
     },
     [edges, memberMap, updateMemberPartial, setNewRelation],

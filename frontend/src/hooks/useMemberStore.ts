@@ -11,6 +11,7 @@ import {
   InheritancePattern,
 } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
+import { reconstructParents } from "@/utils/memberUtils";
 import { DatabaseService } from "@/services/DatabaseService";
 import { activeTreeId } from "@/hooks/useDatabaseStore";
 
@@ -78,25 +79,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
 
       // Reconstruct parents from relations
-      mapped.parents = {
-        paternalParent: null,
-        maternalParent: null,
-      };
-
-      memberRelations.forEach((r) => {
-        if (r.relation_type === "parent") {
-          const parentGender = memberGenderMap.get(r.to_member_id);
-          if (parentGender === "m") {
-            mapped.parents.paternalParent = r.to_member_id;
-          } else if (parentGender === "f") {
-            mapped.parents.maternalParent = r.to_member_id;
-          } else {
-            if (!mapped.parents.paternalParent)
-              mapped.parents.paternalParent = r.to_member_id;
-            else mapped.parents.maternalParent = r.to_member_id;
-          }
-        }
-      });
+      mapped.parents = reconstructParents(
+        memberRelations.filter((r) => r.relation_type === "parent"),
+        memberGenderMap,
+      );
 
       return mapped;
     });
