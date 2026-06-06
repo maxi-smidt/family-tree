@@ -73,6 +73,18 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     }
   };
 
+  const onAddLeftClick = () => {
+    if (data.onAddLeft && typeof data.onAddLeft === "function") {
+      data.onAddLeft();
+    }
+  };
+
+  const onAddRightClick = () => {
+    if (data.onAddRight && typeof data.onAddRight === "function") {
+      data.onAddRight();
+    }
+  };
+
   // Use CSS variables for theme-aware colors
   const borderColor = selected ? "hsl(var(--primary))" : "hsl(var(--border))";
   const borderWidth = selected ? "2px" : "1px";
@@ -108,13 +120,13 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="source"
         position={Position.Left}
         id="left"
-        className="h-1/4! w-2! bg-muted-foreground! rounded-md!"
+        className={`${isFastMode ? "h-3/5!" : "h-1/4!"} bg-muted-foreground! rounded-md!`}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        className="h-1/4! w-2! bg-muted-foreground! rounded-md!"
+        className={`${isFastMode ? "h-3/5!" : "h-1/4!"} bg-muted-foreground! rounded-md!`}
       />
       <div className="absolute top-2 flex justify-between w-full px-2">
         <Button variant="outline" size="icon-sm" onClick={onViewClick}>
@@ -203,6 +215,32 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
               borderTop: "none",
             }}
             onClick={onAddChildClick}
+          >
+            <PlusIcon className="text-card" />
+          </Button>
+          <Button
+            variant="ghost"
+            className="absolute -left-6 top-1/2 -translate-y-1/2 translate-x-0.5 h-16 w-6 rounded-l-full rounded-r-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
+            style={{
+              borderLeft: `${borderWidth} solid ${borderColor}`,
+              borderTop: `${borderWidth} solid ${borderColor}`,
+              borderBottom: `${borderWidth} solid ${borderColor}`,
+              borderRight: "none",
+            }}
+            onClick={onAddLeftClick}
+          >
+            <PlusIcon className="text-card" />
+          </Button>
+          <Button
+            variant="ghost"
+            className="absolute -right-6 top-1/2 -translate-y-1/2 -translate-x-0.5 h-16 w-6 rounded-r-full rounded-l-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
+            style={{
+              borderRight: `${borderWidth} solid ${borderColor}`,
+              borderTop: `${borderWidth} solid ${borderColor}`,
+              borderBottom: `${borderWidth} solid ${borderColor}`,
+              borderLeft: "none",
+            }}
+            onClick={onAddRightClick}
           >
             <PlusIcon className="text-card" />
           </Button>

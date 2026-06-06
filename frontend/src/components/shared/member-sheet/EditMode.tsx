@@ -15,21 +15,45 @@ import { MemberDiseases } from "./MemberDiseases";
 
 type Props = {
   member: Member;
+  isNew?: boolean;
+  onSaved?: (data: Member) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 };
 
-export const EditMode = ({ member }: Props) => {
+export const EditMode = ({
+  member,
+  isNew = false,
+  onSaved,
+  onDirtyChange,
+}: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
   });
   const { updateMemberPartial, members } = useMemberStore();
 
   const [formData, setFormData] = useState<Member>(member);
+  const [initialData, setInitialData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(member);
+    setInitialData(member);
+    onDirtyChange?.(false);
   }, [member]);
+
+  useEffect(() => {
+    const isDirty =
+      formData.firstName !== initialData.firstName ||
+      formData.lastName !== initialData.lastName ||
+      (formData.maidenName || "") !== (initialData.maidenName || "") ||
+      formData.gender !== initialData.gender ||
+      (formData.imageData || "") !== (initialData.imageData || "") ||
+      formData.date.birth !== initialData.date.birth ||
+      (formData.date.death || "") !== (initialData.date.death || "");
+
+    onDirtyChange?.(isDirty);
+  }, [formData, initialData, onDirtyChange]);
 
   const handleChange = (field: keyof Member, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -109,6 +133,11 @@ export const EditMode = ({ member }: Props) => {
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
 
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
+      toast.error(t("toast-error-required"));
+      return;
+    }
+
     const duplicate = members.find(
       (m) =>
         m.id !== member.id &&
@@ -124,6 +153,11 @@ export const EditMode = ({ member }: Props) => {
       return;
     }
 
+    if (isNew) {
+      onSaved?.(formData);
+      return;
+    }
+
     void updateMemberPartial(member.id, {
       firstName: formData.firstName,
       lastName: formData.lastName,
@@ -134,6 +168,7 @@ export const EditMode = ({ member }: Props) => {
       dateOfDeath: formData.date.death || undefined,
     });
     toast.success(t("toast-success"));
+    onSaved?.(formData);
   };
 
   return (
