@@ -40,6 +40,9 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}-${{ matrix.service }}
+          # Always move the "latest" tag to the most recent build so the
+          # production compose (which references :latest) can pull it.
+          flavor: latest=true
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
