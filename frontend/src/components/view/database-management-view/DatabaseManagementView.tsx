@@ -20,7 +20,14 @@ import {
   Share2,
   Check,
   X,
+  Users,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
 import { RemoveDatabaseDialog } from "@/components/view/database-management-view/dialog/RemoveDatabaseDialog";
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
@@ -38,6 +45,7 @@ export const DatabaseManagementView = () => {
   const selectedDatabase = useDatabaseStore((s) => s.selectedDatabase);
   const selectDatabase = useDatabaseStore((s) => s.selectDatabase);
   const renameDatabase = useDatabaseStore((s) => s.renameDatabase);
+  const loadTrees = useDatabaseStore((s) => s.loadTrees);
   const { exportDatabase, importDatabase, inspectImport } =
     useDatabaseManager();
 
@@ -130,6 +138,162 @@ export const DatabaseManagementView = () => {
     setIsRemoveDatabaseDialogOpen(true);
   };
 
+  const ownedDatabases = databases.filter((d) => d.role === "owner");
+  const sharedDatabases = databases.filter((d) => d.role !== "owner");
+
+  const renderStatusCell = (database: Database) => {
+    if (database.role === "owner") {
+      if (database.shared_count && database.shared_count > 0) {
+        return (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="secondary" className="gap-1">
+                <Users className="h-3 w-3" />
+                {database.shared_count}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              {t("shared-with-count", { count: database.shared_count })}
+            </TooltipContent>
+          </Tooltip>
+        );
+      }
+      return (
+        <span className="text-muted-foreground text-sm">{t("not-shared")}</span>
+      );
+    }
+    return <Badge variant="outline">{t(`role-${database.role}`)}</Badge>;
+  };
+
+  const renderRow = (database: Database) => {
+    const isOwned = database.role === "owner";
+    return (
+      <TableRow
+        key={database.id}
+        className={selectedDatabase?.id === database.id ? "bg-muted" : ""}
+      >
+        <TableCell>
+          <input
+            type="radio"
+            checked={selectedDatabase?.id === database.id}
+            onChange={() => handleSelectDatabase(database)}
+            className="cursor-pointer"
+          />
+        </TableCell>
+        <TableCell>
+          {editingDatabaseId === database.id ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                className="h-8"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    void handleSaveRename(database);
+                  } else if (e.key === "Escape") {
+                    handleCancelRename();
+                  }
+                }}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleSaveRename(database)}
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleCancelRename}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <span className="font-medium">{database.name}</span>
+          )}
+        </TableCell>
+        <TableCell className="text-muted-foreground font-mono text-sm">
+          {database.id}
+        </TableCell>
+        <TableCell>{renderStatusCell(database)}</TableCell>
+        <TableCell className="text-right">
+          <div className="flex justify-end gap-1">
+            {isOwned && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShareTree(database)}
+                title={t("share-button")}
+              >
+                <Share2 className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleStartRename(database)}
+              disabled={editingDatabaseId !== null}
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleExportDatabase(database)}
+            >
+              <HardDriveUpload className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenRemoveDialog(database)}
+              disabled={!isOwned}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </TableCell>
+      </TableRow>
+    );
+  };
+
+  const renderSection = (
+    heading: string,
+    rows: Database[],
+    emptyLabel: string,
+    statusHeader: string,
+  ) => (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold">{heading}</h3>
+      <div className="border rounded-lg overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12"></TableHead>
+              <TableHead>{t("table-name")}</TableHead>
+              <TableHead>{t("table-id")}</TableHead>
+              <TableHead>{statusHeader}</TableHead>
+              <TableHead className="text-right">{t("table-actions")}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center text-muted-foreground"
+                >
+                  {emptyLabel}
+                </TableCell>
+              </TableRow>
+            ) : (
+              rows.map(renderRow)
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+
   return (
     <ViewLayout
       title={t("title")}
@@ -150,122 +314,19 @@ export const DatabaseManagementView = () => {
         </div>
       }
     >
-      <div className="flex-1 border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12"></TableHead>
-              <TableHead>{t("table-name")}</TableHead>
-              <TableHead>{t("table-id")}</TableHead>
-              <TableHead className="text-right">{t("table-actions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {databases.length === 0 ? (
-              <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="text-center text-muted-foreground"
-                >
-                  {t("no-databases")}
-                </TableCell>
-              </TableRow>
-            ) : (
-              databases.map((database) => (
-                <TableRow
-                  key={database.id}
-                  className={
-                    selectedDatabase?.id === database.id ? "bg-muted" : ""
-                  }
-                >
-                  <TableCell>
-                    <input
-                      type="radio"
-                      checked={selectedDatabase?.id === database.id}
-                      onChange={() => handleSelectDatabase(database)}
-                      className="cursor-pointer"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {editingDatabaseId === database.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          className="h-8"
-                          autoFocus
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              void handleSaveRename(database);
-                            } else if (e.key === "Escape") {
-                              handleCancelRename();
-                            }
-                          }}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleSaveRename(database)}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleCancelRename}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="font-medium">{database.name}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-sm">
-                    {database.id}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      {database.role === "owner" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShareTree(database)}
-                          title={t("share-button")}
-                        >
-                          <Share2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStartRename(database)}
-                        disabled={editingDatabaseId !== null}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleExportDatabase(database)}
-                      >
-                        <HardDriveUpload className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenRemoveDialog(database)}
-                        disabled={database.role !== "owner"}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <div className="flex-1 flex flex-col gap-6 overflow-auto">
+        {renderSection(
+          t("owned-section"),
+          ownedDatabases,
+          t("no-owned"),
+          t("table-sharing"),
+        )}
+        {renderSection(
+          t("shared-section"),
+          sharedDatabases,
+          t("no-shared"),
+          t("table-your-role"),
+        )}
       </div>
 
       <div className="text-sm text-muted-foreground">
@@ -289,7 +350,11 @@ export const DatabaseManagementView = () => {
         <ShareTreeDialog
           tree={shareTree}
           isOpen={!!shareTree}
-          onClose={() => setShareTree(null)}
+          onClose={() => {
+            setShareTree(null);
+            // Refresh so the owner's "Sharing" count reflects any changes.
+            void loadTrees();
+          }}
         />
       )}
       <PasswordDialog

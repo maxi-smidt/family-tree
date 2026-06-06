@@ -8,6 +8,7 @@ import {
 import { SettingsField } from "@/components/sidebar/SettingsField";
 import { useDatabaseStore } from "@/hooks/useDatabaseStore";
 import { useTranslation } from "react-i18next";
+import { Crown, Users } from "lucide-react";
 
 export const DatabaseSelector = () => {
   const { t } = useTranslation(undefined, {
@@ -34,7 +35,20 @@ export const DatabaseSelector = () => {
         <SelectContent>
           {databases.map((db) => (
             <SelectItem key={db.id} value={db.id}>
-              {db.name}
+              <span className="flex items-center gap-2">
+                {db.role === "owner" ? (
+                  <Crown
+                    className="h-3.5 w-3.5 text-muted-foreground"
+                    aria-label={t("owned")}
+                  />
+                ) : (
+                  <Users
+                    className="h-3.5 w-3.5 text-muted-foreground"
+                    aria-label={t("shared")}
+                  />
+                )}
+                {db.name}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

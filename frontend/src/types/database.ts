@@ -10,12 +10,22 @@ export interface Database {
   last_opened?: string | null;
   // Access level of the current user: "owner" | "editor" | "viewer".
   role?: "owner" | "editor" | "viewer";
+  // Number of other users this tree is shared with (owner-relevant).
+  shared_count?: number;
 }
 
 export type Tree = Database;
+
+export type ShareRole = "viewer" | "editor";
 
 export interface TreeAccess {
   user_id: string;
   username: string;
   role: "owner" | "editor" | "viewer";
+}
+
+/** A user a tree can still be shared with (returned by the candidates endpoint). */
+export interface ShareCandidate {
+  user_id: string;
+  username: string;
 }
