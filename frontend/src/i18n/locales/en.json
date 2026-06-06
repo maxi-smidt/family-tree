@@ -118,7 +118,7 @@
       "children": "Children",
       "siblings": "Siblings",
       "life-events": "Life Events",
-      "stories": "Stories & Biographies",
+      "stories": "Documents & Stories",
       "images": "Linked Images"
     },
     "share-tree": {
@@ -249,8 +249,8 @@
       "linked-images-fallback": "No images linked to this person yet.",
       "life-events": "Life Events",
       "no-events": "No events recorded",
-      "stories": "Stories & Biographies",
-      "no-stories": "No stories written yet",
+      "stories": "Documents & Stories",
+      "no-stories": "Nothing stored yet",
       "genetic-conditions": "Genetic Conditions",
       "no-conditions": "No conditions recorded"
     },
@@ -304,27 +304,42 @@
         }
       },
       "stories": {
-        "title": "Stories & Biographies",
+        "title": "Documents & Stories",
         "add": "Add",
-        "no-stories": "No stories written yet",
+        "no-stories": "Nothing stored yet",
         "show-less": "Show less",
         "read-more": "Read more",
+        "attachments": {
+          "download": "Download"
+        },
         "delete-dialog": {
-          "title": "Delete Story",
-          "description": "Are you sure you want to delete this story? This action cannot be undone.",
+          "title": "Delete Entry",
+          "description": "Are you sure you want to delete this entry and its files? This action cannot be undone.",
           "cancel": "Cancel",
           "delete": "Delete"
         },
         "dialog": {
-          "title-edit": "Edit Story",
-          "title-add": "Add Story",
+          "title-edit": "Edit Entry",
+          "title-add": "Add Entry",
           "linked-members": "Linked Members",
           "linked-members-placeholder": "Select members...",
-          "linked-members-description": "Select one or more family members this story is about",
+          "linked-members-description": "Select one or more family members this entry is about",
           "title": "Title",
-          "title-placeholder": "e.g., Early Life, War Years, Marriage Story",
-          "story": "Story",
-          "story-placeholder": "Write the story or biography here...",
+          "title-placeholder": "e.g., Early Life, Birth Certificate, War Years",
+          "story": "Notes",
+          "story-placeholder": "Write a story, biography or any notes here...",
+          "attachments": {
+            "heading": "Files",
+            "add": "Add file",
+            "empty": "No files attached yet",
+            "new": "New",
+            "download": "Download",
+            "remove": "Remove file",
+            "filename": "File name",
+            "hint": "Images, PDF and documents up to 25 MB.",
+            "error-type": "Unsupported file type",
+            "error-size": "File is too large (max 25 MB)"
+          },
           "cancel": "Cancel",
           "update": "Update",
           "add": "Add"

@@ -18,6 +18,7 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useState } from "react";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
+import { StoryAttachments } from "@/components/shared/member-sheet/StoryAttachments";
 import { Calendar, MapPin, BookOpen, Users } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
@@ -275,9 +276,12 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                       <h4 className="font-semibold text-xl mb-4">
                         {story.title}
                       </h4>
-                      <div className="text-base whitespace-pre-wrap leading-relaxed">
-                        {story.content}
-                      </div>
+                      {story.content && (
+                        <div className="text-base whitespace-pre-wrap leading-relaxed">
+                          {story.content}
+                        </div>
+                      )}
+                      <StoryAttachments attachments={story.attachments} />
                     </div>
                   ))}
                 </div>

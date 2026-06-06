@@ -10,6 +10,7 @@ from app.models.content import (
     GalleryImage,
     GalleryMemberLink,
     Story,
+    StoryAttachment,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation, RelationType
@@ -30,6 +31,7 @@ __all__ = [
     "Event",
     "EventMemberLink",
     "Story",
+    "StoryAttachment",
     "StoryMemberLink",
     "AppSetting",
 ]

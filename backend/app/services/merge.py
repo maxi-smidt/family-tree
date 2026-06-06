@@ -26,6 +26,7 @@ from app.models import (
     Relation,
     RelationType,
     Story,
+    StoryAttachment,
     StoryMemberLink,
     Tree,
     User,
@@ -264,6 +265,28 @@ def merge_trees(
             if st and mid and (st, mid) not in seen_story_links:
                 seen_story_links.add((st, mid))
                 db.add(StoryMemberLink(story_id=st, member_id=mid))
+
+    # --- Story attachments (copy files into the new tree) ------------------
+    for t in sources:
+        for att in db.scalars(
+            select(StoryAttachment).where(StoryAttachment.tree_id == t.id)
+        ):
+            st = story_map.get(att.story_id)
+            new_url = copy_media_to_tree(att.url, new_tree.id)
+            if st is None or new_url is None:
+                continue
+            db.add(
+                StoryAttachment(
+                    id=str(uuid4()),
+                    tree_id=new_tree.id,
+                    story_id=st,
+                    filename=att.filename,
+                    url=new_url,
+                    mime_type=att.mime_type,
+                    size=att.size,
+                    created_at=att.created_at,
+                )
+            )
 
     db.commit()
     db.refresh(new_tree)

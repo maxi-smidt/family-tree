@@ -5,6 +5,7 @@ import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { BookOpen, Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { StoryDialog } from "./StoryDialog";
+import { StoryAttachments } from "./StoryAttachments";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
@@ -112,6 +113,8 @@ export const MemberStories = ({ member }: Props) => {
                       {isExpanded ? t("show-less") : t("read-more")}
                     </Button>
                   )}
+
+                  <StoryAttachments attachments={story.attachments} />
                 </div>
               );
             })}

@@ -1,7 +1,7 @@
 """Gallery, events and stories — the rich content attached to members."""
 
-from sqlalchemy import ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -66,9 +66,42 @@ class Story(Base):
         String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str] = mapped_column(String(255))
-    content: Mapped[str] = mapped_column(Text)
+    # Optional now: an entry may carry only file attachments and no narrative text.
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))
+
+    attachments: Mapped[list["StoryAttachment"]] = relationship(
+        back_populates="story",
+        cascade="all, delete-orphan",
+        order_by="StoryAttachment.created_at",
+    )
+
+
+class StoryAttachment(Base):
+    """A file (image, pdf, document, ...) attached to a story.
+
+    The bytes live on disk under ``DATA_PATH/media/<tree_id>/`` and ``url`` is
+    the stable ``/api/media/...`` reference; ``filename`` is the user-facing,
+    settable display/download name.
+    """
+
+    __tablename__ = "story_attachments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    )
+    story_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("stories.id", ondelete="CASCADE"), index=True
+    )
+    filename: Mapped[str] = mapped_column(String(255))
+    url: Mapped[str] = mapped_column(Text)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+
+    story: Mapped["Story"] = relationship(back_populates="attachments")
 
 
 class StoryMemberLink(Base):

@@ -11,6 +11,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
+import { StoryAttachments } from "./StoryAttachments";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { Calendar, MapPin, BookOpen, Activity } from "lucide-react";
@@ -222,9 +223,12 @@ export const ViewMode = ({ member }: Props) => {
                           <BookOpen className="w-4 h-4 text-muted-foreground" />
                           <h4 className="font-medium">{story.title}</h4>
                         </div>
-                        <div className="text-sm whitespace-pre-wrap line-clamp-3">
-                          {story.content}
-                        </div>
+                        {story.content && (
+                          <div className="text-sm whitespace-pre-wrap line-clamp-3">
+                            {story.content}
+                          </div>
+                        )}
+                        <StoryAttachments attachments={story.attachments} />
                       </div>
                     ))}
                 </div>
