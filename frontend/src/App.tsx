@@ -20,7 +20,17 @@ export const App = () => {
   }, [init]);
 
   useEffect(() => {
-    if (status === "authenticated") void loadTrees();
+    if (status !== "authenticated") return;
+    void (async () => {
+      await loadTrees();
+      // Re-open the most recently used tree (the API returns them sorted by
+      // last_opened, newest first) so the user lands back where they left off.
+      const { selectedDatabase, databases, selectDatabase } =
+        useDatabaseStore.getState();
+      if (!selectedDatabase && databases.length > 0) {
+        await selectDatabase(databases[0]);
+      }
+    })();
   }, [status, loadTrees]);
 
   if (status === "loading") {
