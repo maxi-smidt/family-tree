@@ -143,6 +143,9 @@ async def import_tree(
         data["id"] = member_map[row["id"]]
         data["imageData"] = process_image_field(tree.id, data.get("imageData"))
         db.add(Member(tree_id=tree.id, **data))
+    # Members must exist before anything that references them (relations,
+    # diseases, gallery/event/story links).
+    db.flush()
 
     for row in bundle.get("relation_types", []):
         db.add(
@@ -210,6 +213,9 @@ def _remap(rows: list[dict]) -> dict[str, str]:
 
 
 def _import_links(db, links, model, parent_key, parent_map, member_map):
+    # Make sure the parent rows added just before this call are inserted, so the
+    # link rows that reference them don't violate the foreign key.
+    db.flush()
     for row in links:
         parent_old = row[parent_key]
         member_old = row["member_id"]

@@ -123,6 +123,8 @@ def merge_trees(
                 dedup[key] = clone
 
     valid_member_ids = set(member_map.values())
+    # Members must exist before relations/diseases/links reference them.
+    db.flush()
 
     # --- Relations ---------------------------------------------------------
     seen_relations: set[tuple] = set()
@@ -185,6 +187,7 @@ def merge_trees(
                     uploadedAt=img.uploadedAt,
                 )
             )
+    db.flush()  # gallery images before their links
     seen_gallery_links: set[tuple] = set()
     for t in sources:
         links = db.scalars(
@@ -216,6 +219,7 @@ def merge_trees(
                     created_at=e.created_at,
                 )
             )
+    db.flush()  # events before their links
     seen_event_links: set[tuple] = set()
     for t in sources:
         links = db.scalars(
@@ -246,6 +250,7 @@ def merge_trees(
                     updated_at=s.updated_at,
                 )
             )
+    db.flush()  # stories before their links
     seen_story_links: set[tuple] = set()
     for t in sources:
         links = db.scalars(

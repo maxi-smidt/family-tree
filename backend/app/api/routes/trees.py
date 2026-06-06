@@ -60,6 +60,9 @@ def create_tree(
         last_opened=utcnow_iso(),
     )
     db.add(tree)
+    # Flush the tree first so its row exists before the relation_types rows that
+    # reference it (Postgres enforces the FK immediately).
+    db.flush()
     for rt in DEFAULT_RELATION_TYPES:
         db.add(RelationType(tree_id=tree.id, id=rt))
     db.commit()
