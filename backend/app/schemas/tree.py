@@ -31,6 +31,12 @@ class TreeShare(BaseModel):
     role: str = "editor"  # "viewer" or "editor"
 
 
+class TreeTransfer(BaseModel):
+    """Hand a tree's ownership to another (active) user."""
+
+    username: str
+
+
 class TreeMerge(BaseModel):
     name: str
     source_a: str

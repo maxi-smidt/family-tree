@@ -139,7 +139,18 @@
       "remove": "Entfernen",
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
-      "role-viewer": "Betrachter"
+      "role-viewer": "Betrachter",
+      "transfer-title": "Eigentümerschaft übertragen",
+      "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
+      "transfer-select": "Neuen Eigentümer auswählen…",
+      "transfer-no-targets": "Keine geeigneten Benutzer",
+      "transfer-button": "Übertragen",
+      "transfer-confirm-title": "Eigentümerschaft übertragen?",
+      "transfer-confirm-description": "\"{{username}}\" zum Eigentümer von \"{{name}}\" machen? Sie sind dann nicht mehr der Eigentümer dieses Stammbaums.",
+      "transfer-confirm-cancel": "Abbrechen",
+      "transfer-confirm-action": "Eigentümerschaft übertragen",
+      "transfer-success": "Eigentümerschaft übertragen.",
+      "transfer-error": "Eigentümerschaft konnte nicht übertragen werden."
     }
   },
   "gallery-view": {
