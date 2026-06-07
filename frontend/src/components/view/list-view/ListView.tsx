@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/dateUtils";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
@@ -100,9 +100,9 @@ export const ListView = () => {
     }));
   };
 
-  const formatDate = (dateString: string | null) => {
+  const renderDate = (dateString: string | null) => {
     if (!dateString) return "-";
-    return format(new Date(dateString), "dd.MM.yyyy");
+    return formatDate(dateString);
   };
 
   const confirmDelete = () => {
@@ -217,8 +217,8 @@ export const ListView = () => {
                     <TableCell className="capitalize">
                       <GenderIcon {...member} />
                     </TableCell>
-                    <TableCell>{formatDate(member.date.birth)}</TableCell>
-                    <TableCell>{formatDate(member.date.death)}</TableCell>
+                    <TableCell>{renderDate(member.date.birth)}</TableCell>
+                    <TableCell>{renderDate(member.date.death)}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>

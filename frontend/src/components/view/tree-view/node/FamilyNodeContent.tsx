@@ -1,5 +1,5 @@
 import { Member } from "@/types/member";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/dateUtils";
 import { Mars, User, Venus, VenusAndMars } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -72,7 +72,7 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          {formatDate(member.date)}
+          {renderDateRange(member.date)}
         </div>
       </div>
       <MemberDetailDialog
@@ -83,10 +83,10 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
     </div>
   );
 
-  function formatDate(dates: { birth: string | null; death: string | null }) {
-    const start = dates.birth ? format(dates.birth, "dd.MM.yyyy") : <i>???</i>;
+  function renderDateRange(dates: { birth: string | null; death: string | null }) {
+    const start = dates.birth ? formatDate(dates.birth) : <i>???</i>;
     const end = dates.death ? (
-      format(dates.death, "dd.MM.yyyy")
+      formatDate(dates.death)
     ) : dates.birth ? (
       <i>{t("life-ongoing")}</i>
     ) : (
