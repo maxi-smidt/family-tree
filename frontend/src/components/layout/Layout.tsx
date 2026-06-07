@@ -3,7 +3,6 @@ import { FamilyTreeSidebar } from "@/components/sidebar/FamilyTreeSidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ReactNode } from "react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { Toaster } from "@/components/ui/sonner";
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const { sidebarOpen, setSidebarOpen } = useFamilyTreeSettings();
@@ -21,7 +20,6 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           </div>
           {children}
         </main>
-        <Toaster position="bottom-center" />
       </SidebarProvider>
     </TooltipProvider>
   );

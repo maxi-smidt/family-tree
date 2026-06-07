@@ -566,6 +566,9 @@
       "switch-to-login": "Bereits ein Konto? Anmelden",
       "login-error": "Benutzername oder Passwort ist falsch.",
       "register-error": "Konto konnte nicht erstellt werden.",
+      "username-taken": "Dieser Benutzername ist bereits vergeben.",
+      "rate-limit-error": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
+      "network-error": "Server nicht erreichbar. Bitte überprüfe deine Verbindung und versuche es erneut.",
       "account-pending-deletion": "Dieses Konto ist zum Löschen vorgemerkt. Wenden Sie sich an Ihren Administrator, falls dies ein Fehler ist."
     },
     "change-password": {
