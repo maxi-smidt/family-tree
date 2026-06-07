@@ -91,10 +91,10 @@ export interface MemberUpdate {
   gender?: Gender;
   firstName?: string;
   lastName?: string;
-  maidenName?: string;
+  maidenName?: string | null;
   imageData?: string;
   dateOfBirth?: string;
-  dateOfDeath?: string;
+  dateOfDeath?: string | null;
   paternalParentId?: string | null;
   maternalParentId?: string | null;
   additionalData?: string;
