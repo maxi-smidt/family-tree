@@ -418,6 +418,13 @@
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
       "risk-indicator": "Mögliches genetisches Risiko von Eltern"
     },
+    "search": {
+      "placeholder": "Mitglieder suchen…",
+      "no-results": "Keine Mitglieder gefunden",
+      "unnamed": "Unbenanntes Mitglied",
+      "nee": "geb. {{name}}",
+      "clear": "Suche löschen"
+    },
     "controls": {
       "zoom-in": "Hineinzoomen",
       "zoom-out": "Herauszoomen",
