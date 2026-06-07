@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format } from "date-fns";
 import {
   STORED_IMAGE_HEIGHT as MAX_HEIGHT,
   STORED_IMAGE_WIDTH as MAX_WIDTH,
@@ -23,6 +22,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
+import { formatDateTime } from "@/utils/dateUtils";
 
 type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
@@ -87,7 +87,7 @@ export const GalleryView = () => {
 
           void addGalleryImage({
             imageData: compressedBase64,
-            title: format(new Date(), "dd.MM.yyyy HH:mm:ss"),
+            title: formatDateTime(new Date()),
             description: null,
             linkedMemberIds: [],
           });

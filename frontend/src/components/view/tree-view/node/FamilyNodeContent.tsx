@@ -1,10 +1,10 @@
 import { Member } from "@/types/member";
-import { format } from "date-fns";
 import { Mars, User, Venus, VenusAndMars } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
+import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
 
 type Props = {
   member: Member;
@@ -72,7 +72,7 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
-          {formatDate(member.date)}
+          {formatLifeDates(member.date)}
         </div>
       </div>
       <MemberDetailDialog
@@ -83,10 +83,13 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
     </div>
   );
 
-  function formatDate(dates: { birth: string | null; death: string | null }) {
-    const start = dates.birth ? format(dates.birth, "dd.MM.yyyy") : <i>???</i>;
+  function formatLifeDates(dates: {
+    birth: string | null;
+    death: string | null;
+  }) {
+    const start = dates.birth ? formatLocaleDate(dates.birth) : <i>???</i>;
     const end = dates.death ? (
-      format(dates.death, "dd.MM.yyyy")
+      formatLocaleDate(dates.death)
     ) : dates.birth ? (
       <i>{t("life-ongoing")}</i>
     ) : (
