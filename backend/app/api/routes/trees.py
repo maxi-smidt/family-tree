@@ -26,6 +26,7 @@ from app.schemas.tree import (
     TreeUpdate,
 )
 from app.services.merge import merge_trees
+from app.services.storage import delete_tree_media
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -148,8 +149,11 @@ def delete_tree(
 ):
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete a tree")
+    tree_id = tree.id
     db.delete(tree)
     db.commit()
+    # The DB cascade clears the rows; remove the backing media files too.
+    delete_tree_media(tree_id)
 
 
 # --- Sharing ---------------------------------------------------------------

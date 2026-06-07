@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     JWT_ALGORITHM: str = "HS256"
 
+    # How often the background sweep purges users whose deletion grace period
+    # has elapsed (also runs once at startup).
+    DELETION_SWEEP_INTERVAL_SECONDS: int = 60 * 60  # 1 hour
+
     # --- Database ----------------------------------------------------------
     # Either provide a full DATABASE_URL or the individual POSTGRES_* parts.
     # The default host is "localhost" so a host-run dev backend connects to the
