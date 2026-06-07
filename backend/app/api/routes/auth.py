@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import ACCOUNT_PENDING_DELETION, get_current_user
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.core.security import create_access_token, hash_password, verify_password
@@ -51,6 +51,8 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
+    if user.deletion_requested_at is not None:
+        raise HTTPException(status_code=403, detail=ACCOUNT_PENDING_DELETION)
 
     login_rate_limiter.reset(rate_key)
     token = create_access_token(user.id)

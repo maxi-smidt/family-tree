@@ -11,6 +11,10 @@ from app.models import Tree, TreeMembership, User
 
 _bearer = HTTPBearer(auto_error=False)
 
+# Stable detail code returned to the frontend when login is refused because the
+# account is pending deletion, so it can show a dedicated translated message.
+ACCOUNT_PENDING_DELETION = "account_pending_deletion"
+
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
@@ -33,6 +37,13 @@ def get_current_user(
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive or unknown user"
+        )
+    # Reject accounts pending deletion. A 401 (rather than 403) lets the existing
+    # global handler bounce live sessions back to the login screen, where the
+    # dedicated pending-deletion message is shown on the next attempt.
+    if user.deletion_requested_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=ACCOUNT_PENDING_DELETION
         )
     return user
 

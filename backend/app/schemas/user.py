@@ -12,6 +12,8 @@ class UserOut(BaseModel):
     is_active: bool
     auth_provider: str
     created_at: str
+    deletion_scheduled_for: str | None = None
+    deletion_requested_by: str | None = None
 
 
 class UserCreate(BaseModel):

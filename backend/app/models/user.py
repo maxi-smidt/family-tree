@@ -26,3 +26,19 @@ class User(Base):
     )
 
     created_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso)
+
+    # Soft-deletion: when an admin schedules an account for deletion it enters a
+    # grace period instead of being purged immediately. A non-null
+    # ``deletion_requested_at`` means the account is pending deletion (blocked
+    # from logging in). ``deletion_scheduled_for`` is the absolute purge deadline,
+    # frozen when deletion is requested so later changes to the grace-period
+    # setting never move existing deadlines.
+    deletion_requested_at: Mapped[str | None] = mapped_column(
+        String(40), nullable=True
+    )
+    deletion_scheduled_for: Mapped[str | None] = mapped_column(
+        String(40), nullable=True
+    )
+    deletion_requested_by: Mapped[str | None] = mapped_column(
+        String(36), nullable=True
+    )

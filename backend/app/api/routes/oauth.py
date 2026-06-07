@@ -45,6 +45,10 @@ async def callback(request: Request, db: Session = Depends(get_db)):
     user = _provision_user(db, userinfo)
     if user is None:
         return RedirectResponse(f"{settings.FRONTEND_URL}/#oauth_error=nouser")
+    if user.deletion_requested_at is not None:
+        return RedirectResponse(
+            f"{settings.FRONTEND_URL}/#oauth_error=pending_deletion"
+        )
 
     access = create_access_token(user.id)
     return RedirectResponse(f"{settings.FRONTEND_URL}/#token={access}")
