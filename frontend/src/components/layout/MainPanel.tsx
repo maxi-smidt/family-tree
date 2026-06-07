@@ -4,7 +4,6 @@ import { GalleryView } from "@/components/view/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/view/tree-view/FlowPanel";
 import { ListView } from "@/components/view/list-view/ListView";
 import { useTranslation } from "react-i18next";
-import { DatabaseMergeView } from "@/components/view/database-merge-view/DatabaseMergeView";
 import { DatabaseManagementView } from "@/components/view/database-management-view/DatabaseManagementView";
 import { TimelineView } from "@/components/view/timeline-view/TimelineView";
 import { TabWrapper } from "@/components/layout/TabWrapper";
@@ -13,7 +12,6 @@ const TREE_VIEW = "tree-view";
 const LIST_VIEW = "list-view";
 const GALLERY_VIEW = "gallery-view";
 const TIMELINE_VIEW = "timeline-view";
-const MERGE_VIEW = "merge-view";
 const DATABASE_MANAGEMENT_VIEW = "database-management-view";
 
 const ALL_VIEWS = [
@@ -21,7 +19,6 @@ const ALL_VIEWS = [
   LIST_VIEW,
   GALLERY_VIEW,
   TIMELINE_VIEW,
-  MERGE_VIEW,
   DATABASE_MANAGEMENT_VIEW,
 ];
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
@@ -57,7 +54,6 @@ export const MainPanel = () => {
         <TabsTrigger value={DATABASE_MANAGEMENT_VIEW}>
           {t("database-management")}
         </TabsTrigger>
-        <TabsTrigger value={MERGE_VIEW}>{t("merge")}</TabsTrigger>
       </TabsList>
       <TabWrapper value={TREE_VIEW}>
         <FlowPanel />
@@ -73,9 +69,6 @@ export const MainPanel = () => {
       </TabWrapper>
       <TabWrapper value={DATABASE_MANAGEMENT_VIEW}>
         <DatabaseManagementView />
-      </TabWrapper>
-      <TabWrapper value={MERGE_VIEW}>
-        <DatabaseMergeView />
       </TabWrapper>
     </Tabs>
   );
