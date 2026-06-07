@@ -13,7 +13,7 @@ import {
   Network,
   UserMinus,
   UserPlus,
-  Zap,
+  UserRoundPlus,
   Activity,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -68,11 +68,11 @@ export const MemberControls = ({
               onClick={() => setIsFastMode(!isFastMode)}
               disabled={isLockedScreen}
             >
-              <Zap className={isFastMode ? "fill-current" : ""} />
+              <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left">
-            {isFastMode ? t("disable-fast-mode") : t("enable-fast-mode")}
+            {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
           </TooltipContent>
         </Tooltip>
         <Tooltip>

@@ -46,7 +46,7 @@ export const FlowPanelControls = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant={isLockedScreen ? "destructive" : "secondary"}
+            variant={isLockedScreen ? "default" : "secondary"}
             size="icon"
             onClick={() => setIsLockedScreen(!isLockedScreen)}
           >
@@ -54,7 +54,7 @@ export const FlowPanelControls = () => {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">
-          {t("toggle-interactivity")}
+          {isLockedScreen ? t("unlock-canvas") : t("lock-canvas")}
         </TooltipContent>
       </Tooltip>
     </ButtonGroup>

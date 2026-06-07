@@ -422,7 +422,8 @@
       "zoom-in": "Zoom in",
       "zoom-out": "Zoom out",
       "fit-view": "Fit view",
-      "toggle-interactivity": "Toggle interactivity",
+      "lock-canvas": "Lock canvas",
+      "unlock-canvas": "Unlock canvas",
       "arrange-members": "Arrange members",
       "collapse-children": "Collapse children",
       "expand-children": "Expand children",
@@ -430,8 +431,8 @@
       "add-person": "Add person",
       "remove-person": "Remove selected person",
       "select-relation": "Visible Relations",
-      "disable-fast-mode": "Disable fast mode",
-      "enable-fast-mode": "Enable fast mode",
+      "disable-quick-add": "Disable quick add",
+      "enable-quick-add": "Enable quick add",
       "disable-disease-mode": "Disable disease mode",
       "enable-disease-mode": "Enable disease mode"
     }
