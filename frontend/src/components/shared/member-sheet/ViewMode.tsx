@@ -282,9 +282,7 @@ export const ViewMode = ({ member }: Props) => {
                           )}
                           {disease.diagnosisDate && (
                             <p className="text-sm text-muted-foreground">
-                              {new Date(
-                                disease.diagnosisDate,
-                              ).toLocaleDateString()}
+                              {formatDate(disease.diagnosisDate)}
                             </p>
                           )}
                         </div>

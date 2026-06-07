@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/dateUtils";
 
 type Props = {
   className?: string;
@@ -37,7 +37,7 @@ export const DatePicker = ({
           )}
         >
           <span className="truncate">
-            {value ? format(value, "dd.MM.yyyy") : placeholder}
+            {value ? formatDate(value) : placeholder}
           </span>
           <ChevronDownIcon className="ml-2 h-4 w-4 opacity-50" />
         </Button>

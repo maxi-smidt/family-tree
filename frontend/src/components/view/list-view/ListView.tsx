@@ -32,10 +32,10 @@ import {
 } from "lucide-react";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
-import { format } from "date-fns";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
+import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
 
 type SortConfig = {
   key: keyof Member | "date.birth" | "date.death";
@@ -102,7 +102,7 @@ export const ListView = () => {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
-    return format(new Date(dateString), "dd.MM.yyyy");
+    return formatLocaleDate(dateString);
   };
 
   const confirmDelete = () => {
