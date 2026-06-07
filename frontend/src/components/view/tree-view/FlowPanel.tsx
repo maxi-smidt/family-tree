@@ -8,12 +8,14 @@ import {
   ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createMember, Member } from "@/types/member";
+import { NODE_WIDTH } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
+import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
@@ -35,6 +37,7 @@ export const FlowPanel = () => {
     addRelation,
     removeRelation,
     addMember,
+    updateMemberPartial,
   } = useMemberStore();
   const { isReady } = useTreeStore();
   const {
@@ -55,6 +58,12 @@ export const FlowPanel = () => {
   const [newRelation, setNewRelation] = useState<any | null>(null);
   const [isNewMemberSession, setIsNewMemberSession] = useState(false);
   const [pendingNewMember, setPendingNewMember] = useState<Member | null>(null);
+  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(
+    null,
+  );
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [pendingHorizontalRelation, setPendingHorizontalRelation] = useState<{
     sourceId: string;
     targetId: string;
@@ -140,6 +149,7 @@ export const FlowPanel = () => {
     (id) => {
       void onAddHorizontal(id, "right");
     },
+    highlightedNodeId,
   );
   const viewEdges = useFlowEdges(members, visibleRelationTypes, edgeType);
 
@@ -178,10 +188,68 @@ export const FlowPanel = () => {
     });
   }, [nodes]);
 
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const rearrangeNodes = () => {
     debouncedSave.cancel();
     pendingUpdates.current = {};
     updateLayout().then(() => rfInstance?.fitView());
+  };
+
+  // Un-collapse any ancestor that is currently hiding the member so the node
+  // becomes visible before we pan to it.
+  const revealMemberAncestors = (memberId: string) => {
+    const byId = new Map(members.map((m) => [m.id, m]));
+    const visited = new Set<string>();
+    const queue = [memberId];
+    while (queue.length) {
+      const id = queue.shift()!;
+      if (visited.has(id)) continue;
+      visited.add(id);
+      const member = byId.get(id);
+      if (!member) continue;
+      for (const parentId of [
+        member.parents.maternalParent,
+        member.parents.paternalParent,
+      ]) {
+        if (!parentId) continue;
+        const parent = byId.get(parentId);
+        if (parent?.isCollapsed) {
+          void updateMemberPartial(parentId, { isCollapsed: false });
+        }
+        queue.push(parentId);
+      }
+    }
+  };
+
+  const locateMember = (member: Member) => {
+    revealMemberAncestors(member.id);
+
+    const node = rfInstance?.getNode(member.id);
+    const width = node?.measured?.width ?? NODE_WIDTH;
+    const height = node?.measured?.height ?? 0;
+    const centerX = (node?.position.x ?? member.position.x) + width / 2;
+    const centerY = (node?.position.y ?? member.position.y) + height / 2;
+
+    rfInstance?.setCenter(centerX, centerY, {
+      zoom: Math.max(rfInstance.getZoom(), 1.2),
+      duration: 800,
+    });
+
+    setHighlightedNodeId(member.id);
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = setTimeout(
+      () => setHighlightedNodeId(null),
+      2500,
+    );
   };
 
   const confirmDelete = () => {
@@ -222,6 +290,9 @@ export const FlowPanel = () => {
         onMoveEnd={(_, viewport) => setViewport(viewport)}
       >
         <Background />
+        <Panel position="top-left" className="pt-2">
+          <CanvasSearch members={members} onLocate={locateMember} />
+        </Panel>
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
           <FlowPanelControls />
         </Panel>

@@ -10,6 +10,7 @@ export const useFlowNodes = (
   onAddParent: (childId: string) => void,
   onAddLeft: (memberId: string) => void,
   onAddRight: (memberId: string) => void,
+  highlightedNodeId: string | null,
 ) => {
   return useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -59,6 +60,7 @@ export const useFlowNodes = (
       hidden: !isNodeVisible(node.id),
       data: {
         ...node.data,
+        isHighlighted: node.id === highlightedNodeId,
         onEdit: () => {
           setEditingMemberId(node.id);
           setIsEditMode(true);
@@ -89,5 +91,6 @@ export const useFlowNodes = (
     onAddParent,
     onAddLeft,
     onAddRight,
+    highlightedNodeId,
   ]);
 };

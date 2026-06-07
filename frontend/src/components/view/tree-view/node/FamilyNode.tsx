@@ -89,6 +89,9 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const borderColor = selected ? "var(--primary)" : "var(--border)";
   const borderWidth = selected ? "2px" : "1px";
 
+  // Briefly highlighted after being located via canvas search.
+  const isHighlighted = data.isHighlighted === true;
+
   const hasDiseases = data.diseases && data.diseases.length > 0;
   const hasAffectedDisease = data.diseases?.some(
     (d) => d.carrierStatus === "affected",
@@ -102,12 +105,16 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   return (
     <div
-      className="relative flex flex-col items-center shadow-sm p-2 bg-card"
+      className={`relative flex flex-col items-center shadow-sm p-2 bg-card ${
+        isHighlighted
+          ? "ring-4 ring-primary ring-offset-2 ring-offset-background"
+          : ""
+      }`}
       style={{
         border: `${borderWidth} solid ${borderColor}`,
         borderRadius: "8px",
         width: `${NODE_WIDTH}px`,
-        transition: "border 0.2s",
+        transition: "border 0.2s, box-shadow 0.2s",
       }}
     >
       <Handle

@@ -418,6 +418,13 @@
       "disease-indicator_other": "{{count}} genetic conditions",
       "risk-indicator": "Potential genetic risk from parents"
     },
+    "search": {
+      "placeholder": "Search members…",
+      "no-results": "No members found",
+      "unnamed": "Unnamed member",
+      "nee": "née {{name}}",
+      "clear": "Clear search"
+    },
     "controls": {
       "zoom-in": "Zoom in",
       "zoom-out": "Zoom out",
