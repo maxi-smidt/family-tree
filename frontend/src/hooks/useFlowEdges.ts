@@ -49,7 +49,7 @@ export const useFlowEdges = (
             if (processedPairs.has(pairKey)) return;
             processedPairs.add(pairKey);
 
-            let strokeColor = "hsl(var(--muted-foreground))";
+            let strokeColor = "var(--muted-foreground)";
             let strokeDasharray = "5,5";
 
             switch (rel.relationType) {
@@ -58,7 +58,7 @@ export const useFlowEdges = (
                 strokeDasharray = "0";
                 break;
               case "divorced":
-                strokeColor = "hsl(var(--destructive))";
+                strokeColor = "var(--destructive)";
                 strokeDasharray = "5,5";
                 break;
               case "partner":
