@@ -566,6 +566,9 @@
       "switch-to-login": "Already have an account? Sign in",
       "login-error": "Incorrect username or password.",
       "register-error": "Could not create account.",
+      "username-taken": "That username is already taken.",
+      "rate-limit-error": "Too many attempts. Please wait a moment and try again.",
+      "network-error": "Could not reach the server. Please check your connection and try again.",
       "account-pending-deletion": "This account is scheduled for deletion. Contact your administrator if this is a mistake."
     },
     "change-password": {

@@ -8,6 +8,7 @@ import { MainPanel } from "@/components/layout/MainPanel";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { Spinner } from "@/components/ui/spinner";
+import { Toaster } from "@/components/ui/sonner";
 
 export const App = () => {
   const status = useAuthStore((s) => s.status);
@@ -32,23 +33,34 @@ export const App = () => {
     })();
   }, [status, loadTrees]);
 
-  if (status === "loading") {
+  // The Toaster lives at the root so toasts are visible in every auth state —
+  // including the login screen, which renders outside the authenticated Layout.
+  return (
+    <>
+      {renderContent()}
+      <Toaster position="bottom-center" />
+    </>
+  );
+
+  function renderContent() {
+    if (status === "loading") {
+      return (
+        <div className="w-screen h-screen flex items-center justify-center">
+          <Spinner className="size-8" />
+        </div>
+      );
+    }
+
+    if (status === "unauthenticated") {
+      return <LoginPage />;
+    }
+
     return (
-      <div className="w-screen h-screen flex items-center justify-center">
-        <Spinner className="size-8" />
-      </div>
+      <ErrorBoundary>
+        <Layout>
+          {selectedTree ? <MainPanel /> : <NoDatabasePlaceholder />}
+        </Layout>
+      </ErrorBoundary>
     );
   }
-
-  if (status === "unauthenticated") {
-    return <LoginPage />;
-  }
-
-  return (
-    <ErrorBoundary>
-      <Layout>
-        {selectedTree ? <MainPanel /> : <NoDatabasePlaceholder />}
-      </Layout>
-    </ErrorBoundary>
-  );
 };
