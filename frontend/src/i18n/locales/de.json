@@ -151,6 +151,18 @@
       "transfer-confirm-action": "Eigentümerschaft übertragen",
       "transfer-success": "Eigentümerschaft übertragen.",
       "transfer-error": "Eigentümerschaft konnte nicht übertragen werden."
+    },
+    "duplicate-tree": {
+      "title": "Stammbaum duplizieren",
+      "description": "Eine unabhängige Kopie von \"{{name}}\" erstellen. Das Original bleibt unverändert.",
+      "name": "Name des neuen Stammbaums",
+      "copy-suffix": "(Kopie)",
+      "duplicate": "Duplizieren",
+      "duplicating": "Wird dupliziert...",
+      "cancel": "Abbrechen",
+      "toast-success": "Stammbaum erfolgreich dupliziert.",
+      "toast-error": "Stammbaum konnte nicht dupliziert werden.",
+      "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an."
     }
   },
   "gallery-view": {
@@ -194,7 +206,6 @@
       "list": "Liste",
       "gallery": "Galerie",
       "timeline": "Timeline",
-      "merge": "Stammbäume vereinen",
       "database-management": "Stammbaumverwaltung"
     },
     "no-database-placeholder": {
@@ -452,24 +463,19 @@
   "merge-view": {
     "view": {
       "title": "Stammbäume vereinen",
+      "description": "Zwei Stammbäume zu einem neuen vereinen. Die Quellstammbäume bleiben unverändert und doppelte Mitglieder werden kombiniert.",
       "source-database-1": "Stammbaum 1",
       "source-database-2": "Stammbaum 2",
       "select-placeholder": "Stammbaum auswählen",
-      "empty-database-select": "<leerer Stammbaum>",
       "new-database-field": "Stammbaumname",
       "new-database-placeholder": "Stammbaumname",
       "merge-database": "Vereinen",
       "merging-database": "Am Vereinen...",
-      "new-database": "Neuer Stammbaum",
-      "database-copy": "(Kopie)",
+      "cancel": "Abbrechen",
       "toast-preview-error": "Die Stammbäume konnten nicht für die Vorschau geladen werden.",
       "toast-merge-success": "Stammbäume erfolgreich zusammengeführt.",
       "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
-      "toast-error-merge": "Stammbäume konnten nicht zusammengeführt werden.",
-      "confirm-title": "Zusammenführen bestätigen",
-      "confirm-description": "Die ausgewählten Stammbäume in einen neuen Stammbaum \"{{name}}\" zusammenführen? Die Quellstammbäume bleiben unverändert und doppelte Mitglieder werden kombiniert.",
-      "confirm-cancel": "Abbrechen",
-      "confirm-merge": "Zusammenführen"
+      "toast-error-merge": "Stammbäume konnten nicht zusammengeführt werden."
     },
     "preview": {
       "title": "Vorschau",
@@ -507,6 +513,8 @@
     "title": "Stammbaumverwaltung",
     "create-button": "Stammbaum erstellen",
     "import-button": "Stammbaum importieren",
+    "merge-button": "Vereinen",
+    "duplicate-button": "Duplizieren",
     "table-name": "Name",
     "table-id": "ID",
     "table-actions": "Aktionen",

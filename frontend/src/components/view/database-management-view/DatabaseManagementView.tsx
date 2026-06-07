@@ -21,6 +21,8 @@ import {
   Check,
   X,
   Users,
+  Copy,
+  GitMerge,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,6 +33,8 @@ import {
 import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
 import { RemoveDatabaseDialog } from "@/components/view/database-management-view/dialog/RemoveDatabaseDialog";
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
+import { MergeTreesDialog } from "@/components/view/database-management-view/dialog/MergeTreesDialog";
+import { DuplicateTreeDialog } from "@/components/view/database-management-view/dialog/DuplicateTreeDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -52,6 +56,8 @@ export const DatabaseManagementView = () => {
     useState(false);
   const [isRemoveDatabaseDialogOpen, setIsRemoveDatabaseDialogOpen] =
     useState(false);
+  const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+  const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
   const [shareTree, setShareTree] = useState<Tree | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
@@ -229,6 +235,14 @@ export const DatabaseManagementView = () => {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => setDuplicateTree(database)}
+              title={t("duplicate-button")}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleStartRename(database)}
               disabled={editingDatabaseId !== null}
             >
@@ -310,6 +324,15 @@ export const DatabaseManagementView = () => {
             <HardDriveDownload />
             {t("import-button")}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsMergeDialogOpen(true)}
+            disabled={trees.length < 2}
+          >
+            <GitMerge />
+            {t("merge-button")}
+          </Button>
         </div>
       }
     >
@@ -344,6 +367,14 @@ export const DatabaseManagementView = () => {
         isOpen={isRemoveDatabaseDialogOpen}
         onConfirm={() => setIsRemoveDatabaseDialogOpen(false)}
         onCancel={() => setIsRemoveDatabaseDialogOpen(false)}
+      />
+      <MergeTreesDialog
+        isOpen={isMergeDialogOpen}
+        onClose={() => setIsMergeDialogOpen(false)}
+      />
+      <DuplicateTreeDialog
+        tree={duplicateTree}
+        onClose={() => setDuplicateTree(null)}
       />
       {shareTree && (
         <ShareTreeDialog

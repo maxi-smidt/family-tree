@@ -151,6 +151,18 @@
       "transfer-confirm-action": "Transfer ownership",
       "transfer-success": "Ownership transferred.",
       "transfer-error": "Could not transfer ownership."
+    },
+    "duplicate-tree": {
+      "title": "Duplicate Tree",
+      "description": "Create an independent copy of \"{{name}}\". The original is left unchanged.",
+      "name": "New tree name",
+      "copy-suffix": "(copy)",
+      "duplicate": "Duplicate",
+      "duplicating": "Duplicating...",
+      "cancel": "Cancel",
+      "toast-success": "Tree duplicated successfully.",
+      "toast-error": "Failed to duplicate the tree.",
+      "toast-error-name": "Please provide a name for the new tree."
     }
   },
   "gallery-view": {
@@ -194,7 +206,6 @@
       "list": "List",
       "gallery": "Gallery",
       "timeline": "Timeline",
-      "merge": "Merge Trees",
       "database-management": "Tree Management"
     },
     "no-database-placeholder": {
@@ -452,24 +463,19 @@
   "merge-view": {
     "view": {
       "title": "Merge Trees",
+      "description": "Combine two trees into a new one. The source trees are left unchanged and duplicate members are combined.",
       "source-database-1": "Source Tree 1",
       "source-database-2": "Source Tree 2",
       "select-placeholder": "Select tree",
-      "empty-database-select": "<empty tree>",
       "new-database-field": "New Tree Name",
       "new-database-placeholder": "New Tree Name",
       "merge-database": "Merge",
       "merging-database": "Merging...",
-      "new-database": "New tree",
-      "database-copy": "(copy)",
+      "cancel": "Cancel",
       "toast-preview-error": "Error loading trees for preview.",
       "toast-merge-success": "Trees merged successfully.",
       "toast-error-name": "Please provide a name for the new tree.",
-      "toast-error-merge": "Failed to merge trees.",
-      "confirm-title": "Confirm merge",
-      "confirm-description": "Merge the selected trees into a new tree named \"{{name}}\"? The source trees are left unchanged and duplicate members are combined.",
-      "confirm-cancel": "Cancel",
-      "confirm-merge": "Confirm merge"
+      "toast-error-merge": "Failed to merge trees."
     },
     "preview": {
       "title": "Preview Analysis",
@@ -507,6 +513,8 @@
     "title": "Tree Management",
     "create-button": "Create Tree",
     "import-button": "Import Tree",
+    "merge-button": "Merge",
+    "duplicate-button": "Duplicate",
     "table-name": "Name",
     "table-id": "ID",
     "table-actions": "Actions",
