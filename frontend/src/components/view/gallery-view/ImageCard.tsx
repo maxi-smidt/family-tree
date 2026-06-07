@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { GalleryImage } from "@/types/gallery";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/dateUtils";
 
 type Props = {
   image: GalleryImage;
@@ -27,7 +27,7 @@ export const ImageCard = ({ image, onClick }: Props) => {
           {image.title}
         </h3>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          {format(new Date(image.createdAt), "PP")}
+          {formatDate(image.createdAt)}
         </p>
       </CardContent>
     </Card>
