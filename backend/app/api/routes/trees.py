@@ -23,6 +23,7 @@ from app.schemas.tree import (
     TreeMerge,
     TreeOut,
     TreeShare,
+    TreeTransfer,
     TreeUpdate,
 )
 from app.services.merge import merge_trees
@@ -242,6 +243,43 @@ def revoke_access(
     if membership is not None:
         db.delete(membership)
         db.commit()
+
+
+@router.post("/{tree_id}/transfer", response_model=list[TreeMemberOut])
+def transfer_ownership(
+    payload: TreeTransfer,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Hand ownership of a tree to another active user.
+
+    Allowed for the current owner or an admin (e.g. to rescue a tree owned by a
+    user pending deletion). The new owner's prior membership, if any, is dropped
+    since ownership supersedes it.
+    """
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can transfer a tree"
+        )
+
+    target = db.scalar(select(User).where(User.username == payload.username))
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if target.id == tree.owner_id:
+        raise HTTPException(status_code=400, detail="User already owns this tree")
+    if not target.is_active:
+        raise HTTPException(
+            status_code=400, detail="Cannot transfer to an inactive account"
+        )
+
+    tree.owner_id = target.id
+    membership = db.get(TreeMembership, (tree.id, target.id))
+    if membership is not None:
+        db.delete(membership)
+    db.commit()
+    db.refresh(tree)
+    return list_access(tree=tree, db=db)
 
 
 # --- Relation types --------------------------------------------------------

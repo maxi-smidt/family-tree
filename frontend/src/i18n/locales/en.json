@@ -139,7 +139,18 @@
       "remove": "Remove",
       "role-owner": "Owner",
       "role-editor": "Editor",
-      "role-viewer": "Viewer"
+      "role-viewer": "Viewer",
+      "transfer-title": "Transfer ownership",
+      "transfer-hint": "The new owner gets full control. You will lose owner rights and your access to this tree.",
+      "transfer-select": "Select a new owner…",
+      "transfer-no-targets": "No eligible users",
+      "transfer-button": "Transfer",
+      "transfer-confirm-title": "Transfer ownership?",
+      "transfer-confirm-description": "Make \"{{username}}\" the owner of \"{{name}}\"? You will no longer be the owner of this tree.",
+      "transfer-confirm-cancel": "Cancel",
+      "transfer-confirm-action": "Transfer ownership",
+      "transfer-success": "Ownership transferred.",
+      "transfer-error": "Could not transfer ownership."
     }
   },
   "gallery-view": {
