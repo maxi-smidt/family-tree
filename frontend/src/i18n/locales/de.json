@@ -11,8 +11,8 @@
       "smoothstep": "Runde Stufe"
     },
     "database-selector": {
-      "label": "Aktive Datenbank",
-      "placeholder": "Wähle Datenbank",
+      "label": "Aktiver Stammbaum",
+      "placeholder": "Wähle Stammbaum",
       "owned": "Gehört dir",
       "shared": "Mit dir geteilt"
     },
@@ -36,8 +36,8 @@
       "add": "Beziehung hinzufügen"
     },
     "create-database": {
-      "title": "Datenbank erstellen",
-      "description": "Hier kann eine Datenbank erstellt werden um einen neuen Stammbaum zu starten.",
+      "title": "Stammbaum erstellen",
+      "description": "Hier kann ein neuer Stammbaum erstellt werden.",
       "id": "ID",
       "name": "Name",
       "create": "Erstellen",
@@ -51,8 +51,8 @@
       "crop": "Zuschneiden"
     },
     "import-database": {
-      "title": "Datenbank Konflikt",
-      "description": "Eine Datenbank mit derselben ID existiert bereits. Bitte wähle was du machen willst.",
+      "title": "Stammbaum Konflikt",
+      "description": "Ein Stammbaum mit derselben ID existiert bereits. Bitte wähle was du machen willst.",
       "cancel": "Abbrechen",
       "overwrite": "Überschreiben",
       "keep": "Beide behalten"
@@ -64,7 +64,7 @@
       },
       "description": {
         "export": "Alle Exporte sind standardmäßig verschlüsselt. Füge ein Passwort für zusätzliche Sicherheit hinzu. Ohne Passwort wird weiterhin Basis-Verschlüsselung angewendet.",
-        "import": "Diese Datenbank ist passwortgeschützt. Bitte gib das Passwort ein, um sie zu importieren."
+        "import": "Dieser Stammbaum ist passwortgeschützt. Bitte gib das Passwort ein, um ihn zu importieren."
       },
       "label": {
         "password": "Passwort",
@@ -89,13 +89,13 @@
       }
     },
     "remove-database": {
-      "title": "Datenbank entfernen",
-      "description": "Bist du sicher, dass die gewählte Datenbank entfernt werden soll? Diese Aktion kann nicht rückgängig gemacht werden. Um sicher zu gehen, schreibe den Namen der Datenbank: '{{name}}'",
+      "title": "Stammbaum entfernen",
+      "description": "Bist du sicher, dass der gewählte Stammbaum entfernt werden soll? Diese Aktion kann nicht rückgängig gemacht werden. Um sicher zu gehen, schreibe den Namen des Stammbaums: '{{name}}'",
       "name": "Name",
       "cancel": "Abbrechen",
       "remove": "Entfernen",
-      "toast-warning": "Du hast die letzte Datenbank entfernt. Erstelle eine neue.",
-      "toast-success": "Datenbank erfolgreich entfernt."
+      "toast-warning": "Du hast den letzten Stammbaum entfernt. Erstelle einen neuen.",
+      "toast-success": "Stammbaum erfolgreich entfernt."
     },
     "remove-node": {
       "title_one": "Lösche Person",
@@ -194,17 +194,17 @@
       "list": "Liste",
       "gallery": "Galerie",
       "timeline": "Timeline",
-      "merge": "Datenbanken vereinen",
-      "database-management": "Datenbankverwaltung"
+      "merge": "Stammbäume vereinen",
+      "database-management": "Stammbaumverwaltung"
     },
     "no-database-placeholder": {
-      "title": "Noch keine Datenbanken",
-      "description": "Du hast noch keine Datenbanken erstellt. Starte mit mit der Erstellung einer neuen.",
-      "create": "Datenbank erstellen",
-      "import": "Datenbank importieren",
-      "toast-success": "Datenbank erfolgreich importiert!",
-      "toast-error": "Datenbank import fehlgeschlagen.",
-      "toast-collision": "Eine Datenbank mit derselben ID existiert bereits. Import abgebrochen."
+      "title": "Noch keine Stammbäume",
+      "description": "Du hast noch keine Stammbäume erstellt. Starte mit der Erstellung eines neuen.",
+      "create": "Stammbaum erstellen",
+      "import": "Stammbaum importieren",
+      "toast-success": "Stammbaum erfolgreich importiert!",
+      "toast-error": "Stammbaum konnte nicht importiert werden.",
+      "toast-collision": "Ein Stammbaum mit derselben ID existiert bereits. Import abgebrochen."
     }
   },
   "list-view": {
@@ -451,23 +451,23 @@
   },
   "merge-view": {
     "view": {
-      "title": "Databanken vereinen",
-      "source-database-1": "Datenbank 1",
-      "source-database-2": "Datenbank 2",
-      "select-placeholder": "Datenbank auswählen",
-      "empty-database-select": "<leere Datenbank>",
-      "new-database-field": "Datenbank Name",
-      "new-database-placeholder": "Datenbank Name",
+      "title": "Stammbäume vereinen",
+      "source-database-1": "Stammbaum 1",
+      "source-database-2": "Stammbaum 2",
+      "select-placeholder": "Stammbaum auswählen",
+      "empty-database-select": "<leerer Stammbaum>",
+      "new-database-field": "Stammbaumname",
+      "new-database-placeholder": "Stammbaumname",
       "merge-database": "Vereinen",
       "merging-database": "Am Vereinen...",
-      "new-database": "Neue Datenbank",
+      "new-database": "Neuer Stammbaum",
       "database-copy": "(Kopie)",
-      "toast-preview-error": "Die Datenbanken konnten nicht für die Vorschau geladen werden.",
-      "toast-merge-success": "Datenbanken erfolgreich zusammengeführt.",
-      "toast-error-name": "Bitte gib einen Namen für die neue Datenbank an.",
-      "toast-error-merge": "Datenbanken konnten nicht zusammengeführt werden.",
+      "toast-preview-error": "Die Stammbäume konnten nicht für die Vorschau geladen werden.",
+      "toast-merge-success": "Stammbäume erfolgreich zusammengeführt.",
+      "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
+      "toast-error-merge": "Stammbäume konnten nicht zusammengeführt werden.",
       "confirm-title": "Zusammenführen bestätigen",
-      "confirm-description": "Die ausgewählten Datenbanken in eine neue Datenbank \"{{name}}\" zusammenführen? Die Quelldatenbanken bleiben unverändert und doppelte Mitglieder werden kombiniert.",
+      "confirm-description": "Die ausgewählten Stammbäume in einen neuen Stammbaum \"{{name}}\" zusammenführen? Die Quellstammbäume bleiben unverändert und doppelte Mitglieder werden kombiniert.",
       "confirm-cancel": "Abbrechen",
       "confirm-merge": "Zusammenführen"
     },
@@ -489,12 +489,12 @@
       "duplicate-members_other": "Duplikate gefunden",
       "alert-duplicate": {
         "title": "Duplikate werden vereint",
-        "description_one": "{{count}} Person in beiden Datenbanken gefunden die vereint werden. Zusätzliche Informationen werden kombiniert.",
-        "description_other": "{{count}} Personen in beiden Datenbanken gefunden die vereint werden. Zusätzliche Informationen werden kombiniert."
+        "description_one": "{{count}} Person in beiden Stammbäumen gefunden die vereint werden. Zusätzliche Informationen werden kombiniert.",
+        "description_other": "{{count}} Personen in beiden Stammbäumen gefunden die vereint werden. Zusätzliche Informationen werden kombiniert."
       },
       "alert-no-duplicate": {
         "title": "Keine Duplikate",
-        "description": "Es gibt keine Duplikate. Die Datenbanken werden ohne Konflikt vereint."
+        "description": "Es gibt keine Duplikate. Die Stammbäume werden ohne Konflikt vereint."
       }
     }
   },
@@ -504,24 +504,24 @@
     }
   },
   "database-management-view": {
-    "title": "Datenbankverwaltung",
-    "create-button": "Datenbank erstellen",
-    "import-button": "Datenbank importieren",
+    "title": "Stammbaumverwaltung",
+    "create-button": "Stammbaum erstellen",
+    "import-button": "Stammbaum importieren",
     "table-name": "Name",
     "table-id": "ID",
     "table-actions": "Aktionen",
     "selected-label": "Aktuell ausgewählt:",
     "none-selected": "Keine",
-    "toast-import-success": "Datenbank erfolgreich importiert!",
-    "toast-import-error": "Datenbank import fehlgeschlagen.",
-    "toast-rename-success": "Datenbank erfolgreich umbenannt!",
-    "toast-rename-empty": "Datenbankname darf nicht leer sein.",
+    "toast-import-success": "Stammbaum erfolgreich importiert!",
+    "toast-import-error": "Stammbaum konnte nicht importiert werden.",
+    "toast-rename-success": "Stammbaum erfolgreich umbenannt!",
+    "toast-rename-empty": "Stammbaumname darf nicht leer sein.",
     "share-button": "Teilen",
     "toast-export-error": "Stammbaum konnte nicht exportiert werden.",
-    "owned-section": "Meine Datenbanken",
+    "owned-section": "Meine Stammbäume",
     "shared-section": "Mit mir geteilt",
-    "no-owned": "Dir gehört noch keine Datenbank. Erstelle oder importiere eine, um zu beginnen.",
-    "no-shared": "Es wurden noch keine Datenbanken mit dir geteilt.",
+    "no-owned": "Dir gehört noch kein Stammbaum. Erstelle oder importiere einen, um zu beginnen.",
+    "no-shared": "Es wurden noch keine Stammbäume mit dir geteilt.",
     "table-sharing": "Freigabe",
     "table-your-role": "Deine Rolle",
     "shared-with-count_one": "Mit {{count}} Person geteilt",
