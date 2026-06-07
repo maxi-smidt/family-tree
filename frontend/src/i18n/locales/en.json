@@ -11,8 +11,8 @@
       "smoothstep": "Smoothstep"
     },
     "database-selector": {
-      "label": "Active Database",
-      "placeholder": "Select database",
+      "label": "Active Tree",
+      "placeholder": "Select tree",
       "owned": "Owned by you",
       "shared": "Shared with you"
     },
@@ -36,8 +36,8 @@
       "add": "Add Relation"
     },
     "create-database": {
-      "title": "Create Database",
-      "description": "Here you can create a new database to start a new family tree from scratch.",
+      "title": "Create Tree",
+      "description": "Here you can create a new tree to start building your family history from scratch.",
       "id": "ID",
       "name": "Name",
       "create": "Create",
@@ -51,8 +51,8 @@
       "crop": "Crop"
     },
     "import-database": {
-      "title": "Import database conflict",
-      "description": "A database with the same ID already exists. Please decide what to do.",
+      "title": "Import tree conflict",
+      "description": "A tree with the same ID already exists. Please decide what to do.",
       "cancel": "Cancel",
       "overwrite": "Overwrite",
       "keep": "Keep both"
@@ -64,7 +64,7 @@
       },
       "description": {
         "export": "All exports are encrypted by default. Add a password for additional security. Without a password, base encryption is still applied.",
-        "import": "This database is password-protected. Please enter the password to import it."
+        "import": "This tree is password-protected. Please enter the password to import it."
       },
       "label": {
         "password": "Password",
@@ -89,13 +89,13 @@
       }
     },
     "remove-database": {
-      "title": "Remove database",
-      "description": "Are you sure you want to remove the selected database? This action cannot be undone. To be sure, type the database name '{{name}}' below.",
+      "title": "Remove tree",
+      "description": "Are you sure you want to remove the selected tree? This action cannot be undone. To be sure, type the tree name '{{name}}' below.",
       "name": "Name",
       "cancel": "Cancel",
       "remove": "Remove",
-      "toast-warning": "You removed the last database. Create a new one.",
-      "toast-success": "Database removed successfully"
+      "toast-warning": "You removed the last tree. Create a new one.",
+      "toast-success": "Tree removed successfully"
     },
     "remove-node": {
       "title_one": "Delete Member",
@@ -194,17 +194,17 @@
       "list": "List",
       "gallery": "Gallery",
       "timeline": "Timeline",
-      "merge": "Merge Databases",
-      "database-management": "Database Management"
+      "merge": "Merge Trees",
+      "database-management": "Tree Management"
     },
     "no-database-placeholder": {
-      "title": "No Databases Yet",
-      "description": "You haven't created any databases yet. Get started by creating your first database.",
-      "create": "Create Database",
-      "import": "Import Database",
-      "toast-success": "Database imported successfully!",
-      "toast-error": "Failed to import database.",
-      "toast-collision": "Database with the same ID already exists. Import cancelled."
+      "title": "No Trees Yet",
+      "description": "You haven't created any trees yet. Get started by creating your first tree.",
+      "create": "Create Tree",
+      "import": "Import Tree",
+      "toast-success": "Tree imported successfully!",
+      "toast-error": "Failed to import tree.",
+      "toast-collision": "A tree with the same ID already exists. Import cancelled."
     }
   },
   "list-view": {
@@ -451,23 +451,23 @@
   },
   "merge-view": {
     "view": {
-      "title": "Merge Databases",
-      "source-database-1": "Source Database 1",
-      "source-database-2": "Source Database 2",
-      "select-placeholder": "Select database",
-      "empty-database-select": "<empty database>",
-      "new-database-field": "New Database Name",
-      "new-database-placeholder": "New Database Name",
+      "title": "Merge Trees",
+      "source-database-1": "Source Tree 1",
+      "source-database-2": "Source Tree 2",
+      "select-placeholder": "Select tree",
+      "empty-database-select": "<empty tree>",
+      "new-database-field": "New Tree Name",
+      "new-database-placeholder": "New Tree Name",
       "merge-database": "Merge",
       "merging-database": "Merging...",
-      "new-database": "New database",
+      "new-database": "New tree",
       "database-copy": "(copy)",
-      "toast-preview-error": "Error loading databases for preview.",
-      "toast-merge-success": "Databases merged successfully.",
-      "toast-error-name": "Please provide a name for the new database.",
-      "toast-error-merge": "Failed to merge databases.",
+      "toast-preview-error": "Error loading trees for preview.",
+      "toast-merge-success": "Trees merged successfully.",
+      "toast-error-name": "Please provide a name for the new tree.",
+      "toast-error-merge": "Failed to merge trees.",
       "confirm-title": "Confirm merge",
-      "confirm-description": "Merge the selected databases into a new database named \"{{name}}\"? The source databases are left unchanged and duplicate members are combined.",
+      "confirm-description": "Merge the selected trees into a new tree named \"{{name}}\"? The source trees are left unchanged and duplicate members are combined.",
       "confirm-cancel": "Cancel",
       "confirm-merge": "Confirm merge"
     },
@@ -489,12 +489,12 @@
       "duplicate-members_other": "Duplicates Found",
       "alert-duplicate": {
         "title": "Duplicates Will Be Merged",
-        "description_one": "{{duplicateCount}} member found in both databases will be merged. Additional notes from both records will be combined.",
-        "description_other": "{{duplicateCount}} members found in both databases will be merged. Additional notes from both records will be combined."
+        "description_one": "{{duplicateCount}} member found in both trees will be merged. Additional notes from both records will be combined.",
+        "description_other": "{{duplicateCount}} members found in both trees will be merged. Additional notes from both records will be combined."
       },
       "alert-no-duplicate": {
         "title": "No Duplicates",
-        "description": "All members are unique. The databases will be combined without any conflicts."
+        "description": "All members are unique. The trees will be combined without any conflicts."
       }
     }
   },
@@ -504,24 +504,24 @@
     }
   },
   "database-management-view": {
-    "title": "Database Management",
-    "create-button": "Create Database",
-    "import-button": "Import Database",
+    "title": "Tree Management",
+    "create-button": "Create Tree",
+    "import-button": "Import Tree",
     "table-name": "Name",
     "table-id": "ID",
     "table-actions": "Actions",
     "selected-label": "Currently selected:",
     "none-selected": "None",
-    "toast-import-success": "Database imported successfully!",
-    "toast-import-error": "Failed to import database.",
-    "toast-rename-success": "Database renamed successfully!",
-    "toast-rename-empty": "Database name cannot be empty.",
+    "toast-import-success": "Tree imported successfully!",
+    "toast-import-error": "Failed to import tree.",
+    "toast-rename-success": "Tree renamed successfully!",
+    "toast-rename-empty": "Tree name cannot be empty.",
     "share-button": "Share",
     "toast-export-error": "Could not export the tree.",
     "owned-section": "Owned by me",
     "shared-section": "Shared with me",
-    "no-owned": "You don't own any databases yet. Create or import one to get started.",
-    "no-shared": "No databases have been shared with you yet.",
+    "no-owned": "You don't own any trees yet. Create or import one to get started.",
+    "no-shared": "No trees have been shared with you yet.",
     "table-sharing": "Sharing",
     "table-your-role": "Your role",
     "shared-with-count_one": "Shared with {{count}} person",
