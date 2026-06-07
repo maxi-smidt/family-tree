@@ -146,6 +146,25 @@ def _tree_media_dir(tree_id: str):
     return path
 
 
+def delete_tree_media(tree_id: str) -> None:
+    """Best-effort removal of a tree's entire on-disk media directory.
+
+    All of a tree's files (gallery images, story attachments, member photos)
+    live under ``media_root/<tree_id>``, so removing that directory cleans them
+    up in one shot. Never raises, so a failed cleanup can't break a delete.
+    """
+    if not tree_id:
+        return
+    try:
+        path = (settings.media_root / tree_id).resolve()
+        # Guard against escaping the media root via a malformed tree id.
+        if path.parent != settings.media_root.resolve():
+            return
+        shutil.rmtree(path, ignore_errors=True)
+    except OSError:
+        pass
+
+
 def is_data_url(value: str | None) -> bool:
     return isinstance(value, str) and value.startswith("data:")
 

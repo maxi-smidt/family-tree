@@ -1,5 +1,7 @@
 """FastAPI application entrypoint."""
 
+import asyncio
+import contextlib
 import logging
 import time
 from contextlib import asynccontextmanager
@@ -15,6 +17,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.db.init_db import init_db
 from app.services.authentik import init_oauth
+from app.services.deletion_sweeper import deletion_sweep_loop
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app")
@@ -40,7 +43,13 @@ def _init_db_with_retry(retries: int = 10, delay: float = 3.0) -> None:
 async def lifespan(app: FastAPI):
     init_oauth()
     _init_db_with_retry()
-    yield
+    sweeper = asyncio.create_task(deletion_sweep_loop())
+    try:
+        yield
+    finally:
+        sweeper.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await sweeper
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)

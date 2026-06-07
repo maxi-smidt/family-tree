@@ -14,7 +14,7 @@ from app.schemas.content import (
     GalleryLinkOut,
     LinksSet,
 )
-from app.services.storage import process_image_field
+from app.services.storage import delete_media, process_image_field
 
 router = APIRouter(prefix="/trees/{tree_id}/gallery", tags=["gallery"])
 
@@ -101,8 +101,10 @@ def delete_image(
     db: Session = Depends(get_db),
 ):
     image = _get_image(db, tree, image_id)
+    image_url = image.imageData
     db.delete(image)
     db.commit()
+    delete_media(image_url)
 
 
 @router.put("/images/{image_id}/links", status_code=204)
