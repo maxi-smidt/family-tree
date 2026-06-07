@@ -30,7 +30,7 @@ def test_owner_can_transfer_to_member(client, db):
 
 def test_owner_can_transfer_to_non_member(client, db):
     owner = make_user(db, "owner")
-    carol = make_user(db, "carol")
+    make_user(db, "carol")
     tree = make_tree(db, owner)
 
     res = _transfer(client, owner, tree, "carol")
