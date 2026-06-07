@@ -16,6 +16,7 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
+import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
@@ -252,6 +253,22 @@ export const FlowPanel = () => {
     );
   };
 
+  const handleAddFirstMember = () => {
+    if (!rfInstance) return;
+    const flowPoint = rfInstance.screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+    const newMember = createMember({
+      x: flowPoint.x - NODE_WIDTH / 2,
+      y: flowPoint.y,
+    });
+    setPendingNewMember(newMember);
+    setEditingMemberId(newMember.id);
+    setIsEditMode(true);
+    setIsNewMemberSession(true);
+  };
+
   const confirmDelete = () => {
     membersToDelete.forEach((member) => {
       void removeMember(member.id);
@@ -290,6 +307,14 @@ export const FlowPanel = () => {
         onMoveEnd={(_, viewport) => setViewport(viewport)}
       >
         <Background />
+        {members.length === 0 && (
+          <Panel
+            position="top-center"
+            className="!left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2"
+          >
+            <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
+          </Panel>
+        )}
         <Panel position="top-left" className="pt-2">
           <CanvasSearch members={members} onLocate={locateMember} />
         </Panel>

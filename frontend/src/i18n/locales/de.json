@@ -441,6 +441,11 @@
       "enable-fast-mode": "Schnellmodus aktivieren",
       "disable-disease-mode": "Krankheitsmodus deaktivieren",
       "enable-disease-mode": "Krankheitsmodus aktivieren"
+    },
+    "empty-state": {
+      "title": "Stammbaum starten",
+      "description": "Füge die erste Person hinzu, um loszulegen.",
+      "cta": "Erste Person hinzufügen"
     }
   },
   "timeline-view": {
