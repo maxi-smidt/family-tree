@@ -418,6 +418,13 @@
       "disease-indicator_other": "{{count}} genetic conditions",
       "risk-indicator": "Potential genetic risk from parents"
     },
+    "search": {
+      "placeholder": "Search members…",
+      "no-results": "No members found",
+      "unnamed": "Unnamed member",
+      "nee": "née {{name}}",
+      "clear": "Clear search"
+    },
     "controls": {
       "zoom-in": "Zoom in",
       "zoom-out": "Zoom out",
@@ -435,6 +442,11 @@
       "enable-quick-add": "Enable quick add",
       "disable-disease-mode": "Disable disease mode",
       "enable-disease-mode": "Enable disease mode"
+    },
+    "empty-state": {
+      "title": "Start your family tree",
+      "description": "Add the first person to get started.",
+      "cta": "Add first person"
     }
   },
   "timeline-view": {
@@ -517,8 +529,9 @@
     "merge-button": "Merge",
     "duplicate-button": "Duplicate",
     "table-name": "Name",
-    "table-id": "ID",
     "table-actions": "Actions",
+    "copy-id-button": "Copy ID",
+    "select-tree": "Select tree",
     "selected-label": "Currently selected:",
     "none-selected": "None",
     "toast-import-success": "Tree imported successfully!",
@@ -527,6 +540,8 @@
     "toast-rename-empty": "Tree name cannot be empty.",
     "share-button": "Share",
     "toast-export-error": "Could not export the tree.",
+    "toast-id-copied": "Tree ID copied to clipboard.",
+    "toast-id-copy-error": "Could not copy the ID.",
     "owned-section": "Owned by me",
     "shared-section": "Shared with me",
     "no-owned": "You don't own any trees yet. Create or import one to get started.",

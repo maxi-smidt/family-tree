@@ -23,6 +23,7 @@ import {
   Users,
   Copy,
   GitMerge,
+  Hash,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -138,6 +139,16 @@ export const DatabaseManagementView = () => {
     }
   };
 
+  const handleCopyId = async (database: Tree) => {
+    try {
+      await navigator.clipboard.writeText(database.id);
+      toast.success(t("toast-id-copied"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("toast-id-copy-error"));
+    }
+  };
+
   const handleOpenRemoveDialog = async (database: Tree) => {
     await selectTree(database);
     setIsRemoveDatabaseDialogOpen(true);
@@ -172,22 +183,34 @@ export const DatabaseManagementView = () => {
 
   const renderRow = (database: Tree) => {
     const isOwned = database.role === "owner";
+    const isSelected = selectedTree?.id === database.id;
     return (
       <TableRow
         key={database.id}
-        className={selectedTree?.id === database.id ? "bg-muted" : ""}
+        onClick={() => handleSelectDatabase(database)}
+        className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
       >
-        <TableCell>
+        <TableCell
+          className={
+            isSelected
+              ? "border-l-2 border-l-primary"
+              : "border-l-2 border-l-transparent"
+          }
+        >
           <input
             type="radio"
-            checked={selectedTree?.id === database.id}
+            checked={isSelected}
             onChange={() => handleSelectDatabase(database)}
             className="cursor-pointer"
+            aria-label={t("select-tree")}
           />
         </TableCell>
         <TableCell>
           {editingDatabaseId === database.id ? (
-            <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-2"
+              onClick={(e) => e.stopPropagation()}
+            >
               <Input
                 value={editingName}
                 onChange={(e) => setEditingName(e.target.value)}
@@ -213,14 +236,26 @@ export const DatabaseManagementView = () => {
               </Button>
             </div>
           ) : (
-            <span className="font-medium">{database.name}</span>
+            <div className="flex items-center gap-1">
+              <span className="font-medium">{database.name}</span>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleCopyId(database);
+                }}
+                title={t("copy-id-button")}
+                aria-label={t("copy-id-button")}
+              >
+                <Hash className="size-3" />
+              </Button>
+            </div>
           )}
         </TableCell>
-        <TableCell className="text-muted-foreground font-mono text-sm">
-          {database.id}
-        </TableCell>
         <TableCell>{renderStatusCell(database)}</TableCell>
-        <TableCell className="text-right">
+        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
           <div className="flex justify-end gap-1">
             {isOwned && (
               <Button
@@ -276,14 +311,18 @@ export const DatabaseManagementView = () => {
     statusHeader: string,
   ) => (
     <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold">{heading}</h3>
+      <h3 className="text-sm font-semibold">
+        {heading}{" "}
+        <span className="text-muted-foreground font-normal">
+          ({rows.length})
+        </span>
+      </h3>
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-12"></TableHead>
               <TableHead>{t("table-name")}</TableHead>
-              <TableHead>{t("table-id")}</TableHead>
               <TableHead>{statusHeader}</TableHead>
               <TableHead className="text-right">{t("table-actions")}</TableHead>
             </TableRow>
@@ -292,7 +331,7 @@ export const DatabaseManagementView = () => {
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={4}
                   className="text-center text-muted-foreground"
                 >
                   {emptyLabel}

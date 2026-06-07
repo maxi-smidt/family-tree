@@ -161,11 +161,13 @@ export const EditMode = ({
     void updateMemberPartial(member.id, {
       firstName: formData.firstName,
       lastName: formData.lastName,
-      maidenName: formData.maidenName || undefined,
+      // Send null (not undefined) when cleared so the backend actually clears
+      // the column — undefined is dropped from the JSON body and ignored.
+      maidenName: formData.maidenName || null,
       gender: formData.gender,
       imageData: formData.imageData || undefined,
       dateOfBirth: formData.date.birth,
-      dateOfDeath: formData.date.death || undefined,
+      dateOfDeath: formData.date.death || null,
     });
     toast.success(t("toast-success"));
     onSaved?.(formData);

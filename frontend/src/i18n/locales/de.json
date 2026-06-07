@@ -418,6 +418,13 @@
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
       "risk-indicator": "Mögliches genetisches Risiko von Eltern"
     },
+    "search": {
+      "placeholder": "Mitglieder suchen…",
+      "no-results": "Keine Mitglieder gefunden",
+      "unnamed": "Unbenanntes Mitglied",
+      "nee": "geb. {{name}}",
+      "clear": "Suche löschen"
+    },
     "controls": {
       "zoom-in": "Hineinzoomen",
       "zoom-out": "Herauszoomen",
@@ -435,6 +442,11 @@
       "enable-quick-add": "Schnellhinzufügen aktivieren",
       "disable-disease-mode": "Krankheitsmodus deaktivieren",
       "enable-disease-mode": "Krankheitsmodus aktivieren"
+    },
+    "empty-state": {
+      "title": "Stammbaum starten",
+      "description": "Füge die erste Person hinzu, um loszulegen.",
+      "cta": "Erste Person hinzufügen"
     }
   },
   "timeline-view": {
@@ -517,8 +529,9 @@
     "merge-button": "Vereinen",
     "duplicate-button": "Duplizieren",
     "table-name": "Name",
-    "table-id": "ID",
     "table-actions": "Aktionen",
+    "copy-id-button": "ID kopieren",
+    "select-tree": "Stammbaum auswählen",
     "selected-label": "Aktuell ausgewählt:",
     "none-selected": "Keine",
     "toast-import-success": "Stammbaum erfolgreich importiert!",
@@ -527,6 +540,8 @@
     "toast-rename-empty": "Stammbaumname darf nicht leer sein.",
     "share-button": "Teilen",
     "toast-export-error": "Stammbaum konnte nicht exportiert werden.",
+    "toast-id-copied": "Stammbaum-ID in die Zwischenablage kopiert.",
+    "toast-id-copy-error": "ID konnte nicht kopiert werden.",
     "owned-section": "Meine Stammbäume",
     "shared-section": "Mit mir geteilt",
     "no-owned": "Dir gehört noch kein Stammbaum. Erstelle oder importiere einen, um zu beginnen.",
