@@ -1,5 +1,7 @@
 """Admin-only user management."""
 
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -9,6 +11,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.services import settings_service
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
 
@@ -60,12 +63,18 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
     return user
 
 
-@router.delete("/{user_id}", status_code=204)
+@router.delete("/{user_id}", response_model=UserOut)
 def delete_user(
     user_id: str,
     db: Session = Depends(get_db),
     current: User = Depends(require_admin),
 ):
+    """Schedule an account for deletion after the configured grace period.
+
+    The account is not purged here: it enters a *pending deletion* state (blocked
+    from logging in) until the deadline passes, at which point a background sweep
+    removes it. An admin can reverse this via ``cancel_deletion`` beforehand.
+    """
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -73,8 +82,34 @@ def delete_user(
         raise HTTPException(status_code=400, detail="You cannot delete your own account")
     if user.is_admin and _admin_count(db) <= 1:
         raise HTTPException(status_code=400, detail="Cannot delete the last admin")
-    db.delete(user)
+
+    if user.deletion_requested_at is None:
+        now = datetime.now(UTC)
+        grace_days = settings_service.get_int_setting(
+            db,
+            "deletion_grace_period_days",
+            settings_service.DEFAULT_DELETION_GRACE_PERIOD_DAYS,
+        )
+        user.deletion_requested_at = now.isoformat()
+        user.deletion_scheduled_for = (now + timedelta(days=grace_days)).isoformat()
+        user.deletion_requested_by = current.id
+        db.commit()
+        db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/cancel-deletion", response_model=UserOut)
+def cancel_deletion(user_id: str, db: Session = Depends(get_db)):
+    """Reverse a scheduled deletion, restoring the account's access."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.deletion_requested_at = None
+    user.deletion_scheduled_for = None
+    user.deletion_requested_by = None
     db.commit()
+    db.refresh(user)
+    return user
 
 
 def _admin_count(db: Session) -> int:

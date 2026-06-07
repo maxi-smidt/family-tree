@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { api, setAuthToken } from "@/services/api";
+import { ApiError, api, setAuthToken } from "@/services/api";
 import { TokenResponse } from "@/types/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +43,17 @@ export const LoginPage = () => {
       }
     } catch (err) {
       console.error(err);
-      toast.error(mode === "register" ? t("register-error") : t("login-error"));
+      if (
+        err instanceof ApiError &&
+        err.status === 403 &&
+        err.message === "account_pending_deletion"
+      ) {
+        toast.error(t("account-pending-deletion"), { duration: 10000 });
+      } else {
+        toast.error(
+          mode === "register" ? t("register-error") : t("login-error"),
+        );
+      }
     } finally {
       setLoading(false);
     }

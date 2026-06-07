@@ -7,6 +7,9 @@ export interface User {
   is_active: boolean;
   auth_provider: string;
   created_at: string;
+  /** Absolute purge deadline; non-null means the account is pending deletion. */
+  deletion_scheduled_for?: string | null;
+  deletion_requested_by?: string | null;
 }
 
 export interface AuthConfig {

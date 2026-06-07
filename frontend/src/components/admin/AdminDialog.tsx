@@ -18,10 +18,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
-import { Trash2, Plus } from "lucide-react";
+import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { Trash2, Plus, Undo2 } from "lucide-react";
 import { api } from "@/services/api";
 import { User } from "@/types/user";
+import { formatDate } from "@/utils/dateUtils";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -30,6 +33,7 @@ interface Settings {
   allow_self_registration: boolean;
   instance_name: string;
   default_language: string;
+  deletion_grace_period_days: number;
 }
 
 type Props = {
@@ -42,6 +46,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const currentUser = useAuthStore((s) => s.user);
 
   const [users, setUsers] = useState<User[]>([]);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -91,13 +96,28 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
     }
   };
 
-  const deleteUser = async (user: User) => {
+  const scheduleDeletion = async () => {
+    if (!userToDelete) return;
     try {
-      await api.del(`/users/${user.id}`);
+      await api.del(`/users/${userToDelete.id}`);
       await loadUsers();
+      toast.success(t("delete-dialog.scheduled"));
     } catch (err) {
       console.error(err);
       toast.error(t("user-delete-error"));
+    } finally {
+      setUserToDelete(null);
+    }
+  };
+
+  const cancelDeletion = async (user: User) => {
+    try {
+      await api.post(`/users/${user.id}/cancel-deletion`);
+      await loadUsers();
+      toast.success(t("deletion-canceled"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("user-update-error"));
     }
   };
 
@@ -144,42 +164,70 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((u) => (
-                    <TableRow key={u.id}>
-                      <TableCell className="font-medium">
-                        {u.username}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-sm">
-                        {u.auth_provider}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={u.is_admin}
-                          disabled={u.id === currentUser?.id}
-                          onCheckedChange={(v) => patchUser(u, { is_admin: v })}
-                        />
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Switch
-                          checked={u.is_active}
-                          disabled={u.id === currentUser?.id}
-                          onCheckedChange={(v) =>
-                            patchUser(u, { is_active: v })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={u.id === currentUser?.id}
-                          onClick={() => deleteUser(u)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {users.map((u) => {
+                    const pending = !!u.deletion_scheduled_for;
+                    const isSelf = u.id === currentUser?.id;
+                    return (
+                      <TableRow key={u.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {u.username}
+                            {pending && (
+                              <Badge variant="destructive">
+                                {t("pending-deletion", {
+                                  date: formatDate(
+                                    u.deletion_scheduled_for ?? null,
+                                  ),
+                                })}
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {u.auth_provider}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={u.is_admin}
+                            disabled={isSelf || pending}
+                            onCheckedChange={(v) =>
+                              patchUser(u, { is_admin: v })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={u.is_active}
+                            disabled={isSelf || pending}
+                            onCheckedChange={(v) =>
+                              patchUser(u, { is_active: v })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {pending ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title={t("cancel-deletion")}
+                              onClick={() => cancelDeletion(u)}
+                            >
+                              <Undo2 className="h-4 w-4" />
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isSelf}
+                              onClick={() => setUserToDelete(u)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -264,6 +312,29 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
                     }
                   />
                 </div>
+                <div className="space-y-2">
+                  <FieldLabel htmlFor="deletion-grace">
+                    {t("deletion-grace-period")}
+                  </FieldLabel>
+                  <Input
+                    id="deletion-grace"
+                    type="number"
+                    min={0}
+                    value={settings.deletion_grace_period_days}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        deletion_grace_period_days: Math.max(
+                          0,
+                          Number(e.target.value),
+                        ),
+                      })
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {t("deletion-grace-period-hint")}
+                  </p>
+                </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="font-medium text-sm">
@@ -288,6 +359,19 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
           </TabsContent>
         </Tabs>
       </DialogContent>
+
+      <ConfirmDeleteDialog
+        open={!!userToDelete}
+        onOpenChange={(open) => !open && setUserToDelete(null)}
+        onConfirm={scheduleDeletion}
+        title={t("delete-dialog.title")}
+        description={t("delete-dialog.description", {
+          username: userToDelete?.username ?? "",
+          days: settings?.deletion_grace_period_days ?? 7,
+        })}
+        cancelText={t("delete-dialog.cancel")}
+        confirmText={t("delete-dialog.delete")}
+      />
     </Dialog>
   );
 };
