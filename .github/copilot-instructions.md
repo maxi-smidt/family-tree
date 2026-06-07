@@ -6,6 +6,14 @@ This file is automatically detected by GitHub Copilot and other AI coding assist
 
 Family Tree is a self-hostable **web application** for building and exploring family history through an interactive visual interface. A React single-page app talks to a FastAPI backend backed by PostgreSQL, deployed with Docker Compose.
 
+## Mandatory before every PR to `main` (CI-enforced)
+
+1. **Bump the version** — run `npm run bump:patch` (or `bump:minor` / `bump:major`) in `frontend/`. The `check-version` workflow **fails the PR if `frontend/package.json` is unchanged**. This also updates `frontend/constants.json`.
+2. **Translation parity** — run `npm run check-i18n` (from `frontend/`); the `check-i18n` workflow gates it.
+3. **Build + tests green** — frontend (`npm run build`, `npx vitest run`) and backend (`uv run ruff check`, `uv run pytest`) must pass; the CI workflow runs all of these.
+
+> Toolchain: **Node 22** (frontend, npm) and **Python 3.12 + uv** (backend). System defaults are often too old.
+
 ## Repo structure
 
 ```
@@ -136,7 +144,7 @@ export function Component({ prop }: ComponentProps) {
 npm run dev            # Vite dev server (proxies /api to the backend)
 npm test               # unit tests
 npm run check-i18n     # verify translations
-npm run bump:major     # bump version (package.json + constants.json)
+npm run bump:patch     # REQUIRED on every PR — bumps frontend/package.json + constants.json (or bump:minor/major)
 
 # Backend (from ./backend)
 uv run uvicorn app.main:app --reload --port 8000
