@@ -441,6 +441,11 @@
       "enable-fast-mode": "Enable fast mode",
       "disable-disease-mode": "Disable disease mode",
       "enable-disease-mode": "Enable disease mode"
+    },
+    "empty-state": {
+      "title": "Start your family tree",
+      "description": "Add the first person to get started.",
+      "cta": "Add first person"
     }
   },
   "timeline-view": {
