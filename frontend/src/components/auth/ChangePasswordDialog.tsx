@@ -25,16 +25,31 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
   });
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+
+  const resetFields = () => {
+    setCurrent("");
+    setNext("");
+    setConfirm("");
+  };
+
+  const handleClose = () => {
+    resetFields();
+    onClose();
+  };
 
   const handleSave = async () => {
+    if (next !== confirm) {
+      toast.error(t("mismatch"));
+      return;
+    }
     try {
       await api.post("/auth/password", {
         current_password: current,
         new_password: next,
       });
       toast.success(t("success"));
-      setCurrent("");
-      setNext("");
+      resetFields();
       onClose();
     } catch (err) {
       console.error(err);
@@ -43,7 +58,7 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
@@ -55,6 +70,7 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
             <Input
               id="current-password"
               type="password"
+              autoComplete="current-password"
               value={current}
               onChange={(e) => setCurrent(e.target.value)}
             />
@@ -64,16 +80,31 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
             <Input
               id="new-password"
               type="password"
+              autoComplete="new-password"
               value={next}
               onChange={(e) => setNext(e.target.value)}
             />
           </div>
+          <div className="space-y-2">
+            <FieldLabel htmlFor="confirm-password">{t("confirm")}</FieldLabel>
+            <Input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+            />
+          </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button variant="outline" size="sm" onClick={handleClose}>
             {t("cancel")}
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={!current || !next}>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!current || !next || !confirm}
+          >
             {t("save")}
           </Button>
         </DialogFooter>

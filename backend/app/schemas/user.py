@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserOut(BaseModel):
@@ -30,6 +30,10 @@ class UserUpdate(BaseModel):
     password: str | None = None
     is_admin: bool | None = None
     is_active: bool | None = None
+
+
+class UserPasswordReset(BaseModel):
+    password: str = Field(min_length=1)
 
 
 class PasswordChange(BaseModel):

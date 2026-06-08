@@ -625,9 +625,11 @@
       "description": "Aktualisiere das Passwort für dein Konto.",
       "current": "Aktuelles Passwort",
       "new": "Neues Passwort",
+      "confirm": "Neues Passwort bestätigen",
       "cancel": "Abbrechen",
       "save": "Speichern",
       "success": "Passwort geändert.",
+      "mismatch": "Die neuen Passwörter stimmen nicht überein.",
       "error": "Passwort konnte nicht geändert werden."
     },
     "user-menu": {
@@ -649,6 +651,8 @@
     "user-create-error": "Benutzer konnte nicht erstellt werden.",
     "user-update-error": "Benutzer konnte nicht aktualisiert werden.",
     "user-delete-error": "Benutzer konnte nicht gelöscht werden.",
+    "password-reset-success": "Passwort zurückgesetzt.",
+    "password-reset-error": "Passwort konnte nicht zurückgesetzt werden.",
     "settings-saved": "Einstellungen gespeichert.",
     "settings-error": "Einstellungen konnten nicht gespeichert werden.",
     "new-password": "Passwort",
@@ -664,6 +668,16 @@
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
     "cancel-deletion": "Löschung abbrechen",
     "deletion-canceled": "Löschung abgebrochen.",
+    "delete-user": "Löschung vormerken",
+    "reset-password": "Passwort zurücksetzen",
+    "reset-password-unavailable": "Passwort kann nur für lokale Konten zurückgesetzt werden",
+    "reset-dialog": {
+      "title": "Passwort zurücksetzen",
+      "description": "Neues Passwort für \"{{username}}\" festlegen.",
+      "password": "Neues Passwort",
+      "cancel": "Abbrechen",
+      "confirm": "Passwort zurücksetzen"
+    },
     "delete-dialog": {
       "title": "Kontolöschung vormerken",
       "description": "\"{{username}}\" zum Löschen vormerken? Der Zugriff wird sofort gesperrt und alle Stammbäume und Dateien werden in {{days}} Tagen endgültig gelöscht. Sie können dies bis dahin jederzeit abbrechen.",
