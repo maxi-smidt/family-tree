@@ -259,7 +259,11 @@
       "death-field": "Date of Death",
       "date-placeholder": "Pick a date",
       "notes-field": "Notes / Biography",
-      "notes-placeholder": "Add biographical notes, personal history, or other details…"
+      "notes-placeholder": "Add biographical notes, personal history, or other details…",
+      "paternal-parent-field": "Paternal Parent",
+      "maternal-parent-field": "Maternal Parent",
+      "parent-placeholder": "Search members…",
+      "parent-no-results": "No members found"
     },
     "view-mode": {
       "firstname-item": "First Name",

@@ -1,7 +1,14 @@
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Mars, Upload, User, Venus, VenusAndMars } from "lucide-react";
 import { Gender, Member } from "@/types/member";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -13,6 +20,26 @@ import { useTranslation } from "react-i18next";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
+import { MemberPicker } from "./MemberPicker";
+
+function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
+  const descendants = new Set<string>();
+  const queue = [memberId];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const m of allMembers) {
+      if (
+        (m.parents.paternalParent === current ||
+          m.parents.maternalParent === current) &&
+        !descendants.has(m.id)
+      ) {
+        descendants.add(m.id);
+        queue.push(m.id);
+      }
+    }
+  }
+  return descendants;
+}
 
 type Props = {
   member: Member;
@@ -52,10 +79,18 @@ export const EditMode = ({
       (formData.imageData || "") !== (initialData.imageData || "") ||
       formData.date.birth !== initialData.date.birth ||
       (formData.date.death || "") !== (initialData.date.death || "") ||
-      (formData.additionalData || "") !== (initialData.additionalData || "");
+      (formData.additionalData || "") !== (initialData.additionalData || "") ||
+      formData.parents.paternalParent !== initialData.parents.paternalParent ||
+      formData.parents.maternalParent !== initialData.parents.maternalParent;
 
     onDirtyChange?.(isDirty);
   }, [formData, initialData, onDirtyChange]);
+
+  const eligibleParents = useMemo(() => {
+    const excluded = getDescendants(member.id, members);
+    excluded.add(member.id);
+    return members.filter((m) => !excluded.has(m.id));
+  }, [member.id, members]);
 
   const handleChange = (field: keyof Member, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -163,14 +198,14 @@ export const EditMode = ({
     void updateMemberPartial(member.id, {
       firstName: formData.firstName,
       lastName: formData.lastName,
-      // Send null (not undefined) when cleared so the backend actually clears
-      // the column — undefined is dropped from the JSON body and ignored.
       maidenName: formData.maidenName || null,
       gender: formData.gender,
       imageData: formData.imageData || undefined,
       dateOfBirth: formData.date.birth,
       dateOfDeath: formData.date.death || null,
       additionalData: formData.additionalData || null,
+      paternalParentId: formData.parents.paternalParent,
+      maternalParentId: formData.parents.maternalParent,
     });
     toast.success(t("toast-success"));
     onSaved?.(formData);
@@ -327,6 +362,46 @@ export const EditMode = ({
               onChange={(e) => handleChange("additionalData", e.target.value)}
             />
           </Field>
+
+          {!isNew && (
+            <>
+              <Field>
+                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  {t("paternal-parent-field")}
+                </FieldLabel>
+                <MemberPicker
+                  members={eligibleParents}
+                  value={formData.parents.paternalParent}
+                  onChange={(id) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      parents: { ...prev.parents, paternalParent: id },
+                    }))
+                  }
+                  placeholder={t("parent-placeholder")}
+                  noResultsText={t("parent-no-results")}
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  {t("maternal-parent-field")}
+                </FieldLabel>
+                <MemberPicker
+                  members={eligibleParents}
+                  value={formData.parents.maternalParent}
+                  onChange={(id) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      parents: { ...prev.parents, maternalParent: id },
+                    }))
+                  }
+                  placeholder={t("parent-placeholder")}
+                  noResultsText={t("parent-no-results")}
+                />
+              </Field>
+            </>
+          )}
         </FieldGroup>
 
         <div className="space-y-4 mt-6">
