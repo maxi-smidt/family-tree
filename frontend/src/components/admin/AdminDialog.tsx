@@ -3,6 +3,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -21,7 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
-import { Trash2, Plus, Undo2 } from "lucide-react";
+import { KeyRound, Plus, Trash2, Undo2 } from "lucide-react";
 import { api } from "@/services/api";
 import { User } from "@/types/user";
 import { formatDate } from "@/utils/dateUtils";
@@ -47,6 +48,8 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
 
   const [users, setUsers] = useState<User[]>([]);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [userToReset, setUserToReset] = useState<User | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
   const [settings, setSettings] = useState<Settings | null>(null);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -118,6 +121,22 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
     } catch (err) {
       console.error(err);
       toast.error(t("user-update-error"));
+    }
+  };
+
+  const resetUserPassword = async () => {
+    if (!userToReset || !resetPassword) return;
+    try {
+      await api.post(`/users/${userToReset.id}/reset-password`, {
+        password: resetPassword,
+      });
+      await loadUsers();
+      toast.success(t("password-reset-success"));
+      setUserToReset(null);
+      setResetPassword("");
+    } catch (err) {
+      console.error(err);
+      toast.error(t("password-reset-error"));
     }
   };
 
@@ -215,14 +234,36 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
                               <Undo2 className="h-4 w-4" />
                             </Button>
                           ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={isSelf}
-                              onClick={() => setUserToDelete(u)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title={
+                                  u.auth_provider === "local"
+                                    ? t("reset-password")
+                                    : t("reset-password-unavailable")
+                                }
+                                aria-label={
+                                  u.auth_provider === "local"
+                                    ? t("reset-password")
+                                    : t("reset-password-unavailable")
+                                }
+                                disabled={u.auth_provider !== "local"}
+                                onClick={() => setUserToReset(u)}
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title={t("delete-user")}
+                                aria-label={t("delete-user")}
+                                disabled={isSelf}
+                                onClick={() => setUserToDelete(u)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           )}
                         </TableCell>
                       </TableRow>
@@ -372,6 +413,53 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
         cancelText={t("delete-dialog.cancel")}
         confirmText={t("delete-dialog.delete")}
       />
+
+      <Dialog
+        open={!!userToReset}
+        onOpenChange={(open) => {
+          if (!open) {
+            setUserToReset(null);
+            setResetPassword("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("reset-dialog.title")}</DialogTitle>
+            <DialogDescription>
+              {t("reset-dialog.description", {
+                username: userToReset?.username ?? "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <FieldLabel htmlFor="reset-password">
+              {t("reset-dialog.password")}
+            </FieldLabel>
+            <Input
+              id="reset-password"
+              type="password"
+              autoComplete="new-password"
+              value={resetPassword}
+              onChange={(e) => setResetPassword(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setUserToReset(null);
+                setResetPassword("");
+              }}
+            >
+              {t("reset-dialog.cancel")}
+            </Button>
+            <Button onClick={resetUserPassword} disabled={!resetPassword}>
+              {t("reset-dialog.confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };

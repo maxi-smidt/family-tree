@@ -72,3 +72,56 @@ def test_change_password(client, db):
         ).status_code
         == 200
     )
+
+
+def test_admin_can_reset_local_user_password(client, db):
+    admin = make_user(db, "admin", is_admin=True)
+    alice = make_user(db, "alice", password="pw123456")
+
+    res = client.post(
+        f"{API}/users/{alice.id}/reset-password",
+        headers=auth(admin),
+        json={"password": "reset789"},
+    )
+    assert res.status_code == 200
+
+    assert (
+        client.post(
+            f"{API}/auth/login", json={"username": "alice", "password": "pw123456"}
+        ).status_code
+        == 401
+    )
+    assert (
+        client.post(
+            f"{API}/auth/login", json={"username": "alice", "password": "reset789"}
+        ).status_code
+        == 200
+    )
+
+
+def test_non_admin_cannot_reset_password(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+
+    res = client.post(
+        f"{API}/users/{bob.id}/reset-password",
+        headers=auth(alice),
+        json={"password": "reset789"},
+    )
+    assert res.status_code == 403
+
+
+def test_admin_cannot_reset_authentik_password(client, db):
+    admin = make_user(db, "admin", is_admin=True)
+    oidc_user = make_user(db, "oidc-user", password=None)
+    oidc_user.auth_provider = "authentik"
+    oidc_user.oauth_subject = "authentik|123"
+    db.commit()
+
+    res = client.post(
+        f"{API}/users/{oidc_user.id}/reset-password",
+        headers=auth(admin),
+        json={"password": "reset789"},
+    )
+    assert res.status_code == 400
+    assert res.json()["detail"] == "Password reset is only available for local accounts"

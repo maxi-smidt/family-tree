@@ -10,7 +10,7 @@ from app.api.deps import require_admin
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import User
-from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.schemas.user import UserCreate, UserOut, UserPasswordReset, UserUpdate
 from app.services import settings_service
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
@@ -50,7 +50,7 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
     if payload.full_name is not None:
         user.full_name = payload.full_name
     if payload.password:
-        user.hashed_password = hash_password(payload.password)
+        _reset_local_password(user, payload.password)
     if payload.is_active is not None:
         user.is_active = payload.is_active
     if payload.is_admin is not None:
@@ -58,6 +58,22 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
             raise HTTPException(status_code=400, detail="Cannot demote the last admin")
         user.is_admin = payload.is_admin
 
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.post("/{user_id}/reset-password", response_model=UserOut)
+def reset_password(
+    user_id: str,
+    payload: UserPasswordReset,
+    db: Session = Depends(get_db),
+):
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    _reset_local_password(user, payload.password)
     db.commit()
     db.refresh(user)
     return user
@@ -116,3 +132,12 @@ def _admin_count(db: Session) -> int:
     return db.scalar(
         select(func.count()).select_from(User).where(User.is_admin.is_(True))
     )
+
+
+def _reset_local_password(user: User, password: str) -> None:
+    if user.auth_provider != "local":
+        raise HTTPException(
+            status_code=400,
+            detail="Password reset is only available for local accounts",
+        )
+    user.hashed_password = hash_password(password)
