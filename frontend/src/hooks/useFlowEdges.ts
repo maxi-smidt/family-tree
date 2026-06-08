@@ -38,6 +38,9 @@ export const useFlowEdges = (
       }
     }
 
+    // Build a position lookup from the members array for handle-side selection.
+    const memberPositionX = new Map(members.map((m) => [m.id, m.position.x]));
+
     // --- Union connector edges ---
     for (const u of unions) {
       if (
@@ -59,11 +62,17 @@ export const useFlowEdges = (
         const style = coupleStyle(relType);
         const baseStyle = { ...style, strokeWidth: 2 };
 
-        // partner1 → union (left handle). Use smoothstep so the edge curves
-        // gracefully when partners aren't on exactly the same Y level.
+        // Determine which partner is visually to the left so we always route
+        // innerHandle → union → innerHandle rather than wrapping around the outside.
+        const p1X = memberPositionX.get(u.partner1Id as string) ?? 0;
+        const p2X = memberPositionX.get(u.partner2Id as string) ?? 0;
+        const leftId = p1X <= p2X ? u.partner1Id : u.partner2Id;
+        const rightId = p1X <= p2X ? u.partner2Id : u.partner1Id;
+
+        // left partner's RIGHT handle → union LEFT handle
         newEdges.push({
           id: `ue:${u.id}:left`,
-          source: u.partner1Id as string,
+          source: leftId as string,
           target: u.id as string,
           sourceHandle: "right",
           targetHandle: "left",
@@ -72,11 +81,11 @@ export const useFlowEdges = (
           animated: false,
         });
 
-        // union → partner2 (right handle)
+        // union RIGHT handle → right partner's LEFT handle
         newEdges.push({
           id: `ue:${u.id}:right`,
           source: u.id as string,
-          target: u.partner2Id as string,
+          target: rightId as string,
           sourceHandle: "right",
           targetHandle: "left",
           type: "smoothstep",
