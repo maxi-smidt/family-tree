@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree, get_writable_tree
+from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
 from app.db.session import get_db
 from app.models import Member, MemberDisease, Relation, Tree
+from app.models.user import User
 from app.schemas.family import (
     DiseaseCreate,
     DiseaseOut,
@@ -18,6 +19,7 @@ from app.schemas.family import (
     RelationCreate,
     RelationOut,
 )
+from app.services.activity import record_activity
 from app.services.storage import process_image_field
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
@@ -40,12 +42,16 @@ def list_members(tree: Tree = Depends(get_readable_tree), db: Session = Depends(
 def create_member(
     payload: MemberCreate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
     data["imageData"] = process_image_field(tree.id, data.get("imageData"))
     member = Member(tree_id=tree.id, **data)
     db.add(member)
+    label = " ".join(filter(None, [data.get("firstName"), data.get("lastName")])) or None
+    record_activity(db, tree_id=tree.id, actor=user, action="create",
+                    target_type="member", target_id=member.id, target_label=label)
     db.commit()
     db.refresh(member)
     return member
@@ -84,6 +90,7 @@ def update_member(
     member_id: str,
     payload: MemberUpdate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     member = _get_member(db, tree, member_id)
@@ -92,6 +99,9 @@ def update_member(
         changes["imageData"] = process_image_field(tree.id, changes["imageData"])
     for key, value in changes.items():
         setattr(member, key, value)
+    label = " ".join(filter(None, [member.firstName, member.lastName])) or None
+    record_activity(db, tree_id=tree.id, actor=user, action="update",
+                    target_type="member", target_id=member.id, target_label=label)
     db.commit()
     db.refresh(member)
     return member
@@ -101,9 +111,13 @@ def update_member(
 def delete_member(
     member_id: str,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     member = _get_member(db, tree, member_id)
+    label = " ".join(filter(None, [member.firstName, member.lastName])) or None
+    record_activity(db, tree_id=tree.id, actor=user, action="delete",
+                    target_type="member", target_id=member.id, target_label=label)
     db.delete(member)
     db.commit()
 
@@ -120,6 +134,7 @@ def list_relations(
 def add_relation(
     payload: RelationCreate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     key = (tree.id, payload.from_member_id, payload.to_member_id, payload.relation_type)
@@ -127,6 +142,12 @@ def add_relation(
     if relation is None:
         relation = Relation(tree_id=tree.id, **payload.model_dump())
         db.add(relation)
+        label = (
+            f"{payload.from_member_id} → "
+            f"{payload.to_member_id} ({payload.relation_type})"
+        )
+        record_activity(db, tree_id=tree.id, actor=user, action="create",
+                        target_type="relation", target_label=label)
         db.commit()
     return relation
 
@@ -137,12 +158,16 @@ def remove_relation(
     to_member_id: str,
     relation_type: str,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     relation = db.get(
         Relation, (tree.id, from_member_id, to_member_id, relation_type)
     )
     if relation is not None:
+        label = f"{from_member_id} → {to_member_id} ({relation_type})"
+        record_activity(db, tree_id=tree.id, actor=user, action="delete",
+                        target_type="relation", target_label=label)
         db.delete(relation)
         db.commit()
 
@@ -161,11 +186,14 @@ def list_diseases(
 def add_disease(
     payload: DiseaseCreate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     _get_member(db, tree, payload.member_id)
     disease = MemberDisease(tree_id=tree.id, **payload.model_dump())
     db.add(disease)
+    record_activity(db, tree_id=tree.id, actor=user, action="create",
+                    target_type="disease", target_label=payload.name)
     db.commit()
     db.refresh(disease)
     return disease
@@ -176,6 +204,7 @@ def update_disease(
     disease_id: str,
     payload: DiseaseUpdate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     disease = db.get(MemberDisease, disease_id)
@@ -183,6 +212,10 @@ def update_disease(
         raise HTTPException(status_code=404, detail="Disease not found")
     for key, value in payload.model_dump().items():
         setattr(disease, key, value)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="disease", target_id=disease_id, target_label=disease.name,
+    )
     db.commit()
     db.refresh(disease)
     return disease
@@ -192,10 +225,15 @@ def update_disease(
 def delete_disease(
     disease_id: str,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     disease = db.get(MemberDisease, disease_id)
     if disease is None or disease.tree_id != tree.id:
         raise HTTPException(status_code=404, detail="Disease not found")
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="delete",
+        target_type="disease", target_id=disease_id, target_label=disease.name,
+    )
     db.delete(disease)
     db.commit()

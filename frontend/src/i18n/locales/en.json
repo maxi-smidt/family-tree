@@ -206,6 +206,7 @@
       "list": "List",
       "gallery": "Gallery",
       "timeline": "Timeline",
+      "activity": "Activity",
       "database-management": "Tree Management"
     },
     "no-database-placeholder": {
@@ -451,6 +452,21 @@
       "description": "Add the first person to get started.",
       "cta": "Add first person"
     }
+  },
+  "activity-view": {
+    "title": "Activity",
+    "empty-title": "No activity yet",
+    "empty-description": "Changes made to this tree will appear here.",
+    "action-create": "added",
+    "action-update": "updated",
+    "action-delete": "removed",
+    "target-member": "person",
+    "target-relation": "relation",
+    "target-event": "event",
+    "target-story": "story",
+    "target-gallery_image": "image",
+    "target-disease": "condition",
+    "unknown-actor": "Someone"
   },
   "timeline-view": {
     "view": {

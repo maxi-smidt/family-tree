@@ -206,6 +206,7 @@
       "list": "Liste",
       "gallery": "Galerie",
       "timeline": "Timeline",
+      "activity": "Aktivität",
       "database-management": "Stammbaumverwaltung"
     },
     "no-database-placeholder": {
@@ -451,6 +452,21 @@
       "description": "Füge die erste Person hinzu, um loszulegen.",
       "cta": "Erste Person hinzufügen"
     }
+  },
+  "activity-view": {
+    "title": "Aktivität",
+    "empty-title": "Noch keine Aktivität",
+    "empty-description": "Änderungen an diesem Stammbaum werden hier angezeigt.",
+    "action-create": "hinzugefügt",
+    "action-update": "aktualisiert",
+    "action-delete": "entfernt",
+    "target-member": "Person",
+    "target-relation": "Beziehung",
+    "target-event": "Ereignis",
+    "target-story": "Geschichte",
+    "target-gallery_image": "Bild",
+    "target-disease": "Erkrankung",
+    "unknown-actor": "Jemand"
   },
   "timeline-view": {
     "view": {

@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree, get_writable_tree
+from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
 from app.db.session import get_db
 from app.models import Event, EventMemberLink, Member, Tree
+from app.models.user import User
 from app.schemas.content import EventCreate, EventLinkOut, EventOut, EventUpdate, LinksSet
+from app.services.activity import record_activity
 
 router = APIRouter(prefix="/trees/{tree_id}/events", tags=["events"])
 
@@ -51,6 +53,7 @@ def list_links(tree: Tree = Depends(get_readable_tree), db: Session = Depends(ge
 def create_event(
     payload: EventCreate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
@@ -59,6 +62,10 @@ def create_event(
     db.add(event)
     db.flush()  # event row must exist before its links reference it
     _set_links(db, tree, event.id, member_ids)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="create",
+        target_type="event", target_id=event.id, target_label=event.event_type,
+    )
     db.commit()
     db.refresh(event)
     return event
@@ -69,11 +76,16 @@ def update_event(
     event_id: str,
     payload: EventUpdate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     event = _get_event(db, tree, event_id)
     for key, value in payload.model_dump().items():
         setattr(event, key, value)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="event", target_id=event.id, target_label=event.event_type,
+    )
     db.commit()
     db.refresh(event)
     return event
@@ -83,9 +95,14 @@ def update_event(
 def delete_event(
     event_id: str,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     event = _get_event(db, tree, event_id)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="delete",
+        target_type="event", target_id=event.id, target_label=event.event_type,
+    )
     db.delete(event)
     db.commit()
 

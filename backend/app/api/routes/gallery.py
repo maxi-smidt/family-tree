@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree, get_writable_tree
+from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
 from app.db.session import get_db
 from app.models import GalleryImage, GalleryMemberLink, Member, Tree
+from app.models.user import User
 from app.schemas.content import (
     GalleryImageCreate,
     GalleryImageOut,
@@ -14,6 +15,7 @@ from app.schemas.content import (
     GalleryLinkOut,
     LinksSet,
 )
+from app.services.activity import record_activity
 from app.services.storage import delete_media, process_image_field
 
 router = APIRouter(prefix="/trees/{tree_id}/gallery", tags=["gallery"])
@@ -62,6 +64,7 @@ def list_links(tree: Tree = Depends(get_readable_tree), db: Session = Depends(ge
 def create_image(
     payload: GalleryImageCreate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
@@ -71,6 +74,10 @@ def create_image(
     db.add(image)
     db.flush()  # image row must exist before its links reference it
     _set_links(db, tree, image.id, member_ids)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="create",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
+    )
     db.commit()
     db.refresh(image)
     return image
@@ -81,6 +88,7 @@ def update_image(
     image_id: str,
     payload: GalleryImageUpdate,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     image = _get_image(db, tree, image_id)
@@ -89,6 +97,10 @@ def update_image(
         changes["imageData"] = process_image_field(tree.id, changes["imageData"])
     for key, value in changes.items():
         setattr(image, key, value)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
+    )
     db.commit()
     db.refresh(image)
     return image
@@ -98,10 +110,15 @@ def update_image(
 def delete_image(
     image_id: str,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     image = _get_image(db, tree, image_id)
     image_url = image.imageData
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="delete",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
+    )
     db.delete(image)
     db.commit()
     delete_media(image_url)
