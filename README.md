@@ -21,6 +21,14 @@ FastAPI backend backed by PostgreSQL, all wired together with Docker Compose.
 - 🌍 Multi-language support (English, German)
 - 🎨 Clean, modern interface with dark/light mode support
 
+### Mobile behavior
+
+Mobile is intentionally read-oriented. Phones show a compact member directory and
+detail view first, with a pan/zoom/searchable tree canvas for browsing. Owners
+and editors can still make targeted member edits from the directory, while graph
+editing, relationship creation, layout controls, uploads, and administration are
+desktop-oriented.
+
 ## Tech Stack
 
 - **Frontend** (`frontend/`): React + TypeScript + Vite, Shadcn UI + Tailwind CSS, React Flow, Zustand

@@ -19,7 +19,11 @@ import { useReactFlow } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
 
-export const FlowPanelControls = () => {
+type Props = {
+  navigationOnly?: boolean;
+};
+
+export const FlowPanelControls = ({ navigationOnly = false }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.controls",
   });
@@ -32,32 +36,36 @@ export const FlowPanelControls = () => {
 
   return (
     <ButtonGroup orientation="vertical">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => undo()}
-            disabled={undoStack.length === 0}
-          >
-            <Undo2 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="right">{t("undo")}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => redo()}
-            disabled={redoStack.length === 0}
-          >
-            <Redo2 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="right">{t("redo")}</TooltipContent>
-      </Tooltip>
+      {!navigationOnly && (
+        <>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => undo()}
+                disabled={undoStack.length === 0}
+              >
+                <Undo2 />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{t("undo")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={() => redo()}
+                disabled={redoStack.length === 0}
+              >
+                <Redo2 />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{t("redo")}</TooltipContent>
+          </Tooltip>
+        </>
+      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="secondary" size="icon" onClick={() => zoomIn()}>
@@ -82,20 +90,22 @@ export const FlowPanelControls = () => {
         </TooltipTrigger>
         <TooltipContent side="right">{t("fit-view")}</TooltipContent>
       </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isLockedScreen ? "default" : "secondary"}
-            size="icon"
-            onClick={() => setIsLockedScreen(!isLockedScreen)}
-          >
-            {isLockedScreen ? <Lock /> : <LockOpen />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {isLockedScreen ? t("unlock-canvas") : t("lock-canvas")}
-        </TooltipContent>
-      </Tooltip>
+      {!navigationOnly && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isLockedScreen ? "default" : "secondary"}
+              size="icon"
+              onClick={() => setIsLockedScreen(!isLockedScreen)}
+            >
+              {isLockedScreen ? <Lock /> : <LockOpen />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {isLockedScreen ? t("unlock-canvas") : t("lock-canvas")}
+          </TooltipContent>
+        </Tooltip>
+      )}
     </ButtonGroup>
   );
 };

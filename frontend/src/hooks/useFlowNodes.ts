@@ -11,6 +11,7 @@ export const useFlowNodes = (
   onAddLeft: (memberId: string) => void,
   onAddRight: (memberId: string) => void,
   highlightedNodeId: string | null,
+  isReadOnly = false,
 ) => {
   return useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -62,26 +63,37 @@ export const useFlowNodes = (
       data: {
         ...node.data,
         isHighlighted: node.id === highlightedNodeId,
-        onEdit: () => {
-          setEditingMemberId(node.id);
-          setIsEditMode(true);
-        },
+        isReadOnly,
+        onEdit: isReadOnly
+          ? undefined
+          : () => {
+              setEditingMemberId(node.id);
+              setIsEditMode(true);
+            },
         onView: () => {
           setEditingMemberId(node.id);
           setIsEditMode(false);
         },
-        onAddChild: () => {
-          onAddChild(node.id);
-        },
-        onAddParent: () => {
-          onAddParent(node.id);
-        },
-        onAddLeft: () => {
-          onAddLeft(node.id);
-        },
-        onAddRight: () => {
-          onAddRight(node.id);
-        },
+        onAddChild: isReadOnly
+          ? undefined
+          : () => {
+              onAddChild(node.id);
+            },
+        onAddParent: isReadOnly
+          ? undefined
+          : () => {
+              onAddParent(node.id);
+            },
+        onAddLeft: isReadOnly
+          ? undefined
+          : () => {
+              onAddLeft(node.id);
+            },
+        onAddRight: isReadOnly
+          ? undefined
+          : () => {
+              onAddRight(node.id);
+            },
       },
     }));
   }, [
@@ -93,5 +105,6 @@ export const useFlowNodes = (
     onAddLeft,
     onAddRight,
     highlightedNodeId,
+    isReadOnly,
   ]);
 };

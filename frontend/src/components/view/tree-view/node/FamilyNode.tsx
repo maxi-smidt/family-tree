@@ -139,9 +139,11 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         <Button variant="outline" size="icon-sm" onClick={onViewClick}>
           <EyeIcon />
         </Button>
-        <Button variant="outline" size="icon-sm" onClick={onEditClick}>
-          <PencilIcon />
-        </Button>
+        {!data.isReadOnly && (
+          <Button variant="outline" size="icon-sm" onClick={onEditClick}>
+            <PencilIcon />
+          </Button>
+        )}
       </div>
 
       <FamilyNodeContent member={data} />
@@ -197,7 +199,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         </div>
       )}
 
-      {isFastMode && (
+      {isFastMode && !data.isReadOnly && (
         <>
           <Button
             variant="ghost"

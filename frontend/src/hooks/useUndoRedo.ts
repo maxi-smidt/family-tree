@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useMemberStore } from "@/hooks/useMemberStore";
 
-export const useUndoRedo = () => {
+export const useUndoRedo = (enabled = true) => {
   const undo = useMemberStore((s) => s.undo);
   const redo = useMemberStore((s) => s.redo);
   const undoStack = useMemberStore((s) => s.undoStack);
@@ -19,6 +19,7 @@ export const useUndoRedo = () => {
       }
 
       const meta = e.ctrlKey || e.metaKey;
+      if (!enabled) return;
       if (!meta) return;
 
       if (e.key === "z" && !e.shiftKey) {
@@ -32,5 +33,5 @@ export const useUndoRedo = () => {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [undo, redo, undoStack, redoStack]);
+  }, [enabled, undo, redo, undoStack, redoStack]);
 };
