@@ -9,7 +9,7 @@ import {
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createMember, Member } from "@/types/member";
+import { createMember, Member, RelationType } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -69,6 +69,12 @@ export const FlowPanel = () => {
     sourceId: string;
     targetId: string;
   } | null>(null);
+  const [pendingRelation, setPendingRelation] = useState<
+    | { type: "child-of"; parentId: string }
+    | { type: "parent-of"; childId: string }
+    | { type: "related"; sourceId: string; relationType: RelationType }
+    | null
+  >(null);
 
   const editingMember = useMemo(
     () =>
@@ -78,59 +84,45 @@ export const FlowPanel = () => {
     [members, editingMemberId, pendingNewMember],
   );
 
-  const onAddChild = async (parentId: string) => {
+  const onAddChild = (parentId: string) => {
     const parent = members.find((m) => m.id === parentId);
     if (!parent) return;
 
-    const position = {
+    const newMember = createMember({
       x: parent.position.x,
-      y: parent.position.y + 200, // Place below parent
-    };
-
-    const newMember = createMember(position);
-
-    await addMember(newMember);
-    // Relation: Child -> Parent
-    await addRelation(newMember.id, parentId, "parent");
-
+      y: parent.position.y + 200,
+    });
+    setPendingNewMember(newMember);
+    setPendingRelation({ type: "child-of", parentId });
     setEditingMemberId(newMember.id);
     setIsEditMode(true);
     setIsNewMemberSession(true);
   };
 
-  const onAddParent = async (childId: string) => {
+  const onAddParent = (childId: string) => {
     const child = members.find((m) => m.id === childId);
     if (!child) return;
 
-    const position = {
+    const newMember = createMember({
       x: child.position.x,
-      y: child.position.y - 200, // Place above child
-    };
-
-    const newMember = createMember(position);
-
-    await addMember(newMember);
-    // Relation: Child -> Parent
-    await addRelation(childId, newMember.id, "parent");
-
+      y: child.position.y - 200,
+    });
+    setPendingNewMember(newMember);
+    setPendingRelation({ type: "parent-of", childId });
     setEditingMemberId(newMember.id);
     setIsEditMode(true);
     setIsNewMemberSession(true);
   };
 
-  const onAddHorizontal = async (memberId: string, side: "left" | "right") => {
+  const onAddHorizontal = (memberId: string, side: "left" | "right") => {
     const member = members.find((m) => m.id === memberId);
     if (!member) return;
 
-    const offsetX = side === "left" ? -300 : 300;
-    const position = {
-      x: member.position.x + offsetX,
+    const newMember = createMember({
+      x: member.position.x + (side === "left" ? -300 : 300),
       y: member.position.y,
-    };
-
-    const newMember = createMember(position);
-    await addMember(newMember);
-
+    });
+    setPendingNewMember(newMember);
     setPendingHorizontalRelation({
       sourceId: memberId,
       targetId: newMember.id,
@@ -144,12 +136,8 @@ export const FlowPanel = () => {
     setIsEditMode,
     onAddChild,
     onAddParent,
-    (id) => {
-      void onAddHorizontal(id, "left");
-    },
-    (id) => {
-      void onAddHorizontal(id, "right");
-    },
+    (id) => onAddHorizontal(id, "left"),
+    (id) => onAddHorizontal(id, "right"),
     highlightedNodeId,
   );
   const viewEdges = useFlowEdges(members, visibleRelationTypes, edgeType);
@@ -353,19 +341,34 @@ export const FlowPanel = () => {
           setEditingMemberId(null);
           setIsNewMemberSession(false);
           setPendingNewMember(null);
+          setPendingRelation(null);
         }}
         member={editingMember}
         initialEditMode={isEditMode}
         isNewMember={isNewMemberSession}
-        onDiscardNewMember={async () => {
-          if (pendingNewMember) setPendingNewMember(null);
-          if (editingMemberId && !pendingNewMember)
-            await removeMember(editingMemberId);
+        onDiscardNewMember={() => {
+          setPendingNewMember(null);
+          setPendingRelation(null);
         }}
         onSaveNewMember={async (data) => {
           if (pendingNewMember) {
             const newMemberToSave = { ...pendingNewMember, ...data };
             await addMember(newMemberToSave);
+            if (pendingRelation) {
+              const id = newMemberToSave.id;
+              if (pendingRelation.type === "child-of") {
+                await addRelation(id, pendingRelation.parentId, "parent");
+              } else if (pendingRelation.type === "parent-of") {
+                await addRelation(pendingRelation.childId, id, "parent");
+              } else if (pendingRelation.type === "related") {
+                await addRelation(
+                  pendingRelation.sourceId,
+                  id,
+                  pendingRelation.relationType,
+                );
+              }
+              setPendingRelation(null);
+            }
             setPendingNewMember(null);
           }
         }}
@@ -373,6 +376,11 @@ export const FlowPanel = () => {
       <AddRelationDialog
         isOpen={!!newRelation || !!pendingHorizontalRelation}
         onClose={() => {
+          if (pendingHorizontalRelation) {
+            // User cancelled before picking a type — discard the pending member.
+            setPendingNewMember(null);
+            setIsNewMemberSession(false);
+          }
           setNewRelation(null);
           setPendingHorizontalRelation(null);
         }}
@@ -403,7 +411,12 @@ export const FlowPanel = () => {
             }
           } else if (pendingHorizontalRelation) {
             const { sourceId, targetId } = pendingHorizontalRelation;
-            void addRelation(sourceId, targetId, type);
+            // Store the relation to be created when the new member is saved.
+            setPendingRelation({
+              type: "related",
+              sourceId,
+              relationType: type,
+            });
             if (!visibleRelationTypes.includes(type)) {
               toggleRelationType(type);
             }

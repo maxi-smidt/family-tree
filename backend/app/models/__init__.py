@@ -4,6 +4,7 @@ Importing this package ensures every model is registered on ``Base.metadata``
 so that table creation / migrations see the full schema.
 """
 
+from app.models.activity import ActivityLog
 from app.models.content import (
     Event,
     EventMemberLink,
@@ -19,6 +20,7 @@ from app.models.tree import Tree, TreeMembership
 from app.models.user import User
 
 __all__ = [
+    "ActivityLog",
     "User",
     "Tree",
     "TreeMembership",

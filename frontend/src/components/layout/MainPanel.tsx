@@ -6,12 +6,14 @@ import { ListView } from "@/components/view/list-view/ListView";
 import { useTranslation } from "react-i18next";
 import { DatabaseManagementView } from "@/components/view/database-management-view/DatabaseManagementView";
 import { TimelineView } from "@/components/view/timeline-view/TimelineView";
+import { ActivityView } from "@/components/view/activity-view/ActivityView";
 import { TabWrapper } from "@/components/layout/TabWrapper";
 
 const TREE_VIEW = "tree-view";
 const LIST_VIEW = "list-view";
 const GALLERY_VIEW = "gallery-view";
 const TIMELINE_VIEW = "timeline-view";
+const ACTIVITY_VIEW = "activity-view";
 const DATABASE_MANAGEMENT_VIEW = "database-management-view";
 
 const ALL_VIEWS = [
@@ -19,6 +21,7 @@ const ALL_VIEWS = [
   LIST_VIEW,
   GALLERY_VIEW,
   TIMELINE_VIEW,
+  ACTIVITY_VIEW,
   DATABASE_MANAGEMENT_VIEW,
 ];
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
@@ -50,6 +53,7 @@ export const MainPanel = () => {
         <TabsTrigger value={LIST_VIEW}>{t("list")}</TabsTrigger>
         <TabsTrigger value={GALLERY_VIEW}>{t("gallery")}</TabsTrigger>
         <TabsTrigger value={TIMELINE_VIEW}>{t("timeline")}</TabsTrigger>
+        <TabsTrigger value={ACTIVITY_VIEW}>{t("activity")}</TabsTrigger>
         <div className="border-l border-border self-stretch h-auto mx-2" />
         <TabsTrigger value={DATABASE_MANAGEMENT_VIEW}>
           {t("database-management")}
@@ -66,6 +70,9 @@ export const MainPanel = () => {
       </TabWrapper>
       <TabWrapper value={TIMELINE_VIEW}>
         <TimelineView />
+      </TabWrapper>
+      <TabWrapper value={ACTIVITY_VIEW}>
+        <ActivityView />
       </TabWrapper>
       <TabWrapper value={DATABASE_MANAGEMENT_VIEW}>
         <DatabaseManagementView />

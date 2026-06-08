@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    activity,
     auth,
     events,
     export_import,
@@ -26,3 +27,4 @@ api_router.include_router(members.router)
 api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(stories.router)
+api_router.include_router(activity.router)

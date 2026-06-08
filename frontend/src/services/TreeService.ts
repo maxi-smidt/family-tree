@@ -20,6 +20,7 @@ import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
+import { ActivityDB } from "@/types/activity";
 
 const base = (treeId: string) => `/trees/${treeId}`;
 
@@ -322,5 +323,10 @@ export class TreeService {
 
   static removeDisease(treeId: string, id: string) {
     return api.del(`${base(treeId)}/diseases/${id}`);
+  }
+
+  // --- Activity log ---------------------------------------------------------
+  static getActivity(treeId: string) {
+    return api.get<ActivityDB[]>(`${base(treeId)}/activity`);
   }
 }

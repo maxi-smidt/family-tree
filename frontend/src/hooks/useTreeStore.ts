@@ -7,6 +7,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useActivityStore } from "@/hooks/useActivityStore";
 
 interface DatabaseMetaData {
   id?: string;
@@ -45,6 +46,7 @@ const clearDataStores = async () => {
     useGalleryStore.getState().refreshGalleryImages(),
     useEventStore.getState().refreshEvents(),
     useStoryStore.getState().refreshStories(),
+    useActivityStore.getState().refreshActivity(),
   ]);
 };
 
@@ -134,6 +136,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       useGalleryStore.getState().refreshGalleryImages(),
       useEventStore.getState().refreshEvents(),
       useStoryStore.getState().refreshStories(),
+      useActivityStore.getState().refreshActivity(),
     ]);
     set({ isReady: true });
   },
