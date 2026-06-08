@@ -5,10 +5,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { Lock, LockOpen, Maximize, Minus, Plus } from "lucide-react";
+import {
+  Lock,
+  LockOpen,
+  Maximize,
+  Minus,
+  Plus,
+  Redo2,
+  Undo2,
+} from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useReactFlow } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
+import { useMemberStore } from "@/hooks/useMemberStore";
 
 export const FlowPanelControls = () => {
   const { t } = useTranslation(undefined, {
@@ -16,9 +25,39 @@ export const FlowPanelControls = () => {
   });
   const { isLockedScreen, setIsLockedScreen } = useFamilyTreeSettings();
   const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const undo = useMemberStore((s) => s.undo);
+  const redo = useMemberStore((s) => s.redo);
+  const undoStack = useMemberStore((s) => s.undoStack);
+  const redoStack = useMemberStore((s) => s.redoStack);
 
   return (
     <ButtonGroup orientation="vertical">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => undo()}
+            disabled={undoStack.length === 0}
+          >
+            <Undo2 />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{t("undo")}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => redo()}
+            disabled={redoStack.length === 0}
+          >
+            <Redo2 />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{t("redo")}</TooltipContent>
+      </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button variant="secondary" size="icon" onClick={() => zoomIn()}>

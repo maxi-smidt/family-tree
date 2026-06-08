@@ -434,6 +434,8 @@
       "clear": "Suche löschen"
     },
     "controls": {
+      "undo": "Rückgängig (Strg+Z)",
+      "redo": "Wiederholen (Strg+Umschalt+Z)",
       "zoom-in": "Hineinzoomen",
       "zoom-out": "Herauszoomen",
       "fit-view": "Sicht anpassen",

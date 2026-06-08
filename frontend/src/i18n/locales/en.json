@@ -434,6 +434,8 @@
       "clear": "Clear search"
     },
     "controls": {
+      "undo": "Undo (Ctrl+Z)",
+      "redo": "Redo (Ctrl+Shift+Z)",
       "zoom-in": "Zoom in",
       "zoom-out": "Zoom out",
       "fit-view": "Fit view",
