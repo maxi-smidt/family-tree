@@ -69,7 +69,7 @@ export const ViewMode = ({ member }: Props) => {
         <FamilyNodeContent member={member} largeImage />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Item variant="muted">
           <ItemContent>
             <ItemTitle>{t("firstname-item")}</ItemTitle>
@@ -140,7 +140,7 @@ export const ViewMode = ({ member }: Props) => {
               collapsedCount={3}
             >
               {(showAll) => (
-                <div className="grid grid-cols-3 gap-2 mt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                   {linkedImages
                     .slice(0, showAll ? linkedImages.length : 3)
                     .map((image, index) => (

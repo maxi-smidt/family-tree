@@ -36,6 +36,8 @@ import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialo
 import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { useIsMobile } from "@/hooks/useMobile";
 
 type SortConfig = {
   key: keyof Member | "date.birth" | "date.death";
@@ -47,6 +49,9 @@ export const ListView = () => {
     keyPrefix: "list-view.view",
   });
   const { members, removeMember } = useMemberStore();
+  const activeTree = useTreeStore((s) => s.selectedTree);
+  const canWrite = activeTree?.role !== "viewer";
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "firstName",
@@ -135,7 +140,7 @@ export const ListView = () => {
       }
     >
       <div className="flex items-center justify-between mb-4 p-1">
-        <div className="relative w-72">
+        <div className="relative w-full md:w-72">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("search-placeholder")}
@@ -146,7 +151,71 @@ export const ListView = () => {
         </div>
       </div>
 
-      <div className="rounded-md border flex-1 overflow-hidden flex flex-col">
+      <div className="flex flex-col gap-2 md:hidden">
+        {sortedMembers.length === 0 ? (
+          <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
+            {t("table.no-members")}
+          </div>
+        ) : (
+          sortedMembers.map((member) => (
+            <div
+              key={member.id}
+              className="rounded-md border bg-card p-3 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => setViewingMember(member)}
+                >
+                  <div className="truncate font-medium">
+                    {`${member.firstName} ${member.lastName}`.trim()}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <GenderIcon {...member} />
+                    </span>
+                    <span>{formatDate(member.date.birth)}</span>
+                    {member.date.death && (
+                      <span>{formatDate(member.date.death)}</span>
+                    )}
+                  </div>
+                  {member.maidenName && (
+                    <div className="mt-1 truncate text-sm text-muted-foreground">
+                      {t("table.maiden-name")}: {member.maidenName}
+                    </div>
+                  )}
+                </button>
+                <div className="flex shrink-0 gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setViewingMember(member)}
+                  >
+                    <span className="sr-only">{t("menu.details")}</span>
+                    <Eye />
+                  </Button>
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingMember(member);
+                        setIsEditMode(true);
+                      }}
+                    >
+                      <span className="sr-only">{t("menu.edit")}</span>
+                      <Pencil />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="hidden rounded-md border flex-1 overflow-hidden md:flex flex-col">
         <div className="overflow-auto flex-1">
           <Table>
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
@@ -239,23 +308,27 @@ export const ListView = () => {
                             <Eye />
                             {t("menu.details")}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditingMember(member);
-                              setIsEditMode(true);
-                            }}
-                          >
-                            <Pencil />
-                            {t("menu.edit")}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-destructive focus:text-destructive"
-                            onClick={() => setMemberToDelete(member)}
-                          >
-                            <Trash2 />
-                            {t("menu.delete")}
-                          </DropdownMenuItem>
+                          {canWrite && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setEditingMember(member);
+                                  setIsEditMode(true);
+                                }}
+                              >
+                                <Pencil />
+                                {t("menu.edit")}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setMemberToDelete(member)}
+                              >
+                                <Trash2 />
+                                {t("menu.delete")}
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -272,13 +345,23 @@ export const ListView = () => {
         onClose={() => setEditingMember(null)}
         member={editingMember}
         initialEditMode={isEditMode}
+        canEdit={canWrite}
       />
 
-      <MemberDetailDialog
-        member={viewingMember}
-        open={!!viewingMember}
-        onOpenChange={(open) => !open && setViewingMember(null)}
-      />
+      {isMobile ? (
+        <MemberSheet
+          isOpen={!!viewingMember}
+          onClose={() => setViewingMember(null)}
+          member={viewingMember}
+          canEdit={canWrite}
+        />
+      ) : (
+        <MemberDetailDialog
+          member={viewingMember}
+          open={!!viewingMember}
+          onOpenChange={(open) => !open && setViewingMember(null)}
+        />
+      )}
 
       <RemoveMemberDialog
         isOpen={!!memberToDelete}

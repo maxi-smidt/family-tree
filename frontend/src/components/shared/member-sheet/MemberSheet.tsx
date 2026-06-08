@@ -22,6 +22,7 @@ type Props = {
   onClose: () => void;
   member: Member | null;
   initialEditMode?: boolean;
+  canEdit?: boolean;
   isNewMember?: boolean;
   onDiscardNewMember?: () => Promise<void> | void;
   onSaveNewMember?: (data: Member) => Promise<void> | void;
@@ -32,6 +33,7 @@ export const MemberSheet = ({
   onClose,
   member,
   initialEditMode = false,
+  canEdit = true,
   isNewMember = false,
   onDiscardNewMember,
   onSaveNewMember,
@@ -44,10 +46,12 @@ export const MemberSheet = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const effectiveCanEdit = canEdit || isNewMember;
+  const isViewingEditMode = effectiveCanEdit && isEditMode;
 
   useEffect(() => {
-    setIsEditMode(initialEditMode);
-  }, [initialEditMode, isOpen]);
+    setIsEditMode(effectiveCanEdit ? initialEditMode : false);
+  }, [effectiveCanEdit, initialEditMode, isOpen]);
 
   if (!member) return null;
 
@@ -58,7 +62,7 @@ export const MemberSheet = ({
   };
 
   const handleCloseRequest = () => {
-    if (isDirty && isEditMode) {
+    if (isDirty && isViewingEditMode) {
       setIsUnsavedDialogOpen(true);
       return;
     }
@@ -86,30 +90,37 @@ export const MemberSheet = ({
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && handleCloseRequest()}>
-      <SheetContent className="w-100 sm:w-135" showCloseButton={false}>
+      <SheetContent
+        className="w-full max-w-full sm:w-135 sm:max-w-none"
+        showCloseButton={false}
+      >
         <SheetHeader className="border-b">
           <div className="pr-10">
             <SheetTitle>
-              {isEditMode ? t("edit-title") : t("detail-title")}
+              {isViewingEditMode ? t("edit-title") : t("detail-title")}
             </SheetTitle>
             <SheetDescription>
-              {isEditMode ? t("edit-description") : t("detail-description")}
+              {isViewingEditMode
+                ? t("edit-description")
+                : t("detail-description")}
             </SheetDescription>
           </div>
-          <div className="absolute top-4 right-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsEditMode((value) => !value)}
-            >
-              {isEditMode ? <Eye /> : <Pencil />}
-            </Button>
-          </div>
+          {effectiveCanEdit && (
+            <div className="absolute top-4 right-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsEditMode((value) => !value)}
+              >
+                {isViewingEditMode ? <Eye /> : <Pencil />}
+              </Button>
+            </div>
+          )}
         </SheetHeader>
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-4 overflow-y-auto flex-1">
-            {isEditMode ? (
+            {isViewingEditMode ? (
               <EditMode
                 member={member}
                 isNew={isNewMember}
@@ -127,7 +138,7 @@ export const MemberSheet = ({
           </div>
         </div>
 
-        {isEditMode && (
+        {isViewingEditMode && (
           <SheetFooter className="mt-auto p-4 border-t bg-background gap-2">
             <div className="grid grid-cols-2 gap-4">
               <Button

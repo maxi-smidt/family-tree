@@ -32,12 +32,14 @@ import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useFlowUnions } from "@/hooks/useFlowUnions";
+import { useIsMobile } from "@/hooks/useMobile";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
   const activeTree = useTreeStore((s) => s.selectedTree);
+  const isMobile = useIsMobile();
   const {
     members,
     removeMember,
@@ -47,7 +49,9 @@ export const FlowPanel = () => {
     addMember,
     updateMemberPartial,
   } = useMemberStore();
-  useUndoRedo();
+  const canWrite = activeTree?.role !== "viewer";
+  const isCanvasReadOnly = isMobile || !canWrite;
+  useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useTreeStore();
   const {
     edgeType,
@@ -222,6 +226,7 @@ export const FlowPanel = () => {
     (id) => onAddHorizontal(id, "left"),
     (id) => onAddHorizontal(id, "right"),
     highlightedNodeId,
+    isCanvasReadOnly,
   );
   const viewEdges = useFlowEdges(
     members,
@@ -366,24 +371,28 @@ export const FlowPanel = () => {
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onNodesChange={isCanvasReadOnly ? undefined : onNodesChange}
+        onEdgesChange={isCanvasReadOnly ? undefined : onEdgesChange}
+        onConnect={isCanvasReadOnly ? undefined : onConnect}
         defaultEdgeOptions={{ type: edgeType }}
-        onSelectionChange={onSelectionChange}
+        onSelectionChange={isCanvasReadOnly ? undefined : onSelectionChange}
         minZoom={0.1}
         snapToGrid={true}
         snapGrid={[50, 50]}
-        nodesDraggable={!isLockedScreen}
-        nodesConnectable={!isLockedScreen}
-        elementsSelectable={!isLockedScreen}
+        nodesDraggable={!isLockedScreen && !isCanvasReadOnly}
+        nodesConnectable={!isLockedScreen && !isCanvasReadOnly}
+        elementsSelectable={!isLockedScreen && !isCanvasReadOnly}
+        nodesFocusable={!isCanvasReadOnly}
+        edgesFocusable={!isCanvasReadOnly}
+        deleteKeyCode={isCanvasReadOnly ? null : ["Backspace", "Delete"]}
+        connectOnClick={!isCanvasReadOnly}
         connectionMode={ConnectionMode.Loose}
         onInit={setRfInstance}
         defaultViewport={viewport}
         onMoveEnd={(_, viewport) => setViewport(viewport)}
       >
         <Background />
-        {members.length === 0 && (
+        {members.length === 0 && !isCanvasReadOnly && (
           <Panel
             position="top-center"
             className="!left-1/2 !-translate-x-1/2 !top-1/2 !-translate-y-1/2"
@@ -391,31 +400,40 @@ export const FlowPanel = () => {
             <EmptyTreeState onAddFirstMember={handleAddFirstMember} />
           </Panel>
         )}
-        <Panel position="top-left" className="pt-2">
-          <CanvasSearch members={members} onLocate={locateMember} />
-        </Panel>
-        <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
-          <FlowPanelControls />
-        </Panel>
-        <Panel position="bottom-right" className="pb-2">
-          <MemberControls
-            nodes={nodes}
-            selectedNodes={selectedNodes}
-            setMembersToDelete={setMembersToDelete}
-            onEditMember={(member) => {
-              setEditingMemberId(member.id);
-              setIsEditMode(true);
-              setIsNewMemberSession(false);
-            }}
-            onCreateNewMember={(member) => {
-              setPendingNewMember(member);
-              setEditingMemberId(member.id);
-              setIsEditMode(true);
-              setIsNewMemberSession(true);
-            }}
-            onRearrange={rearrangeNodes}
+        <Panel
+          position={isMobile ? "top-center" : "top-left"}
+          className={isMobile ? "w-[calc(100vw-1rem)] pt-2" : "pt-2"}
+        >
+          <CanvasSearch
+            members={members}
+            onLocate={locateMember}
+            className={isMobile ? "w-full" : undefined}
           />
         </Panel>
+        <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
+          <FlowPanelControls navigationOnly={isCanvasReadOnly} />
+        </Panel>
+        {!isCanvasReadOnly && (
+          <Panel position="bottom-right" className="pb-2">
+            <MemberControls
+              nodes={nodes}
+              selectedNodes={selectedNodes}
+              setMembersToDelete={setMembersToDelete}
+              onEditMember={(member) => {
+                setEditingMemberId(member.id);
+                setIsEditMode(true);
+                setIsNewMemberSession(false);
+              }}
+              onCreateNewMember={(member) => {
+                setPendingNewMember(member);
+                setEditingMemberId(member.id);
+                setIsEditMode(true);
+                setIsNewMemberSession(true);
+              }}
+              onRearrange={rearrangeNodes}
+            />
+          </Panel>
+        )}
       </ReactFlow>
       <RemoveMemberDialog
         isOpen={!!membersToDelete.length}
@@ -434,6 +452,7 @@ export const FlowPanel = () => {
         }}
         member={editingMember}
         initialEditMode={isEditMode}
+        canEdit={!isMobile && canWrite}
         isNewMember={isNewMemberSession}
         onDiscardNewMember={() => {
           setPendingNewMember(null);

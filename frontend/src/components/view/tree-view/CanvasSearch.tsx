@@ -4,19 +4,25 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Member } from "@/types/member";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 const MAX_RESULTS = 8;
 
 interface CanvasSearchProps {
   members: Member[];
   onLocate: (member: Member) => void;
+  className?: string;
 }
 
 /**
  * Search box rendered on the tree canvas. Filters members by first/last/maiden
  * name and, on select, asks the parent to pan/zoom to and highlight the node.
  */
-export const CanvasSearch = ({ members, onLocate }: CanvasSearchProps) => {
+export const CanvasSearch = ({
+  members,
+  onLocate,
+  className,
+}: CanvasSearchProps) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.search" });
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +84,7 @@ export const CanvasSearch = ({ members, onLocate }: CanvasSearchProps) => {
   const showResults = isOpen && query.trim().length > 0;
 
   return (
-    <div ref={containerRef} className="w-64">
+    <div ref={containerRef} className={cn("w-64", className)}>
       <div className="relative">
         <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
