@@ -3,13 +3,14 @@ import {
   ConnectionMode,
   Edge,
   Node,
+  NodeMouseHandler,
   Panel,
   Position,
   ReactFlow,
   ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createMember, Member, RelationType } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -33,11 +34,15 @@ import { useFlowInteractions } from "@/hooks/useFlowInteractions";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useFlowUnions } from "@/hooks/useFlowUnions";
 import { useIsMobile } from "@/hooks/useMobile";
+import { findConnectionPathHighlight, memberPairKey } from "@/utils/graphUtils";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
+  const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const activeTree = useTreeStore((s) => s.selectedTree);
   const isMobile = useIsMobile();
   const {
@@ -77,6 +82,9 @@ export const FlowPanel = () => {
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const missingConnectionToastRef = useRef<string | null>(null);
+  const [isConnectionMode, setIsConnectionMode] = useState(false);
+  const [connectionMemberIds, setConnectionMemberIds] = useState<string[]>([]);
   const [pendingHorizontalRelation, setPendingHorizontalRelation] = useState<{
     sourceId: string;
     targetId: string;
@@ -145,6 +153,27 @@ export const FlowPanel = () => {
   };
 
   const unions = useFlowUnions(members);
+  const connectionSelectedIds = useMemo(
+    () => new Set(connectionMemberIds),
+    [connectionMemberIds],
+  );
+  const connectionPath = useMemo(
+    () =>
+      findConnectionPathHighlight(
+        members,
+        isConnectionMode ? connectionMemberIds : [],
+      ),
+    [members, isConnectionMode, connectionMemberIds],
+  );
+  const hasConnectionPath =
+    isConnectionMode && connectionPath.edgeKeys.size > 0;
+  const missingConnectionSignature = useMemo(
+    () =>
+      connectionPath.missingPairs
+        .map((pair) => `${pair.fromId}:${pair.toId}`)
+        .join("|"),
+    [connectionPath.missingPairs],
+  );
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
@@ -163,6 +192,18 @@ export const FlowPanel = () => {
         .map((u) => {
           const p1 = nodePositions.get(u.partner1Id)!;
           const p2 = nodePositions.get(u.partner2Id)!;
+          const unionMemberPairHighlighted = connectionPath.edgeKeys.has(
+            memberPairKey(u.partner1Id, u.partner2Id),
+          );
+          const unionChildHighlighted = u.childIds.some((childId) =>
+            [u.partner1Id, u.partner2Id].some((parentId) =>
+              connectionPath.edgeKeys.has(memberPairKey(parentId, childId)),
+            ),
+          );
+          const isUnionConnectionPath =
+            hasConnectionPath &&
+            (unionMemberPairHighlighted || unionChildHighlighted);
+
           return {
             id: u.id,
             type: "unionNode",
@@ -172,7 +213,12 @@ export const FlowPanel = () => {
               // horizontal connector edges are level with the card handles.
               y: (p1.y + p2.y) / 2 + NODE_HEIGHT / 2 - UNION_NODE_SIZE / 2,
             },
-            data: u,
+            data: {
+              ...u,
+              isConnectionPath: isUnionConnectionPath,
+              isConnectionDimmed:
+                isConnectionMode && hasConnectionPath && !isUnionConnectionPath,
+            },
             draggable: false,
             selectable: false,
             focusable: false,
@@ -214,7 +260,13 @@ export const FlowPanel = () => {
             ],
           };
         }),
-    [unions, nodePositions],
+    [
+      unions,
+      nodePositions,
+      connectionPath.edgeKeys,
+      hasConnectionPath,
+      isConnectionMode,
+    ],
   );
 
   const viewNodes = useFlowNodes(
@@ -227,12 +279,17 @@ export const FlowPanel = () => {
     (id) => onAddHorizontal(id, "right"),
     highlightedNodeId,
     isCanvasReadOnly,
+    connectionSelectedIds,
+    connectionPath.nodeIds,
+    isConnectionMode,
+    hasConnectionPath,
   );
   const viewEdges = useFlowEdges(
     members,
     unions,
     visibleRelationTypes,
     edgeType,
+    connectionPath.edgeKeys,
   );
 
   const {
@@ -277,6 +334,68 @@ export const FlowPanel = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const memberIds = new Set(members.map((member) => member.id));
+    setConnectionMemberIds((currentIds) => {
+      const existingIds = currentIds.filter((id) => memberIds.has(id));
+      return existingIds.length === currentIds.length
+        ? currentIds
+        : existingIds;
+    });
+  }, [members]);
+
+  useEffect(() => {
+    if (
+      !isConnectionMode ||
+      connectionMemberIds.length < 2 ||
+      !missingConnectionSignature
+    ) {
+      missingConnectionToastRef.current = null;
+      return;
+    }
+
+    const toastSignature = `${connectionMemberIds.join(",")}:${missingConnectionSignature}`;
+    if (missingConnectionToastRef.current === toastSignature) return;
+
+    missingConnectionToastRef.current = toastSignature;
+    toast.error(
+      connectionPath.edgeKeys.size > 0
+        ? t("connection-path-partial")
+        : t("connection-path-not-found"),
+    );
+  }, [
+    isConnectionMode,
+    connectionMemberIds,
+    missingConnectionSignature,
+    connectionPath.edgeKeys.size,
+    t,
+  ]);
+
+  const toggleConnectionMode = useCallback(() => {
+    if (isConnectionMode) {
+      setIsConnectionMode(false);
+      setConnectionMemberIds([]);
+      return;
+    }
+
+    setSelectedNodes([]);
+    setIsConnectionMode(true);
+  }, [isConnectionMode]);
+
+  const handleNodeClick: NodeMouseHandler = useCallback(
+    (event, node) => {
+      if (!isConnectionMode || node.id.startsWith("union-")) return;
+      event.stopPropagation();
+
+      setConnectionMemberIds((currentIds) =>
+        currentIds.includes(node.id)
+          ? currentIds.filter((id) => id !== node.id)
+          : [...currentIds, node.id],
+      );
+    },
+    [isConnectionMode],
+  );
 
   const rearrangeNodes = () => {
     debouncedSave.cancel();
@@ -371,21 +490,36 @@ export const FlowPanel = () => {
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodesChange={isCanvasReadOnly ? undefined : onNodesChange}
-        onEdgesChange={isCanvasReadOnly ? undefined : onEdgesChange}
-        onConnect={isCanvasReadOnly ? undefined : onConnect}
+        onNodesChange={
+          isCanvasReadOnly || isConnectionMode ? undefined : onNodesChange
+        }
+        onEdgesChange={
+          isCanvasReadOnly || isConnectionMode ? undefined : onEdgesChange
+        }
+        onConnect={isCanvasReadOnly || isConnectionMode ? undefined : onConnect}
         defaultEdgeOptions={{ type: edgeType }}
-        onSelectionChange={isCanvasReadOnly ? undefined : onSelectionChange}
+        onSelectionChange={
+          isCanvasReadOnly || isConnectionMode ? undefined : onSelectionChange
+        }
+        onNodeClick={handleNodeClick}
         minZoom={0.1}
         snapToGrid={true}
         snapGrid={[50, 50]}
-        nodesDraggable={!isLockedScreen && !isCanvasReadOnly}
-        nodesConnectable={!isLockedScreen && !isCanvasReadOnly}
-        elementsSelectable={!isLockedScreen && !isCanvasReadOnly}
-        nodesFocusable={!isCanvasReadOnly}
-        edgesFocusable={!isCanvasReadOnly}
-        deleteKeyCode={isCanvasReadOnly ? null : ["Backspace", "Delete"]}
-        connectOnClick={!isCanvasReadOnly}
+        nodesDraggable={
+          !isConnectionMode && !isLockedScreen && !isCanvasReadOnly
+        }
+        nodesConnectable={
+          !isConnectionMode && !isLockedScreen && !isCanvasReadOnly
+        }
+        elementsSelectable={
+          isConnectionMode || (!isLockedScreen && !isCanvasReadOnly)
+        }
+        nodesFocusable={isConnectionMode || !isCanvasReadOnly}
+        edgesFocusable={!isConnectionMode && !isCanvasReadOnly}
+        deleteKeyCode={
+          isCanvasReadOnly || isConnectionMode ? null : ["Backspace", "Delete"]
+        }
+        connectOnClick={!isConnectionMode && !isCanvasReadOnly}
         connectionMode={ConnectionMode.Loose}
         onInit={setRfInstance}
         defaultViewport={viewport}
@@ -411,7 +545,12 @@ export const FlowPanel = () => {
           />
         </Panel>
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
-          <FlowPanelControls navigationOnly={isCanvasReadOnly} />
+          <FlowPanelControls
+            navigationOnly={isCanvasReadOnly}
+            isConnectionMode={isConnectionMode}
+            connectionDisabled={members.length < 2}
+            onToggleConnectionMode={toggleConnectionMode}
+          />
         </Panel>
         {!isCanvasReadOnly && (
           <Panel position="bottom-right" className="pb-2">
