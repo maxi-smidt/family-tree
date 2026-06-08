@@ -51,22 +51,30 @@ export const MemberPicker = ({
           </span>
           <div className="flex items-center gap-1 ml-1 shrink-0">
             {value && (
-              <X
-                className="size-3 opacity-60 hover:opacity-100"
-                onClick={(e) => {
+              <span
+                role="button"
+                aria-label="Clear"
+                className="opacity-60 hover:opacity-100"
+                onPointerDown={(e) => {
                   e.stopPropagation();
+                  e.preventDefault();
                   onChange(null);
                 }}
-              />
+              >
+                <X className="size-3" />
+              </span>
             )}
             <ChevronDown className="size-3 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
-        <Command>
-          <CommandInput className="h-8 text-xs" placeholder={placeholder} />
-          <CommandList>
+      <PopoverContent className="w-64 p-0 max-h-64 flex flex-col" align="start">
+        <Command className="flex flex-col min-h-0">
+          <CommandInput
+            className="h-8 text-xs shrink-0"
+            placeholder={placeholder}
+          />
+          <CommandList className="overflow-y-auto flex-1">
             <CommandEmpty className="text-xs py-4">
               {noResultsText}
             </CommandEmpty>
