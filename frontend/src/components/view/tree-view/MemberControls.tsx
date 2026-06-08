@@ -48,7 +48,7 @@ export const MemberControls = ({
     isDiseaseMode,
     setIsDiseaseMode,
   } = useFamilyTreeSettings();
-  const { updateMemberPartial } = useMemberStore();
+  const { batchSetCollapsed } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (
@@ -216,20 +216,18 @@ export const MemberControls = ({
   }
 
   function onExpandMembers() {
-    selectedNodes.forEach((node) =>
-      updateMemberPartial(node.id, { isCollapsed: false }),
+    batchSetCollapsed(
+      selectedNodes.map((n) => ({ id: n.id, isCollapsed: false })),
     );
   }
 
   function onExpandAllMembers() {
-    nodes.forEach((node) =>
-      updateMemberPartial(node.id, { isCollapsed: false }),
-    );
+    batchSetCollapsed(nodes.map((n) => ({ id: n.id, isCollapsed: false })));
   }
 
   function onCollapseMembers() {
-    selectedNodes.forEach((node) =>
-      updateMemberPartial(node.id, { isCollapsed: true }),
+    batchSetCollapsed(
+      selectedNodes.map((n) => ({ id: n.id, isCollapsed: true })),
     );
   }
 

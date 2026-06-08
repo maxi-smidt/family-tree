@@ -59,6 +59,13 @@ class MemberPositionUpdate(BaseModel):
     positionY: float
 
 
+class MemberCollapsedUpdate(BaseModel):
+    """One entry in a bulk collapsed-state update (expand-all / collapse-selected)."""
+
+    id: str
+    isCollapsed: bool
+
+
 # --- Relations -------------------------------------------------------------
 class RelationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
