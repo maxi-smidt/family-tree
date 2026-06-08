@@ -259,7 +259,11 @@
       "death-field": "Sterbedatum",
       "date-placeholder": "Wähle ein Datum",
       "notes-field": "Notizen / Biografie",
-      "notes-placeholder": "Biographische Notizen, persönliche Geschichte oder andere Details hinzufügen…"
+      "notes-placeholder": "Biographische Notizen, persönliche Geschichte oder andere Details hinzufügen…",
+      "paternal-parent-field": "Väterlicherseits",
+      "maternal-parent-field": "Mütterlicherseits",
+      "parent-placeholder": "Personen suchen…",
+      "parent-no-results": "Keine Personen gefunden"
     },
     "view-mode": {
       "firstname-item": "Vorname",
