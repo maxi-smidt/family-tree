@@ -57,7 +57,8 @@ export const useFlowNodes = (
 
     return nodes.map((node) => ({
       ...node,
-      hidden: !isNodeVisible(node.id),
+      // Union nodes have no member data — skip the visibility walk.
+      hidden: node.id.startsWith("union-") ? false : !isNodeVisible(node.id),
       data: {
         ...node.data,
         isHighlighted: node.id === highlightedNodeId,
