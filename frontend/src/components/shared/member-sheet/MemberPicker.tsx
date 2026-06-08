@@ -68,13 +68,10 @@ export const MemberPicker = ({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0 max-h-64 flex flex-col" align="start">
-        <Command className="flex flex-col min-h-0">
-          <CommandInput
-            className="h-8 text-xs shrink-0"
-            placeholder={placeholder}
-          />
-          <CommandList className="overflow-y-auto flex-1">
+      <PopoverContent className="w-64 p-0" align="start">
+        <Command>
+          <CommandInput className="h-8 text-xs" placeholder={placeholder} />
+          <CommandList className="max-h-48 overflow-y-auto">
             <CommandEmpty className="text-xs py-4">
               {noResultsText}
             </CommandEmpty>

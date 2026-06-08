@@ -356,7 +356,7 @@ export const EditMode = ({
             <Textarea
               id="additionalData"
               value={formData.additionalData || ""}
-              className="text-xs shadow-none resize-none"
+              className="text-xs! shadow-none resize-none"
               rows={4}
               placeholder={t("notes-placeholder")}
               onChange={(e) => handleChange("additionalData", e.target.value)}
