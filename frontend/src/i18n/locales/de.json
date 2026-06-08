@@ -424,7 +424,7 @@
       "life-unknown": "ungewiss",
       "disease-indicator_one": "{{count}} genetische Erkrankung",
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
-      "risk-indicator": "Mögliches genetisches Risiko von Eltern",
+      "risk-indicator": "Mögliches genetisches Risiko von Eltern · Kein medizinischer Rat",
       "view-details": "Personendetails anzeigen",
       "edit-member": "Person bearbeiten"
     },
