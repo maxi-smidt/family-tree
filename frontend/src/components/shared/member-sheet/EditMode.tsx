@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import { Mars, Upload, User, Venus, VenusAndMars } from "lucide-react";
@@ -50,7 +51,8 @@ export const EditMode = ({
       formData.gender !== initialData.gender ||
       (formData.imageData || "") !== (initialData.imageData || "") ||
       formData.date.birth !== initialData.date.birth ||
-      (formData.date.death || "") !== (initialData.date.death || "");
+      (formData.date.death || "") !== (initialData.date.death || "") ||
+      (formData.additionalData || "") !== (initialData.additionalData || "");
 
     onDirtyChange?.(isDirty);
   }, [formData, initialData, onDirtyChange]);
@@ -168,6 +170,7 @@ export const EditMode = ({
       imageData: formData.imageData || undefined,
       dateOfBirth: formData.date.birth,
       dateOfDeath: formData.date.death || null,
+      additionalData: formData.additionalData || null,
     });
     toast.success(t("toast-success"));
     onSaved?.(formData);
@@ -308,6 +311,20 @@ export const EditMode = ({
               value={parseDate(formData.date.death)}
               onChange={(date) => handleDateChange("death", date)}
               placeholder={t("date-placeholder")}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+              {t("notes-field")}
+            </FieldLabel>
+            <Textarea
+              id="additionalData"
+              value={formData.additionalData || ""}
+              className="text-xs shadow-none resize-none"
+              rows={4}
+              placeholder={t("notes-placeholder")}
+              onChange={(e) => handleChange("additionalData", e.target.value)}
             />
           </Field>
         </FieldGroup>

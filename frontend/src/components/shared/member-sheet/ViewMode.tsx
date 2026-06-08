@@ -120,6 +120,17 @@ export const ViewMode = ({ member }: Props) => {
         </Item>
       </div>
 
+      {member.additionalData && (
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>{t("notes-item")}</ItemTitle>
+            <ItemDescription className="whitespace-pre-wrap">
+              {member.additionalData}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      )}
+
       <Item variant="muted">
         <ItemContent>
           <ItemTitle>{t("linked-images")}</ItemTitle>

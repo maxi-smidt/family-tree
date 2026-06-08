@@ -256,7 +256,9 @@
       "maiden-field": "Mädchenname",
       "born-field": "Geburtsdatum",
       "death-field": "Sterbedatum",
-      "date-placeholder": "Wähle ein Datum"
+      "date-placeholder": "Wähle ein Datum",
+      "notes-field": "Notizen / Biografie",
+      "notes-placeholder": "Biographische Notizen, persönliche Geschichte oder andere Details hinzufügen…"
     },
     "view-mode": {
       "firstname-item": "Vorname",
@@ -267,6 +269,7 @@
       "dob-item": "Geburtsdatum",
       "dod-item": "Sterbedatum",
       "dod-fallback": "lebt",
+      "notes-item": "Notizen / Biografie",
       "linked-images": "Verlinkte Bilder",
       "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt.",
       "life-events": "Lebensereignisse",
