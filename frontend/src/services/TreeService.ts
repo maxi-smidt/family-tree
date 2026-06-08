@@ -81,6 +81,15 @@ export class TreeService {
     return api.patch(`${base(treeId)}/members/positions`, positions);
   }
 
+  /** Persist collapse/expand state for many members in a single request. */
+  static updateMemberCollapsedBulk(
+    treeId: string,
+    updates: { id: string; isCollapsed: boolean }[],
+  ) {
+    if (updates.length === 0) return Promise.resolve();
+    return api.patch(`${base(treeId)}/members/collapsed`, updates);
+  }
+
   static addRelation(
     treeId: string,
     fromId: string,

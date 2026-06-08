@@ -17,6 +17,9 @@ interface MemberState {
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
+  batchSetCollapsed: (
+    updates: { id: string; isCollapsed: boolean }[],
+  ) => Promise<void>;
   persistPositions: (
     positions: { id: string; x: number; y: number }[],
   ) => Promise<void>;
@@ -176,6 +179,23 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers();
+  },
+
+  // Persist collapse/expand state for many members in one request and reflect
+  // locally — no full refetch needed since only isCollapsed changed.
+  batchSetCollapsed: async (updates) => {
+    const treeId = activeTreeId();
+    if (!treeId || updates.length === 0) return;
+
+    const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
+    set({
+      members: get().members.map((m) => {
+        const collapsed = byId.get(m.id);
+        return collapsed !== undefined ? { ...m, isCollapsed: collapsed } : m;
+      }),
+    });
+
+    await TreeService.updateMemberCollapsedBulk(treeId, updates);
   },
 
   // Persist node positions (drag / re-layout) in one request and reflect them
