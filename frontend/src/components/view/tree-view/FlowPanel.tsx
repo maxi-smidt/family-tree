@@ -69,6 +69,9 @@ export const FlowPanel = () => {
     sourceId: string;
     targetId: string;
   } | null>(null);
+  const [pendingHorizontalSourceId, setPendingHorizontalSourceId] = useState<
+    string | null
+  >(null);
   const [pendingRelation, setPendingRelation] = useState<
     | { type: "child-of"; parentId: string }
     | { type: "parent-of"; childId: string }
@@ -123,10 +126,9 @@ export const FlowPanel = () => {
       y: member.position.y,
     });
     setPendingNewMember(newMember);
-    setPendingHorizontalRelation({
-      sourceId: memberId,
-      targetId: newMember.id,
-    });
+    setPendingHorizontalSourceId(memberId);
+    setEditingMemberId(newMember.id);
+    setIsEditMode(true);
     setIsNewMemberSession(true);
   };
 
@@ -342,6 +344,7 @@ export const FlowPanel = () => {
           setIsNewMemberSession(false);
           setPendingNewMember(null);
           setPendingRelation(null);
+          setPendingHorizontalSourceId(null);
         }}
         member={editingMember}
         initialEditMode={isEditMode}
@@ -349,6 +352,7 @@ export const FlowPanel = () => {
         onDiscardNewMember={() => {
           setPendingNewMember(null);
           setPendingRelation(null);
+          setPendingHorizontalSourceId(null);
         }}
         onSaveNewMember={async (data) => {
           if (pendingNewMember) {
@@ -369,6 +373,16 @@ export const FlowPanel = () => {
               }
               setPendingRelation(null);
             }
+            if (pendingHorizontalSourceId) {
+              // Member saved — now ask for the relation type.
+              setPendingHorizontalRelation({
+                sourceId: pendingHorizontalSourceId,
+                targetId: newMemberToSave.id,
+              });
+              setPendingHorizontalSourceId(null);
+              setEditingMemberId(null);
+              setIsNewMemberSession(false);
+            }
             setPendingNewMember(null);
           }
         }}
@@ -376,11 +390,6 @@ export const FlowPanel = () => {
       <AddRelationDialog
         isOpen={!!newRelation || !!pendingHorizontalRelation}
         onClose={() => {
-          if (pendingHorizontalRelation) {
-            // User cancelled before picking a type — discard the pending member.
-            setPendingNewMember(null);
-            setIsNewMemberSession(false);
-          }
           setNewRelation(null);
           setPendingHorizontalRelation(null);
         }}
@@ -410,18 +419,12 @@ export const FlowPanel = () => {
               toggleRelationType(type);
             }
           } else if (pendingHorizontalRelation) {
+            // Member was already saved — create the relation directly.
             const { sourceId, targetId } = pendingHorizontalRelation;
-            // Store the relation to be created when the new member is saved.
-            setPendingRelation({
-              type: "related",
-              sourceId,
-              relationType: type,
-            });
+            void addRelation(sourceId, targetId, type);
             if (!visibleRelationTypes.includes(type)) {
               toggleRelationType(type);
             }
-            setEditingMemberId(targetId);
-            setIsEditMode(true);
           }
           setNewRelation(null);
           setPendingHorizontalRelation(null);
