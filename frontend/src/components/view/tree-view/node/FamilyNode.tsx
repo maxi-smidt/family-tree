@@ -10,36 +10,86 @@ import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { MouseEvent, PointerEvent } from "react";
 import { Member } from "@/types/member";
+import { Disease } from "@/types/disease";
 import { NODE_WIDTH } from "@/constants";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
 
-// Helper to calculate if a child might be at risk based on parent diseases
+// Returns true if this disease implies genetic risk for the child, given which
+// parent it comes from and whether the other parent also carries the same condition.
+function diseaseImpliesRisk(
+  disease: Disease,
+  fromPaternal: boolean,
+  bothParentsHave: boolean,
+  childGender: Member["gender"],
+): boolean {
+  const isAffected = disease.carrierStatus === "affected";
+
+  switch (disease.inheritancePattern) {
+    case "autosomal_dominant":
+    case "x_linked_dominant":
+    case "multifactorial":
+      // 50% transmission from any affected parent
+      return isAffected;
+
+    case "autosomal_recessive":
+      // Meaningful risk only when both parents carry the same condition
+      return bothParentsHave;
+
+    case "x_linked_recessive":
+      if (!fromPaternal) {
+        // Carrier/affected mother: male children always at risk; female children
+        // need an affected father too (to receive a second X^a allele)
+        return childGender === "m" || childGender === "o" || bothParentsHave;
+      }
+      // Affected father: daughters get his X^a but are only at risk if the
+      // mother also carries the allele; sons receive Y from father — no risk
+      return childGender !== "m" && bothParentsHave;
+
+    case "y_linked":
+      // Transmitted from father to sons only
+      return fromPaternal && isAffected && childGender !== "f";
+
+    case "mitochondrial":
+      // Maternally inherited — all children of an affected/carrier mother are at risk
+      return !fromPaternal;
+
+    case "unknown":
+    default:
+      // Conservative fallback: flag any recorded carrier or affected parent
+      return isAffected || disease.carrierStatus === "carrier";
+  }
+}
+
 function calculateDiseaseRisk(member: Member, allMembers: Member[]): boolean {
-  // If member already has diseases recorded, return false (we'll show actual disease indicator)
-  if (member.diseases && member.diseases.length > 0) {
+  if (member.diseases && member.diseases.length > 0) return false;
+
+  const paternalParent = member.parents.paternalParent
+    ? allMembers.find((m) => m.id === member.parents.paternalParent)
+    : null;
+  const maternalParent = member.parents.maternalParent
+    ? allMembers.find((m) => m.id === member.parents.maternalParent)
+    : null;
+
+  const paternalDiseases = paternalParent?.diseases ?? [];
+  const maternalDiseases = maternalParent?.diseases ?? [];
+
+  if (paternalDiseases.length === 0 && maternalDiseases.length === 0)
     return false;
-  }
 
-  // Check if any parent has diseases
-  const parents: Member[] = [];
-  if (member.parents.paternalParent) {
-    const parent = allMembers.find(
-      (m) => m.id === member.parents.paternalParent,
-    );
-    if (parent) parents.push(parent);
-  }
-  if (member.parents.maternalParent) {
-    const parent = allMembers.find(
-      (m) => m.id === member.parents.maternalParent,
-    );
-    if (parent) parents.push(parent);
-  }
+  const gender = member.gender;
 
-  return parents.some(
-    (parent) => parent.diseases && parent.diseases.length > 0,
+  const check = (disease: Disease, fromPaternal: boolean): boolean => {
+    const otherSide = fromPaternal ? maternalDiseases : paternalDiseases;
+    const bothParentsHave = otherSide.some((d) => d.name === disease.name);
+    return diseaseImpliesRisk(disease, fromPaternal, bothParentsHave, gender);
+  };
+
+  return (
+    paternalDiseases.some((d) => check(d, true)) ||
+    maternalDiseases.some((d) => check(d, false))
   );
 }
 
