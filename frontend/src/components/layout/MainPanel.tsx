@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GalleryView } from "@/components/view/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/view/tree-view/FlowPanel";
@@ -8,7 +8,13 @@ import { DatabaseManagementView } from "@/components/view/database-management-vi
 import { TimelineView } from "@/components/view/timeline-view/TimelineView";
 import { ActivityView } from "@/components/view/activity-view/ActivityView";
 import { TabWrapper } from "@/components/layout/TabWrapper";
-import { useIsMobile } from "@/hooks/useMobile";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const TREE_VIEW = "tree-view";
 const LIST_VIEW = "list-view";
@@ -24,77 +30,73 @@ const ALL_VIEWS = [
   TIMELINE_VIEW,
   ACTIVITY_VIEW,
   DATABASE_MANAGEMENT_VIEW,
-];
-const MOBILE_VIEWS = [LIST_VIEW, TREE_VIEW];
+] as const;
+type ViewId = (typeof ALL_VIEWS)[number];
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
-const MOBILE_ACTIVE_TAB_STORAGE_KEY = "ft_mobile_active_tab";
 
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "layout.main-panel",
   });
-  const isMobile = useIsMobile();
 
   // Persist the selected tab so a page refresh keeps the user where they were.
-  const [activeTab, setActiveTab] = useState<string>(() => {
+  const [activeTab, setActiveTab] = useState<ViewId>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-    return stored && ALL_VIEWS.includes(stored) ? stored : TREE_VIEW;
+    return stored && isViewId(stored) ? stored : TREE_VIEW;
   });
 
   const handleTabChange = (value: string) => {
+    if (!isViewId(value)) return;
     setActiveTab(value);
-    localStorage.setItem(
-      isMobile ? MOBILE_ACTIVE_TAB_STORAGE_KEY : ACTIVE_TAB_STORAGE_KEY,
-      value,
-    );
+    localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, value);
   };
 
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const stored = localStorage.getItem(MOBILE_ACTIVE_TAB_STORAGE_KEY);
-    const nextTab =
-      stored && MOBILE_VIEWS.includes(stored) ? stored : LIST_VIEW;
-    if (activeTab !== nextTab) {
-      setActiveTab(nextTab);
-    }
-  }, [activeTab, isMobile]);
-
-  const visibleTabs = isMobile ? MOBILE_VIEWS : ALL_VIEWS;
-  const effectiveTab =
-    isMobile && !MOBILE_VIEWS.includes(activeTab) ? LIST_VIEW : activeTab;
+  const viewLabels = {
+    [TREE_VIEW]: t("tree"),
+    [LIST_VIEW]: t("list"),
+    [GALLERY_VIEW]: t("gallery"),
+    [TIMELINE_VIEW]: t("timeline"),
+    [ACTIVITY_VIEW]: t("activity"),
+    [DATABASE_MANAGEMENT_VIEW]: t("database-management"),
+  };
 
   return (
     <Tabs
-      value={effectiveTab}
+      value={activeTab}
       onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
-      <TabsList
-        variant={isMobile ? "default" : "line"}
-        className={
-          isMobile
-            ? "ml-16 mr-4 mt-3 grid h-10 w-auto flex-none grid-cols-2"
-            : "ml-16 mt-3"
-        }
-      >
-        {visibleTabs.includes(LIST_VIEW) && (
-          <TabsTrigger value={LIST_VIEW}>{t("list")}</TabsTrigger>
-        )}
-        {visibleTabs.includes(TREE_VIEW) && (
-          <TabsTrigger value={TREE_VIEW}>{t("tree")}</TabsTrigger>
-        )}
-        {!isMobile && (
-          <>
-            <TabsTrigger value={GALLERY_VIEW}>{t("gallery")}</TabsTrigger>
-            <TabsTrigger value={TIMELINE_VIEW}>{t("timeline")}</TabsTrigger>
-            <TabsTrigger value={ACTIVITY_VIEW}>{t("activity")}</TabsTrigger>
-            <div className="border-l border-border self-stretch h-auto mx-2" />
-            <TabsTrigger value={DATABASE_MANAGEMENT_VIEW}>
-              {t("database-management")}
-            </TabsTrigger>
-          </>
-        )}
+      <div className="ml-16 mr-4 mt-3 flex-none md:hidden">
+        <Select value={activeTab} onValueChange={handleTabChange}>
+          <SelectTrigger className="h-10 w-full bg-background shadow-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start">
+            {ALL_VIEWS.map((view) => (
+              <SelectItem key={view} value={view}>
+                {viewLabels[view]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <TabsList variant="line" className="ml-16 mt-3 hidden md:inline-flex">
+        <TabsTrigger value={TREE_VIEW}>{viewLabels[TREE_VIEW]}</TabsTrigger>
+        <TabsTrigger value={LIST_VIEW}>{viewLabels[LIST_VIEW]}</TabsTrigger>
+        <TabsTrigger value={GALLERY_VIEW}>
+          {viewLabels[GALLERY_VIEW]}
+        </TabsTrigger>
+        <TabsTrigger value={TIMELINE_VIEW}>
+          {viewLabels[TIMELINE_VIEW]}
+        </TabsTrigger>
+        <TabsTrigger value={ACTIVITY_VIEW}>
+          {viewLabels[ACTIVITY_VIEW]}
+        </TabsTrigger>
+        <div className="border-l border-border self-stretch h-auto mx-2" />
+        <TabsTrigger value={DATABASE_MANAGEMENT_VIEW}>
+          {viewLabels[DATABASE_MANAGEMENT_VIEW]}
+        </TabsTrigger>
       </TabsList>
       <TabWrapper value={TREE_VIEW}>
         <FlowPanel />
@@ -117,3 +119,7 @@ export const MainPanel = () => {
     </Tabs>
   );
 };
+
+function isViewId(value: string): value is ViewId {
+  return ALL_VIEWS.some((view) => view === value);
+}

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
+import { MouseEvent, PointerEvent } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
@@ -49,13 +50,19 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     keyPrefix: "tree-view.node",
   });
 
-  const onEditClick = () => {
+  const stopCanvasGesture = (event: PointerEvent | MouseEvent) => {
+    event.stopPropagation();
+  };
+
+  const onEditClick = (event: MouseEvent<HTMLButtonElement>) => {
+    stopCanvasGesture(event);
     if (data.onEdit && typeof data.onEdit === "function") {
       data.onEdit();
     }
   };
 
-  const onViewClick = () => {
+  const onViewClick = (event: MouseEvent<HTMLButtonElement>) => {
+    stopCanvasGesture(event);
     if (data.onView && typeof data.onView === "function") {
       data.onView();
     }
@@ -102,6 +109,16 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   // Calculate if this person has potential disease risk from parents
   const hasRisk = isDiseaseMode && calculateDiseaseRisk(data, members);
+  const handleClassName = `${
+    isFastMode ? "w-1/2!" : "w-1/4!"
+  } bg-muted-foreground! rounded-md! ${
+    data.isReadOnly ? "pointer-events-none opacity-0" : ""
+  }`;
+  const horizontalHandleClassName = `${
+    isFastMode ? "h-3/5!" : "h-1/4!"
+  } bg-muted-foreground! rounded-md! ${
+    data.isReadOnly ? "pointer-events-none opacity-0" : ""
+  }`;
 
   return (
     <div
@@ -121,26 +138,45 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="target"
         position={Position.Top}
         id="top"
-        className={`${isFastMode ? "w-1/2!" : "w-1/4!"} bg-muted-foreground! rounded-md!`}
+        isConnectable={!data.isReadOnly}
+        className={handleClassName}
       />
       <Handle
         type="source"
         position={Position.Left}
         id="left"
-        className={`${isFastMode ? "h-3/5!" : "h-1/4!"} bg-muted-foreground! rounded-md!`}
+        isConnectable={!data.isReadOnly}
+        className={horizontalHandleClassName}
       />
       <Handle
         type="source"
         position={Position.Right}
         id="right"
-        className={`${isFastMode ? "h-3/5!" : "h-1/4!"} bg-muted-foreground! rounded-md!`}
+        isConnectable={!data.isReadOnly}
+        className={horizontalHandleClassName}
       />
       <div className="absolute top-2 flex justify-between w-full px-2">
-        <Button variant="outline" size="icon-sm" onClick={onViewClick}>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label={t("view-details")}
+          className="nodrag nopan"
+          onPointerDown={stopCanvasGesture}
+          onClick={onViewClick}
+        >
           <EyeIcon />
         </Button>
         {!data.isReadOnly && (
-          <Button variant="outline" size="icon-sm" onClick={onEditClick}>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={t("edit-member")}
+            className="nodrag nopan"
+            onPointerDown={stopCanvasGesture}
+            onClick={onEditClick}
+          >
             <PencilIcon />
           </Button>
         )}
@@ -260,7 +296,8 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="source"
         position={Position.Bottom}
         id="bottom"
-        className={`${isFastMode ? "w-1/2!" : "w-1/4!"} bg-muted-foreground! rounded-md!`}
+        isConnectable={!data.isReadOnly}
+        className={handleClassName}
       />
     </div>
   );

@@ -371,11 +371,11 @@ export const FlowPanel = () => {
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
+        onNodesChange={isCanvasReadOnly ? undefined : onNodesChange}
+        onEdgesChange={isCanvasReadOnly ? undefined : onEdgesChange}
+        onConnect={isCanvasReadOnly ? undefined : onConnect}
         defaultEdgeOptions={{ type: edgeType }}
-        onSelectionChange={onSelectionChange}
+        onSelectionChange={isCanvasReadOnly ? undefined : onSelectionChange}
         minZoom={0.1}
         snapToGrid={true}
         snapGrid={[50, 50]}
@@ -385,6 +385,7 @@ export const FlowPanel = () => {
         nodesFocusable={!isCanvasReadOnly}
         edgesFocusable={!isCanvasReadOnly}
         deleteKeyCode={isCanvasReadOnly ? null : ["Backspace", "Delete"]}
+        connectOnClick={!isCanvasReadOnly}
         connectionMode={ConnectionMode.Loose}
         onInit={setRfInstance}
         defaultViewport={viewport}
