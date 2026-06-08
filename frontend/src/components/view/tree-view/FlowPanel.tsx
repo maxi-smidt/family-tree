@@ -4,6 +4,7 @@ import {
   Edge,
   Node,
   Panel,
+  Position,
   ReactFlow,
   ReactFlowInstance,
 } from "@xyflow/react";
@@ -20,14 +21,19 @@ import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
+import {
+  UnionNode,
+  UNION_NODE_SIZE,
+} from "@/components/view/tree-view/node/UnionNode";
 import { AddRelationDialog } from "@/components/view/tree-view/dialog/AddRelationDialog";
 import { RelationEdge } from "@/components/view/tree-view/edge/RelationEdge";
 import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
+import { useFlowUnions } from "@/hooks/useFlowUnions";
 
-const nodeTypes = { familyMember: FamilyNode };
+const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
@@ -134,6 +140,77 @@ export const FlowPanel = () => {
     setIsNewMemberSession(true);
   };
 
+  const unions = useFlowUnions(members);
+
+  // Use `nodes` (local state, updates on every drag frame) rather than `members`
+  // (store, lags by the debounce) so union dots track their parents in real-time.
+  const nodePositions = useMemo(
+    () => new Map(nodes.map((n) => [n.id, n.position])),
+    [nodes],
+  );
+
+  const unionNodes = useMemo<Node[]>(
+    () =>
+      unions
+        .filter(
+          (u) =>
+            nodePositions.has(u.partner1Id) && nodePositions.has(u.partner2Id),
+        )
+        .map((u) => {
+          const p1 = nodePositions.get(u.partner1Id)!;
+          const p2 = nodePositions.get(u.partner2Id)!;
+          return {
+            id: u.id,
+            type: "unionNode",
+            position: {
+              x: (p1.x + p2.x) / 2 + NODE_WIDTH / 2 - UNION_NODE_SIZE / 2,
+              y: (p1.y + p2.y) / 2,
+            },
+            data: u,
+            draggable: false,
+            selectable: false,
+            focusable: false,
+            // Pre-set dimensions so React Flow skips its ResizeObserver
+            // measurement cycle and renders the node visible immediately.
+            width: UNION_NODE_SIZE,
+            height: UNION_NODE_SIZE,
+            // Pre-declare handles so React Flow's isNodeInitialized()
+            // returns true without waiting for DOM-based handle measurement.
+            // Without this, getEdgePosition() returns null and edges are invisible.
+            handles: [
+              {
+                id: "left",
+                type: "target" as const,
+                position: Position.Left,
+                x: 0,
+                y: 0,
+                width: 1,
+                height: UNION_NODE_SIZE,
+              },
+              {
+                id: "right",
+                type: "source" as const,
+                position: Position.Right,
+                x: 0,
+                y: 0,
+                width: UNION_NODE_SIZE,
+                height: UNION_NODE_SIZE,
+              },
+              {
+                id: "bottom",
+                type: "source" as const,
+                position: Position.Bottom,
+                x: 0,
+                y: 0,
+                width: UNION_NODE_SIZE,
+                height: UNION_NODE_SIZE,
+              },
+            ],
+          };
+        }),
+    [unions, nodePositions],
+  );
+
   const viewNodes = useFlowNodes(
     nodes,
     setEditingMemberId,
@@ -144,7 +221,12 @@ export const FlowPanel = () => {
     (id) => onAddHorizontal(id, "right"),
     highlightedNodeId,
   );
-  const viewEdges = useFlowEdges(members, visibleRelationTypes, edgeType);
+  const viewEdges = useFlowEdges(
+    members,
+    unions,
+    visibleRelationTypes,
+    edgeType,
+  );
 
   const {
     onNodesChange,
@@ -278,7 +360,7 @@ export const FlowPanel = () => {
   return (
     <div className="w-full h-full">
       <ReactFlow
-        nodes={viewNodes}
+        nodes={[...viewNodes, ...unionNodes]}
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}

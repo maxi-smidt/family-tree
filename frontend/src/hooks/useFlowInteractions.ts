@@ -53,7 +53,8 @@ export const useFlowInteractions = (
 
   const changeMemberPosition = useCallback(
     (change: NodePositionChange) => {
-      if (change.position) {
+      // Union nodes are ephemeral — never persist their positions.
+      if (change.position && !change.id.startsWith("union-")) {
         pendingUpdates.current[change.id] = change.position;
         debouncedSave();
       }
@@ -65,7 +66,7 @@ export const useFlowInteractions = (
     (ids: Set<string>) => {
       setNodes((currentNodes) => {
         const members = currentNodes
-          .filter((n) => ids.has(n.id))
+          .filter((n) => ids.has(n.id) && !n.id.startsWith("union-"))
           .map((n) => n.data as Member);
 
         if (members.length > 0) {
