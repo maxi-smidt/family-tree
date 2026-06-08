@@ -11,7 +11,7 @@ import {
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createMember, Member, RelationType } from "@/types/member";
-import { NODE_WIDTH } from "@/constants";
+import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -164,7 +164,9 @@ export const FlowPanel = () => {
             type: "unionNode",
             position: {
               x: (p1.x + p2.x) / 2 + NODE_WIDTH / 2 - UNION_NODE_SIZE / 2,
-              y: (p1.y + p2.y) / 2,
+              // Center the dot at the mid-height of the partner cards so the
+              // horizontal connector edges are level with the card handles.
+              y: (p1.y + p2.y) / 2 + NODE_HEIGHT / 2 - UNION_NODE_SIZE / 2,
             },
             data: u,
             draggable: false,

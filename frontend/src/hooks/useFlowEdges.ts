@@ -59,14 +59,15 @@ export const useFlowEdges = (
         const style = coupleStyle(relType);
         const baseStyle = { ...style, strokeWidth: 2 };
 
-        // partner1 → union (left handle)
+        // partner1 → union (left handle). Use smoothstep so the edge curves
+        // gracefully when partners aren't on exactly the same Y level.
         newEdges.push({
           id: `ue:${u.id}:left`,
           source: u.partner1Id as string,
           target: u.id as string,
           sourceHandle: "right",
           targetHandle: "left",
-          type: "relation",
+          type: "smoothstep",
           style: baseStyle,
           animated: false,
         });
@@ -78,7 +79,7 @@ export const useFlowEdges = (
           target: u.partner2Id as string,
           sourceHandle: "right",
           targetHandle: "left",
-          type: "relation",
+          type: "smoothstep",
           style: baseStyle,
           animated: false,
         });
@@ -93,7 +94,9 @@ export const useFlowEdges = (
             target: cId,
             sourceHandle: "bottom",
             targetHandle: "top",
-            type: edgeType,
+            // smoothstep gives a vertical-first drop that reads like a classic
+            // family-tree descent line.
+            type: "smoothstep",
             style: { strokeWidth: 1.5 },
             animated: false,
           });
