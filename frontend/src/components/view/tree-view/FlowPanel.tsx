@@ -25,6 +25,7 @@ import { RelationEdge } from "@/components/view/tree-view/edge/RelationEdge";
 import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
+import { useUndoRedo } from "@/hooks/useUndoRedo";
 
 const nodeTypes = { familyMember: FamilyNode };
 const edgeTypes = { relation: RelationEdge };
@@ -40,6 +41,7 @@ export const FlowPanel = () => {
     addMember,
     updateMemberPartial,
   } = useMemberStore();
+  useUndoRedo();
   const { isReady } = useTreeStore();
   const {
     edgeType,

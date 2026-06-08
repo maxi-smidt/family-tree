@@ -11,8 +11,20 @@ import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId } from "@/hooks/useTreeStore";
 
+interface HistoryEntry {
+  undo: () => Promise<void>;
+  redo: () => Promise<void>;
+}
+
+const MAX_HISTORY = 50;
+
 interface MemberState {
   members: Member[];
+  undoStack: HistoryEntry[];
+  redoStack: HistoryEntry[];
+  _pushHistory: (entry: HistoryEntry) => void;
+  undo: () => Promise<void>;
+  redo: () => Promise<void>;
   refreshMembers: () => Promise<void>;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
@@ -41,6 +53,44 @@ interface MemberState {
 
 export const useMemberStore = create<MemberState>((set, get) => ({
   members: [],
+  undoStack: [],
+  redoStack: [],
+
+  _pushHistory: (entry) => {
+    const { undoStack } = get();
+    set({
+      undoStack: [...undoStack.slice(-(MAX_HISTORY - 1)), entry],
+      redoStack: [],
+    });
+  },
+
+  undo: async () => {
+    const { undoStack } = get();
+    if (undoStack.length === 0) return;
+    const entry = undoStack[undoStack.length - 1];
+    set({ undoStack: undoStack.slice(0, -1) });
+    try {
+      await entry.undo();
+      set((s) => ({ redoStack: [...s.redoStack, entry] }));
+    } catch (e) {
+      set((s) => ({ undoStack: [...s.undoStack, entry] }));
+      throw e;
+    }
+  },
+
+  redo: async () => {
+    const { redoStack } = get();
+    if (redoStack.length === 0) return;
+    const entry = redoStack[redoStack.length - 1];
+    set({ redoStack: redoStack.slice(0, -1) });
+    try {
+      await entry.redo();
+      set((s) => ({ undoStack: [...s.undoStack, entry] }));
+    } catch (e) {
+      set((s) => ({ redoStack: [...s.redoStack, entry] }));
+      throw e;
+    }
+  },
 
   refreshMembers: async () => {
     const treeId = activeTreeId();
@@ -122,24 +172,92 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers();
+
+    const captured = newMember;
+    get()._pushHistory({
+      undo: async () => {
+        await TreeService.removeMember(treeId, captured.id);
+        await get().refreshMembers();
+      },
+      redo: async () => {
+        await TreeService.addMember(treeId, captured);
+        if (captured.parents.paternalParent) {
+          await TreeService.addRelation(
+            treeId,
+            captured.id,
+            captured.parents.paternalParent,
+            "parent",
+          );
+        }
+        if (captured.parents.maternalParent) {
+          await TreeService.addRelation(
+            treeId,
+            captured.id,
+            captured.parents.maternalParent,
+            "parent",
+          );
+        }
+        if (captured.relations) {
+          for (const rel of captured.relations) {
+            if (
+              rel.relationType === "parent" &&
+              (rel.toMemberId === captured.parents.paternalParent ||
+                rel.toMemberId === captured.parents.maternalParent)
+            ) {
+              continue;
+            }
+            await TreeService.addRelation(
+              treeId,
+              captured.id,
+              rel.toMemberId,
+              rel.relationType,
+            );
+          }
+        }
+        await get().refreshMembers();
+      },
+    });
   },
 
   removeMember: async (memberId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
+
+    const captured = get().members.find((m) => m.id === memberId);
+    if (!captured) return;
+
     await TreeService.removeMember(treeId, memberId);
     await get().refreshMembers();
+
+    get()._pushHistory({
+      undo: async () => {
+        await TreeService.addMember(treeId, captured);
+        for (const rel of captured.relations ?? []) {
+          await TreeService.addRelation(
+            treeId,
+            rel.fromMemberId,
+            rel.toMemberId,
+            rel.relationType as RelationType,
+          );
+        }
+        await get().refreshMembers();
+      },
+      redo: async () => {
+        await TreeService.removeMember(treeId, captured.id);
+        await get().refreshMembers();
+      },
+    });
   },
 
   updateMemberPartial: async (id: string, changes: MemberUpdate) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
+    const currentMember = get().members.find((m) => m.id === id);
+
     const { paternalParentId, maternalParentId, ...otherChanges } = changes;
 
     await TreeService.updateMember(treeId, id, otherChanges);
-
-    const currentMember = get().members.find((m) => m.id === id);
 
     // Re-point one parent slot: drop the previous "parent" relation (if it
     // changed) and add the new one. A no-op when old and new are the same.
@@ -179,6 +297,60 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers();
+
+    if (!currentMember) return;
+
+    const oldPaternal = currentMember.parents.paternalParent;
+    const oldMaternal = currentMember.parents.maternalParent;
+
+    const reverseChanges: Omit<
+      MemberUpdate,
+      "paternalParentId" | "maternalParentId"
+    > = {};
+    if ("gender" in otherChanges) reverseChanges.gender = currentMember.gender;
+    if ("firstName" in otherChanges)
+      reverseChanges.firstName = currentMember.firstName;
+    if ("lastName" in otherChanges)
+      reverseChanges.lastName = currentMember.lastName;
+    if ("maidenName" in otherChanges)
+      reverseChanges.maidenName = currentMember.maidenName;
+    if ("imageData" in otherChanges)
+      reverseChanges.imageData = currentMember.imageData ?? undefined;
+    if ("dateOfBirth" in otherChanges)
+      reverseChanges.dateOfBirth = currentMember.date.birth;
+    if ("dateOfDeath" in otherChanges)
+      reverseChanges.dateOfDeath = currentMember.date.death;
+    if ("additionalData" in otherChanges)
+      reverseChanges.additionalData = currentMember.additionalData;
+    if ("isCollapsed" in otherChanges)
+      reverseChanges.isCollapsed = currentMember.isCollapsed;
+    if ("positionX" in otherChanges)
+      reverseChanges.positionX = currentMember.position.x;
+    if ("positionY" in otherChanges)
+      reverseChanges.positionY = currentMember.position.y;
+
+    get()._pushHistory({
+      undo: async () => {
+        await TreeService.updateMember(treeId, id, reverseChanges);
+        if (paternalParentId !== undefined) {
+          await syncParentSlot(paternalParentId, oldPaternal);
+        }
+        if (maternalParentId !== undefined) {
+          await syncParentSlot(maternalParentId, oldMaternal);
+        }
+        await get().refreshMembers();
+      },
+      redo: async () => {
+        await TreeService.updateMember(treeId, id, otherChanges);
+        if (paternalParentId !== undefined) {
+          await syncParentSlot(oldPaternal, paternalParentId);
+        }
+        if (maternalParentId !== undefined) {
+          await syncParentSlot(oldMaternal, maternalParentId);
+        }
+        await get().refreshMembers();
+      },
+    });
   },
 
   // Persist collapse/expand state for many members in one request and reflect
@@ -204,6 +376,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId || positions.length === 0) return;
 
+    const oldPositions = positions.map((p) => {
+      const existing = get().members.find((m) => m.id === p.id);
+      return existing
+        ? { id: p.id, x: existing.position.x, y: existing.position.y }
+        : { ...p };
+    });
+
     const byId = new Map(positions.map((p) => [p.id, p]));
     set({
       members: get().members.map((m) => {
@@ -216,6 +395,43 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       treeId,
       positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
     );
+
+    get()._pushHistory({
+      undo: async () => {
+        const byOldId = new Map(oldPositions.map((p) => [p.id, p]));
+        set({
+          members: get().members.map((m) => {
+            const p = byOldId.get(m.id);
+            return p ? { ...m, position: { x: p.x, y: p.y } } : m;
+          }),
+        });
+        await TreeService.updateMemberPositions(
+          treeId,
+          oldPositions.map((p) => ({
+            id: p.id,
+            positionX: p.x,
+            positionY: p.y,
+          })),
+        );
+      },
+      redo: async () => {
+        const byNewId = new Map(positions.map((p) => [p.id, p]));
+        set({
+          members: get().members.map((m) => {
+            const p = byNewId.get(m.id);
+            return p ? { ...m, position: { x: p.x, y: p.y } } : m;
+          }),
+        });
+        await TreeService.updateMemberPositions(
+          treeId,
+          positions.map((p) => ({
+            id: p.id,
+            positionX: p.x,
+            positionY: p.y,
+          })),
+        );
+      },
+    });
   },
 
   updateLayout: async () => {
@@ -243,6 +459,17 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.addRelation(treeId, fromId, toId, type);
     await get().refreshMembers();
+
+    get()._pushHistory({
+      undo: async () => {
+        await TreeService.removeRelation(treeId, fromId, toId, type);
+        await get().refreshMembers();
+      },
+      redo: async () => {
+        await TreeService.addRelation(treeId, fromId, toId, type);
+        await get().refreshMembers();
+      },
+    });
   },
 
   removeRelation: async (fromId: string, toId: string, type: RelationType) => {
@@ -250,6 +477,17 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.removeRelation(treeId, fromId, toId, type);
     await get().refreshMembers();
+
+    get()._pushHistory({
+      undo: async () => {
+        await TreeService.addRelation(treeId, fromId, toId, type);
+        await get().refreshMembers();
+      },
+      redo: async () => {
+        await TreeService.removeRelation(treeId, fromId, toId, type);
+        await get().refreshMembers();
+      },
+    });
   },
 
   addDisease: async (memberId: string, disease: DiseaseInput) => {
