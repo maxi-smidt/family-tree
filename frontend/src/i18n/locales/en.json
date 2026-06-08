@@ -256,7 +256,9 @@
       "maiden-field": "Maiden Name",
       "born-field": "Date of Birth",
       "death-field": "Date of Death",
-      "date-placeholder": "Pick a date"
+      "date-placeholder": "Pick a date",
+      "notes-field": "Notes / Biography",
+      "notes-placeholder": "Add biographical notes, personal history, or other details…"
     },
     "view-mode": {
       "firstname-item": "First Name",
@@ -267,6 +269,7 @@
       "dob-item": "Date of Birth",
       "dod-item": "Date of Death",
       "dod-fallback": "Alive",
+      "notes-item": "Notes / Biography",
       "linked-images": "Linked Images",
       "linked-images-fallback": "No images linked to this person yet.",
       "life-events": "Life Events",

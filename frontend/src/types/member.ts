@@ -97,7 +97,7 @@ export interface MemberUpdate {
   dateOfDeath?: string | null;
   paternalParentId?: string | null;
   maternalParentId?: string | null;
-  additionalData?: string;
+  additionalData?: string | null;
   isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
