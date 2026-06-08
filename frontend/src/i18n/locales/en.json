@@ -625,9 +625,11 @@
       "description": "Update the password for your account.",
       "current": "Current password",
       "new": "New password",
+      "confirm": "Confirm new password",
       "cancel": "Cancel",
       "save": "Save",
       "success": "Password changed.",
+      "mismatch": "The new passwords do not match.",
       "error": "Could not change password."
     },
     "user-menu": {

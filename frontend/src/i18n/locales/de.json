@@ -625,9 +625,11 @@
       "description": "Aktualisiere das Passwort für dein Konto.",
       "current": "Aktuelles Passwort",
       "new": "Neues Passwort",
+      "confirm": "Neues Passwort bestätigen",
       "cancel": "Abbrechen",
       "save": "Speichern",
       "success": "Passwort geändert.",
+      "mismatch": "Die neuen Passwörter stimmen nicht überein.",
       "error": "Passwort konnte nicht geändert werden."
     },
     "user-menu": {
