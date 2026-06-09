@@ -21,6 +21,10 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.models import Member, Tree, TreeMembership, User
 
+# The dev .env uses a short key; patch before any JWT operation so
+# PyJWT's InsecureKeyLengthWarning (RFC 7518 §3.2, 32-byte minimum) is silent.
+settings.SECRET_KEY = "test-only-secret-key-at-least-32-bytes-long-for-hs256"  # noqa: S105
+
 
 @pytest.fixture()
 def session_factory(tmp_path):
