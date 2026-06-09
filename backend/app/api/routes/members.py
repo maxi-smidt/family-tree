@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
 from app.db.session import get_db
-from app.models import Member, MemberDisease, Relation, Tree
+from app.models import Member, MemberDisease, Relation, RelationType, Tree
 from app.models.user import User
 from app.schemas.family import (
     DiseaseCreate,
@@ -181,6 +181,29 @@ def add_relation(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from_member = db.scalar(
+        select(Member).where(
+            Member.id == payload.from_member_id, Member.tree_id == tree.id
+        )
+    )
+    if from_member is None:
+        raise HTTPException(
+            status_code=404, detail="from_member_id not found in this tree"
+        )
+    to_member = db.scalar(
+        select(Member).where(
+            Member.id == payload.to_member_id, Member.tree_id == tree.id
+        )
+    )
+    if to_member is None:
+        raise HTTPException(
+            status_code=404, detail="to_member_id not found in this tree"
+        )
+    if db.get(RelationType, (tree.id, payload.relation_type)) is None:
+        raise HTTPException(
+            status_code=404, detail="relation_type not found in this tree"
+        )
+
     key = (tree.id, payload.from_member_id, payload.to_member_id, payload.relation_type)
     relation = db.get(Relation, key)
     if relation is None:

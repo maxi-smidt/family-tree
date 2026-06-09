@@ -15,11 +15,12 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.models  # noqa: F401  (registers every table on Base.metadata)
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.constants import DEFAULT_RELATION_TYPES
 from app.core.rate_limit import login_rate_limiter
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import get_db
-from app.models import Member, Tree, TreeMembership, User
+from app.models import Member, RelationType, Tree, TreeMembership, User
 
 # The dev .env uses a short key; patch before any JWT operation so
 # PyJWT's InsecureKeyLengthWarning (RFC 7518 §3.2, 32-byte minimum) is silent.
@@ -102,9 +103,15 @@ def auth(user: User) -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
 
-def make_tree(db: Session, owner: User, name: str = "Tree") -> Tree:
-    tree = Tree(name=name, owner_id=owner.id)
+def make_tree(
+    db: Session, owner: User, name: str = "Tree", tree_id: str | None = None
+) -> Tree:
+    kw = {"id": tree_id} if tree_id else {}
+    tree = Tree(name=name, owner_id=owner.id, **kw)
     db.add(tree)
+    db.flush()
+    for rt in DEFAULT_RELATION_TYPES:
+        db.add(RelationType(tree_id=tree.id, id=rt))
     db.commit()
     db.refresh(tree)
     return tree
