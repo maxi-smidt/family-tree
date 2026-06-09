@@ -9,7 +9,15 @@ import {
   useRef,
   useState,
 } from "react";
-import { Mars, Upload, User, Venus, VenusAndMars } from "lucide-react";
+import {
+  Mars,
+  Plus,
+  Trash2,
+  Upload,
+  User,
+  Venus,
+  VenusAndMars,
+} from "lucide-react";
 import { Gender, Member } from "@/types/member";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
@@ -80,6 +88,10 @@ export const EditMode = ({
       formData.date.birth !== initialData.date.birth ||
       (formData.date.death || "") !== (initialData.date.death || "") ||
       (formData.additionalData || "") !== (initialData.additionalData || "") ||
+      (formData.birthplace || "") !== (initialData.birthplace || "") ||
+      (formData.hometown || "") !== (initialData.hometown || "") ||
+      JSON.stringify(formData.placesLived) !==
+        JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
       formData.parents.maternalParent !== initialData.parents.maternalParent;
 
@@ -204,6 +216,12 @@ export const EditMode = ({
       dateOfBirth: formData.date.birth,
       dateOfDeath: formData.date.death || null,
       additionalData: formData.additionalData || null,
+      birthplace: formData.birthplace || null,
+      hometown: formData.hometown || null,
+      placesLived:
+        formData.placesLived.length > 0
+          ? JSON.stringify(formData.placesLived)
+          : null,
       paternalParentId: formData.parents.paternalParent,
       maternalParentId: formData.parents.maternalParent,
     });
@@ -361,6 +379,118 @@ export const EditMode = ({
               placeholder={t("notes-placeholder")}
               onChange={(e) => handleChange("additionalData", e.target.value)}
             />
+          </Field>
+
+          <Field>
+            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+              {t("birthplace-field")}
+            </FieldLabel>
+            <Input
+              id="birthplace"
+              value={formData.birthplace || ""}
+              className="h-7 text-xs! shadow-none"
+              placeholder={t("location-placeholder")}
+              onChange={(e) => handleChange("birthplace", e.target.value)}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+              {t("hometown-field")}
+            </FieldLabel>
+            <Input
+              id="hometown"
+              value={formData.hometown || ""}
+              className="h-7 text-xs! shadow-none"
+              placeholder={t("location-placeholder")}
+              onChange={(e) => handleChange("hometown", e.target.value)}
+            />
+          </Field>
+
+          <Field>
+            <div className="flex items-center justify-between">
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                {t("places-lived-field")}
+              </FieldLabel>
+              <button
+                type="button"
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                onClick={() =>
+                  handleChange("placesLived", [
+                    ...formData.placesLived,
+                    { location: "", from: null, to: null },
+                  ])
+                }
+              >
+                <Plus className="size-3" />
+                {t("places-lived-add")}
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {formData.placesLived.map((place, idx) => (
+                <div
+                  key={idx}
+                  className="flex flex-col gap-1 border rounded p-2"
+                >
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={place.location}
+                      className="h-7 text-xs! shadow-none flex-1"
+                      placeholder={t("location-placeholder")}
+                      onChange={(e) => {
+                        const next = formData.placesLived.map((p, i) =>
+                          i === idx ? { ...p, location: e.target.value } : p,
+                        );
+                        handleChange("placesLived", next);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      onClick={() => {
+                        handleChange(
+                          "placesLived",
+                          formData.placesLived.filter((_, i) => i !== idx),
+                        );
+                      }}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex gap-1">
+                    <Input
+                      value={place.from || ""}
+                      className="h-7 text-xs! shadow-none"
+                      placeholder={t("places-lived-from")}
+                      onChange={(e) => {
+                        const next = formData.placesLived.map((p, i) =>
+                          i === idx
+                            ? { ...p, from: e.target.value || null }
+                            : p,
+                        );
+                        handleChange("placesLived", next);
+                      }}
+                    />
+                    <Input
+                      value={place.to || ""}
+                      className="h-7 text-xs! shadow-none"
+                      placeholder={t("places-lived-to")}
+                      onChange={(e) => {
+                        const next = formData.placesLived.map((p, i) =>
+                          i === idx ? { ...p, to: e.target.value || null } : p,
+                        );
+                        handleChange("placesLived", next);
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+              {formData.placesLived.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {t("places-lived-empty")}
+                </p>
+              )}
+            </div>
           </Field>
 
           {!isNew && (

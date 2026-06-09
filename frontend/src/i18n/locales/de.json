@@ -263,7 +263,15 @@
       "paternal-parent-field": "Väterlicherseits",
       "maternal-parent-field": "Mütterlicherseits",
       "parent-placeholder": "Personen suchen…",
-      "parent-no-results": "Keine Personen gefunden"
+      "parent-no-results": "Keine Personen gefunden",
+      "birthplace-field": "Geburtsort",
+      "hometown-field": "Heimatort / Aufgewachsen in",
+      "location-placeholder": "Stadt, Region, Land…",
+      "places-lived-field": "Wohnorte",
+      "places-lived-add": "Ort hinzufügen",
+      "places-lived-from": "Von (Jahr)",
+      "places-lived-to": "Bis (Jahr)",
+      "places-lived-empty": "Noch keine Orte hinzugefügt."
     },
     "view-mode": {
       "firstname-item": "Vorname",
@@ -282,7 +290,10 @@
       "stories": "Dokumente & Geschichten",
       "no-stories": "Noch nichts gespeichert",
       "genetic-conditions": "Genetische Erkrankungen",
-      "no-conditions": "Keine Erkrankungen erfasst"
+      "no-conditions": "Keine Erkrankungen erfasst",
+      "locations-section": "Orte",
+      "birthplace-label": "Geburtsort",
+      "hometown-label": "Heimatort"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",

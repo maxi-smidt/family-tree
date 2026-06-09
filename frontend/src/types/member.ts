@@ -13,6 +13,12 @@ export interface Relation {
   relationType: RelationType;
 }
 
+export interface PlaceLived {
+  location: string;
+  from?: string | null;
+  to?: string | null;
+}
+
 export interface Member {
   id: string;
   gender: Gender;
@@ -29,6 +35,9 @@ export interface Member {
     maternalParent: string | null;
   };
   additionalData: string | null;
+  birthplace: string | null;
+  hometown: string | null;
+  placesLived: PlaceLived[];
   isCollapsed: boolean;
   position: {
     x: number;
@@ -76,6 +85,9 @@ export interface MemberDB {
   dateOfBirth: string;
   dateOfDeath: string | null;
   additionalData: string | null;
+  birthplace?: string | null;
+  hometown?: string | null;
+  placesLived?: string | null;
   isCollapsed: number;
   positionX: number;
   positionY: number;
@@ -98,9 +110,22 @@ export interface MemberUpdate {
   paternalParentId?: string | null;
   maternalParentId?: string | null;
   additionalData?: string | null;
+  birthplace?: string | null;
+  hometown?: string | null;
+  placesLived?: string | null;
   isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
+}
+
+function parsePlacesLived(raw: string | null | undefined): PlaceLived[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as PlaceLived[]) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function mapMemberFromDB(
@@ -124,6 +149,9 @@ export function mapMemberFromDB(
       maternalParent: null,
     },
     additionalData: row.additionalData,
+    birthplace: row.birthplace ?? null,
+    hometown: row.hometown ?? null,
+    placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
     position: {
       x: row.positionX,
@@ -151,6 +179,10 @@ export function mapMemberToDB(member: Member): MemberDB {
     positionX: member.position.x,
     positionY: member.position.y,
     additionalData: member.additionalData ? member.additionalData : null,
+    birthplace: member.birthplace ?? null,
+    hometown: member.hometown ?? null,
+    placesLived:
+      member.placesLived.length > 0 ? JSON.stringify(member.placesLived) : null,
     isCollapsed: member.isCollapsed ? 1 : 0,
   };
 }
@@ -167,6 +199,9 @@ export function createMember(position: { x: number; y: number }): Member {
     date: { birth: currentYear, death: null },
     parents: { paternalParent: null, maternalParent: null },
     additionalData: null,
+    birthplace: null,
+    hometown: null,
+    placesLived: [],
     isCollapsed: false,
     position: position,
   };

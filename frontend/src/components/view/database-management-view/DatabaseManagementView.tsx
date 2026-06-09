@@ -236,21 +236,22 @@ export const DatabaseManagementView = () => {
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-1">
+            <div className="flex flex-col gap-0.5">
               <span className="font-medium">{database.name}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                className="text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleCopyId(database);
-                }}
-                title={t("copy-id-button")}
-                aria-label={t("copy-id-button")}
-              >
-                <Hash className="size-3" />
-              </Button>
+              {isSelected && (
+                <button
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit font-mono"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void handleCopyId(database);
+                  }}
+                  title={t("copy-id-button")}
+                  aria-label={t("copy-id-button")}
+                >
+                  <Hash className="size-3 shrink-0" />
+                  {database.id}
+                </button>
+              )}
             </div>
           )}
         </TableCell>

@@ -131,6 +131,55 @@ export const ViewMode = ({ member }: Props) => {
         </Item>
       )}
 
+      {(member.birthplace ||
+        member.hometown ||
+        member.placesLived.length > 0) && (
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>{t("locations-section")}</ItemTitle>
+            <div className="space-y-2 mt-1">
+              {member.birthplace && (
+                <div className="flex items-start gap-2 text-sm">
+                  <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                  <span>
+                    <span className="text-muted-foreground">
+                      {t("birthplace-label")}:{" "}
+                    </span>
+                    {member.birthplace}
+                  </span>
+                </div>
+              )}
+              {member.hometown && (
+                <div className="flex items-start gap-2 text-sm">
+                  <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                  <span>
+                    <span className="text-muted-foreground">
+                      {t("hometown-label")}:{" "}
+                    </span>
+                    {member.hometown}
+                  </span>
+                </div>
+              )}
+              {member.placesLived.map((place, idx) => (
+                <div key={idx} className="flex items-start gap-2 text-sm">
+                  <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                  <span>
+                    {place.location}
+                    {(place.from || place.to) && (
+                      <span className="text-muted-foreground">
+                        {" "}
+                        ({place.from || "?"}
+                        {place.to ? ` – ${place.to}` : ""})
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ItemContent>
+        </Item>
+      )}
+
       <Item variant="muted">
         <ItemContent>
           <ItemTitle>{t("linked-images")}</ItemTitle>
