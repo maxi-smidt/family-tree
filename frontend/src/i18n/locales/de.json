@@ -112,6 +112,11 @@
       "gender": "Geschlecht",
       "dob": "Geburtsdatum",
       "dod": "Sterbedatum",
+      "alive": "Am Leben",
+      "notes": "Notizen / Biografie",
+      "locations": "Orte",
+      "birthplace": "Geburtsort",
+      "hometown": "Heimatstadt",
       "family-relations": "Familiäre Beziehungen",
       "paternal-parent": "Vater",
       "maternal-parent": "Mutter",
@@ -119,6 +124,7 @@
       "siblings": "Geschwister",
       "life-events": "Lebensereignisse",
       "stories": "Dokumente & Geschichten",
+      "diseases": "Genetische Erkrankungen",
       "images": "Verlinkte Bilder"
     },
     "share-tree": {
