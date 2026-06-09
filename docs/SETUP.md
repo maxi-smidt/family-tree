@@ -29,6 +29,11 @@ Open `http://localhost:${UI_PORT}` (default `8080`) and sign in with the seeded
 admin (`FIRST_ADMIN_USERNAME` / `FIRST_ADMIN_PASSWORD`). Migrations run
 automatically on first start.
 
+> **Password requirements** — `FIRST_ADMIN_PASSWORD` is **required** in
+> `docker-compose.prod.yml` (the compose file will refuse to start if it is
+> missing). All local account passwords (registration, admin create, password
+> change, and password reset) must be **at least 8 characters long**.
+
 ## Development
 
 ### 1. Start the database

@@ -1,4 +1,14 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+MIN_PASSWORD_LENGTH = 8
+
+
+def _validate_password(value: str) -> str:
+    if len(value) < MIN_PASSWORD_LENGTH:
+        raise ValueError(
+            f"Password must be at least {MIN_PASSWORD_LENGTH} characters long"
+        )
+    return value
 
 
 class UserOut(BaseModel):
@@ -23,6 +33,11 @@ class UserCreate(BaseModel):
     full_name: str | None = None
     is_admin: bool = False
 
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password(v)
+
 
 class UserUpdate(BaseModel):
     email: EmailStr | None = None
@@ -31,11 +46,28 @@ class UserUpdate(BaseModel):
     is_admin: bool | None = None
     is_active: bool | None = None
 
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str | None) -> str | None:
+        if v is not None:
+            return _validate_password(v)
+        return v
+
 
 class UserPasswordReset(BaseModel):
-    password: str = Field(min_length=1)
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH)
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password(v)
 
 
 class PasswordChange(BaseModel):
     current_password: str
     new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        return _validate_password(v)

@@ -81,7 +81,7 @@ def test_admin_can_reset_local_user_password(client, db):
     res = client.post(
         f"{API}/users/{alice.id}/reset-password",
         headers=auth(admin),
-        json={"password": "reset789"},
+        json={"password": "reset7890"},
     )
     assert res.status_code == 200
 
@@ -93,7 +93,7 @@ def test_admin_can_reset_local_user_password(client, db):
     )
     assert (
         client.post(
-            f"{API}/auth/login", json={"username": "alice", "password": "reset789"}
+            f"{API}/auth/login", json={"username": "alice", "password": "reset7890"}
         ).status_code
         == 200
     )
@@ -106,7 +106,7 @@ def test_non_admin_cannot_reset_password(client, db):
     res = client.post(
         f"{API}/users/{bob.id}/reset-password",
         headers=auth(alice),
-        json={"password": "reset789"},
+        json={"password": "reset7890"},
     )
     assert res.status_code == 403
 
@@ -121,7 +121,7 @@ def test_admin_cannot_reset_authentik_password(client, db):
     res = client.post(
         f"{API}/users/{oidc_user.id}/reset-password",
         headers=auth(admin),
-        json={"password": "reset789"},
+        json={"password": "reset7890"},
     )
     assert res.status_code == 400
     assert res.json()["detail"] == "Password reset is only available for local accounts"
