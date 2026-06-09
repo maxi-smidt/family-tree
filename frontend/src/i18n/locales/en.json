@@ -50,13 +50,6 @@
       "cancel": "Cancel",
       "crop": "Crop"
     },
-    "import-database": {
-      "title": "Import tree conflict",
-      "description": "A tree with the same ID already exists. Please decide what to do.",
-      "cancel": "Cancel",
-      "overwrite": "Overwrite",
-      "keep": "Keep both"
-    },
     "password": {
       "title": {
         "export": "Add Password Protection",
@@ -216,8 +209,7 @@
       "create": "Create Tree",
       "import": "Import Tree",
       "toast-success": "Tree imported successfully!",
-      "toast-error": "Failed to import tree.",
-      "toast-collision": "A tree with the same ID already exists. Import cancelled."
+      "toast-error": "Failed to import tree."
     }
   },
   "list-view": {
