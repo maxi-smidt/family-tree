@@ -15,3 +15,4 @@ class ActivityOut(BaseModel):
     target_id: str | None = None
     target_label: str | None = None
     created_at: str
+    details: str | None = None

@@ -1,6 +1,6 @@
 """Activity / audit log — records who changed what on a tree."""
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, new_uuid, utcnow_iso
@@ -30,3 +30,6 @@ class ActivityLog(Base):
     target_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso, index=True)
+
+    # Optional JSON blob with before/after diffs for update actions.
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)

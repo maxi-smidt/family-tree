@@ -125,11 +125,27 @@ def update_member(
     changes = payload.model_dump(exclude_unset=True)
     if "imageData" in changes:
         changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+    # Capture before-state for diff details (skip noisy positional/internal fields).
+    _SKIP_DIFF = {"positionX", "positionY", "isCollapsed", "imageData"}
+    before = {k: getattr(member, k) for k in changes if k not in _SKIP_DIFF}
     for key, value in changes.items():
         setattr(member, key, value)
+    after = {k: getattr(member, k) for k in before}
+    diff_details: dict | None = None
+    changed = {
+        k: {"before": before[k], "after": after[k]}
+        for k in before
+        if before[k] != after[k]
+    }
+    if changed:
+        diff_details = {
+            "before": {k: v["before"] for k, v in changed.items()},
+            "after": {k: v["after"] for k, v in changed.items()},
+        }
     label = " ".join(filter(None, [member.firstName, member.lastName])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="member", target_id=member.id, target_label=label)
+                    target_type="member", target_id=member.id, target_label=label,
+                    details=diff_details)
     db.commit()
     db.refresh(member)
     return member

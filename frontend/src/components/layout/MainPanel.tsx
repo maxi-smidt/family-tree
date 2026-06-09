@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GalleryView } from "@/components/view/gallery-view/GalleryView";
 import { FlowPanel } from "@/components/view/tree-view/FlowPanel";
@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useNavigationStore } from "@/hooks/useNavigationStore";
 
 const TREE_VIEW = "tree-view";
 const LIST_VIEW = "list-view";
@@ -50,6 +51,15 @@ export const MainPanel = () => {
     setActiveTab(value);
     localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, value);
   };
+
+  const { pendingView, clearPending } = useNavigationStore();
+  useEffect(() => {
+    if (pendingView !== null) {
+      handleTabChange(pendingView);
+      clearPending();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingView]);
 
   const viewLabels = {
     [TREE_VIEW]: t("tree"),
