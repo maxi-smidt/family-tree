@@ -16,7 +16,12 @@ from app.schemas.content import (
     LinksSet,
 )
 from app.services.activity import record_activity
-from app.services.storage import delete_media, process_image_field
+from app.services.storage import (
+    ImageTooLarge,
+    UnsupportedImageType,
+    delete_media,
+    process_image_field,
+)
 
 router = APIRouter(prefix="/trees/{tree_id}/gallery", tags=["gallery"])
 
@@ -69,7 +74,12 @@ def create_image(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
-    data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+    try:
+        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+    except ImageTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except (UnsupportedImageType, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     image = GalleryImage(tree_id=tree.id, **data)
     db.add(image)
     db.flush()  # image row must exist before its links reference it
@@ -94,7 +104,12 @@ def update_image(
     image = _get_image(db, tree, image_id)
     changes = payload.model_dump(exclude_unset=True)
     if "imageData" in changes:
-        changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+        try:
+            changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+        except ImageTooLarge as exc:
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+        except (UnsupportedImageType, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     for key, value in changes.items():
         setattr(image, key, value)
     record_activity(
