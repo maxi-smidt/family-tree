@@ -50,13 +50,6 @@
       "cancel": "Abbrechen",
       "crop": "Zuschneiden"
     },
-    "import-database": {
-      "title": "Stammbaum Konflikt",
-      "description": "Ein Stammbaum mit derselben ID existiert bereits. Bitte wähle was du machen willst.",
-      "cancel": "Abbrechen",
-      "overwrite": "Überschreiben",
-      "keep": "Beide behalten"
-    },
     "password": {
       "title": {
         "export": "Passwortschutz hinzufügen",
@@ -222,8 +215,7 @@
       "create": "Stammbaum erstellen",
       "import": "Stammbaum importieren",
       "toast-success": "Stammbaum erfolgreich importiert!",
-      "toast-error": "Stammbaum konnte nicht importiert werden.",
-      "toast-collision": "Ein Stammbaum mit derselben ID existiert bereits. Import abgebrochen."
+      "toast-error": "Stammbaum konnte nicht importiert werden."
     }
   },
   "list-view": {
