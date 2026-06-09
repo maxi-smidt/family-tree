@@ -10,9 +10,14 @@ import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
 type Props = {
   member: Member;
   largeImage?: boolean;
+  disableNameLink?: boolean;
 };
 
-export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
+export const FamilyNodeContent = ({
+  member,
+  largeImage = false,
+  disableNameLink = false,
+}: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.node",
   });
@@ -61,26 +66,34 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
 
       <div className="mt-1">
         <div className="flex h-11 w-full items-center justify-center px-1">
-          <Button
-            variant="link"
-            className="h-auto p-1 w-full max-w-full block whitespace-normal"
-            onClick={() => setDetailDialogOpen(true)}
-          >
-            <span className="font-bold text-lg leading-tight text-center line-clamp-2 text-ellipsis overflow-hidden">
+          {disableNameLink ? (
+            <span className="font-bold text-lg leading-tight text-center line-clamp-2 overflow-hidden block w-full max-w-full p-1">
               {member.firstName} {member.lastName}
             </span>
-          </Button>
+          ) : (
+            <Button
+              variant="link"
+              className="h-auto p-1 w-full max-w-full block whitespace-normal"
+              onClick={() => setDetailDialogOpen(true)}
+            >
+              <span className="font-bold text-lg leading-tight text-center line-clamp-2 text-ellipsis overflow-hidden">
+                {member.firstName} {member.lastName}
+              </span>
+            </Button>
+          )}
         </div>
 
         <div className="text-xs text-muted-foreground text-center">
           {formatLifeDates(member.date)}
         </div>
       </div>
-      <MemberDetailDialog
-        member={member}
-        open={detailDialogOpen}
-        onOpenChange={setDetailDialogOpen}
-      />
+      {!disableNameLink && (
+        <MemberDetailDialog
+          member={member}
+          open={detailDialogOpen}
+          onOpenChange={setDetailDialogOpen}
+        />
+      )}
     </div>
   );
 
