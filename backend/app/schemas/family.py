@@ -17,6 +17,9 @@ class MemberOut(BaseModel):
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
     additionalData: str | None = None
+    birthplace: str | None = None
+    hometown: str | None = None
+    placesLived: str | None = None
     isCollapsed: bool = False
     positionX: float = 0
     positionY: float = 0
@@ -32,6 +35,9 @@ class MemberCreate(BaseModel):
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
     additionalData: str | None = None
+    birthplace: str | None = None
+    hometown: str | None = None
+    placesLived: str | None = None
     isCollapsed: bool = False
     positionX: float = 0
     positionY: float = 0
@@ -46,6 +52,9 @@ class MemberUpdate(BaseModel):
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
     additionalData: str | None = None
+    birthplace: str | None = None
+    hometown: str | None = None
+    placesLived: str | None = None
     isCollapsed: bool | None = None
     positionX: float | None = None
     positionY: float | None = None
