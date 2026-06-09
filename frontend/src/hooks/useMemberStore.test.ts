@@ -108,6 +108,9 @@ describe("useMemberStore — addMember", () => {
       position: { x: 0, y: 0 },
       relations: [],
       diseases: [],
+      birthplace: null,
+      hometown: null,
+      placesLived: [],
     };
 
     await useMemberStore.getState().addMember(newMember);
@@ -138,6 +141,9 @@ describe("useMemberStore — addMember", () => {
       position: { x: 0, y: 0 },
       relations: [],
       diseases: [],
+      birthplace: null,
+      hometown: null,
+      placesLived: [],
     };
 
     await useMemberStore.getState().addMember(member);
@@ -232,6 +238,9 @@ describe("useMemberStore — undo/redo", () => {
       position: { x: 0, y: 0 },
       relations: [],
       diseases: [],
+      birthplace: null,
+      hometown: null,
+      placesLived: [],
     };
 
     await useMemberStore.getState().addMember(member);
@@ -265,6 +274,9 @@ describe("useMemberStore — undo/redo", () => {
       position: { x: 0, y: 0 },
       relations: [],
       diseases: [],
+      birthplace: null,
+      hometown: null,
+      placesLived: [],
     };
 
     await useMemberStore.getState().addMember(member);
