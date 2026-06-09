@@ -11,6 +11,7 @@ from app.api.routes import (
     media,
     members,
     oauth,
+    quality,
     settings,
     stories,
     trees,
@@ -29,4 +30,5 @@ api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(stories.router)
 api_router.include_router(activity.router)
+api_router.include_router(quality.router)
 api_router.include_router(media.router)
