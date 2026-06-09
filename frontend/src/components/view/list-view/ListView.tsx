@@ -73,23 +73,20 @@ export const ListView = () => {
     });
   }, [members, searchQuery]);
 
+  const getSortValue = (member: Member): string => {
+    if (sortConfig.key === "date.birth") return member.date.birth || "";
+    if (sortConfig.key === "date.death") return member.date.death || "";
+    const val = member[sortConfig.key as keyof Member];
+    return typeof val === "string" || typeof val === "number"
+      ? String(val)
+      : "";
+  };
+
   const sortedMembers = useMemo(() => {
     const sorted = [...filteredMembers];
     sorted.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      if (sortConfig.key === "date.birth") {
-        aValue = a.date.birth || "";
-        bValue = b.date.birth || "";
-      } else if (sortConfig.key === "date.death") {
-        aValue = a.date.death || "";
-        bValue = b.date.death || "";
-      } else {
-        aValue = a[sortConfig.key as keyof Member];
-        bValue = b[sortConfig.key as keyof Member];
-      }
-
+      const aValue = getSortValue(a);
+      const bValue = getSortValue(b);
       if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
