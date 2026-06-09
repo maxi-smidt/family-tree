@@ -1,7 +1,7 @@
 {
   "name": "family-tree",
   "private": true,
-  "version": "1.1.27",
+  "version": "1.1.28",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +11,8 @@
     "bump:minor": "node scripts/bump-version.js minor",
     "bump:major": "node scripts/bump-version.js major",
     "test": "vitest",
-    "check-i18n": "node scripts/check-i18n.mjs"
+    "check-i18n": "node scripts/check-i18n.mjs",
+    "check-no-any": "node scripts/check-no-any.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.4",
