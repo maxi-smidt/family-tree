@@ -48,6 +48,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   useMemberStore.setState({ members: [], undoStack: [], redoStack: [] });
   useTreeStore.setState({ selectedTree: undefined });
+  // syncVitalEvent calls the event store which uses these service methods
+  vi.mocked(TreeService.getEvents).mockResolvedValue([]);
+  vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+  vi.mocked(TreeService.addEvent).mockResolvedValue(undefined);
 });
 
 describe("useMemberStore — refreshMembers", () => {

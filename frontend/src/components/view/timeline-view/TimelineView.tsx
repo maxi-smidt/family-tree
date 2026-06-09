@@ -66,6 +66,12 @@ export const TimelineView = () => {
   const filteredEvents = useMemo(() => {
     let filtered = events;
 
+    if (!showVitalEvents) {
+      filtered = filtered.filter(
+        (e) => e.eventType !== "birth" && e.eventType !== "death",
+      );
+    }
+
     if (selectedMemberId !== "all") {
       filtered = filtered.filter((e) =>
         e.linkedMemberIds.includes(selectedMemberId),
@@ -85,15 +91,18 @@ export const TimelineView = () => {
     return filtered.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      return dateB - dateA; // Most recent first
+      return dateB - dateA;
     });
-  }, [events, selectedMemberId, searchQuery]);
+  }, [events, selectedMemberId, searchQuery, showVitalEvents]);
 
   const filteredVitalEvents = useMemo(() => {
     const vitals: VitalEvent[] = [];
 
     for (const member of members) {
-      if (member.date.birth) {
+      const hasBirthEvent = events.some(
+        (e) => e.eventType === "birth" && e.linkedMemberIds.includes(member.id),
+      );
+      if (!hasBirthEvent && member.date.birth) {
         vitals.push({
           kind: "vital",
           id: `birth-${member.id}`,
@@ -102,7 +111,10 @@ export const TimelineView = () => {
           date: member.date.birth,
         });
       }
-      if (member.date.death) {
+      const hasDeathEvent = events.some(
+        (e) => e.eventType === "death" && e.linkedMemberIds.includes(member.id),
+      );
+      if (!hasDeathEvent && member.date.death) {
         vitals.push({
           kind: "vital",
           id: `death-${member.id}`,
@@ -131,7 +143,7 @@ export const TimelineView = () => {
     }
 
     return filtered;
-  }, [members, selectedMemberId, searchQuery, t]);
+  }, [members, events, selectedMemberId, searchQuery, t]);
 
   type TimelineItem =
     | { kind: "event"; data: Event }

@@ -10,6 +10,30 @@ import { getLayoutedElements } from "@/utils/layoutUtils";
 import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId } from "@/hooks/useTreeStore";
+import { useEventStore } from "@/hooks/useEventStore";
+
+async function syncVitalEvent(
+  memberId: string,
+  eventType: "birth" | "death",
+  newDate: string | null | undefined,
+  _oldDate: string | null | undefined,
+) {
+  const { events, addEvent, updateEvent, removeEvent } =
+    useEventStore.getState();
+  const existing = events.find(
+    (e) => e.eventType === eventType && e.linkedMemberIds.includes(memberId),
+  );
+
+  if (newDate) {
+    if (existing && existing.date !== newDate) {
+      await updateEvent(existing.id, { eventType, date: newDate }, [memberId]);
+    } else if (!existing) {
+      await addEvent([memberId], { eventType, date: newDate });
+    }
+  } else if (!newDate && existing) {
+    await removeEvent(existing.id);
+  }
+}
 
 interface HistoryEntry {
   undo: () => Promise<void>;
@@ -173,6 +197,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     await get().refreshMembers();
 
+    if (newMember.date.birth) {
+      await syncVitalEvent(newMember.id, "birth", newMember.date.birth, null);
+    }
+    if (newMember.date.death) {
+      await syncVitalEvent(newMember.id, "death", newMember.date.death, null);
+    }
+
     const captured = newMember;
     get()._pushHistory({
       undo: async () => {
@@ -297,6 +328,23 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers();
+
+    if ("dateOfBirth" in changes) {
+      await syncVitalEvent(
+        id,
+        "birth",
+        changes.dateOfBirth,
+        currentMember?.date.birth,
+      );
+    }
+    if ("dateOfDeath" in changes) {
+      await syncVitalEvent(
+        id,
+        "death",
+        changes.dateOfDeath ?? null,
+        currentMember?.date.death ?? null,
+      );
+    }
 
     if (!currentMember) return;
 
