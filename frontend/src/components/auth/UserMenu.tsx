@@ -8,9 +8,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { KeyRound, LogOut, Shield, UserIcon } from "lucide-react";
+import { KeyRound, LogOut, Shield, Trash2, UserIcon } from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
+import { DeleteAccountDialog } from "@/components/auth/DeleteAccountDialog";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { useTranslation } from "react-i18next";
 
@@ -20,6 +21,7 @@ export const UserMenu = () => {
   const logout = useAuthStore((s) => s.logout);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (!user) return null;
 
@@ -54,6 +56,14 @@ export const UserMenu = () => {
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            {t("delete-account")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout}>
             <LogOut className="h-4 w-4" />
             {t("logout")}
@@ -68,6 +78,10 @@ export const UserMenu = () => {
       {user.is_admin && (
         <AdminDialog isOpen={adminOpen} onClose={() => setAdminOpen(false)} />
       )}
+      <DeleteAccountDialog
+        isOpen={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+      />
     </>
   );
 };

@@ -663,7 +663,11 @@
       "username-taken": "That username is already taken.",
       "rate-limit-error": "Too many attempts. Please wait a moment and try again.",
       "network-error": "Could not reach the server. Please check your connection and try again.",
-      "account-pending-deletion": "This account is scheduled for deletion. Contact your administrator if this is a mistake."
+      "account-pending-deletion": "This account is scheduled for deletion. Contact your administrator if this is a mistake.",
+      "restore-description": "Your account has been scheduled for deletion.",
+      "restore-button": "Restore my account",
+      "restore-admin-deletion": "This deletion was scheduled by an administrator. Please contact them to restore your account.",
+      "restore-error": "Could not restore account."
     },
     "change-password": {
       "title": "Change password",
@@ -680,7 +684,27 @@
     "user-menu": {
       "change-password": "Change password",
       "admin": "Administration",
+      "delete-account": "Delete my account",
       "logout": "Log out"
+    },
+    "delete-account": {
+      "title": "Delete my account",
+      "description": "Schedule your account for deletion. You will lose access immediately and all your data will be permanently deleted after the grace period.",
+      "owned-trees-label": "Trees you own",
+      "transfer-select": "Select new owner…",
+      "transfer-no-targets": "No eligible users",
+      "transfer-btn": "Transfer",
+      "transferred-to": "Transferred to {{username}}",
+      "loading": "Loading…",
+      "trees-warning_one": "{{count}} tree will be permanently deleted.",
+      "trees-warning_other": "{{count}} trees will be permanently deleted.",
+      "password-label": "Enter your password to confirm",
+      "username-label": "Type your username to confirm",
+      "cancel": "Cancel",
+      "confirm": "Schedule deletion",
+      "scheduled": "Your account is scheduled for deletion on {{date}}.",
+      "error": "Could not schedule account deletion.",
+      "transfer-error": "Could not transfer ownership."
     }
   },
   "admin": {

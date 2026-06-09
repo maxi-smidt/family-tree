@@ -9,8 +9,15 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.db.session import get_db
 from app.models import User
 from app.schemas.auth import AuthConfig, LoginRequest, Token
-from app.schemas.user import PasswordChange, UserCreate, UserOut
+from app.schemas.user import (
+    AccountRestore,
+    AccountSelfDelete,
+    PasswordChange,
+    UserCreate,
+    UserOut,
+)
 from app.services.settings_service import get_bool_setting
+from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -91,6 +98,92 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.post("/delete-account", response_model=UserOut)
+def delete_account(
+    payload: AccountSelfDelete,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Schedule deletion of the calling user's own account.
+
+    Local accounts must supply their current password; OIDC accounts confirm by
+    repeating their username.  The last admin cannot self-delete.
+    """
+    if user.is_admin:
+        admin_count = db.scalar(
+            select(func.count()).select_from(User).where(User.is_admin.is_(True))
+        )
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=400, detail="Cannot delete the last admin account"
+            )
+
+    if user.auth_provider == "local":
+        if not payload.password:
+            raise HTTPException(status_code=400, detail="Password is required")
+        if user.hashed_password is None or not verify_password(
+            payload.password, user.hashed_password
+        ):
+            raise HTTPException(status_code=400, detail="Incorrect password")
+    else:
+        if not payload.confirm_username:
+            raise HTTPException(
+                status_code=400, detail="Username confirmation is required"
+            )
+        if payload.confirm_username != user.username:
+            raise HTTPException(status_code=400, detail="Username does not match")
+
+    schedule_deletion(db, user, requested_by=user.id)
+    return user
+
+
+@router.post("/restore-account", response_model=Token)
+def restore_account(
+    payload: AccountRestore,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Restore an account the user themselves scheduled for deletion.
+
+    Verifies credentials, checks that the deletion was self-initiated, then
+    clears the pending-deletion state and issues a fresh token.  Admin-initiated
+    deletions cannot be reversed here; the user must contact an administrator.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = f"{client_ip}:{payload.username.lower()}"
+    retry_after = login_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed login attempts. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
+    user = db.scalar(select(User).where(User.username == payload.username))
+    if (
+        user is None
+        or user.hashed_password is None
+        or not verify_password(payload.password, user.hashed_password)
+    ):
+        login_rate_limiter.record_failure(rate_key)
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+
+    if user.deletion_requested_at is None:
+        raise HTTPException(status_code=400, detail="Account is not pending deletion")
+    if user.deletion_requested_by != user.id:
+        raise HTTPException(status_code=403, detail="admin_initiated_deletion")
+
+    user.deletion_requested_at = None
+    user.deletion_scheduled_for = None
+    user.deletion_requested_by = None
+    db.commit()
+    db.refresh(user)
+
+    login_rate_limiter.reset(rate_key)
+    token = create_access_token(user.id)
+    return Token(access_token=token, user=UserOut.model_validate(user))
 
 
 @router.post("/password", status_code=204)

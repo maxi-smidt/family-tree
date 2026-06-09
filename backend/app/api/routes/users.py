@@ -1,7 +1,5 @@
 """Admin-only user management."""
 
-from datetime import UTC, datetime, timedelta
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -11,7 +9,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import UserCreate, UserOut, UserPasswordReset, UserUpdate
-from app.services import settings_service
+from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
 
@@ -99,18 +97,7 @@ def delete_user(
     if user.is_admin and _admin_count(db) <= 1:
         raise HTTPException(status_code=400, detail="Cannot delete the last admin")
 
-    if user.deletion_requested_at is None:
-        now = datetime.now(UTC)
-        grace_days = settings_service.get_int_setting(
-            db,
-            "deletion_grace_period_days",
-            settings_service.DEFAULT_DELETION_GRACE_PERIOD_DAYS,
-        )
-        user.deletion_requested_at = now.isoformat()
-        user.deletion_scheduled_for = (now + timedelta(days=grace_days)).isoformat()
-        user.deletion_requested_by = current.id
-        db.commit()
-        db.refresh(user)
+    schedule_deletion(db, user, requested_by=current.id)
     return user
 
 

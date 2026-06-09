@@ -663,7 +663,11 @@
       "username-taken": "Dieser Benutzername ist bereits vergeben.",
       "rate-limit-error": "Zu viele Versuche. Bitte warte einen Moment und versuche es erneut.",
       "network-error": "Server nicht erreichbar. Bitte überprüfe deine Verbindung und versuche es erneut.",
-      "account-pending-deletion": "Dieses Konto ist zum Löschen vorgemerkt. Wenden Sie sich an Ihren Administrator, falls dies ein Fehler ist."
+      "account-pending-deletion": "Dieses Konto ist zum Löschen vorgemerkt. Wenden Sie sich an Ihren Administrator, falls dies ein Fehler ist.",
+      "restore-description": "Dein Konto ist zum Löschen vorgemerkt.",
+      "restore-button": "Konto wiederherstellen",
+      "restore-admin-deletion": "Diese Löschung wurde von einem Administrator veranlasst. Bitte wende dich an ihn, um dein Konto wiederherzustellen.",
+      "restore-error": "Konto konnte nicht wiederhergestellt werden."
     },
     "change-password": {
       "title": "Passwort ändern",
@@ -680,7 +684,27 @@
     "user-menu": {
       "change-password": "Passwort ändern",
       "admin": "Verwaltung",
+      "delete-account": "Konto löschen",
       "logout": "Abmelden"
+    },
+    "delete-account": {
+      "title": "Konto löschen",
+      "description": "Konto zum Löschen vormerken. Der Zugriff wird sofort gesperrt und alle Daten werden nach Ablauf der Frist endgültig gelöscht.",
+      "owned-trees-label": "Deine Stammbäume",
+      "transfer-select": "Neuen Besitzer wählen…",
+      "transfer-no-targets": "Keine Benutzer verfügbar",
+      "transfer-btn": "Übertragen",
+      "transferred-to": "Übertragen an {{username}}",
+      "loading": "Lädt…",
+      "trees-warning_one": "{{count}} Stammbaum wird endgültig gelöscht.",
+      "trees-warning_other": "{{count}} Stammbäume werden endgültig gelöscht.",
+      "password-label": "Passwort zur Bestätigung eingeben",
+      "username-label": "Benutzernamen zur Bestätigung eingeben",
+      "cancel": "Abbrechen",
+      "confirm": "Löschung vormerken",
+      "scheduled": "Dein Konto wird am {{date}} endgültig gelöscht.",
+      "error": "Kontolöschung konnte nicht eingeplant werden.",
+      "transfer-error": "Eigentumsübertragung fehlgeschlagen."
     }
   },
   "admin": {
