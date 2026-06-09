@@ -18,6 +18,7 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useState } from "react";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { StoryAttachments } from "@/components/shared/member-sheet/StoryAttachments";
 import { Calendar, MapPin, BookOpen, Users } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -298,7 +299,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {linkedImages.map((image, index) => (
-                    <img
+                    <AuthenticatedImage
                       key={image.id}
                       src={image.imageData}
                       alt={image.title || "Linked image"}

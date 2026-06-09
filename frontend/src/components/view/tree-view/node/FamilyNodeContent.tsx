@@ -1,4 +1,5 @@
 import { Member } from "@/types/member";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Mars, User, Venus, VenusAndMars } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,7 @@ export const FamilyNodeContent = ({ member, largeImage = false }: Props) => {
     <div>
       <div className="relative w-fit mx-auto">
         {member.imageData ? (
-          <img
+          <AuthenticatedImage
             src={member.imageData}
             className={`${sizeClass} rounded-full object-cover bg-muted`}
             alt="Profile"

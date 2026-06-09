@@ -1,5 +1,6 @@
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Button } from "@/components/ui/button";
 import { GalleryImage } from "@/types/gallery";
 
@@ -53,7 +54,7 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
       </Button>
 
       <div className="flex flex-col items-center max-w-4xl max-h-screen p-4">
-        <img
+        <AuthenticatedImage
           src={currentImage.imageData}
           alt={currentImage.title || "Gallery image"}
           className="max-w-full max-h-[80vh] object-contain rounded-md shadow-2xl"

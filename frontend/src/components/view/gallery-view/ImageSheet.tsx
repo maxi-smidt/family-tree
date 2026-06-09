@@ -4,6 +4,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -87,7 +88,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
         </SheetHeader>
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 overflow-hidden min-h-0">
           <div className="flex items-start justify-center min-h-0">
-            <img
+            <AuthenticatedImage
               src={image.imageData}
               alt={image.title || "Gallery Image"}
               className="max-w-full max-h-full object-contain rounded-md"
