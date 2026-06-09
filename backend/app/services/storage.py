@@ -84,6 +84,10 @@ class FileTooLarge(ValueError):
     """Raised when an attachment exceeds ``MAX_DOCUMENT_BYTES``."""
 
 
+class InvalidImageURL(ValueError):
+    """Raised when an image field contains an external or cross-tree URL."""
+
+
 def store_document(tree_id: str, filename: str, data_url: str) -> tuple[str, str, int]:
     """Persist an attachment from a base64 data URL, unmodified.
 
@@ -255,12 +259,21 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
 def process_image_field(tree_id: str, value: str | None) -> str | None:
     """Resolve an incoming image field to its persisted form.
 
-    - ``None`` stays ``None``.
-    - A ``data:`` URL is written to disk and replaced by its media URL.
-    - Anything else (an already-stored URL) is returned unchanged.
+    Accepts only:
+    - ``None``
+    - A ``data:`` URL (written to disk, replaced by its media URL)
+    - An existing ``/api/media/<tree_id>/...`` URL owned by the same tree
+
+    Raises ``InvalidImageURL`` for external URLs and cross-tree media refs
+    to prevent tracking-pixel injection and data leakage between trees.
     """
     if value is None:
         return None
     if is_data_url(value):
         return store_data_url(tree_id, value)
-    return value
+    own_prefix = f"{MEDIA_URL_PREFIX}/{tree_id}/"
+    if value.startswith(own_prefix):
+        return value
+    raise InvalidImageURL(
+        "Image field must be null, a data URL, or a media URL owned by this tree"
+    )
