@@ -453,7 +453,11 @@
       "disable-quick-add": "Disable quick add",
       "enable-quick-add": "Enable quick add",
       "disable-disease-mode": "Disable disease mode",
-      "enable-disease-mode": "Enable disease mode"
+      "enable-disease-mode": "Enable disease mode",
+      "enable-connection-mode": "Find connection",
+      "disable-connection-mode": "Exit connection finder",
+      "connection-path-not-found": "No connection path found between the selected members.",
+      "connection-path-partial": "Some selected members are not connected."
     },
     "empty-state": {
       "title": "Start your family tree",

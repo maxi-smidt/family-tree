@@ -12,6 +12,7 @@ import {
   Minus,
   Plus,
   Redo2,
+  Route,
   Undo2,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -21,9 +22,17 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 
 type Props = {
   navigationOnly?: boolean;
+  isConnectionMode?: boolean;
+  connectionDisabled?: boolean;
+  onToggleConnectionMode?: () => void;
 };
 
-export const FlowPanelControls = ({ navigationOnly = false }: Props) => {
+export const FlowPanelControls = ({
+  navigationOnly = false,
+  isConnectionMode = false,
+  connectionDisabled = false,
+  onToggleConnectionMode,
+}: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.controls",
   });
@@ -89,6 +98,28 @@ export const FlowPanelControls = ({ navigationOnly = false }: Props) => {
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">{t("fit-view")}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={isConnectionMode ? "default" : "secondary"}
+            size="icon"
+            onClick={onToggleConnectionMode}
+            disabled={connectionDisabled || !onToggleConnectionMode}
+            aria-label={
+              isConnectionMode
+                ? t("disable-connection-mode")
+                : t("enable-connection-mode")
+            }
+          >
+            <Route />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {isConnectionMode
+            ? t("disable-connection-mode")
+            : t("enable-connection-mode")}
+        </TooltipContent>
       </Tooltip>
       {!navigationOnly && (
         <Tooltip>

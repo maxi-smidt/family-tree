@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { Node } from "@xyflow/react";
 import { Member } from "@/types/member";
 
+const EMPTY_MEMBER_IDS = new Set<string>();
+
 export const useFlowNodes = (
   nodes: Node[],
   setEditingMemberId: (id: string) => void,
@@ -12,6 +14,10 @@ export const useFlowNodes = (
   onAddRight: (memberId: string) => void,
   highlightedNodeId: string | null,
   isReadOnly = false,
+  connectionSelectedIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
+  connectionPathNodeIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
+  isConnectionMode = false,
+  hasConnectionPath = false,
 ) => {
   return useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -63,6 +69,12 @@ export const useFlowNodes = (
       data: {
         ...node.data,
         isHighlighted: node.id === highlightedNodeId,
+        isConnectionSelected: connectionSelectedIds.has(node.id),
+        isConnectionPath: connectionPathNodeIds.has(node.id),
+        isConnectionDimmed:
+          isConnectionMode &&
+          hasConnectionPath &&
+          !connectionPathNodeIds.has(node.id),
         isReadOnly,
         onEdit: isReadOnly
           ? undefined
@@ -106,5 +118,9 @@ export const useFlowNodes = (
     onAddRight,
     highlightedNodeId,
     isReadOnly,
+    connectionSelectedIds,
+    connectionPathNodeIds,
+    isConnectionMode,
+    hasConnectionPath,
   ]);
 };

@@ -2,8 +2,11 @@ import { useMemo } from "react";
 import { Edge } from "@xyflow/react";
 import { Member, RelationType } from "@/types/member";
 import { UnionInfo } from "@/hooks/useFlowUnions";
+import { memberPairKey } from "@/utils/graphUtils";
 
 const COUPLE_RELATIONS = new Set(["married", "partner", "divorced"]);
+const CONNECTION_STROKE = "hsl(45 93% 47%)";
+const EMPTY_EDGE_KEYS = new Set<string>();
 
 const coupleStyle = (relationType: string) => {
   switch (relationType) {
@@ -18,16 +21,42 @@ const coupleStyle = (relationType: string) => {
   }
 };
 
+const connectionStyle = (
+  style: Edge["style"] = {},
+  isHighlighted: boolean,
+  hasConnectionPath: boolean,
+): Edge["style"] => {
+  if (isHighlighted) {
+    return {
+      ...style,
+      opacity: 1,
+      stroke: CONNECTION_STROKE,
+      strokeWidth: 4,
+    };
+  }
+
+  if (hasConnectionPath) {
+    return {
+      ...style,
+      opacity: 0.2,
+    };
+  }
+
+  return style;
+};
+
 export const useFlowEdges = (
   members: Member[],
   unions: UnionInfo[],
   visibleRelationTypes: RelationType[],
   edgeType: string,
+  highlightedConnectionEdgeKeys: ReadonlySet<string> = EMPTY_EDGE_KEYS,
 ) => {
   return useMemo(() => {
     const newEdges: Edge[] = [];
     const visibleTypesSet = new Set(visibleRelationTypes);
     const memberIds = new Set(members.map((m) => m.id));
+    const hasConnectionPath = highlightedConnectionEdgeKeys.size > 0;
 
     // Build a set of child IDs that are claimed by a union node so we can
     // skip the direct parent→child edges for those children.
@@ -68,6 +97,19 @@ export const useFlowEdges = (
         const p2X = memberPositionX.get(u.partner2Id as string) ?? 0;
         const leftId = p1X <= p2X ? u.partner1Id : u.partner2Id;
         const rightId = p1X <= p2X ? u.partner2Id : u.partner1Id;
+        const partnerPairHighlighted = highlightedConnectionEdgeKeys.has(
+          memberPairKey(u.partner1Id, u.partner2Id),
+        );
+        const leftConnectorHighlighted =
+          partnerPairHighlighted ||
+          u.childIds.some((childId) =>
+            highlightedConnectionEdgeKeys.has(memberPairKey(leftId, childId)),
+          );
+        const rightConnectorHighlighted =
+          partnerPairHighlighted ||
+          u.childIds.some((childId) =>
+            highlightedConnectionEdgeKeys.has(memberPairKey(rightId, childId)),
+          );
 
         // left partner's RIGHT handle → union LEFT handle
         newEdges.push({
@@ -77,8 +119,12 @@ export const useFlowEdges = (
           sourceHandle: "right",
           targetHandle: "left",
           type: "smoothstep",
-          style: baseStyle,
-          animated: false,
+          style: connectionStyle(
+            baseStyle,
+            leftConnectorHighlighted,
+            hasConnectionPath,
+          ),
+          animated: leftConnectorHighlighted,
         });
 
         // union RIGHT handle → right partner's LEFT handle
@@ -89,14 +135,21 @@ export const useFlowEdges = (
           sourceHandle: "right",
           targetHandle: "left",
           type: "smoothstep",
-          style: baseStyle,
-          animated: false,
+          style: connectionStyle(
+            baseStyle,
+            rightConnectorHighlighted,
+            hasConnectionPath,
+          ),
+          animated: rightConnectorHighlighted,
         });
       }
 
       // Union → child edges are shown when "parent" is visible.
       if (visibleTypesSet.has("parent")) {
         for (const cId of (u.childIds as string[]) ?? []) {
+          const isHighlighted = [u.partner1Id, u.partner2Id].some((parentId) =>
+            highlightedConnectionEdgeKeys.has(memberPairKey(parentId, cId)),
+          );
           newEdges.push({
             id: `ue:${u.id}:child:${cId}`,
             source: u.id as string,
@@ -106,8 +159,12 @@ export const useFlowEdges = (
             // smoothstep gives a vertical-first drop that reads like a classic
             // family-tree descent line.
             type: "smoothstep",
-            style: { strokeWidth: 1.5 },
-            animated: false,
+            style: connectionStyle(
+              { strokeWidth: 1.5 },
+              isHighlighted,
+              hasConnectionPath,
+            ),
+            animated: isHighlighted,
           });
         }
       }
@@ -121,6 +178,9 @@ export const useFlowEdges = (
           m.parents.maternalParent &&
           memberIds.has(m.parents.maternalParent)
         ) {
+          const isHighlighted = highlightedConnectionEdgeKeys.has(
+            memberPairKey(m.parents.maternalParent, m.id),
+          );
           newEdges.push({
             id: `e:${m.parents.maternalParent}:${m.id}`,
             source: m.parents.maternalParent,
@@ -128,12 +188,17 @@ export const useFlowEdges = (
             type: edgeType,
             sourceHandle: "bottom",
             targetHandle: "top",
+            style: connectionStyle(undefined, isHighlighted, hasConnectionPath),
+            animated: isHighlighted,
           });
         }
         if (
           m.parents.paternalParent &&
           memberIds.has(m.parents.paternalParent)
         ) {
+          const isHighlighted = highlightedConnectionEdgeKeys.has(
+            memberPairKey(m.parents.paternalParent, m.id),
+          );
           newEdges.push({
             id: `e:${m.parents.paternalParent}:${m.id}`,
             source: m.parents.paternalParent,
@@ -141,6 +206,8 @@ export const useFlowEdges = (
             type: edgeType,
             sourceHandle: "bottom",
             targetHandle: "top",
+            style: connectionStyle(undefined, isHighlighted, hasConnectionPath),
+            animated: isHighlighted,
           });
         }
       }
@@ -165,6 +232,9 @@ export const useFlowEdges = (
           strokeColor = "hsl(45 93% 47%)";
           strokeDasharray = "0";
         }
+        const isHighlighted = highlightedConnectionEdgeKeys.has(
+          memberPairKey(m.id, rel.toMemberId),
+        );
 
         newEdges.push({
           id: edgeId,
@@ -173,16 +243,26 @@ export const useFlowEdges = (
           sourceHandle: "right",
           targetHandle: "left",
           type: "relation",
-          style: {
-            stroke: strokeColor,
-            strokeDasharray,
-            strokeWidth: 2,
-          },
-          animated: false,
+          style: connectionStyle(
+            {
+              stroke: strokeColor,
+              strokeDasharray,
+              strokeWidth: 2,
+            },
+            isHighlighted,
+            hasConnectionPath,
+          ),
+          animated: isHighlighted,
         });
       }
     }
 
     return newEdges;
-  }, [members, unions, visibleRelationTypes, edgeType]);
+  }, [
+    members,
+    unions,
+    visibleRelationTypes,
+    edgeType,
+    highlightedConnectionEdgeKeys,
+  ]);
 };

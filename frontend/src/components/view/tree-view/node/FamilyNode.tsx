@@ -143,8 +143,17 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   };
 
   // Use CSS variables for theme-aware colors
-  const borderColor = selected ? "var(--primary)" : "var(--border)";
-  const borderWidth = selected ? "2px" : "1px";
+  const isConnectionSelected = data.isConnectionSelected === true;
+  const isConnectionPath = data.isConnectionPath === true;
+  const isConnectionDimmed = data.isConnectionDimmed === true;
+  const borderColor =
+    selected || isConnectionSelected
+      ? "var(--primary)"
+      : isConnectionPath
+        ? "hsl(45 93% 47%)"
+        : "var(--border)";
+  const borderWidth =
+    selected || isConnectionSelected || isConnectionPath ? "2px" : "1px";
 
   // Briefly highlighted after being located via canvas search.
   const isHighlighted = data.isHighlighted === true;
@@ -172,16 +181,23 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   return (
     <div
-      className={`relative flex flex-col items-center shadow-sm p-2 bg-card ${
-        isHighlighted
+      className={[
+        "relative flex flex-col items-center shadow-sm p-2 bg-card transition-opacity duration-200",
+        isConnectionDimmed ? "opacity-30" : "opacity-100",
+        isHighlighted || isConnectionSelected
           ? "ring-4 ring-primary ring-offset-2 ring-offset-background"
-          : ""
-      }`}
+          : "",
+        !isConnectionSelected && isConnectionPath
+          ? "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={{
         border: `${borderWidth} solid ${borderColor}`,
         borderRadius: "8px",
         width: `${NODE_WIDTH}px`,
-        transition: "border 0.2s, box-shadow 0.2s",
+        transition: "border 0.2s, box-shadow 0.2s, opacity 0.2s",
       }}
     >
       <Handle
