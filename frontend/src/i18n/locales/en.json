@@ -207,6 +207,7 @@
       "gallery": "Gallery",
       "timeline": "Timeline",
       "activity": "Activity",
+      "quality-report": "Quality",
       "database-management": "Tree Management"
     },
     "no-database-placeholder": {
@@ -572,6 +573,26 @@
     "flow-interactions": {
       "toast-error-database-create": "Failed to create connection."
     }
+  },
+  "quality-report-view": {
+    "title": "Data Quality",
+    "refresh": "Refresh",
+    "loading": "Running checks…",
+    "no-issues": "No issues found",
+    "no-issues-description": "Your family tree data looks consistent.",
+    "count-errors": "{{count}} error(s)",
+    "count-warnings": "{{count}} warning(s)",
+    "severity-error": "Error",
+    "severity-warning": "Warning",
+    "view-member": "Go to member",
+    "issue-unknown": "Unknown issue",
+    "issue-birth-after-death": "Birth after death",
+    "issue-child-older-than-parent": "Child older than parent",
+    "issue-parent-too-young": "Parent too young",
+    "issue-parent-too-old": "Parent too old",
+    "issue-relationship-cycle": "Relationship cycle",
+    "issue-duplicate-candidate": "Possible duplicate",
+    "issue-disconnected-member": "No relationships"
   },
   "database-management-view": {
     "title": "Tree Management",

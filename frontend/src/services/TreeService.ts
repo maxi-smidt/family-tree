@@ -21,6 +21,7 @@ import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import { ActivityDB } from "@/types/activity";
+import { QualityReport } from "@/types/quality";
 
 const base = (treeId: string) => `/trees/${treeId}`;
 
@@ -337,5 +338,10 @@ export class TreeService {
   // --- Activity log ---------------------------------------------------------
   static getActivity(treeId: string) {
     return api.get<ActivityDB[]>(`${base(treeId)}/activity`);
+  }
+
+  // --- Quality report -------------------------------------------------------
+  static getQualityReport(treeId: string) {
+    return api.get<QualityReport>(`${base(treeId)}/quality-report`);
   }
 }
