@@ -24,10 +24,7 @@ def media_file(tmp_path, monkeypatch):
 def test_owner_can_access_media(client, db, media_file):
     tree_id, filename = media_file
     owner = make_user(db, "owner")
-    tree = make_tree(db, owner)
-    # Override tree.id to match the pre-created media dir.
-    tree.id = tree_id
-    db.commit()
+    make_tree(db, owner, tree_id=tree_id)
 
     resp = client.get(f"{API}/media/{tree_id}/{filename}", headers=auth(owner))
     assert resp.status_code == 200
@@ -38,9 +35,7 @@ def test_shared_viewer_can_access_media(client, db, media_file):
     tree_id, filename = media_file
     owner = make_user(db, "owner")
     viewer = make_user(db, "viewer")
-    tree = make_tree(db, owner)
-    tree.id = tree_id
-    db.commit()
+    tree = make_tree(db, owner, tree_id=tree_id)
     share(db, tree, viewer, "viewer")
 
     resp = client.get(f"{API}/media/{tree_id}/{filename}", headers=auth(viewer))
@@ -51,9 +46,7 @@ def test_shared_editor_can_access_media(client, db, media_file):
     tree_id, filename = media_file
     owner = make_user(db, "owner")
     editor = make_user(db, "editor")
-    tree = make_tree(db, owner)
-    tree.id = tree_id
-    db.commit()
+    tree = make_tree(db, owner, tree_id=tree_id)
     share(db, tree, editor, "editor")
 
     resp = client.get(f"{API}/media/{tree_id}/{filename}", headers=auth(editor))
@@ -64,9 +57,7 @@ def test_no_access_user_is_denied(client, db, media_file):
     tree_id, filename = media_file
     owner = make_user(db, "owner")
     stranger = make_user(db, "stranger")
-    tree = make_tree(db, owner)
-    tree.id = tree_id
-    db.commit()
+    make_tree(db, owner, tree_id=tree_id)
 
     resp = client.get(f"{API}/media/{tree_id}/{filename}", headers=auth(stranger))
     assert resp.status_code == 403
@@ -75,9 +66,7 @@ def test_no_access_user_is_denied(client, db, media_file):
 def test_unauthenticated_is_denied(client, db, media_file):
     tree_id, filename = media_file
     owner = make_user(db, "owner")
-    tree = make_tree(db, owner)
-    tree.id = tree_id
-    db.commit()
+    make_tree(db, owner, tree_id=tree_id)
 
     resp = client.get(f"{API}/media/{tree_id}/{filename}")
     assert resp.status_code == 401
@@ -86,9 +75,7 @@ def test_unauthenticated_is_denied(client, db, media_file):
 def test_missing_file_returns_404(client, db, media_file):
     tree_id, _ = media_file
     owner = make_user(db, "owner")
-    tree = make_tree(db, owner)
-    tree.id = tree_id
-    db.commit()
+    make_tree(db, owner, tree_id=tree_id)
 
     resp = client.get(f"{API}/media/{tree_id}/nonexistent.webp", headers=auth(owner))
     assert resp.status_code == 404
@@ -97,9 +84,7 @@ def test_missing_file_returns_404(client, db, media_file):
 def test_path_traversal_rejected(client, db, media_file):
     tree_id, _ = media_file
     owner = make_user(db, "owner")
-    tree = make_tree(db, owner)
-    tree.id = tree_id
-    db.commit()
+    make_tree(db, owner, tree_id=tree_id)
 
     resp = client.get(f"{API}/media/{tree_id}/../../etc/passwd", headers=auth(owner))
     # FastAPI will 404 on the extra path segments before our handler runs, but

@@ -101,3 +101,66 @@ def test_relations_are_idempotent(client, db):
         f"{API}/trees/{tree.id}/relations", headers=auth(user)
     ).json()
     assert len(relations) == 1
+
+
+def test_relation_rejects_cross_tree_from_member(client, db):
+    user = make_user(db, "alice")
+    tree_a = make_tree(db, user, "A")
+    tree_b = make_tree(db, user, "B")
+    _create_member(client, tree_a, user, "m1")
+    _create_member(client, tree_b, user, "m2")
+
+    # m1 belongs to tree_a — must be rejected when used with tree_b
+    res = client.post(
+        f"{API}/trees/{tree_b.id}/relations",
+        headers=auth(user),
+        json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "parent"},
+    )
+    assert res.status_code == 404
+
+
+def test_relation_rejects_cross_tree_to_member(client, db):
+    user = make_user(db, "alice")
+    tree_a = make_tree(db, user, "A")
+    tree_b = make_tree(db, user, "B")
+    _create_member(client, tree_a, user, "m1")
+    _create_member(client, tree_b, user, "m2")
+
+    # m2 belongs to tree_b — must be rejected when used with tree_a
+    res = client.post(
+        f"{API}/trees/{tree_a.id}/relations",
+        headers=auth(user),
+        json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "parent"},
+    )
+    assert res.status_code == 404
+
+
+def test_relation_rejects_unknown_relation_type(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _create_member(client, tree, user, "m1")
+    _create_member(client, tree, user, "m2")
+
+    res = client.post(
+        f"{API}/trees/{tree.id}/relations",
+        headers=auth(user),
+        json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "nope"},
+    )
+    assert res.status_code == 404
+
+
+def test_relation_valid_path(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _create_member(client, tree, user, "m1")
+    _create_member(client, tree, user, "m2")
+
+    res = client.post(
+        f"{API}/trees/{tree.id}/relations",
+        headers=auth(user),
+        json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "sibling"},
+    )
+    assert res.status_code == 201
+    assert res.json()["from_member_id"] == "m1"
+    assert res.json()["to_member_id"] == "m2"
+    assert res.json()["relation_type"] == "sibling"
