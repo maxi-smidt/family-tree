@@ -17,6 +17,8 @@ The helper only calls ``db.add(...)``; it does NOT commit so the new row
 participates in the route's own transaction and is rolled back on error.
 """
 
+import json
+
 from sqlalchemy.orm import Session
 
 from app.models.activity import ActivityLog
@@ -32,6 +34,7 @@ def record_activity(
     target_type: str,
     target_id: str | None = None,
     target_label: str | None = None,
+    details: dict | None = None,
 ) -> None:
     db.add(
         ActivityLog(
@@ -42,5 +45,6 @@ def record_activity(
             target_type=target_type,
             target_id=target_id,
             target_label=target_label,
+            details=json.dumps(details) if details is not None else None,
         )
     )

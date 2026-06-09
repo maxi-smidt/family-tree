@@ -478,7 +478,14 @@
     "target-story": "story",
     "target-gallery_image": "image",
     "target-disease": "condition",
-    "unknown-actor": "Someone"
+    "unknown-actor": "Someone",
+    "filter-all-actors": "All actors",
+    "filter-all-actions": "All actions",
+    "filter-all-types": "All types",
+    "filter-clear": "Clear filters",
+    "navigate-hint": "Go to item",
+    "diff-changed": "Changed:",
+    "diff-arrow": "→"
   },
   "timeline-view": {
     "view": {

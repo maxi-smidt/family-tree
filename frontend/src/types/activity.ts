@@ -8,6 +8,7 @@ export interface Activity {
   targetId: string | null;
   targetLabel: string | null;
   createdAt: string;
+  details?: Record<string, unknown> | null;
 }
 
 export interface ActivityDB {
@@ -20,9 +21,18 @@ export interface ActivityDB {
   target_id: string | null;
   target_label: string | null;
   created_at: string;
+  details?: string | null;
 }
 
 export function mapActivityFromDB(row: ActivityDB): Activity {
+  let details: Record<string, unknown> | null = null;
+  if (row.details) {
+    try {
+      details = JSON.parse(row.details) as Record<string, unknown>;
+    } catch {
+      details = null;
+    }
+  }
   return {
     id: row.id,
     treeId: row.tree_id,
@@ -33,5 +43,6 @@ export function mapActivityFromDB(row: ActivityDB): Activity {
     targetId: row.target_id,
     targetLabel: row.target_label,
     createdAt: row.created_at,
+    details,
   };
 }

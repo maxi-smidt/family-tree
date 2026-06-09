@@ -478,7 +478,14 @@
     "target-story": "Geschichte",
     "target-gallery_image": "Bild",
     "target-disease": "Erkrankung",
-    "unknown-actor": "Jemand"
+    "unknown-actor": "Jemand",
+    "filter-all-actors": "Alle Akteure",
+    "filter-all-actions": "Alle Aktionen",
+    "filter-all-types": "Alle Typen",
+    "filter-clear": "Filter zurücksetzen",
+    "navigate-hint": "Zum Eintrag",
+    "diff-changed": "Geändert:",
+    "diff-arrow": "→"
   },
   "timeline-view": {
     "view": {
