@@ -31,6 +31,73 @@ would remove the XSS exposure at the cost of adding CSRF protection and reworkin
 the OAuth redirect (which currently hands the token back in the URL fragment).
 This is a deliberate, documented trade-off rather than an oversight.
 
+**Planned hardening path (tracked in [#151](https://github.com/maxi-smidt/family-tree/issues/151)):**
+
+1. ✅ **CSP (done)** — A strict Content-Security-Policy is served by nginx in
+   production (see `frontend/nginx.conf`). It blocks inline script injection and
+   limits resource origins, reducing the blast radius of any XSS even while the
+   token remains in `localStorage`.
+2. **HttpOnly cookie migration (future)** — Switching to `HttpOnly; SameSite=Lax`
+   cookies would prevent JS from reading the token at all, eliminating the XSS
+   token-theft vector. This requires:
+   - Backend: issue the JWT as a Set-Cookie header instead of a JSON body field.
+   - Frontend: remove `setAuthToken` / `getAuthToken` from `api.ts`; the browser
+     sends the cookie automatically.
+   - OAuth redirect: the Authentik callback currently delivers the token in the
+     URL fragment (`#token=...`). This would need to become a server-side
+     `/auth/callback` redirect that issues the cookie, removing the fragment.
+   - CSRF protection: add a `SameSite=Lax` cookie (sufficient for most flows) or
+     a CSRF double-submit token for any state-mutating non-navigation requests.
+
+## HTTP security headers
+
+The nginx frontend container (`frontend/nginx.conf`) sets the following headers
+on every response:
+
+| Header                    | Value                                      | Purpose                                              |
+| ------------------------- | ------------------------------------------ | ---------------------------------------------------- |
+| `Content-Security-Policy` | see below                                  | Restricts resource origins; reduces XSS blast radius |
+| `X-Frame-Options`         | `DENY`                                     | Clickjacking protection for older browsers           |
+| `X-Content-Type-Options`  | `nosniff`                                  | Prevents MIME-type sniffing                          |
+| `Referrer-Policy`         | `strict-origin-when-cross-origin`          | Avoids leaking URL fragments to third parties        |
+| `Permissions-Policy`      | `camera=(), microphone=(), geolocation=()` | Disables device APIs this app never uses             |
+
+### Content-Security-Policy
+
+```
+default-src 'self';
+script-src 'self';
+style-src 'self' 'unsafe-inline';
+img-src 'self' blob: data:;
+connect-src 'self';
+font-src 'self';
+frame-ancestors 'none';
+base-uri 'self';
+form-action 'self';
+object-src 'none';
+```
+
+**Why `'unsafe-inline'` for `style-src`?**
+Radix UI (used by Shadcn components) and React Flow inject inline `style="..."`
+attributes at runtime for dynamic positioning (e.g. dropdowns, popovers, tree
+edges). Removing `'unsafe-inline'` would break these. A nonce-based approach
+would require per-request SSR that nginx cannot provide. Since CSS cannot
+exfiltrate tokens (only JS can), this does not weaken the main XSS defence.
+
+**Why `blob:` for `img-src`?**
+`useMediaUrl` (`frontend/src/hooks/useMediaUrl.ts`) fetches `/api/media/*`
+endpoints with the Bearer token and converts the response to a `blob:` URL so
+the `<img>` tag can display it without embedding the token in the src attribute.
+
+**Authentik/OIDC OAuth flow**: the OAuth redirect is a browser _navigation_
+(top-level `Location:` redirect), not a fetch. Navigation is not governed by
+`connect-src`. `frame-ancestors 'none'` only applies to embedding, not to
+top-level navigations, so the login flow is unaffected.
+
+**Vite dev server**: this nginx configuration only applies to the production
+Docker build. The Vite dev server does not use these headers; HMR websockets and
+module hot-reloading work as normal in development.
+
 ## Data at rest
 
 The database is **not** encrypted at rest — it relies on the security of the
