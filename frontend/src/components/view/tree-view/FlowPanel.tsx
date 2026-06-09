@@ -1,5 +1,6 @@
 import {
   Background,
+  Connection,
   ConnectionMode,
   Edge,
   Node,
@@ -73,7 +74,7 @@ export const FlowPanel = () => {
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [newRelation, setNewRelation] = useState<any | null>(null);
+  const [newRelation, setNewRelation] = useState<Connection | null>(null);
   const [isNewMemberSession, setIsNewMemberSession] = useState(false);
   const [pendingNewMember, setPendingNewMember] = useState<Member | null>(null);
   const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(
