@@ -263,7 +263,15 @@
       "paternal-parent-field": "Paternal Parent",
       "maternal-parent-field": "Maternal Parent",
       "parent-placeholder": "Search members…",
-      "parent-no-results": "No members found"
+      "parent-no-results": "No members found",
+      "birthplace-field": "Birthplace",
+      "hometown-field": "Hometown / Where They Grew Up",
+      "location-placeholder": "City, region, country…",
+      "places-lived-field": "Places Lived",
+      "places-lived-add": "Add location",
+      "places-lived-from": "From (year)",
+      "places-lived-to": "To (year)",
+      "places-lived-empty": "No locations added yet."
     },
     "view-mode": {
       "firstname-item": "First Name",
@@ -282,7 +290,10 @@
       "stories": "Documents & Stories",
       "no-stories": "Nothing stored yet",
       "genetic-conditions": "Genetic Conditions",
-      "no-conditions": "No conditions recorded"
+      "no-conditions": "No conditions recorded",
+      "locations-section": "Locations",
+      "birthplace-label": "Birthplace",
+      "hometown-label": "Hometown"
     },
     "member-sheet": {
       "edit-title": "Edit Member",
