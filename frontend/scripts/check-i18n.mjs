@@ -5,6 +5,28 @@ import { glob } from "glob";
 const SRC_DIR = "src";
 const LOCALES_DIR = "src/i18n/locales";
 
+// Keys assembled at runtime via template literals or variable lookup cannot be
+// detected by static analysis. List their key prefixes here so the checker does
+// not report them as unused. Keep this list in sync with the code that builds
+// the keys dynamically.
+//
+// Format: each entry is a string prefix. Any key whose full dot-path starts
+// with one of these prefixes is considered intentionally dynamic.
+const DYNAMIC_KEY_PREFIXES = [
+  // t(ISSUE_TYPE_KEY[issue.issue_type] ?? "issue-unknown")  — QualityReportView
+  "quality-report-view.issue-",
+  // t(`severity-${issue.severity}`)  — QualityReportView / IssueCard
+  "quality-report-view.severity-",
+  // t(`role-${database.role}`)  — DatabaseManagementView
+  "database-management-view.role-",
+  // t(`attachments.error-${err}`)  — StoryDialog (keyPrefix: sheet.member-sheet.stories.dialog)
+  "sheet.member-sheet.stories.dialog.attachments.error-",
+];
+
+function isDynamicKey(key) {
+  return DYNAMIC_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+}
+
 async function getTranslationFiles() {
   const files = await fs.readdir(LOCALES_DIR);
   return files.filter((file) => file.endsWith(".json"));
@@ -291,7 +313,9 @@ async function findUnusedKeys() {
 
   for (const lang in translations) {
     const allKeys = getAllKeys(translations[lang]);
-    const unused = allKeys.filter((key) => !usedKeys.has(key));
+    const unused = allKeys.filter(
+      (key) => !usedKeys.has(key) && !isDynamicKey(key),
+    );
     if (unused.length > 0) {
       unusedKeys[lang] = unused;
     }
