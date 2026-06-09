@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.db.init_db import init_db
 from app.services.authentik import init_oauth
 from app.services.deletion_sweeper import deletion_sweep_loop
+from app.services.storage import InvalidImageURL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("app")
@@ -65,6 +66,11 @@ app.add_middleware(
 settings.media_root.mkdir(parents=True, exist_ok=True)
 
 app.include_router(api_router, prefix=settings.API_PREFIX)
+
+
+@app.exception_handler(InvalidImageURL)
+async def invalid_image_url_handler(request: Request, exc: InvalidImageURL):
+    return JSONResponse(status_code=422, content={"detail": str(exc)})
 
 
 @app.exception_handler(Exception)
