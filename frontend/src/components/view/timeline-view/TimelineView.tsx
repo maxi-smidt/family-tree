@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
+import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { Member } from "@/types/member";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { Switch } from "@/components/ui/switch";
@@ -313,8 +314,16 @@ export const TimelineView = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
+                        {(() => {
+                          const { icon: Icon } = getEventTypeInfo(
+                            item.data.eventType,
+                          );
+                          return (
+                            <Icon className="w-5 h-5 text-muted-foreground shrink-0" />
+                          );
+                        })()}
                         <h3 className="font-semibold text-lg">
-                          {item.data.eventType}
+                          {getEventTypeLabel(item.data.eventType, i18n.t)}
                         </h3>
                         <span className="text-sm text-muted-foreground">
                           · {getMemberNames(item.data.linkedMemberIds)}

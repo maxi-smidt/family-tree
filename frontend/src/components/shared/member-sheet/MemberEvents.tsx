@@ -6,6 +6,7 @@ import { Calendar, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
 import { EventDialog } from "@/components/view/timeline-view/EventDialog";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
+import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 
@@ -14,9 +15,7 @@ type Props = {
 };
 
 export const MemberEvents = ({ member }: Props) => {
-  const { t, i18n } = useTranslation(undefined, {
-    keyPrefix: "sheet.member-sheet.events",
-  });
+  const { t, i18n } = useTranslation();
   const { getEventsByMember, removeEvent } = useEventStore();
 
   const {
@@ -43,66 +42,72 @@ export const MemberEvents = ({ member }: Props) => {
     <Item variant="muted">
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
-          <ItemTitle>{t("title")}</ItemTitle>
+          <ItemTitle>{t("sheet.member-sheet.events.title")}</ItemTitle>
           <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
-            {t("add")}
+            {t("sheet.member-sheet.events.add")}
           </Button>
         </div>
 
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
-            {t("no-events")}
+            {t("sheet.member-sheet.events.no-events")}
           </p>
         ) : (
           <div className="space-y-3 mt-2">
-            {events.map((event) => (
-              <div
-                key={event.id}
-                className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="font-medium mb-1">{event.eventType}</div>
-                    <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>
-                          {formatDateWithFallback(event.date, i18n.t)}
-                        </span>
+            {events.map((event) => {
+              const { icon: Icon } = getEventTypeInfo(event.eventType);
+              return (
+                <div
+                  key={event.id}
+                  className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 font-medium mb-1">
+                        <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                        {getEventTypeLabel(event.eventType, i18n.t)}
                       </div>
-                      {event.location && (
+                      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                         <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3" />
-                          <span>{event.location}</span>
+                          <Calendar className="w-3 h-3" />
+                          <span>
+                            {formatDateWithFallback(event.date, i18n.t)}
+                          </span>
                         </div>
+                        {event.location && (
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            <span>{event.location}</span>
+                          </div>
+                        )}
+                      </div>
+                      {event.description && (
+                        <p className="text-sm mt-2">{event.description}</p>
                       )}
                     </div>
-                    {event.description && (
-                      <p className="text-sm mt-2">{event.description}</p>
-                    )}
-                  </div>
-                  <div className="flex gap-1">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => handleEdit(event)}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => openDeleteDialog(event)}
-                    >
-                      <Trash2 />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => handleEdit(event)}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => openDeleteDialog(event)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </ItemContent>
@@ -118,10 +123,10 @@ export const MemberEvents = ({ member }: Props) => {
         open={!!eventToDelete}
         onOpenChange={closeDeleteDialog}
         onConfirm={handleDelete}
-        title={t("delete-dialog.title")}
-        description={t("delete-dialog.description")}
-        cancelText={t("delete-dialog.cancel")}
-        confirmText={t("delete-dialog.delete")}
+        title={t("sheet.member-sheet.events.delete-dialog.title")}
+        description={t("sheet.member-sheet.events.delete-dialog.description")}
+        cancelText={t("sheet.member-sheet.events.delete-dialog.cancel")}
+        confirmText={t("sheet.member-sheet.events.delete-dialog.delete")}
       />
     </Item>
   );

@@ -10,9 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { Event, EventInput } from "@/types/event";
+import {
+  PREDEFINED_EVENT_TYPES,
+  CUSTOM_EVENT_TYPE,
+  getEventTypeInfo,
+} from "@/types/eventTypes";
 import { DatePicker } from "@/components/ui/date-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
@@ -31,46 +43,62 @@ export const EventDialog = ({
   event,
   initialMemberId,
 }: EventDialogProps) => {
-  const { t } = useTranslation(undefined, {
-    keyPrefix: "sheet.member-sheet.events.dialog",
-  });
+  const { t, i18n } = useTranslation();
+  const tDialog = (key: string) => t(`sheet.member-sheet.events.dialog.${key}`);
   const { addEvent, updateEvent } = useEventStore();
   const { members } = useMemberStore();
-  const [formData, setFormData] = useState<EventInput>({
-    eventType: "",
+
+  const [formData, setFormData] = useState<Omit<EventInput, "eventType">>({
     date: new Date().toISOString().split("T")[0],
     location: "",
     description: "",
   });
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [customLabel, setCustomLabel] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+
+  const isCustom = selectedCategory === CUSTOM_EVENT_TYPE;
+  const effectiveEventType = isCustom ? customLabel.trim() : selectedCategory;
 
   useEffect(() => {
     if (event) {
       setFormData({
-        eventType: event.eventType,
         date: event.date,
         location: event.location || "",
         description: event.description || "",
       });
       setSelectedMemberIds(event.linkedMemberIds || []);
+      const { isPredefined, predefined } = getEventTypeInfo(event.eventType);
+      if (isPredefined && predefined) {
+        setSelectedCategory(predefined.value);
+        setCustomLabel("");
+      } else {
+        setSelectedCategory(CUSTOM_EVENT_TYPE);
+        setCustomLabel(event.eventType);
+      }
     } else {
       setFormData({
-        eventType: "",
         date: new Date().toISOString().split("T")[0],
         location: "",
         description: "",
       });
+      setSelectedCategory("");
+      setCustomLabel("");
       setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
     }
   }, [event, initialMemberId, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const eventInput: EventInput = {
+      ...formData,
+      eventType: effectiveEventType,
+    };
 
     if (event) {
-      await updateEvent(event.id, formData, selectedMemberIds);
+      await updateEvent(event.id, eventInput, selectedMemberIds);
     } else {
-      await addEvent(selectedMemberIds, formData);
+      await addEvent(selectedMemberIds, eventInput);
     }
 
     onOpenChange(false);
@@ -78,12 +106,12 @@ export const EventDialog = ({
 
   const handleDateChange = (date: Date | undefined) => {
     if (date) {
-      setFormData({
-        ...formData,
-        date: date.toISOString().split("T")[0],
-      });
+      setFormData({ ...formData, date: date.toISOString().split("T")[0] });
     }
   };
+
+  const isSubmitDisabled =
+    !effectiveEventType || selectedMemberIds.length === 0;
 
   const memberOptions = getMemberOptions(members);
 
@@ -91,68 +119,98 @@ export const EventDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-125">
         <DialogHeader>
-          <DialogTitle>{event ? t("title-edit") : t("title-add")}</DialogTitle>
+          <DialogTitle>
+            {event ? tDialog("title-edit") : tDialog("title-add")}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-4 py-4 px-1">
             <div className="space-y-2">
-              <Label htmlFor="members">{t("linked-members")} *</Label>
+              <Label htmlFor="members">{tDialog("linked-members")} *</Label>
               <MultiSelect
                 options={memberOptions}
                 onValueChange={setSelectedMemberIds}
                 defaultValue={selectedMemberIds}
-                placeholder={t("linked-members-placeholder")}
+                placeholder={tDialog("linked-members-placeholder")}
                 variant="inverted"
                 maxCount={5}
               />
               <p className="text-xs text-muted-foreground">
-                {t("linked-members-description")}
+                {tDialog("linked-members-description")}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="eventType">{t("event-type")} *</Label>
-              <Input
-                id="eventType"
-                value={formData.eventType}
-                onChange={(e) =>
-                  setFormData({ ...formData, eventType: e.target.value })
-                }
-                placeholder={t("event-type-placeholder")}
-                required
-              />
+              <Label htmlFor="eventType">{tDialog("event-type")} *</Label>
+              <Select
+                value={selectedCategory}
+                onValueChange={setSelectedCategory}
+              >
+                <SelectTrigger id="eventType">
+                  <SelectValue
+                    placeholder={tDialog("event-type-placeholder")}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {PREDEFINED_EVENT_TYPES.map((opt) => {
+                    const Icon = opt.icon;
+                    return (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <span className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-muted-foreground" />
+                          {i18n.t(`event-types.${opt.labelKey}`)}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                  <SelectItem value={CUSTOM_EVENT_TYPE}>
+                    <span className="flex items-center gap-2">
+                      {tDialog("custom")}
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {isCustom && (
+                <Input
+                  id="customLabel"
+                  value={customLabel}
+                  onChange={(e) => setCustomLabel(e.target.value)}
+                  placeholder={tDialog("custom-placeholder")}
+                  required
+                />
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="date">{t("date")} *</Label>
+              <Label htmlFor="date">{tDialog("date")} *</Label>
               <DatePicker
-                placeholder={t("date-placeholder")}
+                placeholder={tDialog("date-placeholder")}
                 value={new Date(formData.date)}
                 onChange={handleDateChange}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="location">{t("location")}</Label>
+              <Label htmlFor="location">{tDialog("location")}</Label>
               <Input
                 id="location"
                 value={formData.location || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, location: e.target.value })
                 }
-                placeholder={t("location-placeholder")}
+                placeholder={tDialog("location-placeholder")}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">{t("description")}</Label>
+              <Label htmlFor="description">{tDialog("description")}</Label>
               <Textarea
                 id="description"
                 value={formData.description || ""}
                 onChange={(e) =>
                   setFormData({ ...formData, description: e.target.value })
                 }
-                placeholder={t("description-placeholder")}
+                placeholder={tDialog("description-placeholder")}
                 rows={4}
               />
             </div>
@@ -165,14 +223,10 @@ export const EventDialog = ({
               size="sm"
               onClick={() => onOpenChange(false)}
             >
-              {t("cancel")}
+              {tDialog("cancel")}
             </Button>
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!formData.eventType || selectedMemberIds.length === 0}
-            >
-              {event ? t("update") : t("add")}
+            <Button type="submit" size="sm" disabled={isSubmitDisabled}>
+              {event ? tDialog("update") : tDialog("add")}
             </Button>
           </DialogFooter>
         </form>
