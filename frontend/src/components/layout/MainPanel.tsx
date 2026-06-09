@@ -1,13 +1,38 @@
-import { useState, useEffect } from "react";
+import { lazy, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GalleryView } from "@/components/view/gallery-view/GalleryView";
-import { FlowPanel } from "@/components/view/tree-view/FlowPanel";
-import { ListView } from "@/components/view/list-view/ListView";
 import { useTranslation } from "react-i18next";
-import { DatabaseManagementView } from "@/components/view/database-management-view/DatabaseManagementView";
-import { TimelineView } from "@/components/view/timeline-view/TimelineView";
-import { ActivityView } from "@/components/view/activity-view/ActivityView";
 import { TabWrapper } from "@/components/layout/TabWrapper";
+
+const FlowPanel = lazy(() =>
+  import("@/components/view/tree-view/FlowPanel").then((m) => ({
+    default: m.FlowPanel,
+  })),
+);
+const ListView = lazy(() =>
+  import("@/components/view/list-view/ListView").then((m) => ({
+    default: m.ListView,
+  })),
+);
+const GalleryView = lazy(() =>
+  import("@/components/view/gallery-view/GalleryView").then((m) => ({
+    default: m.GalleryView,
+  })),
+);
+const TimelineView = lazy(() =>
+  import("@/components/view/timeline-view/TimelineView").then((m) => ({
+    default: m.TimelineView,
+  })),
+);
+const ActivityView = lazy(() =>
+  import("@/components/view/activity-view/ActivityView").then((m) => ({
+    default: m.ActivityView,
+  })),
+);
+const DatabaseManagementView = lazy(() =>
+  import("@/components/view/database-management-view/DatabaseManagementView").then(
+    (m) => ({ default: m.DatabaseManagementView }),
+  ),
+);
 import {
   Select,
   SelectContent,

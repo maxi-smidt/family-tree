@@ -31,6 +31,21 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // All node_modules land in a single vendor chunk (~810 kB minified,
+    // ~250 kB gzip). Splitting vendors further creates circular chunk
+    // warnings because every React library cross-imports react/react-dom.
+    // The vendor chunk is cached aggressively and rarely invalidated;
+    // heavy views are already code-split via dynamic import() below.
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes("node_modules")) return "vendor";
+        },
+      },
+    },
+  },
   test: {
     globals: true,
     environment: "jsdom",
