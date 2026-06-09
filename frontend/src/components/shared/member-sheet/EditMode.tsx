@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Textarea } from "@/components/ui/textarea";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import {
@@ -234,7 +235,7 @@ export const EditMode = ({
       <div className="flex flex-col gap-1 w-full nodrag">
         <label className="block relative mb-2 cursor-pointer group w-fit mx-auto">
           {formData.imageData ? (
-            <img
+            <AuthenticatedImage
               src={formData.imageData}
               className="size-32 rounded-full object-cover mx-auto bg-gray-100"
               alt="Profile"

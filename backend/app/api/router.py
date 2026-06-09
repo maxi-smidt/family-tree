@@ -8,6 +8,7 @@ from app.api.routes import (
     events,
     export_import,
     gallery,
+    media,
     members,
     oauth,
     settings,
@@ -28,3 +29,4 @@ api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(stories.router)
 api_router.include_router(activity.router)
+api_router.include_router(media.router)

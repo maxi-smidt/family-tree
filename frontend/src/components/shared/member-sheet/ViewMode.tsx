@@ -5,6 +5,7 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@/components/ui/item";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -194,7 +195,7 @@ export const ViewMode = ({ member }: Props) => {
                   {linkedImages
                     .slice(0, showAll ? linkedImages.length : 3)
                     .map((image, index) => (
-                      <img
+                      <AuthenticatedImage
                         key={image.id}
                         src={image.imageData}
                         alt={image.title || "Linked image"}

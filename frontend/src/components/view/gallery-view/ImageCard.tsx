@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { GalleryImage } from "@/types/gallery";
 import { formatDate } from "@/utils/dateUtils";
 
@@ -15,7 +16,7 @@ export const ImageCard = ({ image, onClick }: Props) => {
     >
       <CardHeader className="p-0 bg-muted/20 flex-1 min-h-0">
         <div className="overflow-hidden h-full w-full">
-          <img
+          <AuthenticatedImage
             src={image.imageData}
             alt={image.title || "Gallery Image"}
             className="w-full h-full object-cover pointer-events-none group-hover:scale-105 transition-transform duration-300"
