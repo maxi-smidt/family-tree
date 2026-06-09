@@ -332,7 +332,7 @@
           "linked-members-placeholder": "Personen auswählen...",
           "linked-members-description": "Wähle eine oder mehrere Personen um die es in dieser Geschichte geht",
           "event-type": "Art des Ereignisses",
-          "event-type-placeholder": "z.B. Geburt, Heirat, Graduierung",
+          "event-type-placeholder": "Art des Ereignisses wählen",
           "date": "Datum",
           "date-placeholder": "Wähle ein Datum",
           "location": "Standort",
@@ -341,7 +341,9 @@
           "description-placeholder": "Füge mehr Details zu dem Ereignis hinzu...",
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
-          "add": "Hinzufügen"
+          "add": "Hinzufügen",
+          "custom": "Benutzerdefiniert...",
+          "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation"
         }
       },
       "stories": {
@@ -709,5 +711,18 @@
       "delete": "Löschung vormerken",
       "scheduled": "Konto zum Löschen vorgemerkt."
     }
+  },
+  "event-types": {
+    "birth": "Geburt",
+    "baptism": "Taufe",
+    "marriage": "Heirat",
+    "divorce": "Scheidung",
+    "immigration": "Einwanderung",
+    "occupation": "Beruf",
+    "education": "Bildung",
+    "military": "Militärdienst",
+    "death": "Tod",
+    "burial": "Beerdigung",
+    "custom": "Benutzerdefiniert"
   }
 }

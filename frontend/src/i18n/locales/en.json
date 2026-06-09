@@ -332,7 +332,7 @@
           "linked-members-placeholder": "Select members...",
           "linked-members-description": "Select one or more family members this story is about",
           "event-type": "Event Type",
-          "event-type-placeholder": "e.g., Birth, Marriage, Graduation, Migration",
+          "event-type-placeholder": "Select event type",
           "date": "Date",
           "date-placeholder": "Pick a date",
           "location": "Location",
@@ -341,7 +341,9 @@
           "description-placeholder": "Add more details about this event...",
           "cancel": "Cancel",
           "update": "Update",
-          "add": "Add"
+          "add": "Add",
+          "custom": "Custom...",
+          "custom-placeholder": "e.g., Graduation, Migration, Confirmation"
         }
       },
       "stories": {
@@ -709,5 +711,18 @@
       "delete": "Schedule deletion",
       "scheduled": "Account scheduled for deletion."
     }
+  },
+  "event-types": {
+    "birth": "Birth",
+    "baptism": "Baptism",
+    "marriage": "Marriage",
+    "divorce": "Divorce",
+    "immigration": "Immigration",
+    "occupation": "Occupation",
+    "education": "Education",
+    "military": "Military Service",
+    "death": "Death",
+    "burial": "Burial",
+    "custom": "Custom"
   }
 }

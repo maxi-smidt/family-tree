@@ -15,6 +15,7 @@ import { StoryAttachments } from "./StoryAttachments";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { Calendar, MapPin, BookOpen, Activity } from "lucide-react";
+import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
 
@@ -229,8 +230,16 @@ export const ViewMode = ({ member }: Props) => {
                         key={event.id}
                         className="border rounded-lg p-3 bg-accent/50"
                       >
-                        <div className="font-medium mb-1">
-                          {event.eventType}
+                        <div className="flex items-center gap-2 font-medium mb-1">
+                          {(() => {
+                            const { icon: Icon } = getEventTypeInfo(
+                              event.eventType,
+                            );
+                            return (
+                              <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
+                            );
+                          })()}
+                          {getEventTypeLabel(event.eventType, i18n.t)}
                         </div>
                         <div className="flex flex-col gap-1 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">

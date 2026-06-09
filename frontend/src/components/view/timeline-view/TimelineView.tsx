@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
+import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { Member } from "@/types/member";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { Switch } from "@/components/ui/switch";
@@ -65,6 +66,12 @@ export const TimelineView = () => {
   const filteredEvents = useMemo(() => {
     let filtered = events;
 
+    if (!showVitalEvents) {
+      filtered = filtered.filter(
+        (e) => e.eventType !== "birth" && e.eventType !== "death",
+      );
+    }
+
     if (selectedMemberId !== "all") {
       filtered = filtered.filter((e) =>
         e.linkedMemberIds.includes(selectedMemberId),
@@ -84,15 +91,18 @@ export const TimelineView = () => {
     return filtered.sort((a, b) => {
       const dateA = new Date(a.date).getTime();
       const dateB = new Date(b.date).getTime();
-      return dateB - dateA; // Most recent first
+      return dateB - dateA;
     });
-  }, [events, selectedMemberId, searchQuery]);
+  }, [events, selectedMemberId, searchQuery, showVitalEvents]);
 
   const filteredVitalEvents = useMemo(() => {
     const vitals: VitalEvent[] = [];
 
     for (const member of members) {
-      if (member.date.birth) {
+      const hasBirthEvent = events.some(
+        (e) => e.eventType === "birth" && e.linkedMemberIds.includes(member.id),
+      );
+      if (!hasBirthEvent && member.date.birth) {
         vitals.push({
           kind: "vital",
           id: `birth-${member.id}`,
@@ -101,7 +111,10 @@ export const TimelineView = () => {
           date: member.date.birth,
         });
       }
-      if (member.date.death) {
+      const hasDeathEvent = events.some(
+        (e) => e.eventType === "death" && e.linkedMemberIds.includes(member.id),
+      );
+      if (!hasDeathEvent && member.date.death) {
         vitals.push({
           kind: "vital",
           id: `death-${member.id}`,
@@ -130,7 +143,7 @@ export const TimelineView = () => {
     }
 
     return filtered;
-  }, [members, selectedMemberId, searchQuery, t]);
+  }, [members, events, selectedMemberId, searchQuery, t]);
 
   type TimelineItem =
     | { kind: "event"; data: Event }
@@ -313,8 +326,16 @@ export const TimelineView = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
+                        {(() => {
+                          const { icon: Icon } = getEventTypeInfo(
+                            item.data.eventType,
+                          );
+                          return (
+                            <Icon className="w-5 h-5 text-muted-foreground shrink-0" />
+                          );
+                        })()}
                         <h3 className="font-semibold text-lg">
-                          {item.data.eventType}
+                          {getEventTypeLabel(item.data.eventType, i18n.t)}
                         </h3>
                         <span className="text-sm text-muted-foreground">
                           · {getMemberNames(item.data.linkedMemberIds)}
