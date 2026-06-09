@@ -9,7 +9,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -63,14 +62,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Serve uploaded media (member photos, gallery images). Filenames are random
-# UUIDs, so the URLs are effectively unguessable.
 settings.media_root.mkdir(parents=True, exist_ok=True)
-app.mount(
-    f"{settings.API_PREFIX}/media",
-    StaticFiles(directory=str(settings.media_root)),
-    name="media",
-)
 
 app.include_router(api_router, prefix=settings.API_PREFIX)
 
