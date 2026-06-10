@@ -5,6 +5,7 @@ import {
   findShortestMemberPath,
   buildMemberConnectionGraph,
   memberPairKey,
+  pruneConnectionMemberIds,
 } from "./graphUtils";
 
 const member = (
@@ -122,5 +123,43 @@ describe("member connection graph", () => {
     expect(highlight.nodeIds).toEqual(new Set());
     expect(highlight.edgeKeys).toEqual(new Set());
     expect(highlight.missingPairs).toEqual([{ fromId: "one", toId: "two" }]);
+  });
+});
+
+describe("pruneConnectionMemberIds", () => {
+  it("returns the same array reference when nothing was removed", () => {
+    const members = [member("a"), member("b"), member("c")];
+    const ids = ["a", "b", "c"];
+    const result = pruneConnectionMemberIds(ids, members);
+    expect(result).toBe(ids);
+  });
+
+  it("filters out ids that are no longer in members", () => {
+    const members = [member("a"), member("c")];
+    const ids = ["a", "b", "c"];
+    const result = pruneConnectionMemberIds(ids, members);
+    expect(result).toEqual(["a", "c"]);
+    expect(result).not.toBe(ids);
+  });
+
+  it("preserves order of remaining ids", () => {
+    const members = [member("a"), member("c"), member("e")];
+    const ids = ["e", "c", "a"];
+    const result = pruneConnectionMemberIds(ids, members);
+    expect(result).toEqual(["e", "c", "a"]);
+  });
+
+  it("returns empty array when all ids are removed", () => {
+    const members = [member("x"), member("y")];
+    const ids = ["a", "b", "c"];
+    const result = pruneConnectionMemberIds(ids, members);
+    expect(result).toEqual([]);
+  });
+
+  it("returns same reference for empty ids array", () => {
+    const members = [member("a")];
+    const ids: string[] = [];
+    const result = pruneConnectionMemberIds(ids, members);
+    expect(result).toBe(ids);
   });
 });
