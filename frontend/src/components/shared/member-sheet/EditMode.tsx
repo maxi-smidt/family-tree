@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Textarea } from "@/components/ui/textarea";
+import { ApiError } from "@/services/api";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import {
   ChangeEvent,
@@ -208,7 +209,7 @@ export const EditMode = ({
       return;
     }
 
-    void updateMemberPartial(member.id, {
+    updateMemberPartial(member.id, {
       firstName: formData.firstName,
       lastName: formData.lastName,
       maidenName: formData.maidenName || null,
@@ -225,9 +226,20 @@ export const EditMode = ({
           : null,
       paternalParentId: formData.parents.paternalParent,
       maternalParentId: formData.parents.maternalParent,
-    });
-    toast.success(t("toast-success"));
-    onSaved?.(formData);
+    })
+      .then(() => {
+        toast.success(t("toast-success"));
+        onSaved?.(formData);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 413) {
+          toast.error(t("toast-error-image-too-large"));
+        } else if (err instanceof ApiError && err.status === 400) {
+          toast.error(t("toast-error-image-unsupported"));
+        } else {
+          toast.error(t("toast-error-save"));
+        }
+      });
   };
 
   return (

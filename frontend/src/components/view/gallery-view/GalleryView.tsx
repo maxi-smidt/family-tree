@@ -1,4 +1,5 @@
 import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { ImageCard } from "@/components/view/gallery-view/ImageCard";
 import { ChangeEvent, useMemo, useRef, useState } from "react";
@@ -85,13 +86,24 @@ export const GalleryView = () => {
           ctx.drawImage(img, 0, 0, width, height);
           const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
 
-          void addGalleryImage({
+          addGalleryImage({
             imageData: compressedBase64,
             title: formatDateTime(new Date()),
             description: null,
             linkedMemberIds: [],
-          });
-          toast.success(t("toast-success-image-upload"));
+          })
+            .then(() => {
+              toast.success(t("toast-success-image-upload"));
+            })
+            .catch((err: unknown) => {
+              if (err instanceof ApiError && err.status === 413) {
+                toast.error(t("toast-error-image-too-large"));
+              } else if (err instanceof ApiError && err.status === 400) {
+                toast.error(t("toast-error-image-unsupported"));
+              } else {
+                toast.error(t("toast-error-image-upload"));
+              }
+            });
         };
         img.onerror = () => toast.error(t("toast-error-image-upload"));
         img.src = base64String;

@@ -21,7 +21,7 @@ from app.schemas.family import (
     RelationOut,
 )
 from app.services.activity import record_activity
-from app.services.storage import process_image_field
+from app.services.storage import ImageTooLarge, UnsupportedImageType, process_image_field
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -47,7 +47,12 @@ def create_member(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
-    data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+    try:
+        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+    except ImageTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except (UnsupportedImageType, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     member = Member(tree_id=tree.id, **data)
     db.add(member)
     label = " ".join(filter(None, [data.get("firstName"), data.get("lastName")])) or None
@@ -124,7 +129,12 @@ def update_member(
     member = _get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
     if "imageData" in changes:
-        changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+        try:
+            changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+        except ImageTooLarge as exc:
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+        except (UnsupportedImageType, ValueError) as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     # Capture before-state for diff details (skip noisy positional/internal fields).
     _SKIP_DIFF = {"positionX", "positionY", "isCollapsed", "imageData"}
     before = {k: getattr(member, k) for k in changes if k not in _SKIP_DIFF}
