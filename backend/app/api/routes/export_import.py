@@ -6,6 +6,7 @@ Imports (both formats) always land in a brand new tree owned by the importing
 user, with every id remapped so re-importing never collides with existing data.
 """
 
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile
@@ -301,9 +302,11 @@ async def import_tree_gedcom(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail="Could not read GEDCOM file") from exc
 
-    # Resolve tree name: form field > HEAD FILE tag > default.
+    # Resolve tree name: explicit form field > filename stem > HEAD FILE > default.
+    filename_stem = Path(file.filename).stem.strip() if file.filename else ""
     tree_name = (
         name
+        or filename_stem
         or parsed.get("_head_file")  # type: ignore[arg-type]
         or "Imported tree"
     )

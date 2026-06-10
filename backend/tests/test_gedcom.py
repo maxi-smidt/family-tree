@@ -536,8 +536,8 @@ def test_api_export_gedcom_content_disposition(client, db):
     assert "MyFamily.ged" in cd
 
 
-def test_api_gedcom_import_uses_head_file_name(client, db):
-    """When no name form field given, HEAD FILE tag is used for the tree name."""
+def test_api_gedcom_import_uses_filename_stem(client, db):
+    """When no name form field given, the uploaded filename stem is used."""
     owner = make_user(db, "eve")
     headers = auth(owner)
 
@@ -545,11 +545,13 @@ def test_api_gedcom_import_uses_head_file_name(client, db):
     resp = client.post(
         f"{API}/trees/import-gedcom",
         headers=headers,
-        files={"file": ("test.ged", io.BytesIO(ged), "text/plain")},
-        # No 'name' field provided.
+        files={"file": ("my_family.ged", io.BytesIO(ged), "text/plain")},
+        # No 'name' field provided — filename stem takes precedence over HEAD FILE.
     )
     assert resp.status_code == 201
-    assert resp.json()["name"] == "MyAncestors"
+    assert resp.json()["name"] == "my_family"
+
+
 
 
 # ---------------------------------------------------------------------------

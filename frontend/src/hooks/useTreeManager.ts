@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 
 interface InspectResult {
   password_required: boolean;
@@ -90,6 +91,8 @@ export const useTreeManager = () => {
       const tree = await api.postForm<Tree>("/trees/import-gedcom", form);
       await loadTrees();
       await selectTree(tree);
+      // GEDCOM members all start at (0, 0) — auto-layout so they're visible.
+      await useMemberStore.getState().updateLayout();
       return tree;
     },
     [loadTrees, selectTree],
