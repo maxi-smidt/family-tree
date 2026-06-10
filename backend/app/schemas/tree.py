@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -42,6 +44,13 @@ class TreeMerge(BaseModel):
     source_a: str
     # Optional second source; when omitted the merge is effectively a copy.
     source_b: str | None = None
+    # Optional per-pair conflict resolutions (new in #166). When None the old
+    # behaviour is preserved exactly (backwards-compatible).
+    resolutions: list[MergeResolution] | None = None
+
+
+# Import here to avoid circular imports; MergeResolution is defined in merge.py
+from app.schemas.merge import MergeResolution  # noqa: E402
 
 
 class TreeMemberOut(BaseModel):

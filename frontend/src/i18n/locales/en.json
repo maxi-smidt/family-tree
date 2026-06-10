@@ -544,7 +544,27 @@
       "toast-preview-error": "Error loading trees for preview.",
       "toast-merge-success": "Trees merged successfully.",
       "toast-error-name": "Please provide a name for the new tree.",
-      "toast-error-merge": "Failed to merge trees."
+      "toast-error-merge": "Failed to merge trees.",
+      "loading-preview": "Analysing trees…",
+      "review-conflicts": "Review Conflicts"
+    },
+    "resolve": {
+      "title": "Review & Resolve Conflicts",
+      "description_one": "{{count}} duplicate found. Review and choose how each should be handled.",
+      "description_other": "{{count}} duplicates found. Review and choose how each should be handled.",
+      "back": "Back",
+      "confirm-merge": "Merge",
+      "action-label": "Action",
+      "action-merge": "Merge",
+      "action-keep-both": "Keep both",
+      "column-choice": "Choice",
+      "badge-exact": "Exact match",
+      "badge-possible": "Possible match",
+      "no-conflict": "No conflict",
+      "no-visible-fields": "No differing fields.",
+      "field-choice-a": "Use A",
+      "field-choice-b": "Use B",
+      "field-choice-combine": "Combine"
     },
     "preview": {
       "title": "Preview Analysis",
