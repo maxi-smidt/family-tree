@@ -8,6 +8,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
+import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 
 interface DatabaseMetaData {
   id?: string;
@@ -46,6 +47,7 @@ const clearDataStores = () => {
   useEventStore.getState().clear();
   useStoryStore.getState().clear();
   useActivityStore.getState().clear();
+  useStatisticsStore.getState().clear();
 };
 
 export const useTreeStore = create<DatabaseState>((set, get) => ({

@@ -209,6 +209,7 @@
       "timeline": "Timeline",
       "activity": "Activity",
       "quality-report": "Quality",
+      "statistics": "Statistics",
       "database-management": "Tree Management"
     },
     "no-database-placeholder": {
@@ -596,6 +597,30 @@
     "issue-relationship-cycle": "Relationship cycle",
     "issue-duplicate-candidate": "Possible duplicate",
     "issue-disconnected-member": "No relationships"
+  },
+  "statistics-view": {
+    "title": "Statistics",
+    "refresh": "Refresh",
+    "loading": "Computing statistics…",
+    "empty-title": "Not enough data",
+    "empty-description": "Add members to your tree to see statistics.",
+    "stat-total-members": "Total Members",
+    "stat-with-birth": "Known Births",
+    "stat-with-death": "Known Deaths",
+    "stat-avg-lifespan": "Avg. Lifespan",
+    "stat-avg-lifespan-value": "{{years}} yrs",
+    "gender-title": "Gender Distribution",
+    "gender-male": "Male",
+    "gender-female": "Female",
+    "gender-other": "Other",
+    "gender-unknown": "Unknown",
+    "timeline-title": "Births & Deaths by Decade",
+    "timeline-births": "Births",
+    "timeline-deaths": "Deaths",
+    "lifespan-title": "Lifespan Distribution (years at death)",
+    "lifespan-people": "People",
+    "names-title": "Most Common First Names",
+    "names-count": "Count"
   },
   "database-management-view": {
     "title": "Tree Management",

@@ -209,6 +209,7 @@
       "timeline": "Timeline",
       "activity": "Aktivität",
       "quality-report": "Qualität",
+      "statistics": "Statistiken",
       "database-management": "Stammbaumverwaltung"
     },
     "no-database-placeholder": {
@@ -596,6 +597,30 @@
     "issue-relationship-cycle": "Beziehungszyklus",
     "issue-duplicate-candidate": "Mögliches Duplikat",
     "issue-disconnected-member": "Keine Beziehungen"
+  },
+  "statistics-view": {
+    "title": "Statistiken",
+    "refresh": "Aktualisieren",
+    "loading": "Statistiken werden berechnet…",
+    "empty-title": "Nicht genug Daten",
+    "empty-description": "Füge Mitglieder zum Stammbaum hinzu, um Statistiken zu sehen.",
+    "stat-total-members": "Mitglieder gesamt",
+    "stat-with-birth": "Bekannte Geburten",
+    "stat-with-death": "Bekannte Todesfälle",
+    "stat-avg-lifespan": "Ø Lebenserwartung",
+    "stat-avg-lifespan-value": "{{years}} J.",
+    "gender-title": "Geschlechterverteilung",
+    "gender-male": "Männlich",
+    "gender-female": "Weiblich",
+    "gender-other": "Divers",
+    "gender-unknown": "Unbekannt",
+    "timeline-title": "Geburten & Todesfälle nach Jahrzehnt",
+    "timeline-births": "Geburten",
+    "timeline-deaths": "Todesfälle",
+    "lifespan-title": "Altersverteilung bei Tod (Jahre)",
+    "lifespan-people": "Personen",
+    "names-title": "Häufigste Vornamen",
+    "names-count": "Anzahl"
   },
   "database-management-view": {
     "title": "Stammbaumverwaltung",
