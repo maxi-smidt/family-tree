@@ -20,7 +20,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Stories may now carry only attachments and no narrative text.
-    op.alter_column('stories', 'content', existing_type=sa.Text(), nullable=True)
+    # Use batch mode for SQLite compatibility (ALTER COLUMN not supported natively).
+    with op.batch_alter_table('stories', schema=None) as batch_op:
+        batch_op.alter_column('content', existing_type=sa.Text(), nullable=True)
 
     op.create_table(
         'story_attachments',
@@ -51,4 +53,5 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_story_attachments_tree_id'))
     op.drop_table('story_attachments')
 
-    op.alter_column('stories', 'content', existing_type=sa.Text(), nullable=False)
+    with op.batch_alter_table('stories', schema=None) as batch_op:
+        batch_op.alter_column('content', existing_type=sa.Text(), nullable=False)

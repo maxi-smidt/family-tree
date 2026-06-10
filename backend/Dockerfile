@@ -19,6 +19,16 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 
+# Drop root: create an unprivileged user and pre-create mount points so the
+# process owns them when bind mounts are absent. Operators running bind mounts
+# should ensure the host directories are owned by UID/GID 1000.
+RUN addgroup --system --gid 1000 appuser \
+ && adduser --system --uid 1000 --gid 1000 --no-create-home appuser \
+ && mkdir -p /data /appdata \
+ && chown -R appuser:appuser /app /data /appdata
+
+USER appuser
+
 EXPOSE 8000
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

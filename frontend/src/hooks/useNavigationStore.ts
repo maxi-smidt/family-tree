@@ -7,6 +7,7 @@ type ViewId =
   | "timeline-view"
   | "activity-view"
   | "quality-report-view"
+  | "statistics-view"
   | "database-management-view";
 
 interface NavigationState {
