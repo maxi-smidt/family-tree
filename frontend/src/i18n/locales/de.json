@@ -544,7 +544,27 @@
       "toast-preview-error": "Die Stammbäume konnten nicht für die Vorschau geladen werden.",
       "toast-merge-success": "Stammbäume erfolgreich zusammengeführt.",
       "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
-      "toast-error-merge": "Stammbäume konnten nicht zusammengeführt werden."
+      "toast-error-merge": "Stammbäume konnten nicht zusammengeführt werden.",
+      "loading-preview": "Stammbäume werden analysiert…",
+      "review-conflicts": "Konflikte überprüfen"
+    },
+    "resolve": {
+      "title": "Konflikte überprüfen & lösen",
+      "description_one": "{{count}} Duplikat gefunden. Bitte prüfen und entscheiden, wie es behandelt werden soll.",
+      "description_other": "{{count}} Duplikate gefunden. Bitte prüfen und entscheiden, wie diese behandelt werden sollen.",
+      "back": "Zurück",
+      "confirm-merge": "Vereinen",
+      "action-label": "Aktion",
+      "action-merge": "Zusammenführen",
+      "action-keep-both": "Beide behalten",
+      "column-choice": "Auswahl",
+      "badge-exact": "Genaue Übereinstimmung",
+      "badge-possible": "Mögliche Übereinstimmung",
+      "no-conflict": "Kein Konflikt",
+      "no-visible-fields": "Keine abweichenden Felder.",
+      "field-choice-a": "A verwenden",
+      "field-choice-b": "B verwenden",
+      "field-choice-combine": "Kombinieren"
     },
     "preview": {
       "title": "Vorschau",
