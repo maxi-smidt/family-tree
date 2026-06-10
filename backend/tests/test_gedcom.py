@@ -254,6 +254,18 @@ class TestServiceRoundTrip:
     def test_gedcom_has_fam(self):
         assert " FAM" in self.ged_text
 
+    def test_header_has_required_submitter(self):
+        # GEDCOM 5.5.1 requires a submitter reference in the header ({1:1})
+        # backed by a matching SUBM record with a NAME.
+        assert "1 SUBM @SUBM1@" in self.ged_text
+        assert "0 @SUBM1@ SUBM" in self.ged_text
+        subm_idx = self.ged_text.index("0 @SUBM1@ SUBM")
+        assert "1 NAME" in self.ged_text[subm_idx:]
+
+    def test_marriage_event_asserts_occurrence(self):
+        # A detail-less family event must carry the value "Y" in 5.5.1.
+        assert "1 MARR Y" in self.ged_text
+
     def test_father_name(self):
         assert ("James", "Smith") in self.by_name
 

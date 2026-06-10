@@ -85,6 +85,9 @@ _DATE_QUALIFIERS = {"ABT", "EST", "CAL", "BEF", "AFT", "FROM", "TO"}
 # Couple relation types that map to FAM records.
 _COUPLE_TYPES: frozenset[str] = frozenset({"married", "partner", "divorced"})
 
+# Xref of the submitter record required by the GEDCOM 5.5.1 header.
+SUBMITTER_XREF = "@SUBM1@"
+
 
 # ---------------------------------------------------------------------------
 # Date helpers
@@ -198,6 +201,9 @@ def serialize_to_gedcom(
     L("2 FORM LINEAGE-LINKED")
     L("1 CHAR UTF-8")
     L(f"1 DATE {day_str}")
+    # GEDCOM 5.5.1 requires a submitter reference in the header (cardinality
+    # {1:1}) backed by a SUBM record; emitted at the end before TRLR.
+    L(f"1 SUBM {SUBMITTER_XREF}")
     L(f"1 FILE {tree_name}")
 
     # --- Assign INDI xrefs ---------------------------------------------------
@@ -395,11 +401,13 @@ def serialize_to_gedcom(
         couple_type = fam.get("couple_type")
         if couple_type:
             L(f"1 _RELTYPE {couple_type}")
+            # A family event with no detail substructures takes the value "Y"
+            # in GEDCOM 5.5.1 to assert that it occurred.
             if couple_type == "married":
-                L("1 MARR")
+                L("1 MARR Y")
             elif couple_type == "divorced":
-                L("1 MARR")
-                L("1 DIV")
+                L("1 MARR Y")
+                L("1 DIV Y")
             # "partner" → only _RELTYPE, no MARR
 
     # --- Generic _REL records (sibling, other, custom) ----------------------
@@ -432,6 +440,10 @@ def serialize_to_gedcom(
         L(f"1 _TO {member_xref[to_id]}")
         L(f"1 _TYPE {rtype}")
         rel_idx += 1
+
+    # --- SUBM record (required by the header reference) ---------------------
+    L(f"0 {SUBMITTER_XREF} SUBM")
+    L("1 NAME FamilyTree")
 
     # --- TRLR ---------------------------------------------------------------
     L("0 TRLR")
