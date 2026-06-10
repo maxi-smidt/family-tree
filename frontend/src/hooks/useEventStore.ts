@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { Event, EventInput, mapEventFromDB } from "@/types/event";
 import { TreeService } from "@/services/TreeService";
-import { activeTreeId } from "@/hooks/useTreeStore";
+import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 
 interface EventState {
   events: Event[];
-  refreshEvents: () => Promise<void>;
+  refreshEvents: (treeId?: string) => Promise<void>;
   getEventsByMember: (memberId: string) => Event[];
   addEvent: (memberIds: string[], event: EventInput) => Promise<void>;
   updateEvent: (
@@ -14,13 +14,13 @@ interface EventState {
     memberIds: string[],
   ) => Promise<void>;
   removeEvent: (id: string) => Promise<void>;
+  clear: () => void;
 }
 
 export const useEventStore = create<EventState>((set, get) => ({
   events: [],
 
-  refreshEvents: async () => {
-    const treeId = activeTreeId();
+  refreshEvents: async (treeId = activeTreeId()) => {
     if (!treeId) {
       set({ events: [] });
       return;
@@ -30,6 +30,8 @@ export const useEventStore = create<EventState>((set, get) => ({
       TreeService.getEvents(treeId),
       TreeService.getEventMemberLinks(treeId),
     ]);
+
+    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const events = eventsResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -54,7 +56,7 @@ export const useEventStore = create<EventState>((set, get) => ({
 
     await TreeService.addEvent(treeId, id, event, now, memberIds);
 
-    await get().refreshEvents();
+    await get().refreshEvents(treeId);
   },
 
   updateEvent: async (id: string, event: EventInput, memberIds: string[]) => {
@@ -64,7 +66,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     await TreeService.updateEvent(treeId, id, event);
     await TreeService.setEventLinks(treeId, id, memberIds);
 
-    await get().refreshEvents();
+    await get().refreshEvents(treeId);
   },
 
   removeEvent: async (id: string) => {
@@ -72,6 +74,8 @@ export const useEventStore = create<EventState>((set, get) => ({
     if (!treeId) return;
 
     await TreeService.removeEvent(treeId, id);
-    await get().refreshEvents();
+    await get().refreshEvents(treeId);
   },
+
+  clear: () => set({ events: [] }),
 }));

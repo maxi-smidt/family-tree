@@ -103,7 +103,7 @@ describe("useTreeStore — disconnect", () => {
     expect(isReady).toBe(false);
   });
 
-  it("clears all sub-stores on disconnect", async () => {
+  it("clears all sub-stores on disconnect using explicit clear()", async () => {
     useTreeStore.setState({ selectedTree: TREE_A, isReady: true });
     seedMemberStore();
     seedEventStore();
@@ -111,8 +111,8 @@ describe("useTreeStore — disconnect", () => {
     seedGalleryStore();
     seedActivityStore();
 
-    // disconnect() sets selectedTree=undefined first, so each sub-store's
-    // refresh sees no active tree and clears itself — no HTTP call needed.
+    // disconnect() now calls each store's explicit clear() action synchronously —
+    // no HTTP calls needed and no reliance on refreshX seeing no active tree.
     await useTreeStore.getState().disconnect();
 
     expect(useMemberStore.getState().members).toHaveLength(0);
@@ -304,5 +304,72 @@ describe("useTreeStore — deleteTree", () => {
 
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
     expect(useTreeStore.getState().isReady).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stale-write guard / fast switching
+// ---------------------------------------------------------------------------
+
+describe("useTreeStore — stale-write guard / fast switching", () => {
+  it("disconnect clears member undo/redo history", async () => {
+    useTreeStore.setState({ selectedTree: TREE_A, isReady: true });
+    useMemberStore.setState({
+      undoStack: [{ undo: async () => {}, redo: async () => {} }],
+      redoStack: [{ undo: async () => {}, redo: async () => {} }],
+    });
+
+    await useTreeStore.getState().disconnect();
+
+    expect(useMemberStore.getState().undoStack).toHaveLength(0);
+    expect(useMemberStore.getState().redoStack).toHaveLength(0);
+  });
+
+  it("connect(B) after connect(A) ends with B selected and B's data", async () => {
+    // Connect tree A
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_A.id, TREE_A);
+    await useTreeStore.getState().connect(TREE_A);
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+
+    // Immediately connect tree B (fast switch)
+    mockApiGetForConnect(TREE_B.id, TREE_B);
+    await useTreeStore.getState().connect(TREE_B);
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
+  it("deferred refreshMembers for tree-A is dropped when tree-B is active", async () => {
+    // Set up a deferred members fetch for TREE_A
+    let resolveA!: (v: never[]) => void;
+    const pendingA = new Promise<never[]>((r) => {
+      resolveA = r;
+    });
+    vi.mocked(TreeService.getMembers).mockReturnValue(pendingA);
+    vi.mocked(TreeService.getRelations).mockResolvedValue([]);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
+    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
+    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+    vi.mocked(TreeService.getStories).mockResolvedValue([]);
+    vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+    vi.mocked(TreeService.getActivity).mockResolvedValue([]);
+    vi.mocked(TreeService.getRelationTypes).mockResolvedValue([]);
+    mockApiGetForConnect(TREE_A.id, TREE_A);
+
+    // Start connecting A (members fetch is deferred)
+    const connectAPromise = useTreeStore.getState().connect(TREE_A);
+
+    // Switch to B before A's member data arrives
+    useTreeStore.setState({ selectedTree: TREE_B });
+
+    // Resolve A's deferred fetch
+    resolveA([]);
+    await connectAPromise;
+
+    // Members should still be empty — stale data dropped
+    expect(useMemberStore.getState().members).toHaveLength(0);
   });
 });

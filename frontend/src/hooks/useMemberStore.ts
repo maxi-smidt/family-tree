@@ -9,7 +9,7 @@ import { mapDiseaseFromDB, DiseaseInput } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
-import { activeTreeId } from "@/hooks/useTreeStore";
+import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 
 async function syncVitalEvent(
@@ -49,7 +49,8 @@ interface MemberState {
   _pushHistory: (entry: HistoryEntry) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
-  refreshMembers: () => Promise<void>;
+  refreshMembers: (treeId?: string) => Promise<void>;
+  clear: () => void;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
   updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
@@ -116,8 +117,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
   },
 
-  refreshMembers: async () => {
-    const treeId = activeTreeId();
+  refreshMembers: async (treeId = activeTreeId()) => {
     if (!treeId) {
       set({ members: [] });
       return;
@@ -128,6 +128,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       TreeService.getRelations(treeId),
       TreeService.getDiseases(treeId),
     ]);
+
+    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const memberGenderMap = new Map<string, string>();
     result.forEach((m) => memberGenderMap.set(m.id, m.gender));
@@ -153,6 +155,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     set({ members: appMembers });
   },
+
+  clear: () => set({ members: [], undoStack: [], redoStack: [] }),
 
   addMember: async (newMember: Member) => {
     const treeId = activeTreeId();
@@ -195,7 +199,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       }
     }
 
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
 
     if (newMember.date.birth) {
       await syncVitalEvent(newMember.id, "birth", newMember.date.birth, null);
@@ -208,7 +212,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     get()._pushHistory({
       undo: async () => {
         await TreeService.removeMember(treeId, captured.id);
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
       redo: async () => {
         await TreeService.addMember(treeId, captured);
@@ -245,7 +249,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
             );
           }
         }
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
     });
   },
@@ -258,7 +262,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!captured) return;
 
     await TreeService.removeMember(treeId, memberId);
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
 
     get()._pushHistory({
       undo: async () => {
@@ -271,11 +275,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
             rel.relationType as RelationType,
           );
         }
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
       redo: async () => {
         await TreeService.removeMember(treeId, captured.id);
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
     });
   },
@@ -327,7 +331,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     }
 
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
 
     if ("dateOfBirth" in changes) {
       await syncVitalEvent(
@@ -386,7 +390,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         if (maternalParentId !== undefined) {
           await syncParentSlot(maternalParentId, oldMaternal);
         }
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
       redo: async () => {
         await TreeService.updateMember(treeId, id, otherChanges);
@@ -396,7 +400,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         if (maternalParentId !== undefined) {
           await syncParentSlot(oldMaternal, maternalParentId);
         }
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
     });
   },
@@ -498,7 +502,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     } catch (error) {
       console.error("Failed to update layout:", error);
-      await refreshMembers();
+      await refreshMembers(treeId);
     }
   },
 
@@ -506,16 +510,16 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.addRelation(treeId, fromId, toId, type);
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
 
     get()._pushHistory({
       undo: async () => {
         await TreeService.removeRelation(treeId, fromId, toId, type);
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
       redo: async () => {
         await TreeService.addRelation(treeId, fromId, toId, type);
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
     });
   },
@@ -524,16 +528,16 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.removeRelation(treeId, fromId, toId, type);
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
 
     get()._pushHistory({
       undo: async () => {
         await TreeService.addRelation(treeId, fromId, toId, type);
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
       redo: async () => {
         await TreeService.removeRelation(treeId, fromId, toId, type);
-        await get().refreshMembers();
+        await get().refreshMembers(treeId);
       },
     });
   },
@@ -543,20 +547,20 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     const id = crypto.randomUUID();
     await TreeService.addDisease(treeId, id, memberId, disease);
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
   },
 
   updateDisease: async (diseaseId: string, disease: DiseaseInput) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.updateDisease(treeId, diseaseId, disease);
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
   },
 
   removeDisease: async (diseaseId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.removeDisease(treeId, diseaseId);
-    await get().refreshMembers();
+    await get().refreshMembers(treeId);
   },
 }));
