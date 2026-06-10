@@ -294,10 +294,7 @@ async def import_tree_gedcom(
 ) -> TreeOut:
     """Import a GEDCOM 5.5.1 file into a new tree owned by the current user."""
     raw = await file.read()
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        text = raw.decode("latin-1")
+    text = gedcom.decode_gedcom_bytes(raw)
 
     try:
         parsed = gedcom.parse_gedcom(text)
