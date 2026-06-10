@@ -15,6 +15,7 @@ from uuid import uuid4
 from app.services.gedcom import (
     _from_gedcom_date,
     _to_gedcom_date,
+    decode_gedcom_bytes,
     parse_gedcom,
     serialize_to_gedcom,
 )
@@ -535,8 +536,8 @@ def test_api_export_gedcom_content_disposition(client, db):
     assert "MyFamily.ged" in cd
 
 
-def test_api_gedcom_import_uses_head_file_name(client, db):
-    """When no name form field given, HEAD FILE tag is used for the tree name."""
+def test_api_gedcom_import_uses_filename_stem(client, db):
+    """When no name form field given, the uploaded filename stem is used."""
     owner = make_user(db, "eve")
     headers = auth(owner)
 
@@ -544,8 +545,130 @@ def test_api_gedcom_import_uses_head_file_name(client, db):
     resp = client.post(
         f"{API}/trees/import-gedcom",
         headers=headers,
-        files={"file": ("test.ged", io.BytesIO(ged), "text/plain")},
-        # No 'name' field provided.
+        files={"file": ("my_family.ged", io.BytesIO(ged), "text/plain")},
+        # No 'name' field provided — filename stem takes precedence over HEAD FILE.
     )
     assert resp.status_code == 201
-    assert resp.json()["name"] == "MyAncestors"
+    assert resp.json()["name"] == "my_family"
+
+
+
+
+# ---------------------------------------------------------------------------
+# 4. decode_gedcom_bytes unit tests
+# ---------------------------------------------------------------------------
+
+# A minimal GEDCOM snippet used across encoding tests.
+_SAMPLE_GEDCOM = (
+    "0 HEAD\n"
+    "1 CHAR UNICODE\n"
+    "0 @I1@ INDI\n"
+    "1 NAME John /Doe/\n"
+    "0 TRLR\n"
+)
+
+
+class TestDecodeGedcomBytes:
+    """decode_gedcom_bytes must recover the original text for each encoding."""
+
+    def _assert_decoded(self, raw: bytes) -> None:
+        result = decode_gedcom_bytes(raw)
+        assert "0 HEAD" in result
+        assert "John /Doe/" in result
+
+    def test_utf8_no_bom(self):
+        raw = _SAMPLE_GEDCOM.encode("utf-8")
+        self._assert_decoded(raw)
+
+    def test_utf8_with_bom(self):
+        raw = _SAMPLE_GEDCOM.encode("utf-8-sig")
+        assert raw[:3] == b"\xef\xbb\xbf"
+        self._assert_decoded(raw)
+
+    def test_utf16_le_with_bom(self):
+        # Python's "utf-16" codec writes a LE BOM on most platforms; we build
+        # the bytes explicitly to guarantee LE+BOM regardless of platform.
+        bom = b"\xff\xfe"
+        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-le")
+        self._assert_decoded(raw)
+
+    def test_utf16_be_with_bom(self):
+        bom = b"\xfe\xff"
+        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-be")
+        self._assert_decoded(raw)
+
+    def test_utf16_stdlib_encode(self):
+        # Python's str.encode("utf-16") writes a BOM automatically.
+        raw = _SAMPLE_GEDCOM.encode("utf-16")
+        self._assert_decoded(raw)
+
+    def test_latin1_fallback(self):
+        # Latin-1 text with no BOM and no NUL bytes.
+        latin_gedcom = "0 HEAD\n0 @I1@ INDI\n1 NAME Jos\xe9 /Garc\xeda/\n0 TRLR\n"
+        raw = latin_gedcom.encode("latin-1")
+        result = decode_gedcom_bytes(raw)
+        assert "0 HEAD" in result
+
+    def test_parse_after_decode_utf16_be(self):
+        """parse_gedcom should find the INDI record after UTF-16-BE decoding."""
+        bom = b"\xfe\xff"
+        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-be")
+        text = decode_gedcom_bytes(raw)
+        parsed = parse_gedcom(text)
+        assert len(parsed["members"]) == 1
+        assert parsed["members"][0]["firstName"] == "John"
+        assert parsed["members"][0]["lastName"] == "Doe"
+
+    def test_parse_after_decode_utf16_le(self):
+        """parse_gedcom should find the INDI record after UTF-16-LE decoding."""
+        bom = b"\xff\xfe"
+        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-le")
+        text = decode_gedcom_bytes(raw)
+        parsed = parse_gedcom(text)
+        assert len(parsed["members"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# 5. API regression test — UTF-16 BE import
+# ---------------------------------------------------------------------------
+
+def _minimal_gedcom_utf16be(n_indis: int = 2) -> bytes:
+    """Build a minimal GEDCOM with n_indis INDI records, UTF-16 BE with BOM."""
+    lines = ["0 HEAD", "1 CHAR UNICODE"]
+    for i in range(1, n_indis + 1):
+        lines += [
+            f"0 @I{i}@ INDI",
+            f"1 NAME Person{i} /Test/",
+            "1 SEX M",
+        ]
+    lines += ["0 @F1@ FAM", "1 HUSB @I1@", "1 WIFE @I2@", "0 TRLR"]
+    text = "\n".join(lines) + "\n"
+    bom = b"\xfe\xff"
+    return bom + text.encode("utf-16-be")
+
+
+def test_api_import_gedcom_utf16_be(client, db):
+    """Regression test: a UTF-16 BE GEDCOM must import > 0 members (was broken)."""
+    owner = make_user(db, "frank")
+    headers = auth(owner)
+
+    raw = _minimal_gedcom_utf16be(n_indis=2)
+    # Sanity: the first two bytes must be the BE BOM.
+    assert raw[:2] == b"\xfe\xff"
+
+    resp = client.post(
+        f"{API}/trees/import-gedcom",
+        headers=headers,
+        files={"file": ("sample.ged", io.BytesIO(raw), "application/octet-stream")},
+        data={"name": "UTF16Import"},
+    )
+    assert resp.status_code == 201, resp.text
+    new_tree_id = resp.json()["id"]
+
+    members_resp = client.get(
+        f"{API}/trees/{new_tree_id}/members", headers=headers
+    )
+    assert members_resp.status_code == 200
+    imported_members = members_resp.json()
+    # Must have imported both INDI records — this was 0 before the fix.
+    assert len(imported_members) == 2
