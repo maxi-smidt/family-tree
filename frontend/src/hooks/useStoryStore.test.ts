@@ -141,3 +141,70 @@ describe("useStoryStore — getStoriesByMember", () => {
     expect(result[0].id).toBe("s1");
   });
 });
+
+describe("useStoryStore — stale-write guard", () => {
+  it("does not write fetched data when the tree changed mid-flight", async () => {
+    let resolve!: (v: StoryDB[]) => void;
+    const pending = new Promise<StoryDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getStories).mockReturnValue(pending);
+    vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: TREE });
+
+    const p = useStoryStore.getState().refreshStories(TREE_ID);
+    // user switches away before the fetch resolves
+    useTreeStore.setState({
+      selectedTree: { id: "other", name: "Other", role: "owner" },
+    });
+    resolve([STORY_DB]);
+    await p;
+
+    expect(useStoryStore.getState().stories).toHaveLength(0); // stale data dropped
+  });
+
+  it("does not write fetched data after disconnect", async () => {
+    let resolve!: (v: StoryDB[]) => void;
+    const pending = new Promise<StoryDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getStories).mockReturnValue(pending);
+    vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: TREE });
+
+    const p = useStoryStore.getState().refreshStories(TREE_ID);
+    // user disconnects before the fetch resolves
+    useTreeStore.setState({ selectedTree: undefined });
+    resolve([STORY_DB]);
+    await p;
+
+    expect(useStoryStore.getState().stories).toHaveLength(0); // stale data dropped
+  });
+
+  it("writes data when the explicit treeId is still active", async () => {
+    let resolve!: (v: StoryDB[]) => void;
+    const pending = new Promise<StoryDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getStories).mockReturnValue(pending);
+    vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([
+      { story_id: "s1", member_id: "m1" },
+    ]);
+    useTreeStore.setState({ selectedTree: TREE });
+
+    const p = useStoryStore.getState().refreshStories(TREE_ID);
+    resolve([STORY_DB]);
+    await p;
+
+    expect(useStoryStore.getState().stories).toHaveLength(1);
+    expect(useStoryStore.getState().stories[0].id).toBe("s1");
+  });
+
+  it("clear() empties the stories slice", () => {
+    useStoryStore.setState({ stories: [{ id: "s1" } as never] });
+
+    useStoryStore.getState().clear();
+
+    expect(useStoryStore.getState().stories).toHaveLength(0);
+  });
+});

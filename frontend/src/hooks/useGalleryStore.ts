@@ -1,11 +1,11 @@
 import { create } from "zustand";
 import { GalleryImage } from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
-import { activeTreeId } from "@/hooks/useTreeStore";
+import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 
 interface GalleryState {
   galleryImages: GalleryImage[];
-  refreshGalleryImages: () => Promise<void>;
+  refreshGalleryImages: (treeId?: string) => Promise<void>;
   addGalleryImage: (
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
   ) => Promise<void>;
@@ -14,13 +14,13 @@ interface GalleryState {
     changes: Partial<GalleryImage>,
   ) => Promise<void>;
   deleteGalleryImage: (id: string) => Promise<void>;
+  clear: () => void;
 }
 
 export const useGalleryStore = create<GalleryState>((set, get) => ({
   galleryImages: [],
 
-  refreshGalleryImages: async () => {
-    const treeId = activeTreeId();
+  refreshGalleryImages: async (treeId = activeTreeId()) => {
     if (!treeId) {
       set({ galleryImages: [] });
       return;
@@ -30,6 +30,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       TreeService.getGalleryImages(treeId),
       TreeService.getGalleryMemberLinks(treeId),
     ]);
+
+    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const images = imagesResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -55,7 +57,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     // Member links are created in the same request (image.linkedMemberIds).
     await TreeService.addGalleryImage(treeId, id, image, now);
 
-    await get().refreshGalleryImages();
+    await get().refreshGalleryImages(treeId);
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
@@ -70,13 +72,15 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       await TreeService.setGalleryImageLinks(treeId, id, linkedMemberIds);
     }
 
-    await get().refreshGalleryImages();
+    await get().refreshGalleryImages(treeId);
   },
 
   deleteGalleryImage: async (id: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.removeGalleryImage(treeId, id);
-    await get().refreshGalleryImages();
+    await get().refreshGalleryImages(treeId);
   },
+
+  clear: () => set({ galleryImages: [] }),
 }));

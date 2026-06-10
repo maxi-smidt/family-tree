@@ -145,3 +145,68 @@ describe("useGalleryStore — deleteGalleryImage", () => {
     expect(TreeService.getGalleryImages).toHaveBeenCalled();
   });
 });
+
+describe("useGalleryStore — stale-write guard", () => {
+  it("does not write fetched data when the tree changed mid-flight", async () => {
+    let resolve!: (v: GalleryImageDB[]) => void;
+    const pending = new Promise<GalleryImageDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getGalleryImages).mockReturnValue(pending);
+    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: TREE });
+
+    const p = useGalleryStore.getState().refreshGalleryImages(TREE_ID);
+    // user switches away before the fetch resolves
+    useTreeStore.setState({
+      selectedTree: { id: "other", name: "Other", role: "owner" },
+    });
+    resolve([IMAGE_DB]);
+    await p;
+
+    expect(useGalleryStore.getState().galleryImages).toHaveLength(0); // stale data dropped
+  });
+
+  it("does not write fetched data after disconnect", async () => {
+    let resolve!: (v: GalleryImageDB[]) => void;
+    const pending = new Promise<GalleryImageDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getGalleryImages).mockReturnValue(pending);
+    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: TREE });
+
+    const p = useGalleryStore.getState().refreshGalleryImages(TREE_ID);
+    // user disconnects before the fetch resolves
+    useTreeStore.setState({ selectedTree: undefined });
+    resolve([IMAGE_DB]);
+    await p;
+
+    expect(useGalleryStore.getState().galleryImages).toHaveLength(0); // stale data dropped
+  });
+
+  it("writes data when the explicit treeId is still active", async () => {
+    let resolve!: (v: GalleryImageDB[]) => void;
+    const pending = new Promise<GalleryImageDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getGalleryImages).mockReturnValue(pending);
+    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: TREE });
+
+    const p = useGalleryStore.getState().refreshGalleryImages(TREE_ID);
+    resolve([IMAGE_DB]);
+    await p;
+
+    expect(useGalleryStore.getState().galleryImages).toHaveLength(1);
+    expect(useGalleryStore.getState().galleryImages[0].id).toBe("img1");
+  });
+
+  it("clear() empties the galleryImages slice", () => {
+    useGalleryStore.setState({ galleryImages: [{ id: "g1" } as never] });
+
+    useGalleryStore.getState().clear();
+
+    expect(useGalleryStore.getState().galleryImages).toHaveLength(0);
+  });
+});
