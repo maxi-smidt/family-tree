@@ -65,5 +65,5 @@ services:
     depends_on:
       - backend
     ports:
-      - "${UI_PORT:-8080}:80"
+      - "${UI_PORT:-8080}:8080"
     restart: unless-stopped
