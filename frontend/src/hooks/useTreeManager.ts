@@ -76,10 +76,31 @@ export const useTreeManager = () => {
     [loadTrees, selectTree],
   );
 
+  const exportGedcom = useCallback(async (tree: Tree) => {
+    const response = await api.getRaw(`/trees/${tree.id}/export-gedcom`);
+    const blob = await response.blob();
+    triggerDownload(blob, `${tree.name || "family-tree"}.ged`);
+  }, []);
+
+  const importGedcom = useCallback(
+    async (file: File, name?: string) => {
+      const form = new FormData();
+      form.append("file", file);
+      if (name) form.append("name", name);
+      const tree = await api.postForm<Tree>("/trees/import-gedcom", form);
+      await loadTrees();
+      await selectTree(tree);
+      return tree;
+    },
+    [loadTrees, selectTree],
+  );
+
   return {
     removeDatabase,
     exportDatabase,
     inspectImport,
     importDatabase,
+    exportGedcom,
+    importGedcom,
   };
 };
