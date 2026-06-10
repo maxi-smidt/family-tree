@@ -39,9 +39,9 @@ const QualityReportView = lazy(() =>
   ),
 );
 const StatisticsView = lazy(() =>
-  import("@/components/view/statistics-view/StatisticsView").then(
-    (m) => ({ default: m.StatisticsView }),
-  ),
+  import("@/components/view/statistics-view/StatisticsView").then((m) => ({
+    default: m.StatisticsView,
+  })),
 );
 import {
   Select,

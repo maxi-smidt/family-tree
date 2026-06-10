@@ -24,6 +24,8 @@ import {
   Copy,
   GitMerge,
   Hash,
+  FileUp,
+  FileDown,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -51,7 +53,7 @@ export const DatabaseManagementView = () => {
   const selectTree = useTreeStore((s) => s.selectTree);
   const renameTree = useTreeStore((s) => s.renameTree);
   const loadTrees = useTreeStore((s) => s.loadTrees);
-  const { exportDatabase, importDatabase, inspectImport } = useTreeManager();
+  const { exportDatabase, importDatabase, inspectImport, exportGedcom, importGedcom } = useTreeManager();
 
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
@@ -109,6 +111,27 @@ export const DatabaseManagementView = () => {
     } catch (err) {
       console.error(err);
       toast.error(t("toast-export-error"));
+    }
+  };
+
+  const handleImportGedcom = async () => {
+    const file = await pickFile(".ged,.gedcom");
+    if (!file) return;
+    try {
+      await importGedcom(file);
+      toast.success(t("toast-gedcom-import-success"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("toast-gedcom-import-error"));
+    }
+  };
+
+  const handleExportGedcom = async (database: Tree) => {
+    try {
+      await exportGedcom(database);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("toast-gedcom-export-error"));
     }
   };
 
@@ -294,6 +317,14 @@ export const DatabaseManagementView = () => {
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => handleExportGedcom(database)}
+              title={t("export-gedcom-button")}
+            >
+              <FileUp className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => handleOpenRemoveDialog(database)}
               disabled={!isOwned}
             >
@@ -363,6 +394,10 @@ export const DatabaseManagementView = () => {
           <Button variant="outline" size="sm" onClick={handleImportDatabase}>
             <HardDriveDownload />
             {t("import-button")}
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleImportGedcom}>
+            <FileDown />
+            {t("import-gedcom-button")}
           </Button>
           <Button
             variant="outline"

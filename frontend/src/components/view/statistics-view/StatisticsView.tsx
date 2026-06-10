@@ -51,13 +51,23 @@ function StatCard({ icon, label, value }: StatCardProps) {
   );
 }
 
-function GenderChart({ report, t }: { report: StatisticsReport; t: (k: string) => string }) {
+function GenderChart({
+  report,
+  t,
+}: {
+  report: StatisticsReport;
+  t: (k: string) => string;
+}) {
   const { gender_distribution: g } = report;
   const data = [
     { name: t("gender-male"), value: g.male, color: GENDER_COLORS.male },
     { name: t("gender-female"), value: g.female, color: GENDER_COLORS.female },
     { name: t("gender-other"), value: g.other, color: GENDER_COLORS.other },
-    { name: t("gender-unknown"), value: g.unknown, color: GENDER_COLORS.unknown },
+    {
+      name: t("gender-unknown"),
+      value: g.unknown,
+      color: GENDER_COLORS.unknown,
+    },
   ].filter((d) => d.value > 0);
 
   if (data.length === 0) return null;
@@ -95,7 +105,13 @@ function GenderChart({ report, t }: { report: StatisticsReport; t: (k: string) =
   );
 }
 
-function TimelineChart({ report, t }: { report: StatisticsReport; t: (k: string) => string }) {
+function TimelineChart({
+  report,
+  t,
+}: {
+  report: StatisticsReport;
+  t: (k: string) => string;
+}) {
   const data = report.birth_death_by_decade;
   if (data.length === 0) return null;
 
@@ -125,14 +141,26 @@ function TimelineChart({ report, t }: { report: StatisticsReport; t: (k: string)
               name === "births" ? t("timeline-births") : t("timeline-deaths"),
             ]}
           />
-          <Bar dataKey="births" fill={BIRTH_COLOR} radius={[3, 3, 0, 0]} name="births" />
-          <Bar dataKey="deaths" fill={DEATH_COLOR} radius={[3, 3, 0, 0]} name="deaths" />
+          <Bar
+            dataKey="births"
+            fill={BIRTH_COLOR}
+            radius={[3, 3, 0, 0]}
+            name="births"
+          />
+          <Bar
+            dataKey="deaths"
+            fill={DEATH_COLOR}
+            radius={[3, 3, 0, 0]}
+            name="deaths"
+          />
           <Legend
             iconType="square"
             iconSize={8}
             formatter={(value) => (
               <span className="text-xs text-foreground">
-                {value === "births" ? t("timeline-births") : t("timeline-deaths")}
+                {value === "births"
+                  ? t("timeline-births")
+                  : t("timeline-deaths")}
               </span>
             )}
           />
@@ -142,7 +170,13 @@ function TimelineChart({ report, t }: { report: StatisticsReport; t: (k: string)
   );
 }
 
-function LifespanChart({ report, t }: { report: StatisticsReport; t: (k: string) => string }) {
+function LifespanChart({
+  report,
+  t,
+}: {
+  report: StatisticsReport;
+  t: (k: string) => string;
+}) {
   const data = report.lifespan_distribution;
   if (data.length === 0) return null;
 
@@ -165,26 +199,42 @@ function LifespanChart({ report, t }: { report: StatisticsReport; t: (k: string)
             axisLine={false}
             width={28}
           />
-          <Tooltip
-            formatter={(value) => [value, t("lifespan-people")]}
+          <Tooltip formatter={(value) => [value, t("lifespan-people")]} />
+          <Bar
+            dataKey="count"
+            fill={BIRTH_COLOR}
+            radius={[3, 3, 0, 0]}
+            name="count"
           />
-          <Bar dataKey="count" fill={BIRTH_COLOR} radius={[3, 3, 0, 0]} name="count" />
         </BarChart>
       </ResponsiveContainer>
     </Card>
   );
 }
 
-function NamesChart({ report, t }: { report: StatisticsReport; t: (k: string) => string }) {
+function NamesChart({
+  report,
+  t,
+}: {
+  report: StatisticsReport;
+  t: (k: string) => string;
+}) {
   const data = report.top_first_names.slice(0, 10);
   if (data.length === 0) return null;
 
   return (
     <Card className="p-4">
       <h2 className="text-sm font-medium mb-4">{t("names-title")}</h2>
-      <ResponsiveContainer width="100%" height={Math.max(180, data.length * 28 + 40)}>
+      <ResponsiveContainer
+        width="100%"
+        height={Math.max(180, data.length * 28 + 40)}
+      >
         <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-border" />
+          <CartesianGrid
+            strokeDasharray="3 3"
+            horizontal={false}
+            className="stroke-border"
+          />
           <XAxis
             type="number"
             allowDecimals={false}
@@ -201,7 +251,12 @@ function NamesChart({ report, t }: { report: StatisticsReport; t: (k: string) =>
             width={72}
           />
           <Tooltip formatter={(value) => [value, t("names-count")]} />
-          <Bar dataKey="count" fill={NAME_COLOR} radius={[0, 3, 3, 0]} name="count" />
+          <Bar
+            dataKey="count"
+            fill={NAME_COLOR}
+            radius={[0, 3, 3, 0]}
+            name="count"
+          />
         </BarChart>
       </ResponsiveContainer>
     </Card>
@@ -225,7 +280,9 @@ function EmptyState({ t }: { t: (k: string) => string }) {
       </div>
       <div>
         <p className="font-medium">{t("empty-title")}</p>
-        <p className="text-sm text-muted-foreground mt-1">{t("empty-description")}</p>
+        <p className="text-sm text-muted-foreground mt-1">
+          {t("empty-description")}
+        </p>
       </div>
     </div>
   );
