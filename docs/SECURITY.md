@@ -6,7 +6,10 @@
   **JWT** bearer tokens.
 - **Authentik (OIDC)**: optional single sign-on. Enabled when the
   `AUTHENTIK_*` environment variables are set. New users can be auto-provisioned;
-  membership of `AUTHENTIK_ADMIN_GROUP` grants admin.
+  `AUTHENTIK_ADMIN_GROUP` membership is **synced on every Authentik login** —
+  admin is granted when the user is in the group and **revoked** when they are
+  not. Local accounts (``auth_provider="local"``) are not affected by OIDC
+  logins, even if they share an email address with an Authentik user.
 - **Admin-managed users**: self-registration is off by default. The first
   account (seeded from `FIRST_ADMIN_*`) is an admin; admins create further users
   and can toggle self-registration at runtime.
