@@ -20,6 +20,14 @@
   (`LOGIN_MAX_ATTEMPTS` failures within `LOGIN_RATE_LIMIT_WINDOW_SECONDS` →
   `429`) to blunt brute-force attempts. The limiter is in-memory and so is
   process-local; a multi-replica deployment would need a shared store.
+- **Constant-time login**: `/auth/login` and `/auth/restore-account` always run a
+  full bcrypt key derivation, even when the supplied username does not exist or has
+  no stored password hash (a dummy hash is verified instead). This makes response
+  timing uniform and eliminates the timing side-channel that would otherwise let an
+  attacker enumerate valid usernames. Registration intentionally returns a distinct
+  `409 Username already taken` — this is an acceptable trade-off because
+  self-registration is disabled by default, and when it is enabled the actionable
+  error message is required for usability.
 - **Initial admin password**: `FIRST_ADMIN_PASSWORD` is **required** by the
   production `docker-compose.yml`. If the seed ever runs with the placeholder
   value `admin`, a warning is logged — set a strong password and change it after
