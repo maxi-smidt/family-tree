@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
 from app.db.session import get_db
-from app.models import GalleryImage, GalleryMemberLink, Member, Tree
+from app.models import GalleryImage, GalleryMemberLink, Tree
 from app.models.user import User
 from app.schemas.content import (
     GalleryImageCreate,
@@ -16,6 +16,7 @@ from app.schemas.content import (
     LinksSet,
 )
 from app.services.activity import record_activity
+from app.services.content_links import replace_member_links
 from app.services.storage import (
     ImageTooLarge,
     UnsupportedImageType,
@@ -32,21 +33,6 @@ def _get_image(db: Session, tree: Tree, image_id: str) -> GalleryImage:
         raise HTTPException(status_code=404, detail="Image not found")
     return image
 
-
-def _set_links(db: Session, tree: Tree, image_id: str, member_ids: list[str]) -> None:
-    """Replace the image's member links, keeping only members of this tree."""
-    db.query(GalleryMemberLink).filter(
-        GalleryMemberLink.gallery_image_id == image_id
-    ).delete()
-    if not member_ids:
-        return
-    valid = db.scalars(
-        select(Member.id).where(
-            Member.tree_id == tree.id, Member.id.in_(set(member_ids))
-        )
-    ).all()
-    for member_id in valid:
-        db.add(GalleryMemberLink(gallery_image_id=image_id, member_id=member_id))
 
 
 @router.get("/images", response_model=list[GalleryImageOut])
@@ -83,7 +69,14 @@ def create_image(
     image = GalleryImage(tree_id=tree.id, **data)
     db.add(image)
     db.flush()  # image row must exist before its links reference it
-    _set_links(db, tree, image.id, member_ids)
+    replace_member_links(
+        db,
+        link_model=GalleryMemberLink,
+        parent_fk=GalleryMemberLink.gallery_image_id,
+        parent_id=image.id,
+        tree=tree,
+        member_ids=member_ids,
+    )
     record_activity(
         db, tree_id=tree.id, actor=user, action="create",
         target_type="gallery_image", target_id=image.id, target_label=image.title,
@@ -148,5 +141,12 @@ def set_links(
 ):
     """Replace the full set of members linked to this image."""
     _get_image(db, tree, image_id)
-    _set_links(db, tree, image_id, payload.member_ids)
+    replace_member_links(
+        db,
+        link_model=GalleryMemberLink,
+        parent_fk=GalleryMemberLink.gallery_image_id,
+        parent_id=image_id,
+        tree=tree,
+        member_ids=payload.member_ids,
+    )
     db.commit()

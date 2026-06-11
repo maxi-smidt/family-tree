@@ -117,7 +117,7 @@ Browser (React SPA)
 ```
 
 - The React data layer talks to the backend through a small typed HTTP client
-  (`frontend/src/services/api.ts` + `DatabaseService.ts`); the Zustand stores are
+  (`frontend/src/services/api.ts` + `TreeService.ts`); the Zustand stores are
   otherwise unchanged from the desktop version.
 - A "tree" replaces the old per-file SQLite database. Each tree is owned by a
   user and can be shared with others as `viewer` or `editor`.

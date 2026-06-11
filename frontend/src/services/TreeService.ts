@@ -33,10 +33,6 @@ export class TreeService {
     return api.get<{ id: RelationType }[]>(`${base(treeId)}/relation-types`);
   }
 
-  static addRelationType(treeId: string, id: string, description: string) {
-    return api.post(`${base(treeId)}/relation-types`, { id, description });
-  }
-
   // --- Members -------------------------------------------------------------
   static getMembers(treeId: string) {
     return api.get<MemberDB[]>(`${base(treeId)}/members`);

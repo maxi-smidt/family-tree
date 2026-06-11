@@ -4,10 +4,9 @@ This document provides specific instructions for GitHub Copilot agents working o
 
 > **Note**: Human developers should refer to [AGENTS.md](./AGENTS.md) for comprehensive guidelines.
 
-> **Stack update**: This project is now a **web app** — React (in `frontend/`) +
-> FastAPI/PostgreSQL (in `backend/`). The old Tauri/SQLite desktop layer has been
-> removed. Treat [AGENTS.md](./AGENTS.md) as the source of truth; some
-> Tauri/SQLite-specific examples below are retained only as historical context.
+> **Stack**: This project is a **web app** — React (in `frontend/`) +
+> FastAPI/PostgreSQL (in `backend/`), deployed with Docker Compose (nginx + FastAPI + Postgres).
+> Treat [AGENTS.md](./AGENTS.md) as the source of truth for architecture details.
 
 ## Table of Contents
 
@@ -25,7 +24,7 @@ This document provides specific instructions for GitHub Copilot agents working o
 ### Critical Paths
 
 - **State Stores**: `frontend/src/hooks/` - per-domain Zustand stores (`useMemberStore`, `useDatabaseStore`, ...)
-- **Database Service**: `frontend/src/services/DatabaseService.ts` - HTTP client for the API
+- **Tree Service**: `frontend/src/services/TreeService.ts` - HTTP client for the API
 - **API Client**: `frontend/src/services/api.ts` - fetch wrapper + auth token
 - **Types**: `frontend/src/types/member.ts` - Core data model
 - **Layout Logic**: `frontend/src/utils/layoutUtils.ts` - Tree layout calculations
@@ -52,7 +51,7 @@ docker compose up -d --build
 ```typescript
 import { useFamilyStore } from "@/hooks/useFamilyStore";
 import { Member } from "@/types/member";
-import { DatabaseService } from "@/services/DatabaseService";
+import { TreeService } from "@/services/TreeService";
 import { useTranslation } from "react-i18next";
 ```
 
@@ -63,15 +62,15 @@ import { useTranslation } from "react-i18next";
 ### Data Flow Pattern (Always Follow This)
 
 ```
-UI Component → Store Action → DatabaseService → Tauri Command → SQLite
+UI Component → Store Action → TreeService (HTTP client) → FastAPI (/api) → SQLAlchemy → PostgreSQL
      ↓              ↓              ↓
    Render ← State Update ← Return Data
 ```
 
 **Never bypass this flow**. Do not:
 
-- Call DatabaseService directly from components
-- Use Tauri commands directly from components
+- Call TreeService directly from components
+- Call `fetch`/the API directly from components
 - Modify state outside of store actions
 
 ### Store-First Development
@@ -84,7 +83,7 @@ const addMember = useFamilyStore((state) => state.addMember);
 await addMember(newMember);
 
 // ❌ WRONG - Never do this
-await DatabaseService.insertMember(newMember);
+await TreeService.insertMember(newMember);
 ```
 
 ---
@@ -125,7 +124,7 @@ import { Button } from "@/components/ui/button";
 
 Before making changes:
 
-1. **Understand the data flow**: Trace from UI → Store → Service → Tauri
+1. **Understand the data flow**: Trace from UI → Store → Service → FastAPI
 2. **Check existing patterns**: Look for similar functionality already implemented
 3. **Review types**: Understand the data structures in `src/types/`
 4. **Check translations**: Ensure i18n keys exist for any new text
@@ -135,10 +134,10 @@ Before making changes:
 #### Adding a New Feature
 
 1. **Define types** (if needed) in `src/types/`
-2. **Add SQL queries** (if needed) in `src/db/queries.ts`
-3. **Create Tauri command** (if needed) in `src-tauri/src/lib.rs`
-4. **Add DatabaseService method** that calls the Tauri command
-5. **Create store action** that uses the DatabaseService method
+2. **Add backend model/schema** (if needed) in `backend/app/models/` and `backend/app/schemas/`
+3. **Add FastAPI route** (if needed) in `backend/app/api/routes/`
+4. **Add TreeService method** that calls the FastAPI endpoint
+5. **Create store action** that uses the TreeService method
 6. **Update UI component** to use the store action
 7. **Add translations** for any user-facing text
 8. **Write tests** for pure logic
@@ -154,17 +153,18 @@ Before making changes:
 
 If you need to modify the database schema:
 
-1. Open `src-tauri/src/lib.rs`
-2. Locate the `run_migrations` function
-3. Add a new SQL statement to the `migrations` vector
-4. The migration runs automatically on next database open
-5. Update TypeScript types to match new schema
+1. Update the relevant model in `backend/app/models/`
+2. Generate a migration: `uv run alembic revision --autogenerate -m "..."` (review it)
+3. The migration runs automatically on next backend startup (or `uv run alembic upgrade head`)
+4. Update the Pydantic schema in `backend/app/schemas/` to match
+5. Update TypeScript types in `frontend/src/types/` to match
 
 **Example**:
 
-```rust
-// In src-tauri/src/lib.rs, add to migrations vector:
-"ALTER TABLE members ADD COLUMN middle_name TEXT",
+```bash
+# From backend/
+uv run alembic revision --autogenerate -m "add middle_name to members"
+uv run alembic upgrade head
 ```
 
 ### 5. UI Components
@@ -213,13 +213,13 @@ export function MyComponent() {
    }
    ```
 
-2. **Add migration** in `src-tauri/src/lib.rs`:
+2. **Add migration** via Alembic (from `backend/`):
 
-   ```rust
-   "ALTER TABLE members ADD COLUMN new_field TEXT",
+   ```bash
+   uv run alembic revision --autogenerate -m "add new_field to members"
    ```
 
-3. **Update queries** in `src/db/queries.ts` if needed
+3. **Update Pydantic schema** in `backend/app/schemas/` to expose the new field
 
 4. **Update UI components** to display/edit the field
 
@@ -238,7 +238,7 @@ export function MyComponent() {
    // In the store implementation:
    newAction: async (param) => {
      try {
-       const result = await DatabaseService.newMethod(param);
+       const result = await TreeService.newMethod(param);
        set({ /* update state */ });
      } catch (error) {
        console.error("Error:", error);
@@ -246,9 +246,9 @@ export function MyComponent() {
    },
    ```
 
-2. **Add DatabaseService method** in `src/services/DatabaseService.ts`
+2. **Add TreeService method** in `src/services/TreeService.ts`
 
-3. **Add Tauri command** (if needed) in `src-tauri/src/lib.rs`
+3. **Add FastAPI endpoint** (if needed) in `backend/app/api/routes/`
 
 ### Task: Add a Translation
 
@@ -299,10 +299,10 @@ npm test -- filename    # Run specific file
 
 For UI changes:
 
-1. Run `npm run tauri dev`
+1. Run `docker compose up -d --build` (or start backend + frontend separately with hot reload)
 2. Test the feature manually
 3. Try edge cases (empty data, long text, etc.)
-4. Test with existing database (if applicable)
+4. Test with existing data (if applicable)
 
 ### What to Test
 
@@ -321,7 +321,7 @@ For UI changes:
 
    ```typescript
    // ❌ WRONG
-   const result = await DatabaseService.getData();
+   const result = await TreeService.getData();
    ```
 
 2. **Modifying state directly**:
@@ -437,7 +437,7 @@ For UI changes:
 Before submitting changes, verify:
 
 - [ ] All data modifications use store actions
-- [ ] DatabaseService methods are only called from store
+- [ ] TreeService methods are only called from store
 - [ ] Types are properly defined (no `any`)
 - [ ] Translations added for new user-facing text
 - [ ] Tests written for new logic
