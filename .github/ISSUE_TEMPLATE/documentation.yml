@@ -104,7 +104,7 @@ body:
         ```typescript
         // Add new action to useFamilyStore
         exportData: async () => {
-          const data = await DatabaseService.getAllMembers();
+          const data = await TreeService.getAllMembers();
           // ... export logic
         }
         ```

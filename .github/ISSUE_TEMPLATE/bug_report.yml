@@ -96,7 +96,7 @@ body:
         Examples:
         - src/components/shared/dialog/MemberDetailDialog.tsx
         - src/hooks/useFamilyStore.ts (addMember action)
-        - src/services/DatabaseService.ts
+        - src/services/TreeService.ts
 
   - type: textarea
     id: screenshots

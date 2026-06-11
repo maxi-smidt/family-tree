@@ -74,9 +74,9 @@ body:
         Examples:
         - Could use jsPDF library for PDF generation
         - Should add new action to useFamilyStore: exportTreeAsPdf()
-        - Might need new Tauri command for file save dialog
+        - Might need new FastAPI endpoint in backend/app/api/routes/
         - Related components: src/components/view/tree-view/FlowPanel.tsx
-        - Could extend existing export functionality in src/services/DatabaseService.ts
+        - Could extend existing export functionality in src/services/TreeService.ts
 
   - type: textarea
     id: ui-mockup
