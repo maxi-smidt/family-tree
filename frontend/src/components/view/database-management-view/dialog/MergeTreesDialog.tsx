@@ -41,6 +41,9 @@ type Props = {
 
 export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "merge-view.view" });
+  const { t: tr } = useTranslation(undefined, {
+    keyPrefix: "merge-view.resolve",
+  });
   const trees = useTreeStore((s) => s.trees);
   const mergeTrees = useTreeStore((s) => s.mergeTrees);
 
@@ -318,10 +321,6 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
   }
 
   // ---- Render: step 2 – review & resolve conflicts ----
-  const { t: tr } = useTranslation(undefined, {
-    keyPrefix: "merge-view.resolve",
-  });
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col">

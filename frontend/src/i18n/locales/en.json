@@ -584,8 +584,8 @@
       "duplicate-members_other": "Duplicates Found",
       "alert-duplicate": {
         "title": "Duplicates Will Be Merged",
-        "description_one": "{{duplicateCount}} member found in both trees will be merged. Additional notes from both records will be combined.",
-        "description_other": "{{duplicateCount}} members found in both trees will be merged. Additional notes from both records will be combined."
+        "description_one": "{{count}} member found in both trees will be merged. Additional notes from both records will be combined.",
+        "description_other": "{{count}} members found in both trees will be merged. Additional notes from both records will be combined."
       },
       "alert-no-duplicate": {
         "title": "No Duplicates",
