@@ -1,0 +1,267 @@
+"""Tests for compute_merge_preview and the resolution-aware merge_trees.
+
+These are *in addition* to the existing test_merge.py tests (which are left
+untouched to verify backward compatibility).
+"""
+
+from __future__ import annotations
+
+import pytest
+from fastapi import HTTPException
+
+from app.models import Member, Relation
+from app.schemas.merge import MergeResolution
+from app.services.merge import compute_merge_preview, merge_trees
+from tests.conftest import add_member, make_tree, make_user, share
+
+# ---------------------------------------------------------------------------
+# Preview helpers
+# ---------------------------------------------------------------------------
+
+
+def test_preview_exact_duplicates(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Henry", lastName="Miller", gender="m",
+               dateOfBirth="1920", additionalData="Note A", birthplace="Berlin")
+    add_member(db, tb, "b1", firstName="Henry", lastName="Miller", gender="m",
+               dateOfBirth="1920", additionalData="Note B", birthplace="Hamburg")
+
+    preview = compute_merge_preview(db, user, ta.id, tb.id)
+
+    assert preview.total_members == 2
+    assert preview.merged_count == 1
+    assert len(preview.duplicates) == 1
+    pair = preview.duplicates[0]
+    assert pair.match == "exact"
+    assert pair.default_action == "merge"
+    assert "additionalData" in pair.conflicts
+    assert "birthplace" in pair.conflicts
+
+
+def test_preview_possible_candidate(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Anna", lastName="Schmidt", gender="f",
+               dateOfBirth="1950")
+    # Same name+gender but different birth date → possible
+    add_member(db, tb, "b1", firstName="Anna", lastName="Schmidt", gender="f",
+               dateOfBirth="1951")
+
+    preview = compute_merge_preview(db, user, ta.id, tb.id)
+
+    assert preview.total_members == 2
+    assert len(preview.duplicates) == 1
+    pair = preview.duplicates[0]
+    assert pair.match == "possible"
+    assert pair.default_action == "keep_both"
+    assert "dateOfBirth" in pair.conflicts
+
+
+def test_preview_no_duplicates(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Alice", lastName="Smith", gender="f")
+    add_member(db, tb, "b1", firstName="Bob", lastName="Jones", gender="m")
+
+    preview = compute_merge_preview(db, user, ta.id, tb.id)
+
+    assert len(preview.duplicates) == 0
+    assert preview.merged_count == 2
+
+
+def test_preview_single_source_no_duplicates(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    add_member(db, ta, "a1", firstName="Alice", lastName="Smith", gender="f")
+
+    preview = compute_merge_preview(db, user, ta.id, None)
+
+    assert preview.total_members == 1
+    assert preview.merged_count == 1
+    assert preview.duplicates == []
+
+
+def test_preview_auth_unreadable_source(db):
+    owner = make_user(db, "owner")
+    stranger = make_user(db, "stranger")
+    ta = make_tree(db, owner, "Private")
+
+    with pytest.raises(HTTPException) as exc:
+        compute_merge_preview(db, stranger, ta.id, None)
+    assert exc.value.status_code == 404
+
+
+def test_preview_auth_readable_shared_source(db):
+    owner = make_user(db, "owner")
+    viewer = make_user(db, "viewer")
+    ta = make_tree(db, owner, "A")
+    tb = make_tree(db, owner, "B")
+    share(db, ta, viewer, "viewer")
+    share(db, tb, viewer, "viewer")
+    add_member(db, ta, "a1", firstName="X", lastName="Y", gender="m")
+
+    # Should not raise
+    preview = compute_merge_preview(db, viewer, ta.id, tb.id)
+    assert preview.total_members == 1
+
+
+# ---------------------------------------------------------------------------
+# Resolution: field choice "b"
+# ---------------------------------------------------------------------------
+
+
+def test_merge_field_choice_b(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Tom", lastName="Doe", gender="m",
+               dateOfBirth="1930", birthplace="Berlin")
+    add_member(db, tb, "b1", firstName="Tom", lastName="Doe", gender="m",
+               dateOfBirth="1930", birthplace="Hamburg")
+
+    resolutions = [
+        MergeResolution(
+            member_a_id="a1",
+            member_b_id="b1",
+            action="merge",
+            fields={"birthplace": "b"},
+        )
+    ]
+    merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
+
+    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    assert len(members) == 1
+    assert members[0].birthplace == "Hamburg"
+
+
+# ---------------------------------------------------------------------------
+# Resolution: "combine" for additionalData
+# ---------------------------------------------------------------------------
+
+
+def test_merge_combine_additional_data(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Karl", lastName="Bauer", gender="m",
+               dateOfBirth="1940", additionalData="Note A")
+    add_member(db, tb, "b1", firstName="Karl", lastName="Bauer", gender="m",
+               dateOfBirth="1940", additionalData="Note B")
+
+    resolutions = [
+        MergeResolution(
+            member_a_id="a1",
+            member_b_id="b1",
+            action="merge",
+            fields={"additionalData": "combine"},
+        )
+    ]
+    merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
+
+    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    assert len(members) == 1
+    combined = members[0].additionalData or ""
+    assert "Note A" in combined
+    assert "Note B" in combined
+
+
+# ---------------------------------------------------------------------------
+# Resolution: keep_both for exact duplicate
+# ---------------------------------------------------------------------------
+
+
+def test_merge_keep_both_exact_duplicate(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Eva", lastName="Lang", gender="f",
+               dateOfBirth="1955")
+    # Relations involving a1 in tree A
+    add_member(db, ta, "a2", firstName="Max", lastName="Lang", gender="m",
+               dateOfBirth="1950")
+    db.add(Relation(tree_id=ta.id, from_member_id="a1", to_member_id="a2",
+                    relation_type="partner"))
+    db.commit()
+
+    add_member(db, tb, "b1", firstName="Eva", lastName="Lang", gender="f",
+               dateOfBirth="1955")
+
+    resolutions = [
+        MergeResolution(
+            member_a_id="a1",
+            member_b_id="b1",
+            action="keep_both",
+        )
+    ]
+    merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
+
+    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    eva_members = [m for m in members if (m.firstName or "").lower() == "eva"]
+    # Both Evas should exist
+    assert len(eva_members) == 2
+
+    # Relations from tree A should still be intact
+    relations = db.query(Relation).filter(Relation.tree_id == merged.id).all()
+    assert len(relations) >= 1
+
+
+# ---------------------------------------------------------------------------
+# Resolution: possible candidate with merge action
+# ---------------------------------------------------------------------------
+
+
+def test_merge_possible_candidate_with_merge_resolution(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Lena", lastName="Bauer", gender="f",
+               dateOfBirth="1960")
+    # Same name+gender but different year
+    add_member(db, tb, "b1", firstName="Lena", lastName="Bauer", gender="f",
+               dateOfBirth="1961")
+
+    resolutions = [
+        MergeResolution(
+            member_a_id="a1",
+            member_b_id="b1",
+            action="merge",
+            fields={"dateOfBirth": "b"},
+        )
+    ]
+    merged = merge_trees(db, user, "M", ta.id, tb.id, resolutions)
+
+    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    assert len(members) == 1
+    assert members[0].dateOfBirth == "1961"
+
+
+# ---------------------------------------------------------------------------
+# No resolutions: backward-compatible path unchanged
+# ---------------------------------------------------------------------------
+
+
+def test_merge_no_resolutions_backward_compat(db):
+    user = make_user(db, "alice")
+    ta = make_tree(db, user, "A")
+    tb = make_tree(db, user, "B")
+
+    add_member(db, ta, "a1", firstName="Ada", lastName="Doe", gender="f")
+    add_member(db, tb, "b1", firstName="ada", lastName="doe", gender="f")
+    add_member(db, tb, "b2", firstName="Bob", lastName="Doe", gender="m")
+
+    merged = merge_trees(db, user, "M", ta.id, tb.id, None)
+
+    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    names = sorted((m.firstName.lower(), m.lastName.lower()) for m in members)
+    assert names == [("ada", "doe"), ("bob", "doe")]

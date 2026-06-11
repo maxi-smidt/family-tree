@@ -1,11 +1,12 @@
-"""Encrypted export and import of an entire tree.
+"""Encrypted export and import of an entire tree, plus GEDCOM import/export.
 
-Exports are always encrypted at rest (the only place data is encrypted now);
-a user password is optional. Imports always land in a brand new tree owned by
-the importing user, with every id remapped so re-importing never collides with
-existing data.
+Encrypted exports are always encrypted at rest; a user password is optional.
+GEDCOM exports produce a plain-text GEDCOM 5.5.1 file.
+Imports (both formats) always land in a brand new tree owned by the importing
+user, with every id remapped so re-importing never collides with existing data.
 """
 
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFile
@@ -13,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree
+from app.core.constants import DEFAULT_RELATION_TYPES
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -31,7 +33,7 @@ from app.models import (
     User,
 )
 from app.schemas.tree import TreeOut
-from app.services import crypto_export
+from app.services import crypto_export, gedcom
 from app.services.storage import (
     media_url_to_data_url,
     process_image_field,
@@ -260,3 +262,95 @@ def _import_links(db, links, model, parent_key, parent_map, member_map):
                     }
                 )
             )
+
+
+# ---------------------------------------------------------------------------
+# GEDCOM export / import
+# ---------------------------------------------------------------------------
+
+
+@router.get("/{tree_id}/export-gedcom")
+def export_tree_gedcom(
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Export the tree as a plain-text GEDCOM 5.5.1 file."""
+    members = _rows(db, Member, tree.id)
+    relations = _rows(db, Relation, tree.id)
+    text = gedcom.serialize_to_gedcom(tree.name or "family-tree", members, relations)
+    filename = f"{tree.name or 'family-tree'}.ged"
+    return Response(
+        content=text,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.post("/import-gedcom", response_model=TreeOut, status_code=201)
+async def import_tree_gedcom(
+    file: UploadFile,
+    name: str | None = Form(default=None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TreeOut:
+    """Import a GEDCOM 5.5.1 file into a new tree owned by the current user."""
+    raw = await file.read()
+    text = gedcom.decode_gedcom_bytes(raw)
+
+    try:
+        parsed = gedcom.parse_gedcom(text)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail="Could not read GEDCOM file") from exc
+
+    # Resolve tree name: explicit form field > filename stem > HEAD FILE > default.
+    filename_stem = Path(file.filename).stem.strip() if file.filename else ""
+    tree_name = (
+        name
+        or filename_stem
+        or parsed.get("_head_file")  # type: ignore[arg-type]
+        or "Imported tree"
+    )
+
+    tree = Tree(
+        id=str(uuid4()),
+        name=tree_name,
+        owner_id=user.id,
+        created_at=utcnow_iso(),
+        last_opened=utcnow_iso(),
+    )
+    db.add(tree)
+    db.flush()
+
+    # Seed default relation types.
+    for rt in DEFAULT_RELATION_TYPES:
+        db.add(RelationType(tree_id=tree.id, id=rt))
+
+    # Insert members first (relations have FK to members).
+    inserted_member_ids: set[str] = set()
+    for m in parsed.get("members", []):
+        data = dict(m)
+        data.pop("tree_id", None)
+        db.add(Member(tree_id=tree.id, **data))
+        inserted_member_ids.add(m["id"])
+    db.flush()
+
+    # Insert relations — guard against any endpoints not in the member set.
+    for rel in parsed.get("relations", []):
+        if (
+            rel["from_member_id"] in inserted_member_ids
+            and rel["to_member_id"] in inserted_member_ids
+        ):
+            db.add(
+                Relation(
+                    tree_id=tree.id,
+                    from_member_id=rel["from_member_id"],
+                    to_member_id=rel["to_member_id"],
+                    relation_type=rel["relation_type"],
+                )
+            )
+
+    db.commit()
+    db.refresh(tree)
+    out = TreeOut.model_validate(tree)
+    out.role = "owner"
+    return out

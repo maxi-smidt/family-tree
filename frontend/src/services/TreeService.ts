@@ -16,12 +16,14 @@ import {
   RelationType,
   mapMemberToDB,
 } from "@/types/member";
+import { MergePreviewResult } from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
+import { StatisticsReport } from "@/types/statistics";
 
 const base = (treeId: string) => `/trees/${treeId}`;
 
@@ -335,6 +337,14 @@ export class TreeService {
     return api.del(`${base(treeId)}/diseases/${id}`);
   }
 
+  // --- Merge preview -------------------------------------------------------
+  static previewMerge(sourceA: string, sourceB?: string) {
+    return api.post<MergePreviewResult>("/trees/merge/preview", {
+      source_a: sourceA,
+      source_b: sourceB ?? null,
+    });
+  }
+
   // --- Activity log ---------------------------------------------------------
   static getActivity(treeId: string) {
     return api.get<ActivityDB[]>(`${base(treeId)}/activity`);
@@ -343,5 +353,10 @@ export class TreeService {
   // --- Quality report -------------------------------------------------------
   static getQualityReport(treeId: string) {
     return api.get<QualityReport>(`${base(treeId)}/quality-report`);
+  }
+
+  // --- Statistics -----------------------------------------------------------
+  static getStatistics(treeId: string) {
+    return api.get<StatisticsReport>(`${base(treeId)}/statistics`);
   }
 }

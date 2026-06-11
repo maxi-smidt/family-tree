@@ -58,12 +58,23 @@ services:
     volumes:
       - ${DATA_PATH:-./data}:/data
       - ${APP_DATA_PATH:-./appdata}/backend:/appdata
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/api/health/ready'')"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   frontend:
     build: ./frontend
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
-      - "${UI_PORT:-8080}:80"
+      - "${UI_PORT:-8080}:8080"
     restart: unless-stopped

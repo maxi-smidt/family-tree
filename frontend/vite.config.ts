@@ -4,7 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 // Backend the dev server proxies `/api` to. Override with VITE_PROXY_TARGET.
-const apiTarget = process.env.VITE_PROXY_TARGET || "http://localhost:8000";
+const apiTarget = process.env.VITE_PROXY_TARGET || "http://127.0.0.1:8000";
 // Polling is needed for reliable file watching when running inside Docker
 // (bind mounts on macOS/Windows don't emit native fs events).
 const usePolling = !!process.env.VITE_USE_POLLING;

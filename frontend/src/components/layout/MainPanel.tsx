@@ -38,6 +38,11 @@ const QualityReportView = lazy(() =>
     (m) => ({ default: m.QualityReportView }),
   ),
 );
+const StatisticsView = lazy(() =>
+  import("@/components/view/statistics-view/StatisticsView").then((m) => ({
+    default: m.StatisticsView,
+  })),
+);
 import {
   Select,
   SelectContent,
@@ -53,6 +58,7 @@ const GALLERY_VIEW = "gallery-view";
 const TIMELINE_VIEW = "timeline-view";
 const ACTIVITY_VIEW = "activity-view";
 const QUALITY_REPORT_VIEW = "quality-report-view";
+const STATISTICS_VIEW = "statistics-view";
 const DATABASE_MANAGEMENT_VIEW = "database-management-view";
 
 const ALL_VIEWS = [
@@ -62,6 +68,7 @@ const ALL_VIEWS = [
   TIMELINE_VIEW,
   ACTIVITY_VIEW,
   QUALITY_REPORT_VIEW,
+  STATISTICS_VIEW,
   DATABASE_MANAGEMENT_VIEW,
 ] as const;
 type ViewId = (typeof ALL_VIEWS)[number];
@@ -100,6 +107,7 @@ export const MainPanel = () => {
     [TIMELINE_VIEW]: t("timeline"),
     [ACTIVITY_VIEW]: t("activity"),
     [QUALITY_REPORT_VIEW]: t("quality-report"),
+    [STATISTICS_VIEW]: t("statistics"),
     [DATABASE_MANAGEMENT_VIEW]: t("database-management"),
   };
 
@@ -139,6 +147,9 @@ export const MainPanel = () => {
         <TabsTrigger value={QUALITY_REPORT_VIEW}>
           {viewLabels[QUALITY_REPORT_VIEW]}
         </TabsTrigger>
+        <TabsTrigger value={STATISTICS_VIEW}>
+          {viewLabels[STATISTICS_VIEW]}
+        </TabsTrigger>
         <div className="border-l border-border self-stretch h-auto mx-2" />
         <TabsTrigger value={DATABASE_MANAGEMENT_VIEW}>
           {viewLabels[DATABASE_MANAGEMENT_VIEW]}
@@ -161,6 +172,9 @@ export const MainPanel = () => {
       </TabWrapper>
       <TabWrapper value={QUALITY_REPORT_VIEW}>
         <QualityReportView />
+      </TabWrapper>
+      <TabWrapper value={STATISTICS_VIEW}>
+        <StatisticsView />
       </TabWrapper>
       <TabWrapper value={DATABASE_MANAGEMENT_VIEW}>
         <DatabaseManagementView />

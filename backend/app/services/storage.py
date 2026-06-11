@@ -28,6 +28,12 @@ _MIME_EXT = {
     "image/avif": "avif",
 }
 
+# --- Image upload limits ---------------------------------------------------
+# Applied to member photos and gallery images (not document attachments).
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
+# Reject images where either dimension exceeds this value before processing.
+MAX_IMAGE_DIMENSION = 4096
+
 # --- Document attachments --------------------------------------------------
 # Story attachments accept common document/image types and are stored on disk
 # unmodified (unlike gallery images, which are normalized to WebP).
@@ -82,6 +88,14 @@ class UnsupportedFileType(ValueError):
 
 class FileTooLarge(ValueError):
     """Raised when an attachment exceeds ``MAX_DOCUMENT_BYTES``."""
+
+
+class UnsupportedImageType(ValueError):
+    """Raised when an image upload has an unsupported or unparseable MIME type."""
+
+
+class ImageTooLarge(ValueError):
+    """Raised when an image upload exceeds ``MAX_IMAGE_BYTES``."""
 
 
 class InvalidImageURL(ValueError):
@@ -174,43 +188,67 @@ def is_data_url(value: str | None) -> bool:
 
 
 def store_data_url(tree_id: str, data_url: str) -> str:
-    """Persist a base64 data URL to disk and return its relative media URL."""
+    """Persist a base64 data URL to disk and return its relative media URL.
+
+    Raises ``UnsupportedImageType`` for unknown or unparseable MIME types and
+    ``ImageTooLarge`` when the decoded payload exceeds ``MAX_IMAGE_BYTES``.
+    """
     match = _DATA_URL_RE.match(data_url)
     if not match:
         raise ValueError("Invalid data URL")
 
-    mime = (match.group("mime") or "image/png").lower()
-    ext = _MIME_EXT.get(mime, "bin")
+    mime = (match.group("mime") or "").lower()
+    if mime not in _MIME_EXT:
+        raise UnsupportedImageType(
+            f"Unsupported image type '{mime}'. "
+            f"Allowed types: {', '.join(sorted(_MIME_EXT))}."
+        )
+    ext = _MIME_EXT[mime]
+
     try:
         raw = base64.b64decode(match.group("data"))
     except (binascii.Error, ValueError) as exc:
         raise ValueError("Invalid base64 image data") from exc
 
-    raw, ext = _maybe_normalize(raw, ext)
+    if len(raw) > MAX_IMAGE_BYTES:
+        raise ImageTooLarge(
+            f"Image exceeds the {MAX_IMAGE_BYTES // (1024 * 1024)} MB limit."
+        )
+
+    raw, ext = _normalize_image(raw, ext)
 
     filename = f"{uuid4().hex}.{ext}"
     (_tree_media_dir(tree_id) / filename).write_bytes(raw)
     return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
 
 
-def _maybe_normalize(raw: bytes, ext: str) -> tuple[bytes, str]:
-    """Best-effort: validate and bound the image size with Pillow.
+def _normalize_image(raw: bytes, ext: str) -> tuple[bytes, str]:
+    """Validate dimensions, resize to fit within the display cap, and re-encode as WebP.
 
-    Falls back to the raw bytes if Pillow can't read the payload, so an
-    unusual but valid upload is never silently lost.
+    Raises ``UnsupportedImageType`` when Pillow cannot parse the payload or
+    either image dimension exceeds ``MAX_IMAGE_DIMENSION`` before resizing.
     """
-    try:
-        from PIL import Image
+    from PIL import Image, UnidentifiedImageError
 
-        max_w, max_h = 1920, 1080
+    try:
         with Image.open(BytesIO(raw)) as img:
+            w, h = img.size
+            if w > MAX_IMAGE_DIMENSION or h > MAX_IMAGE_DIMENSION:
+                raise UnsupportedImageType(
+                    f"Image dimensions {w}×{h} exceed the "
+                    f"{MAX_IMAGE_DIMENSION}px limit per side."
+                )
             img = img.convert("RGB") if img.mode in ("P", "RGBA", "LA") else img
-            img.thumbnail((max_w, max_h))
+            img.thumbnail((1920, 1080))
             buffer = BytesIO()
             img.save(buffer, format="WEBP", quality=85)
             return buffer.getvalue(), "webp"
-    except Exception:  # noqa: BLE001 - never fail an upload on normalization
-        return raw, ext
+    except UnsupportedImageType:
+        raise
+    except UnidentifiedImageError as exc:
+        raise UnsupportedImageType("Image data could not be parsed.") from exc
+    except Exception as exc:
+        raise UnsupportedImageType("Image data could not be processed.") from exc
 
 
 # Document attachment types already cover the common image extensions; only

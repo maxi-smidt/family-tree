@@ -1,18 +1,16 @@
 import {
   Background,
-  Connection,
   ConnectionMode,
   Edge,
   Node,
-  NodeMouseHandler,
   Panel,
   Position,
   ReactFlow,
   ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createMember, Member, RelationType } from "@/types/member";
+import { useEffect, useMemo, useState } from "react";
+import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -35,26 +33,19 @@ import { useFlowInteractions } from "@/hooks/useFlowInteractions";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useFlowUnions } from "@/hooks/useFlowUnions";
 import { useIsMobile } from "@/hooks/useMobile";
-import { findConnectionPathHighlight, memberPairKey } from "@/utils/graphUtils";
-import { toast } from "sonner";
-import { useTranslation } from "react-i18next";
+import { memberPairKey } from "@/utils/graphUtils";
+import { useMemberLocator } from "@/hooks/useMemberLocator";
+import { useConnectionMode } from "@/hooks/useConnectionMode";
+import { useRelationCreation } from "@/hooks/useRelationCreation";
+import { usePendingMember } from "@/hooks/usePendingMember";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
-  const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const activeTree = useTreeStore((s) => s.selectedTree);
   const isMobile = useIsMobile();
-  const {
-    members,
-    removeMember,
-    updateLayout,
-    addRelation,
-    removeRelation,
-    addMember,
-    updateMemberPartial,
-  } = useMemberStore();
+  const { members, removeMember, updateLayout } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
   const isCanvasReadOnly = isMobile || !canWrite;
   useUndoRedo(!isCanvasReadOnly);
@@ -63,7 +54,6 @@ export const FlowPanel = () => {
     edgeType,
     isLockedScreen,
     visibleRelationTypes,
-    toggleRelationType,
     viewport,
     setViewport,
   } = useFamilyTreeSettings();
@@ -72,109 +62,20 @@ export const FlowPanel = () => {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [membersToDelete, setMembersToDelete] = useState<Member[]>([]);
   const [selectedNodes, setSelectedNodes] = useState<Node[]>([]);
-  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [newRelation, setNewRelation] = useState<Connection | null>(null);
-  const [isNewMemberSession, setIsNewMemberSession] = useState(false);
-  const [pendingNewMember, setPendingNewMember] = useState<Member | null>(null);
-  const [highlightedNodeId, setHighlightedNodeId] = useState<string | null>(
-    null,
-  );
-  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const missingConnectionToastRef = useRef<string | null>(null);
-  const [isConnectionMode, setIsConnectionMode] = useState(false);
-  const [connectionMemberIds, setConnectionMemberIds] = useState<string[]>([]);
-  const [pendingHorizontalRelation, setPendingHorizontalRelation] = useState<{
-    sourceId: string;
-    targetId: string;
-  } | null>(null);
-  const [pendingHorizontalSourceId, setPendingHorizontalSourceId] = useState<
-    string | null
-  >(null);
-  const [pendingRelation, setPendingRelation] = useState<
-    | { type: "child-of"; parentId: string }
-    | { type: "parent-of"; childId: string }
-    | { type: "related"; sourceId: string; relationType: RelationType }
-    | null
-  >(null);
 
-  const editingMember = useMemo(
-    () =>
-      pendingNewMember && editingMemberId === pendingNewMember.id
-        ? pendingNewMember
-        : members.find((m) => m.id === editingMemberId) || null,
-    [members, editingMemberId, pendingNewMember],
-  );
+  // --- Extracted hooks ---
+  const locator = useMemberLocator(members, rfInstance);
 
-  const onAddChild = (parentId: string) => {
-    const parent = members.find((m) => m.id === parentId);
-    if (!parent) return;
+  const connection = useConnectionMode(members, () => setSelectedNodes([]));
 
-    const newMember = createMember({
-      x: parent.position.x,
-      y: parent.position.y + 200,
-    });
-    setPendingNewMember(newMember);
-    setPendingRelation({ type: "child-of", parentId });
-    setEditingMemberId(newMember.id);
-    setIsEditMode(true);
-    setIsNewMemberSession(true);
-  };
+  const relation = useRelationCreation();
 
-  const onAddParent = (childId: string) => {
-    const child = members.find((m) => m.id === childId);
-    if (!child) return;
+  const pending = usePendingMember({
+    onHorizontalRelationReady: relation.startHorizontalRelation,
+  });
 
-    const newMember = createMember({
-      x: child.position.x,
-      y: child.position.y - 200,
-    });
-    setPendingNewMember(newMember);
-    setPendingRelation({ type: "parent-of", childId });
-    setEditingMemberId(newMember.id);
-    setIsEditMode(true);
-    setIsNewMemberSession(true);
-  };
-
-  const onAddHorizontal = (memberId: string, side: "left" | "right") => {
-    const member = members.find((m) => m.id === memberId);
-    if (!member) return;
-
-    const newMember = createMember({
-      x: member.position.x + (side === "left" ? -300 : 300),
-      y: member.position.y,
-    });
-    setPendingNewMember(newMember);
-    setPendingHorizontalSourceId(memberId);
-    setEditingMemberId(newMember.id);
-    setIsEditMode(true);
-    setIsNewMemberSession(true);
-  };
-
+  // --- Unions & node positions ---
   const unions = useFlowUnions(members);
-  const connectionSelectedIds = useMemo(
-    () => new Set(connectionMemberIds),
-    [connectionMemberIds],
-  );
-  const connectionPath = useMemo(
-    () =>
-      findConnectionPathHighlight(
-        members,
-        isConnectionMode ? connectionMemberIds : [],
-      ),
-    [members, isConnectionMode, connectionMemberIds],
-  );
-  const hasConnectionPath =
-    isConnectionMode && connectionPath.edgeKeys.size > 0;
-  const missingConnectionSignature = useMemo(
-    () =>
-      connectionPath.missingPairs
-        .map((pair) => `${pair.fromId}:${pair.toId}`)
-        .join("|"),
-    [connectionPath.missingPairs],
-  );
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
@@ -193,16 +94,19 @@ export const FlowPanel = () => {
         .map((u) => {
           const p1 = nodePositions.get(u.partner1Id)!;
           const p2 = nodePositions.get(u.partner2Id)!;
-          const unionMemberPairHighlighted = connectionPath.edgeKeys.has(
-            memberPairKey(u.partner1Id, u.partner2Id),
-          );
+          const unionMemberPairHighlighted =
+            connection.connectionPath.edgeKeys.has(
+              memberPairKey(u.partner1Id, u.partner2Id),
+            );
           const unionChildHighlighted = u.childIds.some((childId) =>
             [u.partner1Id, u.partner2Id].some((parentId) =>
-              connectionPath.edgeKeys.has(memberPairKey(parentId, childId)),
+              connection.connectionPath.edgeKeys.has(
+                memberPairKey(parentId, childId),
+              ),
             ),
           );
           const isUnionConnectionPath =
-            hasConnectionPath &&
+            connection.hasConnectionPath &&
             (unionMemberPairHighlighted || unionChildHighlighted);
 
           return {
@@ -218,7 +122,9 @@ export const FlowPanel = () => {
               ...u,
               isConnectionPath: isUnionConnectionPath,
               isConnectionDimmed:
-                isConnectionMode && hasConnectionPath && !isUnionConnectionPath,
+                connection.isConnectionMode &&
+                connection.hasConnectionPath &&
+                !isUnionConnectionPath,
             },
             draggable: false,
             selectable: false,
@@ -264,33 +170,33 @@ export const FlowPanel = () => {
     [
       unions,
       nodePositions,
-      connectionPath.edgeKeys,
-      hasConnectionPath,
-      isConnectionMode,
+      connection.connectionPath.edgeKeys,
+      connection.hasConnectionPath,
+      connection.isConnectionMode,
     ],
   );
 
   const viewNodes = useFlowNodes(
     nodes,
-    setEditingMemberId,
-    setIsEditMode,
-    onAddChild,
-    onAddParent,
-    (id) => onAddHorizontal(id, "left"),
-    (id) => onAddHorizontal(id, "right"),
-    highlightedNodeId,
+    pending.setEditingMemberId,
+    pending.setIsEditMode,
+    pending.onAddChild,
+    pending.onAddParent,
+    (id) => pending.onAddHorizontal(id, "left"),
+    (id) => pending.onAddHorizontal(id, "right"),
+    locator.highlightedNodeId,
     isCanvasReadOnly,
-    connectionSelectedIds,
-    connectionPath.nodeIds,
-    isConnectionMode,
-    hasConnectionPath,
+    connection.connectionSelectedIds,
+    connection.connectionPath.nodeIds,
+    connection.isConnectionMode,
+    connection.hasConnectionPath,
   );
   const viewEdges = useFlowEdges(
     members,
     unions,
     visibleRelationTypes,
     edgeType,
-    connectionPath.edgeKeys,
+    connection.connectionPath.edgeKeys,
   );
 
   const {
@@ -307,7 +213,7 @@ export const FlowPanel = () => {
     setEdges,
     setMembersToDelete,
     setSelectedNodes,
-    setNewRelation,
+    relation.setNewRelation,
   );
 
   useEffect(() => {
@@ -328,130 +234,10 @@ export const FlowPanel = () => {
     });
   }, [nodes]);
 
-  useEffect(() => {
-    return () => {
-      if (highlightTimeoutRef.current) {
-        clearTimeout(highlightTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const memberIds = new Set(members.map((member) => member.id));
-    setConnectionMemberIds((currentIds) => {
-      const existingIds = currentIds.filter((id) => memberIds.has(id));
-      return existingIds.length === currentIds.length
-        ? currentIds
-        : existingIds;
-    });
-  }, [members]);
-
-  useEffect(() => {
-    if (
-      !isConnectionMode ||
-      connectionMemberIds.length < 2 ||
-      !missingConnectionSignature
-    ) {
-      missingConnectionToastRef.current = null;
-      return;
-    }
-
-    const toastSignature = `${connectionMemberIds.join(",")}:${missingConnectionSignature}`;
-    if (missingConnectionToastRef.current === toastSignature) return;
-
-    missingConnectionToastRef.current = toastSignature;
-    toast.error(
-      connectionPath.edgeKeys.size > 0
-        ? t("connection-path-partial")
-        : t("connection-path-not-found"),
-    );
-  }, [
-    isConnectionMode,
-    connectionMemberIds,
-    missingConnectionSignature,
-    connectionPath.edgeKeys.size,
-    t,
-  ]);
-
-  const toggleConnectionMode = useCallback(() => {
-    if (isConnectionMode) {
-      setIsConnectionMode(false);
-      setConnectionMemberIds([]);
-      return;
-    }
-
-    setSelectedNodes([]);
-    setIsConnectionMode(true);
-  }, [isConnectionMode]);
-
-  const handleNodeClick: NodeMouseHandler = useCallback(
-    (event, node) => {
-      if (!isConnectionMode || node.id.startsWith("union-")) return;
-      event.stopPropagation();
-
-      setConnectionMemberIds((currentIds) =>
-        currentIds.includes(node.id)
-          ? currentIds.filter((id) => id !== node.id)
-          : [...currentIds, node.id],
-      );
-    },
-    [isConnectionMode],
-  );
-
   const rearrangeNodes = () => {
     debouncedSave.cancel();
     pendingUpdates.current = {};
     updateLayout().then(() => rfInstance?.fitView());
-  };
-
-  // Un-collapse any ancestor that is currently hiding the member so the node
-  // becomes visible before we pan to it.
-  const revealMemberAncestors = (memberId: string) => {
-    const byId = new Map(members.map((m) => [m.id, m]));
-    const visited = new Set<string>();
-    const queue = [memberId];
-    while (queue.length) {
-      const id = queue.shift()!;
-      if (visited.has(id)) continue;
-      visited.add(id);
-      const member = byId.get(id);
-      if (!member) continue;
-      for (const parentId of [
-        member.parents.maternalParent,
-        member.parents.paternalParent,
-      ]) {
-        if (!parentId) continue;
-        const parent = byId.get(parentId);
-        if (parent?.isCollapsed) {
-          void updateMemberPartial(parentId, { isCollapsed: false });
-        }
-        queue.push(parentId);
-      }
-    }
-  };
-
-  const locateMember = (member: Member) => {
-    revealMemberAncestors(member.id);
-
-    const node = rfInstance?.getNode(member.id);
-    const width = node?.measured?.width ?? NODE_WIDTH;
-    const height = node?.measured?.height ?? 0;
-    const centerX = (node?.position.x ?? member.position.x) + width / 2;
-    const centerY = (node?.position.y ?? member.position.y) + height / 2;
-
-    rfInstance?.setCenter(centerX, centerY, {
-      zoom: Math.max(rfInstance.getZoom(), 1.2),
-      duration: 800,
-    });
-
-    setHighlightedNodeId(member.id);
-    if (highlightTimeoutRef.current) {
-      clearTimeout(highlightTimeoutRef.current);
-    }
-    highlightTimeoutRef.current = setTimeout(
-      () => setHighlightedNodeId(null),
-      2500,
-    );
   };
 
   const handleAddFirstMember = () => {
@@ -460,14 +246,10 @@ export const FlowPanel = () => {
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
     });
-    const newMember = createMember({
+    pending.addFirstMember({
       x: flowPoint.x - NODE_WIDTH / 2,
       y: flowPoint.y,
     });
-    setPendingNewMember(newMember);
-    setEditingMemberId(newMember.id);
-    setIsEditMode(true);
-    setIsNewMemberSession(true);
   };
 
   const confirmDelete = () => {
@@ -492,35 +274,47 @@ export const FlowPanel = () => {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={
-          isCanvasReadOnly || isConnectionMode ? undefined : onNodesChange
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onNodesChange
         }
         onEdgesChange={
-          isCanvasReadOnly || isConnectionMode ? undefined : onEdgesChange
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onEdgesChange
         }
-        onConnect={isCanvasReadOnly || isConnectionMode ? undefined : onConnect}
+        onConnect={
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onConnect
+        }
         defaultEdgeOptions={{ type: edgeType }}
         onSelectionChange={
-          isCanvasReadOnly || isConnectionMode ? undefined : onSelectionChange
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onSelectionChange
         }
-        onNodeClick={handleNodeClick}
+        onNodeClick={connection.handleNodeClick}
         minZoom={0.1}
         snapToGrid={true}
         snapGrid={[50, 50]}
         nodesDraggable={
-          !isConnectionMode && !isLockedScreen && !isCanvasReadOnly
+          !connection.isConnectionMode && !isLockedScreen && !isCanvasReadOnly
         }
         nodesConnectable={
-          !isConnectionMode && !isLockedScreen && !isCanvasReadOnly
+          !connection.isConnectionMode && !isLockedScreen && !isCanvasReadOnly
         }
         elementsSelectable={
-          isConnectionMode || (!isLockedScreen && !isCanvasReadOnly)
+          connection.isConnectionMode || (!isLockedScreen && !isCanvasReadOnly)
         }
-        nodesFocusable={isConnectionMode || !isCanvasReadOnly}
-        edgesFocusable={!isConnectionMode && !isCanvasReadOnly}
+        nodesFocusable={connection.isConnectionMode || !isCanvasReadOnly}
+        edgesFocusable={!connection.isConnectionMode && !isCanvasReadOnly}
         deleteKeyCode={
-          isCanvasReadOnly || isConnectionMode ? null : ["Backspace", "Delete"]
+          isCanvasReadOnly || connection.isConnectionMode
+            ? null
+            : ["Backspace", "Delete"]
         }
-        connectOnClick={!isConnectionMode && !isCanvasReadOnly}
+        connectOnClick={!connection.isConnectionMode && !isCanvasReadOnly}
         connectionMode={ConnectionMode.Loose}
         onInit={setRfInstance}
         defaultViewport={viewport}
@@ -541,16 +335,16 @@ export const FlowPanel = () => {
         >
           <CanvasSearch
             members={members}
-            onLocate={locateMember}
+            onLocate={locator.locateMember}
             className={isMobile ? "w-full" : undefined}
           />
         </Panel>
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
           <FlowPanelControls
             navigationOnly={isCanvasReadOnly}
-            isConnectionMode={isConnectionMode}
+            isConnectionMode={connection.isConnectionMode}
             connectionDisabled={members.length < 2}
-            onToggleConnectionMode={toggleConnectionMode}
+            onToggleConnectionMode={connection.toggleConnectionMode}
           />
         </Panel>
         {!isCanvasReadOnly && (
@@ -559,17 +353,8 @@ export const FlowPanel = () => {
               nodes={nodes}
               selectedNodes={selectedNodes}
               setMembersToDelete={setMembersToDelete}
-              onEditMember={(member) => {
-                setEditingMemberId(member.id);
-                setIsEditMode(true);
-                setIsNewMemberSession(false);
-              }}
-              onCreateNewMember={(member) => {
-                setPendingNewMember(member);
-                setEditingMemberId(member.id);
-                setIsEditMode(true);
-                setIsNewMemberSession(true);
-              }}
+              onEditMember={(member) => pending.editExisting(member)}
+              onCreateNewMember={(member) => pending.createNew(member)}
               onRearrange={rearrangeNodes}
             />
           </Panel>
@@ -582,98 +367,19 @@ export const FlowPanel = () => {
         onCancel={() => setMembersToDelete([])}
       />
       <MemberSheet
-        isOpen={!!editingMember}
-        onClose={() => {
-          setEditingMemberId(null);
-          setIsNewMemberSession(false);
-          setPendingNewMember(null);
-          setPendingRelation(null);
-          setPendingHorizontalSourceId(null);
-        }}
-        member={editingMember}
-        initialEditMode={isEditMode}
+        isOpen={!!pending.editingMember}
+        onClose={pending.closeSheet}
+        member={pending.editingMember}
+        initialEditMode={pending.isEditMode}
         canEdit={!isMobile && canWrite}
-        isNewMember={isNewMemberSession}
-        onDiscardNewMember={() => {
-          setPendingNewMember(null);
-          setPendingRelation(null);
-          setPendingHorizontalSourceId(null);
-        }}
-        onSaveNewMember={async (data) => {
-          if (pendingNewMember) {
-            const newMemberToSave = { ...pendingNewMember, ...data };
-            await addMember(newMemberToSave);
-            if (pendingRelation) {
-              const id = newMemberToSave.id;
-              if (pendingRelation.type === "child-of") {
-                await addRelation(id, pendingRelation.parentId, "parent");
-              } else if (pendingRelation.type === "parent-of") {
-                await addRelation(pendingRelation.childId, id, "parent");
-              } else if (pendingRelation.type === "related") {
-                await addRelation(
-                  pendingRelation.sourceId,
-                  id,
-                  pendingRelation.relationType,
-                );
-              }
-              setPendingRelation(null);
-            }
-            if (pendingHorizontalSourceId) {
-              // Member saved — now ask for the relation type.
-              setPendingHorizontalRelation({
-                sourceId: pendingHorizontalSourceId,
-                targetId: newMemberToSave.id,
-              });
-              setPendingHorizontalSourceId(null);
-              setEditingMemberId(null);
-              setIsNewMemberSession(false);
-            }
-            setPendingNewMember(null);
-          }
-        }}
+        isNewMember={pending.isNewMemberSession}
+        onDiscardNewMember={pending.discardNewMember}
+        onSaveNewMember={pending.saveNewMember}
       />
       <AddRelationDialog
-        isOpen={!!newRelation || !!pendingHorizontalRelation}
-        onClose={() => {
-          setNewRelation(null);
-          setPendingHorizontalRelation(null);
-        }}
-        onConfirm={(type) => {
-          if (newRelation) {
-            const fromId = newRelation.source;
-            const toId = newRelation.target;
-
-            const sourceMember = members.find((m) => m.id === fromId);
-            const forwardRel = sourceMember?.relations?.find(
-              (r) => r.toMemberId === toId && r.relationType !== "parent",
-            );
-            if (forwardRel) {
-              void removeRelation(fromId, toId, forwardRel.relationType);
-            }
-
-            const targetMember = members.find((m) => m.id === toId);
-            const backwardRel = targetMember?.relations?.find(
-              (r) => r.toMemberId === fromId && r.relationType !== "parent",
-            );
-            if (backwardRel) {
-              void removeRelation(toId, fromId, backwardRel.relationType);
-            }
-
-            void addRelation(fromId, toId, type);
-            if (!visibleRelationTypes.includes(type)) {
-              toggleRelationType(type);
-            }
-          } else if (pendingHorizontalRelation) {
-            // Member was already saved — create the relation directly.
-            const { sourceId, targetId } = pendingHorizontalRelation;
-            void addRelation(sourceId, targetId, type);
-            if (!visibleRelationTypes.includes(type)) {
-              toggleRelationType(type);
-            }
-          }
-          setNewRelation(null);
-          setPendingHorizontalRelation(null);
-        }}
+        isOpen={relation.isDialogOpen}
+        onClose={relation.closeDialog}
+        onConfirm={relation.confirmRelation}
       />
     </div>
   );

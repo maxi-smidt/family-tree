@@ -3,11 +3,13 @@ import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { RelationType } from "@/types/member";
+import { MergeResolution } from "@/types/merge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
+import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 
 interface DatabaseMetaData {
   id?: string;
@@ -31,23 +33,23 @@ interface DatabaseState {
     name: string,
     sourceA: string,
     sourceB?: string,
+    resolutions?: MergeResolution[],
   ) => Promise<Tree>;
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
-  refreshMetadata: () => Promise<void>;
-  refreshRelationTypes: () => Promise<void>;
+  refreshMetadata: (treeId?: string) => Promise<void>;
+  refreshRelationTypes: (treeId?: string) => Promise<void>;
   addRelationType: (id: string, description: string) => Promise<void>;
 }
 
-const clearDataStores = async () => {
-  await Promise.all([
-    useMemberStore.getState().refreshMembers(),
-    useGalleryStore.getState().refreshGalleryImages(),
-    useEventStore.getState().refreshEvents(),
-    useStoryStore.getState().refreshStories(),
-    useActivityStore.getState().refreshActivity(),
-  ]);
+const clearDataStores = () => {
+  useMemberStore.getState().clear();
+  useGalleryStore.getState().clear();
+  useEventStore.getState().clear();
+  useStoryStore.getState().clear();
+  useActivityStore.getState().clear();
+  useStatisticsStore.getState().clear();
 };
 
 export const useTreeStore = create<DatabaseState>((set, get) => ({
@@ -91,11 +93,17 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     if (wasSelected) await get().disconnect();
   },
 
-  mergeTrees: async (name: string, sourceA: string, sourceB?: string) => {
+  mergeTrees: async (
+    name: string,
+    sourceA: string,
+    sourceB?: string,
+    resolutions?: MergeResolution[],
+  ) => {
     const tree = await api.post<Tree>("/trees/merge", {
       name,
       source_a: sourceA,
       source_b: sourceB ?? null,
+      resolutions: resolutions ?? null,
     });
     await get().loadTrees();
     await get().selectTree(tree);
@@ -130,13 +138,13 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     }
 
     await Promise.all([
-      get().refreshMetadata(),
-      get().refreshRelationTypes(),
-      useMemberStore.getState().refreshMembers(),
-      useGalleryStore.getState().refreshGalleryImages(),
-      useEventStore.getState().refreshEvents(),
-      useStoryStore.getState().refreshStories(),
-      useActivityStore.getState().refreshActivity(),
+      get().refreshMetadata(tree.id),
+      get().refreshRelationTypes(tree.id),
+      useMemberStore.getState().refreshMembers(tree.id),
+      useGalleryStore.getState().refreshGalleryImages(tree.id),
+      useEventStore.getState().refreshEvents(tree.id),
+      useStoryStore.getState().refreshStories(tree.id),
+      useActivityStore.getState().refreshActivity(tree.id),
     ]);
     set({ isReady: true });
   },
@@ -148,22 +156,22 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       metadata: {},
       relationTypes: [],
     });
-    await clearDataStores();
+    clearDataStores();
   },
 
-  refreshMetadata: async () => {
-    const tree = get().selectedTree;
-    if (!tree) return;
+  refreshMetadata: async (treeId = activeTreeId()) => {
+    if (!treeId) return;
     const metadata = await api.get<DatabaseMetaData>(
-      `/trees/${tree.id}/metadata`,
+      `/trees/${treeId}/metadata`,
     );
+    if (!isActiveTree(treeId)) return;
     set({ metadata });
   },
 
-  refreshRelationTypes: async () => {
-    const tree = get().selectedTree;
-    if (!tree) return;
-    const types = await TreeService.getRelationTypes(tree.id);
+  refreshRelationTypes: async (treeId = activeTreeId()) => {
+    if (!treeId) return;
+    const types = await TreeService.getRelationTypes(treeId);
+    if (!isActiveTree(treeId)) return;
     set({ relationTypes: types });
   },
 
@@ -178,3 +186,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
 /** Convenience accessor used by the data stores. */
 export const activeTreeId = (): string | undefined =>
   useTreeStore.getState().selectedTree?.id;
+
+/** Stale-write guard for async loaders: true if `treeId` is still the active tree. */
+export const isActiveTree = (treeId: string | undefined): boolean =>
+  treeId !== undefined && activeTreeId() === treeId;

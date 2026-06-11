@@ -293,3 +293,77 @@ describe("useMemberStore — undo/redo", () => {
     expect(useMemberStore.getState().undoStack).toHaveLength(1);
   });
 });
+
+describe("useMemberStore — stale-write guard", () => {
+  it("does not write fetched data when the tree changed mid-flight", async () => {
+    let resolve!: (v: MemberDB[]) => void;
+    const pending = new Promise<MemberDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getMembers).mockReturnValue(pending);
+    vi.mocked(TreeService.getRelations).mockResolvedValue([]);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: makeTree() });
+
+    const p = useMemberStore.getState().refreshMembers(TREE_ID);
+    // user switches away before the fetch resolves
+    useTreeStore.setState({
+      selectedTree: { id: "other", name: "Other", role: "owner" },
+    });
+    resolve([MEMBER_DB_ROW]);
+    await p;
+
+    expect(useMemberStore.getState().members).toHaveLength(0); // stale data dropped
+  });
+
+  it("does not write fetched data after disconnect", async () => {
+    let resolve!: (v: MemberDB[]) => void;
+    const pending = new Promise<MemberDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getMembers).mockReturnValue(pending);
+    vi.mocked(TreeService.getRelations).mockResolvedValue([]);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: makeTree() });
+
+    const p = useMemberStore.getState().refreshMembers(TREE_ID);
+    // user disconnects before the fetch resolves
+    useTreeStore.setState({ selectedTree: undefined });
+    resolve([MEMBER_DB_ROW]);
+    await p;
+
+    expect(useMemberStore.getState().members).toHaveLength(0); // stale data dropped
+  });
+
+  it("writes data when the explicit treeId is still active", async () => {
+    let resolve!: (v: MemberDB[]) => void;
+    const pending = new Promise<MemberDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getMembers).mockReturnValue(pending);
+    vi.mocked(TreeService.getRelations).mockResolvedValue([]);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: makeTree() });
+
+    const p = useMemberStore.getState().refreshMembers(TREE_ID);
+    resolve([MEMBER_DB_ROW]);
+    await p;
+
+    expect(useMemberStore.getState().members).toHaveLength(1);
+    expect(useMemberStore.getState().members[0].id).toBe("m1");
+  });
+
+  it("clear() empties members and resets undo/redo history", () => {
+    useMemberStore.setState({
+      members: [{ id: "m1" } as never],
+      undoStack: [{ undo: async () => {}, redo: async () => {} }],
+      redoStack: [{ undo: async () => {}, redo: async () => {} }],
+    });
+
+    useMemberStore.getState().clear();
+
+    expect(useMemberStore.getState().members).toHaveLength(0);
+    expect(useMemberStore.getState().undoStack).toHaveLength(0);
+    expect(useMemberStore.getState().redoStack).toHaveLength(0);
+  });
+});

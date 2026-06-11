@@ -6,13 +6,13 @@ import {
   mapStoryFromDB,
 } from "@/types/story";
 import { TreeService } from "@/services/TreeService";
-import { activeTreeId } from "@/hooks/useTreeStore";
+import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 
 const NO_OPS: AttachmentOps = { added: [], removedIds: [], renamed: [] };
 
 interface StoryState {
   stories: Story[];
-  refreshStories: () => Promise<void>;
+  refreshStories: (treeId?: string) => Promise<void>;
   getStoriesByMember: (memberId: string) => Story[];
   addStory: (
     memberIds: string[],
@@ -26,6 +26,7 @@ interface StoryState {
     attachments?: AttachmentOps,
   ) => Promise<void>;
   removeStory: (id: string) => Promise<void>;
+  clear: () => void;
 }
 
 async function applyAttachmentOps(
@@ -52,8 +53,7 @@ async function applyAttachmentOps(
 export const useStoryStore = create<StoryState>((set, get) => ({
   stories: [],
 
-  refreshStories: async () => {
-    const treeId = activeTreeId();
+  refreshStories: async (treeId = activeTreeId()) => {
     if (!treeId) {
       set({ stories: [] });
       return;
@@ -63,6 +63,8 @@ export const useStoryStore = create<StoryState>((set, get) => ({
       TreeService.getStories(treeId),
       TreeService.getStoryMemberLinks(treeId),
     ]);
+
+    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const stories = storiesResult.map((row) => {
       const linkedMemberIds = linksResult
@@ -93,7 +95,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 
     await applyAttachmentOps(treeId, id, attachments);
 
-    await get().refreshStories();
+    await get().refreshStories(treeId);
   },
 
   updateStory: async (
@@ -111,7 +113,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 
     await applyAttachmentOps(treeId, id, attachments);
 
-    await get().refreshStories();
+    await get().refreshStories(treeId);
   },
 
   removeStory: async (id: string) => {
@@ -119,6 +121,8 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     if (!treeId) return;
 
     await TreeService.removeStory(treeId, id);
-    await get().refreshStories();
+    await get().refreshStories(treeId);
   },
+
+  clear: () => set({ stories: [] }),
 }));

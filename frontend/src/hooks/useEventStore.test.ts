@@ -110,18 +110,16 @@ describe("useEventStore — updateEvent", () => {
     vi.mocked(TreeService.getEvents).mockResolvedValue([]);
     vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
 
-    await useEventStore
-      .getState()
-      .updateEvent(
-        "ev1",
-        {
-          eventType: "birth",
-          date: "2001-01-01",
-          location: null,
-          description: null,
-        },
-        ["m2"],
-      );
+    await useEventStore.getState().updateEvent(
+      "ev1",
+      {
+        eventType: "birth",
+        date: "2001-01-01",
+        location: null,
+        description: null,
+      },
+      ["m2"],
+    );
 
     expect(TreeService.updateEvent).toHaveBeenCalledWith(
       TREE_ID,
@@ -165,5 +163,72 @@ describe("useEventStore — getEventsByMember", () => {
     const result = useEventStore.getState().getEventsByMember("m1");
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe("ev1");
+  });
+});
+
+describe("useEventStore — stale-write guard", () => {
+  it("does not write fetched data when the tree changed mid-flight", async () => {
+    let resolve!: (v: EventDB[]) => void;
+    const pending = new Promise<EventDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getEvents).mockReturnValue(pending);
+    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: makeTree() });
+
+    const p = useEventStore.getState().refreshEvents(TREE_ID);
+    // user switches away before the fetch resolves
+    useTreeStore.setState({
+      selectedTree: { id: "other", name: "Other", role: "owner" },
+    });
+    resolve([EVENT_DB_ROW]);
+    await p;
+
+    expect(useEventStore.getState().events).toHaveLength(0); // stale data dropped
+  });
+
+  it("does not write fetched data after disconnect", async () => {
+    let resolve!: (v: EventDB[]) => void;
+    const pending = new Promise<EventDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getEvents).mockReturnValue(pending);
+    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+    useTreeStore.setState({ selectedTree: makeTree() });
+
+    const p = useEventStore.getState().refreshEvents(TREE_ID);
+    // user disconnects before the fetch resolves
+    useTreeStore.setState({ selectedTree: undefined });
+    resolve([EVENT_DB_ROW]);
+    await p;
+
+    expect(useEventStore.getState().events).toHaveLength(0); // stale data dropped
+  });
+
+  it("writes data when the explicit treeId is still active", async () => {
+    let resolve!: (v: EventDB[]) => void;
+    const pending = new Promise<EventDB[]>((r) => {
+      resolve = r;
+    });
+    vi.mocked(TreeService.getEvents).mockReturnValue(pending);
+    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([
+      { event_id: "ev1", member_id: "m1" },
+    ]);
+    useTreeStore.setState({ selectedTree: makeTree() });
+
+    const p = useEventStore.getState().refreshEvents(TREE_ID);
+    resolve([EVENT_DB_ROW]);
+    await p;
+
+    expect(useEventStore.getState().events).toHaveLength(1);
+    expect(useEventStore.getState().events[0].id).toBe("ev1");
+  });
+
+  it("clear() empties the events slice", () => {
+    useEventStore.setState({ events: [{ id: "e1" } as never] });
+
+    useEventStore.getState().clear();
+
+    expect(useEventStore.getState().events).toHaveLength(0);
   });
 });

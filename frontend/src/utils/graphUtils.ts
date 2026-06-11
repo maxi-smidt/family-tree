@@ -1,5 +1,21 @@
 import { Member } from "@/types/member";
 
+/**
+ * Filter `currentIds` to those still present in `members`.
+ *
+ * Returns the SAME array reference when nothing was removed (identity
+ * preserved), mirroring the existing effect in FlowPanel that prunes
+ * connectionMemberIds.
+ */
+export function pruneConnectionMemberIds(
+  currentIds: string[],
+  members: Member[],
+): string[] {
+  const memberIds = new Set(members.map((m) => m.id));
+  const filtered = currentIds.filter((id) => memberIds.has(id));
+  return filtered.length === currentIds.length ? currentIds : filtered;
+}
+
 export interface MissingConnectionPair {
   fromId: string;
   toId: string;
