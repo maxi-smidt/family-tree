@@ -3,6 +3,7 @@ import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { RelationType } from "@/types/member";
+import { MergeResolution } from "@/types/merge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -32,6 +33,7 @@ interface DatabaseState {
     name: string,
     sourceA: string,
     sourceB?: string,
+    resolutions?: MergeResolution[],
   ) => Promise<Tree>;
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
@@ -91,11 +93,17 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     if (wasSelected) await get().disconnect();
   },
 
-  mergeTrees: async (name: string, sourceA: string, sourceB?: string) => {
+  mergeTrees: async (
+    name: string,
+    sourceA: string,
+    sourceB?: string,
+    resolutions?: MergeResolution[],
+  ) => {
     const tree = await api.post<Tree>("/trees/merge", {
       name,
       source_a: sourceA,
       source_b: sourceB ?? null,
+      resolutions: resolutions ?? null,
     });
     await get().loadTrees();
     await get().selectTree(tree);

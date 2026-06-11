@@ -16,6 +16,7 @@ import {
   RelationType,
   mapMemberToDB,
 } from "@/types/member";
+import { MergePreviewResult } from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
@@ -334,6 +335,14 @@ export class TreeService {
 
   static removeDisease(treeId: string, id: string) {
     return api.del(`${base(treeId)}/diseases/${id}`);
+  }
+
+  // --- Merge preview -------------------------------------------------------
+  static previewMerge(sourceA: string, sourceB?: string) {
+    return api.post<MergePreviewResult>("/trees/merge/preview", {
+      source_a: sourceA,
+      source_b: sourceB ?? null,
+    });
   }
 
   // --- Activity log ---------------------------------------------------------
