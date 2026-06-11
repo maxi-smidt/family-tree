@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, String
+from sqlalchemy import JSON, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, new_uuid, utcnow_iso
@@ -42,3 +42,5 @@ class User(Base):
     deletion_requested_by: Mapped[str | None] = mapped_column(
         String(36), nullable=True
     )
+
+    tab_preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)

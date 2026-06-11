@@ -89,3 +89,16 @@ class AccountRestore(BaseModel):
 
     username: str
     password: str
+
+
+class TabPreferences(BaseModel):
+    order: list[str] = Field(default_factory=list)
+    hidden: list[str] = Field(default_factory=list)
+
+    @field_validator("order", "hidden")
+    @classmethod
+    def dedupe_and_validate(cls, v: list[str]) -> list[str]:
+        deduped = list(dict.fromkeys(v))
+        if any(len(item) > 64 for item in deduped):
+            raise ValueError("Tab id too long")
+        return deduped

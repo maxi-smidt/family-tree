@@ -8,10 +8,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { KeyRound, LogOut, Shield, Trash2, UserIcon } from "lucide-react";
+import { KeyRound, LogOut, Shield, SlidersHorizontal, Trash2, UserIcon } from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { DeleteAccountDialog } from "@/components/auth/DeleteAccountDialog";
+import { TabSettingsDialog } from "@/components/auth/TabSettingsDialog";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { useTranslation } from "react-i18next";
 
@@ -22,6 +23,7 @@ export const UserMenu = () => {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [tabSettingsOpen, setTabSettingsOpen] = useState(false);
 
   if (!user) return null;
 
@@ -49,6 +51,10 @@ export const UserMenu = () => {
               {t("change-password")}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem onClick={() => setTabSettingsOpen(true)}>
+            <SlidersHorizontal className="h-4 w-4" />
+            {t("customize-tabs")}
+          </DropdownMenuItem>
           {user.is_admin && (
             <DropdownMenuItem onClick={() => setAdminOpen(true)}>
               <Shield className="h-4 w-4" />
@@ -74,6 +80,10 @@ export const UserMenu = () => {
       <ChangePasswordDialog
         isOpen={passwordOpen}
         onClose={() => setPasswordOpen(false)}
+      />
+      <TabSettingsDialog
+        isOpen={tabSettingsOpen}
+        onClose={() => setTabSettingsOpen(false)}
       />
       {user.is_admin && (
         <AdminDialog isOpen={adminOpen} onClose={() => setAdminOpen(false)} />
