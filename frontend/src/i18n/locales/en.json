@@ -701,6 +701,17 @@
     "date-unknown": "unknown"
   },
   "auth": {
+    "session": {
+      "expiring-title": "Your session is expiring soon",
+      "expiring-description": "Please save your work. You will need to sign in again shortly.",
+      "expiring-dismiss": "Dismiss",
+      "relogin-title": "Session expired",
+      "relogin-description": "Your session has expired. Enter your password to continue.",
+      "relogin-password": "Password",
+      "relogin-submit": "Sign in",
+      "relogin-cancel": "Log out",
+      "relogin-error": "Incorrect password. Please try again."
+    },
     "login": {
       "title": "Family Tree",
       "subtitle": "Sign in to your account",

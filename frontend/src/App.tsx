@@ -7,6 +7,7 @@ import { Layout } from "@/components/layout/Layout";
 import { MainPanel } from "@/components/layout/MainPanel";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { LoginPage } from "@/components/auth/LoginPage";
+import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -38,6 +39,7 @@ export const App = () => {
   return (
     <>
       {renderContent()}
+      <ReloginDialog />
       <Toaster position="bottom-center" />
     </>
   );
