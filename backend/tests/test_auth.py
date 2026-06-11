@@ -184,7 +184,7 @@ def test_authentik_admin_revoked_when_not_in_group(db):
 
 def test_local_admin_not_affected_by_oidc_login(db):
     """Local admin account retains admin even when matched by email via OIDC."""
-    user = make_user(db, "local-admin", is_admin=True)
+    _ = make_user(db, "local-admin", is_admin=True)
     # auth_provider stays "local" — make_user sets it to "local" by default
     db.commit()
 
