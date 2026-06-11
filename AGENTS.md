@@ -48,13 +48,13 @@ PostgreSQL
 Frontend data flow — **never bypass it:**
 
 ```
-UI Component → Zustand store action → DatabaseService (HTTP client)
+UI Component → Zustand store action → TreeService (HTTP client)
             → FastAPI router (/api) → SQLAlchemy model → PostgreSQL
 ```
 
 - Components only **read** store state and **call** store actions. Never call
-  `DatabaseService` or `fetch` directly from a component.
-- `DatabaseService` (`frontend/src/services/DatabaseService.ts`, a thin client
+  `TreeService` or `fetch` directly from a component.
+- `TreeService` (`frontend/src/services/TreeService.ts`, a thin client
   over `frontend/src/services/api.ts`) — each method takes a `treeId` and returns
   the `*DB` row shapes the stores map. **Keep backend Pydantic response field
   names aligned with the frontend `*DB` types** — that contract is what keeps the
