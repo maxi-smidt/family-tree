@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { api, setAuthToken } from "@/services/api";
+import { api, ApiError, setAuthToken } from "@/services/api";
 import { authErrorToast } from "@/components/auth/loginError";
 import { TokenResponse } from "@/types/user";
 import { Button } from "@/components/ui/button";
@@ -16,20 +16,26 @@ import {
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
+const ADMIN_INITIATED_DELETION = "admin_initiated_deletion";
+
 export const LoginPage = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.login" });
   const config = useAuthStore((s) => s.config);
   const login = useAuthStore((s) => s.login);
+  const restoreAccount = useAuthStore((s) => s.restoreAccount);
 
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingDeletion, setPendingDeletion] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setPendingDeletion(false);
     try {
       if (mode === "register") {
         const res = await api.post<TokenResponse>("/auth/register", {
@@ -46,8 +52,28 @@ export const LoginPage = () => {
       console.error(err);
       const { key, duration } = authErrorToast(err, mode);
       toast.error(t(key), duration ? { duration } : undefined);
+      if (key === "account-pending-deletion") {
+        setPendingDeletion(true);
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setRestoreLoading(true);
+    try {
+      await restoreAccount(username, password);
+    } catch (err) {
+      console.error(err);
+      const isAdminDeletion =
+        err instanceof ApiError && err.message === ADMIN_INITIATED_DELETION;
+      toast.error(
+        isAdminDeletion ? t("restore-admin-deletion") : t("restore-error"),
+        { duration: 8000 },
+      );
+    } finally {
+      setRestoreLoading(false);
     }
   };
 
@@ -115,6 +141,21 @@ export const LoginPage = () => {
             >
               {t("sign-in-authentik")}
             </Button>
+          )}
+
+          {mode === "login" && pendingDeletion && (
+            <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+              <p className="text-foreground">{t("restore-description")}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={restoreLoading}
+                onClick={() => void handleRestore()}
+              >
+                {t("restore-button")}
+              </Button>
+            </div>
           )}
 
           {config?.allow_self_registration && (

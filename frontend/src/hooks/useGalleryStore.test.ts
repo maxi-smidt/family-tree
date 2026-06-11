@@ -96,12 +96,10 @@ describe("useGalleryStore — updateGalleryImage", () => {
     vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
     vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
 
-    await useGalleryStore
-      .getState()
-      .updateGalleryImage("img1", {
-        title: "Renamed",
-        linkedMemberIds: ["m4"],
-      });
+    await useGalleryStore.getState().updateGalleryImage("img1", {
+      title: "Renamed",
+      linkedMemberIds: ["m4"],
+    });
 
     expect(TreeService.updateGalleryImage).toHaveBeenCalledWith(
       TREE_ID,

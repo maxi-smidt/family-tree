@@ -94,12 +94,15 @@ export const FlowPanel = () => {
         .map((u) => {
           const p1 = nodePositions.get(u.partner1Id)!;
           const p2 = nodePositions.get(u.partner2Id)!;
-          const unionMemberPairHighlighted = connection.connectionPath.edgeKeys.has(
-            memberPairKey(u.partner1Id, u.partner2Id),
-          );
+          const unionMemberPairHighlighted =
+            connection.connectionPath.edgeKeys.has(
+              memberPairKey(u.partner1Id, u.partner2Id),
+            );
           const unionChildHighlighted = u.childIds.some((childId) =>
             [u.partner1Id, u.partner2Id].some((parentId) =>
-              connection.connectionPath.edgeKeys.has(memberPairKey(parentId, childId)),
+              connection.connectionPath.edgeKeys.has(
+                memberPairKey(parentId, childId),
+              ),
             ),
           );
           const isUnionConnectionPath =
@@ -119,7 +122,9 @@ export const FlowPanel = () => {
               ...u,
               isConnectionPath: isUnionConnectionPath,
               isConnectionDimmed:
-                connection.isConnectionMode && connection.hasConnectionPath && !isUnionConnectionPath,
+                connection.isConnectionMode &&
+                connection.hasConnectionPath &&
+                !isUnionConnectionPath,
             },
             draggable: false,
             selectable: false,
@@ -269,15 +274,25 @@ export const FlowPanel = () => {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={
-          isCanvasReadOnly || connection.isConnectionMode ? undefined : onNodesChange
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onNodesChange
         }
         onEdgesChange={
-          isCanvasReadOnly || connection.isConnectionMode ? undefined : onEdgesChange
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onEdgesChange
         }
-        onConnect={isCanvasReadOnly || connection.isConnectionMode ? undefined : onConnect}
+        onConnect={
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onConnect
+        }
         defaultEdgeOptions={{ type: edgeType }}
         onSelectionChange={
-          isCanvasReadOnly || connection.isConnectionMode ? undefined : onSelectionChange
+          isCanvasReadOnly || connection.isConnectionMode
+            ? undefined
+            : onSelectionChange
         }
         onNodeClick={connection.handleNodeClick}
         minZoom={0.1}
@@ -295,7 +310,9 @@ export const FlowPanel = () => {
         nodesFocusable={connection.isConnectionMode || !isCanvasReadOnly}
         edgesFocusable={!connection.isConnectionMode && !isCanvasReadOnly}
         deleteKeyCode={
-          isCanvasReadOnly || connection.isConnectionMode ? null : ["Backspace", "Delete"]
+          isCanvasReadOnly || connection.isConnectionMode
+            ? null
+            : ["Backspace", "Delete"]
         }
         connectOnClick={!connection.isConnectionMode && !isCanvasReadOnly}
         connectionMode={ConnectionMode.Loose}

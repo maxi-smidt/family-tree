@@ -59,7 +59,11 @@ services:
       - ${DATA_PATH:-./data}:/data
       - ${APP_DATA_PATH:-./appdata}/backend:/appdata
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/ready')\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/api/health/ready'')"',
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

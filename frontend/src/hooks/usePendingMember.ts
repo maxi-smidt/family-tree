@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import { createMember, Member } from "@/types/member";
-import { PendingRelation, nextMemberPosition } from "@/utils/pendingMemberUtils";
+import {
+  PendingRelation,
+  nextMemberPosition,
+} from "@/utils/pendingMemberUtils";
 import { useMemberStore } from "@/hooks/useMemberStore";
 
 interface UsePendingMemberOptions {
@@ -137,7 +140,10 @@ export const usePendingMember = ({
 
       if (pendingHorizontalSourceId) {
         // Member saved — now ask for the relation type.
-        onHorizontalRelationReady(pendingHorizontalSourceId, newMemberToSave.id);
+        onHorizontalRelationReady(
+          pendingHorizontalSourceId,
+          newMemberToSave.id,
+        );
         setPendingHorizontalSourceId(null);
         setEditingMemberId(null);
         setIsNewMemberSession(false);

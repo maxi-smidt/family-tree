@@ -48,7 +48,9 @@ const makePair = (overrides: Partial<DuplicatePair> = {}): DuplicatePair => ({
 
 describe("buildInitialResolutionState", () => {
   it("sets action from default_action", () => {
-    const state = buildInitialResolutionState(makePair({ default_action: "keep_both" }));
+    const state = buildInitialResolutionState(
+      makePair({ default_action: "keep_both" }),
+    );
     expect(state.action).toBe("keep_both");
   });
 
@@ -132,11 +134,15 @@ describe("buildResolutionsPayload", () => {
 
 describe("memberDisplayName", () => {
   it("joins first and last name", () => {
-    expect(memberDisplayName(makeDB({ firstName: "Jane", lastName: "Doe" }))).toBe("Jane Doe");
+    expect(
+      memberDisplayName(makeDB({ firstName: "Jane", lastName: "Doe" })),
+    ).toBe("Jane Doe");
   });
 
   it("falls back to (unknown) for empty names", () => {
-    expect(memberDisplayName(makeDB({ firstName: "", lastName: "" }))).toBe("(unknown)");
+    expect(memberDisplayName(makeDB({ firstName: "", lastName: "" }))).toBe(
+      "(unknown)",
+    );
   });
 });
 

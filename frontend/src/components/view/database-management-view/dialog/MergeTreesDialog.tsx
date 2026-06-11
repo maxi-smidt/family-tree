@@ -183,8 +183,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
 
   const hasDuplicates =
     previewData !== null && previewData.duplicates.length > 0;
-  const canContinue =
-    !isLoadingPreview && !!previewData && !!newDbName.trim();
+  const canContinue = !isLoadingPreview && !!previewData && !!newDbName.trim();
 
   // ---- Render: step 1 – source selection + summary preview ----
   if (step === "select") {
@@ -298,18 +297,13 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
               </Button>
             </DialogClose>
             {hasDuplicates ? (
-              <Button
-                onClick={handleContinueToReview}
-                disabled={!canContinue}
-              >
+              <Button onClick={handleContinueToReview} disabled={!canContinue}>
                 {t("review-conflicts")}
               </Button>
             ) : (
               <Button
                 onClick={handleMerge}
-                disabled={
-                  isMerging || !canContinue
-                }
+                disabled={isMerging || !canContinue}
               >
                 {isMerging ? t("merging-database") : t("merge-database")}
               </Button>

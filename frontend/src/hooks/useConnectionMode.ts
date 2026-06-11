@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NodeMouseHandler } from "@xyflow/react";
 import { Member } from "@/types/member";
-import { findConnectionPathHighlight, pruneConnectionMemberIds } from "@/utils/graphUtils";
+import {
+  findConnectionPathHighlight,
+  pruneConnectionMemberIds,
+} from "@/utils/graphUtils";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 

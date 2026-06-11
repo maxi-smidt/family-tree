@@ -165,7 +165,9 @@ export const MergeConflictResolver = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Label className="text-xs text-muted-foreground">{t("action-label")}</Label>
+          <Label className="text-xs text-muted-foreground">
+            {t("action-label")}
+          </Label>
           <Select
             value={state.action}
             onValueChange={(v) =>

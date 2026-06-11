@@ -27,7 +27,9 @@ const ROBERT: Member = {
   placesLived: [],
   isCollapsed: false,
   position: { x: 0, y: 0 },
-  relations: [{ fromMemberId: "robert", toMemberId: "mary", relationType: "married" }],
+  relations: [
+    { fromMemberId: "robert", toMemberId: "mary", relationType: "married" },
+  ],
 };
 
 const MARY: Member = {

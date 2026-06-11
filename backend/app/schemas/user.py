@@ -71,3 +71,21 @@ class PasswordChange(BaseModel):
     @classmethod
     def password_strength(cls, v: str) -> str:
         return _validate_password(v)
+
+
+class AccountSelfDelete(BaseModel):
+    """Confirmation payload for self-serve account deletion.
+
+    Exactly one field must be present: ``password`` for local accounts,
+    ``confirm_username`` for OIDC accounts (which have no stored password).
+    """
+
+    password: str | None = None
+    confirm_username: str | None = None
+
+
+class AccountRestore(BaseModel):
+    """Credential payload for restoring a self-initiated pending deletion."""
+
+    username: str
+    password: str

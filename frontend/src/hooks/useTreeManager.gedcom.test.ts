@@ -34,7 +34,11 @@ vi.mock("@/services/api", () => ({
 }));
 vi.mock("@/services/TreeService");
 
-const IMPORTED_TREE: Tree = { id: "tree-gedcom", name: "555SAMPLE16BE", role: "owner" };
+const IMPORTED_TREE: Tree = {
+  id: "tree-gedcom",
+  name: "555SAMPLE16BE",
+  role: "owner",
+};
 
 // Exact shape the backend returns for the GEDCOM sample
 const MEMBERS_DB: MemberDB[] = [
@@ -132,7 +136,8 @@ describe("importGedcom flow — GEDCOM 5.5.5 sample with BEF date", () => {
 
     // api.get handles: GET /trees/{id} (connect), GET /trees (loadTrees), metadata
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/trees/${IMPORTED_TREE.id}`) return Promise.resolve(IMPORTED_TREE);
+      if (path === `/trees/${IMPORTED_TREE.id}`)
+        return Promise.resolve(IMPORTED_TREE);
       if (path === "/trees") return Promise.resolve([IMPORTED_TREE]);
       if (path.includes("/metadata")) return Promise.resolve({});
       return Promise.resolve([]);
@@ -166,7 +171,8 @@ describe("importGedcom flow — GEDCOM 5.5.5 sample with BEF date", () => {
     vi.mocked(TreeService.getMembers).mockResolvedValue(MEMBERS_DB);
 
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/trees/${IMPORTED_TREE.id}`) return Promise.resolve(IMPORTED_TREE);
+      if (path === `/trees/${IMPORTED_TREE.id}`)
+        return Promise.resolve(IMPORTED_TREE);
       if (path === "/trees") return Promise.resolve([IMPORTED_TREE]);
       if (path.includes("/metadata")) return Promise.resolve({});
       return Promise.resolve([]);
@@ -185,7 +191,8 @@ describe("importGedcom flow — GEDCOM 5.5.5 sample with BEF date", () => {
     mockSubStoresForGedcomTree();
 
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/trees/${IMPORTED_TREE.id}`) return Promise.resolve(IMPORTED_TREE);
+      if (path === `/trees/${IMPORTED_TREE.id}`)
+        return Promise.resolve(IMPORTED_TREE);
       if (path === "/trees") return Promise.resolve([IMPORTED_TREE]);
       if (path.includes("/metadata")) return Promise.resolve({});
       return Promise.resolve([]);
@@ -198,8 +205,12 @@ describe("importGedcom flow — GEDCOM 5.5.5 sample with BEF date", () => {
     const members = useMemberStore.getState().members;
     expect(members).toHaveLength(3);
     for (const m of members) {
-      expect(Number.isFinite(m.position.x), `${m.id}.x is not finite`).toBe(true);
-      expect(Number.isFinite(m.position.y), `${m.id}.y is not finite`).toBe(true);
+      expect(Number.isFinite(m.position.x), `${m.id}.x is not finite`).toBe(
+        true,
+      );
+      expect(Number.isFinite(m.position.y), `${m.id}.y is not finite`).toBe(
+        true,
+      );
     }
   });
 
@@ -207,7 +218,8 @@ describe("importGedcom flow — GEDCOM 5.5.5 sample with BEF date", () => {
     mockSubStoresForGedcomTree();
 
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/trees/${IMPORTED_TREE.id}`) return Promise.resolve(IMPORTED_TREE);
+      if (path === `/trees/${IMPORTED_TREE.id}`)
+        return Promise.resolve(IMPORTED_TREE);
       if (path === "/trees") return Promise.resolve([IMPORTED_TREE]);
       if (path.includes("/metadata")) return Promise.resolve({});
       return Promise.resolve([]);

@@ -53,7 +53,13 @@ export const DatabaseManagementView = () => {
   const selectTree = useTreeStore((s) => s.selectTree);
   const renameTree = useTreeStore((s) => s.renameTree);
   const loadTrees = useTreeStore((s) => s.loadTrees);
-  const { exportDatabase, importDatabase, inspectImport, exportGedcom, importGedcom } = useTreeManager();
+  const {
+    exportDatabase,
+    importDatabase,
+    inspectImport,
+    exportGedcom,
+    importGedcom,
+  } = useTreeManager();
 
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);

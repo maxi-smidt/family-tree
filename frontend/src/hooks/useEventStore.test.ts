@@ -110,18 +110,16 @@ describe("useEventStore — updateEvent", () => {
     vi.mocked(TreeService.getEvents).mockResolvedValue([]);
     vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
 
-    await useEventStore
-      .getState()
-      .updateEvent(
-        "ev1",
-        {
-          eventType: "birth",
-          date: "2001-01-01",
-          location: null,
-          description: null,
-        },
-        ["m2"],
-      );
+    await useEventStore.getState().updateEvent(
+      "ev1",
+      {
+        eventType: "birth",
+        date: "2001-01-01",
+        location: null,
+        description: null,
+      },
+      ["m2"],
+    );
 
     expect(TreeService.updateEvent).toHaveBeenCalledWith(
       TREE_ID,

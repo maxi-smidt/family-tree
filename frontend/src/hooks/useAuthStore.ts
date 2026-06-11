@@ -12,6 +12,11 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
+  deleteAccount: (
+    password: string | null,
+    confirmUsername: string | null,
+  ) => Promise<User>;
+  restoreAccount: (username: string, password: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -61,6 +66,25 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshMe: async () => {
     const user = await api.get<User>("/auth/me");
     set({ user });
+  },
+
+  deleteAccount: async (
+    password: string | null,
+    confirmUsername: string | null,
+  ) => {
+    return await api.post<User>("/auth/delete-account", {
+      password,
+      confirm_username: confirmUsername,
+    });
+  },
+
+  restoreAccount: async (username: string, password: string) => {
+    const res = await api.post<TokenResponse>("/auth/restore-account", {
+      username,
+      password,
+    });
+    setAuthToken(res.access_token);
+    set({ user: res.user, status: "authenticated" });
   },
 }));
 

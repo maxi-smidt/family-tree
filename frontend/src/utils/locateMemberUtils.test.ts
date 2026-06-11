@@ -61,9 +61,7 @@ describe("collectCollapsedAncestorIds", () => {
 
   it("handles missing parents without throwing", () => {
     const members = [member("child", { paternalParent: "nonexistent" })];
-    expect(() =>
-      collectCollapsedAncestorIds(members, "child"),
-    ).not.toThrow();
+    expect(() => collectCollapsedAncestorIds(members, "child")).not.toThrow();
     expect(collectCollapsedAncestorIds(members, "child")).toEqual([]);
   });
 
@@ -73,9 +71,7 @@ describe("collectCollapsedAncestorIds", () => {
     const memberB = member("b", { paternalParent: "a", isCollapsed: true });
     const members = [memberA, memberB];
     // Should complete without infinite loop
-    expect(() =>
-      collectCollapsedAncestorIds(members, "a"),
-    ).not.toThrow();
+    expect(() => collectCollapsedAncestorIds(members, "a")).not.toThrow();
   });
 
   it("returns empty array when member does not exist", () => {
