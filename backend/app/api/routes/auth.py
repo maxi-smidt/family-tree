@@ -117,7 +117,7 @@ def delete_account(
         )
         if admin_count <= 1:
             raise HTTPException(
-                status_code=400, detail="Cannot delete the last admin account"
+                status_code=400, detail="cannot_delete_last_admin"
             )
 
     if user.auth_provider == "local":

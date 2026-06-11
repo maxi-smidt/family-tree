@@ -704,6 +704,7 @@
       "confirm": "Schedule deletion",
       "scheduled": "Your account is scheduled for deletion on {{date}}.",
       "error": "Could not schedule account deletion.",
+      "last-admin-error": "You are the only administrator. Promote another user to admin before deleting your account.",
       "transfer-error": "Could not transfer ownership."
     }
   },

@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Trash2 } from "lucide-react";
-import { api } from "@/services/api";
+import { api, ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -154,7 +154,9 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
       onClose();
     } catch (err) {
       console.error(err);
-      toast.error(t("error"));
+      const isLastAdmin =
+        err instanceof ApiError && err.message === "cannot_delete_last_admin";
+      toast.error(isLastAdmin ? t("last-admin-error") : t("error"));
       setLoading(false);
     }
   };
@@ -175,26 +177,29 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
           {ownedTrees.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm font-medium">{t("owned-trees-label")}</p>
-              <div className="space-y-2">
+              <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
                 {ownedTrees.map((tree) => {
                   const state = transferStates[tree.id];
                   if (!state) return null;
                   return (
                     <div
                       key={tree.id}
-                      className="flex items-center gap-2 rounded-md border p-3"
+                      className="space-y-2 rounded-md border p-3"
                     >
-                      <span className="min-w-0 flex-1 truncate text-sm">
-                        {tree.name}
-                      </span>
-                      {state.transferred ? (
-                        <Badge variant="secondary" className="shrink-0">
-                          {t("transferred-to", {
-                            username: state.transferredTo,
-                          })}
-                        </Badge>
-                      ) : (
-                        <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-sm">
+                          {tree.name}
+                        </span>
+                        {state.transferred && (
+                          <Badge variant="secondary" className="shrink-0">
+                            {t("transferred-to", {
+                              username: state.transferredTo,
+                            })}
+                          </Badge>
+                        )}
+                      </div>
+                      {!state.transferred && (
+                        <div className="flex items-center gap-2">
                           <Select
                             value={state.selected}
                             onValueChange={(v) =>
@@ -207,7 +212,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
                               if (open) void loadTargets(tree.id);
                             }}
                           >
-                            <SelectTrigger className="h-8 w-36 text-xs">
+                            <SelectTrigger className="h-8 min-w-0 flex-1 text-xs">
                               <SelectValue
                                 placeholder={t("transfer-select")}
                               />
@@ -236,7 +241,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="h-8"
+                            className="h-8 shrink-0"
                             disabled={!state.selected || state.transferring}
                             onClick={() => void handleTransfer(tree.id)}
                           >

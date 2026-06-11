@@ -704,6 +704,7 @@
       "confirm": "Löschung vormerken",
       "scheduled": "Dein Konto wird am {{date}} endgültig gelöscht.",
       "error": "Kontolöschung konnte nicht eingeplant werden.",
+      "last-admin-error": "Du bist der einzige Administrator. Ernenne einen anderen Benutzer zum Administrator, bevor du dein Konto löschst.",
       "transfer-error": "Eigentumsübertragung fehlgeschlagen."
     }
   },
