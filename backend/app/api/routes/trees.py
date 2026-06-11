@@ -15,7 +15,7 @@ from app.core.constants import DEFAULT_RELATION_TYPES
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import get_db
 from app.models import RelationType, Tree, TreeMembership, User
-from app.schemas.family import RelationTypeCreate, RelationTypeOut
+from app.schemas.family import RelationTypeOut
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
     ShareCandidate,
@@ -304,19 +304,3 @@ def list_relation_types(
     return db.scalars(select(RelationType).where(RelationType.tree_id == tree.id)).all()
 
 
-@router.post(
-    "/{tree_id}/relation-types", response_model=RelationTypeOut, status_code=201
-)
-def add_relation_type(
-    payload: RelationTypeCreate,
-    tree: Tree = Depends(get_writable_tree),
-    db: Session = Depends(get_db),
-):
-    existing = db.get(RelationType, (tree.id, payload.id))
-    if existing is None:
-        existing = RelationType(
-            tree_id=tree.id, id=payload.id, description=payload.description
-        )
-        db.add(existing)
-        db.commit()
-    return existing
