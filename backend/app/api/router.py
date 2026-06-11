@@ -11,6 +11,7 @@ from app.api.routes import (
     media,
     members,
     oauth,
+    preferences,
     quality,
     settings,
     statistics,
@@ -23,6 +24,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(oauth.router)
 api_router.include_router(users.router)
+api_router.include_router(preferences.router)
 api_router.include_router(settings.router)
 api_router.include_router(trees.router)
 api_router.include_router(export_import.router)

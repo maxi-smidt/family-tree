@@ -51,38 +51,36 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
-
-const TREE_VIEW = "tree-view";
-const LIST_VIEW = "list-view";
-const GALLERY_VIEW = "gallery-view";
-const TIMELINE_VIEW = "timeline-view";
-const ACTIVITY_VIEW = "activity-view";
-const QUALITY_REPORT_VIEW = "quality-report-view";
-const STATISTICS_VIEW = "statistics-view";
-const DATABASE_MANAGEMENT_VIEW = "database-management-view";
-
-const ALL_VIEWS = [
-  TREE_VIEW,
-  LIST_VIEW,
-  GALLERY_VIEW,
-  TIMELINE_VIEW,
-  ACTIVITY_VIEW,
-  QUALITY_REPORT_VIEW,
-  STATISTICS_VIEW,
+import { useAuthStore } from "@/hooks/useAuthStore";
+import { useTabPreferences } from "@/hooks/useTabPreferences";
+import {
   DATABASE_MANAGEMENT_VIEW,
-] as const;
-type ViewId = (typeof ALL_VIEWS)[number];
+  ViewId,
+  isViewId,
+  resolveTabs,
+} from "@/lib/tabs";
+
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
+
+const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
+  "tree-view": <FlowPanel />,
+  "list-view": <ListView />,
+  "gallery-view": <GalleryView />,
+  "timeline-view": <TimelineView />,
+  "activity-view": <ActivityView />,
+  "quality-report-view": <QualityReportView />,
+  "statistics-view": <StatisticsView />,
+  "database-management-view": <DatabaseManagementView />,
+};
 
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "layout.main-panel",
   });
 
-  // Persist the selected tab so a page refresh keeps the user where they were.
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
-    return stored && isViewId(stored) ? stored : TREE_VIEW;
+    return stored && isViewId(stored) ? stored : "tree-view";
   });
 
   const handleTabChange = (value: string) => {
@@ -100,15 +98,32 @@ export const MainPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingView]);
 
-  const viewLabels = {
-    [TREE_VIEW]: t("tree"),
-    [LIST_VIEW]: t("list"),
-    [GALLERY_VIEW]: t("gallery"),
-    [TIMELINE_VIEW]: t("timeline"),
-    [ACTIVITY_VIEW]: t("activity"),
-    [QUALITY_REPORT_VIEW]: t("quality-report"),
-    [STATISTICS_VIEW]: t("statistics"),
-    [DATABASE_MANAGEMENT_VIEW]: t("database-management"),
+  const user = useAuthStore((s) => s.user);
+  const { order, hidden, loaded, load } = useTabPreferences();
+
+  useEffect(() => {
+    if (user) load();
+  }, [user, load]);
+
+  const { ordered: _ordered, visible } = resolveTabs(order, hidden);
+
+  // If the active tab is hidden and no pending navigation, move to first visible.
+  useEffect(() => {
+    if (loaded && pendingView === null && !visible.includes(activeTab)) {
+      handleTabChange(visible[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded, visible, activeTab, pendingView]);
+
+  const viewLabels: Record<ViewId, string> = {
+    "tree-view": t("tree"),
+    "list-view": t("list"),
+    "gallery-view": t("gallery"),
+    "timeline-view": t("timeline"),
+    "activity-view": t("activity"),
+    "quality-report-view": t("quality-report"),
+    "statistics-view": t("statistics"),
+    "database-management-view": t("database-management"),
   };
 
   return (
@@ -123,7 +138,7 @@ export const MainPanel = () => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="start">
-            {ALL_VIEWS.map((view) => (
+            {visible.map((view) => (
               <SelectItem key={view} value={view}>
                 {viewLabels[view]}
               </SelectItem>
@@ -133,56 +148,21 @@ export const MainPanel = () => {
       </div>
 
       <TabsList variant="line" className="ml-16 mt-3 hidden md:inline-flex">
-        <TabsTrigger value={TREE_VIEW}>{viewLabels[TREE_VIEW]}</TabsTrigger>
-        <TabsTrigger value={LIST_VIEW}>{viewLabels[LIST_VIEW]}</TabsTrigger>
-        <TabsTrigger value={GALLERY_VIEW}>
-          {viewLabels[GALLERY_VIEW]}
-        </TabsTrigger>
-        <TabsTrigger value={TIMELINE_VIEW}>
-          {viewLabels[TIMELINE_VIEW]}
-        </TabsTrigger>
-        <TabsTrigger value={ACTIVITY_VIEW}>
-          {viewLabels[ACTIVITY_VIEW]}
-        </TabsTrigger>
-        <TabsTrigger value={QUALITY_REPORT_VIEW}>
-          {viewLabels[QUALITY_REPORT_VIEW]}
-        </TabsTrigger>
-        <TabsTrigger value={STATISTICS_VIEW}>
-          {viewLabels[STATISTICS_VIEW]}
-        </TabsTrigger>
-        <div className="border-l border-border self-stretch h-auto mx-2" />
-        <TabsTrigger value={DATABASE_MANAGEMENT_VIEW}>
-          {viewLabels[DATABASE_MANAGEMENT_VIEW]}
-        </TabsTrigger>
+        {visible.map((view) => (
+          <span key={view} className="contents">
+            {view === DATABASE_MANAGEMENT_VIEW && visible.length > 1 && (
+              <div className="border-l border-border self-stretch h-auto mx-2" />
+            )}
+            <TabsTrigger value={view}>{viewLabels[view]}</TabsTrigger>
+          </span>
+        ))}
       </TabsList>
-      <TabWrapper value={TREE_VIEW}>
-        <FlowPanel />
-      </TabWrapper>
-      <TabWrapper value={LIST_VIEW}>
-        <ListView />
-      </TabWrapper>
-      <TabWrapper value={GALLERY_VIEW}>
-        <GalleryView />
-      </TabWrapper>
-      <TabWrapper value={TIMELINE_VIEW}>
-        <TimelineView />
-      </TabWrapper>
-      <TabWrapper value={ACTIVITY_VIEW}>
-        <ActivityView />
-      </TabWrapper>
-      <TabWrapper value={QUALITY_REPORT_VIEW}>
-        <QualityReportView />
-      </TabWrapper>
-      <TabWrapper value={STATISTICS_VIEW}>
-        <StatisticsView />
-      </TabWrapper>
-      <TabWrapper value={DATABASE_MANAGEMENT_VIEW}>
-        <DatabaseManagementView />
-      </TabWrapper>
+
+      {Object.entries(VIEW_COMPONENTS).map(([view, component]) => (
+        <TabWrapper key={view} value={view}>
+          {component}
+        </TabWrapper>
+      ))}
     </Tabs>
   );
 };
-
-function isViewId(value: string): value is ViewId {
-  return ALL_VIEWS.some((view) => view === value);
-}

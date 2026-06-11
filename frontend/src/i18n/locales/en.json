@@ -162,6 +162,15 @@
       "toast-success": "Tree duplicated successfully.",
       "toast-error": "Failed to duplicate the tree.",
       "toast-error-name": "Please provide a name for the new tree."
+    },
+    "tab-settings": {
+      "title": "Customize tabs",
+      "description": "Reorder tabs by dragging and toggle their visibility.",
+      "reset": "Reset to defaults",
+      "done": "Done",
+      "toggle-visibility": "Toggle visibility",
+      "drag-handle": "Drag to reorder",
+      "last-tab-hint": "At least one tab must stay visible."
     }
   },
   "gallery-view": {
@@ -749,6 +758,7 @@
     },
     "user-menu": {
       "change-password": "Change password",
+      "customize-tabs": "Customize tabs",
       "admin": "Administration",
       "delete-account": "Delete my account",
       "logout": "Log out"

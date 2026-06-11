@@ -162,6 +162,15 @@
       "toast-success": "Stammbaum erfolgreich dupliziert.",
       "toast-error": "Stammbaum konnte nicht dupliziert werden.",
       "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an."
+    },
+    "tab-settings": {
+      "title": "Tabs anpassen",
+      "description": "Ordne Tabs per Drag-and-drop neu an und blende sie ein oder aus.",
+      "reset": "Auf Standard zurücksetzen",
+      "done": "Fertig",
+      "toggle-visibility": "Sichtbarkeit umschalten",
+      "drag-handle": "Zum Sortieren ziehen",
+      "last-tab-hint": "Mindestens ein Tab muss sichtbar bleiben."
     }
   },
   "gallery-view": {
@@ -749,6 +758,7 @@
     },
     "user-menu": {
       "change-password": "Passwort ändern",
+      "customize-tabs": "Tabs anpassen",
       "admin": "Verwaltung",
       "delete-account": "Konto löschen",
       "logout": "Abmelden"
