@@ -33,10 +33,16 @@ export const useEventStore = create<EventState>((set, get) => ({
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
+    const linksByEvent = new Map<string, string[]>();
+    for (const link of linksResult) {
+      linksByEvent.set(
+        link.event_id,
+        (linksByEvent.get(link.event_id) ?? []).concat(link.member_id),
+      );
+    }
+
     const events = eventsResult.map((row) => {
-      const linkedMemberIds = linksResult
-        .filter((link) => link.event_id === row.id)
-        .map((link) => link.member_id);
+      const linkedMemberIds = linksByEvent.get(row.id) ?? [];
       return mapEventFromDB(row, linkedMemberIds);
     });
 

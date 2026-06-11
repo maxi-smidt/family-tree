@@ -66,10 +66,16 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
+    const linksByStory = new Map<string, string[]>();
+    for (const link of linksResult) {
+      linksByStory.set(
+        link.story_id,
+        (linksByStory.get(link.story_id) ?? []).concat(link.member_id),
+      );
+    }
+
     const stories = storiesResult.map((row) => {
-      const linkedMemberIds = linksResult
-        .filter((link) => link.story_id === row.id)
-        .map((link) => link.member_id);
+      const linkedMemberIds = linksByStory.get(row.id) ?? [];
       return mapStoryFromDB(row, linkedMemberIds);
     });
 
