@@ -1,4 +1,5 @@
 from app.core.config import settings
+from app.core.security import _DUMMY_HASH, verify_password
 from tests.conftest import API, auth, make_user
 
 
@@ -109,6 +110,33 @@ def test_non_admin_cannot_reset_password(client, db):
         json={"password": "reset7890"},
     )
     assert res.status_code == 403
+
+
+def test_login_unknown_user_returns_generic_401(client):
+    """Unknown username must return the same 401 body as a wrong password.
+
+    This verifies that account enumeration via the login endpoint is not
+    possible: both "no such user" and "wrong password" produce an identical
+    response, preventing attackers from distinguishing between the two cases.
+    """
+    res = client.post(
+        f"{API}/auth/login",
+        json={"username": "nobody_here", "password": "doesnotmatter"},
+    )
+    assert res.status_code == 401
+    assert res.json()["detail"] == "Incorrect username or password"
+
+
+def test_dummy_hash_is_valid_bcrypt_and_never_matches():
+    """The _DUMMY_HASH constant must be a structurally valid bcrypt hash.
+
+    verify_password must run without raising and must return False for any
+    supplied password, confirming the hash is genuine (full KDF runs) but
+    can never authenticate a real user.
+    """
+    assert _DUMMY_HASH.startswith("$2b$12$")
+    assert verify_password("dummy", _DUMMY_HASH) is False
+    assert verify_password("anything_else", _DUMMY_HASH) is False
 
 
 def test_admin_cannot_reset_authentik_password(client, db):
