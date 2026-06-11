@@ -33,10 +33,16 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
+    const linksByImage = new Map<string, string[]>();
+    for (const link of linksResult) {
+      linksByImage.set(
+        link.gallery_image_id,
+        (linksByImage.get(link.gallery_image_id) ?? []).concat(link.member_id),
+      );
+    }
+
     const images = imagesResult.map((row) => {
-      const linkedMemberIds = linksResult
-        .filter((link) => link.gallery_image_id === row.id)
-        .map((link) => link.member_id);
+      const linkedMemberIds = linksByImage.get(row.id) ?? [];
       return {
         ...row,
         linkedMemberIds,

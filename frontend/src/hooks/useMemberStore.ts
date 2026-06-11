@@ -3,9 +3,10 @@ import {
   mapMemberFromDB,
   Member,
   MemberUpdate,
+  RelationDB,
   RelationType,
 } from "@/types/member";
-import { mapDiseaseFromDB, DiseaseInput } from "@/types/disease";
+import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
@@ -134,13 +135,27 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const memberGenderMap = new Map<string, string>();
     result.forEach((m) => memberGenderMap.set(m.id, m.gender));
 
-    const appMembers = result.map((member) => {
-      const memberRelations = relations.filter(
-        (r) => r.from_member_id === member.id,
+    const relationsByMember = new Map<string, RelationDB[]>();
+    for (const r of relations) {
+      relationsByMember.set(
+        r.from_member_id,
+        (relationsByMember.get(r.from_member_id) ?? []).concat(r),
       );
-      const memberDiseases = diseases
-        .filter((d) => d.member_id === member.id)
-        .map(mapDiseaseFromDB);
+    }
+
+    const diseasesByMember = new Map<string, DiseaseDB[]>();
+    for (const d of diseases) {
+      diseasesByMember.set(
+        d.member_id,
+        (diseasesByMember.get(d.member_id) ?? []).concat(d),
+      );
+    }
+
+    const appMembers = result.map((member) => {
+      const memberRelations = relationsByMember.get(member.id) ?? [];
+      const memberDiseases = (diseasesByMember.get(member.id) ?? []).map(
+        mapDiseaseFromDB,
+      );
 
       const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
 
