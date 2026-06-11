@@ -55,10 +55,20 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import {
   DATABASE_MANAGEMENT_VIEW,
+  TREE_VIEW,
+  LIST_VIEW,
   ViewId,
   isViewId,
   resolveTabs,
 } from "@/lib/tabs";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { isVirtualId } from "@/hooks/useTreeStore";
+
+const VIRTUAL_VIEW_TABS = new Set<ViewId>([
+  TREE_VIEW,
+  LIST_VIEW,
+  DATABASE_MANAGEMENT_VIEW,
+]);
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
@@ -100,12 +110,18 @@ export const MainPanel = () => {
 
   const user = useAuthStore((s) => s.user);
   const { order, hidden, loaded, load } = useTabPreferences();
+  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const isVirtualActive =
+    !!selectedTree?.id && isVirtualId(selectedTree.id);
 
   useEffect(() => {
     if (user) load();
   }, [user, load]);
 
-  const { ordered: _ordered, visible } = resolveTabs(order, hidden);
+  const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
+  const visible = isVirtualActive
+    ? allVisible.filter((v) => VIRTUAL_VIEW_TABS.has(v))
+    : allVisible;
 
   // If the active tab is hidden and no pending navigation, move to first visible.
   useEffect(() => {

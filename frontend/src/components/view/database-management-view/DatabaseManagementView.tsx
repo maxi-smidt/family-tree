@@ -26,6 +26,8 @@ import {
   Hash,
   FileUp,
   FileDown,
+  Layers,
+  AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -38,6 +40,7 @@ import { RemoveDatabaseDialog } from "@/components/view/database-management-view
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
 import { MergeTreesDialog } from "@/components/view/database-management-view/dialog/MergeTreesDialog";
 import { DuplicateTreeDialog } from "@/components/view/database-management-view/dialog/DuplicateTreeDialog";
+import { VirtualViewDialog } from "@/components/view/database-management-view/dialog/VirtualViewDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -49,9 +52,12 @@ export const DatabaseManagementView = () => {
     keyPrefix: "database-management-view",
   });
   const trees = useTreeStore((s) => s.trees);
+  const virtualViews = useTreeStore((s) => s.virtualViews);
   const selectedTree = useTreeStore((s) => s.selectedTree);
   const selectTree = useTreeStore((s) => s.selectTree);
   const renameTree = useTreeStore((s) => s.renameTree);
+  const deleteVirtualView = useTreeStore((s) => s.deleteVirtualView);
+  const renameVirtualView = useTreeStore((s) => s.renameVirtualView);
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const {
     exportDatabase,
@@ -66,6 +72,8 @@ export const DatabaseManagementView = () => {
   const [isRemoveDatabaseDialogOpen, setIsRemoveDatabaseDialogOpen] =
     useState(false);
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
+  const [isVirtualViewDialogOpen, setIsVirtualViewDialogOpen] = useState(false);
+  const [editingVirtualView, setEditingVirtualView] = useState<Tree | null>(null);
   const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
   const [shareTree, setShareTree] = useState<Tree | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
@@ -181,6 +189,28 @@ export const DatabaseManagementView = () => {
   const handleOpenRemoveDialog = async (database: Tree) => {
     await selectTree(database);
     setIsRemoveDatabaseDialogOpen(true);
+  };
+
+  const handleDeleteVirtualView = async (view: Tree) => {
+    await deleteVirtualView(view);
+    toast.success(t("toast-virtual-view-deleted"));
+  };
+
+  const handleSelectVirtualView = async (view: Tree) => {
+    if (selectedTree?.id !== view.id) {
+      await selectTree(view);
+    }
+  };
+
+  const handleRenameVirtualView = async (view: Tree, name: string) => {
+    if (!name.trim()) {
+      toast.error(t("toast-rename-empty"));
+      return;
+    }
+    await renameVirtualView(view, name.trim());
+    toast.success(t("toast-rename-success"));
+    setEditingDatabaseId(null);
+    setEditingName("");
   };
 
   const ownedDatabases = trees.filter((d) => d.role === "owner");
@@ -414,6 +444,18 @@ export const DatabaseManagementView = () => {
             <GitMerge />
             {t("merge-button")}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setEditingVirtualView(null);
+              setIsVirtualViewDialogOpen(true);
+            }}
+            disabled={trees.length < 2}
+          >
+            <Layers />
+            {t("virtual-view-button")}
+          </Button>
         </div>
       }
     >
@@ -430,6 +472,184 @@ export const DatabaseManagementView = () => {
           t("no-shared"),
           t("table-your-role"),
         )}
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">
+            {t("virtual-views-section")}{" "}
+            <span className="text-muted-foreground font-normal">
+              ({virtualViews.length})
+            </span>
+          </h3>
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12"></TableHead>
+                  <TableHead>{t("table-name")}</TableHead>
+                  <TableHead>{t("table-sources")}</TableHead>
+                  <TableHead className="text-right">
+                    {t("table-actions")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {virtualViews.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="text-center text-muted-foreground"
+                    >
+                      {t("no-virtual-views")}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  virtualViews.map((view) => {
+                    const isSelected = selectedTree?.id === view.id;
+                    const hasInaccessible = view.sources?.some(
+                      (s) => !s.accessible,
+                    );
+                    return (
+                      <TableRow
+                        key={view.id}
+                        onClick={() => handleSelectVirtualView(view)}
+                        className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
+                      >
+                        <TableCell
+                          className={
+                            isSelected
+                              ? "border-l-2 border-l-primary"
+                              : "border-l-2 border-l-transparent"
+                          }
+                        >
+                          <input
+                            type="radio"
+                            checked={isSelected}
+                            onChange={() => handleSelectVirtualView(view)}
+                            className="cursor-pointer"
+                            aria-label={t("select-tree")}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {editingDatabaseId === view.id ? (
+                            <div
+                              className="flex items-center gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Input
+                                value={editingName}
+                                onChange={(e) => setEditingName(e.target.value)}
+                                className="h-8"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    void handleRenameVirtualView(
+                                      view,
+                                      editingName,
+                                    );
+                                  } else if (e.key === "Escape") {
+                                    handleCancelRename();
+                                  }
+                                }}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleRenameVirtualView(view, editingName)
+                                }
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCancelRename}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 font-medium">
+                              <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
+                              {view.name}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {view.sources?.map((src) => (
+                              <Tooltip key={src.tree_id}>
+                                <TooltipTrigger asChild>
+                                  <Badge
+                                    variant={
+                                      src.accessible ? "secondary" : "outline"
+                                    }
+                                    className="gap-1"
+                                  >
+                                    {!src.accessible && (
+                                      <AlertTriangle className="h-3 w-3 text-destructive" />
+                                    )}
+                                    {src.tree_name}
+                                  </Badge>
+                                </TooltipTrigger>
+                                {!src.accessible && (
+                                  <TooltipContent>
+                                    {t("source-inaccessible")}
+                                  </TooltipContent>
+                                )}
+                              </Tooltip>
+                            ))}
+                            {hasInaccessible && (
+                              <span className="text-xs text-destructive self-center">
+                                {t("view-degraded")}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell
+                          className="text-right"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setEditingVirtualView(view);
+                                setIsVirtualViewDialogOpen(true);
+                              }}
+                              title={t("edit-sources-button")}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                handleStartRename(view);
+                              }}
+                              disabled={editingDatabaseId !== null}
+                              title={t("rename-button")}
+                            >
+                              <Hash className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteVirtualView(view)}
+                              title={t("delete-virtual-view-button")}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
       </div>
 
       <div className="text-sm text-muted-foreground">
@@ -479,6 +699,14 @@ export const DatabaseManagementView = () => {
           passwordDialogState?.resolve(undefined);
           setPasswordDialogState(null);
         }}
+      />
+      <VirtualViewDialog
+        isOpen={isVirtualViewDialogOpen}
+        onClose={() => {
+          setIsVirtualViewDialogOpen(false);
+          setEditingVirtualView(null);
+        }}
+        view={editingVirtualView}
       />
     </ViewLayout>
   );

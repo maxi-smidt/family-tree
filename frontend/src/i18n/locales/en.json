@@ -14,7 +14,10 @@
       "label": "Active Tree",
       "placeholder": "Select tree",
       "owned": "Owned by you",
-      "shared": "Shared with you"
+      "shared": "Shared with you",
+      "trees-group": "Trees",
+      "virtual-views-group": "Virtual Views",
+      "virtual-view": "Virtual view"
     },
     "language-selector": {
       "select": "Language"
@@ -171,6 +174,21 @@
       "toggle-visibility": "Toggle visibility",
       "drag-handle": "Drag to reorder",
       "last-tab-hint": "At least one tab must stay visible."
+    },
+    "virtual-view": {
+      "title-create": "Create Virtual View",
+      "title-edit": "Edit Source Trees",
+      "name-label": "Name",
+      "name-placeholder": "e.g. Full Family",
+      "sources-label": "Select source trees (at least 2)",
+      "min-sources-hint": "Select at least 2 source trees",
+      "cancel": "Cancel",
+      "confirm-create": "Create",
+      "confirm-edit": "Save",
+      "toast-create-success": "Virtual view created!",
+      "toast-create-error": "Could not create virtual view.",
+      "toast-update-success": "Virtual view updated!",
+      "toast-update-error": "Could not update virtual view."
     }
   },
   "gallery-view": {
@@ -243,7 +261,8 @@
         "gender": "Gender",
         "dob": "Birth Date",
         "dod": "Death Date",
-        "no-members": "No members found."
+        "no-members": "No members found.",
+        "source-tree": "Source tree"
       },
       "menu": {
         "trigger": "Open menu",
@@ -686,7 +705,17 @@
     "shared-with-count_other": "Shared with {{count}} people",
     "not-shared": "Private",
     "role-editor": "Editor",
-    "role-viewer": "Viewer"
+    "role-viewer": "Viewer",
+    "virtual-views-section": "Virtual views",
+    "no-virtual-views": "No virtual views yet. Create one by selecting 2+ trees and clicking \"New Virtual View\".",
+    "virtual-view-button": "New Virtual View",
+    "table-sources": "Source trees",
+    "edit-sources-button": "Edit sources",
+    "delete-virtual-view-button": "Delete virtual view",
+    "rename-button": "Rename",
+    "toast-virtual-view-deleted": "Virtual view deleted.",
+    "source-inaccessible": "You no longer have access to this source tree",
+    "view-degraded": "Access issues"
   },
   "common": {
     "english": "English",

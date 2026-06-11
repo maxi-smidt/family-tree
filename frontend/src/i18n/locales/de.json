@@ -14,7 +14,10 @@
       "label": "Aktiver Stammbaum",
       "placeholder": "Wähle Stammbaum",
       "owned": "Gehört dir",
-      "shared": "Mit dir geteilt"
+      "shared": "Mit dir geteilt",
+      "trees-group": "Bäume",
+      "virtual-views-group": "Virtuelle Ansichten",
+      "virtual-view": "Virtuelle Ansicht"
     },
     "language-selector": {
       "select": "Sprache"
@@ -171,6 +174,21 @@
       "toggle-visibility": "Sichtbarkeit umschalten",
       "drag-handle": "Zum Sortieren ziehen",
       "last-tab-hint": "Mindestens ein Tab muss sichtbar bleiben."
+    },
+    "virtual-view": {
+      "title-create": "Virtuelle Ansicht erstellen",
+      "title-edit": "Quellbäume bearbeiten",
+      "name-label": "Name",
+      "name-placeholder": "z.B. Gesamte Familie",
+      "sources-label": "Quellbäume auswählen (mindestens 2)",
+      "min-sources-hint": "Mindestens 2 Quellbäume auswählen",
+      "cancel": "Abbrechen",
+      "confirm-create": "Erstellen",
+      "confirm-edit": "Speichern",
+      "toast-create-success": "Virtuelle Ansicht erstellt!",
+      "toast-create-error": "Virtuelle Ansicht konnte nicht erstellt werden.",
+      "toast-update-success": "Virtuelle Ansicht aktualisiert!",
+      "toast-update-error": "Virtuelle Ansicht konnte nicht aktualisiert werden."
     }
   },
   "gallery-view": {
@@ -243,7 +261,8 @@
         "gender": "Geschlecht",
         "dob": "Geburtsdatum",
         "dod": "Sterbedatum",
-        "no-members": "Keine Personen gefunden."
+        "no-members": "Keine Personen gefunden.",
+        "source-tree": "Quellbaum"
       },
       "menu": {
         "trigger": "Menü öffnen",
@@ -686,7 +705,17 @@
     "shared-with-count_other": "Mit {{count}} Personen geteilt",
     "not-shared": "Privat",
     "role-editor": "Bearbeiter",
-    "role-viewer": "Betrachter"
+    "role-viewer": "Betrachter",
+    "virtual-views-section": "Virtuelle Ansichten",
+    "no-virtual-views": "Noch keine virtuellen Ansichten. Erstellen Sie eine, indem Sie 2+ Bäume auswählen.",
+    "virtual-view-button": "Neue virtuelle Ansicht",
+    "table-sources": "Quellbäume",
+    "edit-sources-button": "Quellen bearbeiten",
+    "delete-virtual-view-button": "Virtuelle Ansicht löschen",
+    "rename-button": "Umbenennen",
+    "toast-virtual-view-deleted": "Virtuelle Ansicht gelöscht.",
+    "source-inaccessible": "Sie haben keinen Zugriff mehr auf diesen Quellbaum",
+    "view-degraded": "Zugriffsprobleme"
   },
   "common": {
     "english": "Englisch",

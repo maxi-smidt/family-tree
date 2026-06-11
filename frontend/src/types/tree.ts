@@ -2,6 +2,12 @@
  * A server-side family **tree**. (The UI still presents these to users as
  * "databases", but in code they are trees, matching the backend.)
  */
+export interface VirtualViewSource {
+  tree_id: string;
+  tree_name: string;
+  accessible: boolean;
+}
+
 export interface Tree {
   id: string;
   name: string;
@@ -12,6 +18,9 @@ export interface Tree {
   role?: "owner" | "editor" | "viewer";
   // Number of other users this tree is shared with (owner-relevant).
   shared_count?: number;
+  // Set on virtual views returned by /virtual-views.
+  is_virtual?: boolean;
+  sources?: VirtualViewSource[];
 }
 
 export type ShareRole = "viewer" | "editor";

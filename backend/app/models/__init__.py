@@ -18,12 +18,15 @@ from app.models.family import Member, MemberDisease, Relation, RelationType
 from app.models.setting import AppSetting
 from app.models.tree import Tree, TreeMembership
 from app.models.user import User
+from app.models.virtual_view import VirtualView, VirtualViewSource
 
 __all__ = [
     "ActivityLog",
     "User",
     "Tree",
     "TreeMembership",
+    "VirtualView",
+    "VirtualViewSource",
     "Member",
     "Relation",
     "RelationType",

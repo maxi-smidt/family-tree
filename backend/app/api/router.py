@@ -18,6 +18,7 @@ from app.api.routes import (
     stories,
     trees,
     users,
+    virtual_views,
 )
 
 api_router = APIRouter()
@@ -27,6 +28,7 @@ api_router.include_router(users.router)
 api_router.include_router(preferences.router)
 api_router.include_router(settings.router)
 api_router.include_router(trees.router)
+api_router.include_router(virtual_views.router)
 api_router.include_router(export_import.router)
 api_router.include_router(members.router)
 api_router.include_router(gallery.router)

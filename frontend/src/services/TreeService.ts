@@ -8,6 +8,7 @@
  */
 
 import { api } from "@/services/api";
+import { Tree } from "@/types/tree";
 import {
   Member,
   MemberDB,
@@ -25,7 +26,13 @@ import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { StatisticsReport } from "@/types/statistics";
 
-const base = (treeId: string) => `/trees/${treeId}`;
+const base = (treeId: string) =>
+  treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
+
+export type VirtualViewInput = {
+  name: string;
+  source_tree_ids: string[];
+};
 
 export class TreeService {
   // --- Relation types ------------------------------------------------------
@@ -354,5 +361,28 @@ export class TreeService {
   // --- Statistics -----------------------------------------------------------
   static getStatistics(treeId: string) {
     return api.get<StatisticsReport>(`${base(treeId)}/statistics`);
+  }
+
+  // --- Virtual views --------------------------------------------------------
+  static listVirtualViews() {
+    return api.get<Tree[]>("/virtual-views");
+  }
+
+  static createVirtualView(name: string, sourceTreeIds: string[]) {
+    return api.post<Tree>("/virtual-views", {
+      name,
+      source_tree_ids: sourceTreeIds,
+    });
+  }
+
+  static updateVirtualView(
+    id: string,
+    changes: { name?: string; source_tree_ids?: string[] },
+  ) {
+    return api.patch<Tree>(`/virtual-views/${id}`, changes);
+  }
+
+  static deleteVirtualView(id: string) {
+    return api.del(`/virtual-views/${id}`);
   }
 }

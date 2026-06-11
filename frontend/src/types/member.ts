@@ -45,6 +45,9 @@ export interface Member {
   };
   relations?: Relation[];
   diseases?: Disease[];
+  // Only set for members loaded from a virtual view.
+  sourceTreeId?: string;
+  sourceTreeName?: string;
   onEdit?: () => void;
   onView?: () => void;
   onAddChild?: () => void;
@@ -91,6 +94,9 @@ export interface MemberDB {
   isCollapsed: number;
   positionX: number;
   positionY: number;
+  // Only present for members returned by virtual view endpoints.
+  sourceTreeId?: string;
+  sourceTreeName?: string;
 }
 
 export interface RelationDB {
@@ -163,6 +169,8 @@ export function mapMemberFromDB(
       relationType: r.relation_type as RelationType,
     })),
     diseases: diseases,
+    sourceTreeId: row.sourceTreeId,
+    sourceTreeName: row.sourceTreeName,
   };
 }
 
