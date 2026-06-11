@@ -34,18 +34,18 @@ package.json (root)   repo-level tooling only (prettier + husky)
 ## Data Flow Pattern (CRITICAL — Always Follow)
 
 ```
-UI Component → Store Action → DatabaseService (HTTP client) → FastAPI (/api) → SQLAlchemy → PostgreSQL
+UI Component → Store Action → TreeService (HTTP client) → FastAPI (/api) → SQLAlchemy → PostgreSQL
      ↓              ↓                      ↓
    Render ← State Update ←           Return Data
 ```
 
 **Never bypass this flow:**
 
-- Do NOT call `DatabaseService` directly from components
+- Do NOT call `TreeService` directly from components
 - Do NOT call `fetch`/the API directly from components
 - All data modifications MUST go through store actions
 
-`DatabaseService` (`frontend/src/services/DatabaseService.ts`) is a thin HTTP client over `frontend/src/services/api.ts`; each method takes a `treeId` and returns the `*DB` row shapes the stores map. Keep backend response field names aligned with the frontend `*DB` types.
+`TreeService` (`frontend/src/services/TreeService.ts`) is a thin HTTP client over `frontend/src/services/api.ts`; each method takes a `treeId` and returns the `*DB` row shapes the stores map. Keep backend response field names aligned with the frontend `*DB` types.
 
 ## Essential Documentation
 
@@ -104,14 +104,14 @@ export function Component({ prop }: ComponentProps) {
 2. Generate a migration: `uv run alembic revision --autogenerate -m "..."` (review it)
 3. Update the Pydantic schema in `backend/app/schemas/family.py` (keep names aligned with the frontend `*DB` type)
 4. Expose it via the relevant router in `backend/app/api/routes/`
-5. Update `frontend/src/types/member.ts` and wire it through `DatabaseService` + the store
+5. Update `frontend/src/types/member.ts` and wire it through `TreeService` + the store
 6. Update UI components and add translations
 
 ### Adding a backend endpoint
 
 1. Add the route in `backend/app/api/routes/` using `Depends(get_readable_tree)` / `get_writable_tree` (or `require_admin`)
 2. Return a Pydantic schema whose field names match the frontend contract
-3. Add the matching `DatabaseService` method and call it from a store action
+3. Add the matching `TreeService` method and call it from a store action
 
 ### Adding translations
 
@@ -121,7 +121,7 @@ export function Component({ prop }: ComponentProps) {
 
 ## What NOT to Do
 
-❌ Never bypass the store to call `DatabaseService` or `fetch`
+❌ Never bypass the store to call `TreeService` or `fetch`
 ❌ Never mutate store state directly
 ❌ Never use `any`
 ❌ Never hardcode user-visible text
@@ -130,7 +130,7 @@ export function Component({ prop }: ComponentProps) {
 ## Key Files
 
 - `frontend/src/hooks/` — per-domain Zustand stores
-- `frontend/src/services/DatabaseService.ts` — HTTP data-access layer
+- `frontend/src/services/TreeService.ts` — HTTP data-access layer
 - `frontend/src/services/api.ts` — fetch wrapper + auth token
 - `frontend/src/types/member.ts` — core data model
 - `frontend/src/utils/layoutUtils.ts` — tree layout calculations

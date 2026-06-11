@@ -40,7 +40,6 @@ interface DatabaseState {
   disconnect: () => Promise<void>;
   refreshMetadata: (treeId?: string) => Promise<void>;
   refreshRelationTypes: (treeId?: string) => Promise<void>;
-  addRelationType: (id: string, description: string) => Promise<void>;
 }
 
 const clearDataStores = () => {
@@ -175,12 +174,6 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     set({ relationTypes: types });
   },
 
-  addRelationType: async (id: string, description: string) => {
-    const tree = get().selectedTree;
-    if (!tree) return;
-    await TreeService.addRelationType(tree.id, id, description);
-    await get().refreshRelationTypes();
-  },
 }));
 
 /** Convenience accessor used by the data stores. */

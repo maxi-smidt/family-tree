@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
 from app.db.session import get_db
-from app.models import Event, EventMemberLink, Member, Tree
+from app.models import Event, EventMemberLink, Tree
 from app.models.user import User
 from app.schemas.content import EventCreate, EventLinkOut, EventOut, EventUpdate, LinksSet
 from app.services.activity import record_activity
+from app.services.content_links import replace_member_links
 
 router = APIRouter(prefix="/trees/{tree_id}/events", tags=["events"])
 
@@ -19,20 +20,6 @@ def _get_event(db: Session, tree: Tree, event_id: str) -> Event:
     if event is None or event.tree_id != tree.id:
         raise HTTPException(status_code=404, detail="Event not found")
     return event
-
-
-def _set_links(db: Session, tree: Tree, event_id: str, member_ids: list[str]) -> None:
-    """Replace the event's member links, keeping only members of this tree."""
-    db.query(EventMemberLink).filter(EventMemberLink.event_id == event_id).delete()
-    if not member_ids:
-        return
-    valid = db.scalars(
-        select(Member.id).where(
-            Member.tree_id == tree.id, Member.id.in_(set(member_ids))
-        )
-    ).all()
-    for member_id in valid:
-        db.add(EventMemberLink(event_id=event_id, member_id=member_id))
 
 
 @router.get("", response_model=list[EventOut])
@@ -61,7 +48,14 @@ def create_event(
     event = Event(tree_id=tree.id, **data)
     db.add(event)
     db.flush()  # event row must exist before its links reference it
-    _set_links(db, tree, event.id, member_ids)
+    replace_member_links(
+        db,
+        link_model=EventMemberLink,
+        parent_fk=EventMemberLink.event_id,
+        parent_id=event.id,
+        tree=tree,
+        member_ids=member_ids,
+    )
     record_activity(
         db, tree_id=tree.id, actor=user, action="create",
         target_type="event", target_id=event.id, target_label=event.event_type,
@@ -116,5 +110,12 @@ def set_links(
 ):
     """Replace the full set of members linked to this event."""
     _get_event(db, tree, event_id)
-    _set_links(db, tree, event_id, payload.member_ids)
+    replace_member_links(
+        db,
+        link_model=EventMemberLink,
+        parent_fk=EventMemberLink.event_id,
+        parent_id=event_id,
+        tree=tree,
+        member_ids=payload.member_ids,
+    )
     db.commit()
