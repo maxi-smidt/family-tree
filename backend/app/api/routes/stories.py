@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Member, Story, StoryAttachment, StoryMemberLink, Tree
+from app.models import Story, StoryAttachment, StoryMemberLink, Tree
 from app.models.user import User
 from app.schemas.content import (
     AttachmentCreate,
@@ -22,6 +22,7 @@ from app.schemas.content import (
     StoryUpdate,
 )
 from app.services.activity import record_activity
+from app.services.content_links import replace_member_links
 from app.services.storage import (
     FileTooLarge,
     UnsupportedFileType,
@@ -45,19 +46,6 @@ def _get_attachment(db: Session, story: Story, attachment_id: str) -> StoryAttac
         raise HTTPException(status_code=404, detail="Attachment not found")
     return att
 
-
-def _set_links(db: Session, tree: Tree, story_id: str, member_ids: list[str]) -> None:
-    """Replace the story's member links, keeping only members of this tree."""
-    db.query(StoryMemberLink).filter(StoryMemberLink.story_id == story_id).delete()
-    if not member_ids:
-        return
-    valid = db.scalars(
-        select(Member.id).where(
-            Member.tree_id == tree.id, Member.id.in_(set(member_ids))
-        )
-    ).all()
-    for member_id in valid:
-        db.add(StoryMemberLink(story_id=story_id, member_id=member_id))
 
 
 @router.get("", response_model=list[StoryOut])
@@ -90,7 +78,14 @@ def create_story(
     story = Story(tree_id=tree.id, **data)
     db.add(story)
     db.flush()  # story row must exist before its links reference it
-    _set_links(db, tree, story.id, member_ids)
+    replace_member_links(
+        db,
+        link_model=StoryMemberLink,
+        parent_fk=StoryMemberLink.story_id,
+        parent_id=story.id,
+        tree=tree,
+        member_ids=member_ids,
+    )
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="story", target_id=story.id, target_label=story.title)
     db.commit()
@@ -142,7 +137,14 @@ def set_links(
 ):
     """Replace the full set of members linked to this story."""
     _get_story(db, tree, story_id)
-    _set_links(db, tree, story_id, payload.member_ids)
+    replace_member_links(
+        db,
+        link_model=StoryMemberLink,
+        parent_fk=StoryMemberLink.story_id,
+        parent_id=story_id,
+        tree=tree,
+        member_ids=payload.member_ids,
+    )
     db.commit()
 
 
