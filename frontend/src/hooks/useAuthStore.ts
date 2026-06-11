@@ -74,7 +74,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     try {
       const user = await api.get<User>("/auth/me");
-      set({ user, status: "authenticated" });
+      set({
+        user,
+        status: "authenticated",
+        reloginRequired: false,
+        sessionExpiringSoon: false,
+      });
       startExpiryCheck();
     } catch {
       setAuthToken(null);
@@ -144,9 +149,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 // Any 401 from the API triggers a relogin dialog instead of a hard logout,
 // so the user can re-authenticate in-place without losing UI state.
+// Guard against 401 storms: only transition once; subsequent 401s while the
+// dialog is already open are no-ops.
 onUnauthorized(() => {
-  const { status } = useAuthStore.getState();
-  if (status === "authenticated") {
+  const { status, reloginRequired } = useAuthStore.getState();
+  if (status === "authenticated" && !reloginRequired) {
     useAuthStore.setState({ reloginRequired: true });
   }
 });
