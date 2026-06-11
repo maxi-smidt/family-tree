@@ -84,9 +84,12 @@ def _provision_user(db: Session, userinfo: dict) -> User | None:
         db.add(user)
     else:
         user.oauth_subject = subject
-        # Keep admin in sync with the configured Authentik group.
-        if settings.AUTHENTIK_ADMIN_GROUP:
-            user.is_admin = user.is_admin or is_admin
+        # Sync admin status unconditionally for Authentik users so that
+        # removing a user from the group revokes admin on the very next login.
+        # Local accounts matched by email are intentionally left untouched so
+        # that local admin rights remain under local control.
+        if settings.AUTHENTIK_ADMIN_GROUP and user.auth_provider == "authentik":
+            user.is_admin = is_admin  # unconditional sync: grants AND revokes
 
     db.commit()
     db.refresh(user)

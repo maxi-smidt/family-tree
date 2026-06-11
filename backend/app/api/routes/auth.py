@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 from app.api.deps import ACCOUNT_PENDING_DELETION, get_current_user
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import (
+    create_access_token,
+    hash_password,
+    run_dummy_verify,
+    verify_password,
+)
 from app.db.session import get_db
 from app.models import User
 from app.schemas.auth import AuthConfig, LoginRequest, Token
@@ -49,11 +54,11 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
         )
 
     user = db.scalar(select(User).where(User.username == payload.username))
-    if (
-        user is None
-        or user.hashed_password is None
-        or not verify_password(payload.password, user.hashed_password)
-    ):
+    if user is None or user.hashed_password is None:
+        run_dummy_verify(payload.password)
+        login_rate_limiter.record_failure(rate_key)
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    if not verify_password(payload.password, user.hashed_password):
         login_rate_limiter.record_failure(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not user.is_active:
@@ -162,11 +167,11 @@ def restore_account(
         )
 
     user = db.scalar(select(User).where(User.username == payload.username))
-    if (
-        user is None
-        or user.hashed_password is None
-        or not verify_password(payload.password, user.hashed_password)
-    ):
+    if user is None or user.hashed_password is None:
+        run_dummy_verify(payload.password)
+        login_rate_limiter.record_failure(rate_key)
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+    if not verify_password(payload.password, user.hashed_password):
         login_rate_limiter.record_failure(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
 
