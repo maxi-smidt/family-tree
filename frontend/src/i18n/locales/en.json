@@ -709,7 +709,8 @@
       "relogin-description": "Your session has expired. Enter your password to continue.",
       "relogin-password": "Password",
       "relogin-submit": "Sign in",
-      "relogin-cancel": "Log out"
+      "relogin-cancel": "Log out",
+      "relogin-error": "Incorrect password. Please try again."
     },
     "login": {
       "title": "Family Tree",

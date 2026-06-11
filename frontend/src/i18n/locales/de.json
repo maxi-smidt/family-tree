@@ -709,7 +709,8 @@
       "relogin-description": "Ihre Sitzung ist abgelaufen. Geben Sie Ihr Passwort ein, um fortzufahren.",
       "relogin-password": "Passwort",
       "relogin-submit": "Anmelden",
-      "relogin-cancel": "Abmelden"
+      "relogin-cancel": "Abmelden",
+      "relogin-error": "Anmeldung fehlgeschlagen. Bitte versuche es erneut."
     },
     "login": {
       "title": "Stammbaum",
