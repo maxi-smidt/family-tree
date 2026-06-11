@@ -701,6 +701,16 @@
     "date-unknown": "unknown"
   },
   "auth": {
+    "session": {
+      "expiring-title": "Ihre Sitzung läuft bald ab",
+      "expiring-description": "Bitte speichern Sie Ihre Arbeit. Sie müssen sich in Kürze erneut anmelden.",
+      "expiring-dismiss": "Schließen",
+      "relogin-title": "Sitzung abgelaufen",
+      "relogin-description": "Ihre Sitzung ist abgelaufen. Geben Sie Ihr Passwort ein, um fortzufahren.",
+      "relogin-password": "Passwort",
+      "relogin-submit": "Anmelden",
+      "relogin-cancel": "Abmelden"
+    },
     "login": {
       "title": "Stammbaum",
       "subtitle": "Bei deinem Konto anmelden",
