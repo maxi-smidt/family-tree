@@ -6,7 +6,10 @@
   **JWT** bearer tokens.
 - **Authentik (OIDC)**: optional single sign-on. Enabled when the
   `AUTHENTIK_*` environment variables are set. New users can be auto-provisioned;
-  membership of `AUTHENTIK_ADMIN_GROUP` grants admin.
+  `AUTHENTIK_ADMIN_GROUP` membership is **synced on every Authentik login** —
+  admin is granted when the user is in the group and **revoked** when they are
+  not. Local accounts (``auth_provider="local"``) are not affected by OIDC
+  logins, even if they share an email address with an Authentik user.
 - **Admin-managed users**: self-registration is off by default. The first
   account (seeded from `FIRST_ADMIN_*`) is an admin; admins create further users
   and can toggle self-registration at runtime.
@@ -17,6 +20,14 @@
   (`LOGIN_MAX_ATTEMPTS` failures within `LOGIN_RATE_LIMIT_WINDOW_SECONDS` →
   `429`) to blunt brute-force attempts. The limiter is in-memory and so is
   process-local; a multi-replica deployment would need a shared store.
+- **Constant-time login**: `/auth/login` and `/auth/restore-account` always run a
+  full bcrypt key derivation, even when the supplied username does not exist or has
+  no stored password hash (a dummy hash is verified instead). This makes response
+  timing uniform and eliminates the timing side-channel that would otherwise let an
+  attacker enumerate valid usernames. Registration intentionally returns a distinct
+  `409 Username already taken` — this is an acceptable trade-off because
+  self-registration is disabled by default, and when it is enabled the actionable
+  error message is required for usability.
 - **Initial admin password**: `FIRST_ADMIN_PASSWORD` is **required** by the
   production `docker-compose.yml`. If the seed ever runs with the placeholder
   value `admin`, a warning is logged — set a strong password and change it after

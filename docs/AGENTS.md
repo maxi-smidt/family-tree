@@ -51,14 +51,14 @@ The application follows a **frontend-backend separation** pattern:
 ```
 User Interaction → React Component → Zustand Store Action
                                           ↓
-                                   DatabaseService (HTTP client)
+                                   TreeService (HTTP client)
                                           ↓
                                    FastAPI REST API (/api/...)
                                           ↓
                                    SQLAlchemy → PostgreSQL
 ```
 
-`DatabaseService` keeps the same method names and return shapes the stores
+`TreeService` keeps the same method names and return shapes the stores
 expect (`MemberDB`, `RelationDB`, ...), so swapping the storage backend left the
 stores and components almost untouched — each method now takes a `treeId` and
 issues an HTTP request instead of a SQL query.
@@ -67,7 +67,7 @@ issues an HTTP request instead of a SQL query.
 
 1. **Client/Server**: Data lives in PostgreSQL behind the FastAPI API
 2. **Per-domain stores**: Zustand stores (`useMemberStore`, `useGalleryStore`, ...) own their slice of state
-3. **Service Layer**: `DatabaseService` encapsulates all API calls
+3. **Service Layer**: `TreeService` encapsulates all API calls
 4. **Owned + shared trees**: each tree has an owner and can be shared as viewer/editor
 5. **Auth**: JWT-based; local accounts plus optional Authentik OIDC; admin-managed users
 6. **Component-Based UI**: Reusable UI components from Shadcn UI library
@@ -108,12 +108,12 @@ Application state is split across per-domain Zustand stores in `frontend/src/hoo
 
 - **Actions**: All interactions with the backend (reads and writes) are handled through actions within the stores.
 - **Data Flow**: Components call store actions to modify state and rely on reactive updates to re-render.
-- **Database Service**: The stores delegate to `frontend/src/services/DatabaseService.ts`, an HTTP client over the FastAPI API (`frontend/src/services/api.ts`). The active `treeId` comes from `useDatabaseStore`.
+- **Database Service**: The stores delegate to `frontend/src/services/TreeService.ts`, an HTTP client over the FastAPI API (`frontend/src/services/api.ts`). The active `treeId` comes from `useDatabaseStore`.
 
 ### Best Practices
 
 1. **Never bypass the store**: Always use store actions for data modifications
-2. **Avoid direct database calls**: Use DatabaseService methods only through store actions
+2. **Avoid direct database calls**: Use TreeService methods only through store actions
 3. **Keep components pure**: Components should only read from store state and call actions
 4. **Selective subscriptions**: Use selective store subscriptions to avoid unnecessary re-renders:
    ```typescript
@@ -140,7 +140,7 @@ is versioned with **Alembic** (`backend/alembic/`). On startup the service runs
 3. Update the matching Pydantic schema in `backend/app/schemas/` (keep the field
    names aligned with the frontend `*DB` contracts).
 4. Expose it through the relevant router in `backend/app/api/routes/`.
-5. Wire the frontend through `frontend/src/services/DatabaseService.ts` and the store.
+5. Wire the frontend through `frontend/src/services/TreeService.ts` and the store.
 
 ### Database schema (per tree)
 
@@ -243,7 +243,7 @@ def list_members(tree: Tree = Depends(get_readable_tree), db: Session = Depends(
   appropriate.
 - Admin-only routes use `Depends(require_admin)`.
 - Keep request/response field names aligned with the frontend types so
-  `DatabaseService` and the stores keep working unchanged.
+  `TreeService` and the stores keep working unchanged.
 
 ### Database operations
 
