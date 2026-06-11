@@ -36,3 +36,13 @@ class VirtualViewUpdate(BaseModel):
 class VirtualMemberOut(MemberOut):
     sourceTreeId: str
     sourceTreeName: str
+    sourceTreeIds: list[str] = []
+    sourceTreeNames: list[str] = []
+    mergedFromIds: list[str] = []
+    isMerged: bool = False
+
+
+class VirtualPositionItem(BaseModel):
+    id: str
+    positionX: float
+    positionY: float

@@ -48,6 +48,10 @@ export interface Member {
   // Only set for members loaded from a virtual view.
   sourceTreeId?: string;
   sourceTreeName?: string;
+  sourceTreeIds?: string[];
+  sourceTreeNames?: string[];
+  mergedFromIds?: string[];
+  isMerged?: boolean;
   onEdit?: () => void;
   onView?: () => void;
   onAddChild?: () => void;
@@ -97,6 +101,10 @@ export interface MemberDB {
   // Only present for members returned by virtual view endpoints.
   sourceTreeId?: string;
   sourceTreeName?: string;
+  sourceTreeIds?: string[];
+  sourceTreeNames?: string[];
+  mergedFromIds?: string[];
+  isMerged?: boolean;
 }
 
 export interface RelationDB {
@@ -171,6 +179,10 @@ export function mapMemberFromDB(
     diseases: diseases,
     sourceTreeId: row.sourceTreeId,
     sourceTreeName: row.sourceTreeName,
+    sourceTreeIds: row.sourceTreeIds,
+    sourceTreeNames: row.sourceTreeNames,
+    mergedFromIds: row.mergedFromIds,
+    isMerged: row.isMerged,
   };
 }
 

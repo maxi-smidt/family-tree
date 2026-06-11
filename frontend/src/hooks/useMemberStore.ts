@@ -10,7 +10,7 @@ import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 
 async function syncVitalEvent(
@@ -462,6 +462,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       treeId,
       positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
     );
+
+    // Position overlays for virtual views are persisted server-side; undo
+    // history doesn't apply to read-only composite layout saves.
+    if (isVirtualId(treeId)) return;
 
     get()._pushHistory({
       undo: async () => {

@@ -385,4 +385,11 @@ export class TreeService {
   static deleteVirtualView(id: string) {
     return api.del(`/virtual-views/${id}`);
   }
+
+  static recomputeVirtualViewMatches(id: string) {
+    return api.post<{ groupCount: number; mergedMemberCount: number }>(
+      `/virtual-views/${id}/recompute-matches`,
+      {},
+    );
+  }
 }

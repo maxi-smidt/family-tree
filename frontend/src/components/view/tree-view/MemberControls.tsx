@@ -31,6 +31,7 @@ type Props = {
   onEditMember: (member: Member) => void;
   onCreateNewMember: (member: Member) => void;
   onRearrange: () => void;
+  readOnly?: boolean;
 };
 
 export const MemberControls = ({
@@ -39,6 +40,7 @@ export const MemberControls = ({
   setMembersToDelete,
   onCreateNewMember,
   onRearrange,
+  readOnly = false,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
   const {
@@ -53,10 +55,10 @@ export const MemberControls = ({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Relations */}
-      <RelationControls />
+      {/* Relations — hidden in read-only (virtual view) mode */}
+      {!readOnly && <RelationControls />}
 
-      <Separator className="my-1" />
+      {!readOnly && <Separator className="my-1" />}
 
       {/* View Modes */}
       <ButtonGroup orientation="vertical">
@@ -158,39 +160,41 @@ export const MemberControls = ({
         </Tooltip>
       </ButtonGroup>
 
-      <Separator className="my-1" />
+      {!readOnly && <Separator className="my-1" />}
 
-      {/* Member Add/Remove */}
-      <ButtonGroup orientation="vertical">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={onAddMember}
-              disabled={isLockedScreen}
-              className="text-green-600 hover:bg-green-50 hover:text-green-700"
-            >
-              <UserPlus size={20} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">{t("add-person")}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="secondary"
-              size="icon"
-              onClick={onRemoveMembers}
-              disabled={!selectedNodes.length || isLockedScreen}
-              className="text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              <UserMinus />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">{t("remove-person")}</TooltipContent>
-        </Tooltip>
-      </ButtonGroup>
+      {/* Member Add/Remove — hidden in read-only (virtual view) mode */}
+      {!readOnly && (
+        <ButtonGroup orientation="vertical">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={onAddMember}
+                disabled={isLockedScreen}
+                className="text-green-600 hover:bg-green-50 hover:text-green-700"
+              >
+                <UserPlus size={20} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">{t("add-person")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                onClick={onRemoveMembers}
+                disabled={!selectedNodes.length || isLockedScreen}
+                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+              >
+                <UserMinus />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">{t("remove-person")}</TooltipContent>
+          </Tooltip>
+        </ButtonGroup>
+      )}
     </div>
   );
 

@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { Tree } from "@/types/tree";
+import { ApiError } from "@/services/api";
 
 type Props = {
   isOpen: boolean;
@@ -56,8 +57,11 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
 
   const canSubmit =
     !isSubmitting &&
-    name.trim().length > 0 &&
+    (isEdit || name.trim().length > 0) &&
     selectedIds.size >= 2;
+
+  const isNoOverlapError = (err: unknown) =>
+    err instanceof ApiError && err.message === "virtual_view_sources_no_overlap";
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -71,8 +75,12 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
         toast.success(t("toast-create-success"));
       }
       onClose();
-    } catch {
-      toast.error(isEdit ? t("toast-update-error") : t("toast-create-error"));
+    } catch (err) {
+      if (isNoOverlapError(err)) {
+        toast.error(t("error-no-overlap"));
+      } else {
+        toast.error(isEdit ? t("toast-update-error") : t("toast-create-error"));
+      }
     } finally {
       setIsSubmitting(false);
     }

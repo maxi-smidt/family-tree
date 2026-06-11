@@ -18,6 +18,8 @@ interface DatabaseMetaData {
   name?: string;
   createdAt?: string;
   lastOpened?: string;
+  hasLayout?: boolean;
+  overlapCount?: number;
 }
 
 interface DatabaseState {
@@ -42,6 +44,7 @@ interface DatabaseState {
   renameVirtualView: (view: Tree, name: string) => Promise<void>;
   updateVirtualViewSources: (view: Tree, sourceTreeIds: string[]) => Promise<void>;
   deleteVirtualView: (view: Tree) => Promise<void>;
+  recomputeMatches: (view: Tree) => Promise<{ groupCount: number; mergedMemberCount: number }>;
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -157,6 +160,16 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     if (wasSelected) await get().disconnect();
   },
 
+  recomputeMatches: async (view: Tree) => {
+    const result = await TreeService.recomputeVirtualViewMatches(view.id);
+    const treeId = get().selectedTree?.id;
+    if (treeId === view.id) {
+      await useMemberStore.getState().refreshMembers(treeId);
+      await get().refreshMetadata(treeId);
+    }
+    return result;
+  },
+
   selectTree: async (tree: Tree | undefined) => {
     if (!tree) {
       await get().disconnect();
@@ -197,6 +210,10 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
         get().refreshRelationTypes(tree.id),
         useMemberStore.getState().refreshMembers(tree.id),
       ]);
+      // Run dagre layout on first open (before any positions are saved).
+      if (get().metadata.hasLayout === false) {
+        await useMemberStore.getState().updateLayout();
+      }
     } else {
       // Marks the tree as "opened" server-side and returns the latest role.
       try {

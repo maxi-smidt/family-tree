@@ -8,20 +8,33 @@ from app.api.deps import accessible_tree_ids, get_current_user, role_for
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Member, MemberDisease, Relation, RelationType, Tree, User
-from app.models.virtual_view import VirtualView, VirtualViewSource
+from app.models.virtual_view import (
+    VirtualView,
+    VirtualViewMemberMatch,
+    VirtualViewPosition,
+    VirtualViewSource,
+)
 from app.schemas.family import DiseaseOut, MemberOut, RelationOut, RelationTypeOut
 from app.schemas.virtual_view import (
     VirtualMemberOut,
+    VirtualPositionItem,
     VirtualViewCreate,
     VirtualViewOut,
     VirtualViewSourceOut,
     VirtualViewUpdate,
 )
+from app.services.virtual_view_matching import compute_match_groups, persist_matches
 
 router = APIRouter(prefix="/virtual-views", tags=["virtual-views"])
 
 VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED = "virtual_view_source_access_revoked"
 VIRTUAL_VIEW_SOURCES_MISSING = "virtual_view_sources_missing"
+VIRTUAL_VIEW_SOURCES_NO_OVERLAP = "virtual_view_sources_no_overlap"
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
 
 def _check_source_access(db: Session, view: VirtualView, user: User) -> None:
@@ -46,8 +59,11 @@ def _resolve_view(db: Session, view_id: str, user: User) -> VirtualView:
     return view
 
 
-def _view_out(db: Session, view: VirtualView, user: User) -> VirtualViewOut:
-    accessible_ids = set(accessible_tree_ids(db, user))
+def _view_out(
+    db: Session, view: VirtualView, user: User, accessible_ids: set[str] | None = None
+) -> VirtualViewOut:
+    if accessible_ids is None:
+        accessible_ids = set(accessible_tree_ids(db, user))
     sources = [
         VirtualViewSourceOut(
             tree_id=src.tree_id,
@@ -66,44 +82,159 @@ def _view_out(db: Session, view: VirtualView, user: User) -> VirtualViewOut:
     )
 
 
-def _offset_members_by_source(
-    rows: list[tuple[Member, str]], source_order: list[str]
-) -> list[VirtualMemberOut]:
-    """Apply horizontal offsets so trees don't overlap."""
-    GAP = 600.0
-    by_tree: dict[str, list[tuple[Member, str]]] = {}
-    for m, tree_name in rows:
-        by_tree.setdefault(m.tree_id, []).append((m, tree_name))
+def _ensure_matches(db: Session, view: VirtualView) -> None:
+    """Lazily compute matches for legacy views that predate this feature."""
+    if view.matches_computed_at is None:
+        persist_matches(db, view)
+        db.flush()
 
+
+def _build_id_map(db: Session, view: VirtualView) -> dict[str, str]:
+    """Return {original_member_id: node_id} using persisted match groups."""
+    _ensure_matches(db, view)
+    rows = db.execute(
+        select(VirtualViewMemberMatch.member_id, VirtualViewMemberMatch.group_id).where(
+            VirtualViewMemberMatch.view_id == view.id
+        )
+    ).all()
+    return {r.member_id: r.group_id for r in rows}
+
+
+def _load_positions(db: Session, view: VirtualView) -> dict[str, tuple[float, float]]:
+    rows = db.scalars(
+        select(VirtualViewPosition).where(VirtualViewPosition.view_id == view.id)
+    ).all()
+    return {r.node_id: (r.position_x, r.position_y) for r in rows}
+
+
+def _coalesce(*values: str | None) -> str | None:
+    """Return first non-empty value."""
+    for v in values:
+        if v and v.strip():
+            return v
+    return None
+
+
+def _build_composite_members(
+    db: Session, view: VirtualView
+) -> list[VirtualMemberOut]:
+    """Build merged member list with position overlay applied."""
+    source_ids = [s.tree_id for s in view.sources]
+    source_order = {tid: i for i, tid in enumerate(source_ids)}
+
+    rows = db.execute(
+        select(Member, Tree.name)
+        .join(Tree, Tree.id == Member.tree_id)
+        .where(Member.tree_id.in_(source_ids))
+    ).all()
+
+    id_map = _build_id_map(db, view)
+    overlay = _load_positions(db, view)
+
+    # Determine if any overlay positions exist (hasLayout check happens via metadata).
+    # Group members by their node_id (group_id for matched, member.id for unmatched).
+    by_node: dict[str, list[tuple[Member, str]]] = {}
+    for m, tree_name in rows:
+        node_id = id_map.get(m.id, m.id)
+        by_node.setdefault(node_id, []).append((m, tree_name))
+
+    # Load match group info keyed by group_id → [member_id in primary order]
+    match_rows = db.execute(
+        select(
+            VirtualViewMemberMatch.group_id,
+            VirtualViewMemberMatch.member_id,
+            VirtualViewMemberMatch.is_primary,
+        ).where(VirtualViewMemberMatch.view_id == view.id)
+    ).all()
+    group_primary: dict[str, str] = {}
+    for r in match_rows:
+        if r.is_primary:
+            group_primary[r.group_id] = r.member_id
+
+    # X-offset fallback for when no overlay exists (first load before alignment).
+    GAP = 600.0
     x_offset = 0.0
     tree_offsets: dict[str, float] = {}
-    for tree_id in source_order:
-        if tree_id not in by_tree:
-            continue
-        members_in_tree = [m for m, _ in by_tree[tree_id]]
-        tree_offsets[tree_id] = x_offset
-        if members_in_tree:
-            min_x = min(m.positionX for m in members_in_tree)
-            max_x = max(m.positionX for m in members_in_tree)
+    for tid in source_ids:
+        tree_members = [m for m, _ in rows if m.tree_id == tid]
+        tree_offsets[tid] = x_offset
+        if tree_members:
+            min_x = min(m.positionX for m in tree_members)
+            max_x = max(m.positionX for m in tree_members)
             x_offset += (max_x - min_x) + GAP
 
     result: list[VirtualMemberOut] = []
-    for tree_id, member_rows in by_tree.items():
-        offset = tree_offsets.get(tree_id, 0.0)
-        for m, tree_name in member_rows:
-            out = MemberOut.model_validate(m).model_dump()
-            out["positionX"] = m.positionX + offset
-            result.append(
-                VirtualMemberOut(
-                    **out,
-                    sourceTreeId=m.tree_id,
-                    sourceTreeName=tree_name,
-                )
+    for node_id, member_rows in by_node.items():
+        is_merged = len(member_rows) > 1 or node_id.startswith("vm_")
+        primary_member_id = group_primary.get(node_id) if is_merged else None
+
+        # Sort so the primary member is first (provides canonical field values).
+        primary_id_captured = primary_member_id
+
+        def _sort_key(
+            pair: tuple[Member, str], _pid: str | None = primary_id_captured
+        ) -> int:
+            m, _ = pair
+            if m.id == _pid:
+                return -1
+            return source_order.get(m.tree_id, 999)
+
+        member_rows_sorted = sorted(member_rows, key=_sort_key)
+        primary_m, primary_tree_name = member_rows_sorted[0]
+
+        # Coalesce nullable fields from all members in source order.
+        all_members = [m for m, _ in member_rows_sorted]
+        coalesced_maiden = _coalesce(*[m.maidenName for m in all_members])
+        coalesced_image = _coalesce(*[m.imageData for m in all_members])
+        coalesced_dob = _coalesce(*[m.dateOfBirth for m in all_members])
+        coalesced_dod = _coalesce(*[m.dateOfDeath for m in all_members])
+        coalesced_add = _coalesce(*[m.additionalData for m in all_members])
+
+        # Determine position: overlay first, then per-tree X-offset fallback.
+        if node_id in overlay:
+            pos_x, pos_y = overlay[node_id]
+        else:
+            offset = tree_offsets.get(primary_m.tree_id, 0.0)
+            min_x_tree = min(
+                m.positionX
+                for m in db.scalars(
+                    select(Member).where(Member.tree_id == primary_m.tree_id)
+                ).all()
+            ) if not is_merged else primary_m.positionX
+            pos_x = primary_m.positionX - (min_x_tree if is_merged else 0) + offset
+            pos_y = primary_m.positionY
+
+        out = MemberOut.model_validate(primary_m).model_dump()
+        out["id"] = node_id
+        out["positionX"] = pos_x
+        out["positionY"] = pos_y
+        out["maidenName"] = coalesced_maiden
+        out["imageData"] = coalesced_image
+        out["dateOfBirth"] = coalesced_dob
+        out["dateOfDeath"] = coalesced_dod
+        out["additionalData"] = coalesced_add
+
+        source_tree_ids = [m.tree_id for m, _ in member_rows_sorted]
+        source_tree_names = [tn for _, tn in member_rows_sorted]
+        merged_from_ids = [m.id for m in all_members]
+
+        result.append(
+            VirtualMemberOut(
+                **out,
+                sourceTreeId=primary_m.tree_id,
+                sourceTreeName=primary_tree_name,
+                sourceTreeIds=source_tree_ids,
+                sourceTreeNames=source_tree_names,
+                mergedFromIds=merged_from_ids if is_merged else [],
+                isMerged=is_merged,
             )
+        )
     return result
 
 
-# --- CRUD on view configuration -------------------------------------------
+# ---------------------------------------------------------------------------
+# CRUD on view configuration
+# ---------------------------------------------------------------------------
 
 
 @router.get("", response_model=list[VirtualViewOut])
@@ -122,7 +253,8 @@ def list_virtual_views(
     views.sort(
         key=lambda v: (v.last_opened or "", v.created_at), reverse=True
     )
-    return [_view_out(db, v, user) for v in views]
+    accessible_ids = set(accessible_tree_ids(db, user))
+    return [_view_out(db, v, user, accessible_ids) for v in views]
 
 
 @router.post("", response_model=VirtualViewOut, status_code=201)
@@ -146,6 +278,12 @@ def create_virtual_view(
                 detail=f"No access to tree {tree_id}",
             )
 
+    groups = compute_match_groups(db, unique_ids)
+    if not groups:
+        raise HTTPException(
+            status_code=409, detail=VIRTUAL_VIEW_SOURCES_NO_OVERLAP
+        )
+
     view = VirtualView(
         name=payload.name.strip(),
         owner_id=user.id,
@@ -155,6 +293,8 @@ def create_virtual_view(
     db.flush()
     for i, tree_id in enumerate(unique_ids):
         db.add(VirtualViewSource(view_id=view.id, tree_id=tree_id, position=i))
+    db.flush()
+    persist_matches(db, view)
     db.commit()
     db.refresh(view)
     return _view_out(db, view, user)
@@ -198,11 +338,18 @@ def update_virtual_view(
                 raise HTTPException(
                     status_code=403, detail=f"No access to tree {tree_id}"
                 )
+        groups = compute_match_groups(db, unique_ids)
+        if not groups:
+            raise HTTPException(
+                status_code=409, detail=VIRTUAL_VIEW_SOURCES_NO_OVERLAP
+            )
         for src in list(view.sources):
             db.delete(src)
         db.flush()
         for i, tree_id in enumerate(unique_ids):
             db.add(VirtualViewSource(view_id=view.id, tree_id=tree_id, position=i))
+        db.flush()
+        persist_matches(db, view)
     db.commit()
     db.refresh(view)
     return _view_out(db, view, user)
@@ -223,7 +370,32 @@ def delete_virtual_view(
     db.commit()
 
 
-# --- Composite read endpoints -----------------------------------------------
+@router.post("/{view_id}/recompute-matches")
+def recompute_matches(
+    view_id: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    view = _resolve_view(db, view_id, user)
+    if view.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can recompute matches"
+        )
+    group_count = persist_matches(db, view)
+    db.commit()
+    merged_count = len(
+        db.execute(
+            select(VirtualViewMemberMatch.member_id).where(
+                VirtualViewMemberMatch.view_id == view_id
+            )
+        ).fetchall()
+    )
+    return {"groupCount": group_count, "mergedMemberCount": merged_count}
+
+
+# ---------------------------------------------------------------------------
+# Composite read endpoints
+# ---------------------------------------------------------------------------
 
 
 @router.get("/{view_id}/metadata")
@@ -233,16 +405,38 @@ def get_virtual_view_metadata(
     db: Session = Depends(get_db),
 ) -> dict:
     view = _resolve_view(db, view_id, user)
+    _ensure_matches(db, view)
     source_trees = [
         {"id": src.tree_id, "name": (db.get(Tree, src.tree_id) or Tree(name="")).name}
         for src in view.sources
     ]
+    # Count distinct nodes in the composite.
+    source_ids = [s.tree_id for s in view.sources]
+    id_map = _build_id_map(db, view)
+    node_ids = set(id_map.get(mid, mid) for mid in (
+        r[0] for r in db.execute(
+            select(Member.id).where(Member.tree_id.in_(source_ids))
+        ).all()
+    ))
+    overlap_count = db.execute(
+        select(VirtualViewMemberMatch.group_id)
+        .where(VirtualViewMemberMatch.view_id == view_id)
+        .distinct()
+    ).fetchall().__len__()
+    pos_count = db.execute(
+        select(VirtualViewPosition.node_id)
+        .where(VirtualViewPosition.view_id == view_id)
+    ).fetchall().__len__()
+    has_layout = pos_count > 0 and pos_count >= len(node_ids)
+    db.commit()
     return {
         "id": view.id,
         "name": view.name,
         "createdAt": view.created_at,
         "lastOpened": view.last_opened,
         "sourceTrees": source_trees,
+        "overlapCount": overlap_count,
+        "hasLayout": has_layout,
     }
 
 
@@ -253,15 +447,7 @@ def list_virtual_members(
     db: Session = Depends(get_db),
 ) -> list[VirtualMemberOut]:
     view = _resolve_view(db, view_id, user)
-    source_ids = [s.tree_id for s in view.sources]
-    rows = db.execute(
-        select(Member, Tree.name)
-        .join(Tree, Tree.id == Member.tree_id)
-        .where(Member.tree_id.in_(source_ids))
-    ).all()
-    return _offset_members_by_source(
-        [(m, name) for m, name in rows], source_ids
-    )
+    return _build_composite_members(db, view)
 
 
 @router.get("/{view_id}/relations", response_model=list[RelationOut])
@@ -272,11 +458,35 @@ def list_virtual_relations(
 ) -> list[RelationOut]:
     view = _resolve_view(db, view_id, user)
     source_ids = [s.tree_id for s in view.sources]
-    return list(
+    id_map = _build_id_map(db, view)
+
+    raw = list(
         db.scalars(
             select(Relation).where(Relation.tree_id.in_(source_ids))
         ).all()
     )
+
+    seen: set[tuple[str, str, str]] = set()
+    result: list[RelationOut] = []
+    for rel in raw:
+        from_id = id_map.get(rel.from_member_id, rel.from_member_id)
+        to_id = id_map.get(rel.to_member_id, rel.to_member_id)
+        if from_id == to_id:
+            continue  # self-loop from both endpoints merging to the same node
+        key = (from_id, to_id, rel.relation_type)
+        if key in seen:
+            continue
+        seen.add(key)
+        # Build a RelationOut with rewritten ids.
+        out = RelationOut.model_validate(rel)
+        result.append(
+            RelationOut(
+                from_member_id=from_id,
+                to_member_id=to_id,
+                relation_type=out.relation_type,
+            )
+        )
+    return result
 
 
 @router.get("/{view_id}/diseases", response_model=list[DiseaseOut])
@@ -287,14 +497,25 @@ def list_virtual_diseases(
 ) -> list[DiseaseOut]:
     view = _resolve_view(db, view_id, user)
     source_ids = [s.tree_id for s in view.sources]
-    member_ids = db.scalars(
-        select(Member.id).where(Member.tree_id.in_(source_ids))
-    ).all()
-    return list(
+    id_map = _build_id_map(db, view)
+    diseases = list(
         db.scalars(
-            select(MemberDisease).where(MemberDisease.member_id.in_(member_ids))
+            select(MemberDisease)
+            .join(Member, Member.id == MemberDisease.member_id)
+            .where(Member.tree_id.in_(source_ids))
         ).all()
     )
+    seen: set[tuple[str, str]] = set()
+    result: list[DiseaseOut] = []
+    for d in diseases:
+        node_id = id_map.get(d.member_id, d.member_id)
+        key = (node_id, (d.name or "").strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        out = DiseaseOut.model_validate(d)
+        result.append(DiseaseOut(member_id=node_id, name=out.name))
+    return result
 
 
 @router.get("/{view_id}/relation-types", response_model=list[RelationTypeOut])
@@ -314,3 +535,31 @@ def list_virtual_relation_types(
             seen.add(rt_id)
             result.append(RelationTypeOut(id=rt_id))
     return result
+
+
+@router.patch("/{view_id}/members/positions", status_code=204)
+def save_virtual_positions(
+    view_id: str,
+    positions: list[VirtualPositionItem],
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """Persist alignment positions for this view."""
+    view = _resolve_view(db, view_id, user)
+    if view.owner_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the owner can save layout")
+    for item in positions:
+        existing = db.get(VirtualViewPosition, (view_id, item.id))
+        if existing:
+            existing.position_x = item.positionX
+            existing.position_y = item.positionY
+        else:
+            db.add(
+                VirtualViewPosition(
+                    view_id=view_id,
+                    node_id=item.id,
+                    position_x=item.positionX,
+                    position_y=item.positionY,
+                )
+            )
+    db.commit()

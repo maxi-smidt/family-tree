@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
@@ -47,6 +47,7 @@ export const FlowPanel = () => {
   const isMobile = useIsMobile();
   const { members, removeMember, updateLayout } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
+  const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
   const isCanvasReadOnly = isMobile || !canWrite;
   useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useTreeStore();
@@ -347,7 +348,7 @@ export const FlowPanel = () => {
             onToggleConnectionMode={connection.toggleConnectionMode}
           />
         </Panel>
-        {!isCanvasReadOnly && (
+        {(!isCanvasReadOnly || isVirtualView) && (
           <Panel position="bottom-right" className="pb-2">
             <MemberControls
               nodes={nodes}
@@ -356,6 +357,7 @@ export const FlowPanel = () => {
               onEditMember={(member) => pending.editExisting(member)}
               onCreateNewMember={(member) => pending.createNew(member)}
               onRearrange={rearrangeNodes}
+              readOnly={isVirtualView}
             />
           </Panel>
         )}

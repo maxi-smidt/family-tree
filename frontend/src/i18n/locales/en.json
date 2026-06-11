@@ -188,7 +188,8 @@
       "toast-create-success": "Virtual view created!",
       "toast-create-error": "Could not create virtual view.",
       "toast-update-success": "Virtual view updated!",
-      "toast-update-error": "Could not update virtual view."
+      "toast-update-error": "Could not update virtual view.",
+      "error-no-overlap": "These trees share no overlapping members. Virtual views require at least one person in common across the selected trees."
     }
   },
   "gallery-view": {
@@ -715,7 +716,10 @@
     "rename-button": "Rename",
     "toast-virtual-view-deleted": "Virtual view deleted.",
     "source-inaccessible": "You no longer have access to this source tree",
-    "view-degraded": "Access issues"
+    "view-degraded": "Access issues",
+    "recompute-button": "Recompute matches",
+    "toast-recompute-success": "Matches recomputed. {{count}} overlapping members found.",
+    "toast-recompute-error": "Could not recompute matches."
   },
   "common": {
     "english": "English",

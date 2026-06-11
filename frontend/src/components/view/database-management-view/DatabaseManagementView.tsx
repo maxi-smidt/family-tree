@@ -28,6 +28,7 @@ import {
   FileDown,
   Layers,
   AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -58,6 +59,7 @@ export const DatabaseManagementView = () => {
   const renameTree = useTreeStore((s) => s.renameTree);
   const deleteVirtualView = useTreeStore((s) => s.deleteVirtualView);
   const renameVirtualView = useTreeStore((s) => s.renameVirtualView);
+  const recomputeMatches = useTreeStore((s) => s.recomputeMatches);
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const {
     exportDatabase,
@@ -194,6 +196,15 @@ export const DatabaseManagementView = () => {
   const handleDeleteVirtualView = async (view: Tree) => {
     await deleteVirtualView(view);
     toast.success(t("toast-virtual-view-deleted"));
+  };
+
+  const handleRecomputeMatches = async (view: Tree) => {
+    try {
+      const { mergedMemberCount } = await recomputeMatches(view);
+      toast.success(t("toast-recompute-success", { count: mergedMemberCount }));
+    } catch {
+      toast.error(t("toast-recompute-error"));
+    }
   };
 
   const handleSelectVirtualView = async (view: Tree) => {
@@ -620,6 +631,14 @@ export const DatabaseManagementView = () => {
                               title={t("edit-sources-button")}
                             >
                               <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRecomputeMatches(view)}
+                              title={t("recompute-button")}
+                            >
+                              <RefreshCw className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
