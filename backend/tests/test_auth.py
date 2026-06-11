@@ -1,3 +1,4 @@
+from app.api.routes.oauth import _provision_user
 from app.core.config import settings
 from tests.conftest import API, auth, make_user
 
@@ -125,3 +126,49 @@ def test_admin_cannot_reset_authentik_password(client, db):
     )
     assert res.status_code == 400
     assert res.json()["detail"] == "Password reset is only available for local accounts"
+
+
+# --- Authentik admin-group sync tests --------------------------------------
+
+
+def test_authentik_admin_revoked_when_not_in_group(db):
+    """Authentik user loses admin when removed from the admin group."""
+    user = make_user(db, "oidc-admin", is_admin=True)
+    user.auth_provider = "authentik"
+    user.oauth_subject = "authentik|sub-001"
+    db.commit()
+
+    # Simulate a login where the user is NOT in the admin group.
+    admin_group = settings.AUTHENTIK_ADMIN_GROUP
+    userinfo = {
+        "sub": "authentik|sub-001",
+        "email": "oidc-admin@example.com",
+        "preferred_username": "oidc-admin",
+        "groups": ["some-other-group"],  # admin group is absent
+    }
+
+    assert admin_group not in userinfo["groups"], "precondition: user not in admin group"
+    result = _provision_user(db, userinfo)
+
+    assert result is not None
+    assert result.is_admin is False, "admin should be revoked after leaving the group"
+
+
+def test_local_admin_not_affected_by_oidc_login(db):
+    """Local admin account retains admin even when matched by email via OIDC."""
+    user = make_user(db, "local-admin", is_admin=True)
+    # auth_provider stays "local" — make_user sets it to "local" by default
+    db.commit()
+
+    # Simulate an OIDC login that matches by email but carries no admin group.
+    userinfo = {
+        "sub": "authentik|sub-999",
+        "email": "local-admin@example.com",  # matches existing user's email
+        "preferred_username": "local-admin",
+        "groups": [],  # no admin group
+    }
+
+    result = _provision_user(db, userinfo)
+
+    assert result is not None
+    assert result.is_admin is True, "local admin should not be touched by OIDC sync"
