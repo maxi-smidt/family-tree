@@ -97,11 +97,6 @@ class RelationTypeOut(BaseModel):
     id: str
 
 
-class RelationTypeCreate(BaseModel):
-    id: str
-    description: str | None = None
-
-
 # --- Diseases --------------------------------------------------------------
 class DiseaseOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
