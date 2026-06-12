@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Check, ChevronsUpDown, Crown, UserPlus, X } from "lucide-react";
-import { api } from "@/services/api";
+import { TreeSharingService } from "@/services/TreeSharingService";
 import { cn } from "@/lib/utils";
 import { Tree, ShareCandidate, ShareRole, TreeAccess } from "@/types/tree";
 import { toast } from "sonner";
@@ -76,12 +76,9 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
   );
 
   const reload = useCallback(async () => {
-    const [members, available] = await Promise.all([
-      api.get<TreeAccess[]>(`/trees/${tree.id}/access`),
-      api.get<ShareCandidate[]>(`/trees/${tree.id}/access/candidates`),
-    ]);
-    setAccess(members);
-    setCandidates(available);
+    const data = await TreeSharingService.getSharingData(tree.id);
+    setAccess(data.access);
+    setCandidates(data.candidates);
   }, [tree.id]);
 
   useEffect(() => {
@@ -110,10 +107,7 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
     try {
       // Each grant is an idempotent upsert keyed by username.
       for (const s of staged) {
-        await api.post<TreeAccess[]>(`/trees/${tree.id}/access`, {
-          username: s.username,
-          role: s.role,
-        });
+        await TreeSharingService.grantAccess(tree.id, s.username, s.role);
       }
       setStaged([]);
       await reload();
@@ -126,10 +120,11 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
 
   const handleRoleChange = async (member: TreeAccess, role: ShareRole) => {
     try {
-      const updated = await api.post<TreeAccess[]>(`/trees/${tree.id}/access`, {
-        username: member.username,
+      const updated = await TreeSharingService.grantAccess(
+        tree.id,
+        member.username,
         role,
-      });
+      );
       setAccess(updated);
     } catch (err) {
       console.error(err);
@@ -139,7 +134,7 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
 
   const handleRevoke = async (userId: string) => {
     try {
-      await api.del(`/trees/${tree.id}/access/${userId}`);
+      await TreeSharingService.revokeAccess(tree.id, userId);
       await reload();
     } catch (err) {
       console.error(err);
@@ -149,7 +144,7 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
 
   const handleTransfer = async () => {
     try {
-      await api.post(`/trees/${tree.id}/transfer`, { username: transferTo });
+      await TreeSharingService.transferOwnership(tree.id, transferTo);
       setConfirmTransferOpen(false);
       setTransferTo("");
       toast.success(t("transfer-success"));
