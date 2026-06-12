@@ -1,70 +1,37 @@
-name: Check Version Bump
+name: Version Policy
 
 on:
   pull_request:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   check-version:
+    # Keep the old required status check name, but stop requiring every PR to
+    # spend a version number. Releases are cut from v* tags instead.
     name: "Check Version Bump"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: "Checkout Code"
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Fetch all history so we can compare with main
 
-      - name: Check if version changed
+      - name: "Check package metadata"
         run: |
-          # The app version now lives in frontend/package.json (fall back to a
-          # root package.json so the check still works across the restructure).
-          get_version() {
-            jq -r .version frontend/package.json 2>/dev/null \
-              || jq -r .version package.json
-          }
+          PACKAGE_VERSION=$(jq -r .version frontend/package.json)
+          LOCK_VERSION=$(jq -r .version frontend/package-lock.json)
+          LOCK_ROOT_VERSION=$(jq -r '.packages[""].version' frontend/package-lock.json)
 
-          # Get version from the PR branch
-          NEW_VERSION=$(get_version)
+          echo "PRs do not need to bump the app version."
+          echo "Release tags must be named v<frontend package version>."
+          echo "frontend/package.json:      $PACKAGE_VERSION"
+          echo "frontend/package-lock.json: $LOCK_VERSION"
+          echo "lock root package:          $LOCK_ROOT_VERSION"
 
-          # Get version from the main branch
-          git checkout origin/main
-          OLD_VERSION=$(get_version)
-
-          echo "Main version: $OLD_VERSION"
-          echo "PR version:   $NEW_VERSION"
-
-          if [ "$NEW_VERSION" == "$OLD_VERSION" ]; then
-            echo "Error: Version in frontend/package.json has not been bumped."
-            echo "Please run 'npm run bump:patch' (or minor/major) in frontend/ before merging."
+          if [ "$PACKAGE_VERSION" != "$LOCK_VERSION" ] || [ "$PACKAGE_VERSION" != "$LOCK_ROOT_VERSION" ]; then
+            echo "Package version metadata is out of sync."
+            echo "Run 'npm run bump:patch|minor|major' from frontend/ or update the lockfile."
             exit 1
           fi
-
-          # Parse versions
-          IFS='.' read -r OLD_MAJOR OLD_MINOR OLD_PATCH <<< "$OLD_VERSION"
-          IFS='.' read -r NEW_MAJOR NEW_MINOR NEW_PATCH <<< "$NEW_VERSION"
-
-          # Check Patch Bump: x.y.z -> x.y.(z+1)
-          if [ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -eq "$OLD_MINOR" ] && [ "$NEW_PATCH" -eq $((OLD_PATCH + 1)) ]; then
-            echo "Valid patch bump."
-            exit 0
-          fi
-
-          # Check Minor Bump: x.y.z -> x.(y+1).0
-          if [ "$NEW_MAJOR" -eq "$OLD_MAJOR" ] && [ "$NEW_MINOR" -eq $((OLD_MINOR + 1)) ] && [ "$NEW_PATCH" -eq 0 ]; then
-             echo "Valid minor bump."
-             exit 0
-          fi
-
-          # Check Major Bump: x.y.z -> (x+1).0.0
-          if [ "$NEW_MAJOR" -eq $((OLD_MAJOR + 1)) ] && [ "$NEW_MINOR" -eq 0 ] && [ "$NEW_PATCH" -eq 0 ]; then
-             echo "Valid major bump."
-             exit 0
-          fi
-
-          echo "Error: Invalid version bump."
-          echo "Allowed transitions:"
-          echo "  - Patch: x.y.z -> x.y.(z+1)"
-          echo "  - Minor: x.y.z -> x.(y+1).0"
-          echo "  - Major: x.y.z -> (x+1).0.0"
-          exit 1

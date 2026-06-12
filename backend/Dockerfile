@@ -3,11 +3,23 @@ FROM python:3.12-slim
 # uv: fast, reproducible installs from the committed uv.lock.
 COPY --from=ghcr.io/astral-sh/uv:0.11.7 /uv /uvx /bin/
 
+ARG APP_VERSION=dev
+ARG APP_REVISION=dev
+ARG APP_BUILD_DATE=
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    PATH="/app/.venv/bin:$PATH"
+    PATH="/app/.venv/bin:$PATH" \
+    APP_VERSION=${APP_VERSION} \
+    APP_REVISION=${APP_REVISION} \
+    APP_BUILD_DATE=${APP_BUILD_DATE}
+
+LABEL org.opencontainers.image.title="Family Tree Backend" \
+      org.opencontainers.image.version=${APP_VERSION} \
+      org.opencontainers.image.revision=${APP_REVISION} \
+      org.opencontainers.image.created=${APP_BUILD_DATE}
 
 WORKDIR /app
 

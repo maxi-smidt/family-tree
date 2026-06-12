@@ -66,14 +66,16 @@ in with the seeded admin account.
 
 ### Production Deployment (using pre-built images)
 
-For production environments or NAS systems like **Unraid**, we provide a `docker-compose.prod.yml` that pulls the pre-built images from the GitHub Container Registry (`ghcr.io`), so you do not need to build them from source.
+For production environments or NAS systems like **Unraid**, we provide a `docker-compose.prod.yml` that pulls the pre-built images from the GitHub Container Registry (`ghcr.io`), so you do not need to build them from source. By default it uses the latest published release; set `APP_IMAGE_TAG` in `.env` to pin an explicit release such as `1.2.17`.
+
+> **Note:** The `:latest` tag (and versioned tags like `1.2.17`) are published to GHCR when a `vX.Y.Z` release tag is pushed. At least one release tag must exist before prebuilt-image deployment works. If no release tag has been pushed yet, build from source instead (see [Local Development / Building from source](#local-development--building-from-source)).
 
 **For general Linux (Ubuntu, Debian, etc):**
 
 ```bash
 wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/docker-compose.prod.yml -O docker-compose.yml
 wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/.env.example -O .env
-# Edit .env
+# Edit .env. For repeatable production deploys, pin APP_IMAGE_TAG to a release.
 docker compose up -d
 ```
 
@@ -95,6 +97,7 @@ Everything is configured through the `.env` file. The headline settings:
 | `UI_PORT`       | Host port the web UI is served on                    | `8080`         |
 | `APP_DATA_PATH` | Host path for application data (Postgres + backend)  | `./appdata`    |
 | `DATA_PATH`     | Host path for the real data (member photos, gallery) | `./data`       |
+| `APP_IMAGE_TAG` | Published app image tag for frontend + backend       | `latest`       |
 | `SECRET_KEY`    | Secret for signing tokens (**required**)             | —              |
 | `FRONTEND_URL`  | Public URL of the UI (OAuth redirects, CORS)         | `localhost:UI` |
 

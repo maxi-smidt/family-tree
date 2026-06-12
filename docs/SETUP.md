@@ -16,18 +16,26 @@ only the Docker Compose stack and shared tooling (prettier + git hooks).
 ## Production
 
 ```bash
-git clone https://github.com/maxi-smidt/family-tree.git
+mkdir family-tree
 cd family-tree
 
-cp .env.example .env
-# Set SECRET_KEY and FIRST_ADMIN_PASSWORD at minimum.
+wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/docker-compose.prod.yml -O docker-compose.yml
+wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/.env.example -O .env
+# Set SECRET_KEY and FIRST_ADMIN_PASSWORD at minimum. Pin APP_IMAGE_TAG to a release
+# such as 1.2.17 if you want repeatable upgrades/rollbacks instead of latest.
 
-docker compose up -d --build
+docker compose up -d
 ```
 
 Open `http://localhost:${UI_PORT}` (default `8080`) and sign in with the seeded
 admin (`FIRST_ADMIN_USERNAME` / `FIRST_ADMIN_PASSWORD`). Migrations run
 automatically on first start.
+
+If you intentionally want to build from source on the server, clone the repo and
+run `docker compose up -d --build` instead. Published images are preferred for
+long-running deployments because release tags are easier to audit and roll back.
+
+> **Note:** Published images (`:latest` and version tags) are pushed to GHCR when a `vX.Y.Z` release tag is created. If no release tag exists yet, use the source-build path above instead.
 
 Running this long-term? [OPERATIONS.md](OPERATIONS.md) covers backup &
 restore, upgrades, HTTPS/reverse-proxy setup, and a step-by-step Authentik

@@ -23,10 +23,10 @@ file and `.env`.
 
 Your instance has **two** data locations, and you must back up **both**:
 
-| What                         | Where (host)                       | Contains                                  |
-| ---------------------------- | ---------------------------------- | ----------------------------------------- |
-| PostgreSQL database          | `${APP_DATA_PATH}/postgres`        | members, relations, users, stories, settings |
-| Media files                  | `${DATA_PATH}` (served as `/data`) | member photos and gallery images under `media/` |
+| What                | Where (host)                       | Contains                                        |
+| ------------------- | ---------------------------------- | ----------------------------------------------- |
+| PostgreSQL database | `${APP_DATA_PATH}/postgres`        | members, relations, users, stories, settings    |
+| Media files         | `${DATA_PATH}` (served as `/data`) | member photos and gallery images under `media/` |
 
 > ⚠️ **A database-only backup silently loses every photo.** The database stores
 > only file references; the image bytes live under `${DATA_PATH}/media`. Always
@@ -108,7 +108,7 @@ tar -xzf backups/media_<STAMP>.tar.gz -C "${DATA_PATH:-./data}"
 docker compose up -d
 ```
 
-If you took an *offline* backup instead, simply extract the archive back to
+If you took an _offline_ backup instead, simply extract the archive back to
 the same paths before `docker compose up -d` — no `pg_restore` needed, the
 Postgres data directory is restored as-is.
 
@@ -132,13 +132,19 @@ instead of — the database + media backup above.
 ## Upgrades
 
 The published images are `ghcr.io/maxi-smidt/family-tree-backend` and
-`ghcr.io/maxi-smidt/family-tree-frontend`.
+`ghcr.io/maxi-smidt/family-tree-frontend`. Both services use the same
+`APP_IMAGE_TAG` value from `.env`.
 
 ```bash
 # 1. Back up first (see above) — especially before major version jumps.
-# 2. Pull the new images and restart:
+# 2. Choose the release you want. Use "latest" for the latest published release,
+#    or pin an explicit tag for repeatable deploys and easy rollbacks.
+#    Example .env:
+#    APP_IMAGE_TAG=1.2.17
+#
+# 3. Pull the new images and restart:
 docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d --wait
 ```
 
 That is the whole procedure, because of two properties of the stack:
@@ -151,8 +157,12 @@ That is the whole procedure, because of two properties of the stack:
   database health check, so a normal upgrade never serves the UI against a
   half-migrated schema.
 
-If you build locally instead of pulling images, replace step 2 with
-`git pull && docker compose up -d --build`.
+If you intentionally build locally instead of pulling published images, clone the
+repo and run `docker compose up -d --build` (using the default `docker-compose.yml`).
+Published release images are preferred for production because a pinned
+`APP_IMAGE_TAG` gives you a clear rollback target.
+
+> **Note:** The `:latest` tag and versioned image tags are published to GHCR when a `vX.Y.Z` release tag is pushed. If no release tag exists yet, build from source as described above.
 
 ### If a migration fails
 
@@ -167,16 +177,17 @@ docker compose logs backend --tail 100   # the Alembic error is at the top of th
    PostgreSQL, so a failed migration rolls back — your data is intact at the
    previous schema version.
 2. **Pin back to the previous image** to get the app running again while you
-   investigate, e.g. in `docker-compose.prod.yml` change `:latest` to the last
-   working version tag, then `docker compose up -d`.
+   investigate, e.g. set `APP_IMAGE_TAG` in `.env` to the last working version
+   tag, then `docker compose up -d`.
 3. **Check the release notes / open an issue** with the logged error. Typical
    causes are environment-specific (out of disk, custom schema changes made
    directly in the database).
-4. After a fix is released (or the cause is removed), restore the `:latest`
-   tag and `pull` + `up -d` again — Alembic resumes from where it left off.
+4. After a fix is released (or the cause is removed), set `APP_IMAGE_TAG` to the
+   fixed release and `pull` + `up -d --wait` again — Alembic resumes from where
+   it left off.
 
-> Tip: avoid `:latest` drift in long-lived deployments by pinning explicit
-> version tags and bumping them deliberately.
+> Tip: avoid `latest` drift in long-lived deployments by pinning explicit
+> release tags and bumping `APP_IMAGE_TAG` deliberately.
 
 ---
 
@@ -292,6 +303,7 @@ In the Authentik admin UI: **Applications → Providers → Create**, type
   This is exactly `${FRONTEND_URL}/api/auth/oauth/authentik/callback` — the
   callback goes through the frontend's `/api` proxy, not directly to the
   backend.
+
 - **Scopes**: keep the defaults `openid`, `email`, `profile`. Authentik's
   built-in `profile` scope mapping already includes the user's `groups`
   claim, which Family Tree uses for admin sync (below).
@@ -322,7 +334,7 @@ add the relevant users.
 
 Group membership is synced on **every** Authentik login, in both directions:
 adding a user to the group grants admin on their next login, removing them
-revokes it. Admin status of *local* accounts is never touched by this sync.
+revokes it. Admin status of _local_ accounts is never touched by this sync.
 
 ### 4. Configure Family Tree
 
@@ -337,11 +349,11 @@ AUTHENTIK_ADMIN_GROUP=family-tree-admins
 
 Further knobs (defaults shown):
 
-| Variable                      | Default                  | Effect                                                                 |
-| ----------------------------- | ------------------------ | ---------------------------------------------------------------------- |
-| `AUTHENTIK_SCOPES`            | `openid email profile`   | Scopes requested from Authentik.                                       |
-| `AUTHENTIK_AUTO_CREATE_USERS` | `true`                   | Create a Family Tree account on first Authentik login. If `false`, only users that already exist (matched by email) can sign in via Authentik. |
-| `AUTHENTIK_ADMIN_GROUP`       | `family-tree-admins`     | Group granting admin. Set empty to disable admin sync entirely.        |
+| Variable                      | Default                | Effect                                                                                                                                         |
+| ----------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTHENTIK_SCOPES`            | `openid email profile` | Scopes requested from Authentik.                                                                                                               |
+| `AUTHENTIK_AUTO_CREATE_USERS` | `true`                 | Create a Family Tree account on first Authentik login. If `false`, only users that already exist (matched by email) can sign in via Authentik. |
+| `AUTHENTIK_ADMIN_GROUP`       | `family-tree-admins`   | Group granting admin. Set empty to disable admin sync entirely.                                                                                |
 
 ### 5. Verify
 

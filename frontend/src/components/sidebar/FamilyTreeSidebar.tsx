@@ -13,7 +13,7 @@ import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
 import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
 import { ThemeSelector } from "@/components/sidebar/ThemeSelector.tsx";
 import { UserMenu } from "@/components/auth/UserMenu";
-import { APP_VERSION } from "@/constants";
+import { APP_VERSION } from "@/lib/buildInfo";
 import { useTranslation } from "react-i18next";
 
 export function FamilyTreeSidebar() {

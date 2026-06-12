@@ -28,9 +28,10 @@ docker-compose*.yml, .env.example   the deployment stack
 package.json (root)   repo-level tooling ONLY — prettier + husky (this is NOT the app)
 ```
 
-The app **version** lives in **`frontend/package.json`** (mirrored to
-`frontend/constants.json` by the bump script). The root `package.json` is just
-tooling and has no app version.
+Release versions are cut from Git tags (`vX.Y.Z`). `frontend/package.json`
+holds the release metadata used by the bump script; runtime app containers get
+their displayed version/revision from Docker build metadata. The root
+`package.json` is just tooling and has no app version.
 
 ## How the pieces interact
 
@@ -71,16 +72,14 @@ UI Component → Zustand store action → TreeService (HTTP client)
 
 ## Golden rules — CI enforces these; a PR fails without them
 
-1. **Bump the version on EVERY PR to `main`.** Run `npm run bump:patch` (or
-   `bump:minor` / `bump:major`) in `frontend/`. The
-   [check-version](.github/workflows/check-version.yml) workflow compares
-   `frontend/package.json` against `main` and **fails the PR if the version is
-   unchanged**, and only accepts a clean transition (`x.y.z → x.y.(z+1)`,
-   `→ x.(y+1).0`, or `→ (x+1).0.0`).
+1. **Do not bump the app version on ordinary PRs.** Release preparation is the
+   exception: run `npm run bump:patch` (or `bump:minor` / `bump:major`) in
+   `frontend/`, merge that release commit, then create a matching `vX.Y.Z` tag.
+   CI verifies that release tags match `frontend/package.json` and the lockfile.
 2. **All user-facing text goes through i18next** and must exist in every locale
    under `frontend/src/i18n/locales/`. Run `npm run check-i18n` (from
-   `frontend/`); the [check-i18n](.github/workflows/check-i18n.yml) workflow gates
-   it. Keys are hierarchical: `<feature>.<component>.<element>` (see
+   `frontend/`); the [CI](.github/workflows/check-build.yml) workflow gates it.
+   Keys are hierarchical: `<feature>.<component>.<element>` (see
    [docs/I18N_GUIDE.md](docs/I18N_GUIDE.md)).
 3. **Both apps must build & test green.** The
    [CI](.github/workflows/check-build.yml) workflow runs the frontend build +
@@ -136,10 +135,11 @@ uv run alembic revision --autogenerate -m "describe change"   # review the gener
 uv run alembic upgrade head
 ```
 
-### Version bump (required on every PR)
+### Release version bump (release preparation only)
 
 ```bash
 cd frontend && npm run bump:patch        # or bump:minor / bump:major
+# after merge: create and push tag vX.Y.Z matching frontend/package.json
 ```
 
 ## Conventions (short form)
@@ -155,7 +155,7 @@ cd frontend && npm run bump:patch        # or bump:minor / bump:major
 
 ## PR checklist
 
-- [ ] Version bumped in `frontend/package.json` (`npm run bump:*`)
+- [ ] Version bumped only if this is a release-preparation PR (`npm run bump:*`)
 - [ ] `npm run build` + `npx vitest run` pass (frontend)
 - [ ] `uv run ruff check` + `uv run pytest` pass (backend)
 - [ ] `npm run check-i18n` passes; new strings translated in **all** locales

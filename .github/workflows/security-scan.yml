@@ -1,8 +1,9 @@
 name: Security Scan
 
-# Dependency vulnerability scanning for both dependency trees.
-# Report-only for now (failures annotate the run but never block a PR), so we
-# get visibility without noise; tighten to blocking once the baseline is clean.
+# Dependency vulnerability scanning for both dependency trees. Dependency Review
+# blocks newly introduced critical vulnerable dependencies in PRs; the broader
+# npm/pip audits stay report-only so existing baseline noise remains visible
+# without blocking routine work.
 
 on:
   pull_request:
@@ -15,8 +16,23 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  dependency-review:
+    name: "Dependency Review"
+    # Dependency review requires the dependency graph + GitHub Advanced Security, which private personal repos don't have.
+    if: ${{ !github.event.repository.private && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Review dependency changes"
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: critical
+
   npm-audit:
     name: "Frontend (npm audit)"
     runs-on: ubuntu-latest

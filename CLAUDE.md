@@ -11,6 +11,5 @@ this repository lives in **AGENTS.md** — read it first:
   [`.claude/settings.json`](.claude/settings.json) so they run without prompting.
 - Toolchain: **Node 22** (frontend, run from `frontend/`) and **Python 3.12 +
   uv** (backend, run from `backend/`). System defaults are usually too old.
-- **Every PR to `main` must bump the version** — `cd frontend && npm run
-bump:patch` — or the `check-version` CI gate fails. See "Golden rules" in
-  AGENTS.md.
+- App versions are release-time metadata. Do not bump them on ordinary PRs; see
+  "Golden rules" in AGENTS.md for the tag-based release flow.
