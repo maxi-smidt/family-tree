@@ -40,7 +40,10 @@ export const FamilyNodeContent = ({
   };
 
   return (
-    <div>
+    // w-full/min-w-0 pins the content to the card width (the card centers its
+    // children, so an unconstrained child would grow past it) — required for
+    // the badge row below to truncate instead of overflowing.
+    <div className="w-full min-w-0">
       <div className="relative w-fit mx-auto">
         {member.imageData ? (
           <AuthenticatedImage
@@ -86,13 +89,14 @@ export const FamilyNodeContent = ({
         <div className="text-xs text-muted-foreground text-center">
           {formatLifeDates(member.date)}
         </div>
-        {/* Badges stay on a single row (long names truncate) so every card in
-            a virtual view has the same height — equal heights keep the side
-            handles level and the partner connector lines straight. */}
+        {/* Badges stay on a single row (long names truncate, at most two are
+            shown plus a "+N" pill) so every card in a virtual view has the
+            same height — equal heights keep the side handles level and the
+            partner connector lines straight. */}
         {member.isMerged && member.sourceTreeNames && member.sourceTreeNames.length > 0
           ? (
             <div className="mt-1 flex flex-nowrap justify-center gap-1 w-full min-w-0 px-1">
-              {member.sourceTreeNames.map((tn) => (
+              {member.sourceTreeNames.slice(0, 2).map((tn) => (
                 <span
                   key={tn}
                   title={tn}
@@ -101,6 +105,14 @@ export const FamilyNodeContent = ({
                   <span className="truncate">{tn}</span>
                 </span>
               ))}
+              {member.sourceTreeNames.length > 2 && (
+                <span
+                  title={member.sourceTreeNames.join(", ")}
+                  className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary border border-primary/20"
+                >
+                  +{member.sourceTreeNames.length - 2}
+                </span>
+              )}
             </div>
           )
           : member.sourceTreeName && (

@@ -379,6 +379,38 @@ def test_patch_name(client: TestClient, db: Session):
     assert r.json()["name"] == "Renamed View"
 
 
+def test_patch_sources_recomputes_matches_against_new_trees(
+    client: TestClient, db: Session
+):
+    """Updating a view's sources must recompute matches with the NEW source
+    list — not the stale, previously-loaded one."""
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    tree_c = make_tree(db, alice)
+    add_overlap(db, tree_a, tree_b)
+    # The same person also exists in tree_c.
+    add_member(
+        db, tree_c, "overlap-c",
+        firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+    )
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+
+    r = client.patch(
+        f"{API}/virtual-views/{view_id}",
+        json={"source_tree_ids": [tree_a.id, tree_b.id, tree_c.id]},
+        headers=auth(alice),
+    )
+    assert r.status_code == 200
+
+    members = client.get(
+        f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
+    ).json()
+    merged = [m for m in members if m["isMerged"]]
+    assert len(merged) == 1
+    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id, tree_c.id}
+
+
 def test_delete_view_leaves_source_trees_intact(client: TestClient, db: Session):
     alice = make_user(db)
     tree_a = make_tree(db, alice)

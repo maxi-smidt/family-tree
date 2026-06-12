@@ -354,6 +354,10 @@ def update_virtual_view(
         for i, tree_id in enumerate(unique_ids):
             db.add(VirtualViewSource(view_id=view.id, tree_id=tree_id, position=i))
         db.flush()
+        # The sources relationship was loaded before the delete/re-add above;
+        # expire it so persist_matches sees the new source list, not the stale
+        # collection (otherwise matches are computed against the old trees).
+        db.expire(view, ["sources"])
         persist_matches(db, view)
     db.commit()
     db.refresh(view)
