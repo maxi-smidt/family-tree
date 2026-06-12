@@ -51,6 +51,37 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Build into the local Docker daemon first so Trivy can scan the image
+      # before anything is pushed. The push step below is a pure cache hit.
+      - name: Build for scanning
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          load: true
+          tags: scan-target/${{ matrix.service }}:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Report vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: scan-target/${{ matrix.service }}:ci
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+      - name: Gate on fixable CRITICAL vulnerabilities (Trivy)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: scan-target/${{ matrix.service }}:ci
+          format: table
+          severity: CRITICAL
+          # Only fixable CRITICALs block the publish; a CVE with no patched
+          # package available yet shouldn't stall releases.
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
