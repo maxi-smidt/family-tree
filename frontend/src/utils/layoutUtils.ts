@@ -155,26 +155,11 @@ export const getLayoutedElements = (members: Member[]) => {
     }
 
     if (unionKey) {
-      // Merged bridge nodes (vm_) that have a cross-tree partner should not
-      // share a union node with their siblings. Giving them their own union
-      // lets the partner edge dominate horizontal positioning, so dagre places
-      // them between the two family groups instead of inside the sibling cluster.
-      const isBridgeNode =
-        child.id.startsWith("vm_") &&
-        child.relations?.some(
-          (r) =>
-            ["partner", "married", "divorced"].includes(r.relationType) &&
-            memberIds.has(r.toMemberId),
-        );
-      const effectiveUnionKey = isBridgeNode
-        ? `${unionKey}-${child.id}`
-        : unionKey;
-
-      let unionId = unions.get(effectiveUnionKey);
+      let unionId = unions.get(unionKey);
 
       if (!unionId) {
-        unionId = `union-${effectiveUnionKey}`;
-        unions.set(effectiveUnionKey, unionId);
+        unionId = `union-${unionKey}`;
+        unions.set(unionKey, unionId);
 
         g.setNode(unionId, {
           width: 1,
