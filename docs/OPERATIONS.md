@@ -157,10 +157,12 @@ That is the whole procedure, because of two properties of the stack:
   database health check, so a normal upgrade never serves the UI against a
   half-migrated schema.
 
-If you intentionally build locally instead of pulling published images, use the
-source-build compose file and run `git pull` plus `docker compose up -d --build`.
+If you intentionally build locally instead of pulling published images, clone the
+repo and run `docker compose up -d --build` (using the default `docker-compose.yml`).
 Published release images are preferred for production because a pinned
 `APP_IMAGE_TAG` gives you a clear rollback target.
+
+> **Note:** The `:latest` tag and versioned image tags are published to GHCR when a `vX.Y.Z` release tag is pushed. If no release tag exists yet, build from source as described above.
 
 ### If a migration fails
 

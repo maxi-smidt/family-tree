@@ -21,7 +21,8 @@ permissions:
 jobs:
   dependency-review:
     name: "Dependency Review"
-    if: github.event_name == 'pull_request'
+    # Dependency review requires the dependency graph + GitHub Advanced Security, which private personal repos don't have.
+    if: ${{ !github.event.repository.private && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout Code"

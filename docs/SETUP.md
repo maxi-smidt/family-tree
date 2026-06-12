@@ -35,6 +35,8 @@ If you intentionally want to build from source on the server, clone the repo and
 run `docker compose up -d --build` instead. Published images are preferred for
 long-running deployments because release tags are easier to audit and roll back.
 
+> **Note:** Published images (`:latest` and version tags) are pushed to GHCR when a `vX.Y.Z` release tag is created. If no release tag exists yet, use the source-build path above instead.
+
 Running this long-term? [OPERATIONS.md](OPERATIONS.md) covers backup &
 restore, upgrades, HTTPS/reverse-proxy setup, and a step-by-step Authentik
 walkthrough.

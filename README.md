@@ -68,6 +68,8 @@ in with the seeded admin account.
 
 For production environments or NAS systems like **Unraid**, we provide a `docker-compose.prod.yml` that pulls the pre-built images from the GitHub Container Registry (`ghcr.io`), so you do not need to build them from source. By default it uses the latest published release; set `APP_IMAGE_TAG` in `.env` to pin an explicit release such as `1.2.17`.
 
+> **Note:** The `:latest` tag (and versioned tags like `1.2.17`) are published to GHCR when a `vX.Y.Z` release tag is pushed. At least one release tag must exist before prebuilt-image deployment works. If no release tag has been pushed yet, build from source instead (see [Local Development / Building from source](#local-development--building-from-source)).
+
 **For general Linux (Ubuntu, Debian, etc):**
 
 ```bash
