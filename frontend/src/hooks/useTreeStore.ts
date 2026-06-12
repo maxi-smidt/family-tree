@@ -210,12 +210,9 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
         get().refreshRelationTypes(tree.id),
         useMemberStore.getState().refreshMembers(tree.id),
       ]);
-      // Run dagre layout unless the server explicitly confirmed a saved layout.
-      // Using !== true covers both hasLayout===false (first open) and undefined
-      // (metadata fetch failed or returned an incomplete payload).
-      if (get().metadata.hasLayout !== true) {
-        await useMemberStore.getState().updateLayout();
-      }
+      // Virtual views always recompute layout from the live source graph
+      // topology; positions are never persisted, so there is no saved layout.
+      await useMemberStore.getState().updateLayout();
     } else {
       // Marks the tree as "opened" server-side and returns the latest role.
       try {

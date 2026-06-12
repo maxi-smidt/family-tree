@@ -465,6 +465,19 @@ def list_virtual_relations(
     source_ids = [s.tree_id for s in view.sources]
     id_map = _build_id_map(db, view)
 
+    # Member IDs that are primary for their merge group. A merged node's
+    # parent edges are restricted to the primary member's parents so the node
+    # never accumulates >2 parents, which would break dagre layout downstream.
+    # Non-parent relations (married, sibling, …) are kept from all members.
+    primary_ids: set[str] = set(
+        db.scalars(
+            select(VirtualViewMemberMatch.member_id).where(
+                VirtualViewMemberMatch.view_id == view.id,
+                VirtualViewMemberMatch.is_primary.is_(True),
+            )
+        )
+    )
+
     raw = list(
         db.scalars(
             select(Relation).where(Relation.tree_id.in_(source_ids))
@@ -474,6 +487,14 @@ def list_virtual_relations(
     seen: set[tuple[str, str, str]] = set()
     result: list[RelationOut] = []
     for rel in raw:
+        # Drop parent relations from secondary members of a merged group.
+        if rel.relation_type == "parent":
+            is_merged_from = (
+                id_map.get(rel.from_member_id, rel.from_member_id)
+                != rel.from_member_id
+            )
+            if is_merged_from and rel.from_member_id not in primary_ids:
+                continue
         from_id = id_map.get(rel.from_member_id, rel.from_member_id)
         to_id = id_map.get(rel.to_member_id, rel.to_member_id)
         if from_id == to_id:
