@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Story, StoryAttachment, StoryMemberLink, Tree
@@ -46,24 +47,34 @@ def _get_attachment(db: Session, story: Story, attachment_id: str) -> StoryAttac
         raise HTTPException(status_code=404, detail="Attachment not found")
     return att
 
-
-
 @router.get("", response_model=list[StoryOut])
-def list_stories(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(
+def list_stories(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = (
         select(Story)
         .where(Story.tree_id == tree.id)
+        .order_by(Story.created_at, Story.id)
         .options(selectinload(Story.attachments))
-    ).all()
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.get("/links", response_model=list[StoryLinkOut])
-def list_links(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(
+def list_links(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = (
         select(StoryMemberLink)
         .join(Story, Story.id == StoryMemberLink.story_id)
         .where(Story.tree_id == tree.id)
-    ).all()
+        .order_by(StoryMemberLink.story_id, StoryMemberLink.member_id)
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.post("", response_model=StoryOut, status_code=201)
