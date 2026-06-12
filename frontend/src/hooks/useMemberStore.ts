@@ -458,15 +458,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       }),
     });
 
-    // Virtual views are SQL-VIEW-like: positions are ephemeral, derived each
-    // session from the source graph topology. Don't persist to the backend —
-    // source trees stay unchanged, and no undo history applies.
-    if (isVirtualId(treeId)) return;
-
     await TreeService.updateMemberPositions(
       treeId,
       positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
     );
+
+    // Virtual view positions are stored in VirtualViewPosition, not source
+    // trees — they're independent. But position moves have no undo history.
+    if (isVirtualId(treeId)) return;
 
     get()._pushHistory({
       undo: async () => {

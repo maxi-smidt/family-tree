@@ -49,6 +49,9 @@ export const FlowPanel = () => {
   const canWrite = activeTree?.role !== "viewer";
   const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
   const isCanvasReadOnly = isMobile || !canWrite;
+  // Virtual views allow dragging even though canWrite is false (role: "viewer").
+  // Positions are persisted independently in VirtualViewPosition.
+  const canDragLayout = !isMobile && (canWrite || isVirtualView);
   useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useTreeStore();
   const {
@@ -287,7 +290,7 @@ export const FlowPanel = () => {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={
-          isCanvasReadOnly || connection.isConnectionMode
+          (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
             ? undefined
             : onNodesChange
         }
@@ -312,7 +315,7 @@ export const FlowPanel = () => {
         snapToGrid={true}
         snapGrid={[50, 50]}
         nodesDraggable={
-          !connection.isConnectionMode && !isLockedScreen && !isCanvasReadOnly
+          !connection.isConnectionMode && !isLockedScreen && canDragLayout
         }
         nodesConnectable={
           !connection.isConnectionMode && !isLockedScreen && !isCanvasReadOnly

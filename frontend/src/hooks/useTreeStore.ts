@@ -210,9 +210,11 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
         get().refreshRelationTypes(tree.id),
         useMemberStore.getState().refreshMembers(tree.id),
       ]);
-      // Virtual views always recompute layout from the live source graph
-      // topology; positions are never persisted, so there is no saved layout.
-      await useMemberStore.getState().updateLayout();
+      // Only auto-layout when there are no saved overlay positions yet.
+      // Once the user has arranged the view, respect those positions.
+      if (get().metadata.hasLayout !== true) {
+        await useMemberStore.getState().updateLayout();
+      }
     } else {
       // Marks the tree as "opened" server-side and returns the latest role.
       try {
