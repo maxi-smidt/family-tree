@@ -7,10 +7,16 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   frontend:
-    name: "Frontend (build + test)"
+    name: "Frontend (build + test + i18n)"
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,8 +41,28 @@ jobs:
       - name: "Unit tests"
         run: npx vitest run
 
+      - name: "Translation parity"
+        run: npm run check-i18n
+
       - name: "No explicit any"
         run: npm run check-no-any
+
+  i18n-status:
+    # Compatibility status for existing branch protection. The actual
+    # `npm run check-i18n` command runs in the frontend job above.
+    name: "Check for Missing i18n Keys"
+    needs: [frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Require frontend i18n step to pass"
+        run: |
+          echo "frontend=${{ needs.frontend.result }}"
+          if [ "${{ needs.frontend.result }}" != "success" ]; then
+            echo "The frontend job runs npm run check-i18n and did not pass."
+            exit 1
+          fi
+          echo "i18n passed in the frontend job."
 
   backend:
     name: "Backend (deps + checks)"
@@ -68,19 +94,165 @@ jobs:
       - name: "Unit tests"
         run: uv run pytest
 
+  version-policy:
+    name: "Version metadata policy"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Check package metadata"
+        run: |
+          PACKAGE_VERSION=$(jq -r .version frontend/package.json)
+          LOCK_VERSION=$(jq -r .version frontend/package-lock.json)
+          LOCK_ROOT_VERSION=$(jq -r '.packages[""].version' frontend/package-lock.json)
+
+          echo "frontend/package.json:      $PACKAGE_VERSION"
+          echo "frontend/package-lock.json: $LOCK_VERSION"
+          echo "lock root package:          $LOCK_ROOT_VERSION"
+
+          if [ "$PACKAGE_VERSION" != "$LOCK_VERSION" ] || [ "$PACKAGE_VERSION" != "$LOCK_ROOT_VERSION" ]; then
+            echo "Package version metadata is out of sync."
+            echo "Run 'npm run bump:patch|minor|major' from frontend/ or update the lockfile."
+            exit 1
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            echo "Release tag:                $TAG_VERSION"
+            if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+              echo "Release tag v$TAG_VERSION does not match frontend/package.json version $PACKAGE_VERSION."
+              exit 1
+            fi
+          else
+            echo "Ordinary PRs and main pushes do not need a version bump."
+          fi
+
   # Aggregate gate so the existing required status check named
   # "Check Application Build" (branch protection) keeps being reported.
   check-build:
     name: "Check Application Build"
-    needs: [frontend, backend]
+    needs: [frontend, i18n-status, backend, version-policy]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: "Require frontend and backend to pass"
+      - name: "Require all checks to pass"
         run: |
-          echo "frontend=${{ needs.frontend.result }} backend=${{ needs.backend.result }}"
-          if [ "${{ needs.frontend.result }}" != "success" ] || [ "${{ needs.backend.result }}" != "success" ]; then
+          echo "frontend=${{ needs.frontend.result }} i18n-status=${{ needs.i18n-status.result }} backend=${{ needs.backend.result }} version-policy=${{ needs.version-policy.result }}"
+          if [ "${{ needs.frontend.result }}" != "success" ] || [ "${{ needs.i18n-status.result }}" != "success" ] || [ "${{ needs.backend.result }}" != "success" ] || [ "${{ needs.version-policy.result }}" != "success" ]; then
             echo "One or more checks failed."
             exit 1
           fi
           echo "All checks passed."
+
+  images:
+    name: "Build & push ${{ matrix.service }} image"
+    needs: [check-build]
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: publish-images-${{ github.ref }}-${{ matrix.service }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: backend
+            context: ./backend
+          - service: frontend
+            context: ./frontend
+
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Resolve build metadata"
+        id: build-meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
+            REF_NAME="${GITHUB_REF_NAME//\//-}"
+            VERSION="${REF_NAME}-${SHORT_SHA}"
+          else
+            VERSION="manual-${SHORT_SHA}"
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "revision=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+      - name: "Log in to GHCR"
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Docker metadata"
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}-${{ matrix.service }}
+          flavor: latest=false
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v3
+
+      # Build into the local Docker daemon first so Trivy can scan the image
+      # before anything is pushed. The push step below is a pure cache hit.
+      - name: "Build for scanning"
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          load: true
+          tags: scan-target/${{ matrix.service }}:ci
+          build-args: |
+            APP_VERSION=${{ steps.build-meta.outputs.version }}
+            APP_REVISION=${{ steps.build-meta.outputs.revision }}
+            APP_BUILD_DATE=${{ steps.build-meta.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: "Report vulnerabilities (Trivy)"
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: scan-target/${{ matrix.service }}:ci
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+      - name: "Gate on fixable CRITICAL vulnerabilities (Trivy)"
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: scan-target/${{ matrix.service }}:ci
+          format: table
+          severity: CRITICAL
+          # Only fixable CRITICALs block the publish; a CVE with no patched
+          # package available yet shouldn't stall releases.
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+
+      - name: "Build and push"
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ steps.build-meta.outputs.version }}
+            APP_REVISION=${{ steps.build-meta.outputs.revision }}
+            APP_BUILD_DATE=${{ steps.build-meta.outputs.build_date }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

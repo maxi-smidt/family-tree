@@ -5,6 +5,7 @@
 #   UI_PORT        host port the web UI is served on
 #   APP_DATA_PATH  host path for application data (Postgres + backend appdata)
 #   DATA_PATH      host path for the "real" data (member photos, gallery media)
+#   APP_IMAGE_TAG  app image tag for both frontend and backend
 
 services:
   db:
@@ -26,7 +27,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ghcr.io/maxi-smidt/family-tree-backend:latest
+    image: ghcr.io/maxi-smidt/family-tree-backend:${APP_IMAGE_TAG:-latest}
     depends_on:
       db:
         condition: service_healthy
@@ -65,7 +66,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ghcr.io/maxi-smidt/family-tree-frontend:latest
+    image: ghcr.io/maxi-smidt/family-tree-frontend:${APP_IMAGE_TAG:-latest}
     depends_on:
       backend:
         condition: service_healthy

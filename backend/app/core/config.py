@@ -24,7 +24,9 @@ class Settings(BaseSettings):
 
     # --- General -----------------------------------------------------------
     APP_NAME: str = "Family Tree"
-    APP_VERSION: str = "1.0.0"
+    APP_VERSION: str = "dev"
+    APP_REVISION: str = "dev"
+    APP_BUILD_DATE: str = ""
     ENVIRONMENT: str = "production"
     API_PREFIX: str = "/api"
 
