@@ -156,10 +156,9 @@ export const useFlowEdges = (
             target: cId,
             sourceHandle: "bottom",
             targetHandle: "top",
-            // Use bezier ("default") so that when a child is offset far
-            // horizontally from the union (e.g. a merged bridge node), the
-            // descent curves gracefully instead of making a rectangular step.
-            type: "default",
+            // Follow the user's edge-type preference for all descent lines so
+            // the tree looks consistent (default is "step" — structured right angles).
+            type: edgeType,
             style: connectionStyle(
               { strokeWidth: 1.5 },
               isHighlighted,

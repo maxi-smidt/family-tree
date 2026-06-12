@@ -255,5 +255,46 @@ export const getLayoutedElements = (members: Member[]) => {
     }
   });
 
+  // Post-process: for each merged (vm_) node, re-center its parents horizontally
+  // above ALL their children (not just the sibling cluster dagre places them over).
+  // This prevents situations where parents stay far to one side because dagre only
+  // "sees" the unmerged siblings when computing their horizontal position.
+  const parentXOverride = new Map<string, number>();
+
+  members.forEach((m) => {
+    if (!m.id.startsWith("vm_")) return;
+    const { paternalParent, maternalParent } = m.parents;
+    if (!paternalParent || !maternalParent) return;
+    if (!memberIds.has(paternalParent) || !memberIds.has(maternalParent)) return;
+
+    // All members that share exactly these two parents.
+    const sharedChildren = members.filter(
+      (s) =>
+        s.parents.paternalParent === paternalParent &&
+        s.parents.maternalParent === maternalParent,
+    );
+    if (sharedChildren.length < 2) return;
+
+    const xs = sharedChildren
+      .map((s) => finalPositions[s.id]?.x)
+      .filter((x): x is number => x !== undefined);
+    if (xs.length === 0) return;
+
+    const avgX = xs.reduce((a, b) => a + b, 0) / xs.length;
+    const halfGap = (NODE_WIDTH + NODE_SEPARATION) / 2;
+
+    parentXOverride.set(paternalParent, avgX - halfGap);
+    parentXOverride.set(maternalParent, avgX + halfGap);
+  });
+
+  parentXOverride.forEach((x, id) => {
+    if (finalPositions[id]) {
+      finalPositions[id] = {
+        ...finalPositions[id],
+        x: Math.round(x / GRID_SIZE) * GRID_SIZE,
+      };
+    }
+  });
+
   return finalPositions;
 };
