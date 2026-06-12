@@ -129,6 +129,7 @@ Browser (React SPA)
 ## Documentation
 
 - **[SETUP.md](./docs/SETUP.md)** — Development environment setup
+- **[OPERATIONS.md](./docs/OPERATIONS.md)** — Self-hosting operations: backup/restore, upgrades, HTTPS, Authentik
 - **[AGENTS.md](./docs/AGENTS.md)** — Architecture and development guidelines
 - **[SECURITY.md](./docs/SECURITY.md)** — Export encryption and auth model
 - **[I18N_GUIDE.md](./docs/I18N_GUIDE.md)** — Internationalization conventions

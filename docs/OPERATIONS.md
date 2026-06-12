@@ -1,0 +1,361 @@
+# Operations Guide
+
+Day-2 operations for a self-hosted Family Tree instance running the Docker
+Compose stack ([`docker-compose.prod.yml`](../docker-compose.prod.yml) with the
+published GHCR images, or [`docker-compose.yml`](../docker-compose.yml) when
+building locally). For first-time setup see [SETUP.md](SETUP.md); for the
+security architecture see [SECURITY.md](SECURITY.md).
+
+Covered here:
+
+1. [Backup & restore](#backup--restore)
+2. [Upgrades](#upgrades)
+3. [HTTPS / reverse proxy](#https--reverse-proxy)
+4. [Authentik (OIDC) walkthrough](#authentik-oidc-walkthrough)
+
+Throughout, `db` / `backend` / `frontend` are the Compose service names and the
+examples assume you run commands from the directory containing your compose
+file and `.env`.
+
+---
+
+## Backup & restore
+
+Your instance has **two** data locations, and you must back up **both**:
+
+| What                         | Where (host)                       | Contains                                  |
+| ---------------------------- | ---------------------------------- | ----------------------------------------- |
+| PostgreSQL database          | `${APP_DATA_PATH}/postgres`        | members, relations, users, stories, settings |
+| Media files                  | `${DATA_PATH}` (served as `/data`) | member photos and gallery images under `media/` |
+
+> ⚠️ **A database-only backup silently loses every photo.** The database stores
+> only file references; the image bytes live under `${DATA_PATH}/media`. Always
+> back up the media directory alongside the SQL dump.
+
+### Online backup (no downtime)
+
+Dump the database through the running `db` container and archive the media
+directory. `pg_dump` produces a consistent snapshot even while the app is in
+use:
+
+```bash
+# Load the same variables the stack uses (POSTGRES_USER, DATA_PATH, ...).
+set -a; source .env; set +a
+
+STAMP=$(date +%F_%H-%M)
+mkdir -p backups
+
+# 1. Database — custom format (-Fc) supports selective/parallel restore.
+docker compose exec -T db pg_dump -U "${POSTGRES_USER:-familytree}" \
+  -Fc "${POSTGRES_DB:-familytree}" > "backups/familytree_${STAMP}.dump"
+
+# 2. Media files.
+tar -czf "backups/media_${STAMP}.tar.gz" -C "${DATA_PATH:-./data}" .
+```
+
+Copy the two files somewhere off the host (another machine, object storage,
+etc.). A backup that lives only on the server it protects is not a backup.
+
+To run this on a schedule, put the commands in a script and add a cron entry,
+e.g. nightly at 02:30:
+
+```cron
+30 2 * * * cd /opt/family-tree && ./backup.sh >> backups/backup.log 2>&1
+```
+
+Prune old backups with something like
+`find backups -name 'familytree_*' -mtime +30 -delete`.
+
+### Offline backup (cold copy)
+
+For a byte-exact snapshot (e.g. before a risky upgrade), stop the stack and
+copy both data directories:
+
+```bash
+docker compose down
+tar -czf backups/full_$(date +%F).tar.gz \
+  "${APP_DATA_PATH:-./appdata}" "${DATA_PATH:-./data}" .env
+docker compose up -d
+```
+
+This also captures the backend's working data and your `.env` (which contains
+`SECRET_KEY` — keep this archive private; without the same `SECRET_KEY`,
+existing sessions are invalidated after a restore, which is harmless, but
+treat the value as a credential).
+
+### Restore
+
+On a fresh host: install Docker, copy the repo's compose file plus your backed
+up `.env`, then:
+
+```bash
+set -a; source .env; set +a
+
+# 1. Start ONLY the database.
+docker compose up -d db
+
+# 2. Recreate the schema owner's database from the dump.
+docker compose exec -T db dropdb   -U "${POSTGRES_USER:-familytree}" --if-exists "${POSTGRES_DB:-familytree}"
+docker compose exec -T db createdb -U "${POSTGRES_USER:-familytree}" "${POSTGRES_DB:-familytree}"
+docker compose exec -T db pg_restore -U "${POSTGRES_USER:-familytree}" \
+  -d "${POSTGRES_DB:-familytree}" --no-owner < backups/familytree_<STAMP>.dump
+
+# 3. Restore the media files.
+mkdir -p "${DATA_PATH:-./data}"
+tar -xzf backups/media_<STAMP>.tar.gz -C "${DATA_PATH:-./data}"
+
+# 4. Start the rest of the stack.
+docker compose up -d
+```
+
+If you took an *offline* backup instead, simply extract the archive back to
+the same paths before `docker compose up -d` — no `pg_restore` needed, the
+Postgres data directory is restored as-is.
+
+**Verify the restore**: log in, open a tree, and spot-check that member photos
+and gallery images load. Images failing to load while the tree looks fine is
+the classic symptom of a restored database without restored media.
+
+> Restoring a dump into a **newer** app version is fine — pending migrations
+> run automatically on backend startup (see below). Restoring into an **older**
+> version than the one that produced the dump is not supported.
+
+### Encrypted exports are not backups
+
+The in-app export (encrypted `.treedb` per tree) is great for moving a single
+tree between instances or keeping a personal copy, but it is per-tree, manual,
+and excludes users, sharing, and settings. Use it in addition to — never
+instead of — the database + media backup above.
+
+---
+
+## Upgrades
+
+The published images are `ghcr.io/maxi-smidt/family-tree-backend` and
+`ghcr.io/maxi-smidt/family-tree-frontend`.
+
+```bash
+# 1. Back up first (see above) — especially before major version jumps.
+# 2. Pull the new images and restart:
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+```
+
+That is the whole procedure, because of two properties of the stack:
+
+- **Migrations run automatically.** On every startup the backend runs
+  `alembic upgrade head` before serving traffic, then seeds the admin user and
+  default settings if missing. You never run Alembic by hand in production.
+- **Health-gated startup.** The frontend container only starts once the
+  backend reports ready (`/api/health/ready`), and the backend waits for the
+  database health check, so a normal upgrade never serves the UI against a
+  half-migrated schema.
+
+If you build locally instead of pulling images, replace step 2 with
+`git pull && docker compose up -d --build`.
+
+### If a migration fails
+
+A failed migration leaves the backend container restarting in a loop
+(`restart: unless-stopped`). To diagnose and recover:
+
+```bash
+docker compose logs backend --tail 100   # the Alembic error is at the top of the loop
+```
+
+1. **Don't retry blindly.** Alembic migrations run in a transaction on
+   PostgreSQL, so a failed migration rolls back — your data is intact at the
+   previous schema version.
+2. **Pin back to the previous image** to get the app running again while you
+   investigate, e.g. in `docker-compose.prod.yml` change `:latest` to the last
+   working version tag, then `docker compose up -d`.
+3. **Check the release notes / open an issue** with the logged error. Typical
+   causes are environment-specific (out of disk, custom schema changes made
+   directly in the database).
+4. After a fix is released (or the cause is removed), restore the `:latest`
+   tag and `pull` + `up -d` again — Alembic resumes from where it left off.
+
+> Tip: avoid `:latest` drift in long-lived deployments by pinning explicit
+> version tags and bumping them deliberately.
+
+---
+
+## HTTPS / reverse proxy
+
+The stack publishes plain HTTP on `${UI_PORT}` (default `8080`). For any
+non-local deployment put a TLS-terminating reverse proxy in front and proxy
+**only the frontend port** — it already forwards `/api` to the backend
+internally, so a single upstream is all you need.
+
+Two settings must match the public URL, otherwise OAuth redirects and CORS
+break:
+
+```dotenv
+# .env
+FRONTEND_URL=https://family.example.com
+CORS_ORIGINS=https://family.example.com
+```
+
+After changing them: `docker compose up -d` (recreates the backend with the
+new environment).
+
+### Caddy (simplest)
+
+```caddy
+family.example.com {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Caddy obtains and renews the Let's Encrypt certificate automatically.
+
+### nginx
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name family.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/family.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/family.example.com/privkey.pem;
+
+    # Media uploads (photos) can exceed nginx's 1m default.
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+server {
+    listen 80;
+    server_name family.example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+### Traefik (labels on the frontend service)
+
+If Traefik runs in the same Docker network, expose the frontend via labels
+instead of a published port:
+
+```yaml
+# docker-compose.override.yml
+services:
+  frontend:
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.familytree.rule=Host(`family.example.com`)
+      - traefik.http.routers.familytree.entrypoints=websecure
+      - traefik.http.routers.familytree.tls.certresolver=letsencrypt
+      - traefik.http.services.familytree.loadbalancer.server.port=8080
+    networks: [default, traefik]
+
+networks:
+  traefik:
+    external: true
+```
+
+With a proxy in place, consider removing the `ports:` mapping from the
+`frontend` service (and the `127.0.0.1:5432` mapping on `db` if you don't need
+host database access) so the only way in is through TLS.
+
+---
+
+## Authentik (OIDC) walkthrough
+
+Family Tree supports Authentik as an optional single-sign-on provider next to
+local accounts. The high-level flow: you create a provider + application in
+Authentik, then hand the client ID/secret and the discovery URL to Family Tree
+via environment variables. The "Sign in with Authentik" button appears
+automatically once they are set.
+
+### 1. Create the OAuth2/OpenID provider (in Authentik)
+
+In the Authentik admin UI: **Applications → Providers → Create**, type
+**OAuth2/OpenID Provider**:
+
+- **Name**: `family-tree`
+- **Authorization flow**: your standard authorize flow (e.g.
+  `default-provider-authorization-explicit-consent`)
+- **Client type**: `Confidential`
+- **Redirect URI** (strict):
+
+  ```
+  https://family.example.com/api/auth/oauth/authentik/callback
+  ```
+
+  This is exactly `${FRONTEND_URL}/api/auth/oauth/authentik/callback` — the
+  callback goes through the frontend's `/api` proxy, not directly to the
+  backend.
+- **Scopes**: keep the defaults `openid`, `email`, `profile`. Authentik's
+  built-in `profile` scope mapping already includes the user's `groups`
+  claim, which Family Tree uses for admin sync (below).
+
+Note the generated **Client ID** and **Client Secret**.
+
+### 2. Create the application (in Authentik)
+
+**Applications → Applications → Create**:
+
+- **Name**: `Family Tree`, **Slug**: `family-tree`
+- **Provider**: the provider from step 1
+
+The slug determines the discovery URL:
+
+```
+https://authentik.example.com/application/o/family-tree/.well-known/openid-configuration
+```
+
+Open that URL in a browser — it must return JSON. If it 404s, the slug doesn't
+match.
+
+### 3. (Optional) Create the admin group
+
+Members of one Authentik group are made Family Tree admins. Create a group
+(default expected name: `family-tree-admins`) under **Directory → Groups** and
+add the relevant users.
+
+Group membership is synced on **every** Authentik login, in both directions:
+adding a user to the group grants admin on their next login, removing them
+revokes it. Admin status of *local* accounts is never touched by this sync.
+
+### 4. Configure Family Tree
+
+Add to your `.env` and recreate the backend (`docker compose up -d`):
+
+```dotenv
+AUTHENTIK_CLIENT_ID=<client id from step 1>
+AUTHENTIK_CLIENT_SECRET=<client secret from step 1>
+AUTHENTIK_DISCOVERY_URL=https://authentik.example.com/application/o/family-tree/.well-known/openid-configuration
+AUTHENTIK_ADMIN_GROUP=family-tree-admins
+```
+
+Further knobs (defaults shown):
+
+| Variable                      | Default                  | Effect                                                                 |
+| ----------------------------- | ------------------------ | ---------------------------------------------------------------------- |
+| `AUTHENTIK_SCOPES`            | `openid email profile`   | Scopes requested from Authentik.                                       |
+| `AUTHENTIK_AUTO_CREATE_USERS` | `true`                   | Create a Family Tree account on first Authentik login. If `false`, only users that already exist (matched by email) can sign in via Authentik. |
+| `AUTHENTIK_ADMIN_GROUP`       | `family-tree-admins`     | Group granting admin. Set empty to disable admin sync entirely.        |
+
+### 5. Verify
+
+1. Open the login page — a **Sign in with Authentik** button should appear.
+2. Log in as a user in the admin group → they should see the admin menu.
+3. Remove them from the group, log out/in again → admin gone.
+
+**Troubleshooting**
+
+- Redirected back with `#oauth_error=1`: redirect URI mismatch (compare the
+  Authentik provider's redirect URI against `FRONTEND_URL` — including the
+  scheme) or wrong client secret. The backend logs the underlying error.
+- `#oauth_error=nouser`: `AUTHENTIK_AUTO_CREATE_USERS=false` and no existing
+  account matched the user's email.
+- Button missing: one of the three required variables
+  (`AUTHENTIK_CLIENT_ID`, `AUTHENTIK_CLIENT_SECRET`,
+  `AUTHENTIK_DISCOVERY_URL`) is unset — all three are needed.
