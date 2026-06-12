@@ -152,19 +152,29 @@ def _build_composite_members(
             group_primary[r.group_id] = r.member_id
 
     # X-offset fallback for when no overlay exists (first load before alignment).
+    # Each tree is normalized to start at its own slot so the gap between trees
+    # is always exactly GAP, regardless of where members originally sat in the DB.
     GAP = 600.0
     x_offset = 0.0
     tree_offsets: dict[str, float] = {}
+    tree_min_x: dict[str, float] = {}
     for tid in source_ids:
         tree_members = [m for m, _ in rows if m.tree_id == tid]
         tree_offsets[tid] = x_offset
         if tree_members:
             min_x = min(m.positionX for m in tree_members)
             max_x = max(m.positionX for m in tree_members)
+            tree_min_x[tid] = min_x
             x_offset += (max_x - min_x) + GAP
 
+    def _node_sort_key(
+        item: tuple[str, list[tuple[Member, str]]],
+    ) -> tuple[int, str]:
+        nid, node_rows = item
+        return (min(source_order.get(m.tree_id, 999) for m, _ in node_rows), nid)
+
     result: list[VirtualMemberOut] = []
-    for node_id, member_rows in by_node.items():
+    for node_id, member_rows in sorted(by_node.items(), key=_node_sort_key):
         is_merged = len(member_rows) > 1 or node_id.startswith("vm_")
         primary_member_id = group_primary.get(node_id) if is_merged else None
 
@@ -195,13 +205,8 @@ def _build_composite_members(
             pos_x, pos_y = overlay[node_id]
         else:
             offset = tree_offsets.get(primary_m.tree_id, 0.0)
-            min_x_tree = min(
-                m.positionX
-                for m in db.scalars(
-                    select(Member).where(Member.tree_id == primary_m.tree_id)
-                ).all()
-            ) if not is_merged else primary_m.positionX
-            pos_x = primary_m.positionX - (min_x_tree if is_merged else 0) + offset
+            min_x_tree = tree_min_x.get(primary_m.tree_id, 0.0)
+            pos_x = primary_m.positionX - min_x_tree + offset
             pos_y = primary_m.positionY
 
         out = MemberOut.model_validate(primary_m).model_dump()

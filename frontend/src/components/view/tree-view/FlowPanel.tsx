@@ -9,7 +9,7 @@ import {
   ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -225,6 +225,18 @@ export const FlowPanel = () => {
     if (!isReady) return;
     initializeFlow();
   }, [members, isReady]);
+
+  // Virtual views: the viewport is a global setting (not per-tree), so after a
+  // virtual view loads we must fit the view regardless of where the camera was.
+  // The ref prevents re-fitting on every drag (nodes change) — once per view id.
+  const fittedViewRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isReady || !rfInstance || !isVirtualView || !activeTree) return;
+    if (nodes.length === 0) return;
+    if (fittedViewRef.current === activeTree.id) return;
+    fittedViewRef.current = activeTree.id;
+    requestAnimationFrame(() => rfInstance.fitView({ padding: 0.2 }));
+  }, [isReady, rfInstance, isVirtualView, activeTree, nodes]);
 
   useEffect(() => {
     setSelectedNodes((prevSelected) => {
