@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
 from app.models import Member, MemberDisease, Relation, RelationType, Tree
 from app.models.user import User
@@ -35,8 +36,13 @@ def _get_member(db: Session, tree: Tree, member_id: str) -> Member:
 
 # --- Members ---------------------------------------------------------------
 @router.get("/members", response_model=list[MemberOut])
-def list_members(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(select(Member).where(Member.tree_id == tree.id)).all()
+def list_members(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = select(Member).where(Member.tree_id == tree.id).order_by(Member.id)
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.post("/members", response_model=MemberOut, status_code=201)
@@ -179,9 +185,20 @@ def delete_member(
 # --- Relations -------------------------------------------------------------
 @router.get("/relations", response_model=list[RelationOut])
 def list_relations(
-    tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
 ):
-    return db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
+    statement = (
+        select(Relation)
+        .where(Relation.tree_id == tree.id)
+        .order_by(
+            Relation.from_member_id,
+            Relation.to_member_id,
+            Relation.relation_type,
+        )
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.post("/relations", response_model=RelationOut, status_code=201)
@@ -252,11 +269,16 @@ def remove_relation(
 # --- Diseases --------------------------------------------------------------
 @router.get("/diseases", response_model=list[DiseaseOut])
 def list_diseases(
-    tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
 ):
-    return db.scalars(
-        select(MemberDisease).where(MemberDisease.tree_id == tree.id)
-    ).all()
+    statement = (
+        select(MemberDisease)
+        .where(MemberDisease.tree_id == tree.id)
+        .order_by(MemberDisease.id)
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.post("/diseases", response_model=DiseaseOut, status_code=201)

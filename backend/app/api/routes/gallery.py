@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
 from app.models import GalleryImage, GalleryMemberLink, Tree
 from app.models.user import User
@@ -33,22 +34,33 @@ def _get_image(db: Session, tree: Tree, image_id: str) -> GalleryImage:
         raise HTTPException(status_code=404, detail="Image not found")
     return image
 
-
-
 @router.get("/images", response_model=list[GalleryImageOut])
-def list_images(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(
-        select(GalleryImage).where(GalleryImage.tree_id == tree.id)
-    ).all()
+def list_images(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = (
+        select(GalleryImage)
+        .where(GalleryImage.tree_id == tree.id)
+        .order_by(GalleryImage.uploadedAt, GalleryImage.id)
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.get("/links", response_model=list[GalleryLinkOut])
-def list_links(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(
+def list_links(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = (
         select(GalleryMemberLink)
         .join(GalleryImage, GalleryImage.id == GalleryMemberLink.gallery_image_id)
         .where(GalleryImage.tree_id == tree.id)
-    ).all()
+        .order_by(GalleryMemberLink.gallery_image_id, GalleryMemberLink.member_id)
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.post("/images", response_model=GalleryImageOut, status_code=201)

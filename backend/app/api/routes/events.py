@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
 from app.models import Event, EventMemberLink, Tree
 from app.models.user import User
@@ -23,17 +24,30 @@ def _get_event(db: Session, tree: Tree, event_id: str) -> Event:
 
 
 @router.get("", response_model=list[EventOut])
-def list_events(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(select(Event).where(Event.tree_id == tree.id)).all()
+def list_events(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = (
+        select(Event).where(Event.tree_id == tree.id).order_by(Event.created_at, Event.id)
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.get("/links", response_model=list[EventLinkOut])
-def list_links(tree: Tree = Depends(get_readable_tree), db: Session = Depends(get_db)):
-    return db.scalars(
+def list_links(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = (
         select(EventMemberLink)
         .join(Event, Event.id == EventMemberLink.event_id)
         .where(Event.tree_id == tree.id)
-    ).all()
+        .order_by(EventMemberLink.event_id, EventMemberLink.member_id)
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
 
 
 @router.post("", response_model=EventOut, status_code=201)
