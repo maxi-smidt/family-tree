@@ -1,0 +1,71 @@
+name: Security Scan
+
+# Dependency vulnerability scanning for both dependency trees.
+# Report-only for now (failures annotate the run but never block a PR), so we
+# get visibility without noise; tighten to blocking once the baseline is clean.
+
+on:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly, Monday 05:00 UTC - catches advisories published between PRs.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm-audit:
+    name: "Frontend (npm audit)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: "Audit production dependencies"
+        # Report-only: surface the report in the job summary, don't fail the PR.
+        run: |
+          echo '## npm audit (production deps)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npm audit --omit=dev | tee -a "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  pip-audit:
+    name: "Backend (pip-audit)"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Set up uv"
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: "Audit locked dependencies"
+        # Audit exactly what uv.lock pins for production (no dev group).
+        # Report-only: surface the report in the job summary, don't fail the PR.
+        run: |
+          uv export --frozen --no-dev --no-emit-project --no-hashes \
+            --format requirements-txt -o requirements-audit.txt
+          echo '## pip-audit (locked production deps)' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          uvx pip-audit --requirement requirements-audit.txt --disable-pip \
+            | tee -a "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
