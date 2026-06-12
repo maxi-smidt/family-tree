@@ -15,7 +15,7 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation, RelationType
-from app.models.setting import AppSetting
+from app.models.setting import AppSetting, FeatureFlagOverride
 from app.models.tree import Tree, TreeMembership
 from app.models.user import User
 from app.models.virtual_view import (
@@ -46,4 +46,5 @@ __all__ = [
     "StoryAttachment",
     "StoryMemberLink",
     "AppSetting",
+    "FeatureFlagOverride",
 ]

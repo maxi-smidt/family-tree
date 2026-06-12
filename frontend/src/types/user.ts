@@ -10,6 +10,8 @@ export interface User {
   /** Absolute purge deadline; non-null means the account is pending deletion. */
   deletion_scheduled_for?: string | null;
   deletion_requested_by?: string | null;
+  /** Resolved feature-flag set; only present on login/me responses. */
+  features?: string[];
 }
 
 export interface AuthConfig {

@@ -56,6 +56,29 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def require_feature(feature: str):
+    """Dependency factory gating a router/endpoint behind a feature flag.
+
+    Disabled features answer 404 (not 403) so they are indistinguishable from
+    routes that never existed — hiding a tab in the UI is not enough, the API
+    surface has to disappear too. Flags apply to admins like everyone else;
+    admins can flip the flag via the admin API instead.
+    """
+    from app.services import feature_service
+
+    if feature not in feature_service.FEATURES:  # fail fast on typos at import
+        raise ValueError(f"Unknown feature flag: {feature}")
+
+    def dependency(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> None:
+        if not feature_service.is_enabled(db, feature, user):
+            raise HTTPException(status_code=404, detail="Not found")
+
+    return dependency
+
+
 def role_for(db: Session, tree: Tree, user: User) -> str | None:
     """The user's genuine relationship to the tree: 'owner' | 'editor' |
     'viewer', or None when they have no explicit access.

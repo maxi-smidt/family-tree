@@ -259,6 +259,34 @@ def list_members(tree: Tree = Depends(get_readable_tree), db: Session = Depends(
 - Keep request/response field names aligned with the frontend types so
   `TreeService` and the stores keep working unchanged.
 
+### Feature flags
+
+Optional features are gated by instance-wide **feature flags** that admins can
+flip at runtime (`on` / `off` / `beta` + per-flag user allowlist). The registry
+in `backend/app/services/feature_service.py` is the source of truth; the
+frontend mirrors it in `frontend/src/lib/features.ts`. Core member/tree CRUD is
+never flagged.
+
+**Every new optional feature (new view, importer, report, …) should ship behind
+a flag.** That keeps rollout, beta testing, and the kill switch free. To add
+one:
+
+1. Register the name + default state in `feature_service.FEATURES`.
+2. Gate its routers/endpoints with `Depends(require_feature("<name>"))`
+   (`app/api/deps.py`) — disabled features must 404 on the API, hiding the UI
+   alone is not enough.
+3. Mirror the name in `frontend/src/lib/features.ts` (`ALL_FEATURES`, plus
+   `VIEW_FEATURES` if it has a main-panel tab) and gate other UI entry points
+   with `useFeature("<name>")` (components) or `hasFeature` (store actions).
+   If a store is eagerly loaded on tree select, skip the load in
+   `useTreeStore.connect` when the flag is off.
+4. Add `admin.features.names.<name>` and `admin.features.descriptions.<name>`
+   to every locale in `frontend/src/i18n/locales/`.
+
+The resolved set for the current user is returned by `/api/auth/me` (and login)
+as `features`; admins manage flags under `/api/admin/features` (Admin dialog →
+Features tab).
+
 ### Database operations
 
 1. Go through SQLAlchemy models — never build raw SQL strings.

@@ -4,14 +4,18 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree
+from app.api.deps import get_readable_tree, require_feature
 from app.db.session import get_db
 from app.models import Tree
 from app.models.family import Member, Relation
 from app.schemas.quality import QualityIssue, QualityReport
 from app.services.quality_checks import run_quality_checks
 
-router = APIRouter(prefix="/trees/{tree_id}", tags=["quality"])
+router = APIRouter(
+    prefix="/trees/{tree_id}",
+    tags=["quality"],
+    dependencies=[Depends(require_feature("quality_report"))],
+)
 
 
 @router.get("/quality-report", response_model=QualityReport)

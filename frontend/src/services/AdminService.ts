@@ -1,11 +1,26 @@
 import { api } from "@/services/api";
 import { User } from "@/types/user";
+import { FeatureName } from "@/lib/features";
 
 export interface AdminSettings {
   allow_self_registration: boolean;
   instance_name: string;
   default_language: string;
   deletion_grace_period_days: number;
+}
+
+export type FeatureState = "on" | "off" | "beta";
+
+export interface FeatureFlag {
+  name: FeatureName;
+  state: FeatureState;
+  /** User ids allowed to use the feature while it is in `beta`. */
+  allowlist: string[];
+}
+
+export interface FeatureFlagUpdate {
+  state?: FeatureState;
+  allowlist?: string[];
 }
 
 export interface CreateAdminUserInput {
@@ -48,5 +63,16 @@ export const AdminService = {
 
   updateSettings(settings: AdminSettings): Promise<AdminSettings> {
     return api.patch<AdminSettings>("/settings", settings);
+  },
+
+  listFeatures(): Promise<FeatureFlag[]> {
+    return api.get<FeatureFlag[]>("/admin/features");
+  },
+
+  updateFeature(
+    name: string,
+    changes: FeatureFlagUpdate,
+  ): Promise<FeatureFlag> {
+    return api.patch<FeatureFlag>(`/admin/features/${name}`, changes);
   },
 };

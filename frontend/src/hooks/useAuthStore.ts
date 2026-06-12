@@ -1,6 +1,12 @@
 import { create } from "zustand";
-import { api, getAuthToken, onUnauthorized, setAuthToken } from "@/services/api";
+import {
+  api,
+  getAuthToken,
+  onUnauthorized,
+  setAuthToken,
+} from "@/services/api";
 import { AuthConfig, TokenResponse, User } from "@/types/user";
+import { FeatureName } from "@/lib/features";
 import { decodeJwtExp } from "@/lib/utils";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
@@ -8,6 +14,8 @@ type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 interface AuthState {
   status: AuthStatus;
   user: User | null;
+  /** Feature flags resolved for this user by the backend (login/me). */
+  features: string[];
   config: AuthConfig | null;
   sessionExpiringSoon: boolean;
   reloginRequired: boolean;
@@ -52,6 +60,7 @@ function startExpiryCheck() {
 export const useAuthStore = create<AuthState>((set) => ({
   status: "loading",
   user: null,
+  features: [],
   config: null,
   sessionExpiringSoon: false,
   reloginRequired: false,
@@ -76,6 +85,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const user = await api.get<User>("/auth/me");
       set({
         user,
+        features: user.features ?? [],
         status: "authenticated",
         reloginRequired: false,
         sessionExpiringSoon: false,
@@ -83,7 +93,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       startExpiryCheck();
     } catch {
       setAuthToken(null);
-      set({ user: null, status: "unauthenticated" });
+      set({ user: null, features: [], status: "unauthenticated" });
     }
   },
 
@@ -95,6 +105,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     setAuthToken(res.access_token);
     set({
       user: res.user,
+      features: res.user.features ?? [],
       status: "authenticated",
       reloginRequired: false,
       sessionExpiringSoon: false,
@@ -110,6 +121,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     setAuthToken(null);
     set({
       user: null,
+      features: [],
       status: "unauthenticated",
       sessionExpiringSoon: false,
       reloginRequired: false,
@@ -118,7 +130,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   refreshMe: async () => {
     const user = await api.get<User>("/auth/me");
-    set({ user });
+    set({ user, features: user.features ?? [] });
   },
 
   deleteAccount: async (
@@ -139,6 +151,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     setAuthToken(res.access_token);
     set({
       user: res.user,
+      features: res.user.features ?? [],
       status: "authenticated",
       reloginRequired: false,
       sessionExpiringSoon: false,
@@ -146,6 +159,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     startExpiryCheck();
   },
 }));
+
+/** Reactive hook: is the feature enabled for the current user? */
+export const useFeature = (feature: FeatureName): boolean =>
+  useAuthStore((s) => s.features.includes(feature));
+
+/** Non-reactive check for store actions and other non-component code. */
+export const hasFeature = (feature: FeatureName): boolean =>
+  useAuthStore.getState().features.includes(feature);
 
 // Any 401 from the API triggers a relogin dialog instead of a hard logout,
 // so the user can re-authenticate in-place without losing UI state.

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Response, UploadFil
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree
+from app.api.deps import get_current_user, get_readable_tree, require_feature
 from app.core.constants import DEFAULT_RELATION_TYPES
 from app.db.base import utcnow_iso
 from app.db.session import get_db
@@ -269,7 +269,10 @@ def _import_links(db, links, model, parent_key, parent_map, member_map):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{tree_id}/export-gedcom")
+@router.get(
+    "/{tree_id}/export-gedcom",
+    dependencies=[Depends(require_feature("gedcom"))],
+)
 def export_tree_gedcom(
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
@@ -286,7 +289,12 @@ def export_tree_gedcom(
     )
 
 
-@router.post("/import-gedcom", response_model=TreeOut, status_code=201)
+@router.post(
+    "/import-gedcom",
+    response_model=TreeOut,
+    status_code=201,
+    dependencies=[Depends(require_feature("gedcom"))],
+)
 async def import_tree_gedcom(
     file: UploadFile,
     name: str | None = Form(default=None),

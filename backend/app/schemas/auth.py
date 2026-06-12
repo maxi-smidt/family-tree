@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from app.schemas.user import UserOut
+from app.schemas.user import CurrentUserOut
 
 
 class LoginRequest(BaseModel):
@@ -11,7 +11,7 @@ class LoginRequest(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user: UserOut
+    user: CurrentUserOut
 
 
 class AuthConfig(BaseModel):

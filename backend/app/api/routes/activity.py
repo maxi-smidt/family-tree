@@ -4,13 +4,17 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree
+from app.api.deps import get_readable_tree, require_feature
 from app.db.session import get_db
 from app.models import Tree
 from app.models.activity import ActivityLog
 from app.schemas.activity import ActivityOut
 
-router = APIRouter(prefix="/trees/{tree_id}", tags=["activity"])
+router = APIRouter(
+    prefix="/trees/{tree_id}",
+    tags=["activity"],
+    dependencies=[Depends(require_feature("activity_log"))],
+)
 
 
 @router.get("/activity", response_model=list[ActivityOut])

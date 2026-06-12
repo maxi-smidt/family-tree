@@ -10,6 +10,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
+import { hasFeature } from "@/hooks/useAuthStore";
 
 export const isVirtualId = (id: string) => id.startsWith("vv_");
 
@@ -42,9 +43,14 @@ interface DatabaseState {
   ) => Promise<Tree>;
   createVirtualView: (name: string, sourceTreeIds: string[]) => Promise<Tree>;
   renameVirtualView: (view: Tree, name: string) => Promise<void>;
-  updateVirtualViewSources: (view: Tree, sourceTreeIds: string[]) => Promise<void>;
+  updateVirtualViewSources: (
+    view: Tree,
+    sourceTreeIds: string[],
+  ) => Promise<void>;
   deleteVirtualView: (view: Tree) => Promise<void>;
-  recomputeMatches: (view: Tree) => Promise<{ groupCount: number; mergedMemberCount: number }>;
+  recomputeMatches: (
+    view: Tree,
+  ) => Promise<{ groupCount: number; mergedMemberCount: number }>;
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -72,7 +78,9 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
   loadTrees: async () => {
     const [trees, virtualViews] = await Promise.all([
       api.get<Tree[]>("/trees"),
-      TreeService.listVirtualViews().catch(() => [] as Tree[]),
+      hasFeature("virtual_views")
+        ? TreeService.listVirtualViews().catch(() => [] as Tree[])
+        : Promise.resolve([] as Tree[]),
     ]);
     set({ trees, virtualViews });
     // Drop a stale selection that no longer exists / is no longer accessible.
@@ -135,8 +143,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     const updated = await TreeService.updateVirtualView(view.id, { name });
     set((s) => ({
       virtualViews: s.virtualViews.map((v) => (v.id === view.id ? updated : v)),
-      selectedTree:
-        s.selectedTree?.id === view.id ? updated : s.selectedTree,
+      selectedTree: s.selectedTree?.id === view.id ? updated : s.selectedTree,
     }));
   },
 
@@ -146,8 +153,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     });
     set((s) => ({
       virtualViews: s.virtualViews.map((v) => (v.id === view.id ? updated : v)),
-      selectedTree:
-        s.selectedTree?.id === view.id ? updated : s.selectedTree,
+      selectedTree: s.selectedTree?.id === view.id ? updated : s.selectedTree,
     }));
   },
 
@@ -233,15 +239,22 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       } catch {
         // non-fatal; continue with what we have
       }
-      await Promise.all([
+      // Stores behind a disabled feature flag stay empty — their API routes
+      // answer 404, so loading them would just produce noise.
+      const loads = [
         get().refreshMetadata(tree.id),
         get().refreshRelationTypes(tree.id),
         useMemberStore.getState().refreshMembers(tree.id),
-        useGalleryStore.getState().refreshGalleryImages(tree.id),
-        useEventStore.getState().refreshEvents(tree.id),
-        useStoryStore.getState().refreshStories(tree.id),
-        useActivityStore.getState().refreshActivity(tree.id),
-      ]);
+      ];
+      if (hasFeature("gallery"))
+        loads.push(useGalleryStore.getState().refreshGalleryImages(tree.id));
+      if (hasFeature("events"))
+        loads.push(useEventStore.getState().refreshEvents(tree.id));
+      if (hasFeature("stories"))
+        loads.push(useStoryStore.getState().refreshStories(tree.id));
+      if (hasFeature("activity_log"))
+        loads.push(useActivityStore.getState().refreshActivity(tree.id));
+      await Promise.all(loads);
     }
     set({ isReady: true });
   },
@@ -272,7 +285,6 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     if (!isActiveTree(treeId)) return;
     set({ relationTypes: types });
   },
-
 }));
 
 /** Convenience accessor used by the data stores. */

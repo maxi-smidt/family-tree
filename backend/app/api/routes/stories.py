@@ -6,7 +6,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.deps import (
+    get_current_user,
+    get_readable_tree,
+    get_writable_tree,
+    require_feature,
+)
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.base import utcnow_iso
 from app.db.session import get_db
@@ -31,7 +36,11 @@ from app.services.storage import (
     store_document,
 )
 
-router = APIRouter(prefix="/trees/{tree_id}/stories", tags=["stories"])
+router = APIRouter(
+    prefix="/trees/{tree_id}/stories",
+    tags=["stories"],
+    dependencies=[Depends(require_feature("stories"))],
+)
 
 
 def _get_story(db: Session, tree: Tree, story_id: str) -> Story:
