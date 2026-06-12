@@ -10,7 +10,7 @@ import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
 import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 
 async function syncVitalEvent(
@@ -462,6 +462,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       treeId,
       positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
     );
+
+    // Virtual view positions are stored in VirtualViewPosition, not source
+    // trees — they're independent. But position moves have no undo history.
+    if (isVirtualId(treeId)) return;
 
     get()._pushHistory({
       undo: async () => {

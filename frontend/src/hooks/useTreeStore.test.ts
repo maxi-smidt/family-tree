@@ -43,6 +43,7 @@ function mockEmptySubStores() {
   vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getActivity).mockResolvedValue([]);
   vi.mocked(TreeService.getRelationTypes).mockResolvedValue([]);
+  vi.mocked(TreeService.listVirtualViews).mockResolvedValue([]);
 }
 
 /** Set up api.get to return `treeResponse` for the given tree id and {} for metadata. */
@@ -72,6 +73,7 @@ function seedActivityStore() {
 
 const INITIAL_TREE_STATE = {
   trees: [],
+  virtualViews: [],
   selectedTree: undefined,
   metadata: {},
   relationTypes: [],
@@ -226,6 +228,7 @@ describe("useTreeStore — loadTrees", () => {
 
     // Server returns a list that no longer includes tree-a
     vi.mocked(api.get).mockResolvedValueOnce([TREE_B]);
+    vi.mocked(TreeService.listVirtualViews).mockResolvedValueOnce([]);
 
     await useTreeStore.getState().loadTrees();
 
@@ -241,6 +244,7 @@ describe("useTreeStore — loadTrees", () => {
     });
 
     vi.mocked(api.get).mockResolvedValueOnce([TREE_A, TREE_B]);
+    vi.mocked(TreeService.listVirtualViews).mockResolvedValueOnce([]);
 
     await useTreeStore.getState().loadTrees();
 

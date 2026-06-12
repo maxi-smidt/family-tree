@@ -156,9 +156,9 @@ export const useFlowEdges = (
             target: cId,
             sourceHandle: "bottom",
             targetHandle: "top",
-            // smoothstep gives a vertical-first drop that reads like a classic
-            // family-tree descent line.
-            type: "smoothstep",
+            // Follow the user's edge-type preference for all descent lines so
+            // the tree looks consistent (default is "step" — structured right angles).
+            type: edgeType,
             style: connectionStyle(
               { strokeWidth: 1.5 },
               isHighlighted,

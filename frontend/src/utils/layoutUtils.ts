@@ -18,8 +18,15 @@ export const getLayoutedElements = (members: Member[]) => {
   });
   g.setDefaultEdgeLabel(() => ({}));
 
-  // Sort members by birth date, then gender (Male first), then ID
+  // Sort members by birth date, then gender (Male first), then ID.
+  // Merged (vm_) nodes sort before regular nodes so that dagre's barycenter
+  // heuristic places them to the left of their sibling group, adjacent to
+  // their cross-tree partner rather than trailing at the far end.
   const sortedMembers = [...members].sort((a, b) => {
+    const aIsVM = a.id.startsWith("vm_");
+    const bIsVM = b.id.startsWith("vm_");
+    if (aIsVM !== bIsVM) return aIsVM ? -1 : 1;
+
     const dateA = new Date(a.date.birth || "9999-12-31").getTime();
     const dateB = new Date(b.date.birth || "9999-12-31").getTime();
 
@@ -229,6 +236,105 @@ export const getLayoutedElements = (members: Member[]) => {
       finalPositions[member.id] = {
         x: Math.round(x / GRID_SIZE) * GRID_SIZE,
         y: Math.round(y / GRID_SIZE) * GRID_SIZE,
+      };
+    }
+  });
+
+  // Post-process: move each merged (vm_) node to the edge of its sibling group
+  // facing its in-view partner. Dagre orders same-parent siblings arbitrarily,
+  // which can strand the merged node behind a sibling so the partner connector
+  // runs across that sibling's card. Siblings share the same parents, so
+  // permuting their x slots is always safe.
+  const PARTNER_RELATIONS = ["partner", "married", "divorced"];
+  const partnerOf = new Map<string, string>();
+  members.forEach((m) => {
+    m.relations?.forEach((r) => {
+      if (!PARTNER_RELATIONS.includes(r.relationType)) return;
+      if (!memberIds.has(r.toMemberId)) return;
+      if (!partnerOf.has(m.id)) partnerOf.set(m.id, r.toMemberId);
+      if (!partnerOf.has(r.toMemberId)) partnerOf.set(r.toMemberId, m.id);
+    });
+  });
+
+  const parentKeyOf = (m: Member): string | null => {
+    const ids = [m.parents.paternalParent, m.parents.maternalParent].filter(
+      (id): id is string => !!id,
+    );
+    return ids.length > 0 ? getUnionKey(ids) : null;
+  };
+
+  members.forEach((m) => {
+    if (!m.id.startsWith("vm_")) return;
+    const partnerId = partnerOf.get(m.id);
+    if (!partnerId) return;
+    const myPos = finalPositions[m.id];
+    const partnerPos = finalPositions[partnerId];
+    if (!myPos || !partnerPos) return;
+    const myParentKey = parentKeyOf(m);
+    if (!myParentKey) return;
+
+    const siblings = members.filter(
+      (s) =>
+        s.id !== m.id &&
+        parentKeyOf(s) === myParentKey &&
+        finalPositions[s.id] &&
+        finalPositions[s.id].y === myPos.y,
+    );
+    if (siblings.length === 0) return;
+
+    const group = [m, ...siblings];
+    const slots = group
+      .map((g) => finalPositions[g.id].x)
+      .sort((a, b) => a - b);
+    const orderedSiblings = [...siblings].sort(
+      (a, b) => finalPositions[a.id].x - finalPositions[b.id].x,
+    );
+    const ordered =
+      partnerPos.x < myPos.x
+        ? [m, ...orderedSiblings]
+        : [...orderedSiblings, m];
+    ordered.forEach((g, i) => {
+      finalPositions[g.id] = { ...finalPositions[g.id], x: slots[i] };
+    });
+  });
+
+  // Post-process: for each merged (vm_) node, re-center its parents horizontally
+  // above ALL their children (not just the sibling cluster dagre places them over).
+  // This prevents situations where parents stay far to one side because dagre only
+  // "sees" the unmerged siblings when computing their horizontal position.
+  const parentXOverride = new Map<string, number>();
+
+  members.forEach((m) => {
+    if (!m.id.startsWith("vm_")) return;
+    const { paternalParent, maternalParent } = m.parents;
+    if (!paternalParent || !maternalParent) return;
+    if (!memberIds.has(paternalParent) || !memberIds.has(maternalParent)) return;
+
+    // All members that share exactly these two parents.
+    const sharedChildren = members.filter(
+      (s) =>
+        s.parents.paternalParent === paternalParent &&
+        s.parents.maternalParent === maternalParent,
+    );
+    if (sharedChildren.length < 2) return;
+
+    const xs = sharedChildren
+      .map((s) => finalPositions[s.id]?.x)
+      .filter((x): x is number => x !== undefined);
+    if (xs.length === 0) return;
+
+    const avgX = xs.reduce((a, b) => a + b, 0) / xs.length;
+    const halfGap = (NODE_WIDTH + NODE_SEPARATION) / 2;
+
+    parentXOverride.set(paternalParent, avgX - halfGap);
+    parentXOverride.set(maternalParent, avgX + halfGap);
+  });
+
+  parentXOverride.forEach((x, id) => {
+    if (finalPositions[id]) {
+      finalPositions[id] = {
+        ...finalPositions[id],
+        x: Math.round(x / GRID_SIZE) * GRID_SIZE,
       };
     }
   });

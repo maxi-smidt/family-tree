@@ -11,15 +11,20 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 
+export const isVirtualId = (id: string) => id.startsWith("vv_");
+
 interface DatabaseMetaData {
   id?: string;
   name?: string;
   createdAt?: string;
   lastOpened?: string;
+  hasLayout?: boolean;
+  overlapCount?: number;
 }
 
 interface DatabaseState {
   trees: Tree[];
+  virtualViews: Tree[];
   selectedTree: Tree | undefined;
   metadata: DatabaseMetaData;
   relationTypes: { id: RelationType }[];
@@ -35,6 +40,11 @@ interface DatabaseState {
     sourceB?: string,
     resolutions?: MergeResolution[],
   ) => Promise<Tree>;
+  createVirtualView: (name: string, sourceTreeIds: string[]) => Promise<Tree>;
+  renameVirtualView: (view: Tree, name: string) => Promise<void>;
+  updateVirtualViewSources: (view: Tree, sourceTreeIds: string[]) => Promise<void>;
+  deleteVirtualView: (view: Tree) => Promise<void>;
+  recomputeMatches: (view: Tree) => Promise<{ groupCount: number; mergedMemberCount: number }>;
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -53,17 +63,22 @@ const clearDataStores = () => {
 
 export const useTreeStore = create<DatabaseState>((set, get) => ({
   trees: [],
+  virtualViews: [],
   selectedTree: undefined,
   metadata: {},
   relationTypes: [],
   isReady: false,
 
   loadTrees: async () => {
-    const trees = await api.get<Tree[]>("/trees");
-    set({ trees: trees });
+    const [trees, virtualViews] = await Promise.all([
+      api.get<Tree[]>("/trees"),
+      TreeService.listVirtualViews().catch(() => [] as Tree[]),
+    ]);
+    set({ trees, virtualViews });
     // Drop a stale selection that no longer exists / is no longer accessible.
     const selected = get().selectedTree;
-    if (selected && !trees.some((t) => t.id === selected.id)) {
+    const allItems = [...trees, ...virtualViews];
+    if (selected && !allItems.some((t) => t.id === selected.id)) {
       await get().disconnect();
     }
   },
@@ -109,6 +124,59 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     return tree;
   },
 
+  createVirtualView: async (name: string, sourceTreeIds: string[]) => {
+    const view = await TreeService.createVirtualView(name, sourceTreeIds);
+    set((s) => ({ virtualViews: [view, ...s.virtualViews] }));
+    await get().selectTree(view);
+    return view;
+  },
+
+  renameVirtualView: async (view: Tree, name: string) => {
+    const updated = await TreeService.updateVirtualView(view.id, { name });
+    set((s) => ({
+      virtualViews: s.virtualViews.map((v) => (v.id === view.id ? updated : v)),
+      selectedTree:
+        s.selectedTree?.id === view.id ? updated : s.selectedTree,
+    }));
+  },
+
+  updateVirtualViewSources: async (view: Tree, sourceTreeIds: string[]) => {
+    const updated = await TreeService.updateVirtualView(view.id, {
+      source_tree_ids: sourceTreeIds,
+    });
+    set((s) => ({
+      virtualViews: s.virtualViews.map((v) => (v.id === view.id ? updated : v)),
+      selectedTree:
+        s.selectedTree?.id === view.id ? updated : s.selectedTree,
+    }));
+  },
+
+  deleteVirtualView: async (view: Tree) => {
+    await TreeService.deleteVirtualView(view.id);
+    const wasSelected = get().selectedTree?.id === view.id;
+    set((s) => ({
+      virtualViews: s.virtualViews.filter((v) => v.id !== view.id),
+    }));
+    if (wasSelected) {
+      // Fall back to another tree (or remaining view) instead of leaving the
+      // app in the "no database" state.
+      const { trees, virtualViews } = get();
+      const next = trees[0] ?? virtualViews[0];
+      if (next) await get().selectTree(next);
+      else await get().disconnect();
+    }
+  },
+
+  recomputeMatches: async (view: Tree) => {
+    const result = await TreeService.recomputeVirtualViewMatches(view.id);
+    const treeId = get().selectedTree?.id;
+    if (treeId === view.id) {
+      await useMemberStore.getState().refreshMembers(treeId);
+      await get().refreshMetadata(treeId);
+    }
+    return result;
+  },
+
   selectTree: async (tree: Tree | undefined) => {
     if (!tree) {
       await get().disconnect();
@@ -125,26 +193,56 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       metadata: {},
       relationTypes: [],
     });
-    // Marks the tree as "opened" server-side and returns the latest role.
-    try {
-      const fresh = await api.get<Tree>(`/trees/${tree.id}`);
-      set((s) => ({
-        selectedTree: fresh,
-        trees: s.trees.map((t) => (t.id === fresh.id ? fresh : t)),
-      }));
-    } catch {
-      // non-fatal; continue with what we have
-    }
 
-    await Promise.all([
-      get().refreshMetadata(tree.id),
-      get().refreshRelationTypes(tree.id),
-      useMemberStore.getState().refreshMembers(tree.id),
-      useGalleryStore.getState().refreshGalleryImages(tree.id),
-      useEventStore.getState().refreshEvents(tree.id),
-      useStoryStore.getState().refreshStories(tree.id),
-      useActivityStore.getState().refreshActivity(tree.id),
-    ]);
+    if (isVirtualId(tree.id)) {
+      // Virtual views are read-only composites — no gallery/events/stories.
+      try {
+        const fresh = await api.get<Tree>(`/virtual-views/${tree.id}`);
+        set((s) => ({
+          selectedTree: fresh,
+          virtualViews: s.virtualViews.map((v) =>
+            v.id === fresh.id ? fresh : v,
+          ),
+        }));
+      } catch {
+        // non-fatal; continue with what we have
+      }
+      useGalleryStore.getState().clear();
+      useEventStore.getState().clear();
+      useStoryStore.getState().clear();
+      useActivityStore.getState().clear();
+      useStatisticsStore.getState().clear();
+      await Promise.all([
+        get().refreshMetadata(tree.id),
+        get().refreshRelationTypes(tree.id),
+        useMemberStore.getState().refreshMembers(tree.id),
+      ]);
+      // Only auto-layout when there are no saved overlay positions yet.
+      // Once the user has arranged the view, respect those positions.
+      if (get().metadata.hasLayout !== true) {
+        await useMemberStore.getState().updateLayout();
+      }
+    } else {
+      // Marks the tree as "opened" server-side and returns the latest role.
+      try {
+        const fresh = await api.get<Tree>(`/trees/${tree.id}`);
+        set((s) => ({
+          selectedTree: fresh,
+          trees: s.trees.map((t) => (t.id === fresh.id ? fresh : t)),
+        }));
+      } catch {
+        // non-fatal; continue with what we have
+      }
+      await Promise.all([
+        get().refreshMetadata(tree.id),
+        get().refreshRelationTypes(tree.id),
+        useMemberStore.getState().refreshMembers(tree.id),
+        useGalleryStore.getState().refreshGalleryImages(tree.id),
+        useEventStore.getState().refreshEvents(tree.id),
+        useStoryStore.getState().refreshStories(tree.id),
+        useActivityStore.getState().refreshActivity(tree.id),
+      ]);
+    }
     set({ isReady: true });
   },
 
@@ -160,9 +258,10 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
 
   refreshMetadata: async (treeId = activeTreeId()) => {
     if (!treeId) return;
-    const metadata = await api.get<DatabaseMetaData>(
-      `/trees/${treeId}/metadata`,
-    );
+    const basePath = isVirtualId(treeId)
+      ? `/virtual-views/${treeId}`
+      : `/trees/${treeId}`;
+    const metadata = await api.get<DatabaseMetaData>(`${basePath}/metadata`);
     if (!isActiveTree(treeId)) return;
     set({ metadata });
   },

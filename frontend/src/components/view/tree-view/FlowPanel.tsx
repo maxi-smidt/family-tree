@@ -9,11 +9,11 @@ import {
   ReactFlowInstance,
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
@@ -47,7 +47,11 @@ export const FlowPanel = () => {
   const isMobile = useIsMobile();
   const { members, removeMember, updateLayout } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
+  const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
   const isCanvasReadOnly = isMobile || !canWrite;
+  // Virtual views allow dragging even though canWrite is false (role: "viewer").
+  // Positions are persisted independently in VirtualViewPosition.
+  const canDragLayout = !isMobile && (canWrite || isVirtualView);
   useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useTreeStore();
   const {
@@ -79,8 +83,20 @@ export const FlowPanel = () => {
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
+  // Carry the measured height: card height varies with content (e.g. source-tree
+  // badges in virtual views), and the side handles sit at the measured mid-height.
   const nodePositions = useMemo(
-    () => new Map(nodes.map((n) => [n.id, n.position])),
+    () =>
+      new Map(
+        nodes.map((n) => [
+          n.id,
+          {
+            x: n.position.x,
+            y: n.position.y,
+            height: n.measured?.height ?? NODE_HEIGHT,
+          },
+        ]),
+      ),
     [nodes],
   );
 
@@ -114,9 +130,11 @@ export const FlowPanel = () => {
             type: "unionNode",
             position: {
               x: (p1.x + p2.x) / 2 + NODE_WIDTH / 2 - UNION_NODE_SIZE / 2,
-              // Center the dot at the mid-height of the partner cards so the
-              // horizontal connector edges are level with the card handles.
-              y: (p1.y + p2.y) / 2 + NODE_HEIGHT / 2 - UNION_NODE_SIZE / 2,
+              // Center the dot at the average mid-height of the partner cards
+              // (where their side handles sit) so the connector edges run level.
+              y:
+                (p1.y + p1.height / 2 + p2.y + p2.height / 2) / 2 -
+                UNION_NODE_SIZE / 2,
             },
             data: {
               ...u,
@@ -225,6 +243,18 @@ export const FlowPanel = () => {
     initializeFlow();
   }, [members, isReady]);
 
+  // Virtual views: the viewport is a global setting (not per-tree), so after a
+  // virtual view loads we must fit the view regardless of where the camera was.
+  // The ref prevents re-fitting on every drag (nodes change) — once per view id.
+  const fittedViewRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isReady || !rfInstance || !isVirtualView || !activeTree) return;
+    if (nodes.length === 0) return;
+    if (fittedViewRef.current === activeTree.id) return;
+    fittedViewRef.current = activeTree.id;
+    requestAnimationFrame(() => rfInstance.fitView({ padding: 0.2 }));
+  }, [isReady, rfInstance, isVirtualView, activeTree, nodes]);
+
   useEffect(() => {
     setSelectedNodes((prevSelected) => {
       const nodeMap = new Map(nodes.map((n) => [n.id, n]));
@@ -274,7 +304,7 @@ export const FlowPanel = () => {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={
-          isCanvasReadOnly || connection.isConnectionMode
+          (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
             ? undefined
             : onNodesChange
         }
@@ -299,7 +329,7 @@ export const FlowPanel = () => {
         snapToGrid={true}
         snapGrid={[50, 50]}
         nodesDraggable={
-          !connection.isConnectionMode && !isLockedScreen && !isCanvasReadOnly
+          !connection.isConnectionMode && !isLockedScreen && canDragLayout
         }
         nodesConnectable={
           !connection.isConnectionMode && !isLockedScreen && !isCanvasReadOnly
@@ -347,7 +377,7 @@ export const FlowPanel = () => {
             onToggleConnectionMode={connection.toggleConnectionMode}
           />
         </Panel>
-        {!isCanvasReadOnly && (
+        {(!isCanvasReadOnly || isVirtualView) && (
           <Panel position="bottom-right" className="pb-2">
             <MemberControls
               nodes={nodes}
@@ -356,6 +386,7 @@ export const FlowPanel = () => {
               onEditMember={(member) => pending.editExisting(member)}
               onCreateNewMember={(member) => pending.createNew(member)}
               onRearrange={rearrangeNodes}
+              readOnly={isVirtualView}
             />
           </Panel>
         )}

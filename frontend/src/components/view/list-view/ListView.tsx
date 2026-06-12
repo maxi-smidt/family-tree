@@ -37,6 +37,7 @@ import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { isVirtualId } from "@/hooks/useTreeStore";
 import { useIsMobile } from "@/hooks/useMobile";
 
 type SortConfig = {
@@ -51,6 +52,7 @@ export const ListView = () => {
   const { members, removeMember } = useMemberStore();
   const activeTree = useTreeStore((s) => s.selectedTree);
   const canWrite = activeTree?.role !== "viewer";
+  const isVirtual = !!activeTree?.id && isVirtualId(activeTree.id);
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
@@ -259,6 +261,9 @@ export const ListView = () => {
                     <ArrowUpDown />
                   </Button>
                 </TableHead>
+                {isVirtual && (
+                  <TableHead>{t("table.source-tree")}</TableHead>
+                )}
                 <TableHead className="w-12.5"></TableHead>
               </TableRow>
             </TableHeader>
@@ -266,7 +271,7 @@ export const ListView = () => {
               {sortedMembers.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={isVirtual ? 8 : 7}
                     className="h-24 text-center text-muted-foreground"
                   >
                     {t("table.no-members")}
@@ -285,6 +290,17 @@ export const ListView = () => {
                     </TableCell>
                     <TableCell>{formatDate(member.date.birth)}</TableCell>
                     <TableCell>{formatDate(member.date.death)}</TableCell>
+                    {isVirtual && (
+                      <TableCell>
+                        {member.sourceTreeName ? (
+                          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border">
+                            {member.sourceTreeName}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
