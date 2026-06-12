@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { useTreeStore } from "@/hooks/useTreeStore";
-import { RelationType } from "@/types/member";
+import { PARENT_RELATION_TYPE, RelationType } from "@/types/member";
 import { useTranslation } from "react-i18next";
 
 interface AddRelationDialogProps {
@@ -59,10 +59,12 @@ export const AddRelationDialog = ({
             </SelectTrigger>
             <SelectContent>
               {relationTypes
-                .filter((t) => t.id !== "parent")
+                .filter((t) => t.id !== PARENT_RELATION_TYPE)
                 .map((type) => (
                   <SelectItem key={type.id} value={type.id}>
-                    {tRelation(type.id)}
+                    {tRelation(type.id, {
+                      defaultValue: type.description ?? type.id,
+                    })}
                   </SelectItem>
                 ))}
             </SelectContent>

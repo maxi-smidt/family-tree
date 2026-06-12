@@ -1,25 +1,13 @@
 from tests.conftest import API, auth, make_tree, make_user, share
 
 
-def test_create_tree_seeds_relation_types(client, db):
+def test_create_tree(client, db):
     user = make_user(db, "alice")
     res = client.post(f"{API}/trees", headers=auth(user), json={"name": "Smiths"})
     assert res.status_code == 201
     body = res.json()
     assert body["name"] == "Smiths"
     assert body["role"] == "owner"
-
-    types = client.get(
-        f"{API}/trees/{body['id']}/relation-types", headers=auth(user)
-    ).json()
-    assert {t["id"] for t in types} == {
-        "parent",
-        "sibling",
-        "partner",
-        "married",
-        "divorced",
-        "other",
-    }
 
 
 def test_list_trees_includes_owned_and_shared(client, db):

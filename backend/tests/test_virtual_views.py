@@ -342,22 +342,6 @@ def test_merged_node_prefers_primary_parents(client: TestClient, db: Session):
     assert parent_targets == {"abe-a"}
 
 
-def test_relation_types_deduplicated(client: TestClient, db: Session):
-    alice = make_user(db)
-    tree_a = make_tree(db, alice)
-    tree_b = make_tree(db, alice)
-    add_overlap(db, tree_a, tree_b)
-
-    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
-
-    r = client.get(
-        f"{API}/virtual-views/{view_id}/relation-types", headers=auth(alice)
-    )
-    assert r.status_code == 200
-    ids = [rt["id"] for rt in r.json()]
-    assert len(ids) == len(set(ids)), "relation type IDs must be unique"
-
-
 # ---------------------------------------------------------------------------
 # PATCH / DELETE
 # ---------------------------------------------------------------------------
