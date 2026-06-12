@@ -156,9 +156,10 @@ export const useFlowEdges = (
             target: cId,
             sourceHandle: "bottom",
             targetHandle: "top",
-            // smoothstep gives a vertical-first drop that reads like a classic
-            // family-tree descent line.
-            type: "smoothstep",
+            // Use bezier ("default") so that when a child is offset far
+            // horizontally from the union (e.g. a merged bridge node), the
+            // descent curves gracefully instead of making a rectangular step.
+            type: "default",
             style: connectionStyle(
               { strokeWidth: 1.5 },
               isHighlighted,
