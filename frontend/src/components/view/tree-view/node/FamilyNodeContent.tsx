@@ -86,23 +86,30 @@ export const FamilyNodeContent = ({
         <div className="text-xs text-muted-foreground text-center">
           {formatLifeDates(member.date)}
         </div>
+        {/* Badges stay on a single row (long names truncate) so every card in
+            a virtual view has the same height — equal heights keep the side
+            handles level and the partner connector lines straight. */}
         {member.isMerged && member.sourceTreeNames && member.sourceTreeNames.length > 0
           ? (
-            <div className="mt-1 flex flex-wrap justify-center gap-1">
+            <div className="mt-1 flex flex-nowrap justify-center gap-1 w-full min-w-0 px-1">
               {member.sourceTreeNames.map((tn) => (
                 <span
                   key={tn}
-                  className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary border border-primary/20"
+                  title={tn}
+                  className="inline-flex min-w-0 items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary border border-primary/20"
                 >
-                  {tn}
+                  <span className="truncate">{tn}</span>
                 </span>
               ))}
             </div>
           )
           : member.sourceTreeName && (
-            <div className="mt-1 flex justify-center">
-              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border">
-                {member.sourceTreeName}
+            <div className="mt-1 flex justify-center w-full min-w-0 px-1">
+              <span
+                title={member.sourceTreeName}
+                className="inline-flex min-w-0 items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border"
+              >
+                <span className="truncate">{member.sourceTreeName}</span>
               </span>
             </div>
           )}

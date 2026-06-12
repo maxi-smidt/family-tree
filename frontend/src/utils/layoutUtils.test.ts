@@ -100,6 +100,100 @@ describe("getLayoutedElements", () => {
     expect(Math.abs(positions["2"].y - positions["3"].y)).toBeLessThan(10);
   });
 
+  it("places a merged (vm_) node at the sibling-group edge facing its partner", () => {
+    const base = {
+      maidenName: null,
+      imageData: null,
+      additionalData: null,
+      birthplace: null,
+      hometown: null,
+      placesLived: [],
+      isCollapsed: false,
+      position: { x: 0, y: 0 },
+    };
+    const members: Member[] = [
+      // Grandparents (parents of the merged node and its sibling).
+      {
+        ...base,
+        id: "abe",
+        firstName: "Abraham",
+        lastName: "Simpson",
+        gender: "m",
+        date: { birth: "1920-01-01", death: null },
+        parents: { paternalParent: null, maternalParent: null },
+      },
+      {
+        ...base,
+        id: "mona",
+        firstName: "Mona",
+        lastName: "Simpson",
+        gender: "f",
+        date: { birth: "1925-01-01", death: null },
+        parents: { paternalParent: null, maternalParent: null },
+        relations: [
+          { fromMemberId: "mona", toMemberId: "abe", relationType: "married" },
+        ],
+      },
+      // Merged node married to a spouse outside the sibling group.
+      {
+        ...base,
+        id: "vm_homer",
+        firstName: "Homer",
+        lastName: "Simpson",
+        gender: "m",
+        date: { birth: "1956-05-12", death: null },
+        parents: { paternalParent: "abe", maternalParent: "mona" },
+        relations: [
+          {
+            fromMemberId: "vm_homer",
+            toMemberId: "marge",
+            relationType: "married",
+          },
+        ],
+      },
+      // His sibling (no partner).
+      {
+        ...base,
+        id: "herb",
+        firstName: "Herbert",
+        lastName: "Powell",
+        gender: "m",
+        date: { birth: "1953-07-30", death: null },
+        parents: { paternalParent: "abe", maternalParent: "mona" },
+      },
+      // The spouse.
+      {
+        ...base,
+        id: "marge",
+        firstName: "Marge",
+        lastName: "Simpson",
+        gender: "f",
+        date: { birth: "1959-03-19", death: null },
+        parents: { paternalParent: null, maternalParent: null },
+      },
+      // A shared child so the couple forms a parent union.
+      {
+        ...base,
+        id: "bart",
+        firstName: "Bart",
+        lastName: "Simpson",
+        gender: "m",
+        date: { birth: "1985-04-01", death: null },
+        parents: { paternalParent: "vm_homer", maternalParent: "marge" },
+      },
+    ];
+
+    const positions = getLayoutedElements(members);
+
+    // Homer and Herbert are siblings on the same row.
+    expect(positions["vm_homer"].y).toBe(positions["herb"].y);
+    // No sibling may sit between the merged node and its partner: Homer must
+    // be the group member closest to Marge.
+    const distHomer = Math.abs(positions["vm_homer"].x - positions["marge"].x);
+    const distHerb = Math.abs(positions["herb"].x - positions["marge"].x);
+    expect(distHomer).toBeLessThan(distHerb);
+  });
+
   it("should snap positions to grid", () => {
     const members: Member[] = [
       {

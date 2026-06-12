@@ -240,6 +240,64 @@ export const getLayoutedElements = (members: Member[]) => {
     }
   });
 
+  // Post-process: move each merged (vm_) node to the edge of its sibling group
+  // facing its in-view partner. Dagre orders same-parent siblings arbitrarily,
+  // which can strand the merged node behind a sibling so the partner connector
+  // runs across that sibling's card. Siblings share the same parents, so
+  // permuting their x slots is always safe.
+  const PARTNER_RELATIONS = ["partner", "married", "divorced"];
+  const partnerOf = new Map<string, string>();
+  members.forEach((m) => {
+    m.relations?.forEach((r) => {
+      if (!PARTNER_RELATIONS.includes(r.relationType)) return;
+      if (!memberIds.has(r.toMemberId)) return;
+      if (!partnerOf.has(m.id)) partnerOf.set(m.id, r.toMemberId);
+      if (!partnerOf.has(r.toMemberId)) partnerOf.set(r.toMemberId, m.id);
+    });
+  });
+
+  const parentKeyOf = (m: Member): string | null => {
+    const ids = [m.parents.paternalParent, m.parents.maternalParent].filter(
+      (id): id is string => !!id,
+    );
+    return ids.length > 0 ? getUnionKey(ids) : null;
+  };
+
+  members.forEach((m) => {
+    if (!m.id.startsWith("vm_")) return;
+    const partnerId = partnerOf.get(m.id);
+    if (!partnerId) return;
+    const myPos = finalPositions[m.id];
+    const partnerPos = finalPositions[partnerId];
+    if (!myPos || !partnerPos) return;
+    const myParentKey = parentKeyOf(m);
+    if (!myParentKey) return;
+
+    const siblings = members.filter(
+      (s) =>
+        s.id !== m.id &&
+        parentKeyOf(s) === myParentKey &&
+        finalPositions[s.id] &&
+        finalPositions[s.id].y === myPos.y,
+    );
+    if (siblings.length === 0) return;
+
+    const group = [m, ...siblings];
+    const slots = group
+      .map((g) => finalPositions[g.id].x)
+      .sort((a, b) => a - b);
+    const orderedSiblings = [...siblings].sort(
+      (a, b) => finalPositions[a.id].x - finalPositions[b.id].x,
+    );
+    const ordered =
+      partnerPos.x < myPos.x
+        ? [m, ...orderedSiblings]
+        : [...orderedSiblings, m];
+    ordered.forEach((g, i) => {
+      finalPositions[g.id] = { ...finalPositions[g.id], x: slots[i] };
+    });
+  });
+
   // Post-process: for each merged (vm_) node, re-center its parents horizontally
   // above ALL their children (not just the sibling cluster dagre places them over).
   // This prevents situations where parents stay far to one side because dagre only
