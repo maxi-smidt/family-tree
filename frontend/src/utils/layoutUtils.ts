@@ -18,8 +18,15 @@ export const getLayoutedElements = (members: Member[]) => {
   });
   g.setDefaultEdgeLabel(() => ({}));
 
-  // Sort members by birth date, then gender (Male first), then ID
+  // Sort members by birth date, then gender (Male first), then ID.
+  // Merged (vm_) nodes sort before regular nodes so that dagre's barycenter
+  // heuristic places them to the left of their sibling group, adjacent to
+  // their cross-tree partner rather than trailing at the far end.
   const sortedMembers = [...members].sort((a, b) => {
+    const aIsVM = a.id.startsWith("vm_");
+    const bIsVM = b.id.startsWith("vm_");
+    if (aIsVM !== bIsVM) return aIsVM ? -1 : 1;
+
     const dateA = new Date(a.date.birth || "9999-12-31").getTime();
     const dateB = new Date(b.date.birth || "9999-12-31").getTime();
 
@@ -148,11 +155,26 @@ export const getLayoutedElements = (members: Member[]) => {
     }
 
     if (unionKey) {
-      let unionId = unions.get(unionKey);
+      // Merged bridge nodes (vm_) that have a cross-tree partner should not
+      // share a union node with their siblings. Giving them their own union
+      // lets the partner edge dominate horizontal positioning, so dagre places
+      // them between the two family groups instead of inside the sibling cluster.
+      const isBridgeNode =
+        child.id.startsWith("vm_") &&
+        child.relations?.some(
+          (r) =>
+            ["partner", "married", "divorced"].includes(r.relationType) &&
+            memberIds.has(r.toMemberId),
+        );
+      const effectiveUnionKey = isBridgeNode
+        ? `${unionKey}-${child.id}`
+        : unionKey;
+
+      let unionId = unions.get(effectiveUnionKey);
 
       if (!unionId) {
-        unionId = `union-${unionKey}`;
-        unions.set(unionKey, unionId);
+        unionId = `union-${effectiveUnionKey}`;
+        unions.set(effectiveUnionKey, unionId);
 
         g.setNode(unionId, {
           width: 1,
