@@ -12,6 +12,11 @@ import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
+import i18n from "@/i18n/i18n";
+import { toast } from "sonner";
+
+type CollapseUpdate = { id: string; isCollapsed: boolean };
+type PositionUpdate = { id: string; x: number; y: number };
 
 async function syncVitalEvent(
   memberId: string,
@@ -42,6 +47,49 @@ interface HistoryEntry {
 }
 
 const MAX_HISTORY = 50;
+
+function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
+  const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
+  return members.map((m) => {
+    const collapsed = byId.get(m.id);
+    return collapsed !== undefined ? { ...m, isCollapsed: collapsed } : m;
+  });
+}
+
+function applyPositionState(members: Member[], positions: PositionUpdate[]) {
+  const byId = new Map(positions.map((p) => [p.id, p]));
+  return members.map((m) => {
+    const position = byId.get(m.id);
+    return position ? { ...m, position: { x: position.x, y: position.y } } : m;
+  });
+}
+
+function captureCollapsedState(members: Member[], updates: CollapseUpdate[]) {
+  return updates.flatMap((u) => {
+    const existing = members.find((m) => m.id === u.id);
+    return existing ? [{ id: u.id, isCollapsed: existing.isCollapsed }] : [];
+  });
+}
+
+function capturePositions(members: Member[], positions: PositionUpdate[]) {
+  return positions.flatMap((p) => {
+    const existing = members.find((m) => m.id === p.id);
+    return existing
+      ? [{ id: p.id, x: existing.position.x, y: existing.position.y }]
+      : [];
+  });
+}
+
+async function refreshAfterOptimisticFailure(
+  refreshMembers: (treeId?: string) => Promise<void>,
+  treeId: string,
+) {
+  try {
+    await refreshMembers(treeId);
+  } catch (error) {
+    console.error("Failed to refresh members after optimistic write:", error);
+  }
+}
 
 interface MemberState {
   members: Member[];
@@ -426,15 +474,19 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId || updates.length === 0) return;
 
-    const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
-    set({
-      members: get().members.map((m) => {
-        const collapsed = byId.get(m.id);
-        return collapsed !== undefined ? { ...m, isCollapsed: collapsed } : m;
-      }),
-    });
+    const previous = captureCollapsedState(get().members, updates);
+    set({ members: applyCollapsedState(get().members, updates) });
 
-    await TreeService.updateMemberCollapsedBulk(treeId, updates);
+    try {
+      await TreeService.updateMemberCollapsedBulk(treeId, updates);
+    } catch (error) {
+      if (isActiveTree(treeId)) {
+        set({ members: applyCollapsedState(get().members, previous) });
+        toast.error(i18n.t("tree-view.persistence.collapse-error"));
+        await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+      }
+      throw error;
+    }
   },
 
   // Persist node positions (drag / re-layout) in one request and reflect them
@@ -443,25 +495,22 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId || positions.length === 0) return;
 
-    const oldPositions = positions.map((p) => {
-      const existing = get().members.find((m) => m.id === p.id);
-      return existing
-        ? { id: p.id, x: existing.position.x, y: existing.position.y }
-        : { ...p };
-    });
+    const oldPositions = capturePositions(get().members, positions);
+    set({ members: applyPositionState(get().members, positions) });
 
-    const byId = new Map(positions.map((p) => [p.id, p]));
-    set({
-      members: get().members.map((m) => {
-        const p = byId.get(m.id);
-        return p ? { ...m, position: { x: p.x, y: p.y } } : m;
-      }),
-    });
-
-    await TreeService.updateMemberPositions(
-      treeId,
-      positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
-    );
+    try {
+      await TreeService.updateMemberPositions(
+        treeId,
+        positions.map((p) => ({ id: p.id, positionX: p.x, positionY: p.y })),
+      );
+    } catch (error) {
+      if (isActiveTree(treeId)) {
+        set({ members: applyPositionState(get().members, oldPositions) });
+        toast.error(i18n.t("tree-view.persistence.positions-error"));
+        await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+      }
+      throw error;
+    }
 
     // Virtual view positions are stored in VirtualViewPosition, not source
     // trees — they're independent. But position moves have no undo history.
@@ -469,38 +518,44 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     get()._pushHistory({
       undo: async () => {
-        const byOldId = new Map(oldPositions.map((p) => [p.id, p]));
-        set({
-          members: get().members.map((m) => {
-            const p = byOldId.get(m.id);
-            return p ? { ...m, position: { x: p.x, y: p.y } } : m;
-          }),
-        });
-        await TreeService.updateMemberPositions(
-          treeId,
-          oldPositions.map((p) => ({
-            id: p.id,
-            positionX: p.x,
-            positionY: p.y,
-          })),
-        );
+        set({ members: applyPositionState(get().members, oldPositions) });
+        try {
+          await TreeService.updateMemberPositions(
+            treeId,
+            oldPositions.map((p) => ({
+              id: p.id,
+              positionX: p.x,
+              positionY: p.y,
+            })),
+          );
+        } catch (error) {
+          if (isActiveTree(treeId)) {
+            set({ members: applyPositionState(get().members, positions) });
+            toast.error(i18n.t("tree-view.persistence.positions-error"));
+            await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+          }
+          throw error;
+        }
       },
       redo: async () => {
-        const byNewId = new Map(positions.map((p) => [p.id, p]));
-        set({
-          members: get().members.map((m) => {
-            const p = byNewId.get(m.id);
-            return p ? { ...m, position: { x: p.x, y: p.y } } : m;
-          }),
-        });
-        await TreeService.updateMemberPositions(
-          treeId,
-          positions.map((p) => ({
-            id: p.id,
-            positionX: p.x,
-            positionY: p.y,
-          })),
-        );
+        set({ members: applyPositionState(get().members, positions) });
+        try {
+          await TreeService.updateMemberPositions(
+            treeId,
+            positions.map((p) => ({
+              id: p.id,
+              positionX: p.x,
+              positionY: p.y,
+            })),
+          );
+        } catch (error) {
+          if (isActiveTree(treeId)) {
+            set({ members: applyPositionState(get().members, oldPositions) });
+            toast.error(i18n.t("tree-view.persistence.positions-error"));
+            await refreshAfterOptimisticFailure(get().refreshMembers, treeId);
+          }
+          throw error;
+        }
       },
     });
   },
