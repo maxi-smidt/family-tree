@@ -506,6 +506,10 @@
       "connection-path-not-found": "No connection path found between the selected members.",
       "connection-path-partial": "Some selected members are not connected."
     },
+    "persistence": {
+      "collapse-error": "Could not save collapsed members. The tree was restored.",
+      "positions-error": "Could not save member positions. The tree was restored."
+    },
     "empty-state": {
       "title": "Start your family tree",
       "description": "Add the first person to get started.",

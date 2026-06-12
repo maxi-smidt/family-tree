@@ -132,6 +132,20 @@ The ORM models in `backend/app/models/` are the source of truth, and the schema
 is versioned with **Alembic** (`backend/alembic/`). On startup the service runs
 `alembic upgrade head` automatically, then seeds the admin + default settings.
 
+### Field naming convention
+
+Some legacy content columns intentionally keep the camelCase names from the
+original frontend/SQLite contract (`firstName`, `positionX`, `imageData`, ...).
+Keep those existing ORM and Pydantic field names stable unless there is a
+separate migration plan: they are part of the `*DB` response shapes consumed by
+`TreeService` and the frontend stores.
+
+For new backend-owned tables or fields, prefer idiomatic snake_case in the
+database and API schema. Only add a new camelCase field when it is explicitly
+part of a frontend `*DB` contract. If an existing camelCase column is renamed,
+ship an Alembic migration and use Pydantic aliases or mapping helpers so the
+frontend response/request shapes remain stable through the transition.
+
 ### Adding a field / table
 
 1. Update the relevant model in `backend/app/models/`.

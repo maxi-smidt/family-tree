@@ -506,6 +506,10 @@
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",
       "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden."
     },
+    "persistence": {
+      "collapse-error": "Einklappstatus konnte nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt.",
+      "positions-error": "Positionen der Personen konnten nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt."
+    },
     "empty-state": {
       "title": "Stammbaum starten",
       "description": "Füge die erste Person hinzu, um loszulegen.",

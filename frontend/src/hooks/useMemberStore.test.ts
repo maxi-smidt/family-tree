@@ -4,8 +4,14 @@ import { useTreeStore } from "./useTreeStore";
 import { TreeService } from "@/services/TreeService";
 import { MemberDB } from "@/types/member";
 import { Tree } from "@/types/tree";
+import { toast } from "sonner";
 
 vi.mock("@/services/TreeService");
+vi.mock("sonner", () => ({
+  toast: {
+    error: vi.fn(),
+  },
+}));
 
 const TREE_ID = "tree-abc";
 
@@ -218,6 +224,52 @@ describe("useMemberStore — updateMemberPartial", () => {
       .updateMemberPartial("m1", { lastName: "Smith" });
 
     expect(useMemberStore.getState().undoStack).toHaveLength(1);
+  });
+});
+
+describe("useMemberStore — optimistic mutation rollback", () => {
+  it("rolls back collapsed state and reports an error when persistence fails", async () => {
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.updateMemberCollapsedBulk).mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    mockServiceWithMember();
+
+    await expect(
+      useMemberStore
+        .getState()
+        .batchSetCollapsed([{ id: "m1", isCollapsed: true }]),
+    ).rejects.toThrow("offline");
+
+    expect(useMemberStore.getState().members[0].isCollapsed).toBe(false);
+    expect(toast.error).toHaveBeenCalled();
+    expect(TreeService.getMembers).toHaveBeenCalledTimes(2);
+  });
+
+  it("rolls back member positions and skips history when persistence fails", async () => {
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.updateMemberPositions).mockRejectedValueOnce(
+      new Error("offline"),
+    );
+    mockServiceWithMember();
+
+    await expect(
+      useMemberStore.getState().persistPositions([{ id: "m1", x: 40, y: 80 }]),
+    ).rejects.toThrow("offline");
+
+    expect(useMemberStore.getState().members[0].position).toEqual({
+      x: 0,
+      y: 0,
+    });
+    expect(useMemberStore.getState().undoStack).toHaveLength(0);
+    expect(toast.error).toHaveBeenCalled();
+    expect(TreeService.getMembers).toHaveBeenCalledTimes(2);
   });
 });
 
