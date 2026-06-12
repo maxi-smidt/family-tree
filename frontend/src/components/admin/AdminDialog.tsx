@@ -23,19 +23,16 @@ import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { KeyRound, Plus, Trash2, Undo2 } from "lucide-react";
-import { api } from "@/services/api";
+import {
+  AdminService,
+  AdminSettings,
+  AdminUserUpdate,
+} from "@/services/AdminService";
 import { User } from "@/types/user";
 import { formatDate } from "@/utils/dateUtils";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-
-interface Settings {
-  allow_self_registration: boolean;
-  instance_name: string;
-  default_language: string;
-  deletion_grace_period_days: number;
-}
 
 type Props = {
   isOpen: boolean;
@@ -50,7 +47,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [resetPassword, setResetPassword] = useState("");
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -59,11 +56,11 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
   });
 
   const loadUsers = useCallback(async () => {
-    setUsers(await api.get<User[]>("/users"));
+    setUsers(await AdminService.listUsers());
   }, []);
 
   const loadSettings = useCallback(async () => {
-    setSettings(await api.get<Settings>("/settings"));
+    setSettings(await AdminService.getSettings());
   }, []);
 
   useEffect(() => {
@@ -74,7 +71,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
 
   const handleCreateUser = async () => {
     try {
-      await api.post("/users", {
+      await AdminService.createUser({
         username: newUser.username,
         password: newUser.password,
         email: newUser.email || null,
@@ -89,9 +86,9 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
     }
   };
 
-  const patchUser = async (user: User, changes: Partial<User>) => {
+  const patchUser = async (user: User, changes: AdminUserUpdate) => {
     try {
-      await api.patch(`/users/${user.id}`, changes);
+      await AdminService.updateUser(user.id, changes);
       await loadUsers();
     } catch (err) {
       console.error(err);
@@ -102,7 +99,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const scheduleDeletion = async () => {
     if (!userToDelete) return;
     try {
-      await api.del(`/users/${userToDelete.id}`);
+      await AdminService.scheduleUserDeletion(userToDelete.id);
       await loadUsers();
       toast.success(t("delete-dialog.scheduled"));
     } catch (err) {
@@ -115,7 +112,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
 
   const cancelDeletion = async (user: User) => {
     try {
-      await api.post(`/users/${user.id}/cancel-deletion`);
+      await AdminService.cancelUserDeletion(user.id);
       await loadUsers();
       toast.success(t("deletion-canceled"));
     } catch (err) {
@@ -127,9 +124,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const resetUserPassword = async () => {
     if (!userToReset || !resetPassword) return;
     try {
-      await api.post(`/users/${userToReset.id}/reset-password`, {
-        password: resetPassword,
-      });
+      await AdminService.resetUserPassword(userToReset.id, resetPassword);
       await loadUsers();
       toast.success(t("password-reset-success"));
       setUserToReset(null);
@@ -143,7 +138,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const saveSettings = async () => {
     if (!settings) return;
     try {
-      const updated = await api.patch<Settings>("/settings", settings);
+      const updated = await AdminService.updateSettings(settings);
       setSettings(updated);
       toast.success(t("settings-saved"));
     } catch (err) {
