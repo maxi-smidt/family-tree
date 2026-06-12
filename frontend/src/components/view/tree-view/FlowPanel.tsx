@@ -83,8 +83,20 @@ export const FlowPanel = () => {
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
+  // Carry the measured height: card height varies with content (e.g. source-tree
+  // badges in virtual views), and the side handles sit at the measured mid-height.
   const nodePositions = useMemo(
-    () => new Map(nodes.map((n) => [n.id, n.position])),
+    () =>
+      new Map(
+        nodes.map((n) => [
+          n.id,
+          {
+            x: n.position.x,
+            y: n.position.y,
+            height: n.measured?.height ?? NODE_HEIGHT,
+          },
+        ]),
+      ),
     [nodes],
   );
 
@@ -118,9 +130,11 @@ export const FlowPanel = () => {
             type: "unionNode",
             position: {
               x: (p1.x + p2.x) / 2 + NODE_WIDTH / 2 - UNION_NODE_SIZE / 2,
-              // Center the dot at the mid-height of the partner cards so the
-              // horizontal connector edges are level with the card handles.
-              y: (p1.y + p2.y) / 2 + NODE_HEIGHT / 2 - UNION_NODE_SIZE / 2,
+              // Center the dot at the average mid-height of the partner cards
+              // (where their side handles sit) so the connector edges run level.
+              y:
+                (p1.y + p1.height / 2 + p2.y + p2.height / 2) / 2 -
+                UNION_NODE_SIZE / 2,
             },
             data: {
               ...u,

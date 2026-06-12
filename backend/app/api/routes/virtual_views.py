@@ -465,35 +465,71 @@ def list_virtual_relations(
     source_ids = [s.tree_id for s in view.sources]
     id_map = _build_id_map(db, view)
 
-    # Member IDs that are primary for their merge group. A merged node's
-    # parent edges are restricted to the primary member's parents so the node
-    # never accumulates >2 parents, which would break dagre layout downstream.
-    # Non-parent relations (married, sibling, …) are kept from all members.
-    primary_ids: set[str] = set(
-        db.scalars(
-            select(VirtualViewMemberMatch.member_id).where(
-                VirtualViewMemberMatch.view_id == view.id,
-                VirtualViewMemberMatch.is_primary.is_(True),
-            )
-        )
-    )
-
     raw = list(
         db.scalars(
             select(Relation).where(Relation.tree_id.in_(source_ids))
         ).all()
     )
 
+    # A merged node's parent edges must come from a single source member so the
+    # node never accumulates >2 parents (which breaks dagre layout downstream).
+    # Pick the primary member when it has parent relations of its own; otherwise
+    # fall back to the first source member (by source-tree order) that has any —
+    # this keeps the merged node connected even when only the secondary tree
+    # records its parents (the typical cross-tree "connector" case).
+    # Non-parent relations (married, sibling, …) are kept from all members.
+    match_rows = db.execute(
+        select(
+            VirtualViewMemberMatch.group_id,
+            VirtualViewMemberMatch.member_id,
+            VirtualViewMemberMatch.is_primary,
+        ).where(VirtualViewMemberMatch.view_id == view.id)
+    ).all()
+    members_with_parents = {
+        rel.from_member_id for rel in raw if rel.relation_type == "parent"
+    }
+    merged_ids = [r.member_id for r in match_rows]
+    tree_by_member: dict[str, str] = (
+        dict(
+            db.execute(
+                select(Member.id, Member.tree_id).where(Member.id.in_(merged_ids))
+            ).all()
+        )
+        if merged_ids
+        else {}
+    )
+    source_order = {tid: i for i, tid in enumerate(source_ids)}
+    members_by_group: dict[str, list[tuple[bool, str]]] = {}
+    for r in match_rows:
+        members_by_group.setdefault(r.group_id, []).append(
+            (bool(r.is_primary), r.member_id)
+        )
+    parent_source_by_group: dict[str, str] = {}
+    for gid, group_members in members_by_group.items():
+        ordered = sorted(
+            group_members,
+            key=lambda t: (
+                not t[0],
+                source_order.get(tree_by_member.get(t[1], ""), 999),
+            ),
+        )
+        chosen = next(
+            (mid for _, mid in ordered if mid in members_with_parents), None
+        )
+        if chosen is not None:
+            parent_source_by_group[gid] = chosen
+
     seen: set[tuple[str, str, str]] = set()
     result: list[RelationOut] = []
     for rel in raw:
-        # Drop parent relations from secondary members of a merged group.
+        # For merged nodes, keep parent relations only from the chosen source
+        # member of the group.
         if rel.relation_type == "parent":
-            is_merged_from = (
-                id_map.get(rel.from_member_id, rel.from_member_id)
-                != rel.from_member_id
-            )
-            if is_merged_from and rel.from_member_id not in primary_ids:
+            gid = id_map.get(rel.from_member_id, rel.from_member_id)
+            if (
+                gid != rel.from_member_id
+                and parent_source_by_group.get(gid) != rel.from_member_id
+            ):
                 continue
         from_id = id_map.get(rel.from_member_id, rel.from_member_id)
         to_id = id_map.get(rel.to_member_id, rel.to_member_id)

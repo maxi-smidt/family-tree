@@ -1,15 +1,26 @@
 """Tests for the /virtual-views endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models import Relation
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
-
 
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
+
+
+def add_relation(db, tree, from_id, to_id, rel_type="parent") -> None:
+    db.add(
+        Relation(
+            tree_id=tree.id,
+            from_member_id=from_id,
+            to_member_id=to_id,
+            relation_type=rel_type,
+        )
+    )
+    db.commit()
 
 
 def add_overlap(db, tree_a, tree_b) -> None:
@@ -247,6 +258,88 @@ def test_relations_returns_union(client: TestClient, db: Session):
 
     r = client.get(f"{API}/virtual-views/{view_id}/relations", headers=auth(alice))
     assert r.status_code == 200
+
+
+def test_merged_node_keeps_parents_from_secondary_tree(
+    client: TestClient, db: Session
+):
+    """The merged node bridges the trees: when only the secondary tree records
+    its parents, those parent relations must survive (remapped to the vm_ id)."""
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    # Homer exists in both trees (merged, primary = tree_a member).
+    add_member(
+        db, tree_a, "homer-a",
+        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+    )
+    add_member(
+        db, tree_b, "homer-b",
+        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+    )
+    # His parents only exist in tree_b.
+    add_member(db, tree_b, "abe", firstName="Abraham", lastName="Simpson", gender="m")
+    add_member(db, tree_b, "mona", firstName="Mona", lastName="Simpson", gender="f")
+    add_relation(db, tree_b, "homer-b", "abe")
+    add_relation(db, tree_b, "homer-b", "mona")
+
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+
+    members = client.get(
+        f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
+    ).json()
+    merged_id = next(m["id"] for m in members if m["isMerged"])
+
+    rels = client.get(
+        f"{API}/virtual-views/{view_id}/relations", headers=auth(alice)
+    ).json()
+    parent_targets = {
+        r["to_member_id"]
+        for r in rels
+        if r["relation_type"] == "parent" and r["from_member_id"] == merged_id
+    }
+    assert parent_targets == {"abe", "mona"}
+
+
+def test_merged_node_prefers_primary_parents(client: TestClient, db: Session):
+    """When both source members record parents, only the primary's are kept so
+    the merged node never accumulates more than two parents."""
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    add_member(
+        db, tree_a, "homer-a",
+        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+    )
+    add_member(
+        db, tree_b, "homer-b",
+        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+    )
+    # Distinctly-named parents in each tree so they do not merge themselves.
+    add_member(db, tree_a, "abe-a", firstName="Abe", lastName="Simpson", gender="m")
+    add_member(
+        db, tree_b, "abraham-b",
+        firstName="Abraham", lastName="Simpson", gender="m",
+    )
+    add_relation(db, tree_a, "homer-a", "abe-a")
+    add_relation(db, tree_b, "homer-b", "abraham-b")
+
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+
+    members = client.get(
+        f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
+    ).json()
+    merged_id = next(m["id"] for m in members if m["isMerged"])
+
+    rels = client.get(
+        f"{API}/virtual-views/{view_id}/relations", headers=auth(alice)
+    ).json()
+    parent_targets = {
+        r["to_member_id"]
+        for r in rels
+        if r["relation_type"] == "parent" and r["from_member_id"] == merged_id
+    }
+    assert parent_targets == {"abe-a"}
 
 
 def test_relation_types_deduplicated(client: TestClient, db: Session):

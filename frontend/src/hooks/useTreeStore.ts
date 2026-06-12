@@ -157,7 +157,14 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     set((s) => ({
       virtualViews: s.virtualViews.filter((v) => v.id !== view.id),
     }));
-    if (wasSelected) await get().disconnect();
+    if (wasSelected) {
+      // Fall back to another tree (or remaining view) instead of leaving the
+      // app in the "no database" state.
+      const { trees, virtualViews } = get();
+      const next = trees[0] ?? virtualViews[0];
+      if (next) await get().selectTree(next);
+      else await get().disconnect();
+    }
   },
 
   recomputeMatches: async (view: Tree) => {
