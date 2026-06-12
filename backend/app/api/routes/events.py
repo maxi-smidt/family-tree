@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.deps import (
+    get_current_user,
+    get_readable_tree,
+    get_writable_tree,
+    require_feature,
+)
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
 from app.models import Event, EventMemberLink, Tree
@@ -13,7 +18,11 @@ from app.schemas.content import EventCreate, EventLinkOut, EventOut, EventUpdate
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
 
-router = APIRouter(prefix="/trees/{tree_id}/events", tags=["events"])
+router = APIRouter(
+    prefix="/trees/{tree_id}/events",
+    tags=["events"],
+    dependencies=[Depends(require_feature("events"))],
+)
 
 
 def _get_event(db: Session, tree: Tree, event_id: str) -> Event:

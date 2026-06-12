@@ -826,6 +826,36 @@
     "description": "Benutzer und Instanzeinstellungen verwalten.",
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
+    "features-tab": "Funktionen",
+    "features": {
+      "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",
+      "state-on": "An",
+      "state-off": "Aus",
+      "state-beta": "Beta",
+      "allowlist-placeholder": "Beta-Tester auswählen",
+      "saved": "Funktion aktualisiert.",
+      "error": "Funktion konnte nicht aktualisiert werden.",
+      "names": {
+        "gallery": "Galerie",
+        "stories": "Geschichten",
+        "events": "Ereignisse & Zeitstrahl",
+        "activity_log": "Aktivitätsprotokoll",
+        "quality_report": "Qualitätsbericht",
+        "statistics": "Statistiken",
+        "virtual_views": "Virtuelle Ansichten",
+        "gedcom": "GEDCOM-Import/-Export"
+      },
+      "descriptions": {
+        "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
+        "stories": "Geschichten und Anhänge bei Mitgliedern.",
+        "events": "Lebensereignisse und die Zeitstrahl-Ansicht.",
+        "activity_log": "Protokoll der letzten Änderungen pro Stammbaum.",
+        "quality_report": "Datenqualitätsprüfungen pro Stammbaum.",
+        "statistics": "Aggregierte Statistiken pro Stammbaum.",
+        "virtual_views": "Schreibgeschützte Ansichten über mehrere Stammbäume.",
+        "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren."
+      }
+    },
     "col-username": "Benutzername",
     "col-provider": "Anbieter",
     "col-admin": "Admin",

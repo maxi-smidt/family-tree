@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import accessible_tree_ids, get_current_user, role_for
+from app.api.deps import (
+    accessible_tree_ids,
+    get_current_user,
+    require_feature,
+    role_for,
+)
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Member, MemberDisease, Relation, RelationType, Tree, User
@@ -25,7 +30,11 @@ from app.schemas.virtual_view import (
 )
 from app.services.virtual_view_matching import compute_match_groups, persist_matches
 
-router = APIRouter(prefix="/virtual-views", tags=["virtual-views"])
+router = APIRouter(
+    prefix="/virtual-views",
+    tags=["virtual-views"],
+    dependencies=[Depends(require_feature("virtual_views"))],
+)
 
 VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED = "virtual_view_source_access_revoked"
 VIRTUAL_VIEW_SOURCES_MISSING = "virtual_view_sources_missing"

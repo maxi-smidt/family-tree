@@ -26,6 +26,16 @@ class UserOut(BaseModel):
     deletion_requested_by: str | None = None
 
 
+class CurrentUserOut(UserOut):
+    """The calling user plus their resolved feature-flag set.
+
+    Only for "who am I" responses (login/me); admin user lists stay ``UserOut``
+    since another user's feature set would be misleading there.
+    """
+
+    features: list[str] = []
+
+
 class UserCreate(BaseModel):
     username: str
     password: str

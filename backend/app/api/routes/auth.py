@@ -17,14 +17,22 @@ from app.schemas.auth import AuthConfig, LoginRequest, Token
 from app.schemas.user import (
     AccountRestore,
     AccountSelfDelete,
+    CurrentUserOut,
     PasswordChange,
     UserCreate,
     UserOut,
 )
+from app.services import feature_service
 from app.services.settings_service import get_bool_setting
 from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _current_user_out(db: Session, user: User) -> CurrentUserOut:
+    out = CurrentUserOut.model_validate(user)
+    out.features = feature_service.enabled_for(db, user)
+    return out
 
 
 @router.get("/config", response_model=AuthConfig)
@@ -68,7 +76,7 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 
     login_rate_limiter.reset(rate_key)
     token = create_access_token(user.id)
-    return Token(access_token=token, user=UserOut.model_validate(user))
+    return Token(access_token=token, user=_current_user_out(db, user))
 
 
 @router.post("/register", response_model=Token)
@@ -97,12 +105,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     token = create_access_token(user.id)
-    return Token(access_token=token, user=UserOut.model_validate(user))
+    return Token(access_token=token, user=_current_user_out(db, user))
 
 
-@router.get("/me", response_model=UserOut)
-def me(user: User = Depends(get_current_user)):
-    return user
+@router.get("/me", response_model=CurrentUserOut)
+def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return _current_user_out(db, user)
 
 
 @router.post("/delete-account", response_model=UserOut)
@@ -188,7 +196,7 @@ def restore_account(
 
     login_rate_limiter.reset(rate_key)
     token = create_access_token(user.id)
-    return Token(access_token=token, user=UserOut.model_validate(user))
+    return Token(access_token=token, user=_current_user_out(db, user))
 
 
 @router.post("/password", status_code=204)

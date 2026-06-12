@@ -1,4 +1,19 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
+
+FeatureState = Literal["on", "off", "beta"]
+
+
+class FeatureFlagOut(BaseModel):
+    name: str
+    state: FeatureState
+    allowlist: list[str]
+
+
+class FeatureFlagUpdate(BaseModel):
+    state: FeatureState | None = None
+    allowlist: list[str] | None = None
 
 
 class SettingsOut(BaseModel):

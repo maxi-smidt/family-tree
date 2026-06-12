@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.deps import (
+    get_current_user,
+    get_readable_tree,
+    get_writable_tree,
+    require_feature,
+)
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
 from app.models import GalleryImage, GalleryMemberLink, Tree
@@ -25,7 +30,11 @@ from app.services.storage import (
     process_image_field,
 )
 
-router = APIRouter(prefix="/trees/{tree_id}/gallery", tags=["gallery"])
+router = APIRouter(
+    prefix="/trees/{tree_id}/gallery",
+    tags=["gallery"],
+    dependencies=[Depends(require_feature("gallery"))],
+)
 
 
 def _get_image(db: Session, tree: Tree, image_id: str) -> GalleryImage:

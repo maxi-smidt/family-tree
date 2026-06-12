@@ -3,6 +3,7 @@ import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/services/api";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useFeature } from "@/hooks/useAuthStore";
 import {
   ChangeEvent,
   FormEvent,
@@ -68,6 +69,8 @@ export const EditMode = ({
     keyPrefix: "sheet.edit-mode",
   });
   const { updateMemberPartial, members } = useMemberStore();
+  const eventsEnabled = useFeature("events");
+  const storiesEnabled = useFeature("stories");
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -548,8 +551,8 @@ export const EditMode = ({
         </FieldGroup>
 
         <div className="space-y-4 mt-6">
-          <MemberEvents member={member} />
-          <MemberStories member={member} />
+          {eventsEnabled && <MemberEvents member={member} />}
+          {storiesEnabled && <MemberStories member={member} />}
           <MemberDiseases member={member} />
         </div>
       </div>

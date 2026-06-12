@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useFeature } from "@/hooks/useAuthStore";
 import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,6 +69,8 @@ export const DatabaseManagementView = () => {
     exportGedcom,
     importGedcom,
   } = useTreeManager();
+  const gedcomEnabled = useFeature("gedcom");
+  const virtualViewsEnabled = useFeature("virtual_views");
 
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
@@ -75,7 +78,9 @@ export const DatabaseManagementView = () => {
     useState(false);
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
   const [isVirtualViewDialogOpen, setIsVirtualViewDialogOpen] = useState(false);
-  const [editingVirtualView, setEditingVirtualView] = useState<Tree | null>(null);
+  const [editingVirtualView, setEditingVirtualView] = useState<Tree | null>(
+    null,
+  );
   const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
   const [shareTree, setShareTree] = useState<Tree | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
@@ -361,14 +366,16 @@ export const DatabaseManagementView = () => {
             >
               <HardDriveUpload className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleExportGedcom(database)}
-              title={t("export-gedcom-button")}
-            >
-              <FileUp className="h-4 w-4" />
-            </Button>
+            {gedcomEnabled && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleExportGedcom(database)}
+                title={t("export-gedcom-button")}
+              >
+                <FileUp className="h-4 w-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
@@ -442,10 +449,12 @@ export const DatabaseManagementView = () => {
             <HardDriveDownload />
             {t("import-button")}
           </Button>
-          <Button variant="outline" size="sm" onClick={handleImportGedcom}>
-            <FileDown />
-            {t("import-gedcom-button")}
-          </Button>
+          {gedcomEnabled && (
+            <Button variant="outline" size="sm" onClick={handleImportGedcom}>
+              <FileDown />
+              {t("import-gedcom-button")}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -455,18 +464,20 @@ export const DatabaseManagementView = () => {
             <GitMerge />
             {t("merge-button")}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditingVirtualView(null);
-              setIsVirtualViewDialogOpen(true);
-            }}
-            disabled={trees.length < 2}
-          >
-            <Layers />
-            {t("virtual-view-button")}
-          </Button>
+          {virtualViewsEnabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditingVirtualView(null);
+                setIsVirtualViewDialogOpen(true);
+              }}
+              disabled={trees.length < 2}
+            >
+              <Layers />
+              {t("virtual-view-button")}
+            </Button>
+          )}
         </div>
       }
     >
@@ -483,192 +494,196 @@ export const DatabaseManagementView = () => {
           t("no-shared"),
           t("table-your-role"),
         )}
-        <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold">
-            {t("virtual-views-section")}{" "}
-            <span className="text-muted-foreground font-normal">
-              ({virtualViews.length})
-            </span>
-          </h3>
-          <div className="border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12"></TableHead>
-                  <TableHead>{t("table-name")}</TableHead>
-                  <TableHead>{t("table-sources")}</TableHead>
-                  <TableHead className="text-right">
-                    {t("table-actions")}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {virtualViews.length === 0 ? (
+        {virtualViewsEnabled && (
+          <div className="flex flex-col gap-2">
+            <h3 className="text-sm font-semibold">
+              {t("virtual-views-section")}{" "}
+              <span className="text-muted-foreground font-normal">
+                ({virtualViews.length})
+              </span>
+            </h3>
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="text-center text-muted-foreground"
-                    >
-                      {t("no-virtual-views")}
-                    </TableCell>
+                    <TableHead className="w-12"></TableHead>
+                    <TableHead>{t("table-name")}</TableHead>
+                    <TableHead>{t("table-sources")}</TableHead>
+                    <TableHead className="text-right">
+                      {t("table-actions")}
+                    </TableHead>
                   </TableRow>
-                ) : (
-                  virtualViews.map((view) => {
-                    const isSelected = selectedTree?.id === view.id;
-                    const hasInaccessible = view.sources?.some(
-                      (s) => !s.accessible,
-                    );
-                    return (
-                      <TableRow
-                        key={view.id}
-                        onClick={() => handleSelectVirtualView(view)}
-                        className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
+                </TableHeader>
+                <TableBody>
+                  {virtualViews.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="text-center text-muted-foreground"
                       >
-                        <TableCell
-                          className={
-                            isSelected
-                              ? "border-l-2 border-l-primary"
-                              : "border-l-2 border-l-transparent"
-                          }
+                        {t("no-virtual-views")}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    virtualViews.map((view) => {
+                      const isSelected = selectedTree?.id === view.id;
+                      const hasInaccessible = view.sources?.some(
+                        (s) => !s.accessible,
+                      );
+                      return (
+                        <TableRow
+                          key={view.id}
+                          onClick={() => handleSelectVirtualView(view)}
+                          className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
                         >
-                          <input
-                            type="radio"
-                            checked={isSelected}
-                            onChange={() => handleSelectVirtualView(view)}
-                            className="cursor-pointer"
-                            aria-label={t("select-tree")}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          {editingDatabaseId === view.id ? (
-                            <div
-                              className="flex items-center gap-2"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Input
-                                value={editingName}
-                                onChange={(e) => setEditingName(e.target.value)}
-                                className="h-8"
-                                autoFocus
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    void handleRenameVirtualView(
-                                      view,
-                                      editingName,
-                                    );
-                                  } else if (e.key === "Escape") {
-                                    handleCancelRename();
+                          <TableCell
+                            className={
+                              isSelected
+                                ? "border-l-2 border-l-primary"
+                                : "border-l-2 border-l-transparent"
+                            }
+                          >
+                            <input
+                              type="radio"
+                              checked={isSelected}
+                              onChange={() => handleSelectVirtualView(view)}
+                              className="cursor-pointer"
+                              aria-label={t("select-tree")}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {editingDatabaseId === view.id ? (
+                              <div
+                                className="flex items-center gap-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Input
+                                  value={editingName}
+                                  onChange={(e) =>
+                                    setEditingName(e.target.value)
                                   }
-                                }}
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleRenameVirtualView(view, editingName)
-                                }
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleCancelRename}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1.5 font-medium">
-                              <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
-                              {view.name}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {view.sources?.map((src) => (
-                              <Tooltip key={src.tree_id}>
-                                <TooltipTrigger asChild>
-                                  <Badge
-                                    variant={
-                                      src.accessible ? "secondary" : "outline"
+                                  className="h-8"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      void handleRenameVirtualView(
+                                        view,
+                                        editingName,
+                                      );
+                                    } else if (e.key === "Escape") {
+                                      handleCancelRename();
                                     }
-                                    className="gap-1"
-                                  >
-                                    {!src.accessible && (
-                                      <AlertTriangle className="h-3 w-3 text-destructive" />
-                                    )}
-                                    {src.tree_name}
-                                  </Badge>
-                                </TooltipTrigger>
-                                {!src.accessible && (
-                                  <TooltipContent>
-                                    {t("source-inaccessible")}
-                                  </TooltipContent>
-                                )}
-                              </Tooltip>
-                            ))}
-                            {hasInaccessible && (
-                              <span className="text-xs text-destructive self-center">
-                                {t("view-degraded")}
-                              </span>
+                                  }}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleRenameVirtualView(view, editingName)
+                                  }
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleCancelRename}
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
+                                {view.name}
+                              </div>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell
-                          className="text-right"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingVirtualView(view);
-                                setIsVirtualViewDialogOpen(true);
-                              }}
-                              title={t("edit-sources-button")}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRecomputeMatches(view)}
-                              title={t("recompute-button")}
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                handleStartRename(view);
-                              }}
-                              disabled={editingDatabaseId !== null}
-                              title={t("rename-button")}
-                            >
-                              <Hash className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteVirtualView(view)}
-                              title={t("delete-virtual-view-button")}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {view.sources?.map((src) => (
+                                <Tooltip key={src.tree_id}>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant={
+                                        src.accessible ? "secondary" : "outline"
+                                      }
+                                      className="gap-1"
+                                    >
+                                      {!src.accessible && (
+                                        <AlertTriangle className="h-3 w-3 text-destructive" />
+                                      )}
+                                      {src.tree_name}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  {!src.accessible && (
+                                    <TooltipContent>
+                                      {t("source-inaccessible")}
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              ))}
+                              {hasInaccessible && (
+                                <span className="text-xs text-destructive self-center">
+                                  {t("view-degraded")}
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell
+                            className="text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingVirtualView(view);
+                                  setIsVirtualViewDialogOpen(true);
+                                }}
+                                title={t("edit-sources-button")}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRecomputeMatches(view)}
+                                title={t("recompute-button")}
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  handleStartRename(view);
+                                }}
+                                disabled={editingDatabaseId !== null}
+                                title={t("rename-button")}
+                              >
+                                <Hash className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteVirtualView(view)}
+                                title={t("delete-virtual-view-button")}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="text-sm text-muted-foreground">

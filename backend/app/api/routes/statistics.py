@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree
+from app.api.deps import get_readable_tree, require_feature
 from app.db.session import get_db
 from app.models import Tree
 from app.models.family import Member
@@ -21,7 +21,11 @@ from app.schemas.statistics import (
     StatisticsReport,
 )
 
-router = APIRouter(prefix="/trees/{tree_id}", tags=["statistics"])
+router = APIRouter(
+    prefix="/trees/{tree_id}",
+    tags=["statistics"],
+    dependencies=[Depends(require_feature("statistics"))],
+)
 
 _YEAR_RE = re.compile(r"\b(\d{4})\b")
 

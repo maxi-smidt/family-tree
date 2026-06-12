@@ -826,6 +826,36 @@
     "description": "Manage users and instance settings.",
     "users-tab": "Users",
     "settings-tab": "Settings",
+    "features-tab": "Features",
+    "features": {
+      "hint": "Enable or disable features for this instance at runtime. \"Beta\" enables a feature only for the selected users.",
+      "state-on": "On",
+      "state-off": "Off",
+      "state-beta": "Beta",
+      "allowlist-placeholder": "Select beta testers",
+      "saved": "Feature updated.",
+      "error": "Could not update feature.",
+      "names": {
+        "gallery": "Gallery",
+        "stories": "Stories",
+        "events": "Events & timeline",
+        "activity_log": "Activity log",
+        "quality_report": "Quality report",
+        "statistics": "Statistics",
+        "virtual_views": "Virtual views",
+        "gedcom": "GEDCOM import/export"
+      },
+      "descriptions": {
+        "gallery": "Photo gallery and image links on members.",
+        "stories": "Stories and attachments on members.",
+        "events": "Life events and the timeline view.",
+        "activity_log": "Recent-changes log per tree.",
+        "quality_report": "Data-quality checks per tree.",
+        "statistics": "Aggregate statistics per tree.",
+        "virtual_views": "Read-only views combining several trees.",
+        "gedcom": "Import and export trees as GEDCOM files."
+      }
+    },
     "col-username": "Username",
     "col-provider": "Provider",
     "col-admin": "Admin",

@@ -13,9 +13,11 @@ import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
 import { useGalleryStore } from "./useGalleryStore";
 import { useActivityStore } from "./useActivityStore";
+import { useAuthStore } from "./useAuthStore";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { Tree } from "@/types/tree";
+import { ALL_FEATURES } from "@/lib/features";
 
 vi.mock("@/services/api", () => ({
   api: {
@@ -24,6 +26,9 @@ vi.mock("@/services/api", () => ({
     patch: vi.fn(),
     del: vi.fn(),
   },
+  getAuthToken: vi.fn(() => null),
+  setAuthToken: vi.fn(),
+  onUnauthorized: vi.fn(),
 }));
 vi.mock("@/services/TreeService");
 
@@ -88,6 +93,9 @@ beforeEach(() => {
   useStoryStore.setState({ stories: [] });
   useGalleryStore.setState({ galleryImages: [] });
   useActivityStore.setState({ activities: [] });
+  // All feature flags enabled (the production default) so connect() loads
+  // every content store.
+  useAuthStore.setState({ features: [...ALL_FEATURES] });
 });
 
 // ---------------------------------------------------------------------------
@@ -162,6 +170,34 @@ describe("useTreeStore — connect / selectTree", () => {
 
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
     expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
+  it("loads all content stores when every feature flag is enabled", async () => {
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_A.id, TREE_A);
+
+    await useTreeStore.getState().connect(TREE_A);
+
+    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(TreeService.getEvents).toHaveBeenCalled();
+    expect(TreeService.getStories).toHaveBeenCalled();
+    expect(TreeService.getActivity).toHaveBeenCalled();
+  });
+
+  it("skips content loads for disabled features", async () => {
+    useAuthStore.setState({
+      features: ALL_FEATURES.filter((f) => f !== "gallery" && f !== "events"),
+    });
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_A.id, TREE_A);
+
+    await useTreeStore.getState().connect(TREE_A);
+
+    expect(useTreeStore.getState().isReady).toBe(true);
+    expect(TreeService.getGalleryImages).not.toHaveBeenCalled();
+    expect(TreeService.getEvents).not.toHaveBeenCalled();
+    expect(TreeService.getStories).toHaveBeenCalled();
+    expect(TreeService.getActivity).toHaveBeenCalled();
   });
 });
 

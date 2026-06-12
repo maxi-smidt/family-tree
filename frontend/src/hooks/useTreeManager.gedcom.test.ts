@@ -18,10 +18,12 @@ import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
 import { useGalleryStore } from "./useGalleryStore";
 import { useActivityStore } from "./useActivityStore";
+import { useAuthStore } from "./useAuthStore";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { Tree } from "@/types/tree";
 import { MemberDB, RelationDB } from "@/types/member";
+import { ALL_FEATURES } from "@/lib/features";
 
 vi.mock("@/services/api", () => ({
   api: {
@@ -31,6 +33,9 @@ vi.mock("@/services/api", () => ({
     patch: vi.fn(),
     del: vi.fn(),
   },
+  getAuthToken: vi.fn(() => null),
+  setAuthToken: vi.fn(),
+  onUnauthorized: vi.fn(),
 }));
 vi.mock("@/services/TreeService");
 
@@ -130,6 +135,9 @@ beforeEach(() => {
   useStoryStore.setState({ stories: [] });
   useGalleryStore.setState({ galleryImages: [] });
   useActivityStore.setState({ activities: [] });
+  // All feature flags enabled (the production default) so connect() loads
+  // every content store.
+  useAuthStore.setState({ features: [...ALL_FEATURES] });
 });
 
 describe("importGedcom flow — GEDCOM 5.5.5 sample with BEF date", () => {
