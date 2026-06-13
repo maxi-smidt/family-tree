@@ -219,6 +219,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="top"
         isConnectable={!data.isReadOnly}
         className={handleClassName}
+        data-export-hide="true"
       />
       <Handle
         type="source"
@@ -226,6 +227,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="left"
         isConnectable={!data.isReadOnly}
         className={horizontalHandleClassName}
+        data-export-hide="true"
       />
       <Handle
         type="source"
@@ -233,8 +235,9 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="right"
         isConnectable={!data.isReadOnly}
         className={horizontalHandleClassName}
+        data-export-hide="true"
       />
-      <div className="absolute top-2 flex justify-between w-full px-2">
+      <div className="absolute top-2 flex justify-between w-full px-2" data-export-hide="true">
         <Button
           type="button"
           variant="outline"
@@ -387,6 +390,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="bottom"
         isConnectable={!data.isReadOnly}
         className={handleClassName}
+        data-export-hide="true"
       />
     </div>
   );
