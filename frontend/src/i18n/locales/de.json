@@ -247,6 +247,25 @@
       "import": "Stammbaum importieren",
       "toast-success": "Stammbaum erfolgreich importiert!",
       "toast-error": "Stammbaum konnte nicht importiert werden."
+    },
+    "mobile-management": {
+      "manage": "Verwalten",
+      "title": "Verwalten",
+      "selected-tree": "Ausgewählter Baum",
+      "no-tree-selected": "Kein Baum ausgewählt",
+      "group-sharing": "Freigabe",
+      "group-data": "Daten",
+      "group-admin": "Administration",
+      "share-action": "Freigabe & Berechtigungen",
+      "export-action": "Baum exportieren",
+      "import-action": "Baum importieren",
+      "export-gedcom-action": "GEDCOM exportieren",
+      "import-gedcom-action": "GEDCOM importieren",
+      "activity-action": "Aktivitätsprotokoll",
+      "admin-action": "Administration",
+      "role-owner": "Eigentümer",
+      "role-editor": "Bearbeiter",
+      "role-viewer": "Betrachter"
     }
   },
   "list-view": {
