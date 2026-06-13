@@ -21,6 +21,11 @@ const DYNAMIC_KEY_PREFIXES = [
   "database-management-view.role-",
   // t(`attachments.error-${err}`)  — StoryDialog (keyPrefix: sheet.member-sheet.stories.dialog)
   "sheet.member-sheet.stories.dialog.attachments.error-",
+  // t(`state-${state}`), t(`names.${flag.name}`), t(`descriptions.${flag.name}`)
+  //   — FeatureFlagsPanel (keyPrefix: admin.features)
+  "admin.features.state-",
+  "admin.features.names.",
+  "admin.features.descriptions.",
 ];
 
 function isDynamicKey(key) {

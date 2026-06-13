@@ -12,14 +12,14 @@ from app.api.deps import (
 )
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Member, MemberDisease, Relation, RelationType, Tree, User
+from app.models import Member, MemberDisease, Relation, Tree, User
 from app.models.virtual_view import (
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
 )
-from app.schemas.family import DiseaseOut, MemberOut, RelationOut, RelationTypeOut
+from app.schemas.family import DiseaseOut, MemberOut, RelationOut
 from app.schemas.virtual_view import (
     VirtualMemberOut,
     VirtualPositionItem,
@@ -590,25 +590,6 @@ def list_virtual_diseases(
         seen.add(key)
         out = DiseaseOut.model_validate(d)
         result.append(DiseaseOut(member_id=node_id, name=out.name))
-    return result
-
-
-@router.get("/{view_id}/relation-types", response_model=list[RelationTypeOut])
-def list_virtual_relation_types(
-    view_id: str,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[RelationTypeOut]:
-    view = _resolve_view(db, view_id, user)
-    source_ids = [s.tree_id for s in view.sources]
-    seen: set[str] = set()
-    result: list[RelationTypeOut] = []
-    for rt_id in db.scalars(
-        select(RelationType.id).where(RelationType.tree_id.in_(source_ids))
-    ).all():
-        if rt_id not in seen:
-            seen.add(rt_id)
-            result.append(RelationTypeOut(id=rt_id))
     return result
 
 

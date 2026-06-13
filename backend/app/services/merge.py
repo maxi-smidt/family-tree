@@ -21,7 +21,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import role_for
-from app.core.constants import DEFAULT_RELATION_TYPES
 from app.db.base import utcnow_iso
 from app.models import (
     Event,
@@ -31,7 +30,6 @@ from app.models import (
     Member,
     MemberDisease,
     Relation,
-    RelationType,
     Story,
     StoryAttachment,
     StoryMemberLink,
@@ -311,19 +309,6 @@ def merge_trees(
     db.add(new_tree)
     db.flush()
 
-    # --- Relation types (union, falling back to the defaults) --------------
-    rtypes: set[str] = set()
-    for t in sources:
-        rtypes |= {
-            rt.id
-            for rt in db.scalars(
-                select(RelationType).where(RelationType.tree_id == t.id)
-            )
-        }
-    for rt in rtypes or set(DEFAULT_RELATION_TYPES):
-        db.add(RelationType(tree_id=new_tree.id, id=rt))
-    rtypes = rtypes or set(DEFAULT_RELATION_TYPES)
-
     # --- Members (with de-duplication across both sources) -----------------
     # member_map: source member id → new tree member id
     member_map: dict[str, str] = {}
@@ -429,7 +414,7 @@ def merge_trees(
         for r in db.scalars(select(Relation).where(Relation.tree_id == t.id)):
             f = member_map.get(r.from_member_id)
             to = member_map.get(r.to_member_id)
-            if not f or not to or r.relation_type not in rtypes:
+            if not f or not to:
                 continue
             key = (f, to, r.relation_type)
             if key not in seen_relations:

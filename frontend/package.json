@@ -10,6 +10,9 @@
     "bump:patch": "node scripts/bump-version.js patch",
     "bump:minor": "node scripts/bump-version.js minor",
     "bump:major": "node scripts/bump-version.js major",
+    "release:patch": "node scripts/bump-version.js patch --tag",
+    "release:minor": "node scripts/bump-version.js minor --tag",
+    "release:major": "node scripts/bump-version.js major --tag",
     "test": "vitest",
     "check-i18n": "node scripts/check-i18n.mjs",
     "check-no-any": "node scripts/check-no-any.mjs"

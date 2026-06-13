@@ -1,11 +1,21 @@
-import { RELATION_TYPES as CONSTANT_RELATION_TYPES } from "@/constants";
 import { Disease } from "./disease";
 
 export type Gender = "m" | "f" | "o";
 
-export const RELATION_TYPES = CONSTANT_RELATION_TYPES as readonly string[];
+/**
+ * Relation types live in an instance-wide, admin-managed registry served by
+ * the backend (`GET /relation-types`), so the type is an open string.
+ */
+export type RelationType = string;
 
-export type RelationType = (typeof RELATION_TYPES)[number];
+/** The tree structure is built from "parent" relations; this type is fixed. */
+export const PARENT_RELATION_TYPE: RelationType = "parent";
+
+/** Row shape of the backend relation type registry. */
+export interface RelationTypeDB {
+  id: RelationType;
+  description: string | null;
+}
 
 export interface Relation {
   fromMemberId: string;

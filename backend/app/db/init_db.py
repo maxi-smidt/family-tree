@@ -10,13 +10,27 @@ from sqlalchemy import func, select
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
-from app.models import User
+from app.models import RelationType, User
 from app.services.settings_service import ensure_defaults
 
 logger = logging.getLogger("app.init")
 
 # backend/app/db/init_db.py -> backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+
+# Seeded into the instance-wide registry when it is empty (first start, or an
+# admin emptied it). Admins manage the registry afterwards.
+DEFAULT_RELATION_TYPES: list[str] = [
+    "parent",
+    "sibling",
+    "partner",
+    "married",
+    "divorced",
+    "step-parent",
+    "step-sibling",
+    "half-sibling",
+    "other",
+]
 
 
 def run_migrations() -> None:
@@ -35,7 +49,17 @@ def init_db() -> None:
 
     with SessionLocal() as db:
         ensure_defaults(db)
+        _seed_relation_types(db)
         _seed_admin(db)
+
+
+def _seed_relation_types(db) -> None:
+    if db.scalar(select(func.count()).select_from(RelationType)):
+        return
+    for rt in DEFAULT_RELATION_TYPES:
+        db.add(RelationType(id=rt))
+    db.commit()
+    logger.info("Seeded %d default relation types", len(DEFAULT_RELATION_TYPES))
 
 
 def _seed_admin(db) -> None:

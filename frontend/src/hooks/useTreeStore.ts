@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
-import { RelationType } from "@/types/member";
+import { RelationTypeDB } from "@/types/member";
 import { MergeResolution } from "@/types/merge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -28,7 +28,7 @@ interface DatabaseState {
   virtualViews: Tree[];
   selectedTree: Tree | undefined;
   metadata: DatabaseMetaData;
-  relationTypes: { id: RelationType }[];
+  relationTypes: RelationTypeDB[];
   isReady: boolean;
 
   loadTrees: () => Promise<void>;
@@ -55,7 +55,7 @@ interface DatabaseState {
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
   refreshMetadata: (treeId?: string) => Promise<void>;
-  refreshRelationTypes: (treeId?: string) => Promise<void>;
+  refreshRelationTypes: () => Promise<void>;
 }
 
 const clearDataStores = () => {
@@ -220,7 +220,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       useStatisticsStore.getState().clear();
       await Promise.all([
         get().refreshMetadata(tree.id),
-        get().refreshRelationTypes(tree.id),
+        get().refreshRelationTypes(),
         useMemberStore.getState().refreshMembers(tree.id),
       ]);
       // Only auto-layout when there are no saved overlay positions yet.
@@ -243,7 +243,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       // answer 404, so loading them would just produce noise.
       const loads = [
         get().refreshMetadata(tree.id),
-        get().refreshRelationTypes(tree.id),
+        get().refreshRelationTypes(),
         useMemberStore.getState().refreshMembers(tree.id),
       ];
       if (hasFeature("gallery"))
@@ -279,10 +279,8 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     set({ metadata });
   },
 
-  refreshRelationTypes: async (treeId = activeTreeId()) => {
-    if (!treeId) return;
-    const types = await TreeService.getRelationTypes(treeId);
-    if (!isActiveTree(treeId)) return;
+  refreshRelationTypes: async () => {
+    const types = await TreeService.getRelationTypes();
     set({ relationTypes: types });
   },
 }));
