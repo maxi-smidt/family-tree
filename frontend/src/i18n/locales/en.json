@@ -429,7 +429,10 @@
           "update": "Update",
           "add": "Add",
           "custom": "Custom...",
-          "custom-placeholder": "e.g., Graduation, Migration, Confirmation"
+          "custom-placeholder": "e.g., Graduation, Migration, Confirmation",
+          "location-checking": "Checking address...",
+          "location-found": "Address found",
+          "location-not-found": "Address not found — won't appear on map"
         }
       },
       "stories": {
@@ -1097,7 +1100,13 @@
       "date-to": "To",
       "no-mappable-events": "No mappable events found",
       "add-location-hint": "Add a location to an event to see it on the map",
-      "unlocatable-count": "{{count}} event(s) have locations that could not be resolved on the map"
+      "unlocatable-count": "{{count}} event(s) have locations that could not be resolved on the map",
+      "legend-event": "Event",
+      "legend-birthplace": "Birthplace",
+      "legend-hometown": "Hometown",
+      "legend-places-lived": "Place lived",
+      "from": "from",
+      "until": "until"
     }
   }
 }
