@@ -6,8 +6,10 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import {
+  ImageDown,
   Lock,
   LockOpen,
+  Loader2,
   Maximize,
   Minus,
   Plus,
@@ -19,6 +21,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useReactFlow } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useTreeExport } from "@/hooks/useTreeExport";
 
 type Props = {
   navigationOnly?: boolean;
@@ -42,6 +45,7 @@ export const FlowPanelControls = ({
   const redo = useMemberStore((s) => s.redo);
   const undoStack = useMemberStore((s) => s.undoStack);
   const redoStack = useMemberStore((s) => s.redoStack);
+  const { exportImage, isExporting } = useTreeExport();
 
   return (
     <ButtonGroup orientation="vertical">
@@ -137,6 +141,24 @@ export const FlowPanelControls = ({
           </TooltipContent>
         </Tooltip>
       )}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => void exportImage()}
+            disabled={isExporting}
+            aria-label={t("export-image")}
+          >
+            {isExporting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <ImageDown />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{t("export-image")}</TooltipContent>
+      </Tooltip>
     </ButtonGroup>
   );
 };

@@ -565,7 +565,8 @@
       "enable-connection-mode": "Verbindung finden",
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",
-      "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden."
+      "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden.",
+      "export-image": "Stammbaum als Bild exportieren"
     },
     "persistence": {
       "collapse-error": "Einklappstatus konnte nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt.",

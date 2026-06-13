@@ -565,7 +565,8 @@
       "enable-connection-mode": "Find connection",
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",
-      "connection-path-partial": "Some selected members are not connected."
+      "connection-path-partial": "Some selected members are not connected.",
+      "export-image": "Export tree as image"
     },
     "persistence": {
       "collapse-error": "Could not save collapsed members. The tree was restored.",
