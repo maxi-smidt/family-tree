@@ -6,7 +6,7 @@ import {
   setAuthToken,
 } from "@/services/api";
 import { TreeSharingService } from "@/services/TreeSharingService";
-import { AuthConfig, TokenResponse, User } from "@/types/user";
+import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
 import { FeatureName } from "@/lib/features";
 import { decodeJwtExp } from "@/lib/utils";
 
@@ -24,8 +24,13 @@ interface AuthState {
   pendingInviteToken: string | null;
   /** Tree ID from a #public= URL hash; enables anonymous public tree viewing. */
   pendingPublicTreeId: string | null;
+  /** Set after password check when the account has TOTP enabled. */
+  totpRequired: boolean;
+  totpSessionToken: string | null;
   init: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
+  verifyTotp: (code: string) => Promise<void>;
+  cancelTotp: () => void;
   logout: () => void;
   refreshMe: () => Promise<void>;
   deleteAccount: (
@@ -63,6 +68,20 @@ function startExpiryCheck() {
   }
 }
 
+function applyToken(res: TokenResponse) {
+  setAuthToken(res.access_token);
+  useAuthStore.setState({
+    user: res.user,
+    features: res.user.features ?? [],
+    status: "authenticated",
+    reloginRequired: false,
+    sessionExpiringSoon: false,
+    totpRequired: false,
+    totpSessionToken: null,
+  });
+  startExpiryCheck();
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   status: "loading",
   user: null,
@@ -72,6 +91,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   reloginRequired: false,
   pendingInviteToken: null,
   pendingPublicTreeId: null,
+  totpRequired: false,
+  totpSessionToken: null,
 
   init: async () => {
     // Pick up a token handed back by the Authentik OAuth redirect (#token=...).
@@ -114,19 +135,29 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   login: async (username: string, password: string) => {
-    const res = await api.post<TokenResponse>("/auth/login", {
+    const res = await api.post<LoginResponse>("/auth/login", {
       username,
       password,
     });
-    setAuthToken(res.access_token);
-    set({
-      user: res.user,
-      features: res.user.features ?? [],
-      status: "authenticated",
-      reloginRequired: false,
-      sessionExpiringSoon: false,
+    if (res.totp_required && res.totp_session_token) {
+      set({ totpRequired: true, totpSessionToken: res.totp_session_token });
+      return;
+    }
+    applyToken(res as TokenResponse);
+  },
+
+  verifyTotp: async (code: string) => {
+    const { totpSessionToken } = useAuthStore.getState();
+    if (!totpSessionToken) throw new Error("No TOTP session");
+    const res = await api.post<TokenResponse>("/auth/totp", {
+      session_token: totpSessionToken,
+      code,
     });
-    startExpiryCheck();
+    applyToken(res);
+  },
+
+  cancelTotp: () => {
+    set({ totpRequired: false, totpSessionToken: null });
   },
 
   logout: () => {
@@ -141,6 +172,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       status: "unauthenticated",
       sessionExpiringSoon: false,
       reloginRequired: false,
+      totpRequired: false,
+      totpSessionToken: null,
     });
   },
 
@@ -164,15 +197,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       username,
       password,
     });
-    setAuthToken(res.access_token);
-    set({
-      user: res.user,
-      features: res.user.features ?? [],
-      status: "authenticated",
-      reloginRequired: false,
-      sessionExpiringSoon: false,
-    });
-    startExpiryCheck();
+    applyToken(res);
   },
 
   acceptPendingInvite: async () => {

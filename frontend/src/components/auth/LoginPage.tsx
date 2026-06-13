@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { api, ApiError, setAuthToken } from "@/services/api";
 import { authErrorToast } from "@/components/auth/loginError";
@@ -22,6 +22,9 @@ export const LoginPage = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.login" });
   const config = useAuthStore((s) => s.config);
   const login = useAuthStore((s) => s.login);
+  const verifyTotp = useAuthStore((s) => s.verifyTotp);
+  const cancelTotp = useAuthStore((s) => s.cancelTotp);
+  const totpRequired = useAuthStore((s) => s.totpRequired);
   const restoreAccount = useAuthStore((s) => s.restoreAccount);
 
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -31,6 +34,11 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [pendingDeletion, setPendingDeletion] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
+
+  // TOTP step
+  const [totpCode, setTotpCode] = useState("");
+  const [totpLoading, setTotpLoading] = useState(false);
+  const totpInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -47,6 +55,8 @@ export const LoginPage = () => {
         useAuthStore.setState({ user: res.user, status: "authenticated" });
       } else {
         await login(username, password);
+        // If TOTP is required the store sets totpRequired=true; focus the code input.
+        setTimeout(() => totpInputRef.current?.focus(), 50);
       }
     } catch (err) {
       console.error(err);
@@ -57,6 +67,25 @@ export const LoginPage = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTotpSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setTotpLoading(true);
+    try {
+      await verifyTotp(totpCode.trim());
+    } catch (err) {
+      console.error(err);
+      const isRateLimit = err instanceof ApiError && err.status === 429;
+      toast.error(
+        isRateLimit ? t("rate-limit-error") : t("totp-error"),
+        isRateLimit ? { duration: 8000 } : undefined,
+      );
+      setTotpCode("");
+      setTimeout(() => totpInputRef.current?.focus(), 50);
+    } finally {
+      setTotpLoading(false);
     }
   };
 
@@ -76,6 +105,52 @@ export const LoginPage = () => {
       setRestoreLoading(false);
     }
   };
+
+  if (totpRequired) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-muted/30 p-4">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>{t("totp-title")}</CardTitle>
+            <CardDescription>{t("totp-subtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <form onSubmit={handleTotpSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <FieldLabel htmlFor="totp-code">{t("totp-code")}</FieldLabel>
+                <Input
+                  id="totp-code"
+                  ref={totpInputRef}
+                  value={totpCode}
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  placeholder="000000"
+                  onChange={(e) => setTotpCode(e.target.value)}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={totpLoading || !totpCode}
+              >
+                {t("totp-verify")}
+              </Button>
+            </form>
+            <button
+              type="button"
+              className="text-sm text-muted-foreground hover:text-foreground w-full text-center"
+              onClick={() => {
+                cancelTotp();
+                setTotpCode("");
+              }}
+            >
+              {t("totp-back")}
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="w-screen h-screen flex items-center justify-center bg-muted/30 p-4">

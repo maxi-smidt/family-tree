@@ -25,7 +25,7 @@ import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDia
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { RelationTypesPanel } from "@/components/admin/RelationTypesPanel";
-import { KeyRound, Plus, Trash2, Undo2 } from "lucide-react";
+import { KeyRound, Plus, ShieldOff, Trash2, Undo2 } from "lucide-react";
 import {
   AdminService,
   AdminSettings,
@@ -50,6 +50,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [resetPassword, setResetPassword] = useState("");
+  const [userToResetTotp, setUserToResetTotp] = useState<User | null>(null);
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -135,6 +136,19 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
     } catch (err) {
       console.error(err);
       toast.error(t("password-reset-error"));
+    }
+  };
+
+  const resetUserTotp = async () => {
+    if (!userToResetTotp) return;
+    try {
+      await AdminService.resetUserTotp(userToResetTotp.id);
+      await loadUsers();
+      toast.success(t("totp-reset-success"));
+      setUserToResetTotp(null);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("totp-reset-error"));
     }
   };
 
@@ -256,6 +270,17 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
                               >
                                 <KeyRound className="h-4 w-4" />
                               </Button>
+                              {u.totp_enabled && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title={t("reset-totp")}
+                                  aria-label={t("reset-totp")}
+                                  onClick={() => setUserToResetTotp(u)}
+                                >
+                                  <ShieldOff className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -479,6 +504,18 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!userToResetTotp}
+        onOpenChange={(open) => !open && setUserToResetTotp(null)}
+        onConfirm={resetUserTotp}
+        title={t("totp-reset-dialog.title")}
+        description={t("totp-reset-dialog.description", {
+          username: userToResetTotp?.username ?? "",
+        })}
+        cancelText={t("totp-reset-dialog.cancel")}
+        confirmText={t("totp-reset-dialog.confirm")}
+      />
     </Dialog>
   );
 };

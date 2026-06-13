@@ -842,7 +842,13 @@
       "restore-description": "Your account has been scheduled for deletion.",
       "restore-button": "Restore my account",
       "restore-admin-deletion": "This deletion was scheduled by an administrator. Please contact them to restore your account.",
-      "restore-error": "Could not restore account."
+      "restore-error": "Could not restore account.",
+      "totp-title": "Two-factor authentication",
+      "totp-subtitle": "Enter the 6-digit code from your authenticator app.",
+      "totp-code": "Authentication code",
+      "totp-verify": "Verify",
+      "totp-back": "Back to login",
+      "totp-error": "Invalid code. Please try again."
     },
     "change-password": {
       "title": "Change password",
@@ -861,7 +867,8 @@
       "customize-tabs": "Customize tabs",
       "admin": "Administration",
       "delete-account": "Delete my account",
-      "logout": "Log out"
+      "logout": "Log out",
+      "two-factor": "Two-factor authentication"
     },
     "delete-account": {
       "title": "Delete my account",
@@ -882,6 +889,39 @@
       "error": "Could not schedule account deletion.",
       "last-admin-error": "You are the only administrator. Promote another user to admin before deleting your account.",
       "transfer-error": "Could not transfer ownership."
+    },
+    "two-factor": {
+      "title": "Two-factor authentication",
+      "description-disabled": "Add an extra layer of security to your account.",
+      "description-enabled": "Two-factor authentication is currently enabled.",
+      "status-disabled": "2FA is not enabled. Anyone with your password can access your account.",
+      "status-enabled": "2FA is enabled. You will need your authenticator app to sign in.",
+      "setup-btn": "Set up 2FA",
+      "disable-btn": "Disable 2FA",
+      "cancel": "Cancel",
+      "back": "Back",
+      "next": "Next",
+      "done": "Done",
+      "setup-title": "Set up authenticator",
+      "setup-description": "Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.), or enter the key manually.",
+      "manual-key": "Manual key",
+      "verify-title": "Confirm setup",
+      "verify-description": "Enter the 6-digit code shown in your authenticator app to confirm setup.",
+      "code-label": "Authentication code",
+      "enable-btn": "Enable 2FA",
+      "enabled-success": "Two-factor authentication enabled.",
+      "enable-error": "Invalid code. Please try again.",
+      "recovery-title": "Save your recovery codes",
+      "recovery-description": "Store these codes somewhere safe. Each code can be used once if you lose access to your authenticator app.",
+      "copy-codes": "Copy codes",
+      "disable-title": "Disable two-factor authentication",
+      "disable-description": "Enter your password and a current authentication code to disable 2FA.",
+      "disable-password": "Current password",
+      "disable-confirm": "Disable 2FA",
+      "disabled-success": "Two-factor authentication disabled.",
+      "disable-wrong-password": "Incorrect password.",
+      "disable-error": "Could not disable 2FA. Please try again.",
+      "setup-error": "Could not start 2FA setup. Please try again."
     }
   },
   "admin": {
@@ -1007,6 +1047,15 @@
       "deleted": "Relation type deleted.",
       "delete-error": "Could not delete the relation type. Types that are still in use cannot be deleted.",
       "error": "Could not update relation types."
+    },
+    "reset-totp": "Reset 2FA",
+    "totp-reset-success": "2FA removed from account.",
+    "totp-reset-error": "Could not reset 2FA.",
+    "totp-reset-dialog": {
+      "title": "Remove two-factor authentication",
+      "description": "This will remove TOTP 2FA from \"{{username}}\"'s account. They will be able to log in with only their password.",
+      "cancel": "Cancel",
+      "confirm": "Remove 2FA"
     }
   },
   "event-types": {
