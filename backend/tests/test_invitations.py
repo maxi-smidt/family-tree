@@ -104,8 +104,9 @@ def test_accept_invitation_is_idempotent(client, db):
 
 
 def test_accept_expired_invitation_rejected(client, db):
-    from app.models import TreeInvitation
     from sqlalchemy import select
+
+    from app.models import TreeInvitation
 
     alice = make_user(db, "alice")
     bob = make_user(db, "bob")
