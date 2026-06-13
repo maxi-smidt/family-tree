@@ -37,6 +37,7 @@ FEATURES: dict[str, FeatureState] = {
     "gallery": "on",
     "stories": "on",
     "events": "on",
+    "map": "on",
     "activity_log": "on",
     "quality_report": "on",
     "statistics": "on",

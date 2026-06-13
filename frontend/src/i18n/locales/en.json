@@ -269,7 +269,8 @@
       "activity": "Activity",
       "quality-report": "Quality",
       "statistics": "Statistics",
-      "database-management": "Tree Management"
+      "database-management": "Tree Management",
+      "map": "Map"
     },
     "no-database-placeholder": {
       "title": "No Trees Yet",
@@ -428,7 +429,10 @@
           "update": "Update",
           "add": "Add",
           "custom": "Custom...",
-          "custom-placeholder": "e.g., Graduation, Migration, Confirmation"
+          "custom-placeholder": "e.g., Graduation, Migration, Confirmation",
+          "location-checking": "Checking address...",
+          "location-found": "Address found",
+          "location-not-found": "Address not found — won't appear on map"
         }
       },
       "stories": {
@@ -950,7 +954,8 @@
         "statistics": "Statistics",
         "virtual_views": "Virtual views",
         "gedcom": "GEDCOM import/export",
-        "sharing_invites": "Share invitations"
+        "sharing_invites": "Share invitations",
+        "map": "Map view"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -961,7 +966,8 @@
         "statistics": "Aggregate statistics per tree.",
         "virtual_views": "Read-only views combining several trees.",
         "gedcom": "Import and export trees as GEDCOM files.",
-        "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode."
+        "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
+        "map": "Interactive map of timeline events by location."
       }
     },
     "col-username": "Username",
@@ -1082,5 +1088,26 @@
     "gender-female": "Female",
     "not-public": "This tree is private or the link is no longer valid.",
     "error": "Could not load this tree."
+  },
+  "map-view": {
+    "view": {
+      "title": "Map",
+      "member-fallback": "Unknown Member",
+      "all-members": "All Members",
+      "member-place-holder": "Select member...",
+      "member-search-placeholder": "Search members...",
+      "no-member": "No member found.",
+      "date-from": "From",
+      "date-to": "To",
+      "no-mappable-events": "No mappable events found",
+      "add-location-hint": "Add a location to an event to see it on the map",
+      "unlocatable-count": "{{count}} event(s) have locations that could not be resolved on the map",
+      "legend-event": "Event",
+      "legend-birthplace": "Birthplace",
+      "legend-hometown": "Hometown",
+      "legend-places-lived": "Place lived",
+      "from": "from",
+      "until": "until"
+    }
   }
 }

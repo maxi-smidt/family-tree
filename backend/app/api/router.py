@@ -10,6 +10,7 @@ from app.api.routes import (
     export_import,
     features,
     gallery,
+    geocode,
     invitations,
     media,
     members,
@@ -43,6 +44,7 @@ api_router.include_router(export_import.router)
 api_router.include_router(members.router)
 api_router.include_router(gallery.router)
 api_router.include_router(events.router)
+api_router.include_router(geocode.router)
 api_router.include_router(stories.router)
 api_router.include_router(activity.router)
 api_router.include_router(quality.router)

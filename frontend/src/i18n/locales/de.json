@@ -269,7 +269,8 @@
       "activity": "Aktivität",
       "quality-report": "Qualität",
       "statistics": "Statistiken",
-      "database-management": "Stammbaumverwaltung"
+      "database-management": "Stammbaumverwaltung",
+      "map": "Karte"
     },
     "no-database-placeholder": {
       "title": "Noch keine Stammbäume",
@@ -428,7 +429,10 @@
           "update": "Aktualisieren",
           "add": "Hinzufügen",
           "custom": "Benutzerdefiniert...",
-          "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation"
+          "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation",
+          "location-checking": "Adresse wird geprüft...",
+          "location-found": "Adresse gefunden",
+          "location-not-found": "Adresse nicht gefunden – erscheint nicht auf der Karte"
         }
       },
       "stories": {
@@ -950,7 +954,8 @@
         "statistics": "Statistiken",
         "virtual_views": "Virtuelle Ansichten",
         "gedcom": "GEDCOM-Import/-Export",
-        "sharing_invites": "Einladungen teilen"
+        "sharing_invites": "Einladungen teilen",
+        "map": "Kartenansicht"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -961,7 +966,8 @@
         "statistics": "Aggregierte Statistiken pro Stammbaum.",
         "virtual_views": "Schreibgeschützte Ansichten über mehrere Stammbäume.",
         "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
-        "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume."
+        "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
+        "map": "Interaktive Karte der Zeitleistenereignisse nach Ort."
       }
     },
     "col-username": "Benutzername",
@@ -1082,5 +1088,26 @@
     "gender-female": "Weiblich",
     "not-public": "Dieser Stammbaum ist privat oder der Link ist nicht mehr gültig.",
     "error": "Dieser Stammbaum konnte nicht geladen werden."
+  },
+  "map-view": {
+    "view": {
+      "title": "Karte",
+      "member-fallback": "Unbekanntes Mitglied",
+      "all-members": "Alle Mitglieder",
+      "member-place-holder": "Mitglied auswählen...",
+      "member-search-placeholder": "Mitglieder suchen...",
+      "no-member": "Kein Mitglied gefunden.",
+      "date-from": "Von",
+      "date-to": "Bis",
+      "no-mappable-events": "Keine darstellbaren Ereignisse gefunden",
+      "add-location-hint": "Füge einem Ereignis einen Ort hinzu, um es auf der Karte zu sehen",
+      "unlocatable-count": "{{count}} Ereignis(se) haben Orte, die auf der Karte nicht aufgelöst werden konnten",
+      "legend-event": "Ereignis",
+      "legend-birthplace": "Geburtsort",
+      "legend-hometown": "Heimatort",
+      "legend-places-lived": "Wohnort",
+      "from": "ab",
+      "until": "bis"
+    }
   }
 }

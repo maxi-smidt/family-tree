@@ -46,6 +46,11 @@ const StatisticsView = lazy(() =>
     default: m.StatisticsView,
   })),
 );
+const MapView = lazy(() =>
+  import("@/components/view/map-view/MapView").then((m) => ({
+    default: m.MapView,
+  })),
+);
 import {
   Select,
   SelectContent,
@@ -81,6 +86,7 @@ const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "list-view": <ListView />,
   "gallery-view": <GalleryView />,
   "timeline-view": <TimelineView />,
+  "map-view": <MapView />,
   "activity-view": <ActivityView />,
   "quality-report-view": <QualityReportView />,
   "statistics-view": <StatisticsView />,
@@ -146,6 +152,7 @@ export const MainPanel = () => {
     "list-view": t("list"),
     "gallery-view": t("gallery"),
     "timeline-view": t("timeline"),
+    "map-view": t("map"),
     "activity-view": t("activity"),
     "quality-report-view": t("quality-report"),
     "statistics-view": t("statistics"),

@@ -21,6 +21,7 @@ import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
+import { GeocodeDB } from "@/types/geocode";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { StatisticsReport } from "@/types/statistics";
@@ -224,6 +225,17 @@ export class TreeService {
 
   static removeEvent(treeId: string, id: string) {
     return api.del(`${base(treeId)}/events/${id}`);
+  }
+
+  // --- Geocode -------------------------------------------------------------
+  static geocodeLocations(treeId: string, locations: string[]) {
+    return api.post<GeocodeDB[]>(`${base(treeId)}/geocode`, { locations });
+  }
+
+  static geocodePreview(treeId: string, q: string) {
+    return api.get<GeocodeDB>(
+      `${base(treeId)}/geocode/preview?q=${encodeURIComponent(q)}`,
+    );
   }
 
   // --- Stories -------------------------------------------------------------

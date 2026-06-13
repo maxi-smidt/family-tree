@@ -1,6 +1,6 @@
 """Gallery, events and stories — the rich content attached to members."""
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -113,3 +113,18 @@ class StoryMemberLink(Base):
     member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
     )
+
+
+class GeocodeCache(Base):
+    """Instance-wide cache of Nominatim geocoding results."""
+
+    __tablename__ = "geocode_cache"
+
+    query: Mapped[str] = mapped_column(String(255), primary_key=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    resolved: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    updated_at: Mapped[str] = mapped_column(String(40))

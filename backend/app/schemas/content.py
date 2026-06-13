@@ -114,6 +114,19 @@ class StoryUpdate(BaseModel):
     updated_at: str
 
 
+# --- Geocode ---------------------------------------------------------------
+class GeocodeOut(BaseModel):
+    query: str
+    lat: float | None = None
+    lon: float | None = None
+    display_name: str | None = None
+    resolved: bool
+
+
+class GeocodeRequest(BaseModel):
+    locations: list[str] = []
+
+
 # --- Member link rows (returned by the *_link list endpoints) --------------
 class GalleryLinkOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

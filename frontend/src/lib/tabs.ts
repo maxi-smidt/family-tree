@@ -2,6 +2,7 @@ export const TREE_VIEW = "tree-view";
 export const LIST_VIEW = "list-view";
 export const GALLERY_VIEW = "gallery-view";
 export const TIMELINE_VIEW = "timeline-view";
+export const MAP_VIEW = "map-view";
 export const ACTIVITY_VIEW = "activity-view";
 export const QUALITY_REPORT_VIEW = "quality-report-view";
 export const STATISTICS_VIEW = "statistics-view";
@@ -12,6 +13,7 @@ export const ALL_VIEWS = [
   LIST_VIEW,
   GALLERY_VIEW,
   TIMELINE_VIEW,
+  MAP_VIEW,
   ACTIVITY_VIEW,
   QUALITY_REPORT_VIEW,
   STATISTICS_VIEW,

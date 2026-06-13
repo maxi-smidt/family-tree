@@ -1,5 +1,6 @@
 import { TREE_VIEW, ViewId } from "@/lib/tabs";
 
+
 /**
  * Feature-flag catalog — mirrors the backend registry in
  * `backend/app/services/feature_service.py`. When adding a flag there, add
@@ -9,6 +10,7 @@ export const ALL_FEATURES = [
   "gallery",
   "stories",
   "events",
+  "map",
   "activity_log",
   "quality_report",
   "statistics",
@@ -27,6 +29,7 @@ export function isFeatureName(value: string): value is FeatureName {
 export const VIEW_FEATURES: Partial<Record<ViewId, FeatureName>> = {
   "gallery-view": "gallery",
   "timeline-view": "events",
+  "map-view": "map",
   "activity-view": "activity_log",
   "quality-report-view": "quality_report",
   "statistics-view": "statistics",
