@@ -83,18 +83,18 @@ function createGroupIcon(types: LocationType[]) {
   const dots = sorted
     .map(
       (t) =>
-        `<div style="width:12px;height:12px;border-radius:50%;` +
-        `border:2.5px solid ${LOCATION_COLORS[t]};background:white;` +
-        `box-shadow:0 1px 3px rgba(0,0,0,0.25);flex-shrink:0;"></div>`,
+        `<div style="width:16px;height:16px;border-radius:50%;` +
+        `border:2.5px solid ${LOCATION_COLORS[t]};background:transparent;` +
+        `box-shadow:0 1px 3px rgba(0,0,0,0.3);flex-shrink:0;"></div>`,
     )
     .join("");
-  const w = sorted.length * 14;
+  const w = sorted.length * 18;
   return L.divIcon({
     html: `<div style="display:flex;gap:2px;align-items:center;">${dots}</div>`,
     className: "",
-    iconSize: [w, 12],
-    iconAnchor: [w / 2, 6],
-    popupAnchor: [0, -10],
+    iconSize: [w, 16],
+    iconAnchor: [w / 2, 8],
+    popupAnchor: [0, -12],
   });
 }
 
@@ -337,7 +337,7 @@ export const MapView = () => {
                   height: 10,
                   borderRadius: "50%",
                   border: `2px solid ${LOCATION_COLORS[type]}`,
-                  background: "white",
+                  background: "transparent",
                   flexShrink: 0,
                 }}
               />
@@ -405,7 +405,7 @@ export const MapView = () => {
                                 height: 8,
                                 borderRadius: "50%",
                                 border: `2px solid ${LOCATION_COLORS[item.type]}`,
-                                background: "white",
+                                background: "transparent",
                                 flexShrink: 0,
                               }}
                             />
