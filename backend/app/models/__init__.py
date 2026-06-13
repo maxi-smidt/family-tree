@@ -5,6 +5,7 @@ so that table creation / migrations see the full schema.
 """
 
 from app.models.activity import ActivityLog
+from app.models.backup import BackupRecord
 from app.models.content import (
     Event,
     EventMemberLink,
@@ -47,4 +48,5 @@ __all__ = [
     "StoryMemberLink",
     "AppSetting",
     "FeatureFlagOverride",
+    "BackupRecord",
 ]

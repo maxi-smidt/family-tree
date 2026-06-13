@@ -5,6 +5,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     activity,
     auth,
+    backups,
     events,
     export_import,
     features,
@@ -32,6 +33,7 @@ api_router.include_router(settings.router)
 api_router.include_router(features.router)
 api_router.include_router(relation_types.router)
 api_router.include_router(relation_types.admin_router)
+api_router.include_router(backups.router)
 api_router.include_router(trees.router)
 api_router.include_router(virtual_views.router)
 api_router.include_router(export_import.router)

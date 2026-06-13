@@ -15,11 +15,16 @@ DEFAULTS: dict[str, str] = {
     "instance_name": settings.APP_NAME,
     "default_language": "en",
     "deletion_grace_period_days": "7",
+    "backup_schedule_enabled": "false",
+    "backup_interval_hours": "24",
+    "backup_retention_count": "7",
 }
 
 _TRUTHY = {"true", "1", "yes", "on"}
 
 DEFAULT_DELETION_GRACE_PERIOD_DAYS = 7
+DEFAULT_BACKUP_INTERVAL_HOURS = 24
+DEFAULT_BACKUP_RETENTION_COUNT = 7
 
 
 def get_setting(db: Session, key: str, default: str | None = None) -> str | None:
@@ -70,6 +75,13 @@ def get_settings_out(db: Session) -> SettingsOut:
         deletion_grace_period_days=get_int_setting(
             db, "deletion_grace_period_days", DEFAULT_DELETION_GRACE_PERIOD_DAYS
         ),
+        backup_schedule_enabled=get_bool_setting(db, "backup_schedule_enabled", False),
+        backup_interval_hours=get_int_setting(
+            db, "backup_interval_hours", DEFAULT_BACKUP_INTERVAL_HOURS
+        ),
+        backup_retention_count=get_int_setting(
+            db, "backup_retention_count", DEFAULT_BACKUP_RETENTION_COUNT
+        ),
     )
 
 
@@ -90,5 +102,15 @@ def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
             "deletion_grace_period_days",
             str(payload.deletion_grace_period_days),
         )
+    if payload.backup_schedule_enabled is not None:
+        set_setting(
+            db,
+            "backup_schedule_enabled",
+            "true" if payload.backup_schedule_enabled else "false",
+        )
+    if payload.backup_interval_hours is not None:
+        set_setting(db, "backup_interval_hours", str(payload.backup_interval_hours))
+    if payload.backup_retention_count is not None:
+        set_setting(db, "backup_retention_count", str(payload.backup_retention_count))
     db.commit()
     return get_settings_out(db)
