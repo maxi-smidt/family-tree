@@ -425,6 +425,9 @@ export const SourceCitationDialog = ({
             {(isCreatingNew || existingCitationSource) && (
               <div className="space-y-2">
                 <Label>{tD("evidence")}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {tD("evidence-hint")}
+                </p>
 
                 {/* Existing evidence (when editing) */}
                 {displayedEvidence.length > 0 && (

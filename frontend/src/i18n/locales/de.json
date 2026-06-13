@@ -520,6 +520,7 @@
           "detail": "Transkription / Detail",
           "detail-placeholder": "Relevante Passage zitieren oder Kontext hinzufügen",
           "evidence": "Belege",
+          "evidence-hint": "Füge den eigentlichen Beleg für diesen Nachweis hinzu – z. B. ein eingescanntes Dokument, ein Volkszählungsbild oder einen Link zu einem Online-Archiveintrag.",
           "add-file": "Datei anhängen",
           "add-link": "Link hinzufügen",
           "link-url-placeholder": "https://...",

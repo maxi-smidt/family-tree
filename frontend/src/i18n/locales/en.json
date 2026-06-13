@@ -520,6 +520,7 @@
           "detail": "Transcription / Detail",
           "detail-placeholder": "Quote the relevant passage or add context",
           "evidence": "Evidence",
+          "evidence-hint": "Attach the actual record this citation is based on — e.g. a scanned certificate, census image, or URL to an online database entry.",
           "add-file": "Attach file",
           "add-link": "Add link",
           "link-url-placeholder": "https://...",
