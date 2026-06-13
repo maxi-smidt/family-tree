@@ -36,6 +36,7 @@
     "class-variance-authority": "^0.7.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "html-to-image": "^1.11.13",
     "i18next": "^25.8.5",
     "leaflet": "^1.9.4",
     "lodash.debounce": "^4.0.8",
