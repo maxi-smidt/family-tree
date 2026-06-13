@@ -10,6 +10,7 @@ from app.api.routes import (
     export_import,
     features,
     gallery,
+    invitations,
     media,
     members,
     oauth,
@@ -35,6 +36,8 @@ api_router.include_router(relation_types.router)
 api_router.include_router(relation_types.admin_router)
 api_router.include_router(backups.router)
 api_router.include_router(trees.router)
+api_router.include_router(invitations.router)
+api_router.include_router(invitations.global_router)
 api_router.include_router(virtual_views.router)
 api_router.include_router(export_import.router)
 api_router.include_router(members.router)

@@ -152,7 +152,37 @@
       "transfer-confirm-cancel": "Cancel",
       "transfer-confirm-action": "Transfer ownership",
       "transfer-success": "Ownership transferred.",
-      "transfer-error": "Could not transfer ownership."
+      "transfer-error": "Could not transfer ownership.",
+      "invites": {
+        "title": "Invite by link",
+        "description": "Anyone with the link can join — no account required to preview, account needed to accept.",
+        "email-placeholder": "Email address (optional)",
+        "expiry-never": "Never expires",
+        "expiry-7d": "Expires in 7 days",
+        "expiry-30d": "Expires in 30 days",
+        "create-button": "Create invite link",
+        "copy-link": "Copy link",
+        "link-copied": "Link copied to clipboard.",
+        "status-pending": "Pending",
+        "status-accepted": "Accepted",
+        "status-revoked": "Revoked",
+        "status-expired": "Expired",
+        "revoke": "Revoke invitation",
+        "revoke-error": "Could not revoke invitation.",
+        "create-error": "Could not create invitation.",
+        "none-yet": "No invite links yet."
+      },
+      "public": {
+        "title": "Public read-only access",
+        "hint": "Anyone with the link can view this tree (read-only). No account required.",
+        "enable": "Make public",
+        "disable": "Make private",
+        "confirm-enable-title": "Make tree public?",
+        "confirm-enable-description": "Anyone with the link will be able to view this tree without logging in.",
+        "confirm-disable-title": "Make tree private?",
+        "confirm-disable-description": "The public link will stop working. Existing members keep their access.",
+        "error": "Could not update public access."
+      }
     },
     "duplicate-tree": {
       "title": "Duplicate Tree",
@@ -878,7 +908,8 @@
         "quality_report": "Quality report",
         "statistics": "Statistics",
         "virtual_views": "Virtual views",
-        "gedcom": "GEDCOM import/export"
+        "gedcom": "GEDCOM import/export",
+        "sharing_invites": "Share invitations"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -888,7 +919,8 @@
         "quality_report": "Data-quality checks per tree.",
         "statistics": "Aggregate statistics per tree.",
         "virtual_views": "Read-only views combining several trees.",
-        "gedcom": "Import and export trees as GEDCOM files."
+        "gedcom": "Import and export trees as GEDCOM files.",
+        "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode."
       }
     },
     "col-username": "Username",
@@ -989,5 +1021,16 @@
     "death": "Death",
     "burial": "Burial",
     "custom": "Custom"
+  },
+  "public-tree": {
+    "read-only-hint": "Read-only view — log in to explore the full interactive tree.",
+    "login-button": "Log in",
+    "member-count_one": "{{count}} person",
+    "member-count_other": "{{count}} people",
+    "unnamed": "(unnamed)",
+    "gender-male": "Male",
+    "gender-female": "Female",
+    "not-public": "This tree is private or the link is no longer valid.",
+    "error": "Could not load this tree."
   }
 }

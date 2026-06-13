@@ -14,6 +14,7 @@ export const ALL_FEATURES = [
   "statistics",
   "virtual_views",
   "gedcom",
+  "sharing_invites",
 ] as const;
 
 export type FeatureName = (typeof ALL_FEATURES)[number];

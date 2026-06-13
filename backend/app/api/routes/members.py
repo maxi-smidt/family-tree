@@ -4,7 +4,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree, get_writable_tree
+from app.api.deps import (
+    get_current_user,
+    get_readable_tree,
+    get_readable_tree_public,
+    get_writable_tree,
+)
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
 from app.models import Member, MemberDisease, Relation, RelationType, Tree
@@ -38,7 +43,7 @@ def _get_member(db: Session, tree: Tree, member_id: str) -> Member:
 @router.get("/members", response_model=list[MemberOut])
 def list_members(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Tree = Depends(get_readable_tree_public),
     db: Session = Depends(get_db),
 ):
     statement = select(Member).where(Member.tree_id == tree.id).order_by(Member.id)
@@ -186,7 +191,7 @@ def delete_member(
 @router.get("/relations", response_model=list[RelationOut])
 def list_relations(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Tree = Depends(get_readable_tree_public),
     db: Session = Depends(get_db),
 ):
     statement = (

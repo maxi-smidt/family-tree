@@ -17,7 +17,7 @@ from app.models.content import (
 )
 from app.models.family import Member, MemberDisease, Relation, RelationType
 from app.models.setting import AppSetting, FeatureFlagOverride
-from app.models.tree import Tree, TreeMembership
+from app.models.tree import Tree, TreeInvitation, TreeMembership
 from app.models.user import User
 from app.models.virtual_view import (
     VirtualView,
@@ -31,6 +31,7 @@ __all__ = [
     "User",
     "Tree",
     "TreeMembership",
+    "TreeInvitation",
     "VirtualView",
     "VirtualViewSource",
     "VirtualViewMemberMatch",

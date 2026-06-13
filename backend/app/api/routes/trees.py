@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     accessible_tree_ids,
     get_current_user,
+    get_current_user_optional,
     get_readable_tree,
+    get_readable_tree_public,
     get_writable_tree,
     role_for,
 )
@@ -16,6 +18,7 @@ from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
+    PublicAccessUpdate,
     ShareCandidate,
     TreeCreate,
     TreeMemberOut,
@@ -32,10 +35,10 @@ router = APIRouter(prefix="/trees", tags=["trees"])
 
 
 def _tree_out(
-    db: Session, tree: Tree, user: User, shared_count: int | None = None
+    db: Session, tree: Tree, user: User | None, shared_count: int | None = None
 ) -> TreeOut:
     out = TreeOut.model_validate(tree)
-    out.role = role_for(db, tree, user) or "viewer"
+    out.role = role_for(db, tree, user) if user is not None else "viewer"
     if shared_count is None:
         shared_count = db.scalar(
             select(func.count())
@@ -114,18 +117,19 @@ def merge(
 
 @router.get("/{tree_id}", response_model=TreeOut)
 def get_tree(
-    tree: Tree = Depends(get_readable_tree),
-    user: User = Depends(get_current_user),
+    tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
-    # Selecting a tree counts as "opening" it.
-    tree.last_opened = utcnow_iso()
-    db.commit()
+    # Selecting a tree counts as "opening" it (only for authenticated users).
+    if user is not None:
+        tree.last_opened = utcnow_iso()
+        db.commit()
     return _tree_out(db, tree, user)
 
 
 @router.get("/{tree_id}/metadata")
-def get_metadata(tree: Tree = Depends(get_readable_tree)):
+def get_metadata(tree: Tree = Depends(get_readable_tree_public)):
     return {
         "id": tree.id,
         "name": tree.name,
@@ -161,6 +165,28 @@ def delete_tree(
     db.commit()
     # The DB cascade clears the rows; remove the backing media files too.
     delete_tree_media(tree_id)
+
+
+# --- Public access ---------------------------------------------------------
+@router.patch("/{tree_id}/public", response_model=TreeOut)
+def set_public_access(
+    payload: PublicAccessUpdate,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can change public access"
+        )
+    if payload.public_role not in (None, "viewer"):
+        raise HTTPException(
+            status_code=400, detail="public_role must be 'viewer' or null"
+        )
+    tree.public_role = payload.public_role
+    db.commit()
+    db.refresh(tree)
+    return _tree_out(db, tree, user)
 
 
 # --- Sharing ---------------------------------------------------------------

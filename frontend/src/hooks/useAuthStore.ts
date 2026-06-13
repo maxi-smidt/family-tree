@@ -5,6 +5,7 @@ import {
   onUnauthorized,
   setAuthToken,
 } from "@/services/api";
+import { TreeSharingService } from "@/services/TreeSharingService";
 import { AuthConfig, TokenResponse, User } from "@/types/user";
 import { FeatureName } from "@/lib/features";
 import { decodeJwtExp } from "@/lib/utils";
@@ -19,6 +20,10 @@ interface AuthState {
   config: AuthConfig | null;
   sessionExpiringSoon: boolean;
   reloginRequired: boolean;
+  /** Token stored from an #invite= URL hash; consumed after login/register. */
+  pendingInviteToken: string | null;
+  /** Tree ID from a #public= URL hash; enables anonymous public tree viewing. */
+  pendingPublicTreeId: string | null;
   init: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
@@ -28,6 +33,7 @@ interface AuthState {
     confirmUsername: string | null,
   ) => Promise<User>;
   restoreAccount: (username: string, password: string) => Promise<void>;
+  acceptPendingInvite: () => Promise<string | null>;
 }
 
 let expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
@@ -64,6 +70,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   config: null,
   sessionExpiringSoon: false,
   reloginRequired: false,
+  pendingInviteToken: null,
+  pendingPublicTreeId: null,
 
   init: async () => {
     // Pick up a token handed back by the Authentik OAuth redirect (#token=...).
@@ -71,6 +79,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (hash.startsWith("#token=")) {
       const token = decodeURIComponent(hash.slice("#token=".length));
       setAuthToken(token);
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (hash.startsWith("#invite=")) {
+      const inviteToken = decodeURIComponent(hash.slice("#invite=".length));
+      set({ pendingInviteToken: inviteToken });
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (hash.startsWith("#public=")) {
+      const treeId = decodeURIComponent(hash.slice("#public=".length));
+      set({ pendingPublicTreeId: treeId });
       window.history.replaceState(null, "", window.location.pathname);
     }
 
@@ -157,6 +173,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       sessionExpiringSoon: false,
     });
     startExpiryCheck();
+  },
+
+  acceptPendingInvite: async () => {
+    const { pendingInviteToken } = useAuthStore.getState();
+    if (!pendingInviteToken) return null;
+    try {
+      const result = await TreeSharingService.acceptInvite(pendingInviteToken);
+      set({ pendingInviteToken: null });
+      return result.tree_id;
+    } catch {
+      set({ pendingInviteToken: null });
+      return null;
+    }
   },
 }));
 
