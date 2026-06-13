@@ -11,12 +11,13 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
 import { StoryAttachments } from "./StoryAttachments";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { Calendar, MapPin, BookOpen, Activity } from "lucide-react";
+import { Calendar, MapPin, BookOpen, Activity, BookMarked, File, Link } from "lucide-react";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +36,7 @@ export const ViewMode = ({ member }: Props) => {
   const galleryEnabled = useFeature("gallery");
   const eventsEnabled = useFeature("events");
   const storiesEnabled = useFeature("stories");
+  const sourcesEnabled = useFeature("sources");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -45,11 +47,15 @@ export const ViewMode = ({ member }: Props) => {
     return linkedIds.includes(member.id);
   });
 
+  const { getCitationsByMember, getSourcesForMember } = useSourceStore();
+
   const memberEvents = getEventsByMember(member.id).sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
   const memberStories = getStoriesByMember(member.id);
+  const memberCitations = getCitationsByMember(member.id);
+  const memberSources = getSourcesForMember(member.id);
 
   const memberDiseases = member.diseases || [];
 
@@ -318,6 +324,83 @@ export const ViewMode = ({ member }: Props) => {
                 <i>{t("no-stories")}</i>
               </ItemDescription>
             )}
+          </ItemContent>
+        </Item>
+      )}
+
+      {sourcesEnabled && memberCitations.length > 0 && (
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>{t("sources")}</ItemTitle>
+            <CollapsibleSection
+              totalCount={memberCitations.length}
+              collapsedCount={3}
+            >
+              {(showAll) => (
+                <div className="space-y-2 mt-2">
+                  {memberCitations
+                    .slice(0, showAll ? memberCitations.length : 3)
+                    .map((cit) => {
+                      const src = memberSources.find(
+                        (s) => s.id === cit.sourceId,
+                      );
+                      return (
+                        <div
+                          key={cit.id}
+                          className="border rounded-lg p-3 bg-accent/50"
+                        >
+                          <div className="flex items-start gap-2">
+                            <BookMarked className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">
+                                {src?.title ?? cit.sourceId}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {i18n.t(
+                                  `sheet.member-sheet.sources.fact.${cit.factType}`,
+                                )}
+                                {cit.page && ` · ${cit.page}`}
+                              </p>
+                              {cit.detail && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {cit.detail}
+                                </p>
+                              )}
+                              {src && src.evidence.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                  {src.evidence.map((ev) =>
+                                    ev.kind === "link" ? (
+                                      <a
+                                        key={ev.id}
+                                        href={ev.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
+                                      >
+                                        <Link className="w-2.5 h-2.5" />
+                                        {ev.filename ?? ev.url}
+                                      </a>
+                                    ) : (
+                                      <a
+                                        key={ev.id}
+                                        href={ev.url}
+                                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                                      >
+                                        <File className="w-2.5 h-2.5" />
+                                        {ev.filename ?? ev.url}
+                                      </a>
+                                    ),
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </CollapsibleSection>
           </ItemContent>
         </Item>
       )}

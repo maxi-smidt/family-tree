@@ -169,6 +169,8 @@ def serialize_to_gedcom(
     tree_name: str,
     members: list[dict],
     relations: list[dict],
+    sources: list[dict] | None = None,
+    citations: list[dict] | None = None,
 ) -> str:
     """Serialize a family tree to a GEDCOM 5.5.1 LINEAGE-LINKED string.
 
@@ -210,6 +212,24 @@ def serialize_to_gedcom(
     member_xref: dict[str, str] = {}  # member_id → "@I{n}@"
     for idx, member in enumerate(members, start=1):
         member_xref[member["id"]] = f"@I{idx}@"
+
+    # --- Assign SOUR xrefs and build citations index -------------------------
+    sources = sources or []
+    citations = citations or []
+    source_xref: dict[str, str] = {}
+    for idx, src in enumerate(sources, start=1):
+        source_xref[src["id"]] = f"@S{idx}@"
+    # member_id → list of (fact_type, source_xref, page)
+    member_citations: dict[str, list[tuple[str, str, str | None]]] = {}
+    for cit in citations:
+        src_id = cit.get("source_id", "")
+        xref = source_xref.get(src_id)
+        if xref is None:
+            continue
+        mem_id = cit.get("member_id", "")
+        member_citations.setdefault(mem_id, []).append(
+            (cit.get("fact_type", "general"), xref, cit.get("page"))
+        )
 
     # --- Build family groups -------------------------------------------------
     # A family is keyed by a frozenset of spouse ids (1 or 2 members).
@@ -346,8 +366,17 @@ def serialize_to_gedcom(
             for cont_line in note_lines[1:]:
                 L(f"2 CONT {cont_line}")
 
-        # FAMC / FAMS pointers
+        # Source citations at individual level
         mid = member["id"]
+        for fact_type, sx, page in member_citations.get(mid, []):
+            L(f"1 SOUR {sx}")
+            if page:
+                L(f"2 PAGE {page}")
+            if fact_type not in ("general", "name", "birth", "death",
+                                 "birthplace", "hometown", "residence"):
+                L(f"2 _FACT {fact_type}")
+
+        # FAMC / FAMS pointers
         for fx in child_in_fams.get(mid, []):
             L(f"1 FAMC {fx}")
         for fx in spouse_in_fams.get(mid, []):
@@ -440,6 +469,26 @@ def serialize_to_gedcom(
         L(f"1 _TO {member_xref[to_id]}")
         L(f"1 _TYPE {rtype}")
         rel_idx += 1
+
+    # --- SOUR records -------------------------------------------------------
+    for src in sources:
+        sx = source_xref.get(src["id"])
+        if not sx:
+            continue
+        L(f"0 {sx} SOUR")
+        if src.get("title"):
+            L(f"1 TITL {src['title']}")
+        if src.get("author"):
+            L(f"1 AUTH {src['author']}")
+        if src.get("publication_info"):
+            L(f"1 PUBL {src['publication_info']}")
+        if src.get("repository"):
+            L(f"1 REPO {src['repository']}")
+        if src.get("notes"):
+            note_lines = src["notes"].splitlines()
+            L(f"1 NOTE {note_lines[0]}")
+            for cont in note_lines[1:]:
+                L(f"2 CONT {cont}")
 
     # --- SUBM record (required by the header reference) ---------------------
     L(f"0 {SUBMITTER_XREF} SUBM")

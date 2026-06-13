@@ -17,6 +17,7 @@ from app.api.deps import get_current_user, get_readable_tree, require_feature
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
+    Citation,
     Event,
     EventMemberLink,
     GalleryImage,
@@ -25,6 +26,8 @@ from app.models import (
     MemberDisease,
     Relation,
     RelationType,
+    Source,
+    SourceEvidence,
     Story,
     StoryAttachment,
     StoryMemberLink,
@@ -41,7 +44,7 @@ from app.services.storage import (
 
 router = APIRouter(prefix="/trees", tags=["export"])
 
-BUNDLE_VERSION = 1
+BUNDLE_VERSION = 2
 
 
 def _rows(db: Session, model, tree_id: str) -> list[dict]:
@@ -68,6 +71,11 @@ def export_tree(
     for a in story_attachments:
         a["url"] = media_url_to_data_url(a.get("url"))
 
+    source_evidence = _rows(db, SourceEvidence, tree.id)
+    for ev in source_evidence:
+        if ev.get("kind") == "file":
+            ev["url"] = media_url_to_data_url(ev.get("url"))
+
     bundle = {
         "version": BUNDLE_VERSION,
         "tree": {"name": tree.name, "created_at": tree.created_at},
@@ -87,6 +95,9 @@ def export_tree(
         "stories": _rows(db, Story, tree.id),
         "story_links": _link_rows(db, StoryMemberLink, Story, tree.id),
         "story_attachments": story_attachments,
+        "sources": _rows(db, Source, tree.id),
+        "source_evidence": source_evidence,
+        "citations": _rows(db, Citation, tree.id),
     }
 
     blob = crypto_export.encrypt_bundle(bundle, password or None)
@@ -240,6 +251,60 @@ async def import_tree(
             )
         )
 
+    source_map = _remap(bundle.get("sources", []))
+    for row in bundle.get("sources", []):
+        data = dict(row)
+        data.pop("tree_id", None)
+        data["id"] = source_map[row["id"]]
+        db.add(Source(tree_id=tree.id, **data))
+    db.flush()  # sources must exist before evidence and citations
+
+    for row in bundle.get("source_evidence", []):
+        source_id = source_map.get(row.get("source_id"))
+        if source_id is None:
+            continue
+        ev_url = row.get("url", "")
+        ev_mime = row.get("mime_type")
+        ev_size = row.get("size")
+        if row.get("kind") == "file":
+            try:
+                ev_url, ev_mime, ev_size = store_document(
+                    tree.id, row.get("filename", "file"), ev_url
+                )
+            except ValueError:
+                continue
+        db.add(
+            SourceEvidence(
+                id=str(uuid4()),
+                tree_id=tree.id,
+                source_id=source_id,
+                kind=row.get("kind", "link"),
+                filename=row.get("filename"),
+                url=ev_url,
+                mime_type=ev_mime,
+                size=ev_size,
+                created_at=row.get("created_at") or utcnow_iso(),
+            )
+        )
+
+    for row in bundle.get("citations", []):
+        source_id = source_map.get(row.get("source_id"))
+        member_id = member_map.get(row.get("member_id"))
+        if source_id is None or member_id is None:
+            continue
+        db.add(
+            Citation(
+                id=str(uuid4()),
+                tree_id=tree.id,
+                source_id=source_id,
+                member_id=member_id,
+                fact_type=row.get("fact_type", "general"),
+                page=row.get("page"),
+                detail=row.get("detail"),
+                created_at=row.get("created_at") or utcnow_iso(),
+            )
+        )
+
     db.commit()
     db.refresh(tree)
     out = TreeOut.model_validate(tree)
@@ -285,7 +350,15 @@ def export_tree_gedcom(
     """Export the tree as a plain-text GEDCOM 5.5.1 file."""
     members = _rows(db, Member, tree.id)
     relations = _rows(db, Relation, tree.id)
-    text = gedcom.serialize_to_gedcom(tree.name or "family-tree", members, relations)
+    sources_ged = _rows(db, Source, tree.id)
+    citations_ged = _rows(db, Citation, tree.id)
+    text = gedcom.serialize_to_gedcom(
+        tree.name or "family-tree",
+        members,
+        relations,
+        sources=sources_ged,
+        citations=citations_ged,
+    )
     filename = f"{tree.name or 'family-tree'}.ged"
     return Response(
         content=text,

@@ -11,6 +11,7 @@ export const ALL_FEATURES = [
   "stories",
   "events",
   "map",
+  "sources",
   "activity_log",
   "quality_report",
   "statistics",

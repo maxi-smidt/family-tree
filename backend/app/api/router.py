@@ -19,6 +19,7 @@ from app.api.routes import (
     quality,
     relation_types,
     settings,
+    sources,
     statistics,
     stories,
     trees,
@@ -46,6 +47,7 @@ api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)
 api_router.include_router(stories.router)
+api_router.include_router(sources.router)
 api_router.include_router(activity.router)
 api_router.include_router(quality.router)
 api_router.include_router(statistics.router)
