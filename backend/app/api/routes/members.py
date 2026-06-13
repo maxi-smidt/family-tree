@@ -226,10 +226,8 @@ def add_relation(
         raise HTTPException(
             status_code=404, detail="to_member_id not found in this tree"
         )
-    if db.get(RelationType, (tree.id, payload.relation_type)) is None:
-        raise HTTPException(
-            status_code=404, detail="relation_type not found in this tree"
-        )
+    if db.get(RelationType, payload.relation_type) is None:
+        raise HTTPException(status_code=404, detail="Unknown relation_type")
 
     key = (tree.id, payload.from_member_id, payload.to_member_id, payload.relation_type)
     relation = db.get(Relation, key)

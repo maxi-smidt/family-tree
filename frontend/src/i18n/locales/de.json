@@ -846,6 +846,7 @@
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",
+    "relation-types-tab": "Beziehungstypen",
     "features": {
       "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",
       "state-on": "An",
@@ -916,6 +917,22 @@
       "cancel": "Abbrechen",
       "delete": "Löschung vormerken",
       "scheduled": "Konto zum Löschen vorgemerkt."
+    },
+    "relation-types": {
+      "hint": "Beziehungstypen gelten für alle Stammbäume dieser Instanz. Die Beschreibung wird angezeigt, wenn für einen Typ keine Übersetzung existiert.",
+      "col-id": "ID",
+      "col-label": "Bezeichnung",
+      "col-description": "Beschreibung",
+      "id-placeholder": "z. B. godparent",
+      "add": "Typ hinzufügen",
+      "save-description": "Beschreibung speichern",
+      "delete": "Typ löschen",
+      "delete-parent-unavailable": "Der Eltern-Typ wird für die Baumstruktur benötigt und kann nicht gelöscht werden",
+      "created": "Beziehungstyp erstellt.",
+      "saved": "Beziehungstyp aktualisiert.",
+      "deleted": "Beziehungstyp gelöscht.",
+      "delete-error": "Beziehungstyp konnte nicht gelöscht werden. Verwendete Typen können nicht gelöscht werden.",
+      "error": "Beziehungstypen konnten nicht aktualisiert werden."
     }
   },
   "event-types": {

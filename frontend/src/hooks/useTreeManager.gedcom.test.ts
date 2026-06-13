@@ -108,13 +108,12 @@ function mockSubStoresForGedcomTree() {
   vi.mocked(TreeService.getStories).mockResolvedValue([]);
   vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getActivity).mockResolvedValue([]);
-  vi.mocked(TreeService.getRelationTypes).mockResolvedValue([
-    { id: "parent" },
-    { id: "married" },
-    { id: "partner" },
-    { id: "divorced" },
-    { id: "sibling" },
-  ]);
+  vi.mocked(TreeService.getRelationTypes).mockResolvedValue(
+    ["parent", "married", "partner", "divorced", "sibling"].map((id) => ({
+      id,
+      description: null,
+    })),
+  );
   // persistPositions calls updateMemberPositions
   vi.mocked(TreeService.updateMemberPositions).mockResolvedValue(undefined);
   vi.mocked(TreeService.listVirtualViews).mockResolvedValue([]);

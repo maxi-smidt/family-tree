@@ -99,12 +99,13 @@ UI Component → Zustand store action → TreeService (HTTP client)
 ### Setup (development)
 
 ```bash
-docker compose up -d db                 # Postgres on 127.0.0.1:5432
-cd backend  && uv sync                  # creates .venv from uv.lock
+docker compose -f docker-compose.dev.yml up -d db   # dev Postgres on localhost:5432
+cd backend  && uv sync                              # creates .venv from uv.lock
 cd frontend && npm install
 ```
 
-> Zero-database option: set `DATABASE_URL=sqlite:///./dev.db` in `backend/.env`.
+> Configuration lives in a single repo-root `.env` (copy from `.env.example`);
+> both docker-compose and a host-run dev backend read it.
 
 ### Run (hot reload)
 
@@ -139,7 +140,9 @@ uv run alembic upgrade head
 
 ```bash
 cd frontend && npm run bump:patch        # or bump:minor / bump:major
+# updates frontend/package.json + package-lock.json + backend/pyproject.toml + uv.lock
 # after merge: create and push tag vX.Y.Z matching frontend/package.json
+# — or use npm run release:patch|minor|major to bump, commit and tag in one go
 ```
 
 ## Conventions (short form)
