@@ -1021,5 +1021,16 @@
     "death": "Tod",
     "burial": "Beerdigung",
     "custom": "Benutzerdefiniert"
+  },
+  "public-tree": {
+    "read-only-hint": "Nur-Lese-Ansicht — melde dich an, um den interaktiven Stammbaum zu erkunden.",
+    "login-button": "Anmelden",
+    "member-count_one": "{{count}} Person",
+    "member-count_other": "{{count}} Personen",
+    "unnamed": "(unbekannt)",
+    "gender-male": "Männlich",
+    "gender-female": "Weiblich",
+    "not-public": "Dieser Stammbaum ist privat oder der Link ist nicht mehr gültig.",
+    "error": "Dieser Stammbaum konnte nicht geladen werden."
   }
 }

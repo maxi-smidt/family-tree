@@ -22,6 +22,8 @@ interface AuthState {
   reloginRequired: boolean;
   /** Token stored from an #invite= URL hash; consumed after login/register. */
   pendingInviteToken: string | null;
+  /** Tree ID from a #public= URL hash; enables anonymous public tree viewing. */
+  pendingPublicTreeId: string | null;
   init: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
@@ -69,6 +71,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   sessionExpiringSoon: false,
   reloginRequired: false,
   pendingInviteToken: null,
+  pendingPublicTreeId: null,
 
   init: async () => {
     // Pick up a token handed back by the Authentik OAuth redirect (#token=...).
@@ -80,6 +83,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     } else if (hash.startsWith("#invite=")) {
       const inviteToken = decodeURIComponent(hash.slice("#invite=".length));
       set({ pendingInviteToken: inviteToken });
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (hash.startsWith("#public=")) {
+      const treeId = decodeURIComponent(hash.slice("#public=".length));
+      set({ pendingPublicTreeId: treeId });
       window.history.replaceState(null, "", window.location.pathname);
     }
 

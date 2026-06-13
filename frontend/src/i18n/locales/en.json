@@ -1021,5 +1021,16 @@
     "death": "Death",
     "burial": "Burial",
     "custom": "Custom"
+  },
+  "public-tree": {
+    "read-only-hint": "Read-only view — log in to explore the full interactive tree.",
+    "login-button": "Log in",
+    "member-count_one": "{{count}} person",
+    "member-count_other": "{{count}} people",
+    "unnamed": "(unnamed)",
+    "gender-male": "Male",
+    "gender-female": "Female",
+    "not-public": "This tree is private or the link is no longer valid.",
+    "error": "Could not load this tree."
   }
 }

@@ -284,7 +284,7 @@ export const ShareTreeDialog = ({
     );
   };
 
-  const publicLink = `${window.location.origin}/#tree=${tree.id}`;
+  const publicLink = `${window.location.origin}/#public=${tree.id}`;
 
   return (
     <>
