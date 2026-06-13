@@ -106,14 +106,19 @@ jobs:
           PACKAGE_VERSION=$(jq -r .version frontend/package.json)
           LOCK_VERSION=$(jq -r .version frontend/package-lock.json)
           LOCK_ROOT_VERSION=$(jq -r '.packages[""].version' frontend/package-lock.json)
+          PYPROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' backend/pyproject.toml | head -1)
+          UV_LOCK_VERSION=$(grep -A1 '^name = "family-tree-backend"$' backend/uv.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
 
           echo "frontend/package.json:      $PACKAGE_VERSION"
           echo "frontend/package-lock.json: $LOCK_VERSION"
           echo "lock root package:          $LOCK_ROOT_VERSION"
+          echo "backend/pyproject.toml:     $PYPROJECT_VERSION"
+          echo "backend/uv.lock:            $UV_LOCK_VERSION"
 
-          if [ "$PACKAGE_VERSION" != "$LOCK_VERSION" ] || [ "$PACKAGE_VERSION" != "$LOCK_ROOT_VERSION" ]; then
-            echo "Package version metadata is out of sync."
-            echo "Run 'npm run bump:patch|minor|major' from frontend/ or update the lockfile."
+          if [ "$PACKAGE_VERSION" != "$LOCK_VERSION" ] || [ "$PACKAGE_VERSION" != "$LOCK_ROOT_VERSION" ] \
+            || [ "$PACKAGE_VERSION" != "$PYPROJECT_VERSION" ] || [ "$PACKAGE_VERSION" != "$UV_LOCK_VERSION" ]; then
+            echo "Version metadata is out of sync across frontend/backend."
+            echo "Run 'npm run bump:patch|minor|major' from frontend/ — it updates all four files."
             exit 1
           fi
 

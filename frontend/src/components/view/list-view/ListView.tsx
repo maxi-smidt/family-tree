@@ -49,6 +49,9 @@ export const ListView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "list-view.view",
   });
+  const { t: tCommon } = useTranslation(undefined, {
+    keyPrefix: "common",
+  });
   const { members, removeMember } = useMemberStore();
   const activeTree = useTreeStore((s) => s.selectedTree);
   const canWrite = activeTree?.role !== "viewer";
@@ -120,11 +123,11 @@ export const ListView = () => {
     const size = 20;
     switch (member.gender) {
       case "m":
-        return <Mars size={size} />;
+        return <Mars size={size} aria-hidden="true" />;
       case "f":
-        return <Venus size={size} />;
+        return <Venus size={size} aria-hidden="true" />;
       default:
-        return <VenusAndMars size={size} />;
+        return <VenusAndMars size={size} aria-hidden="true" />;
     }
   };
 
@@ -132,7 +135,11 @@ export const ListView = () => {
     <ViewLayout
       title={t("title")}
       action={
-        <div className="text-sm text-muted-foreground">
+        <div
+          className="text-sm text-muted-foreground"
+          aria-live="polite"
+          aria-atomic="true"
+        >
           {sortedMembers.length}{" "}
           {t("selected-members", { count: sortedMembers.length })}
         </div>
@@ -217,9 +224,18 @@ export const ListView = () => {
       <div className="hidden rounded-md border flex-1 overflow-hidden md:flex flex-col">
         <div className="overflow-auto flex-1">
           <Table>
+            <caption className="sr-only">{t("table.caption")}</caption>
             <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
               <TableRow>
-                <TableHead>
+                <TableHead
+                  aria-sort={
+                    sortConfig.key === "firstName"
+                      ? sortConfig.direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
                   <Button
                     variant="ghost"
                     onClick={() => handleSort("firstName")}
@@ -229,7 +245,15 @@ export const ListView = () => {
                     <ArrowUpDown />
                   </Button>
                 </TableHead>
-                <TableHead>
+                <TableHead
+                  aria-sort={
+                    sortConfig.key === "lastName"
+                      ? sortConfig.direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
                   <Button
                     variant="ghost"
                     onClick={() => handleSort("lastName")}
@@ -241,7 +265,15 @@ export const ListView = () => {
                 </TableHead>
                 <TableHead>{t("table.maiden-name")}</TableHead>
                 <TableHead>{t("table.gender")}</TableHead>
-                <TableHead>
+                <TableHead
+                  aria-sort={
+                    sortConfig.key === "date.birth"
+                      ? sortConfig.direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
                   <Button
                     variant="ghost"
                     onClick={() => handleSort("date.birth")}
@@ -251,7 +283,15 @@ export const ListView = () => {
                     <ArrowUpDown />
                   </Button>
                 </TableHead>
-                <TableHead>
+                <TableHead
+                  aria-sort={
+                    sortConfig.key === "date.death"
+                      ? sortConfig.direction === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                >
                   <Button
                     variant="ghost"
                     onClick={() => handleSort("date.death")}
@@ -287,6 +327,9 @@ export const ListView = () => {
                     <TableCell>{member.maidenName || "-"}</TableCell>
                     <TableCell className="capitalize">
                       <GenderIcon {...member} />
+                      <span className="sr-only">
+                        {tCommon(`gender.${member.gender}`)}
+                      </span>
                     </TableCell>
                     <TableCell>{formatDate(member.date.birth)}</TableCell>
                     <TableCell>{formatDate(member.date.death)}</TableCell>

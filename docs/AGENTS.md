@@ -134,8 +134,8 @@ is versioned with **Alembic** (`backend/alembic/`). On startup the service runs
 
 ### Field naming convention
 
-Some legacy content columns intentionally keep the camelCase names from the
-original frontend/SQLite contract (`firstName`, `positionX`, `imageData`, ...).
+Some legacy content columns intentionally keep camelCase names from the
+original frontend contract (`firstName`, `positionX`, `imageData`, ...).
 Keep those existing ORM and Pydantic field names stable unless there is a
 separate migration plan: they are part of the `*DB` response shapes consumed by
 `TreeService` and the frontend stores.
@@ -161,10 +161,12 @@ frontend response/request shapes remain stable through the transition.
 All content tables carry a `tree_id`. Key tables:
 
 - `users`, `trees`, `tree_memberships` — accounts and the owned + shared model
-- `members`, `relations`, `relation_types`, `member_diseases`
+- `members`, `relations`, `member_diseases`
 - `events` / `event_member_link`, `stories` / `story_member_link`
 - `gallery_images` / `gallery_member_link`
 - `app_settings` — instance-wide settings (key/value)
+- `relation_types` — instance-wide (no `tree_id`), admin-managed registry of
+  the relation types offered in the UI
 
 Member photos and gallery images are stored on the filesystem (`DATA_PATH/media`)
 and referenced by URL.

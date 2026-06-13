@@ -14,7 +14,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, require_feature
-from app.core.constants import DEFAULT_RELATION_TYPES
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -74,7 +73,12 @@ def export_tree(
         "tree": {"name": tree.name, "created_at": tree.created_at},
         "members": members,
         "relations": _rows(db, Relation, tree.id),
-        "relation_types": _rows(db, RelationType, tree.id),
+        # The registry is instance-wide; bundle it so an import on another
+        # instance can register any types it does not know yet.
+        "relation_types": [
+            {"id": rt.id, "description": rt.description}
+            for rt in db.scalars(select(RelationType))
+        ],
         "diseases": _rows(db, MemberDisease, tree.id),
         "gallery_images": gallery,
         "gallery_links": _link_rows(db, GalleryMemberLink, GalleryImage, tree.id),
@@ -158,12 +162,13 @@ async def import_tree(
     # diseases, gallery/event/story links).
     db.flush()
 
+    # Register any relation types this instance does not know yet, so every
+    # imported relation stays selectable in the UI.
+    known_types = set(db.scalars(select(RelationType.id)).all())
     for row in bundle.get("relation_types", []):
-        db.add(
-            RelationType(
-                tree_id=tree.id, id=row["id"], description=row.get("description")
-            )
-        )
+        if row["id"] not in known_types:
+            known_types.add(row["id"])
+            db.add(RelationType(id=row["id"], description=row.get("description")))
 
     for row in bundle.get("relations", []):
         if row["from_member_id"] in member_map and row["to_member_id"] in member_map:
@@ -328,10 +333,6 @@ async def import_tree_gedcom(
     )
     db.add(tree)
     db.flush()
-
-    # Seed default relation types.
-    for rt in DEFAULT_RELATION_TYPES:
-        db.add(RelationType(tree_id=tree.id, id=rt))
 
     # Insert members first (relations have FK to members).
     inserted_member_ids: set[str] = set()

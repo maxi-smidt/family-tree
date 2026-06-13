@@ -15,14 +15,19 @@ only the Docker Compose stack and shared tooling (prettier + git hooks).
 
 ## Production
 
+The stack ships **without** a database (as is common for Unraid-style apps):
+run your own PostgreSQL and point the backend at it via `POSTGRES_*` (or a full
+`DATABASE_URL`) in the `.env`.
+
 ```bash
 mkdir family-tree
 cd family-tree
 
 wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/docker-compose.prod.yml -O docker-compose.yml
 wget https://raw.githubusercontent.com/maxi-smidt/family-tree/main/.env.example -O .env
-# Set SECRET_KEY and FIRST_ADMIN_PASSWORD at minimum. Pin APP_IMAGE_TAG to a release
-# such as 1.2.17 if you want repeatable upgrades/rollbacks instead of latest.
+# Set SECRET_KEY, FIRST_ADMIN_PASSWORD and the POSTGRES_* connection values at
+# minimum. Pin APP_IMAGE_TAG to a release such as 1.2.17 if you want repeatable
+# upgrades/rollbacks instead of latest.
 
 docker compose up -d
 ```
@@ -50,28 +55,26 @@ walkthrough.
 
 ### 1. Start the database
 
-The `db` service is published on `127.0.0.1:5432`, so start just that one
-(from the terminal, or your IDE's Docker/Services panel):
+The dev compose file bundles a throwaway Postgres published on `localhost:5432`,
+so start just that one (from the terminal, or your IDE's Docker/Services panel):
 
 ```bash
-docker compose up -d db
+docker compose -f docker-compose.dev.yml up -d db
 ```
 
 ### 2. Backend (hot reload)
 
 ```bash
+cp .env.example .env    # repo root — the defaults point at the db above
 cd backend
 uv sync                 # creates .venv from uv.lock (first time only)
-cp .env.example .env    # points at the db above; edit if you changed credentials
 uv run uvicorn app.main:app --reload --port 8000
 ```
 
-`backend/.env` is loaded automatically and real env vars override it. Migrations
-are applied on startup and the seeded admin (`admin` / `admin`) is created on
-first run. API docs: `http://localhost:8000/api/docs`.
-
-> No database running? Set `DATABASE_URL=sqlite:///./dev.db` in `backend/.env`
-> for a zero-setup run.
+The repo-root `.env` is loaded automatically (the same file docker-compose
+reads) and real env vars override it. Migrations are applied on startup and the
+seeded admin (`FIRST_ADMIN_USERNAME` / `FIRST_ADMIN_PASSWORD` from your `.env`)
+is created on first run. API docs: `http://localhost:8000/api/docs`.
 
 ### 3. Frontend (hot reload)
 

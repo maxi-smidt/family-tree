@@ -16,7 +16,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useTranslation } from "react-i18next";
-import { RELATION_TYPES } from "@/types/member";
+import { PARENT_RELATION_TYPE } from "@/types/member";
 
 export const RelationControls = () => {
   const { t } = useTranslation(undefined, {
@@ -55,9 +55,9 @@ export const RelationControls = () => {
               toggleRelationType(type.id);
             }}
             onSelect={(e) => e.preventDefault()}
-            disabled={type.id === RELATION_TYPES[0]}
+            disabled={type.id === PARENT_RELATION_TYPE}
           >
-            {tRelation(type.id)}
+            {tRelation(type.id, { defaultValue: type.description ?? type.id })}
           </DropdownMenuCheckboxItem>
         ))}
       </DropdownMenuContent>

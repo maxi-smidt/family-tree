@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 import { User } from "@/types/user";
 import { FeatureName } from "@/lib/features";
+import { RelationTypeDB } from "@/types/member";
 
 export interface AdminSettings {
   allow_self_registration: boolean;
@@ -104,5 +105,32 @@ export const AdminService = {
   downloadBackupUrl(id: string): string {
     const base = import.meta.env.VITE_API_BASE_URL || "/api";
     return `${base}/admin/backups/${id}/download`;
+  },
+
+  listRelationTypes(): Promise<RelationTypeDB[]> {
+    return api.get<RelationTypeDB[]>("/relation-types");
+  },
+
+  createRelationType(
+    id: string,
+    description: string | null,
+  ): Promise<RelationTypeDB> {
+    return api.post<RelationTypeDB>("/admin/relation-types", {
+      id,
+      description,
+    });
+  },
+
+  updateRelationType(
+    id: string,
+    description: string | null,
+  ): Promise<RelationTypeDB> {
+    return api.patch<RelationTypeDB>(`/admin/relation-types/${id}`, {
+      description,
+    });
+  },
+
+  deleteRelationType(id: string): Promise<void> {
+    return api.del<void>(`/admin/relation-types/${id}`);
   },
 };

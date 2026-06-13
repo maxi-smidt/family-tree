@@ -15,10 +15,10 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.models  # noqa: F401  (registers every table on Base.metadata)
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.constants import DEFAULT_RELATION_TYPES
 from app.core.rate_limit import login_rate_limiter
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base
+from app.db.init_db import DEFAULT_RELATION_TYPES
 from app.db.session import get_db
 from app.models import Member, RelationType, Tree, TreeMembership, User
 
@@ -42,7 +42,14 @@ def session_factory(tmp_path):
         cursor.close()
 
     Base.metadata.create_all(engine)
-    yield sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    factory = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+    # Mirror init_db: the instance-wide relation type registry is seeded before
+    # the app serves any request.
+    with factory() as session:
+        for rt in DEFAULT_RELATION_TYPES:
+            session.add(RelationType(id=rt))
+        session.commit()
+    yield factory
     engine.dispose()
 
 
@@ -109,9 +116,6 @@ def make_tree(
     kw = {"id": tree_id} if tree_id else {}
     tree = Tree(name=name, owner_id=owner.id, **kw)
     db.add(tree)
-    db.flush()
-    for rt in DEFAULT_RELATION_TYPES:
-        db.add(RelationType(tree_id=tree.id, id=rt))
     db.commit()
     db.refresh(tree)
     return tree

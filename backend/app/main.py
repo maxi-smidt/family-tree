@@ -15,6 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.session import engine
 from app.services.authentik import init_oauth
@@ -22,7 +23,7 @@ from app.services.backup_scheduler import backup_schedule_loop
 from app.services.deletion_sweeper import deletion_sweep_loop
 from app.services.storage import InvalidImageURL
 
-logging.basicConfig(level=logging.INFO)
+setup_logging()
 logger = logging.getLogger("app")
 
 

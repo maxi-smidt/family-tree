@@ -205,7 +205,8 @@
       "toast-error-image-too-large": "Das Bild ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
-      "toast-error-read-file": "Datei konnte nicht gelesen werden."
+      "toast-error-read-file": "Datei konnte nicht gelesen werden.",
+      "image-alt-fallback": "Galeriebild"
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -247,6 +248,25 @@
       "import": "Stammbaum importieren",
       "toast-success": "Stammbaum erfolgreich importiert!",
       "toast-error": "Stammbaum konnte nicht importiert werden."
+    },
+    "mobile-management": {
+      "manage": "Verwalten",
+      "title": "Verwalten",
+      "selected-tree": "Ausgewählter Baum",
+      "no-tree-selected": "Kein Baum ausgewählt",
+      "group-sharing": "Freigabe",
+      "group-data": "Daten",
+      "group-admin": "Administration",
+      "share-action": "Freigabe & Berechtigungen",
+      "export-action": "Baum exportieren",
+      "import-action": "Baum importieren",
+      "export-gedcom-action": "GEDCOM exportieren",
+      "import-gedcom-action": "GEDCOM importieren",
+      "activity-action": "Aktivitätsprotokoll",
+      "admin-action": "Administration",
+      "role-owner": "Eigentümer",
+      "role-editor": "Bearbeiter",
+      "role-viewer": "Betrachter"
     }
   },
   "list-view": {
@@ -263,7 +283,8 @@
         "dob": "Geburtsdatum",
         "dod": "Sterbedatum",
         "no-members": "Keine Personen gefunden.",
-        "source-tree": "Quellbaum"
+        "source-tree": "Quellbaum",
+        "caption": "Familienmitglieder"
       },
       "menu": {
         "trigger": "Menü öffnen",
@@ -473,7 +494,17 @@
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
       "risk-indicator": "Mögliches genetisches Risiko von Eltern · Kein medizinischer Rat",
       "view-details": "Personendetails anzeigen",
-      "edit-member": "Person bearbeiten"
+      "edit-member": "Person bearbeiten",
+      "aria-node-label": "{{name}}, {{gender}}, {{dates}}",
+      "add-parent": "Elternteil hinzufügen",
+      "add-child": "Kind hinzufügen",
+      "add-left": "Verwandte Person links hinzufügen",
+      "add-right": "Verwandte Person rechts hinzufügen"
+    },
+    "canvas-label": "Stammbaum-Leinwand",
+    "a11y": {
+      "node-desc": "Drücken Sie die Eingabetaste, um Personendetails anzuzeigen.",
+      "controls": "Leinwand-Steuerung"
     },
     "search": {
       "placeholder": "Mitglieder suchen…",
@@ -554,6 +585,8 @@
       "birth": "Geburt",
       "death": "Tod",
       "show-vital-events": "Geburten & Todesfälle anzeigen",
+      "edit-event": "Ereignis bearbeiten",
+      "delete-event": "Ereignis löschen",
       "delete-dialog": {
         "title": "Ereignis löschen",
         "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -827,6 +860,7 @@
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",
+    "relation-types-tab": "Beziehungstypen",
     "backups-tab": "Backups",
     "features": {
       "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",
@@ -898,6 +932,22 @@
       "cancel": "Abbrechen",
       "delete": "Löschung vormerken",
       "scheduled": "Konto zum Löschen vorgemerkt."
+    },
+    "relation-types": {
+      "hint": "Beziehungstypen gelten für alle Stammbäume dieser Instanz. Die Beschreibung wird angezeigt, wenn für einen Typ keine Übersetzung existiert.",
+      "col-id": "ID",
+      "col-label": "Bezeichnung",
+      "col-description": "Beschreibung",
+      "id-placeholder": "z. B. godparent",
+      "add": "Typ hinzufügen",
+      "save-description": "Beschreibung speichern",
+      "delete": "Typ löschen",
+      "delete-parent-unavailable": "Der Eltern-Typ wird für die Baumstruktur benötigt und kann nicht gelöscht werden",
+      "created": "Beziehungstyp erstellt.",
+      "saved": "Beziehungstyp aktualisiert.",
+      "deleted": "Beziehungstyp gelöscht.",
+      "delete-error": "Beziehungstyp konnte nicht gelöscht werden. Verwendete Typen können nicht gelöscht werden.",
+      "error": "Beziehungstypen konnten nicht aktualisiert werden."
     },
     "backups": {
       "title": "Backup-Verwaltung",

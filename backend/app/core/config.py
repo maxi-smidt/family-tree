@@ -11,10 +11,11 @@ from typing import Annotated
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-# Load backend/.env regardless of the process working directory. Real
-# environment variables (e.g. those injected by docker-compose) still take
-# precedence over the file, so containers don't need a .env at all.
-_ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+# Load the repo-root .env regardless of the process working directory — the
+# same file docker-compose reads, so there is exactly one place to configure
+# the stack. Real environment variables (e.g. those injected by docker-compose)
+# still take precedence over the file, so containers don't need a .env at all.
+_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 class Settings(BaseSettings):

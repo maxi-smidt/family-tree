@@ -39,10 +39,11 @@ npm run dev            # Start the Vite dev server (proxies /api to the backend)
 npm test               # Run test suite
 npm run check-i18n     # Verify translations
 
-# Backend (from ./backend)
+# Backend (from ./backend) — needs a Postgres, e.g.:
+#   docker compose -f docker-compose.dev.yml up -d db
 uv run uvicorn app.main:app --reload --port 8000
 
-# Full stack
+# Full stack (bring your own Postgres; see .env.example)
 docker compose up -d --build
 ```
 

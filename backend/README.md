@@ -19,7 +19,7 @@ the Family Tree web application.
 pyproject.toml / uv.lock   dependencies (managed by uv)
 alembic.ini / alembic/     database migrations
 app/
-  core/        config, security (JWT/passwords), constants
+  core/        config, security (JWT/passwords), logging
   db/          engine/session, declarative base, bootstrap (migrate + seed)
   models/      SQLAlchemy ORM models
   schemas/     Pydantic request/response models (mirror the frontend contracts)
@@ -44,6 +44,10 @@ export DATA_PATH=./.data APP_DATA_PATH=./.appdata
 
 uv run uvicorn app.main:app --reload --port 8000
 ```
+
+Instead of exporting variables you can configure everything in the repo-root
+`.env` (see [`../.env.example`](../.env.example)) — it is loaded automatically
+and real environment variables override it.
 
 Interactive API docs are then available at `http://localhost:8000/api/docs`.
 

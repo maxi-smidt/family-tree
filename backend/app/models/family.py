@@ -1,8 +1,7 @@
 """Core genealogy tables.
 
-Member columns intentionally keep the camelCase names used by the original
-SQLite schema so the JSON contract with the existing React frontend is
-preserved 1:1.
+Member columns intentionally use camelCase names so the JSON contract with
+the React frontend (`MemberDB` & friends) is preserved 1:1.
 """
 
 from sqlalchemy import Boolean, Float, ForeignKey, String, Text
@@ -52,13 +51,10 @@ class Relation(Base):
 
 
 class RelationType(Base):
-    """The set of relation types available within a single tree."""
+    """Instance-wide registry of relation types, managed by admins."""
 
     __tablename__ = "relation_types"
 
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), primary_key=True
-    )
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
