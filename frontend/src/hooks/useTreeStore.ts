@@ -8,6 +8,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { hasFeature } from "@/hooks/useAuthStore";
@@ -63,6 +64,7 @@ const clearDataStores = () => {
   useGalleryStore.getState().clear();
   useEventStore.getState().clear();
   useStoryStore.getState().clear();
+  useSourceStore.getState().clear();
   useActivityStore.getState().clear();
   useStatisticsStore.getState().clear();
 };
@@ -252,6 +254,8 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
         loads.push(useEventStore.getState().refreshEvents(tree.id));
       if (hasFeature("stories"))
         loads.push(useStoryStore.getState().refreshStories(tree.id));
+      if (hasFeature("sources"))
+        loads.push(useSourceStore.getState().refreshSources(tree.id));
       if (hasFeature("activity_log"))
         loads.push(useActivityStore.getState().refreshActivity(tree.id));
       await Promise.all(loads);

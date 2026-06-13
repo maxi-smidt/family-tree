@@ -11,6 +11,7 @@ import { useTreeStore } from "./useTreeStore";
 import { useMemberStore } from "./useMemberStore";
 import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
+import { useSourceStore } from "./useSourceStore";
 import { useGalleryStore } from "./useGalleryStore";
 import { useActivityStore } from "./useActivityStore";
 import { useAuthStore } from "./useAuthStore";
@@ -46,6 +47,8 @@ function mockEmptySubStores() {
   vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getStories).mockResolvedValue([]);
   vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+  vi.mocked(TreeService.getSources).mockResolvedValue([]);
+  vi.mocked(TreeService.getCitations).mockResolvedValue([]);
   vi.mocked(TreeService.getActivity).mockResolvedValue([]);
   vi.mocked(TreeService.getRelationTypes).mockResolvedValue([]);
   vi.mocked(TreeService.listVirtualViews).mockResolvedValue([]);
@@ -91,6 +94,7 @@ beforeEach(() => {
   useMemberStore.setState({ members: [], undoStack: [], redoStack: [] });
   useEventStore.setState({ events: [] });
   useStoryStore.setState({ stories: [] });
+  useSourceStore.setState({ sources: [], citations: [] });
   useGalleryStore.setState({ galleryImages: [] });
   useActivityStore.setState({ activities: [] });
   // All feature flags enabled (the production default) so connect() loads

@@ -31,6 +31,7 @@ import { useTranslation } from "react-i18next";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
+import { MemberSources } from "./MemberSources";
 import { MemberPicker } from "./MemberPicker";
 
 function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
@@ -71,6 +72,7 @@ export const EditMode = ({
   const { updateMemberPartial, members } = useMemberStore();
   const eventsEnabled = useFeature("events");
   const storiesEnabled = useFeature("stories");
+  const sourcesEnabled = useFeature("sources");
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -553,6 +555,7 @@ export const EditMode = ({
         <div className="space-y-4 mt-6">
           {eventsEnabled && <MemberEvents member={member} />}
           {storiesEnabled && <MemberStories member={member} />}
+          {sourcesEnabled && <MemberSources member={member} />}
           <MemberDiseases member={member} />
         </div>
       </div>
