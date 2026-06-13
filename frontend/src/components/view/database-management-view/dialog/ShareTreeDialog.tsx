@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,29 +40,70 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, ChevronsUpDown, Crown, UserPlus, X } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  Copy,
+  Crown,
+  Globe,
+  Link,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { TreeSharingService } from "@/services/TreeSharingService";
 import { cn } from "@/lib/utils";
-import { Tree, ShareCandidate, ShareRole, TreeAccess } from "@/types/tree";
+import {
+  ShareCandidate,
+  ShareRole,
+  Tree,
+  TreeAccess,
+  TreeInvitation,
+} from "@/types/tree";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { useFeature } from "@/hooks/useAuthStore";
 
 type Props = {
   tree: Tree;
   isOpen: boolean;
   onClose: () => void;
+  onTreeUpdated?: (tree: Tree) => void;
 };
 
 type StagedUser = ShareCandidate & { role: ShareRole };
 
-export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
+export const ShareTreeDialog = ({
+  tree,
+  isOpen,
+  onClose,
+  onTreeUpdated,
+}: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "dialog.share-tree" });
+  const sharingInvitesEnabled = useFeature("sharing_invites");
+  const isOwner = tree.role === "owner";
+
   const [access, setAccess] = useState<TreeAccess[]>([]);
   const [candidates, setCandidates] = useState<ShareCandidate[]>([]);
   const [staged, setStaged] = useState<StagedUser[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [transferTo, setTransferTo] = useState("");
   const [confirmTransferOpen, setConfirmTransferOpen] = useState(false);
+
+  // Invitations state
+  const [invitations, setInvitations] = useState<TreeInvitation[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<ShareRole>("editor");
+  const [inviteExpiry, setInviteExpiry] = useState<string>("never");
+  const [creatingInvite, setCreatingInvite] = useState(false);
+
+  // Public access state
+  const [publicRole, setPublicRole] = useState<"viewer" | null>(
+    tree.public_role ?? null,
+  );
+  const [confirmPublicOpen, setConfirmPublicOpen] = useState(false);
+  const [pendingPublicRole, setPendingPublicRole] = useState<
+    "viewer" | null
+  >(null);
 
   // Any active user other than the current owner is an eligible new owner:
   // existing members plus the share candidates (users without access yet).
@@ -79,15 +122,24 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
     const data = await TreeSharingService.getSharingData(tree.id);
     setAccess(data.access);
     setCandidates(data.candidates);
-  }, [tree.id]);
+
+    if (sharingInvitesEnabled && isOwner) {
+      const invs = await TreeSharingService.listInvitations(tree.id);
+      setInvitations(invs);
+    }
+  }, [tree.id, sharingInvitesEnabled, isOwner]);
 
   useEffect(() => {
     if (isOpen) {
       setStaged([]);
       setTransferTo("");
+      setInviteEmail("");
+      setInviteRole("editor");
+      setInviteExpiry("never");
+      setPublicRole(tree.public_role ?? null);
       void reload();
     }
-  }, [isOpen, reload]);
+  }, [isOpen, reload, tree.public_role]);
 
   const toggleStaged = (candidate: ShareCandidate) => {
     setStaged((prev) =>
@@ -105,7 +157,6 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
 
   const handleShare = async () => {
     try {
-      // Each grant is an idempotent upsert keyed by username.
       for (const s of staged) {
         await TreeSharingService.grantAccess(tree.id, s.username, s.role);
       }
@@ -148,8 +199,6 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
       setConfirmTransferOpen(false);
       setTransferTo("");
       toast.success(t("transfer-success"));
-      // Ownership (and possibly our own access) changed; close and let the
-      // parent refetch the tree list.
       onClose();
     } catch (err) {
       console.error(err);
@@ -157,10 +206,90 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
     }
   };
 
+  const handleCreateInvite = async () => {
+    setCreatingInvite(true);
+    try {
+      const expiresInDays =
+        inviteExpiry === "never"
+          ? undefined
+          : inviteExpiry === "7"
+            ? 7
+            : 30;
+      await TreeSharingService.createInvitation(tree.id, {
+        email: inviteEmail || undefined,
+        role: inviteRole,
+        expiresInDays,
+      });
+      setInviteEmail("");
+      setInviteRole("editor");
+      setInviteExpiry("never");
+      await reload();
+    } catch (err) {
+      console.error(err);
+      toast.error(t("invites.create-error"));
+    } finally {
+      setCreatingInvite(false);
+    }
+  };
+
+  const handleRevokeInvite = async (invitationId: string) => {
+    try {
+      await TreeSharingService.revokeInvitation(tree.id, invitationId);
+      await reload();
+    } catch (err) {
+      console.error(err);
+      toast.error(t("invites.revoke-error"));
+    }
+  };
+
+  const handleCopyLink = (token: string) => {
+    const url = `${window.location.origin}/#invite=${token}`;
+    void navigator.clipboard.writeText(url);
+    toast.success(t("invites.link-copied"));
+  };
+
+  const handlePublicToggle = (checked: boolean) => {
+    setPendingPublicRole(checked ? "viewer" : null);
+    setConfirmPublicOpen(true);
+  };
+
+  const handlePublicConfirm = async () => {
+    try {
+      const updated = await TreeSharingService.setPublicAccess(
+        tree.id,
+        pendingPublicRole,
+      );
+      setPublicRole(updated.public_role ?? null);
+      onTreeUpdated?.(updated);
+      setConfirmPublicOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("public.error"));
+      setConfirmPublicOpen(false);
+    }
+  };
+
+  const inviteStatusBadge = (status: TreeInvitation["status"]) => {
+    const variants: Record<
+      TreeInvitation["status"],
+      "default" | "secondary" | "destructive" | "outline"
+    > = {
+      pending: "default",
+      accepted: "secondary",
+      revoked: "destructive",
+      expired: "outline",
+    };
+    return (
+      <Badge variant={variants[status]}>{t(`invites.status-${status}`)}</Badge>
+    );
+  };
+
+  const publicLink = `${window.location.origin}/#tree=${tree.id}`;
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("title", { name: tree.name })}</DialogTitle>
             <DialogDescription>{t("description")}</DialogDescription>
@@ -181,7 +310,9 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
                   <div className="flex items-center gap-2">
                     <Select
                       value={a.role}
-                      onValueChange={(v) => handleRoleChange(a, v as ShareRole)}
+                      onValueChange={(v) =>
+                        handleRoleChange(a, v as ShareRole)
+                      }
                     >
                       <SelectTrigger className="h-8 w-28">
                         <SelectValue />
@@ -266,7 +397,6 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
               </PopoverContent>
             </Popover>
 
-            {/* Staged users, each with its own role */}
             {staged.length > 0 && (
               <div className="space-y-2">
                 {staged.map((s) => (
@@ -311,6 +441,161 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
               </div>
             )}
           </div>
+
+          {/* Invite by link (owner only, feature-gated) */}
+          {sharingInvitesEnabled && isOwner && (
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <Link className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm font-medium">{t("invites.title")}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("invites.description")}
+              </p>
+
+              {/* Create invite form */}
+              <div className="space-y-2">
+                <Input
+                  placeholder={t("invites.email-placeholder")}
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  type="email"
+                />
+                <div className="flex gap-2">
+                  <Select
+                    value={inviteRole}
+                    onValueChange={(v) => setInviteRole(v as ShareRole)}
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="editor">{t("role-editor")}</SelectItem>
+                      <SelectItem value="viewer">{t("role-viewer")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={inviteExpiry} onValueChange={setInviteExpiry}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="never">
+                        {t("invites.expiry-never")}
+                      </SelectItem>
+                      <SelectItem value="7">
+                        {t("invites.expiry-7d")}
+                      </SelectItem>
+                      <SelectItem value="30">
+                        {t("invites.expiry-30d")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={handleCreateInvite}
+                  disabled={creatingInvite}
+                >
+                  {t("invites.create-button")}
+                </Button>
+              </div>
+
+              {/* Existing invitations */}
+              {invitations.length > 0 ? (
+                <div className="space-y-2">
+                  {invitations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between rounded-md border p-2 text-sm"
+                    >
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          {inviteStatusBadge(inv.status)}
+                          <span className="text-xs text-muted-foreground capitalize">
+                            {inv.role}
+                          </span>
+                          {inv.email && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {inv.email}
+                            </span>
+                          )}
+                        </div>
+                        {inv.expires_at && inv.status === "pending" && (
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(inv.expires_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {inv.token && inv.status === "pending" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCopyLink(inv.token!)}
+                            title={t("invites.copy-link")}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {inv.status === "pending" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRevokeInvite(inv.id)}
+                            title={t("invites.revoke")}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {t("invites.none-yet")}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Public access (owner only, feature-gated) */}
+          {sharingInvitesEnabled && isOwner && (
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium">{t("public.title")}</p>
+                </div>
+                <Switch
+                  checked={publicRole === "viewer"}
+                  onCheckedChange={handlePublicToggle}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("public.hint")}
+              </p>
+              {publicRole === "viewer" && (
+                <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-2">
+                  <span className="flex-1 truncate text-xs text-muted-foreground">
+                    {publicLink}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(publicLink);
+                      toast.success(t("invites.link-copied"));
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Transfer ownership */}
           <div className="space-y-2 border-t pt-4">
             <p className="text-sm font-medium">{t("transfer-title")}</p>
@@ -353,6 +638,7 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
         </DialogContent>
       </Dialog>
 
+      {/* Transfer confirmation */}
       <AlertDialog
         open={confirmTransferOpen}
         onOpenChange={setConfirmTransferOpen}
@@ -373,6 +659,35 @@ export const ShareTreeDialog = ({ tree, isOpen, onClose }: Props) => {
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleTransfer}>
               {t("transfer-confirm-action")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Public access confirmation */}
+      <AlertDialog
+        open={confirmPublicOpen}
+        onOpenChange={setConfirmPublicOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingPublicRole === "viewer"
+                ? t("public.confirm-enable-title")
+                : t("public.confirm-disable-title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingPublicRole === "viewer"
+                ? t("public.confirm-enable-description")
+                : t("public.confirm-disable-description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("transfer-confirm-cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={handlePublicConfirm}>
+              {pendingPublicRole === "viewer"
+                ? t("public.enable")
+                : t("public.disable")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

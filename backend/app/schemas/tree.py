@@ -16,6 +16,8 @@ class TreeOut(BaseModel):
     # Number of other users this tree is shared with (memberships). Lets owners
     # see at a glance whether a tree is shared, without a second request.
     shared_count: int = 0
+    # null = private; "viewer" = public read-only.
+    public_role: str | None = None
 
 
 class TreeCreate(BaseModel):
@@ -66,3 +68,41 @@ class ShareCandidate(BaseModel):
 
     user_id: str
     username: str
+
+
+class InvitationCreate(BaseModel):
+    email: str | None = None
+    role: str = "editor"
+    expires_in_days: int | None = None
+
+
+class InvitationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    tree_id: str
+    email: str | None = None
+    role: str
+    created_at: str
+    expires_at: str | None = None
+    accepted_at: str | None = None
+    revoked_at: str | None = None
+    token: str | None = None
+    status: str = "pending"
+
+
+class InvitationAcceptResult(BaseModel):
+    tree_id: str
+    tree_name: str
+    role: str
+
+
+class InvitationPreview(BaseModel):
+    tree_name: str
+    role: str
+    valid: bool
+    requires_account: bool
+
+
+class PublicAccessUpdate(BaseModel):
+    public_role: str | None = None

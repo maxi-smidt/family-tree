@@ -152,7 +152,37 @@
       "transfer-confirm-cancel": "Abbrechen",
       "transfer-confirm-action": "Eigentümerschaft übertragen",
       "transfer-success": "Eigentümerschaft übertragen.",
-      "transfer-error": "Eigentümerschaft konnte nicht übertragen werden."
+      "transfer-error": "Eigentümerschaft konnte nicht übertragen werden.",
+      "invites": {
+        "title": "Per Link einladen",
+        "description": "Jeder mit dem Link kann beitreten — kein Konto nötig zur Vorschau, aber zum Akzeptieren.",
+        "email-placeholder": "E-Mail-Adresse (optional)",
+        "expiry-never": "Läuft nie ab",
+        "expiry-7d": "Läuft in 7 Tagen ab",
+        "expiry-30d": "Läuft in 30 Tagen ab",
+        "create-button": "Einladungslink erstellen",
+        "copy-link": "Link kopieren",
+        "link-copied": "Link in die Zwischenablage kopiert.",
+        "status-pending": "Ausstehend",
+        "status-accepted": "Angenommen",
+        "status-revoked": "Widerrufen",
+        "status-expired": "Abgelaufen",
+        "revoke": "Einladung widerrufen",
+        "revoke-error": "Einladung konnte nicht widerrufen werden.",
+        "create-error": "Einladung konnte nicht erstellt werden.",
+        "none-yet": "Noch keine Einladungslinks."
+      },
+      "public": {
+        "title": "Öffentlicher Lesezugriff",
+        "hint": "Jeder mit dem Link kann diesen Stammbaum lesen (nur Ansicht). Kein Konto erforderlich.",
+        "enable": "Öffentlich machen",
+        "disable": "Privat machen",
+        "confirm-enable-title": "Stammbaum öffentlich machen?",
+        "confirm-enable-description": "Jeder mit dem Link kann diesen Stammbaum ohne Anmeldung einsehen.",
+        "confirm-disable-title": "Stammbaum privat machen?",
+        "confirm-disable-description": "Der öffentliche Link funktioniert dann nicht mehr. Bestehende Mitglieder behalten ihren Zugang.",
+        "error": "Öffentlicher Zugang konnte nicht aktualisiert werden."
+      }
     },
     "duplicate-tree": {
       "title": "Stammbaum duplizieren",
@@ -878,7 +908,8 @@
         "quality_report": "Qualitätsbericht",
         "statistics": "Statistiken",
         "virtual_views": "Virtuelle Ansichten",
-        "gedcom": "GEDCOM-Import/-Export"
+        "gedcom": "GEDCOM-Import/-Export",
+        "sharing_invites": "Einladungen teilen"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -888,7 +919,8 @@
         "quality_report": "Datenqualitätsprüfungen pro Stammbaum.",
         "statistics": "Aggregierte Statistiken pro Stammbaum.",
         "virtual_views": "Schreibgeschützte Ansichten über mehrere Stammbäume.",
-        "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren."
+        "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
+        "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume."
       }
     },
     "col-username": "Benutzername",

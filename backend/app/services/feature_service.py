@@ -42,6 +42,7 @@ FEATURES: dict[str, FeatureState] = {
     "statistics": "on",
     "virtual_views": "on",
     "gedcom": "on",
+    "sharing_invites": "on",
 }
 
 _SETTING_PREFIX = "feature."

@@ -24,6 +24,11 @@ export const App = () => {
   useEffect(() => {
     if (status !== "authenticated") return;
     void (async () => {
+      // Accept a pending invite (from an #invite= link) before loading trees so
+      // the newly granted tree appears in the list immediately.
+      const { acceptPendingInvite } = useAuthStore.getState();
+      await acceptPendingInvite();
+
       await loadTrees();
       // Re-open the most recently used tree (the API returns them sorted by
       // last_opened, newest first) so the user lands back where they left off.
