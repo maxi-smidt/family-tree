@@ -827,6 +827,7 @@
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",
+    "backups-tab": "Backups",
     "features": {
       "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",
       "state-on": "An",
@@ -897,6 +898,33 @@
       "cancel": "Abbrechen",
       "delete": "Löschung vormerken",
       "scheduled": "Konto zum Löschen vorgemerkt."
+    },
+    "backups": {
+      "title": "Backup-Verwaltung",
+      "back-up-now": "Jetzt sichern",
+      "last-backup": "Letztes Backup: {{date}}",
+      "never": "Nie",
+      "schedule-enabled": "Geplante Backups",
+      "interval-hours": "Intervall (Stunden)",
+      "retention-count": "Backups aufbewahren",
+      "col-date": "Datum",
+      "col-trigger": "Typ",
+      "col-status": "Status",
+      "col-size": "Größe",
+      "col-actions": "Aktionen",
+      "trigger-manual": "Manuell",
+      "trigger-scheduled": "Geplant",
+      "status-running": "Läuft",
+      "status-success": "Erfolgreich",
+      "status-failed": "Fehlgeschlagen",
+      "download": "Herunterladen",
+      "delete": "Löschen",
+      "created": "Backup gestartet",
+      "create-error": "Backup fehlgeschlagen",
+      "deleted": "Backup gelöscht",
+      "delete-error": "Backup konnte nicht gelöscht werden",
+      "no-backups": "Noch keine Backups",
+      "settings-saved": "Zeitplan speichern"
     }
   },
   "event-types": {

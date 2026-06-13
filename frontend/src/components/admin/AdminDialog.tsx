@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { BackupPanel } from "@/components/admin/BackupPanel";
 import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { KeyRound, Plus, Trash2, Undo2 } from "lucide-react";
 import {
@@ -161,6 +162,7 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
             <TabsTrigger value="users">{t("users-tab")}</TabsTrigger>
             <TabsTrigger value="settings">{t("settings-tab")}</TabsTrigger>
             <TabsTrigger value="features">{t("features-tab")}</TabsTrigger>
+            <TabsTrigger value="backups">{t("backups-tab")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="space-y-4">
@@ -398,6 +400,14 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
 
           <TabsContent value="features">
             <FeatureFlagsPanel users={users} />
+          </TabsContent>
+
+          <TabsContent value="backups">
+            <BackupPanel
+              settings={settings}
+              onSettingsChange={setSettings}
+              onSaveSettings={saveSettings}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>

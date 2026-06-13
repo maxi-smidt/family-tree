@@ -7,6 +7,19 @@ export interface AdminSettings {
   instance_name: string;
   default_language: string;
   deletion_grace_period_days: number;
+  backup_schedule_enabled: boolean;
+  backup_interval_hours: number;
+  backup_retention_count: number;
+}
+
+export interface BackupRecord {
+  id: string;
+  created_at: string;
+  status: "running" | "success" | "failed";
+  trigger: "manual" | "scheduled";
+  filename: string | null;
+  size_bytes: number | null;
+  error: string | null;
 }
 
 export type FeatureState = "on" | "off" | "beta";
@@ -74,5 +87,22 @@ export const AdminService = {
     changes: FeatureFlagUpdate,
   ): Promise<FeatureFlag> {
     return api.patch<FeatureFlag>(`/admin/features/${name}`, changes);
+  },
+
+  listBackups(): Promise<BackupRecord[]> {
+    return api.get<BackupRecord[]>("/admin/backups");
+  },
+
+  triggerBackup(): Promise<BackupRecord> {
+    return api.post<BackupRecord>("/admin/backups");
+  },
+
+  deleteBackup(id: string): Promise<void> {
+    return api.del<void>(`/admin/backups/${id}`);
+  },
+
+  downloadBackupUrl(id: string): string {
+    const base = import.meta.env.VITE_API_BASE_URL || "/api";
+    return `${base}/admin/backups/${id}/download`;
   },
 };

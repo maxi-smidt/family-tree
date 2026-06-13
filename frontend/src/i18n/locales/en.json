@@ -827,6 +827,7 @@
     "users-tab": "Users",
     "settings-tab": "Settings",
     "features-tab": "Features",
+    "backups-tab": "Backups",
     "features": {
       "hint": "Enable or disable features for this instance at runtime. \"Beta\" enables a feature only for the selected users.",
       "state-on": "On",
@@ -897,6 +898,33 @@
       "cancel": "Cancel",
       "delete": "Schedule deletion",
       "scheduled": "Account scheduled for deletion."
+    },
+    "backups": {
+      "title": "Backup management",
+      "back-up-now": "Back up now",
+      "last-backup": "Last backup: {{date}}",
+      "never": "Never",
+      "schedule-enabled": "Scheduled backups",
+      "interval-hours": "Interval (hours)",
+      "retention-count": "Backups to keep",
+      "col-date": "Date",
+      "col-trigger": "Type",
+      "col-status": "Status",
+      "col-size": "Size",
+      "col-actions": "Actions",
+      "trigger-manual": "Manual",
+      "trigger-scheduled": "Scheduled",
+      "status-running": "Running",
+      "status-success": "Success",
+      "status-failed": "Failed",
+      "download": "Download",
+      "delete": "Delete",
+      "created": "Backup started",
+      "create-error": "Backup failed",
+      "deleted": "Backup deleted",
+      "delete-error": "Failed to delete backup",
+      "no-backups": "No backups yet",
+      "settings-saved": "Save schedule"
     }
   },
   "event-types": {
