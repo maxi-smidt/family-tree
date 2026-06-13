@@ -1,8 +1,30 @@
 import { useMemo } from "react";
 import { Node } from "@xyflow/react";
 import { Member } from "@/types/member";
+import { useTranslation } from "react-i18next";
+import { TFunction } from "i18next";
 
 const EMPTY_MEMBER_IDS = new Set<string>();
+
+function memberAriaLabel(
+  member: Member,
+  t: TFunction,
+): string {
+  const name = `${member.firstName} ${member.lastName}`.trim();
+  const gender = t(`common.gender.${member.gender}`);
+  const birthYear = member.date.birth
+    ? new Date(member.date.birth).getFullYear().toString()
+    : "";
+  const deathYear = member.date.death
+    ? new Date(member.date.death).getFullYear().toString()
+    : "";
+  const dates = birthYear
+    ? deathYear
+      ? `${birthYear}–${deathYear}`
+      : birthYear
+    : "";
+  return t("tree-view.node.aria-node-label", { name, gender, dates });
+}
 
 export const useFlowNodes = (
   nodes: Node[],
@@ -19,6 +41,8 @@ export const useFlowNodes = (
   isConnectionMode = false,
   hasConnectionPath = false,
 ) => {
+  const { t } = useTranslation();
+
   return useMemo(() => {
     const nodeMap = new Map(nodes.map((n) => [n.id, n]));
     const visibilityCache = new Map<string, boolean>();
@@ -62,52 +86,63 @@ export const useFlowNodes = (
       return isVisible;
     };
 
-    return nodes.map((node) => ({
-      ...node,
-      // Union nodes have no member data — skip the visibility walk.
-      hidden: node.id.startsWith("union-") ? false : !isNodeVisible(node.id),
-      data: {
-        ...node.data,
-        isHighlighted: node.id === highlightedNodeId,
-        isConnectionSelected: connectionSelectedIds.has(node.id),
-        isConnectionPath: connectionPathNodeIds.has(node.id),
-        isConnectionDimmed:
-          isConnectionMode &&
-          hasConnectionPath &&
-          !connectionPathNodeIds.has(node.id),
-        isReadOnly,
-        onEdit: isReadOnly
-          ? undefined
-          : () => {
-              setEditingMemberId(node.id);
-              setIsEditMode(true);
-            },
-        onView: () => {
-          setEditingMemberId(node.id);
-          setIsEditMode(false);
+    return nodes.map((node) => {
+      const isMemberNode = !node.id.startsWith("union-");
+      const memberA11yProps = isMemberNode
+        ? {
+            ariaLabel: memberAriaLabel(node.data as Member, t),
+            ariaRole: "button" as const,
+          }
+        : {};
+
+      return {
+        ...node,
+        ...memberA11yProps,
+        // Union nodes have no member data — skip the visibility walk.
+        hidden: isMemberNode ? !isNodeVisible(node.id) : false,
+        data: {
+          ...node.data,
+          isHighlighted: node.id === highlightedNodeId,
+          isConnectionSelected: connectionSelectedIds.has(node.id),
+          isConnectionPath: connectionPathNodeIds.has(node.id),
+          isConnectionDimmed:
+            isConnectionMode &&
+            hasConnectionPath &&
+            !connectionPathNodeIds.has(node.id),
+          isReadOnly,
+          onEdit: isReadOnly
+            ? undefined
+            : () => {
+                setEditingMemberId(node.id);
+                setIsEditMode(true);
+              },
+          onView: () => {
+            setEditingMemberId(node.id);
+            setIsEditMode(false);
+          },
+          onAddChild: isReadOnly
+            ? undefined
+            : () => {
+                onAddChild(node.id);
+              },
+          onAddParent: isReadOnly
+            ? undefined
+            : () => {
+                onAddParent(node.id);
+              },
+          onAddLeft: isReadOnly
+            ? undefined
+            : () => {
+                onAddLeft(node.id);
+              },
+          onAddRight: isReadOnly
+            ? undefined
+            : () => {
+                onAddRight(node.id);
+              },
         },
-        onAddChild: isReadOnly
-          ? undefined
-          : () => {
-              onAddChild(node.id);
-            },
-        onAddParent: isReadOnly
-          ? undefined
-          : () => {
-              onAddParent(node.id);
-            },
-        onAddLeft: isReadOnly
-          ? undefined
-          : () => {
-              onAddLeft(node.id);
-            },
-        onAddRight: isReadOnly
-          ? undefined
-          : () => {
-              onAddRight(node.id);
-            },
-      },
-    }));
+      };
+    });
   }, [
     nodes,
     setEditingMemberId,
@@ -122,5 +157,6 @@ export const useFlowNodes = (
     connectionPathNodeIds,
     isConnectionMode,
     hasConnectionPath,
+    t,
   ]);
 };

@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
-import { MouseEvent, PointerEvent } from "react";
+import { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import { Member } from "@/types/member";
 import { Disease } from "@/types/disease";
 import { NODE_WIDTH } from "@/constants";
@@ -142,6 +142,18 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     }
   };
 
+  const onNodeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "Enter" || e.key === " ") {
+      // Only activate if the event target is the node wrapper itself (not a button inside)
+      if (e.target === e.currentTarget) {
+        e.preventDefault();
+        if (data.onView && typeof data.onView === "function") {
+          data.onView();
+        }
+      }
+    }
+  };
+
   // Use CSS variables for theme-aware colors
   const isConnectionSelected = data.isConnectionSelected === true;
   const isConnectionPath = data.isConnectionPath === true;
@@ -181,6 +193,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   return (
     <div
+      onKeyDown={onNodeKeyDown}
       className={[
         "relative flex flex-col items-center shadow-sm p-2 bg-card transition-opacity duration-200",
         isConnectionDimmed ? "opacity-30" : "opacity-100",
@@ -254,6 +267,8 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       {isDiseaseMode && hasDiseases && (
         <div
           className="absolute bottom-2 left-2 rounded-full p-1"
+          role="img"
+          aria-label={t("disease-indicator", { count: data.diseases?.length || 0 })}
           style={{
             backgroundColor: hasAffectedDisease
               ? "rgba(239, 68, 68, 0.15)"
@@ -264,6 +279,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           title={t("disease-indicator", { count: data.diseases?.length || 0 })}
         >
           <Activity
+            aria-hidden="true"
             size={12}
             style={{
               color: hasAffectedDisease
@@ -280,6 +296,8 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       {hasRisk && (
         <div
           className="absolute bottom-2 left-2 rounded-full p-1 border-2 border-dashed"
+          role="img"
+          aria-label={t("risk-indicator")}
           style={{
             backgroundColor: "rgba(234, 179, 8, 0.1)",
             borderColor: "rgba(234, 179, 8, 0.5)",
@@ -287,6 +305,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           title={t("risk-indicator")}
         >
           <AlertTriangle
+            aria-hidden="true"
             size={12}
             style={{
               color: "rgb(234, 179, 8)",
@@ -305,6 +324,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         <>
           <Button
             variant="ghost"
+            aria-label={t("add-parent")}
             className="absolute -top-6 left-1/2 -translate-x-1/2 translate-y-0.5 w-16 h-6 rounded-t-full rounded-b-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderTop: `${borderWidth} solid ${borderColor}`,
@@ -314,10 +334,11 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddParentClick}
           >
-            <PlusIcon className="text-card" />
+            <PlusIcon className="text-card" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
+            aria-label={t("add-child")}
             className="absolute -bottom-6 left-1/2 -translate-x-1/2 -translate-y-0.5 w-16 h-6 rounded-b-full rounded-t-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderBottom: `${borderWidth} solid ${borderColor}`,
@@ -327,10 +348,11 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddChildClick}
           >
-            <PlusIcon className="text-card" />
+            <PlusIcon className="text-card" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
+            aria-label={t("add-left")}
             className="absolute -left-6 top-1/2 -translate-y-1/2 translate-x-0.5 h-16 w-6 rounded-l-full rounded-r-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderLeft: `${borderWidth} solid ${borderColor}`,
@@ -340,10 +362,11 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddLeftClick}
           >
-            <PlusIcon className="text-card" />
+            <PlusIcon className="text-card" aria-hidden="true" />
           </Button>
           <Button
             variant="ghost"
+            aria-label={t("add-right")}
             className="absolute -right-6 top-1/2 -translate-y-1/2 -translate-x-0.5 h-16 w-6 rounded-r-full rounded-l-none bg-muted-foreground hover:bg-muted-foreground/80 z-10 p-0"
             style={{
               borderRight: `${borderWidth} solid ${borderColor}`,
@@ -353,7 +376,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             }}
             onClick={onAddRightClick}
           >
-            <PlusIcon className="text-card" />
+            <PlusIcon className="text-card" aria-hidden="true" />
           </Button>
         </>
       )}

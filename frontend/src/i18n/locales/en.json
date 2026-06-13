@@ -205,7 +205,8 @@
       "toast-error-image-too-large": "Image is too large. Maximum size is 10 MB.",
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
       "toast-success-image-upload": "Image uploaded successfully.",
-      "toast-error-read-file": "Failed to read file"
+      "toast-error-read-file": "Failed to read file",
+      "image-alt-fallback": "Gallery image"
     },
     "image-sheet": {
       "toast-success": "Image details saved",
@@ -263,7 +264,8 @@
         "dob": "Birth Date",
         "dod": "Death Date",
         "no-members": "No members found.",
-        "source-tree": "Source tree"
+        "source-tree": "Source tree",
+        "caption": "Family members"
       },
       "menu": {
         "trigger": "Open menu",
@@ -473,7 +475,17 @@
       "disease-indicator_other": "{{count}} genetic conditions",
       "risk-indicator": "Potential genetic risk from parents · Not medical advice",
       "view-details": "View member details",
-      "edit-member": "Edit member"
+      "edit-member": "Edit member",
+      "aria-node-label": "{{name}}, {{gender}}, {{dates}}",
+      "add-parent": "Add parent",
+      "add-child": "Add child",
+      "add-left": "Add relative on the left",
+      "add-right": "Add relative on the right"
+    },
+    "canvas-label": "Family tree canvas",
+    "a11y": {
+      "node-desc": "Press Enter to view member details.",
+      "controls": "Canvas controls"
     },
     "search": {
       "placeholder": "Search members…",
@@ -554,6 +566,8 @@
       "birth": "Birth",
       "death": "Death",
       "show-vital-events": "Show births & deaths",
+      "edit-event": "Edit event",
+      "delete-event": "Delete event",
       "delete-dialog": {
         "title": "Delete Event",
         "description": "Are you sure you want to delete this event? This action cannot be undone.",
