@@ -13,9 +13,12 @@ Covered here:
 3. [HTTPS / reverse proxy](#https--reverse-proxy)
 4. [Authentik (OIDC) walkthrough](#authentik-oidc-walkthrough)
 
-Throughout, `db` / `backend` / `frontend` are the Compose service names and the
+Throughout, `backend` / `frontend` are the Compose service names and the
 examples assume you run commands from the directory containing your compose
-file and `.env`.
+file and `.env`. **PostgreSQL is not part of the stack** — you run your own
+instance (separate container, Unraid app, managed service, ...) and point the
+backend at it via the `POSTGRES_*` values (or `DATABASE_URL`) in `.env`; adapt
+the `pg_dump` / `pg_restore` examples below to wherever your Postgres runs.
 
 ---
 
@@ -23,9 +26,9 @@ file and `.env`.
 
 Your instance has **two** data locations, and you must back up **both**:
 
-| What                | Where (host)                       | Contains                                        |
+| What                | Where                              | Contains                                        |
 | ------------------- | ---------------------------------- | ----------------------------------------------- |
-| PostgreSQL database | `${APP_DATA_PATH}/postgres`        | members, relations, users, stories, settings    |
+| PostgreSQL database | your own Postgres instance         | members, relations, users, stories, settings    |
 | Media files         | `${DATA_PATH}` (served as `/data`) | member photos and gallery images under `media/` |
 
 > ⚠️ **A database-only backup silently loses every photo.** The database stores
@@ -34,20 +37,21 @@ Your instance has **two** data locations, and you must back up **both**:
 
 ### Online backup (no downtime)
 
-Dump the database through the running `db` container and archive the media
-directory. `pg_dump` produces a consistent snapshot even while the app is in
-use:
+Dump the database from your Postgres instance and archive the media directory.
+`pg_dump` produces a consistent snapshot even while the app is in use:
 
 ```bash
-# Load the same variables the stack uses (POSTGRES_USER, DATA_PATH, ...).
+# Load the same variables the stack uses (POSTGRES_*, DATA_PATH, ...).
 set -a; source .env; set +a
 
 STAMP=$(date +%F_%H-%M)
 mkdir -p backups
 
 # 1. Database — custom format (-Fc) supports selective/parallel restore.
-docker compose exec -T db pg_dump -U "${POSTGRES_USER:-familytree}" \
-  -Fc "${POSTGRES_DB:-familytree}" > "backups/familytree_${STAMP}.dump"
+#    (If Postgres runs in its own container, wrap this in `docker exec`.)
+PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT:-5432}" \
+  -U "${POSTGRES_USER:-familytree}" -Fc "${POSTGRES_DB:-familytree}" \
+  > "backups/familytree_${STAMP}.dump"
 
 # 2. Media files.
 tar -czf "backups/media_${STAMP}.tar.gz" -C "${DATA_PATH:-./data}" .
@@ -68,8 +72,9 @@ Prune old backups with something like
 
 ### Offline backup (cold copy)
 
-For a byte-exact snapshot (e.g. before a risky upgrade), stop the stack and
-copy both data directories:
+For a byte-exact snapshot (e.g. before a risky upgrade), stop the stack, take
+a cold backup of your Postgres instance (its data directory or a dump), and
+copy both app data directories:
 
 ```bash
 docker compose down
@@ -78,39 +83,37 @@ tar -czf backups/full_$(date +%F).tar.gz \
 docker compose up -d
 ```
 
-This also captures the backend's working data and your `.env` (which contains
-`SECRET_KEY` — keep this archive private; without the same `SECRET_KEY`,
-existing sessions are invalidated after a restore, which is harmless, but
-treat the value as a credential).
+This also captures the backend's working data (exports, logs) and your `.env`
+(which contains `SECRET_KEY` — keep this archive private; without the same
+`SECRET_KEY`, existing sessions are invalidated after a restore, which is
+harmless, but treat the value as a credential).
 
 ### Restore
 
-On a fresh host: install Docker, copy the repo's compose file plus your backed
-up `.env`, then:
+On a fresh host: install Docker, set up your Postgres instance, copy the
+repo's compose file plus your backed up `.env`, then:
 
 ```bash
 set -a; source .env; set +a
 
-# 1. Start ONLY the database.
-docker compose up -d db
-
-# 2. Recreate the schema owner's database from the dump.
-docker compose exec -T db dropdb   -U "${POSTGRES_USER:-familytree}" --if-exists "${POSTGRES_DB:-familytree}"
-docker compose exec -T db createdb -U "${POSTGRES_USER:-familytree}" "${POSTGRES_DB:-familytree}"
-docker compose exec -T db pg_restore -U "${POSTGRES_USER:-familytree}" \
+# 1. Recreate the schema owner's database from the dump (run against your
+#    Postgres instance; wrap in `docker exec` if it runs in a container).
+PGPASSWORD="${POSTGRES_PASSWORD}" dropdb   -h "${POSTGRES_HOST}" -U "${POSTGRES_USER:-familytree}" --if-exists "${POSTGRES_DB:-familytree}"
+PGPASSWORD="${POSTGRES_PASSWORD}" createdb -h "${POSTGRES_HOST}" -U "${POSTGRES_USER:-familytree}" "${POSTGRES_DB:-familytree}"
+PGPASSWORD="${POSTGRES_PASSWORD}" pg_restore -h "${POSTGRES_HOST}" -U "${POSTGRES_USER:-familytree}" \
   -d "${POSTGRES_DB:-familytree}" --no-owner < backups/familytree_<STAMP>.dump
 
-# 3. Restore the media files.
+# 2. Restore the media files.
 mkdir -p "${DATA_PATH:-./data}"
 tar -xzf backups/media_<STAMP>.tar.gz -C "${DATA_PATH:-./data}"
 
-# 4. Start the rest of the stack.
+# 3. Start the stack.
 docker compose up -d
 ```
 
 If you took an _offline_ backup instead, simply extract the archive back to
-the same paths before `docker compose up -d` — no `pg_restore` needed, the
-Postgres data directory is restored as-is.
+the same paths (and restore your Postgres data directory) before
+`docker compose up -d` — no `pg_restore` needed.
 
 **Verify the restore**: log in, open a tree, and spot-check that member photos
 and gallery images load. Images failing to load while the tree looks fine is
@@ -153,8 +156,8 @@ That is the whole procedure, because of two properties of the stack:
   `alembic upgrade head` before serving traffic, then seeds the admin user and
   default settings if missing. You never run Alembic by hand in production.
 - **Health-gated startup.** The frontend container only starts once the
-  backend reports ready (`/api/health/ready`), and the backend waits for the
-  database health check, so a normal upgrade never serves the UI against a
+  backend reports ready (`/api/health/ready`), and the backend retries until
+  it can reach the database, so a normal upgrade never serves the UI against a
   half-migrated schema.
 
 If you intentionally build locally instead of pulling published images, clone the
@@ -272,8 +275,7 @@ networks:
 ```
 
 With a proxy in place, consider removing the `ports:` mapping from the
-`frontend` service (and the `127.0.0.1:5432` mapping on `db` if you don't need
-host database access) so the only way in is through TLS.
+`frontend` service so the only way in is through TLS.
 
 ---
 

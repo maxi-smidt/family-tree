@@ -49,6 +49,12 @@ package.json (root)   repo-level tooling only (prettier + git hooks)
 
 ## Quick Start (Docker Compose)
 
+PostgreSQL is **not** part of the compose stack (as is common for Unraid-style
+apps): run your own Postgres and point the backend at it via the `POSTGRES_*`
+values (or a full `DATABASE_URL`) in `.env`. For development,
+`docker compose -f docker-compose.dev.yml up -d db` starts a local throwaway
+Postgres that matches the `.env.example` defaults.
+
 ### Local Development / Building from source
 
 ```bash
@@ -56,7 +62,8 @@ git clone https://github.com/maxi-smidt/family-tree.git
 cd family-tree
 
 cp .env.example .env
-# Edit .env: set a strong SECRET_KEY and a FIRST_ADMIN_PASSWORD.
+# Edit .env: set a strong SECRET_KEY, a FIRST_ADMIN_PASSWORD and the POSTGRES_*
+# connection values for your database.
 
 docker compose up -d --build
 ```
@@ -95,10 +102,11 @@ Everything is configured through the `.env` file. The headline settings:
 | Variable        | Description                                          | Default        |
 | --------------- | ---------------------------------------------------- | -------------- |
 | `UI_PORT`       | Host port the web UI is served on                    | `8080`         |
-| `APP_DATA_PATH` | Host path for application data (Postgres + backend)  | `./appdata`    |
+| `APP_DATA_PATH` | Host path for application data (exports, logs)       | `./appdata`    |
 | `DATA_PATH`     | Host path for the real data (member photos, gallery) | `./data`       |
 | `APP_IMAGE_TAG` | Published app image tag for frontend + backend       | `latest`       |
 | `SECRET_KEY`    | Secret for signing tokens (**required**)             | —              |
+| `POSTGRES_*`    | Connection to your PostgreSQL (host **required**)    | see example    |
 | `FRONTEND_URL`  | Public URL of the UI (OAuth redirects, CORS)         | `localhost:UI` |
 
 See [.env.example](./.env.example) for the full list (database credentials,
@@ -116,14 +124,13 @@ Browser (React SPA)
    FastAPI (backend container) ── filesystem (/data: photos & media)
         │
         ▼
-   PostgreSQL
+   PostgreSQL (your own instance, configured via .env)
 ```
 
 - The React data layer talks to the backend through a small typed HTTP client
-  (`frontend/src/services/api.ts` + `TreeService.ts`); the Zustand stores are
-  otherwise unchanged from the desktop version.
-- A "tree" replaces the old per-file SQLite database. Each tree is owned by a
-  user and can be shared with others as `viewer` or `editor`.
+  (`frontend/src/services/api.ts` + `TreeService.ts`).
+- Each tree is owned by a user and can be shared with others as `viewer` or
+  `editor`.
 - Member photos and gallery images are uploaded as data URLs, persisted to the
   filesystem under `DATA_PATH/media`, and served back as `/api/media/...` URLs.
 - Databases are **not** encrypted at rest. Encryption is applied only to

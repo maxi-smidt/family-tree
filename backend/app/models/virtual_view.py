@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, utcnow_iso
@@ -51,6 +51,7 @@ class VirtualViewMemberMatch(Base):
     """One row per member that belongs to a match group for a given view."""
 
     __tablename__ = "virtual_view_member_matches"
+    __table_args__ = (Index("ix_vvmm_view_group", "view_id", "group_id"),)
 
     view_id: Mapped[str] = mapped_column(
         String(40), ForeignKey("virtual_views.id", ondelete="CASCADE"), primary_key=True
@@ -58,8 +59,10 @@ class VirtualViewMemberMatch(Base):
     member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
     )
-    group_id: Mapped[str] = mapped_column(String(40), nullable=False, index=True)
-    is_primary: Mapped[bool] = mapped_column(Boolean, default=False)
+    group_id: Mapped[str] = mapped_column(String(40), nullable=False)
+    is_primary: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false()
+    )
 
 
 class VirtualViewPosition(Base):

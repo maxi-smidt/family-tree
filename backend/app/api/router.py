@@ -14,6 +14,7 @@ from app.api.routes import (
     oauth,
     preferences,
     quality,
+    relation_types,
     settings,
     statistics,
     stories,
@@ -29,6 +30,8 @@ api_router.include_router(users.router)
 api_router.include_router(preferences.router)
 api_router.include_router(settings.router)
 api_router.include_router(features.router)
+api_router.include_router(relation_types.router)
+api_router.include_router(relation_types.admin_router)
 api_router.include_router(trees.router)
 api_router.include_router(virtual_views.router)
 api_router.include_router(export_import.router)
