@@ -107,6 +107,8 @@ function mockSubStoresForGedcomTree() {
   vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getStories).mockResolvedValue([]);
   vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+  vi.mocked(TreeService.getSources).mockResolvedValue([]);
+  vi.mocked(TreeService.getCitations).mockResolvedValue([]);
   vi.mocked(TreeService.getActivity).mockResolvedValue([]);
   vi.mocked(TreeService.getRelationTypes).mockResolvedValue(
     ["parent", "married", "partner", "divorced", "sibling"].map((id) => ({

@@ -377,6 +377,7 @@
       "no-stories": "Nothing stored yet",
       "genetic-conditions": "Genetic Conditions",
       "no-conditions": "No conditions recorded",
+      "sources": "Source Citations",
       "locations-section": "Locations",
       "birthplace-label": "Birthplace",
       "hometown-label": "Hometown"
@@ -475,6 +476,57 @@
           "cancel": "Cancel",
           "update": "Update",
           "add": "Add"
+        }
+      },
+      "sources": {
+        "title": "Source Citations",
+        "add": "Add",
+        "no-citations": "No source citations yet",
+        "delete-dialog": {
+          "title": "Remove Citation",
+          "description": "Are you sure you want to remove this citation? The source record itself is not deleted.",
+          "cancel": "Cancel",
+          "delete": "Remove"
+        },
+        "fact": {
+          "name": "Name",
+          "birth": "Birth",
+          "death": "Death",
+          "birthplace": "Birthplace",
+          "hometown": "Hometown",
+          "residence": "Residence",
+          "general": "General"
+        },
+        "dialog": {
+          "add-title": "Add Source Citation",
+          "edit-title": "Edit Citation",
+          "source-label": "Source",
+          "source-placeholder": "Select a source...",
+          "source-search-placeholder": "Search sources...",
+          "source-empty": "No sources found",
+          "source-new": "Create new source...",
+          "source-title": "Title",
+          "source-title-placeholder": "e.g., 1920 US Census, Birth certificate",
+          "author": "Author",
+          "author-placeholder": "e.g., John Smith",
+          "repository": "Repository / Archive",
+          "repository-placeholder": "e.g., National Archives",
+          "source-date": "Date",
+          "notes": "Notes",
+          "notes-placeholder": "Additional notes about this source",
+          "fact-type": "Cited fact",
+          "page": "Page / Folio",
+          "page-placeholder": "e.g., p. 42, roll 123",
+          "detail": "Transcription / Detail",
+          "detail-placeholder": "Quote the relevant passage or add context",
+          "evidence": "Evidence",
+          "add-file": "Attach file",
+          "add-link": "Add link",
+          "link-url-placeholder": "https://...",
+          "link-label-placeholder": "Label (optional)",
+          "link-add": "Add",
+          "save": "Save",
+          "cancel": "Cancel"
         }
       },
       "diseases": {
@@ -955,7 +1007,8 @@
         "virtual_views": "Virtual views",
         "gedcom": "GEDCOM import/export",
         "sharing_invites": "Share invitations",
-        "map": "Map view"
+        "map": "Map view",
+        "sources": "Sources & Citations"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -967,7 +1020,8 @@
         "virtual_views": "Read-only views combining several trees.",
         "gedcom": "Import and export trees as GEDCOM files.",
         "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
-        "map": "Interactive map of timeline events by location."
+        "map": "Interactive map of timeline events by location.",
+        "sources": "Source citations and evidence records for member facts."
       }
     },
     "col-username": "Username",

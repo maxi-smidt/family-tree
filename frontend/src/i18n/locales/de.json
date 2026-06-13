@@ -377,6 +377,7 @@
       "no-stories": "Noch nichts gespeichert",
       "genetic-conditions": "Genetische Erkrankungen",
       "no-conditions": "Keine Erkrankungen erfasst",
+      "sources": "Quellennachweise",
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort"
@@ -475,6 +476,57 @@
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
           "add": "Hinzufügen"
+        }
+      },
+      "sources": {
+        "title": "Quellennachweise",
+        "add": "Hinzufügen",
+        "no-citations": "Noch keine Quellennachweise",
+        "delete-dialog": {
+          "title": "Nachweis entfernen",
+          "description": "Möchtest du diesen Nachweis wirklich entfernen? Der Quelldatensatz selbst wird nicht gelöscht.",
+          "cancel": "Abbrechen",
+          "delete": "Entfernen"
+        },
+        "fact": {
+          "name": "Name",
+          "birth": "Geburt",
+          "death": "Tod",
+          "birthplace": "Geburtsort",
+          "hometown": "Heimatort",
+          "residence": "Wohnort",
+          "general": "Allgemein"
+        },
+        "dialog": {
+          "add-title": "Quellennachweis hinzufügen",
+          "edit-title": "Nachweis bearbeiten",
+          "source-label": "Quelle",
+          "source-placeholder": "Quelle auswählen...",
+          "source-search-placeholder": "Quellen suchen...",
+          "source-empty": "Keine Quellen gefunden",
+          "source-new": "Neue Quelle erstellen...",
+          "source-title": "Titel",
+          "source-title-placeholder": "z.B. Volkszählung 1920, Geburtsurkunde",
+          "author": "Autor",
+          "author-placeholder": "z.B. Max Mustermann",
+          "repository": "Archiv / Ablageort",
+          "repository-placeholder": "z.B. Bundesarchiv",
+          "source-date": "Datum",
+          "notes": "Notizen",
+          "notes-placeholder": "Zusätzliche Notizen zu dieser Quelle",
+          "fact-type": "Belegtes Merkmal",
+          "page": "Seite / Folio",
+          "page-placeholder": "z.B. S. 42, Rolle 123",
+          "detail": "Transkription / Detail",
+          "detail-placeholder": "Relevante Passage zitieren oder Kontext hinzufügen",
+          "evidence": "Belege",
+          "add-file": "Datei anhängen",
+          "add-link": "Link hinzufügen",
+          "link-url-placeholder": "https://...",
+          "link-label-placeholder": "Bezeichnung (optional)",
+          "link-add": "Hinzufügen",
+          "save": "Speichern",
+          "cancel": "Abbrechen"
         }
       },
       "diseases": {
@@ -955,7 +1007,8 @@
         "virtual_views": "Virtuelle Ansichten",
         "gedcom": "GEDCOM-Import/-Export",
         "sharing_invites": "Einladungen teilen",
-        "map": "Kartenansicht"
+        "map": "Kartenansicht",
+        "sources": "Quellen & Zitate"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -967,7 +1020,8 @@
         "virtual_views": "Schreibgeschützte Ansichten über mehrere Stammbäume.",
         "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
-        "map": "Interaktive Karte der Zeitleistenereignisse nach Ort."
+        "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
+        "sources": "Quellennachweise und Belege für Personendaten."
       }
     },
     "col-username": "Benutzername",
