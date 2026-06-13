@@ -321,7 +321,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       )}
 
       {isFastMode && !data.isReadOnly && (
-        <>
+        <div data-export-hide="true">
           <Button
             variant="ghost"
             aria-label={t("add-parent")}
@@ -378,7 +378,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           >
             <PlusIcon className="text-card" aria-hidden="true" />
           </Button>
-        </>
+        </div>
       )}
 
       <Handle

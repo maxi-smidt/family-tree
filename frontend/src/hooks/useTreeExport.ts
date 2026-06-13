@@ -5,8 +5,48 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 
 const EXPORT_PADDING_PX = 40;
 const EXPORT_PIXEL_RATIO = 2;
-// Max canvas dimension (before pixel ratio) to keep file sizes reasonable on huge trees.
 const EXPORT_MAX_DIM = 4000;
+
+// Presentation attributes that CSS classes can set on SVG elements but that
+// html-to-image does NOT inline (it deep-clones SVG subtrees without processing
+// their children). Pre-inlining them ensures the export canvas renders strokes
+// and fills even after the page stylesheet is no longer available.
+const SVG_INLINE_PROPS = [
+  "stroke",
+  "stroke-width",
+  "stroke-dasharray",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "stroke-opacity",
+  "fill",
+  "fill-opacity",
+  "opacity",
+  "marker-end",
+  "marker-start",
+] as const;
+
+function inlineSvgStyles(container: HTMLElement): () => void {
+  const elements = Array.from(container.querySelectorAll<SVGElement>("svg *"));
+  const saved = elements.map((el) => {
+    const oldStyle = el.getAttribute("style") ?? "";
+    const computed = window.getComputedStyle(el);
+    SVG_INLINE_PROPS.forEach((prop) => {
+      const value = computed.getPropertyValue(prop);
+      if (value) el.style.setProperty(prop, value);
+    });
+    return { el, oldStyle };
+  });
+
+  return () => {
+    saved.forEach(({ el, oldStyle }) => {
+      if (oldStyle) {
+        el.setAttribute("style", oldStyle);
+      } else {
+        el.removeAttribute("style");
+      }
+    });
+  };
+}
 
 export function useTreeExport() {
   const [isExporting, setIsExporting] = useState(false);
@@ -22,20 +62,21 @@ export function useTreeExport() {
 
     const bounds = getNodesBounds(nodes);
 
-    // Target 1:1 zoom (nodes at their natural CSS pixel size) with padding.
-    // Scale the whole thing down proportionally if the tree is very large.
     const rawWidth = bounds.width + EXPORT_PADDING_PX * 2;
     const rawHeight = bounds.height + EXPORT_PADDING_PX * 2;
     const dimScale = Math.min(1, EXPORT_MAX_DIM / Math.max(rawWidth, rawHeight));
     const imageWidth = Math.round(rawWidth * dimScale);
     const imageHeight = Math.round(rawHeight * dimScale);
 
-    // Build the viewport transform that maps every node into the export canvas.
-    // At dimScale=1: leftmost node appears at x=PADDING, topmost at y=PADDING.
     const tx = (-bounds.x + EXPORT_PADDING_PX) * dimScale;
     const ty = (-bounds.y + EXPORT_PADDING_PX) * dimScale;
 
     const backgroundColor = window.getComputedStyle(document.body).backgroundColor;
+
+    // Pre-inline SVG presentation styles — html-to-image clones SVG subtrees
+    // with cloneNode(true) but skips style decoration on SVG children, so
+    // CSS-class-driven stroke/fill would be lost in the canvas render.
+    const restoreSvgStyles = inlineSvgStyles(viewport);
 
     setIsExporting(true);
     try {
@@ -44,14 +85,20 @@ export function useTreeExport() {
         height: imageHeight,
         pixelRatio: EXPORT_PIXEL_RATIO,
         backgroundColor,
-        // The background SVG tiles relative to the current viewport transform and
-        // would render misaligned when we apply a custom transform; remove it so
-        // the solid backgroundColor shows through instead.
-        filter: (node) =>
-          !(
-            node instanceof SVGElement &&
-            node.classList?.contains("react-flow__background")
-          ),
+        filter: (node) => {
+          if (node instanceof Element) {
+            // Drop the background dot grid — it tiles relative to the live viewport
+            // transform and would appear misaligned with our export transform.
+            if (
+              node instanceof SVGElement &&
+              node.classList.contains("react-flow__background")
+            )
+              return false;
+            // Drop elements explicitly tagged as export-only chrome (fast-mode buttons).
+            if (node.hasAttribute("data-export-hide")) return false;
+          }
+          return true;
+        },
         style: {
           width: `${imageWidth}px`,
           height: `${imageHeight}px`,
@@ -65,6 +112,7 @@ export function useTreeExport() {
       a.setAttribute("href", dataUrl);
       a.click();
     } finally {
+      restoreSvgStyles();
       setIsExporting(false);
     }
   }
