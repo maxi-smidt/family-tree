@@ -19,6 +19,7 @@ from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.session import engine
 from app.services.authentik import init_oauth
+from app.services.backup_scheduler import backup_schedule_loop
 from app.services.deletion_sweeper import deletion_sweep_loop
 from app.services.storage import InvalidImageURL
 
@@ -47,12 +48,16 @@ async def lifespan(app: FastAPI):
     init_oauth()
     _init_db_with_retry()
     sweeper = asyncio.create_task(deletion_sweep_loop())
+    backup_scheduler = asyncio.create_task(backup_schedule_loop())
     try:
         yield
     finally:
         sweeper.cancel()
+        backup_scheduler.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await sweeper
+        with contextlib.suppress(asyncio.CancelledError):
+            await backup_scheduler
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)

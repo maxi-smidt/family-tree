@@ -49,16 +49,18 @@ export const FamilyNodeContent = ({
           <AuthenticatedImage
             src={member.imageData}
             className={`${sizeClass} rounded-full object-cover bg-muted`}
-            alt="Profile"
+            alt=""
           />
         ) : (
           <div
+            aria-hidden="true"
             className={`${sizeClass} flex justify-center items-center rounded-full bg-muted text-2xl font-bold text-muted-foreground`}
           >
             <User size={iconSize} />
           </div>
         )}
         <div
+          aria-hidden="true"
           className={`absolute bg-card rounded-full shadow-sm border border-border flex items-center justify-center bottom-0 right-0 ${
             largeImage ? "p-2" : "p-1"
           }`}

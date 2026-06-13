@@ -38,11 +38,13 @@ import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
+import { useTranslation } from "react-i18next";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
 export const FlowPanel = () => {
+  const { t } = useTranslation();
   const activeTree = useTreeStore((s) => s.selectedTree);
   const isMobile = useIsMobile();
   const { members, removeMember, updateLayout } = useMemberStore();
@@ -297,7 +299,7 @@ export const FlowPanel = () => {
   if (!isReady || !activeTree) return null;
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>
       <ReactFlow
         nodes={[...viewNodes, ...unionNodes]}
         edges={edges}
@@ -337,7 +339,9 @@ export const FlowPanel = () => {
         elementsSelectable={
           connection.isConnectionMode || (!isLockedScreen && !isCanvasReadOnly)
         }
-        nodesFocusable={connection.isConnectionMode || !isCanvasReadOnly}
+        nodesFocusable={true}
+        autoPanOnNodeFocus={true}
+        disableKeyboardA11y={false}
         edgesFocusable={!connection.isConnectionMode && !isCanvasReadOnly}
         deleteKeyCode={
           isCanvasReadOnly || connection.isConnectionMode
@@ -349,6 +353,11 @@ export const FlowPanel = () => {
         onInit={setRfInstance}
         defaultViewport={viewport}
         onMoveEnd={(_, viewport) => setViewport(viewport)}
+        ariaLabelConfig={{
+          "controls.zoomIn.ariaLabel": t("tree-view.controls.zoom-in"),
+          "controls.zoomOut.ariaLabel": t("tree-view.controls.zoom-out"),
+          "controls.fitView.ariaLabel": t("tree-view.controls.fit-view"),
+        }}
       >
         <Background />
         {members.length === 0 && !isCanvasReadOnly && (

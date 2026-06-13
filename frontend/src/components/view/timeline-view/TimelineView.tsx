@@ -310,110 +310,133 @@ export const TimelineView = () => {
           </div>
         ) : (
           <div className="relative">
-            <div className="absolute left-8 top-0 bottom-0 w-0.5 bg-border" />
+            <div
+              aria-hidden="true"
+              className="absolute left-8 top-0 bottom-0 w-0.5 bg-border"
+            />
 
-            {timelineItems.map((item) =>
-              item.kind === "event" ? (
-                <Card
-                  key={item.data.id}
-                  className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
-                >
-                  <div
-                    className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background"
-                    style={{ left: "-40px" }}
-                  />
+            <div role="list">
+              {timelineItems.map((item) =>
+                item.kind === "event" ? (
+                  <Card
+                    key={item.data.id}
+                    role="listitem"
+                    className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background"
+                      style={{ left: "-40px" }}
+                    />
 
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {(() => {
-                          const { icon: Icon } = getEventTypeInfo(
-                            item.data.eventType,
-                          );
-                          return (
-                            <Icon className="w-5 h-5 text-muted-foreground shrink-0" />
-                          );
-                        })()}
-                        <h3 className="font-semibold text-lg">
-                          {getEventTypeLabel(item.data.eventType, i18n.t)}
-                        </h3>
-                        <span className="text-sm text-muted-foreground">
-                          · {getMemberNames(item.data.linkedMemberIds)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>
-                            {formatDateWithFallback(item.data.date, i18n.t)}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          {(() => {
+                            const { icon: Icon } = getEventTypeInfo(
+                              item.data.eventType,
+                            );
+                            return (
+                              <Icon
+                                aria-hidden="true"
+                                className="w-5 h-5 text-muted-foreground shrink-0"
+                              />
+                            );
+                          })()}
+                          <h3 className="font-semibold text-lg">
+                            {getEventTypeLabel(item.data.eventType, i18n.t)}
+                          </h3>
+                          <span className="text-sm text-muted-foreground">
+                            · {getMemberNames(item.data.linkedMemberIds)}
                           </span>
                         </div>
-                        {item.data.location && (
+
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                           <div className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>{item.data.location}</span>
+                            <Calendar
+                              aria-hidden="true"
+                              className="w-4 h-4"
+                            />
+                            <span>
+                              {formatDateWithFallback(item.data.date, i18n.t)}
+                            </span>
                           </div>
+                          {item.data.location && (
+                            <div className="flex items-center gap-1">
+                              <MapPin
+                                aria-hidden="true"
+                                className="w-4 h-4"
+                              />
+                              <span>{item.data.location}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {item.data.description && (
+                          <p className="text-sm">{item.data.description}</p>
                         )}
                       </div>
 
-                      {item.data.description && (
-                        <p className="text-sm">{item.data.description}</p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEditEvent(item.data)}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEventToDelete(item.data)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ) : (
-                <Card
-                  key={item.data.id}
-                  className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
-                >
-                  <div
-                    className="absolute top-6 w-4 h-4 rounded-full bg-muted-foreground border-4 border-background"
-                    style={{ left: "-40px" }}
-                  />
-
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold text-lg">
-                          {t(item.data.type)}
-                        </h3>
-                        <span className="text-sm text-muted-foreground">
-                          · {getMemberName(item.data.member.id)}
-                        </span>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={t("edit-event")}
+                          onClick={() => handleEditEvent(item.data)}
+                        >
+                          <Pencil aria-hidden="true" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={t("delete-event")}
+                          onClick={() => setEventToDelete(item.data)}
+                        >
+                          <Trash2 aria-hidden="true" />
+                        </Button>
                       </div>
+                    </div>
+                  </Card>
+                ) : (
+                  <Card
+                    key={item.data.id}
+                    role="listitem"
+                    className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
+                  >
+                    <div
+                      aria-hidden="true"
+                      className="absolute top-6 w-4 h-4 rounded-full bg-muted-foreground border-4 border-background"
+                      style={{ left: "-40px" }}
+                    />
 
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>
-                            {formatDateWithFallback(item.data.date, i18n.t)}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="font-semibold text-lg">
+                            {t(item.data.type)}
+                          </h3>
+                          <span className="text-sm text-muted-foreground">
+                            · {getMemberName(item.data.member.id)}
                           </span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Calendar
+                              aria-hidden="true"
+                              className="w-4 h-4"
+                            />
+                            <span>
+                              {formatDateWithFallback(item.data.date, i18n.t)}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              ),
-            )}
+                  </Card>
+                ),
+              )}
+            </div>
           </div>
         )}
       </div>
