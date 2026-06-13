@@ -75,6 +75,10 @@ export const AdminService = {
     return api.post<void>(`/users/${userId}/reset-password`, { password });
   },
 
+  resetUserTotp(userId: string): Promise<void> {
+    return api.del<void>(`/users/${userId}/2fa`);
+  },
+
   updateSettings(settings: AdminSettings): Promise<AdminSettings> {
     return api.patch<AdminSettings>("/settings", settings);
   },

@@ -6,14 +6,32 @@ from app.api.deps import ACCOUNT_PENDING_DELETION, get_current_user
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.core.security import (
+    consume_recovery_code,
     create_access_token,
+    create_totp_session_token,
+    decode_totp_session_token,
+    generate_recovery_codes,
+    generate_totp_secret,
+    get_totp_provisioning_uri,
     hash_password,
+    hash_recovery_codes,
     run_dummy_verify,
     verify_password,
+    verify_totp_code,
 )
 from app.db.session import get_db
 from app.models import User
-from app.schemas.auth import AuthConfig, LoginRequest, Token
+from app.schemas.auth import (
+    AuthConfig,
+    LoginRequest,
+    LoginResponse,
+    Token,
+    TotpDisableRequest,
+    TotpEnableRequest,
+    TotpEnableResponse,
+    TotpSetupResponse,
+    TotpVerifyRequest,
+)
 from app.schemas.user import (
     AccountRestore,
     AccountSelfDelete,
@@ -49,7 +67,7 @@ def auth_config(db: Session = Depends(get_db)):
     )
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginResponse)
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     client_ip = request.client.host if request.client else "unknown"
     rate_key = f"{client_ip}:{payload.username.lower()}"
@@ -75,6 +93,59 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
         raise HTTPException(status_code=403, detail=ACCOUNT_PENDING_DELETION)
 
     login_rate_limiter.reset(rate_key)
+
+    if user.totp_enabled:
+        session_token = create_totp_session_token(user.id)
+        return LoginResponse(totp_required=True, totp_session_token=session_token)
+
+    token = create_access_token(user.id)
+    return LoginResponse(access_token=token, user=_current_user_out(db, user))
+
+
+@router.post("/totp", response_model=Token)
+def verify_totp(
+    payload: TotpVerifyRequest, request: Request, db: Session = Depends(get_db)
+):
+    """Complete a two-factor login by verifying the TOTP code (or a recovery code)."""
+    import jwt as pyjwt
+
+    try:
+        user_id = decode_totp_session_token(payload.session_token)
+    except pyjwt.InvalidTokenError as exc:
+        raise HTTPException(
+            status_code=401, detail="Invalid or expired session token"
+        ) from exc
+
+    user = db.get(User, user_id)
+    if user is None or not user.totp_enabled or user.totp_secret is None:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="Account disabled")
+    if user.deletion_requested_at is not None:
+        raise HTTPException(status_code=403, detail=ACCOUNT_PENDING_DELETION)
+
+    client_ip = request.client.host if request.client else "unknown"
+    rate_key = f"{client_ip}:{user.username.lower()}:totp"
+    retry_after = login_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed attempts. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+
+    code = payload.code.strip()
+    if verify_totp_code(user.totp_secret, code):
+        login_rate_limiter.reset(rate_key)
+    else:
+        remaining = consume_recovery_code(code, user.totp_recovery_codes or [])
+        if remaining is None:
+            login_rate_limiter.record_failure(rate_key)
+            raise HTTPException(status_code=401, detail="Invalid code")
+        user.totp_recovery_codes = remaining
+        db.commit()
+        login_rate_limiter.reset(rate_key)
+
     token = create_access_token(user.id)
     return Token(access_token=token, user=_current_user_out(db, user))
 
@@ -119,11 +190,7 @@ def delete_account(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Schedule deletion of the calling user's own account.
-
-    Local accounts must supply their current password; OIDC accounts confirm by
-    repeating their username.  The last admin cannot self-delete.
-    """
+    """Schedule deletion of the calling user's own account."""
     if user.is_admin:
         admin_count = db.scalar(
             select(func.count()).select_from(User).where(User.is_admin.is_(True))
@@ -158,12 +225,7 @@ def restore_account(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Restore an account the user themselves scheduled for deletion.
-
-    Verifies credentials, checks that the deletion was self-initiated, then
-    clears the pending-deletion state and issues a fresh token.  Admin-initiated
-    deletions cannot be reversed here; the user must contact an administrator.
-    """
+    """Restore an account the user themselves scheduled for deletion."""
     client_ip = request.client.host if request.client else "unknown"
     rate_key = f"{client_ip}:{payload.username.lower()}"
     retry_after = login_rate_limiter.retry_after(rate_key)
@@ -210,4 +272,113 @@ def change_password(
     ):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     user.hashed_password = hash_password(payload.new_password)
+    db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Two-factor authentication management (local accounts only)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/2fa/qr-code")
+def totp_qr_code(
+    user: User = Depends(get_current_user),
+):
+    """Return the current TOTP provisioning URI as a QR code PNG (base64 data URI).
+
+    Only valid while a totp_secret is stored (between setup and enable/cancel).
+    """
+    import base64
+    import io
+
+    import qrcode
+
+    if user.totp_secret is None:
+        raise HTTPException(status_code=404, detail="No TOTP setup in progress")
+
+    uri = get_totp_provisioning_uri(user.totp_secret, user.username)
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    data = base64.b64encode(buf.getvalue()).decode()
+    return {"data_url": f"data:image/png;base64,{data}"}
+
+
+@router.post("/2fa/setup", response_model=TotpSetupResponse)
+def setup_totp(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Begin TOTP enrollment.
+
+    Generates a new secret and returns the provisioning URI.  The secret is
+    stored but 2FA is NOT yet active until /2fa/enable is called with a valid
+    code.
+    """
+    if user.auth_provider != "local":
+        raise HTTPException(
+            status_code=400, detail="2FA is only available for local accounts"
+        )
+
+    secret = generate_totp_secret()
+    # Generate recovery codes now so they can be shown to the user during setup.
+    recovery_codes = generate_recovery_codes()
+    user.totp_secret = secret
+    # Store hashed codes; they become valid once 2FA is enabled.
+    user.totp_recovery_codes = hash_recovery_codes(recovery_codes)
+    db.commit()
+
+    uri = get_totp_provisioning_uri(secret, user.username)
+    return TotpSetupResponse(
+        secret=secret,
+        otpauth_url=uri,
+        recovery_codes=recovery_codes,
+    )
+
+
+@router.post("/2fa/enable", response_model=TotpEnableResponse)
+def enable_totp(
+    payload: TotpEnableRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Confirm TOTP enrollment by submitting the first valid code.
+
+    Activates 2FA.  Recovery codes were provided during setup.
+    """
+    if user.totp_secret is None:
+        raise HTTPException(status_code=400, detail="2FA setup not initiated")
+    if user.totp_enabled:
+        raise HTTPException(status_code=400, detail="2FA is already enabled")
+    if not verify_totp_code(user.totp_secret, payload.code.strip()):
+        raise HTTPException(status_code=400, detail="Invalid code")
+
+    user.totp_enabled = True
+    db.commit()
+    return TotpEnableResponse(totp_enabled=True)
+
+
+@router.post("/2fa/disable", status_code=204)
+def disable_totp(
+    payload: TotpDisableRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Disable TOTP 2FA.  Requires the current password and a valid TOTP/recovery code."""
+    if not user.totp_enabled:
+        raise HTTPException(status_code=400, detail="2FA is not enabled")
+    if user.hashed_password is None or not verify_password(
+        payload.password, user.hashed_password
+    ):
+        raise HTTPException(status_code=400, detail="Incorrect password")
+
+    code = payload.code.strip()
+    if not verify_totp_code(user.totp_secret or "", code):
+        remaining = consume_recovery_code(code, user.totp_recovery_codes or [])
+        if remaining is None:
+            raise HTTPException(status_code=400, detail="Invalid code")
+
+    user.totp_enabled = False
+    user.totp_secret = None
+    user.totp_recovery_codes = None
     db.commit()

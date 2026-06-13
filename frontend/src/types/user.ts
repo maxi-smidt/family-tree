@@ -12,6 +12,8 @@ export interface User {
   deletion_requested_by?: string | null;
   /** Resolved feature-flag set; only present on login/me responses. */
   features?: string[];
+  /** Whether TOTP 2FA is active on this account. */
+  totp_enabled?: boolean;
 }
 
 export interface AuthConfig {
@@ -24,4 +26,18 @@ export interface TokenResponse {
   access_token: string;
   token_type: string;
   user: User;
+}
+
+export interface LoginResponse {
+  access_token?: string | null;
+  token_type?: string;
+  user?: User | null;
+  totp_required?: boolean;
+  totp_session_token?: string | null;
+}
+
+export interface TotpSetupResponse {
+  secret: string;
+  otpauth_url: string;
+  recovery_codes: string[];
 }

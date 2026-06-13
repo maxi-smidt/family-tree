@@ -842,7 +842,13 @@
       "restore-description": "Dein Konto ist zum Löschen vorgemerkt.",
       "restore-button": "Konto wiederherstellen",
       "restore-admin-deletion": "Diese Löschung wurde von einem Administrator veranlasst. Bitte wende dich an ihn, um dein Konto wiederherzustellen.",
-      "restore-error": "Konto konnte nicht wiederhergestellt werden."
+      "restore-error": "Konto konnte nicht wiederhergestellt werden.",
+      "totp-title": "Zwei-Faktor-Authentifizierung",
+      "totp-subtitle": "Gib den 6-stelligen Code aus deiner Authenticator-App ein.",
+      "totp-code": "Authentifizierungscode",
+      "totp-verify": "Bestätigen",
+      "totp-back": "Zurück zur Anmeldung",
+      "totp-error": "Ungültiger Code. Bitte erneut versuchen."
     },
     "change-password": {
       "title": "Passwort ändern",
@@ -861,7 +867,8 @@
       "customize-tabs": "Tabs anpassen",
       "admin": "Verwaltung",
       "delete-account": "Konto löschen",
-      "logout": "Abmelden"
+      "logout": "Abmelden",
+      "two-factor": "Zwei-Faktor-Authentifizierung"
     },
     "delete-account": {
       "title": "Konto löschen",
@@ -882,6 +889,39 @@
       "error": "Kontolöschung konnte nicht eingeplant werden.",
       "last-admin-error": "Du bist der einzige Administrator. Ernenne einen anderen Benutzer zum Administrator, bevor du dein Konto löschst.",
       "transfer-error": "Eigentumsübertragung fehlgeschlagen."
+    },
+    "two-factor": {
+      "title": "Zwei-Faktor-Authentifizierung",
+      "description-disabled": "Füge deinem Konto eine zusätzliche Sicherheitsebene hinzu.",
+      "description-enabled": "Die Zwei-Faktor-Authentifizierung ist derzeit aktiviert.",
+      "status-disabled": "2FA ist nicht aktiviert. Jeder mit deinem Passwort kann auf dein Konto zugreifen.",
+      "status-enabled": "2FA ist aktiviert. Du benötigst deine Authenticator-App zum Anmelden.",
+      "setup-btn": "2FA einrichten",
+      "disable-btn": "2FA deaktivieren",
+      "cancel": "Abbrechen",
+      "back": "Zurück",
+      "next": "Weiter",
+      "done": "Fertig",
+      "setup-title": "Authenticator einrichten",
+      "setup-description": "Scanne den QR-Code mit deiner Authenticator-App (Google Authenticator, Authy etc.) oder gib den Schlüssel manuell ein.",
+      "manual-key": "Manueller Schlüssel",
+      "verify-title": "Einrichtung bestätigen",
+      "verify-description": "Gib den 6-stelligen Code aus deiner Authenticator-App ein, um die Einrichtung zu bestätigen.",
+      "code-label": "Authentifizierungscode",
+      "enable-btn": "2FA aktivieren",
+      "enabled-success": "Zwei-Faktor-Authentifizierung aktiviert.",
+      "enable-error": "Ungültiger Code. Bitte erneut versuchen.",
+      "recovery-title": "Wiederherstellungscodes speichern",
+      "recovery-description": "Bewahre diese Codes an einem sicheren Ort auf. Jeder Code kann einmalig verwendet werden, wenn du keinen Zugriff auf deine Authenticator-App hast.",
+      "copy-codes": "Codes kopieren",
+      "disable-title": "Zwei-Faktor-Authentifizierung deaktivieren",
+      "disable-description": "Gib dein Passwort und einen aktuellen Authentifizierungscode ein, um 2FA zu deaktivieren.",
+      "disable-password": "Aktuelles Passwort",
+      "disable-confirm": "2FA deaktivieren",
+      "disabled-success": "Zwei-Faktor-Authentifizierung deaktiviert.",
+      "disable-wrong-password": "Falsches Passwort.",
+      "disable-error": "2FA konnte nicht deaktiviert werden. Bitte erneut versuchen.",
+      "setup-error": "2FA-Einrichtung konnte nicht gestartet werden. Bitte erneut versuchen."
     }
   },
   "admin": {
@@ -1007,6 +1047,15 @@
       "delete-error": "Backup konnte nicht gelöscht werden",
       "no-backups": "Noch keine Backups",
       "settings-saved": "Zeitplan speichern"
+    },
+    "reset-totp": "2FA zurücksetzen",
+    "totp-reset-success": "2FA vom Konto entfernt.",
+    "totp-reset-error": "2FA konnte nicht zurückgesetzt werden.",
+    "totp-reset-dialog": {
+      "title": "Zwei-Faktor-Authentifizierung entfernen",
+      "description": "Damit wird TOTP 2FA vom Konto von \"{{username}}\" entfernt. Sie können sich dann wieder nur mit ihrem Passwort anmelden.",
+      "cancel": "Abbrechen",
+      "confirm": "2FA entfernen"
     }
   },
   "event-types": {

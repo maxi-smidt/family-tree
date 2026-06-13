@@ -101,6 +101,20 @@ def delete_user(
     return user
 
 
+@router.delete("/{user_id}/2fa", response_model=UserOut)
+def reset_totp(user_id: str, db: Session = Depends(get_db)):
+    """Admin: remove TOTP 2FA from a user account (lockout recovery)."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.totp_enabled = False
+    user.totp_secret = None
+    user.totp_recovery_codes = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.post("/{user_id}/cancel-deletion", response_model=UserOut)
 def cancel_deletion(user_id: str, db: Session = Depends(get_db)):
     """Reverse a scheduled deletion, restoring the account's access."""
