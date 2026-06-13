@@ -1,6 +1,5 @@
 """Tests for tree invitation routes (issue #165)."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import API, auth, make_tree, make_user, share
