@@ -205,7 +205,8 @@
       "toast-error-image-too-large": "Das Bild ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
-      "toast-error-read-file": "Datei konnte nicht gelesen werden."
+      "toast-error-read-file": "Datei konnte nicht gelesen werden.",
+      "image-alt-fallback": "Galeriebild"
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -282,7 +283,8 @@
         "dob": "Geburtsdatum",
         "dod": "Sterbedatum",
         "no-members": "Keine Personen gefunden.",
-        "source-tree": "Quellbaum"
+        "source-tree": "Quellbaum",
+        "caption": "Familienmitglieder"
       },
       "menu": {
         "trigger": "Menü öffnen",
@@ -492,7 +494,17 @@
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
       "risk-indicator": "Mögliches genetisches Risiko von Eltern · Kein medizinischer Rat",
       "view-details": "Personendetails anzeigen",
-      "edit-member": "Person bearbeiten"
+      "edit-member": "Person bearbeiten",
+      "aria-node-label": "{{name}}, {{gender}}, {{dates}}",
+      "add-parent": "Elternteil hinzufügen",
+      "add-child": "Kind hinzufügen",
+      "add-left": "Verwandte Person links hinzufügen",
+      "add-right": "Verwandte Person rechts hinzufügen"
+    },
+    "canvas-label": "Stammbaum-Leinwand",
+    "a11y": {
+      "node-desc": "Drücken Sie die Eingabetaste, um Personendetails anzuzeigen.",
+      "controls": "Leinwand-Steuerung"
     },
     "search": {
       "placeholder": "Mitglieder suchen…",
@@ -573,6 +585,8 @@
       "birth": "Geburt",
       "death": "Tod",
       "show-vital-events": "Geburten & Todesfälle anzeigen",
+      "edit-event": "Ereignis bearbeiten",
+      "delete-event": "Ereignis löschen",
       "delete-dialog": {
         "title": "Ereignis löschen",
         "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
