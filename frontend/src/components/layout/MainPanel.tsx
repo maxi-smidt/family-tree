@@ -2,6 +2,9 @@ import { lazy, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTranslation } from "react-i18next";
 import { TabWrapper } from "@/components/layout/TabWrapper";
+import { MobileManagementSheet } from "@/components/layout/MobileManagementSheet";
+import { Button } from "@/components/ui/button";
+import { SlidersHorizontal } from "lucide-react";
 
 const FlowPanel = lazy(() =>
   import("@/components/view/tree-view/FlowPanel").then((m) => ({
@@ -84,10 +87,13 @@ const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "database-management-view": <DatabaseManagementView />,
 };
 
+const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
+
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "layout.main-panel",
   });
+  const { t: tRoot } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
@@ -114,6 +120,7 @@ export const MainPanel = () => {
   const { order, hidden, loaded, load } = useTabPreferences();
   const selectedTree = useTreeStore((s) => s.selectedTree);
   const isVirtualActive = !!selectedTree?.id && isVirtualId(selectedTree.id);
+  const [manageOpen, setManageOpen] = useState(false);
 
   useEffect(() => {
     if (user) load();
@@ -124,6 +131,7 @@ export const MainPanel = () => {
   const visible = isVirtualActive
     ? enabledVisible.filter((v) => VIRTUAL_VIEW_TABS.has(v))
     : enabledVisible;
+  const mobileViews = visible.filter((v) => !MANAGEMENT_VIEWS.has(v));
 
   // If the active tab is hidden and no pending navigation, move to first visible.
   useEffect(() => {
@@ -150,19 +158,28 @@ export const MainPanel = () => {
       onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
-      <div className="ml-16 mr-4 mt-3 flex-none md:hidden">
+      <div className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2">
         <Select value={activeTab} onValueChange={handleTabChange}>
-          <SelectTrigger className="h-10 w-full bg-background shadow-xs">
+          <SelectTrigger className="h-10 flex-1 bg-background shadow-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="start">
-            {visible.map((view) => (
+            {mobileViews.map((view) => (
               <SelectItem key={view} value={view}>
                 {viewLabels[view]}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-10 w-10 shrink-0"
+          onClick={() => setManageOpen(true)}
+          aria-label={tRoot("layout.mobile-management.manage")}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
       </div>
 
       <TabsList variant="line" className="ml-16 mt-3 hidden md:inline-flex">
@@ -181,6 +198,8 @@ export const MainPanel = () => {
           {component}
         </TabWrapper>
       ))}
+
+      <MobileManagementSheet open={manageOpen} onOpenChange={setManageOpen} />
     </Tabs>
   );
 };

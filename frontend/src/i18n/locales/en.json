@@ -247,6 +247,25 @@
       "import": "Import Tree",
       "toast-success": "Tree imported successfully!",
       "toast-error": "Failed to import tree."
+    },
+    "mobile-management": {
+      "manage": "Manage",
+      "title": "Manage",
+      "selected-tree": "Selected tree",
+      "no-tree-selected": "No tree selected",
+      "group-sharing": "Sharing",
+      "group-data": "Data",
+      "group-admin": "Admin",
+      "share-action": "Share & permissions",
+      "export-action": "Export tree",
+      "import-action": "Import tree",
+      "export-gedcom-action": "Export GEDCOM",
+      "import-gedcom-action": "Import GEDCOM",
+      "activity-action": "Activity log",
+      "admin-action": "Admin settings",
+      "role-owner": "Owner",
+      "role-editor": "Editor",
+      "role-viewer": "Viewer"
     }
   },
   "list-view": {
