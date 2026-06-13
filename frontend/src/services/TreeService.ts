@@ -1,10 +1,8 @@
 /**
  * Data-access layer for the FastAPI backend.
  *
- * Method names and return shapes intentionally match the previous SQLite-backed
- * service so the Zustand stores barely changed: each method now takes a
- * `treeId` instead of a database handle and issues an HTTP request whose JSON
- * payload mirrors the original row shapes (`MemberDB`, `RelationDB`, ...).
+ * Each method takes a `treeId` and issues an HTTP request whose JSON payload
+ * mirrors the backend row shapes (`MemberDB`, `RelationDB`, ...).
  */
 
 import { api } from "@/services/api";
@@ -15,6 +13,7 @@ import {
   MemberUpdate,
   RelationDB,
   RelationType,
+  RelationTypeDB,
   mapMemberToDB,
 } from "@/types/member";
 import { MergePreviewResult } from "@/types/merge";
@@ -36,8 +35,9 @@ export type VirtualViewInput = {
 
 export class TreeService {
   // --- Relation types ------------------------------------------------------
-  static getRelationTypes(treeId: string) {
-    return api.get<{ id: RelationType }[]>(`${base(treeId)}/relation-types`);
+  /** The relation type registry is instance-wide, not per tree. */
+  static getRelationTypes() {
+    return api.get<RelationTypeDB[]>("/relation-types");
   }
 
   // --- Members -------------------------------------------------------------

@@ -827,6 +827,7 @@
     "users-tab": "Users",
     "settings-tab": "Settings",
     "features-tab": "Features",
+    "relation-types-tab": "Relation types",
     "features": {
       "hint": "Enable or disable features for this instance at runtime. \"Beta\" enables a feature only for the selected users.",
       "state-on": "On",
@@ -897,6 +898,22 @@
       "cancel": "Cancel",
       "delete": "Schedule deletion",
       "scheduled": "Account scheduled for deletion."
+    },
+    "relation-types": {
+      "hint": "Relation types are shared by every tree on this instance. The description is shown as a fallback when no translation exists for a type.",
+      "col-id": "ID",
+      "col-label": "Label",
+      "col-description": "Description",
+      "id-placeholder": "e.g. godparent",
+      "add": "Add type",
+      "save-description": "Save description",
+      "delete": "Delete type",
+      "delete-parent-unavailable": "The parent type is required for the tree structure and cannot be deleted",
+      "created": "Relation type created.",
+      "saved": "Relation type updated.",
+      "deleted": "Relation type deleted.",
+      "delete-error": "Could not delete the relation type. Types that are still in use cannot be deleted.",
+      "error": "Could not update relation types."
     }
   },
   "event-types": {

@@ -1,40 +1,25 @@
 # Family Tree — Production Docker Compose (Unraid / general production)
 #
-# Configure via a .env file next to this one (see .env.example). The three
-# headline settings requested for deployment:
+# PostgreSQL is NOT part of this stack (as is common for Unraid apps): run
+# your own Postgres and point the backend at it via the .env file (POSTGRES_*
+# values or a full DATABASE_URL).
+#
+# Configure via a .env file next to this one (see .env.example). The headline
+# settings:
 #   UI_PORT        host port the web UI is served on
-#   APP_DATA_PATH  host path for application data (Postgres + backend appdata)
+#   APP_DATA_PATH  host path for application data (backend appdata: exports, logs)
 #   DATA_PATH      host path for the "real" data (member photos, gallery media)
 #   APP_IMAGE_TAG  app image tag for both frontend and backend
+#   POSTGRES_*     where to reach your PostgreSQL instance
 
 services:
-  db:
-    image: postgres:18-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-familytree}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-familytree}
-      POSTGRES_DB: ${POSTGRES_DB:-familytree}
-      # Postgres 18's image moved the default data dir to a versioned path; pin
-      # it back so the bind mount below keeps persisting the data.
-      PGDATA: /var/lib/postgresql/data
-    volumes:
-      - ${APP_DATA_PATH:-./appdata}/postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-familytree}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
   backend:
     image: ghcr.io/maxi-smidt/family-tree-backend:${APP_IMAGE_TAG:-latest}
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in your .env}
-      POSTGRES_HOST: db
-      POSTGRES_PORT: 5432
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_HOST: ${POSTGRES_HOST:?Set POSTGRES_HOST (or DATABASE_URL) in your .env}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:-familytree}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-familytree}
       POSTGRES_DB: ${POSTGRES_DB:-familytree}

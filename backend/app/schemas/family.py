@@ -1,7 +1,7 @@
 """Schemas mirroring the frontend `MemberDB`, `RelationDB`, `DiseaseDB`
 contracts so the React data layer keeps working unchanged."""
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- Members ---------------------------------------------------------------
@@ -95,6 +95,17 @@ class RelationTypeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    description: str | None = None
+
+
+class RelationTypeCreate(BaseModel):
+    # Ids double as i18n key segments, so keep them URL- and i18next-safe.
+    id: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9][a-z0-9_-]*$")
+    description: str | None = Field(default=None, max_length=255)
+
+
+class RelationTypeUpdate(BaseModel):
+    description: str | None = Field(default=None, max_length=255)
 
 
 # --- Diseases --------------------------------------------------------------

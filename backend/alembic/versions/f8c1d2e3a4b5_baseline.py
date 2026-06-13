@@ -1,8 +1,14 @@
-"""initial schema
+"""Squashed baseline of all migrations up to and including feature_flag_overrides.
 
-Revision ID: 319ad732bdf2
-Revises: 
-Create Date: 2026-06-06 09:26:06.375452
+This revision intentionally reuses the id of the previous migration head
+(f8c1d2e3a4b5), so databases that were up to date before the squash are
+already stamped at this revision and skip it. Databases at an intermediate
+revision must first upgrade to a release that still ships the old migration
+chain (<= the release before this squash).
+
+Revision ID: f8c1d2e3a4b5
+Revises:
+Create Date: 2026-06-13
 
 """
 from typing import Sequence, Union
@@ -12,7 +18,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '319ad732bdf2'
+revision: str = 'f8c1d2e3a4b5'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -36,13 +42,21 @@ def upgrade() -> None:
     sa.Column('auth_provider', sa.String(length=50), nullable=False),
     sa.Column('oauth_subject', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.String(length=40), nullable=False),
+    sa.Column('deletion_requested_at', sa.String(length=40), nullable=True),
+    sa.Column('deletion_scheduled_for', sa.String(length=40), nullable=True),
+    sa.Column('deletion_requested_by', sa.String(length=36), nullable=True),
+    sa.Column('tab_preferences', sa.JSON(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email'),
     sa.UniqueConstraint('oauth_subject')
     )
-    with op.batch_alter_table('users', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_users_username'), ['username'], unique=True)
-
+    op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    op.create_table('feature_flag_overrides',
+    sa.Column('feature', sa.String(length=64), nullable=False),
+    sa.Column('user_id', sa.String(length=36), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('feature', 'user_id')
+    )
     op.create_table('trees',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('name', sa.String(length=255), nullable=False),
@@ -52,9 +66,36 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('trees', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_trees_owner_id'), ['owner_id'], unique=False)
-
+    op.create_index(op.f('ix_trees_owner_id'), 'trees', ['owner_id'], unique=False)
+    op.create_table('virtual_views',
+    sa.Column('id', sa.String(length=40), nullable=False),
+    sa.Column('name', sa.String(length=255), nullable=False),
+    sa.Column('owner_id', sa.String(length=36), nullable=False),
+    sa.Column('created_at', sa.String(length=40), nullable=False),
+    sa.Column('last_opened', sa.String(length=40), nullable=True),
+    sa.Column('matches_computed_at', sa.String(length=40), nullable=True),
+    sa.ForeignKeyConstraint(['owner_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_virtual_views_owner_id'), 'virtual_views', ['owner_id'], unique=False)
+    op.create_table('activity_log',
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('tree_id', sa.String(length=36), nullable=False),
+    sa.Column('actor_id', sa.String(length=36), nullable=True),
+    sa.Column('actor_username', sa.String(length=255), nullable=True),
+    sa.Column('action', sa.String(length=20), nullable=False),
+    sa.Column('target_type', sa.String(length=40), nullable=False),
+    sa.Column('target_id', sa.String(length=36), nullable=True),
+    sa.Column('target_label', sa.String(length=255), nullable=True),
+    sa.Column('created_at', sa.String(length=40), nullable=False),
+    sa.Column('details', sa.Text(), nullable=True),
+    sa.ForeignKeyConstraint(['actor_id'], ['users.id'], ondelete='SET NULL'),
+    sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_activity_log_actor_id'), 'activity_log', ['actor_id'], unique=False)
+    op.create_index(op.f('ix_activity_log_created_at'), 'activity_log', ['created_at'], unique=False)
+    op.create_index(op.f('ix_activity_log_tree_id'), 'activity_log', ['tree_id'], unique=False)
     op.create_table('events',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('tree_id', sa.String(length=36), nullable=False),
@@ -66,9 +107,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('events', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_events_tree_id'), ['tree_id'], unique=False)
-
+    op.create_index(op.f('ix_events_tree_id'), 'events', ['tree_id'], unique=False)
     op.create_table('gallery_images',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('tree_id', sa.String(length=36), nullable=False),
@@ -80,9 +119,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('gallery_images', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_gallery_images_tree_id'), ['tree_id'], unique=False)
-
+    op.create_index(op.f('ix_gallery_images_tree_id'), 'gallery_images', ['tree_id'], unique=False)
     op.create_table('members',
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('tree_id', sa.String(length=36), nullable=False),
@@ -94,15 +131,16 @@ def upgrade() -> None:
     sa.Column('dateOfBirth', sa.String(length=40), nullable=True),
     sa.Column('dateOfDeath', sa.String(length=40), nullable=True),
     sa.Column('additionalData', sa.Text(), nullable=True),
+    sa.Column('birthplace', sa.String(length=255), nullable=True),
+    sa.Column('hometown', sa.String(length=255), nullable=True),
+    sa.Column('placesLived', sa.Text(), nullable=True),
     sa.Column('isCollapsed', sa.Boolean(), nullable=False),
     sa.Column('positionX', sa.Float(), nullable=False),
     sa.Column('positionY', sa.Float(), nullable=False),
     sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('members', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_members_tree_id'), ['tree_id'], unique=False)
-
+    op.create_index(op.f('ix_members_tree_id'), 'members', ['tree_id'], unique=False)
     op.create_table('relation_types',
     sa.Column('tree_id', sa.String(length=36), nullable=False),
     sa.Column('id', sa.String(length=50), nullable=False),
@@ -114,15 +152,13 @@ def upgrade() -> None:
     sa.Column('id', sa.String(length=36), nullable=False),
     sa.Column('tree_id', sa.String(length=36), nullable=False),
     sa.Column('title', sa.String(length=255), nullable=False),
-    sa.Column('content', sa.Text(), nullable=False),
+    sa.Column('content', sa.Text(), nullable=True),
     sa.Column('created_at', sa.String(length=40), nullable=False),
     sa.Column('updated_at', sa.String(length=40), nullable=False),
     sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('stories', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_stories_tree_id'), ['tree_id'], unique=False)
-
+    op.create_index(op.f('ix_stories_tree_id'), 'stories', ['tree_id'], unique=False)
     op.create_table('tree_memberships',
     sa.Column('tree_id', sa.String(length=36), nullable=False),
     sa.Column('user_id', sa.String(length=36), nullable=False),
@@ -130,6 +166,22 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('tree_id', 'user_id')
+    )
+    op.create_table('virtual_view_positions',
+    sa.Column('view_id', sa.String(length=40), nullable=False),
+    sa.Column('node_id', sa.String(length=40), nullable=False),
+    sa.Column('position_x', sa.Float(), nullable=False),
+    sa.Column('position_y', sa.Float(), nullable=False),
+    sa.ForeignKeyConstraint(['view_id'], ['virtual_views.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('view_id', 'node_id')
+    )
+    op.create_table('virtual_view_sources',
+    sa.Column('view_id', sa.String(length=40), nullable=False),
+    sa.Column('tree_id', sa.String(length=36), nullable=False),
+    sa.Column('position', sa.Integer(), nullable=False),
+    sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['view_id'], ['virtual_views.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('view_id', 'tree_id')
     )
     op.create_table('event_member_link',
     sa.Column('event_id', sa.String(length=36), nullable=False),
@@ -158,10 +210,8 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('member_diseases', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_member_diseases_member_id'), ['member_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_member_diseases_tree_id'), ['tree_id'], unique=False)
-
+    op.create_index(op.f('ix_member_diseases_member_id'), 'member_diseases', ['member_id'], unique=False)
+    op.create_index(op.f('ix_member_diseases_tree_id'), 'member_diseases', ['tree_id'], unique=False)
     op.create_table('relations',
     sa.Column('tree_id', sa.String(length=36), nullable=False),
     sa.Column('from_member_id', sa.String(length=36), nullable=False),
@@ -172,6 +222,21 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('tree_id', 'from_member_id', 'to_member_id', 'relation_type')
     )
+    op.create_table('story_attachments',
+    sa.Column('id', sa.String(length=36), nullable=False),
+    sa.Column('tree_id', sa.String(length=36), nullable=False),
+    sa.Column('story_id', sa.String(length=36), nullable=False),
+    sa.Column('filename', sa.String(length=255), nullable=False),
+    sa.Column('url', sa.Text(), nullable=False),
+    sa.Column('mime_type', sa.String(length=100), nullable=True),
+    sa.Column('size', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.String(length=40), nullable=False),
+    sa.ForeignKeyConstraint(['story_id'], ['stories.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['tree_id'], ['trees.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_story_attachments_story_id'), 'story_attachments', ['story_id'], unique=False)
+    op.create_index(op.f('ix_story_attachments_tree_id'), 'story_attachments', ['tree_id'], unique=False)
     op.create_table('story_member_link',
     sa.Column('story_id', sa.String(length=36), nullable=False),
     sa.Column('member_id', sa.String(length=36), nullable=False),
@@ -179,45 +244,55 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['story_id'], ['stories.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('story_id', 'member_id')
     )
+    op.create_table('virtual_view_member_matches',
+    sa.Column('view_id', sa.String(length=40), nullable=False),
+    sa.Column('member_id', sa.String(length=36), nullable=False),
+    sa.Column('group_id', sa.String(length=40), nullable=False),
+    sa.Column('is_primary', sa.Boolean(), server_default=sa.false(), nullable=False),
+    sa.ForeignKeyConstraint(['member_id'], ['members.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['view_id'], ['virtual_views.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('view_id', 'member_id')
+    )
+    op.create_index('ix_vvmm_view_group', 'virtual_view_member_matches', ['view_id', 'group_id'], unique=False)
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index('ix_vvmm_view_group', table_name='virtual_view_member_matches')
+    op.drop_table('virtual_view_member_matches')
     op.drop_table('story_member_link')
+    op.drop_index(op.f('ix_story_attachments_tree_id'), table_name='story_attachments')
+    op.drop_index(op.f('ix_story_attachments_story_id'), table_name='story_attachments')
+    op.drop_table('story_attachments')
     op.drop_table('relations')
-    with op.batch_alter_table('member_diseases', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_member_diseases_tree_id'))
-        batch_op.drop_index(batch_op.f('ix_member_diseases_member_id'))
-
+    op.drop_index(op.f('ix_member_diseases_tree_id'), table_name='member_diseases')
+    op.drop_index(op.f('ix_member_diseases_member_id'), table_name='member_diseases')
     op.drop_table('member_diseases')
     op.drop_table('gallery_member_link')
     op.drop_table('event_member_link')
+    op.drop_table('virtual_view_sources')
+    op.drop_table('virtual_view_positions')
     op.drop_table('tree_memberships')
-    with op.batch_alter_table('stories', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_stories_tree_id'))
-
+    op.drop_index(op.f('ix_stories_tree_id'), table_name='stories')
     op.drop_table('stories')
     op.drop_table('relation_types')
-    with op.batch_alter_table('members', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_members_tree_id'))
-
+    op.drop_index(op.f('ix_members_tree_id'), table_name='members')
     op.drop_table('members')
-    with op.batch_alter_table('gallery_images', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_gallery_images_tree_id'))
-
+    op.drop_index(op.f('ix_gallery_images_tree_id'), table_name='gallery_images')
     op.drop_table('gallery_images')
-    with op.batch_alter_table('events', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_events_tree_id'))
-
+    op.drop_index(op.f('ix_events_tree_id'), table_name='events')
     op.drop_table('events')
-    with op.batch_alter_table('trees', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_trees_owner_id'))
-
+    op.drop_index(op.f('ix_activity_log_tree_id'), table_name='activity_log')
+    op.drop_index(op.f('ix_activity_log_created_at'), table_name='activity_log')
+    op.drop_index(op.f('ix_activity_log_actor_id'), table_name='activity_log')
+    op.drop_table('activity_log')
+    op.drop_index(op.f('ix_virtual_views_owner_id'), table_name='virtual_views')
+    op.drop_table('virtual_views')
+    op.drop_index(op.f('ix_trees_owner_id'), table_name='trees')
     op.drop_table('trees')
-    with op.batch_alter_table('users', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_users_username'))
-
+    op.drop_table('feature_flag_overrides')
+    op.drop_index(op.f('ix_users_username'), table_name='users')
     op.drop_table('users')
     op.drop_table('app_settings')
     # ### end Alembic commands ###

@@ -1,4 +1,4 @@
-"""Tree lifecycle, sharing, metadata and relation types."""
+"""Tree lifecycle, sharing and metadata."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
@@ -11,11 +11,9 @@ from app.api.deps import (
     get_writable_tree,
     role_for,
 )
-from app.core.constants import DEFAULT_RELATION_TYPES
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import get_db
-from app.models import RelationType, Tree, TreeMembership, User
-from app.schemas.family import RelationTypeOut
+from app.models import Tree, TreeMembership, User
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
     ShareCandidate,
@@ -85,11 +83,6 @@ def create_tree(
         last_opened=utcnow_iso(),
     )
     db.add(tree)
-    # Flush the tree first so its row exists before the relation_types rows that
-    # reference it (Postgres enforces the FK immediately).
-    db.flush()
-    for rt in DEFAULT_RELATION_TYPES:
-        db.add(RelationType(tree_id=tree.id, id=rt))
     db.commit()
     db.refresh(tree)
     return _tree_out(db, tree, user)
@@ -293,14 +286,5 @@ def transfer_ownership(
     db.commit()
     db.refresh(tree)
     return list_access(tree=tree, db=db)
-
-
-# --- Relation types --------------------------------------------------------
-@router.get("/{tree_id}/relation-types", response_model=list[RelationTypeOut])
-def list_relation_types(
-    tree: Tree = Depends(get_readable_tree),
-    db: Session = Depends(get_db),
-):
-    return db.scalars(select(RelationType).where(RelationType.tree_id == tree.id)).all()
 
 
