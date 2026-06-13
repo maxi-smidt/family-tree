@@ -216,7 +216,7 @@ jobs:
       # Build into the local Docker daemon first so Trivy can scan the image
       # before anything is pushed. The push step below is a pure cache hit.
       - name: "Build for scanning"
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           load: true
@@ -249,7 +249,7 @@ jobs:
           skip-setup-trivy: true
 
       - name: "Build and push"
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           push: true
