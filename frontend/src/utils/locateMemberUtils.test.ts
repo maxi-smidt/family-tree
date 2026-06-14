@@ -14,6 +14,8 @@ const member = (
   firstName: id,
   lastName: "Test",
   gender: "o",
+  middleNames: null,
+  baptismalName: null,
   maidenName: null,
   imageData: null,
   deceased: false,

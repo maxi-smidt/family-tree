@@ -23,7 +23,15 @@ def test_merge_dedupes_identical_members(db):
 def test_merge_remaps_relations_and_regenerates_ids(db):
     user = make_user(db, "alice")
     source = make_tree(db, user, "Source")
-    add_member(db, source, "child", firstName="Kid", gender="m")
+    add_member(
+        db,
+        source,
+        "child",
+        firstName="Kid",
+        middleNames="Middle",
+        baptismalName="Baptismal",
+        gender="m",
+    )
     add_member(db, source, "parent", firstName="Pa", gender="m")
     db.add(
         Relation(
@@ -39,6 +47,9 @@ def test_merge_remaps_relations_and_regenerates_ids(db):
 
     members = db.query(Member).filter(Member.tree_id == merged.id).all()
     assert {m.id for m in members}.isdisjoint({"child", "parent"})  # ids regenerated
+    child = next(m for m in members if m.firstName == "Kid")
+    assert child.middleNames == "Middle"
+    assert child.baptismalName == "Baptismal"
 
     relations = db.query(Relation).filter(Relation.tree_id == merged.id).all()
     assert len(relations) == 1

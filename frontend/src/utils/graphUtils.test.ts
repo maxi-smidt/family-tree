@@ -20,6 +20,8 @@ const member = (
   firstName: id,
   lastName: "Member",
   gender: "o",
+  middleNames: null,
+  baptismalName: null,
   maidenName: null,
   imageData: null,
   deceased: false,

@@ -37,6 +37,8 @@ export interface Member {
   id: string;
   gender: Gender;
   firstName: string;
+  middleNames: string | null;
+  baptismalName: string | null;
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
@@ -89,6 +91,8 @@ export class MemberObject {
 
     return (
       normalizeStr(m1.firstName) === normalizeStr(m2.firstName) &&
+      normalizeStr(m1.middleNames) === normalizeStr(m2.middleNames) &&
+      normalizeStr(m1.baptismalName) === normalizeStr(m2.baptismalName) &&
       normalizeStr(m1.lastName) === normalizeStr(m2.lastName) &&
       m1.gender === m2.gender &&
       m1.dateOfBirth === m2.dateOfBirth &&
@@ -102,6 +106,8 @@ export interface MemberDB {
   id: string;
   gender: string;
   firstName: string;
+  middleNames: string | null;
+  baptismalName: string | null;
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
@@ -133,6 +139,8 @@ export interface RelationDB {
 export interface MemberUpdate {
   gender?: Gender;
   firstName?: string;
+  middleNames?: string | null;
+  baptismalName?: string | null;
   lastName?: string;
   maidenName?: string | null;
   imageData?: string;
@@ -169,6 +177,8 @@ export function mapMemberFromDB(
     id: row.id,
     gender: (row.gender as Gender) || "o",
     firstName: row.firstName,
+    middleNames: row.middleNames,
+    baptismalName: row.baptismalName,
     lastName: row.lastName,
     maidenName: row.maidenName,
     imageData: row.imageData,
@@ -210,6 +220,8 @@ export function mapMemberToDB(member: Member): MemberDB {
     id: member.id,
     gender: member.gender,
     firstName: member.firstName,
+    middleNames: member.middleNames,
+    baptismalName: member.baptismalName,
     lastName: member.lastName,
     maidenName: member.maidenName,
     imageData: member.imageData,
@@ -233,6 +245,8 @@ export function createMember(position: { x: number; y: number }): Member {
     id: crypto.randomUUID(),
     gender: "o",
     firstName: "",
+    middleNames: null,
+    baptismalName: null,
     lastName: "",
     maidenName: null,
     imageData: null,

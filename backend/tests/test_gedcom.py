@@ -125,6 +125,8 @@ def _build_test_data() -> tuple[list[dict], list[dict]]:
         {
             "id": father_id,
             "firstName": "James",
+            "middleNames": "Arthur Henry",
+            "baptismalName": "Jacobus",
             "lastName": "Smith",
             "maidenName": None,
             "gender": "m",
@@ -268,6 +270,14 @@ class TestServiceRoundTrip:
 
     def test_father_name(self):
         assert ("James", "Smith") in self.by_name
+
+    def test_name_details_round_trip(self):
+        james = self.by_name[("James", "Smith")]
+        assert james["middleNames"] == "Arthur Henry"
+        assert james["baptismalName"] == "Jacobus"
+        assert "2 _FIRST_NAME James" in self.ged_text
+        assert "2 _MIDDLE_NAMES Arthur Henry" in self.ged_text
+        assert "2 TYPE baptismal" in self.ged_text
 
     def test_mother_maiden_name(self):
         mary = self.by_name[("Mary", "Smith")]
@@ -423,8 +433,9 @@ def test_api_gedcom_round_trip(client, db):
 
     # Add members.
     father = _post_member(client, tree_id, headers,
-                          firstName="George", lastName="Brown", gender="m",
-                          dateOfBirth="1940")
+                          firstName="George", middleNames="Albert",
+                          baptismalName="Georgius", lastName="Brown",
+                          gender="m", dateOfBirth="1940")
     mother = _post_member(client, tree_id, headers,
                           firstName="Helen", lastName="Brown", gender="f",
                           dateOfBirth="1945-06")
@@ -491,6 +502,27 @@ def test_api_gedcom_round_trip(client, db):
     assert ("George", "Brown") in names
     assert ("Helen", "Brown") in names
     assert ("Paul", "Brown") in names
+    imported_father = next(
+        m for m in imported_members if m.get("firstName") == "George"
+    )
+    assert imported_father["middleNames"] == "Albert"
+    assert imported_father["baptismalName"] == "Georgius"
+
+
+def test_gedcom_import_splits_standard_given_names():
+    ged = (
+        "0 HEAD\n"
+        "0 @I1@ INDI\n"
+        "1 NAME John Paul /Doe/\n"
+        "2 GIVN John Paul\n"
+        "2 SURN Doe\n"
+        "0 TRLR\n"
+    )
+
+    member = parse_gedcom(ged)["members"][0]
+
+    assert member["firstName"] == "John"
+    assert member["middleNames"] == "Paul"
 
 
 def test_api_export_requires_auth(client, db):

@@ -306,23 +306,41 @@ def serialize_to_gedcom(
         L(f"0 {xref} INDI")
 
         first = (member.get("firstName") or "").strip()
+        middle = (member.get("middleNames") or "").strip()
+        given_names = " ".join(part for part in (first, middle) if part)
         last = (member.get("lastName") or "").strip()
         # Primary NAME
-        name_value = f"{first} /{last}/" if first or last else "//"
+        name_value = f"{given_names} /{last}/" if given_names or last else "//"
         L(f"1 NAME {name_value}")
+        if given_names:
+            L(f"2 GIVN {given_names}")
         if first:
-            L(f"2 GIVN {first}")
+            L(f"2 _FIRST_NAME {first}")
+        if middle:
+            L(f"2 _MIDDLE_NAMES {middle}")
         if last:
             L(f"2 SURN {last}")
+
+        # Baptismal name (alternate NAME tag).
+        baptismal = (member.get("baptismalName") or "").strip()
+        if baptismal:
+            baptismal_value = f"{baptismal} /{last}/" if last else baptismal
+            L(f"1 NAME {baptismal_value}")
+            L("2 TYPE baptismal")
+            L(f"2 GIVN {baptismal}")
+            if last:
+                L(f"2 SURN {last}")
 
         # Maiden name (second NAME tag)
         maiden = (member.get("maidenName") or "").strip()
         if maiden:
-            maiden_value = f"{first} /{maiden}/" if first else f"/{maiden}/"
+            maiden_value = (
+                f"{given_names} /{maiden}/" if given_names else f"/{maiden}/"
+            )
             L(f"1 NAME {maiden_value}")
             L("2 TYPE maiden")
-            if first:
-                L(f"2 GIVN {first}")
+            if given_names:
+                L(f"2 GIVN {given_names}")
             L(f"2 SURN {maiden}")
 
         # SEX
@@ -632,6 +650,8 @@ def parse_gedcom(text: str) -> dict:
         member: dict = {
             "id": new_id,
             "firstName": None,
+            "middleNames": None,
+            "baptismalName": None,
             "lastName": None,
             "maidenName": None,
             "gender": None,
@@ -675,8 +695,27 @@ def parse_gedcom(text: str) -> dict:
                 name_type = _child_value(child, "TYPE")
                 if name_type and name_type.lower() == "maiden":
                     member["maidenName"] = surname or None
+                elif name_type and name_type.lower() == "baptismal":
+                    member["baptismalName"] = given or None
                 elif not primary_name_done:
-                    member["firstName"] = given or None
+                    first_name = _child_value(child, "_FIRST_NAME")
+                    middle_names = _child_value(child, "_MIDDLE_NAMES")
+                    baptismal_name = _child_value(child, "_BAPTISMAL_NAME")
+                    if first_name is not None or middle_names is not None:
+                        member["firstName"] = (
+                            first_name.strip() if first_name else None
+                        )
+                        member["middleNames"] = (
+                            middle_names.strip() if middle_names else None
+                        )
+                    else:
+                        given_parts = given.split(maxsplit=1)
+                        member["firstName"] = given_parts[0] if given_parts else None
+                        member["middleNames"] = (
+                            given_parts[1] if len(given_parts) > 1 else None
+                        )
+                    if baptismal_name is not None:
+                        member["baptismalName"] = baptismal_name.strip() or None
                     member["lastName"] = surname or None
                     primary_name_done = True
 

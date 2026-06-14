@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mapMemberFromDB, MemberDB, RelationDB } from "./member";
+import { mapMemberFromDB, MemberDB, MemberObject, RelationDB } from "./member";
 
 describe("mapMemberFromDB", () => {
   it("should correctly map a database member to a domain member", () => {
@@ -8,6 +8,8 @@ describe("mapMemberFromDB", () => {
       gender: "m",
       firstName: "John",
       lastName: "Doe",
+      middleNames: "Paul",
+      baptismalName: "Johannes",
       maidenName: null,
       imageData: null,
       dateOfBirth: "1990-01-01",
@@ -25,6 +27,8 @@ describe("mapMemberFromDB", () => {
 
     expect(result.id).toBe("1");
     expect(result.firstName).toBe("John");
+    expect(result.middleNames).toBe("Paul");
+    expect(result.baptismalName).toBe("Johannes");
     expect(result.lastName).toBe("Doe");
     expect(result.gender).toBe("m");
     expect(result.date.birth).toBe("1990-01-01");
@@ -39,6 +43,8 @@ describe("mapMemberFromDB", () => {
       gender: "f",
       firstName: "Jane",
       lastName: "Doe",
+      middleNames: null,
+      baptismalName: null,
       maidenName: null,
       imageData: null,
       dateOfBirth: "1992-01-01",
@@ -53,5 +59,34 @@ describe("mapMemberFromDB", () => {
     const result = mapMemberFromDB(dbMember, []);
     expect(result.isCollapsed).toBe(true);
     expect(result.gender).toBe("f");
+  });
+});
+
+describe("MemberObject.equalDB", () => {
+  const member: MemberDB = {
+    id: "1",
+    gender: "m",
+    firstName: "John",
+    middleNames: "Paul",
+    baptismalName: "Johannes",
+    lastName: "Doe",
+    maidenName: null,
+    imageData: null,
+    dateOfBirth: "1990",
+    dateOfDeath: null,
+    deceased: false,
+    additionalData: null,
+    isCollapsed: 0,
+    positionX: 0,
+    positionY: 0,
+  };
+
+  it("distinguishes middle and baptismal names", () => {
+    expect(
+      MemberObject.equalDB(member, { ...member, middleNames: "Peter" }),
+    ).toBe(false);
+    expect(
+      MemberObject.equalDB(member, { ...member, baptismalName: "Hans" }),
+    ).toBe(false);
   });
 });
