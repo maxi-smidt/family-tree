@@ -34,6 +34,21 @@ type E2EFixtures = {
 };
 
 export const test = base.extend<E2EFixtures>({
+  // The SPA reads its language from localStorage and otherwise defaults to
+  // German; force English so locale-dependent text selectors are reliable.
+  // (Playwright's `locale` option only sets navigator.language, which the app
+  // ignores.) Applies to every test's `page`, including `adminPage`.
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("i18nextLng", "en");
+      } catch {
+        /* ignore storage errors */
+      }
+    });
+    await use(page);
+  },
+
   adminApi: async ({}, use) => {
     const token = await getAdminToken();
     await use(makeApiClient(token));
