@@ -3,9 +3,12 @@
  * "databases", but in code they are trees, matching the backend.)
  */
 export interface VirtualViewSource {
+  // The source id — a real tree id, or a `vv_` view id when `kind === "view"`.
   tree_id: string;
   tree_name: string;
   accessible: boolean;
+  kind?: "tree" | "view";
+  is_virtual?: boolean;
 }
 
 export interface Tree {

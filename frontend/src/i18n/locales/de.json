@@ -220,7 +220,11 @@
       "toast-create-error": "Virtuelle Ansicht konnte nicht erstellt werden.",
       "toast-update-success": "Virtuelle Ansicht aktualisiert!",
       "toast-update-error": "Virtuelle Ansicht konnte nicht aktualisiert werden.",
-      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt."
+      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt.",
+      "views-label": "Oder andere virtuelle Ansichten einbeziehen",
+      "no-other-views": "Keine weiteren virtuellen Ansichten verfügbar.",
+      "virtual-badge": "virtuell",
+      "error-cycle": "Eine virtuelle Ansicht kann sich nicht selbst enthalten – weder direkt noch über eine andere Ansicht."
     }
   },
   "gallery-view": {

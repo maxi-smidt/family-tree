@@ -641,6 +641,9 @@ export const DatabaseManagementView = () => {
                                       {!src.accessible && (
                                         <AlertTriangle className="h-3 w-3 text-destructive" />
                                       )}
+                                      {src.is_virtual && (
+                                        <Layers className="h-3 w-3" />
+                                      )}
                                       {src.tree_name}
                                     </Badge>
                                   </TooltipTrigger>
