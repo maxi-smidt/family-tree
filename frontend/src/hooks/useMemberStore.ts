@@ -88,6 +88,7 @@ async function refreshAfterOptimisticFailure(
     await refreshMembers(treeId);
   } catch (error) {
     console.error("Failed to refresh members after optimistic write:", error);
+    toast.error(i18n.t("hooks.member-store.refresh-error"));
   }
 }
 
@@ -576,6 +577,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     } catch (error) {
       console.error("Failed to update layout:", error);
+      toast.error(i18n.t("hooks.member-store.layout-error"));
       await refreshMembers(treeId);
     }
   },
