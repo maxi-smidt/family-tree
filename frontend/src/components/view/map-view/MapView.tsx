@@ -276,14 +276,14 @@ export const MapView = () => {
   return (
     <ViewLayout title={t("title")}>
       {/* Filters + legend row */}
-      <div className="flex gap-3 mb-4 p-1 items-center flex-wrap">
+      <div className="flex gap-2 mb-4 p-1 pb-2 items-center flex-nowrap overflow-x-auto">
         <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               role="combobox"
               aria-expanded={memberSelectOpen}
-              className="w-56 justify-between"
+              className="w-44 shrink-0 justify-between"
             >
               {selectedMemberId === "all"
                 ? t("all-members")
@@ -353,7 +353,7 @@ export const MapView = () => {
             value={dateFrom}
             onChange={setDateFrom}
             placeholder={t("date-from")}
-            className="w-36 h-9"
+            className="w-28 h-9"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -362,14 +362,11 @@ export const MapView = () => {
             value={dateTo}
             onChange={setDateTo}
             placeholder={t("date-to")}
-            className="w-36 h-9"
+            className="w-28 h-9"
           />
         </div>
 
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-muted-foreground">
-            {t("filter-location-types")}
-          </span>
+        <div className="ml-auto flex shrink-0 items-center">
           <ToggleGroup
             type="multiple"
             variant="outline"
@@ -380,14 +377,14 @@ export const MapView = () => {
               setVisibleLocationTypes(types as LocationType[])
             }
             aria-label={t("filter-location-types")}
-            className="flex-wrap justify-end"
+            className="shrink-0"
           >
             {LOCATION_TYPES.map((type) => (
               <ToggleGroupItem
                 key={type}
                 value={type}
                 aria-label={t(`legend-${type}`)}
-                className="h-8 px-2 text-xs text-muted-foreground data-[state=on]:text-foreground data-[state=off]:opacity-50"
+                className="h-8 px-1.5 text-xs text-muted-foreground data-[state=on]:text-foreground data-[state=off]:opacity-50"
               >
                 <span
                   style={{
