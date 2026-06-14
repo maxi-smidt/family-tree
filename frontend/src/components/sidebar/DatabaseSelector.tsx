@@ -34,7 +34,7 @@ export const DatabaseSelector = () => {
         onValueChange={handleDatabaseChange}
         value={selectedTree?.id ?? ""}
       >
-        <SelectTrigger size="sm" className="w-full text-xs">
+        <SelectTrigger size="sm" className="w-full text-xs" data-testid="tree-selector">
           <SelectValue placeholder={t("placeholder")} />
         </SelectTrigger>
         <SelectContent>
