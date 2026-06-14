@@ -67,8 +67,10 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
     await adminPage.reload({ waitUntil: "networkidle" });
 
     // The SPA auto-selects trees[0] (sorted by last_opened) when no tree is
-    // pre-selected. Wait for the combobox to reflect our tree.
-    await expect(adminPage.getByRole("combobox").first()).toContainText(
+    // pre-selected. Wait for the tree selector to reflect our tree.
+    // Use data-testid to target DatabaseSelector specifically — the sidebar
+    // has ThemeSelector/LanguageSelector/EdgeTypeSelector above it in the DOM.
+    await expect(adminPage.locator('[data-testid="tree-selector"]')).toContainText(
       "Smoke-Seed-Tree",
       { timeout: 15_000 },
     );
