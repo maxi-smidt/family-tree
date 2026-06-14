@@ -56,6 +56,7 @@ const MEMBERS_DB: MemberDB[] = [
     imageData: null,
     dateOfBirth: "1822",
     dateOfDeath: null,
+  deceased: false,
     additionalData: null,
     isCollapsed: 0,
     positionX: 0,
@@ -70,6 +71,7 @@ const MEMBERS_DB: MemberDB[] = [
     imageData: null,
     dateOfBirth: "BEF 1828", // ← GEDCOM qualifier — not ISO
     dateOfDeath: null,
+  deceased: false,
     additionalData: null,
     isCollapsed: 0,
     positionX: 0,
@@ -84,6 +86,7 @@ const MEMBERS_DB: MemberDB[] = [
     imageData: null,
     dateOfBirth: "11 Jun 1845",
     dateOfDeath: null,
+  deceased: false,
     additionalData: null,
     isCollapsed: 0,
     positionX: 0,

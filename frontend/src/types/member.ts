@@ -29,6 +29,10 @@ export interface PlaceLived {
   to?: string | null;
 }
 
+export function isDeceased(member: Pick<Member, "deceased" | "date">): boolean {
+  return member.deceased || !!member.date.death;
+}
+
 export interface Member {
   id: string;
   gender: Gender;
@@ -36,6 +40,7 @@ export interface Member {
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
+  deceased: boolean;
   date: {
     birth: string;
     death: string | null;
@@ -87,7 +92,8 @@ export class MemberObject {
       normalizeStr(m1.lastName) === normalizeStr(m2.lastName) &&
       m1.gender === m2.gender &&
       m1.dateOfBirth === m2.dateOfBirth &&
-      m1.dateOfDeath === m2.dateOfDeath
+      m1.dateOfDeath === m2.dateOfDeath &&
+      m1.deceased === m2.deceased
     );
   }
 }
@@ -101,6 +107,7 @@ export interface MemberDB {
   imageData: string | null;
   dateOfBirth: string;
   dateOfDeath: string | null;
+  deceased: boolean;
   additionalData: string | null;
   birthplace?: string | null;
   hometown?: string | null;
@@ -131,6 +138,7 @@ export interface MemberUpdate {
   imageData?: string;
   dateOfBirth?: string;
   dateOfDeath?: string | null;
+  deceased?: boolean;
   paternalParentId?: string | null;
   maternalParentId?: string | null;
   additionalData?: string | null;
@@ -164,6 +172,7 @@ export function mapMemberFromDB(
     lastName: row.lastName,
     maidenName: row.maidenName,
     imageData: row.imageData,
+    deceased: !!row.deceased,
     date: {
       birth: row.dateOfBirth,
       death: row.dateOfDeath,
@@ -206,6 +215,7 @@ export function mapMemberToDB(member: Member): MemberDB {
     imageData: member.imageData,
     dateOfBirth: member.date.birth,
     dateOfDeath: member.date.death,
+    deceased: member.deceased,
     positionX: member.position.x,
     positionY: member.position.y,
     additionalData: member.additionalData ? member.additionalData : null,
@@ -226,6 +236,7 @@ export function createMember(position: { x: number; y: number }): Member {
     lastName: "",
     maidenName: null,
     imageData: null,
+    deceased: false,
     date: { birth: currentYear, death: null },
     parents: { paternalParent: null, maternalParent: null },
     additionalData: null,

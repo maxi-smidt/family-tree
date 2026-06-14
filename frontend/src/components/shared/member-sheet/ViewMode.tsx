@@ -1,4 +1,4 @@
-import { Member } from "@/types/member";
+import { Member, isDeceased } from "@/types/member";
 import {
   Item,
   ItemContent,
@@ -124,6 +124,8 @@ export const ViewMode = ({ member }: Props) => {
             <ItemDescription>
               {member.date.death ? (
                 formatDate(member.date.death)
+              ) : isDeceased(member) ? (
+                <i>{t("dod-deceased-no-date")}</i>
               ) : (
                 <i>{t("dod-fallback")}</i>
               )}
