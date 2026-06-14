@@ -48,7 +48,7 @@ export async function createTestUser(
     {
       username,
       password,
-      email: `${username}@e2e.invalid`,
+      email: `${username}@example.com`,
       full_name: `E2E ${username}`,
       is_admin: overrides.is_admin ?? false,
     },

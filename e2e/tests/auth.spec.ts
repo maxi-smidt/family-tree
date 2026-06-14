@@ -88,7 +88,7 @@ test("registration — new user can register and then log in", async ({
   await page.locator("#password").fill(newPassword);
   // Email field (optional in this form)
   const emailField = page.locator("#email");
-  if (await emailField.isVisible()) await emailField.fill(`${newUsername}@e2e.invalid`);
+  if (await emailField.isVisible()) await emailField.fill(`${newUsername}@example.com`);
 
   await page.locator('button[type="submit"]').click();
 
