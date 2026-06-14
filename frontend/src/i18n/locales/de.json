@@ -237,7 +237,10 @@
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
-      "image-alt-fallback": "Galeriebild"
+      "image-alt-fallback": "Galeriebild",
+      "empty-title": "Noch keine Fotos",
+      "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Stammbaums zu füllen.",
+      "empty-cta": "Foto hochladen"
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",

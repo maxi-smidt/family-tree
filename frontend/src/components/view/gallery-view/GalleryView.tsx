@@ -8,7 +8,15 @@ import { GalleryImage } from "@/types/gallery";
 import { UploadImageCard } from "@/components/view/gallery-view/UploadImageCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowDown, ArrowUp, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Search } from "lucide-react";
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import {
   Select,
   SelectContent,
@@ -148,41 +156,45 @@ export const GalleryView = () => {
     setSortDirection(sortDirection === "asc" ? "desc" : "asc");
   };
 
+  const isEmpty = galleryImages.length === 0;
+
   return (
     <ViewLayout title={t("title")}>
-      <div className="flex justify-between items-center mb-4 gap-4 p-1">
-        <div className="relative w-72">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={t("search-placeholder")}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
+      {!isEmpty && (
+        <div className="flex justify-between items-center mb-4 gap-4 p-1">
+          <div className="relative w-72">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={t("search-placeholder")}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Select
+              value={sortKey}
+              onValueChange={(value) => setSortKey(value as SortKey)}
+            >
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder={t("sort-placeholder")} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="uploadedAt">
+                  {t("select-date-uploaded")}
+                </SelectItem>
+                <SelectItem value="createdAt">
+                  {t("select-date-taken")}
+                </SelectItem>
+                <SelectItem value="title">{t("select-title")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="icon" onClick={toggleSortDirection}>
+              {sortDirection === "asc" ? <ArrowUp /> : <ArrowDown />}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Select
-            value={sortKey}
-            onValueChange={(value) => setSortKey(value as SortKey)}
-          >
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder={t("sort-placeholder")} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="uploadedAt">
-                {t("select-date-uploaded")}
-              </SelectItem>
-              <SelectItem value="createdAt">
-                {t("select-date-taken")}
-              </SelectItem>
-              <SelectItem value="title">{t("select-title")}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="icon" onClick={toggleSortDirection}>
-            {sortDirection === "asc" ? <ArrowUp /> : <ArrowDown />}
-          </Button>
-        </div>
-      </div>
+      )}
       <input
         ref={fileInputRef}
         type="file"
@@ -190,21 +202,39 @@ export const GalleryView = () => {
         onChange={handleFileChange}
         className="hidden"
       />
-      <div ref={parentRef} className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
-          <UploadImageCard onClick={handleUploadImage} />
-          {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-            const image = filteredAndSortedImages[virtualItem.index];
-            return (
-              <ImageCard
-                key={image.id}
-                image={image}
-                onClick={() => setSelectedImage(image)}
-              />
-            );
-          })}
+      {isEmpty ? (
+        <Empty className="flex-1 border">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ImagePlus />
+            </EmptyMedia>
+            <EmptyTitle>{t("empty-title")}</EmptyTitle>
+            <EmptyDescription>{t("empty-description")}</EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button onClick={handleUploadImage}>
+              <ImagePlus />
+              {t("empty-cta")}
+            </Button>
+          </EmptyContent>
+        </Empty>
+      ) : (
+        <div ref={parentRef} className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
+            <UploadImageCard onClick={handleUploadImage} />
+            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+              const image = filteredAndSortedImages[virtualItem.index];
+              return (
+                <ImageCard
+                  key={image.id}
+                  image={image}
+                  onClick={() => setSelectedImage(image)}
+                />
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
       {selectedImage && (
         <ImageSheet
           isOpen={!!selectedImage}
