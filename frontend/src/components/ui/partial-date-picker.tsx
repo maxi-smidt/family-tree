@@ -153,6 +153,7 @@ export const PartialDatePicker = ({
               <XIcon
                 className="h-3 w-3 opacity-50 hover:opacity-100"
                 onClick={handleClear}
+                onPointerDown={(e) => e.stopPropagation()}
               />
             )}
             <ChevronDownIcon className="h-4 w-4 opacity-50" />
