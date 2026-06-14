@@ -58,21 +58,25 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
   });
 
   try {
-    // Reload the SPA — the new tree should appear in the tree selector
+    // Reload the SPA — the new tree should appear in the tree selector.
+    // The tree was just created with last_opened=now so it auto-selects first.
     await adminPage.reload({ waitUntil: "networkidle" });
 
-    // Select the newly created tree (it may already be active if it was the
-    // first; otherwise find it in the dropdown)
+    // If not auto-selected (parallel workers may have created a newer tree),
+    // pick it from the dropdown. The SelectItem accessible name includes the
+    // icon aria-label ("Owned by you …"), so use a regex partial match.
     const treeSelector = adminPage.getByRole("combobox").first();
     const currentText = await treeSelector.textContent();
     if (!currentText?.includes("Smoke-Seed-Tree")) {
       await treeSelector.click();
       await adminPage
-        .getByRole("option", { name: "Smoke-Seed-Tree" })
+        .getByRole("option", { name: /Smoke-Seed-Tree/i })
         .click();
+      await adminPage.waitForLoadState("networkidle");
     }
 
-    // Wait for the canvas / list to load and contain the seeded member name
+    // Switch to list view for reliable text-based assertion (no React Flow)
+    await adminPage.getByRole("tab", { name: /list/i }).click();
     await expect(adminPage.getByText("SeedTest")).toBeVisible({
       timeout: 15_000,
     });
