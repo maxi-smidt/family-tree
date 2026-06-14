@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import { getCroppedImg } from "@/utils/canvasUtils";
 import { Spinner } from "@/components/ui/spinner";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 type Props = {
   imageData: string | null;
@@ -52,6 +53,7 @@ export const ImageCropDialog = ({
       onConfirm(croppedImage);
     } catch (e) {
       console.error(e);
+      toast.error(t("crop-error"));
     } finally {
       setIsLoading(false);
     }

@@ -51,7 +51,8 @@
       "title": "Crop image",
       "description": "Select the image crop.",
       "cancel": "Cancel",
-      "crop": "Crop"
+      "crop": "Crop",
+      "crop-error": "Could not crop the image."
     },
     "password": {
       "title": {
@@ -759,6 +760,13 @@
   "hooks": {
     "flow-interactions": {
       "toast-error-database-create": "Failed to create connection."
+    },
+    "member-store": {
+      "refresh-error": "Could not sync your changes. Please reload.",
+      "layout-error": "Could not update the layout."
+    },
+    "geocode": {
+      "resolve-error": "Could not resolve map locations."
     }
   },
   "quality-report-view": {

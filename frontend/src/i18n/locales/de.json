@@ -51,7 +51,8 @@
       "title": "Bild zuschneiden",
       "description": "Wähle das Bild das zugeschnitten werden soll.",
       "cancel": "Abbrechen",
-      "crop": "Zuschneiden"
+      "crop": "Zuschneiden",
+      "crop-error": "Das Bild konnte nicht zugeschnitten werden."
     },
     "password": {
       "title": {
@@ -759,6 +760,13 @@
   "hooks": {
     "flow-interactions": {
       "toast-error-database-create": "Verbindung konnte nicht erstellt werden."
+    },
+    "member-store": {
+      "refresh-error": "Änderungen konnten nicht synchronisiert werden. Bitte neu laden.",
+      "layout-error": "Das Layout konnte nicht aktualisiert werden."
+    },
+    "geocode": {
+      "resolve-error": "Kartenorte konnten nicht aufgelöst werden."
     }
   },
   "quality-report-view": {

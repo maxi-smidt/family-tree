@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { GeocodeResult, mapGeocodeFromDB } from "@/types/geocode";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { toast } from "sonner";
+import i18n from "@/i18n/i18n";
 
 interface GeocodeState {
   coords: Map<string, GeocodeResult>;
@@ -22,16 +24,21 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
     const unknown = [...new Set(locations)].filter((loc) => !cached.has(loc));
     if (unknown.length === 0) return;
 
-    const rows = await TreeService.geocodeLocations(treeId, unknown);
-    if (!isActiveTree(treeId)) return;
+    try {
+      const rows = await TreeService.geocodeLocations(treeId, unknown);
+      if (!isActiveTree(treeId)) return;
 
-    set((state) => {
-      const next = new Map(state.coords);
-      for (const row of rows) {
-        next.set(row.query, mapGeocodeFromDB(row));
-      }
-      return { coords: next };
-    });
+      set((state) => {
+        const next = new Map(state.coords);
+        for (const row of rows) {
+          next.set(row.query, mapGeocodeFromDB(row));
+        }
+        return { coords: next };
+      });
+    } catch (error) {
+      console.error("Failed to resolve geocode locations:", error);
+      toast.error(i18n.t("hooks.geocode.resolve-error"));
+    }
   },
 
   getCoord: (location: string) => get().coords.get(location),
