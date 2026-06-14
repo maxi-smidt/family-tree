@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatDate } from "@/utils/dateUtils";
 import {
   Dialog,
   DialogContent,
@@ -523,7 +524,7 @@ export const ShareTreeDialog = ({
                         </div>
                         {inv.expires_at && inv.status === "pending" && (
                           <span className="text-xs text-muted-foreground">
-                            {new Date(inv.expires_at).toLocaleDateString()}
+                            {formatDate(inv.expires_at)}
                           </span>
                         )}
                       </div>

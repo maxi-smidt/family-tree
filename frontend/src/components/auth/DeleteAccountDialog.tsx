@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatDate } from "@/utils/dateUtils";
 import {
   Dialog,
   DialogContent,
@@ -147,7 +148,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
         isLocal ? null : confirmation,
       );
       const date = result.deletion_scheduled_for
-        ? new Date(result.deletion_scheduled_for).toLocaleDateString()
+        ? formatDate(result.deletion_scheduled_for)
         : "";
       logout();
       toast.info(t("scheduled", { date }), { duration: 10000 });
