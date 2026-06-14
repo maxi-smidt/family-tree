@@ -58,22 +58,28 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
   });
 
   try {
-    // Reload the SPA — the new tree should appear in the tree selector
+    // Touch the tree via GET so last_opened is bumped to right now.
+    // The backend sorts /trees by last_opened desc, so this tree will be
+    // first in the list and auto-selected after reload, even if another
+    // parallel worker has connected to a different tree more recently.
+    await adminApi.get(`/trees/${tree.id}`);
+
     await adminPage.reload({ waitUntil: "networkidle" });
 
-    // Select the newly created tree (it may already be active if it was the
-    // first; otherwise find it in the dropdown)
-    const treeSelector = adminPage.getByRole("combobox").first();
-    const currentText = await treeSelector.textContent();
-    if (!currentText?.includes("Smoke-Seed-Tree")) {
-      await treeSelector.click();
-      await adminPage
-        .getByRole("option", { name: "Smoke-Seed-Tree" })
-        .click();
-    }
+    // The SPA auto-selects trees[0] (sorted by last_opened) when no tree is
+    // pre-selected. Wait for the tree selector to reflect our tree.
+    // Use data-testid to target DatabaseSelector specifically — the sidebar
+    // has ThemeSelector/LanguageSelector/EdgeTypeSelector above it in the DOM.
+    await expect(adminPage.locator('[data-testid="tree-selector"]')).toContainText(
+      "Smoke-Seed-Tree",
+      { timeout: 15_000 },
+    );
 
-    // Wait for the canvas / list to load and contain the seeded member name
-    await expect(adminPage.getByText("SeedTest")).toBeVisible({
+    // Switch to list view for reliable text-based assertion (avoids React Flow)
+    await adminPage.getByRole("tab", { name: /list/i }).click();
+    // The canvas panel (which has a "SeedTest Member" card) stays in the DOM
+    // but hidden. Target the table cell that only exists in list view.
+    await expect(adminPage.getByRole("cell", { name: "SeedTest" })).toBeVisible({
       timeout: 15_000,
     });
   } finally {
