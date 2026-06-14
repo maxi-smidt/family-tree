@@ -754,6 +754,11 @@ def parse_gedcom(text: str) -> dict:
             couple_type = "divorced"
         elif has_marr:
             couple_type = "married"
+        elif len(spouse_ids) == 2:
+            # Two spouses but no explicit relation tags — common in third-party
+            # GEDCOMs that link spouses only via shared CHIL. Default to "married"
+            # so the union node renders green instead of grey. (#295)
+            couple_type = "married"
         else:
             couple_type = None  # parent-only family; no couple relation
 
