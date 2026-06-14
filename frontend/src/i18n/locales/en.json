@@ -1187,10 +1187,13 @@
       "no-mappable-events": "No mappable events found",
       "add-location-hint": "Add a location to an event to see it on the map",
       "unlocatable-count": "{{count}} event(s) have locations that could not be resolved on the map",
+      "filter-location-types": "Location types",
       "legend-event": "Event",
       "legend-birthplace": "Birthplace",
       "legend-hometown": "Hometown",
       "legend-places-lived": "Place lived",
+      "no-location-types-visible": "All location types are hidden",
+      "enable-location-type-hint": "Enable a location type above to show its markers",
       "from": "from",
       "until": "until"
     }
