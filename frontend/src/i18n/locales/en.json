@@ -298,6 +298,12 @@
       "role-owner": "Owner",
       "role-editor": "Editor",
       "role-viewer": "Viewer"
+    },
+    "error-boundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try reloading the application.",
+      "details": "Error details",
+      "reload": "Reload Application"
     }
   },
   "list-view": {

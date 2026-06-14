@@ -298,6 +298,12 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter"
+    },
+    "error-boundary": {
+      "title": "Etwas ist schiefgelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Bitte laden Sie die Anwendung neu.",
+      "details": "Fehlerdetails",
+      "reload": "Anwendung neu laden"
     }
   },
   "list-view": {
