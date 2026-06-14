@@ -20,6 +20,8 @@ class Member(Base):
 
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
     firstName: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    middleNames: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    baptismalName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     lastName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     maidenName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Relative media URL (e.g. /api/media/<tree>/<file>) or null.

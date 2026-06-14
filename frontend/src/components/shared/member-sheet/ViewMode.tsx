@@ -17,7 +17,15 @@ import { ImageLightbox } from "./ImageLightbox";
 import { StoryAttachments } from "./StoryAttachments";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { Calendar, MapPin, BookOpen, Activity, BookMarked, File, Link } from "lucide-react";
+import {
+  Calendar,
+  MapPin,
+  BookOpen,
+  Activity,
+  BookMarked,
+  File,
+  Link,
+} from "lucide-react";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
@@ -90,6 +98,22 @@ export const ViewMode = ({ member }: Props) => {
         </Item>
         <Item variant="muted">
           <ItemContent>
+            <ItemTitle>{t("middle-names-item")}</ItemTitle>
+            <ItemDescription>
+              {member.middleNames || <i>{t("name-fallback")}</i>}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
+            <ItemTitle>{t("baptismal-name-item")}</ItemTitle>
+            <ItemDescription>
+              {member.baptismalName || <i>{t("name-fallback")}</i>}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="muted">
+          <ItemContent>
             <ItemTitle>{t("lastname-item")}</ItemTitle>
             <ItemDescription>{member.lastName}</ItemDescription>
           </ItemContent>
@@ -98,7 +122,7 @@ export const ViewMode = ({ member }: Props) => {
           <ItemContent>
             <ItemTitle>{t("maiden-item")}</ItemTitle>
             <ItemDescription>
-              {member.maidenName || <i>{t("maiden-fallback")}</i>}
+              {member.maidenName || <i>{t("name-fallback")}</i>}
             </ItemDescription>
           </ItemContent>
         </Item>

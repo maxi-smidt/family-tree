@@ -17,6 +17,8 @@ import {
  * Mirrors the backend's _CONFLICT_FIELDS list.
  */
 export const RESOLVABLE_FIELDS: readonly string[] = [
+  "middleNames",
+  "baptismalName",
   "maidenName",
   "birthplace",
   "hometown",

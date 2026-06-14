@@ -11,6 +11,8 @@ class MemberOut(BaseModel):
     id: str
     gender: str | None = None
     firstName: str | None = None
+    middleNames: str | None = None
+    baptismalName: str | None = None
     lastName: str | None = None
     maidenName: str | None = None
     imageData: str | None = None
@@ -30,6 +32,8 @@ class MemberCreate(BaseModel):
     id: str
     gender: str | None = None
     firstName: str | None = None
+    middleNames: str | None = None
+    baptismalName: str | None = None
     lastName: str | None = None
     maidenName: str | None = None
     imageData: str | None = None
@@ -48,6 +52,8 @@ class MemberCreate(BaseModel):
 class MemberUpdate(BaseModel):
     gender: str | None = None
     firstName: str | None = None
+    middleNames: str | None = None
+    baptismalName: str | None = None
     lastName: str | None = None
     maidenName: str | None = None
     imageData: str | None = None

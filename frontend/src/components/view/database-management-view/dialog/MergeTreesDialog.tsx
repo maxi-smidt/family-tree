@@ -264,6 +264,8 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
                       id: d.member_a.id,
                       gender: (d.member_a.gender as "m" | "f" | "o") ?? "o",
                       firstName: d.member_a.firstName ?? "",
+                      middleNames: d.member_a.middleNames ?? null,
+                      baptismalName: d.member_a.baptismalName ?? null,
                       lastName: d.member_a.lastName ?? "",
                       maidenName: d.member_a.maidenName ?? null,
                       imageData: d.member_a.imageData ?? null,

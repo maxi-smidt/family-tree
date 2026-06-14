@@ -90,6 +90,8 @@ export const EditMode = ({
   useEffect(() => {
     const isDirty =
       formData.firstName !== initialData.firstName ||
+      (formData.middleNames || "") !== (initialData.middleNames || "") ||
+      (formData.baptismalName || "") !== (initialData.baptismalName || "") ||
       formData.lastName !== initialData.lastName ||
       (formData.maidenName || "") !== (initialData.maidenName || "") ||
       formData.gender !== initialData.gender ||
@@ -140,7 +142,10 @@ export const EditMode = ({
     setSelectedImage(null);
   };
 
-  const handleDateChange = (field: "birth" | "death", dateString: string | null) => {
+  const handleDateChange = (
+    field: "birth" | "death",
+    dateString: string | null,
+  ) => {
     if (field === "death" && dateString && formData.date.birth) {
       if (comparePartialDates(dateString, formData.date.birth) < 0) {
         toast.error(t("toast-error-death"));
@@ -182,6 +187,8 @@ export const EditMode = ({
       (m) =>
         m.id !== member.id &&
         m.firstName === formData.firstName &&
+        (m.middleNames || "") === (formData.middleNames || "") &&
+        (m.baptismalName || "") === (formData.baptismalName || "") &&
         m.lastName === formData.lastName &&
         m.gender === formData.gender &&
         m.date.birth === formData.date.birth &&
@@ -200,6 +207,8 @@ export const EditMode = ({
 
     updateMemberPartial(member.id, {
       firstName: formData.firstName,
+      middleNames: formData.middleNames || null,
+      baptismalName: formData.baptismalName || null,
       lastName: formData.lastName,
       maidenName: formData.maidenName || null,
       gender: formData.gender,
@@ -317,6 +326,32 @@ export const EditMode = ({
               className="h-7 text-xs! shadow-none"
               placeholder={t("firstname-field")}
               onChange={(e) => handleChange("firstName", e.target.value)}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+              {t("middle-names-field")}
+            </FieldLabel>
+            <Input
+              id="middleNames"
+              value={formData.middleNames || ""}
+              className="h-7 text-xs! shadow-none"
+              placeholder={t("middle-names-field")}
+              onChange={(e) => handleChange("middleNames", e.target.value)}
+            />
+          </Field>
+
+          <Field>
+            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+              {t("baptismal-name-field")}
+            </FieldLabel>
+            <Input
+              id="baptismalName"
+              value={formData.baptismalName || ""}
+              className="h-7 text-xs! shadow-none"
+              placeholder={t("baptismal-name-field")}
+              onChange={(e) => handleChange("baptismalName", e.target.value)}
             />
           </Field>
 

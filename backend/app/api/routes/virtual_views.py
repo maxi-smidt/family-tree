@@ -203,6 +203,8 @@ def _build_composite_members(
 
         # Coalesce nullable fields from all members in source order.
         all_members = [m for m, _ in member_rows_sorted]
+        coalesced_middle = _coalesce(*[m.middleNames for m in all_members])
+        coalesced_baptismal = _coalesce(*[m.baptismalName for m in all_members])
         coalesced_maiden = _coalesce(*[m.maidenName for m in all_members])
         coalesced_image = _coalesce(*[m.imageData for m in all_members])
         coalesced_dob = _coalesce(*[m.dateOfBirth for m in all_members])
@@ -222,6 +224,8 @@ def _build_composite_members(
         out["id"] = node_id
         out["positionX"] = pos_x
         out["positionY"] = pos_y
+        out["middleNames"] = coalesced_middle
+        out["baptismalName"] = coalesced_baptismal
         out["maidenName"] = coalesced_maiden
         out["imageData"] = coalesced_image
         out["dateOfBirth"] = coalesced_dob
