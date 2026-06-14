@@ -343,7 +343,7 @@
       "maiden-field": "Maiden Name",
       "born-field": "Date of Birth",
       "death-field": "Date of Death",
-      "date-placeholder": "YYYY, YYYY-MM, or YYYY-MM-DD",
+      "date-placeholder": "Pick a date",
       "notes-field": "Notes / Biography",
       "notes-placeholder": "Add biographical notes, personal history, or other details…",
       "paternal-parent-field": "Paternal Parent",
@@ -358,8 +358,7 @@
       "places-lived-from": "From (year)",
       "places-lived-to": "To (year)",
       "places-lived-empty": "No locations added yet.",
-      "deceased-field": "Deceased",
-      "toast-error-invalid-date": "Invalid date. Use YYYY, YYYY-MM, or YYYY-MM-DD format."
+      "deceased-field": "Deceased"
     },
     "view-mode": {
       "firstname-item": "First Name",

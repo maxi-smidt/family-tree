@@ -343,7 +343,7 @@
       "maiden-field": "Mädchenname",
       "born-field": "Geburtsdatum",
       "death-field": "Sterbedatum",
-      "date-placeholder": "JJJJ, JJJJ-MM oder JJJJ-MM-TT",
+      "date-placeholder": "Datum auswählen",
       "notes-field": "Notizen / Biografie",
       "notes-placeholder": "Biographische Notizen, persönliche Geschichte oder andere Details hinzufügen…",
       "paternal-parent-field": "Väterlicherseits",
@@ -358,8 +358,7 @@
       "places-lived-from": "Von (Jahr)",
       "places-lived-to": "Bis (Jahr)",
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
-      "deceased-field": "Verstorben",
-      "toast-error-invalid-date": "Ungültiges Datum. Bitte JJJJ, JJJJ-MM oder JJJJ-MM-TT verwenden."
+      "deceased-field": "Verstorben"
     },
     "view-mode": {
       "firstname-item": "Vorname",

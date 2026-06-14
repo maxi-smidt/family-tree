@@ -27,8 +27,9 @@ import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
-import { comparePartialDates, isValidPartialDate } from "@/utils/dateUtils";
+import { comparePartialDates } from "@/utils/dateUtils";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
@@ -139,14 +140,7 @@ export const EditMode = ({
     setSelectedImage(null);
   };
 
-  const handleDateChange = (field: "birth" | "death", value: string) => {
-    const dateString = value.trim() || null;
-
-    if (dateString && !isValidPartialDate(dateString)) {
-      toast.error(t("toast-error-invalid-date"));
-      return;
-    }
-
+  const handleDateChange = (field: "birth" | "death", dateString: string | null) => {
     if (field === "death" && dateString && formData.date.birth) {
       if (comparePartialDates(dateString, formData.date.birth) < 0) {
         toast.error(t("toast-error-death"));
@@ -356,12 +350,11 @@ export const EditMode = ({
             <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
               {t("born-field")}
             </FieldLabel>
-            <Input
-              id="dateOfBirth"
-              value={formData.date.birth || ""}
-              className="h-7 text-xs! shadow-none"
+            <PartialDatePicker
+              className="h-7 text-xs shadow-none border-input"
+              value={formData.date.birth}
+              onChange={(date) => handleDateChange("birth", date)}
               placeholder={t("date-placeholder")}
-              onChange={(e) => handleDateChange("birth", e.target.value)}
             />
           </Field>
 
@@ -369,12 +362,11 @@ export const EditMode = ({
             <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
               {t("death-field")}
             </FieldLabel>
-            <Input
-              id="dateOfDeath"
-              value={formData.date.death || ""}
-              className="h-7 text-xs! shadow-none"
+            <PartialDatePicker
+              className="h-7 text-xs shadow-none border-input"
+              value={formData.date.death}
+              onChange={(date) => handleDateChange("death", date)}
               placeholder={t("date-placeholder")}
-              onChange={(e) => handleDateChange("death", e.target.value)}
             />
           </Field>
 
