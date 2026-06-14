@@ -890,7 +890,8 @@
       "f": "weiblich",
       "o": "anderes"
     },
-    "date-unknown": "unknown"
+    "date-unknown": "unknown",
+    "clear-date": "Datum löschen"
   },
   "auth": {
     "session": {

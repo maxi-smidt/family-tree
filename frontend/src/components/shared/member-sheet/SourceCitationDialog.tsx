@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import {
   Dialog,
   DialogContent,
@@ -353,13 +354,12 @@ export const SourceCitationDialog = ({
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">{tD("source-date")}</Label>
-                      <Input
-                        type="date"
-                        value={newSource.sourceDate}
-                        onChange={(e) =>
+                      <PartialDatePicker
+                        value={newSource.sourceDate || null}
+                        onChange={(value) =>
                           setNewSource((p) => ({
                             ...p,
-                            sourceDate: e.target.value,
+                            sourceDate: value ?? "",
                           }))
                         }
                       />

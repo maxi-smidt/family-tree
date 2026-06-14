@@ -9,7 +9,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import {
   Popover,
   PopoverContent,
@@ -35,7 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
-import { formatDateWithFallback } from "@/utils/dateUtils";
+import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { getEventTypeLabel, getEventTypeInfo } from "@/types/eventTypes";
 import { GeocodeResult } from "@/types/geocode";
 import { Member } from "@/types/member";
@@ -131,8 +131,8 @@ export const MapView = () => {
     "all",
   );
   const [memberSelectOpen, setMemberSelectOpen] = useState(false);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateFrom, setDateFrom] = useState<string | null>(null);
+  const [dateTo, setDateTo] = useState<string | null>(null);
 
   // Gather every location string from all sources for geocoding
   const allLocations = useMemo(() => {
@@ -313,19 +313,19 @@ export const MapView = () => {
 
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{t("date-from")}</span>
-          <Input
-            type="date"
+          <PartialDatePicker
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={setDateFrom}
+            placeholder={t("date-from")}
             className="w-36 h-9"
           />
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{t("date-to")}</span>
-          <Input
-            type="date"
+          <PartialDatePicker
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={setDateTo}
+            placeholder={t("date-to")}
             className="w-36 h-9"
           />
         </div>
@@ -446,10 +446,10 @@ export const MapView = () => {
                             (item.dateFrom || item.dateTo) && (
                               <p className="text-xs text-muted-foreground ml-4">
                                 {item.dateFrom && item.dateTo
-                                  ? `${item.dateFrom} – ${item.dateTo}`
+                                  ? `${formatDate(item.dateFrom)} – ${formatDate(item.dateTo)}`
                                   : item.dateFrom
-                                    ? `${t("from")} ${item.dateFrom}`
-                                    : `${t("until")} ${item.dateTo}`}
+                                    ? `${t("from")} ${formatDate(item.dateFrom)}`
+                                    : `${t("until")} ${formatDate(item.dateTo)}`}
                               </p>
                             )}
                           {item.description && (

@@ -1,4 +1,9 @@
-import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react";
+import {
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  XIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -54,11 +59,13 @@ export const PartialDatePicker = ({
   onChange,
   placeholder,
 }: Props) => {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const locale = resolveDateLocale(i18n.resolvedLanguage);
   const monthNames = getMonthNames(locale);
+  const today = new Date();
 
-  const inferredPrecision: DatePrecision = getDatePrecision(value ?? null) ?? "day";
+  const inferredPrecision: DatePrecision =
+    getDatePrecision(value ?? null) ?? "day";
   const [open, setOpen] = useState(false);
   const [activePrecision, setActivePrecision] =
     useState<DatePrecision>(inferredPrecision);
@@ -74,7 +81,10 @@ export const PartialDatePicker = ({
 
   // When popover opens, sync activePrecision to the current value's precision.
   const handleOpenChange = (next: boolean) => {
-    if (next) setActivePrecision(getDatePrecision(value ?? null) ?? "day");
+    if (next) {
+      setActivePrecision(getDatePrecision(value ?? null) ?? "day");
+      if (!value) setViewYear(today.getFullYear());
+    }
     setOpen(next);
   };
 
@@ -113,9 +123,9 @@ export const PartialDatePicker = ({
     setOpen(false);
   };
 
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const clearValue = () => {
     onChange?.(null);
+    setOpen(false);
   };
 
   // ── Decade grid for Year mode ───────────────────────────────────────────────
@@ -150,10 +160,29 @@ export const PartialDatePicker = ({
           <span className="truncate">{displayValue ?? placeholder}</span>
           <span className="flex items-center gap-1 ml-2 shrink-0">
             {value && (
-              <XIcon
-                className="h-3 w-3 opacity-50 hover:opacity-100"
-                onClick={handleClear}
-              />
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={t("common.clear-date")}
+                className="flex size-5 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearValue();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearValue();
+                  }
+                }}
+              >
+                <XIcon className="h-3 w-3" aria-hidden="true" />
+              </span>
             )}
             <ChevronDownIcon className="h-4 w-4 opacity-50" />
           </span>
@@ -162,21 +191,23 @@ export const PartialDatePicker = ({
       <PopoverContent className="w-auto p-0" align="start">
         {/* Precision tabs */}
         <div className="flex border-b">
-          {(["year", "month", "day"] as NonNullable<DatePrecision>[]).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => switchPrecision(p)}
-              className={cn(
-                "flex-1 py-1.5 text-xs font-medium transition-colors",
-                activePrecision === p
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {PRECISION_LABELS[p]}
-            </button>
-          ))}
+          {(["year", "month", "day"] as NonNullable<DatePrecision>[]).map(
+            (p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => switchPrecision(p)}
+                className={cn(
+                  "flex-1 py-1.5 text-xs font-medium transition-colors",
+                  activePrecision === p
+                    ? "border-b-2 border-primary text-primary"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {PRECISION_LABELS[p]}
+              </button>
+            ),
+          )}
         </div>
 
         {/* Year picker */}
@@ -261,8 +292,7 @@ export const PartialDatePicker = ({
             <div className="grid grid-cols-3 gap-1">
               {monthNames.map((name, idx) => {
                 const m = idx + 1;
-                const isSelected =
-                  parsedYear === viewYear && parsedMonth === m;
+                const isSelected = parsedYear === viewYear && parsedMonth === m;
                 return (
                   <button
                     key={m}
@@ -292,7 +322,10 @@ export const PartialDatePicker = ({
             onSelect={handleDaySelect}
             startMonth={new Date(YEAR_MIN, 0)}
             endMonth={new Date(YEAR_MAX, 11)}
-            defaultMonth={calendarValue ?? new Date(viewYear, (parsedMonth ?? 1) - 1)}
+            defaultMonth={
+              calendarValue ??
+              (parsedYear ? new Date(viewYear, (parsedMonth ?? 1) - 1) : today)
+            }
           />
         )}
       </PopoverContent>
