@@ -13,6 +13,7 @@ describe("getLayoutedElements", () => {
         maidenName: null,
         imageData: null,
         date: { birth: "1990-01-01", death: null },
+        deceased: false,
         parents: { paternalParent: null, maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -44,6 +45,7 @@ describe("getLayoutedElements", () => {
         maidenName: null,
         imageData: null,
         date: { birth: "1960-01-01", death: null },
+        deceased: false,
         parents: { paternalParent: null, maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -60,6 +62,7 @@ describe("getLayoutedElements", () => {
         maidenName: null,
         imageData: null,
         date: { birth: "1990-01-01", death: null },
+        deceased: false,
         parents: { paternalParent: "1", maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -79,6 +82,7 @@ describe("getLayoutedElements", () => {
         maidenName: null,
         imageData: null,
         date: { birth: "1992-01-01", death: null },
+        deceased: false,
         parents: { paternalParent: "1", maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -120,6 +124,7 @@ describe("getLayoutedElements", () => {
         lastName: "Simpson",
         gender: "m",
         date: { birth: "1920-01-01", death: null },
+        deceased: false,
         parents: { paternalParent: null, maternalParent: null },
       },
       {
@@ -129,6 +134,7 @@ describe("getLayoutedElements", () => {
         lastName: "Simpson",
         gender: "f",
         date: { birth: "1925-01-01", death: null },
+        deceased: false,
         parents: { paternalParent: null, maternalParent: null },
         relations: [
           { fromMemberId: "mona", toMemberId: "abe", relationType: "married" },
@@ -142,6 +148,7 @@ describe("getLayoutedElements", () => {
         lastName: "Simpson",
         gender: "m",
         date: { birth: "1956-05-12", death: null },
+        deceased: false,
         parents: { paternalParent: "abe", maternalParent: "mona" },
         relations: [
           {
@@ -159,6 +166,7 @@ describe("getLayoutedElements", () => {
         lastName: "Powell",
         gender: "m",
         date: { birth: "1953-07-30", death: null },
+        deceased: false,
         parents: { paternalParent: "abe", maternalParent: "mona" },
       },
       // The spouse.
@@ -169,6 +177,7 @@ describe("getLayoutedElements", () => {
         lastName: "Simpson",
         gender: "f",
         date: { birth: "1959-03-19", death: null },
+        deceased: false,
         parents: { paternalParent: null, maternalParent: null },
       },
       // A shared child so the couple forms a parent union.
@@ -179,6 +188,7 @@ describe("getLayoutedElements", () => {
         lastName: "Simpson",
         gender: "m",
         date: { birth: "1985-04-01", death: null },
+        deceased: false,
         parents: { paternalParent: "vm_homer", maternalParent: "marge" },
       },
     ];
@@ -204,6 +214,7 @@ describe("getLayoutedElements", () => {
         maidenName: null,
         imageData: null,
         date: { birth: "1990-01-01", death: null },
+        deceased: false,
         parents: { paternalParent: null, maternalParent: null },
         additionalData: null,
         birthplace: null,

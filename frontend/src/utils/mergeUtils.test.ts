@@ -23,6 +23,7 @@ const makeDB = (overrides: Partial<MemberDB> = {}): MemberDB => ({
   imageData: null,
   dateOfBirth: "1950",
   dateOfDeath: null,
+  deceased: false,
   additionalData: null,
   birthplace: null,
   hometown: null,

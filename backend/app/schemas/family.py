@@ -16,6 +16,7 @@ class MemberOut(BaseModel):
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    deceased: bool = False
     additionalData: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
@@ -34,6 +35,7 @@ class MemberCreate(BaseModel):
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    deceased: bool = False
     additionalData: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
@@ -51,6 +53,7 @@ class MemberUpdate(BaseModel):
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    deceased: bool | None = None
     additionalData: str | None = None
     birthplace: str | None = None
     hometown: str | None = None

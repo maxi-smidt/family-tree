@@ -22,12 +22,13 @@ import {
   VenusAndMars,
 } from "lucide-react";
 import { Gender, Member } from "@/types/member";
-import { DatePicker } from "@/components/ui/date-picker";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Switch } from "@/components/ui/switch";
 import { useTranslation } from "react-i18next";
+import { comparePartialDates, isValidPartialDate } from "@/utils/dateUtils";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
@@ -94,6 +95,7 @@ export const EditMode = ({
       (formData.imageData || "") !== (initialData.imageData || "") ||
       formData.date.birth !== initialData.date.birth ||
       (formData.date.death || "") !== (initialData.date.death || "") ||
+      formData.deceased !== initialData.deceased ||
       (formData.additionalData || "") !== (initialData.additionalData || "") ||
       (formData.birthplace || "") !== (initialData.birthplace || "") ||
       (formData.hometown || "") !== (initialData.hometown || "") ||
@@ -137,36 +139,23 @@ export const EditMode = ({
     setSelectedImage(null);
   };
 
-  const parseDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return undefined;
-    return new Date(dateStr);
-  };
+  const handleDateChange = (field: "birth" | "death", value: string) => {
+    const dateString = value.trim() || null;
 
-  const handleDateChange = (
-    field: "birth" | "death",
-    date: Date | undefined,
-  ) => {
-    let dateString = null;
-
-    if (date) {
-      const offsetMs = date.getTimezoneOffset() * 60 * 1000;
-      const localISODate = new Date(date.getTime() - offsetMs);
-      dateString = localISODate.toISOString().split("T")[0];
+    if (dateString && !isValidPartialDate(dateString)) {
+      toast.error(t("toast-error-invalid-date"));
+      return;
     }
 
     if (field === "death" && dateString && formData.date.birth) {
-      const birthDate = new Date(formData.date.birth);
-      const deathDate = new Date(dateString);
-      if (deathDate < birthDate) {
+      if (comparePartialDates(dateString, formData.date.birth) < 0) {
         toast.error(t("toast-error-death"));
         return;
       }
     }
 
     if (field === "birth" && dateString && formData.date.death) {
-      const birthDate = new Date(dateString);
-      const deathDate = new Date(formData.date.death);
-      if (deathDate < birthDate) {
+      if (comparePartialDates(formData.date.death, dateString) < 0) {
         toast.error(t("toast-error-birth"));
         return;
       }
@@ -174,6 +163,7 @@ export const EditMode = ({
 
     setFormData((prev) => ({
       ...prev,
+      deceased: field === "death" && dateString ? true : prev.deceased,
       date: {
         ...prev.date,
         [field]: dateString,
@@ -222,6 +212,7 @@ export const EditMode = ({
       imageData: formData.imageData || undefined,
       dateOfBirth: formData.date.birth,
       dateOfDeath: formData.date.death || null,
+      deceased: formData.deceased,
       additionalData: formData.additionalData || null,
       birthplace: formData.birthplace || null,
       hometown: formData.hometown || null,
@@ -365,11 +356,12 @@ export const EditMode = ({
             <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
               {t("born-field")}
             </FieldLabel>
-            <DatePicker
-              className="h-7 text-xs shadow-none border-input"
-              value={parseDate(formData.date.birth)}
-              onChange={(date) => handleDateChange("birth", date)}
+            <Input
+              id="dateOfBirth"
+              value={formData.date.birth || ""}
+              className="h-7 text-xs! shadow-none"
               placeholder={t("date-placeholder")}
+              onChange={(e) => handleDateChange("birth", e.target.value)}
             />
           </Field>
 
@@ -377,12 +369,34 @@ export const EditMode = ({
             <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
               {t("death-field")}
             </FieldLabel>
-            <DatePicker
-              className="h-7 text-xs shadow-none border-input"
-              value={parseDate(formData.date.death)}
-              onChange={(date) => handleDateChange("death", date)}
+            <Input
+              id="dateOfDeath"
+              value={formData.date.death || ""}
+              className="h-7 text-xs! shadow-none"
               placeholder={t("date-placeholder")}
+              onChange={(e) => handleDateChange("death", e.target.value)}
             />
+          </Field>
+
+          <Field>
+            <div className="flex items-center justify-between">
+              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                {t("deceased-field")}
+              </FieldLabel>
+              <Switch
+                checked={formData.deceased}
+                onCheckedChange={(checked) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    deceased: checked,
+                    date: {
+                      ...prev.date,
+                      death: checked ? prev.date.death : null,
+                    },
+                  }));
+                }}
+              />
+            </div>
           </Field>
 
           <Field>

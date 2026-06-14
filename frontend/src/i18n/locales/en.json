@@ -343,7 +343,7 @@
       "maiden-field": "Maiden Name",
       "born-field": "Date of Birth",
       "death-field": "Date of Death",
-      "date-placeholder": "Pick a date",
+      "date-placeholder": "YYYY, YYYY-MM, or YYYY-MM-DD",
       "notes-field": "Notes / Biography",
       "notes-placeholder": "Add biographical notes, personal history, or other details…",
       "paternal-parent-field": "Paternal Parent",
@@ -357,7 +357,9 @@
       "places-lived-add": "Add location",
       "places-lived-from": "From (year)",
       "places-lived-to": "To (year)",
-      "places-lived-empty": "No locations added yet."
+      "places-lived-empty": "No locations added yet.",
+      "deceased-field": "Deceased",
+      "toast-error-invalid-date": "Invalid date. Use YYYY, YYYY-MM, or YYYY-MM-DD format."
     },
     "view-mode": {
       "firstname-item": "First Name",
@@ -380,7 +382,8 @@
       "sources": "Source Citations",
       "locations-section": "Locations",
       "birthplace-label": "Birthplace",
-      "hometown-label": "Hometown"
+      "hometown-label": "Hometown",
+      "dod-deceased-no-date": "Deceased (date unknown)"
     },
     "member-sheet": {
       "edit-title": "Edit Member",
@@ -586,7 +589,8 @@
       "add-parent": "Add parent",
       "add-child": "Add child",
       "add-left": "Add relative on the left",
-      "add-right": "Add relative on the right"
+      "add-right": "Add relative on the right",
+      "life-deceased-unknown": "deceased"
     },
     "canvas-label": "Family tree canvas",
     "a11y": {

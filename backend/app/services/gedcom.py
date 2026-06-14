@@ -351,6 +351,8 @@ def serialize_to_gedcom(
         if dod_ged:
             L("1 DEAT")
             L(f"2 DATE {dod_ged}")
+        elif member.get("deceased"):
+            L("1 DEAT Y")
 
         # RESI
         hometown = (member.get("hometown") or "").strip()
@@ -635,6 +637,7 @@ def parse_gedcom(text: str) -> dict:
             "gender": None,
             "dateOfBirth": None,
             "dateOfDeath": None,
+            "deceased": False,
             "birthplace": None,
             "hometown": None,
             "additionalData": None,
@@ -703,6 +706,7 @@ def parse_gedcom(text: str) -> dict:
                     member["birthplace"] = plac_val.strip()
 
             elif tag == "DEAT":
+                member["deceased"] = True
                 date_val = _child_value(child, "DATE")
                 if date_val:
                     member["dateOfDeath"] = _from_gedcom_date(date_val)

@@ -343,7 +343,7 @@
       "maiden-field": "Mädchenname",
       "born-field": "Geburtsdatum",
       "death-field": "Sterbedatum",
-      "date-placeholder": "Wähle ein Datum",
+      "date-placeholder": "JJJJ, JJJJ-MM oder JJJJ-MM-TT",
       "notes-field": "Notizen / Biografie",
       "notes-placeholder": "Biographische Notizen, persönliche Geschichte oder andere Details hinzufügen…",
       "paternal-parent-field": "Väterlicherseits",
@@ -357,7 +357,9 @@
       "places-lived-add": "Ort hinzufügen",
       "places-lived-from": "Von (Jahr)",
       "places-lived-to": "Bis (Jahr)",
-      "places-lived-empty": "Noch keine Orte hinzugefügt."
+      "places-lived-empty": "Noch keine Orte hinzugefügt.",
+      "deceased-field": "Verstorben",
+      "toast-error-invalid-date": "Ungültiges Datum. Bitte JJJJ, JJJJ-MM oder JJJJ-MM-TT verwenden."
     },
     "view-mode": {
       "firstname-item": "Vorname",
@@ -380,7 +382,8 @@
       "sources": "Quellennachweise",
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
-      "hometown-label": "Heimatort"
+      "hometown-label": "Heimatort",
+      "dod-deceased-no-date": "Verstorben (Datum unbekannt)"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",
@@ -586,7 +589,8 @@
       "add-parent": "Elternteil hinzufügen",
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
-      "add-right": "Verwandte Person rechts hinzufügen"
+      "add-right": "Verwandte Person rechts hinzufügen",
+      "life-deceased-unknown": "verstorben"
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {

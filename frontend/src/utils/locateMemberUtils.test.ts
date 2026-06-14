@@ -16,6 +16,7 @@ const member = (
   gender: "o",
   maidenName: null,
   imageData: null,
+  deceased: false,
   date: { birth: "1990-01-01", death: null },
   parents: {
     paternalParent: options.paternalParent ?? null,
