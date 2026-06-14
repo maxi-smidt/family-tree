@@ -243,7 +243,7 @@ export const EditMode = ({
               alt="Profile"
             />
           ) : (
-            <div className="size-32 flex justify-center items-center rounded-full mx-auto bg-gray-200 text-2xl font-bold text-gray-500">
+            <div className="size-32 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
               <User size={64} />
             </div>
           )}

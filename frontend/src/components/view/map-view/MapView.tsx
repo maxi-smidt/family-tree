@@ -45,10 +45,10 @@ L.Icon.Default.mergeOptions({
 type LocationType = "event" | "birthplace" | "hometown" | "places-lived";
 
 const LOCATION_COLORS: Record<LocationType, string> = {
-  event: "#f59e0b",
-  birthplace: "#3b82f6",
-  hometown: "#06b6d4",
-  "places-lived": "#a855f7",
+  event: "var(--color-map-event)",
+  birthplace: "var(--color-map-birthplace)",
+  hometown: "var(--color-map-hometown)",
+  "places-lived": "var(--color-map-places-lived)",
 };
 
 // Order used when picking which color shows first in the icon

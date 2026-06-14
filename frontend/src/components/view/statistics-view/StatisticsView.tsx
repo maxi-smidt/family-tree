@@ -21,15 +21,15 @@ import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import type { StatisticsReport } from "@/types/statistics";
 
 const GENDER_COLORS = {
-  male: "#6366f1",
-  female: "#ec4899",
-  other: "#f59e0b",
-  unknown: "#94a3b8",
+  male: "var(--color-chart-gender-male)",
+  female: "var(--color-chart-gender-female)",
+  other: "var(--color-chart-gender-other)",
+  unknown: "var(--color-chart-gender-unknown)",
 };
 
-const BIRTH_COLOR = "#6366f1";
-const DEATH_COLOR = "#f43f5e";
-const NAME_COLOR = "#6366f1";
+const BIRTH_COLOR = "var(--color-chart-birth)";
+const DEATH_COLOR = "var(--color-chart-death)";
+const NAME_COLOR = "var(--color-chart-birth)";
 
 interface StatCardProps {
   icon: React.ReactNode;

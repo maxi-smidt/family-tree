@@ -36,6 +36,34 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  --color-chart-gender-male: var(--chart-gender-male);
+  --color-chart-gender-female: var(--chart-gender-female);
+  --color-chart-gender-other: var(--chart-gender-other);
+  --color-chart-gender-unknown: var(--chart-gender-unknown);
+  --color-chart-birth: var(--chart-birth);
+  --color-chart-death: var(--chart-death);
+
+  --color-map-event: var(--map-event);
+  --color-map-birthplace: var(--map-birthplace);
+  --color-map-hometown: var(--map-hometown);
+  --color-map-places-lived: var(--map-places-lived);
+
+  --color-disease-affected: var(--disease-affected);
+  --color-disease-affected-bg: var(--disease-affected-bg);
+  --color-disease-carrier: var(--disease-carrier);
+  --color-disease-carrier-bg: var(--disease-carrier-bg);
+  --color-disease-other: var(--disease-other);
+  --color-disease-other-bg: var(--disease-other-bg);
+  --color-disease-risk: var(--disease-risk);
+  --color-disease-risk-bg: var(--disease-risk-bg);
+  --color-disease-risk-border: var(--disease-risk-border);
+
+  --color-connection-path: var(--connection-path);
+
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -79,6 +107,38 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Statistics charts */
+  --chart-gender-male: oklch(0.585 0.203 277.1);
+  --chart-gender-female: oklch(0.657 0.214 354.3);
+  --chart-gender-other: oklch(0.769 0.156 70.7);
+  --chart-gender-unknown: oklch(0.711 0.035 256.8);
+  --chart-birth: oklch(0.585 0.203 277.1);
+  --chart-death: oklch(0.645 0.225 16.4);
+
+  /* Map marker types */
+  --map-event: oklch(0.769 0.156 70.7);
+  --map-birthplace: oklch(0.623 0.214 259.8);
+  --map-hometown: oklch(0.715 0.135 215.2);
+  --map-places-lived: oklch(0.627 0.233 303.9);
+
+  /* Disease / risk indicators */
+  --disease-affected: oklch(0.637 0.208 25.3);
+  --disease-affected-bg: oklch(0.637 0.208 25.3 / 0.15);
+  --disease-carrier: oklch(0.828 0.158 76.0);
+  --disease-carrier-bg: oklch(0.828 0.158 76.0 / 0.15);
+  --disease-other: oklch(0.711 0.018 261.3);
+  --disease-other-bg: oklch(0.711 0.018 261.3 / 0.15);
+  --disease-risk: oklch(0.762 0.166 84.2);
+  --disease-risk-bg: oklch(0.762 0.166 84.2 / 0.1);
+  --disease-risk-border: oklch(0.762 0.166 84.2 / 0.5);
+
+  /* Tree connection path highlight */
+  --connection-path: oklch(0.762 0.166 84.2);
+
+  /* Success (buttons) */
+  --success: oklch(0.627 0.155 149.2);
+  --success-foreground: oklch(0.985 0 0);
 }
 
 .dark {
@@ -113,6 +173,38 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Statistics charts */
+  --chart-gender-male: oklch(0.672 0.182 277.1);
+  --chart-gender-female: oklch(0.724 0.187 354.3);
+  --chart-gender-other: oklch(0.828 0.155 78.0);
+  --chart-gender-unknown: oklch(0.78 0.03 256.8);
+  --chart-birth: oklch(0.672 0.182 277.1);
+  --chart-death: oklch(0.712 0.196 16.4);
+
+  /* Map marker types */
+  --map-event: oklch(0.828 0.155 78.0);
+  --map-birthplace: oklch(0.715 0.165 259.8);
+  --map-hometown: oklch(0.79 0.12 215.2);
+  --map-places-lived: oklch(0.72 0.19 303.9);
+
+  /* Disease / risk indicators */
+  --disease-affected: oklch(0.704 0.191 22.2);
+  --disease-affected-bg: oklch(0.704 0.191 22.2 / 0.22);
+  --disease-carrier: oklch(0.86 0.15 80.0);
+  --disease-carrier-bg: oklch(0.86 0.15 80.0 / 0.22);
+  --disease-other: oklch(0.78 0.02 261.3);
+  --disease-other-bg: oklch(0.78 0.02 261.3 / 0.22);
+  --disease-risk: oklch(0.83 0.16 86.0);
+  --disease-risk-bg: oklch(0.83 0.16 86.0 / 0.18);
+  --disease-risk-border: oklch(0.83 0.16 86.0 / 0.6);
+
+  /* Tree connection path highlight */
+  --connection-path: oklch(0.83 0.16 86.0);
+
+  /* Success (buttons) */
+  --success: oklch(0.696 0.16 149.2);
+  --success-foreground: oklch(0.205 0 0);
 }
 
 @layer base {
