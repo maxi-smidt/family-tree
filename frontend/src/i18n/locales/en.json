@@ -861,7 +861,12 @@
     "view-degraded": "Access issues",
     "recompute-button": "Recompute matches",
     "toast-recompute-success": "Matches recomputed. {{count}} overlapping members found.",
-    "toast-recompute-error": "Could not recompute matches."
+    "toast-recompute-error": "Could not recompute matches.",
+    "new-menu-button": "New",
+    "import-menu-button": "Import",
+    "row-actions-button": "More actions",
+    "export-button": "Export Tree",
+    "delete-button": "Delete"
   },
   "common": {
     "english": "English",

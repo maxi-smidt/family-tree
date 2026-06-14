@@ -861,7 +861,12 @@
     "view-degraded": "Zugriffsprobleme",
     "recompute-button": "Übereinstimmungen neu berechnen",
     "toast-recompute-success": "Übereinstimmungen neu berechnet. {{count}} gemeinsame Mitglieder gefunden.",
-    "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden."
+    "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden.",
+    "new-menu-button": "Neu",
+    "import-menu-button": "Importieren",
+    "row-actions-button": "Weitere Aktionen",
+    "export-button": "Stammbaum exportieren",
+    "delete-button": "Löschen"
   },
   "common": {
     "english": "Englisch",
