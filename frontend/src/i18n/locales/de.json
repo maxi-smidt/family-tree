@@ -1187,10 +1187,13 @@
       "no-mappable-events": "Keine darstellbaren Ereignisse gefunden",
       "add-location-hint": "Füge einem Ereignis einen Ort hinzu, um es auf der Karte zu sehen",
       "unlocatable-count": "{{count}} Ereignis(se) haben Orte, die auf der Karte nicht aufgelöst werden konnten",
+      "filter-location-types": "Ortstypen",
       "legend-event": "Ereignis",
       "legend-birthplace": "Geburtsort",
       "legend-hometown": "Heimatort",
       "legend-places-lived": "Wohnort",
+      "no-location-types-visible": "Alle Ortstypen sind ausgeblendet",
+      "enable-location-type-hint": "Aktiviere oben einen Ortstyp, um seine Markierungen anzuzeigen",
       "from": "ab",
       "until": "bis"
     }

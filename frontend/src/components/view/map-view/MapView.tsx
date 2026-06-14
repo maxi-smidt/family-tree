@@ -10,6 +10,7 @@ import { useGeocodeStore } from "@/hooks/useGeocodeStore";
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Popover,
   PopoverContent,
@@ -57,6 +58,13 @@ const LOCATION_COLORS: Record<LocationType, string> = {
   hometown: "var(--color-map-hometown)",
   "places-lived": "var(--color-map-places-lived)",
 };
+
+const LOCATION_TYPES: LocationType[] = [
+  "event",
+  "birthplace",
+  "hometown",
+  "places-lived",
+];
 
 // Order used when picking which color shows first in the icon
 const TYPE_PRIORITY: LocationType[] = [
@@ -133,22 +141,36 @@ export const MapView = () => {
   const [memberSelectOpen, setMemberSelectOpen] = useState(false);
   const [dateFrom, setDateFrom] = useState<string | null>(null);
   const [dateTo, setDateTo] = useState<string | null>(null);
+  const [visibleLocationTypes, setVisibleLocationTypes] =
+    useState<LocationType[]>(LOCATION_TYPES);
+  const visibleLocationTypeSet = useMemo(
+    () => new Set(visibleLocationTypes),
+    [visibleLocationTypes],
+  );
 
-  // Gather every location string from all sources for geocoding
+  // Gather visible location strings from all sources for geocoding
   const allLocations = useMemo(() => {
     const locs = new Set<string>();
     for (const m of members) {
-      if (m.birthplace) locs.add(m.birthplace);
-      if (m.hometown) locs.add(m.hometown);
-      for (const p of m.placesLived) {
-        if (p.location) locs.add(p.location);
+      if (visibleLocationTypeSet.has("birthplace") && m.birthplace) {
+        locs.add(m.birthplace);
+      }
+      if (visibleLocationTypeSet.has("hometown") && m.hometown) {
+        locs.add(m.hometown);
+      }
+      if (visibleLocationTypeSet.has("places-lived")) {
+        for (const p of m.placesLived) {
+          if (p.location) locs.add(p.location);
+        }
       }
     }
-    for (const e of events) {
-      if (e.location) locs.add(e.location);
+    if (visibleLocationTypeSet.has("event")) {
+      for (const e of events) {
+        if (e.location) locs.add(e.location);
+      }
     }
     return [...locs];
-  }, [members, events]);
+  }, [members, events, visibleLocationTypeSet]);
 
   useEffect(() => {
     if (allLocations.length > 0) resolveLocations(allLocations);
@@ -184,6 +206,7 @@ export const MapView = () => {
     const byCoord = new Map<string, LocationGroup>();
 
     const add = (location: string, item: LocationItem) => {
+      if (!visibleLocationTypeSet.has(item.type)) return;
       const coord = coords.get(location);
       if (!coord?.resolved || coord.lat === null || coord.lon === null) return;
       const key = `${coord.lat.toFixed(5)},${coord.lon.toFixed(5)}`;
@@ -197,16 +220,21 @@ export const MapView = () => {
 
     for (const m of filteredMembers) {
       const name = getMemberLabel(m);
-      if (m.birthplace) add(m.birthplace, { type: "birthplace", memberName: name });
-      if (m.hometown) add(m.hometown, { type: "hometown", memberName: name });
+      if (m.birthplace) {
+        add(m.birthplace, { type: "birthplace", memberName: name });
+      }
+      if (m.hometown) {
+        add(m.hometown, { type: "hometown", memberName: name });
+      }
       for (const p of m.placesLived) {
-        if (p.location)
+        if (p.location) {
           add(p.location, {
             type: "places-lived",
             memberName: name,
             dateFrom: p.from,
             dateTo: p.to,
           });
+        }
       }
     }
 
@@ -229,36 +257,40 @@ export const MapView = () => {
     }
 
     return [...byCoord.values()];
-  }, [filteredMembers, filteredEvents, coords, members]);
+  }, [
+    filteredMembers,
+    filteredEvents,
+    coords,
+    members,
+    visibleLocationTypeSet,
+  ]);
 
   const unmappedCount = useMemo(
-    () => allLocations.filter((loc) => coords.get(loc)?.resolved === false).length,
+    () =>
+      allLocations.filter((loc) => coords.get(loc)?.resolved === false).length,
     [allLocations, coords],
   );
 
-  const LEGEND_TYPES: LocationType[] = [
-    "event",
-    "birthplace",
-    "hometown",
-    "places-lived",
-  ];
+  const noLocationTypesVisible = visibleLocationTypes.length === 0;
 
   return (
     <ViewLayout title={t("title")}>
       {/* Filters + legend row */}
-      <div className="flex gap-3 mb-4 p-1 items-center flex-wrap">
+      <div className="flex gap-2 mb-4 p-1 pb-2 items-center flex-nowrap overflow-x-auto">
         <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               role="combobox"
               aria-expanded={memberSelectOpen}
-              className="w-56 justify-between"
+              className="w-44 shrink-0 justify-between"
             >
               {selectedMemberId === "all"
                 ? t("all-members")
                 : members.find((m) => m.id === selectedMemberId)
-                  ? getMemberLabel(members.find((m) => m.id === selectedMemberId)!)
+                  ? getMemberLabel(
+                      members.find((m) => m.id === selectedMemberId)!,
+                    )
                   : t("member-place-holder")}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
@@ -279,7 +311,9 @@ export const MapView = () => {
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        selectedMemberId === "all" ? "opacity-100" : "opacity-0",
+                        selectedMemberId === "all"
+                          ? "opacity-100"
+                          : "opacity-0",
                       )}
                     />
                     {t("all-members")}
@@ -312,12 +346,14 @@ export const MapView = () => {
         </Popover>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">{t("date-from")}</span>
+          <span className="text-sm text-muted-foreground">
+            {t("date-from")}
+          </span>
           <PartialDatePicker
             value={dateFrom}
             onChange={setDateFrom}
             placeholder={t("date-from")}
-            className="w-36 h-9"
+            className="w-28 h-9"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -326,46 +362,67 @@ export const MapView = () => {
             value={dateTo}
             onChange={setDateTo}
             placeholder={t("date-to")}
-            className="w-36 h-9"
+            className="w-28 h-9"
           />
         </div>
 
-        {/* Legend */}
-        <div className="ml-auto flex items-center gap-3 flex-wrap">
-          {LEGEND_TYPES.map((type) => (
-            <span
-              key={type}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground"
-            >
-              <span
-                style={{
-                  display: "inline-block",
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  border: `2px solid ${LOCATION_COLORS[type]}`,
-                  background: "transparent",
-                  flexShrink: 0,
-                }}
-              />
-              {t(`legend-${type}`)}
-            </span>
-          ))}
+        <div className="ml-auto flex shrink-0 items-center">
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            size="sm"
+            spacing={1}
+            value={visibleLocationTypes}
+            onValueChange={(types) =>
+              setVisibleLocationTypes(types as LocationType[])
+            }
+            aria-label={t("filter-location-types")}
+            className="shrink-0"
+          >
+            {LOCATION_TYPES.map((type) => (
+              <ToggleGroupItem
+                key={type}
+                value={type}
+                aria-label={t(`legend-${type}`)}
+                className="h-8 px-1.5 text-xs text-muted-foreground data-[state=on]:text-foreground data-[state=off]:opacity-50"
+              >
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: 10,
+                    height: 10,
+                    borderRadius: "50%",
+                    border: `2px solid ${LOCATION_COLORS[type]}`,
+                    background: "transparent",
+                    flexShrink: 0,
+                  }}
+                />
+                {t(`legend-${type}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
       </div>
 
       {locationGroups.length === 0 ? (
-        <Empty
-          className="border"
-          style={{ height: "calc(100% - 130px)" }}
-        >
+        <Empty className="border" style={{ height: "calc(100% - 130px)" }}>
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <MapPin />
             </EmptyMedia>
-            <EmptyTitle>{t("no-mappable-events")}</EmptyTitle>
-            {unmappedCount === 0 && (
-              <EmptyDescription>{t("add-location-hint")}</EmptyDescription>
+            <EmptyTitle>
+              {noLocationTypesVisible
+                ? t("no-location-types-visible")
+                : t("no-mappable-events")}
+            </EmptyTitle>
+            {noLocationTypesVisible ? (
+              <EmptyDescription>
+                {t("enable-location-type-hint")}
+              </EmptyDescription>
+            ) : (
+              unmappedCount === 0 && (
+                <EmptyDescription>{t("add-location-hint")}</EmptyDescription>
+              )
             )}
           </EmptyHeader>
         </Empty>
