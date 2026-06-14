@@ -237,7 +237,10 @@
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
       "toast-success-image-upload": "Image uploaded successfully.",
       "toast-error-read-file": "Failed to read file",
-      "image-alt-fallback": "Gallery image"
+      "image-alt-fallback": "Gallery image",
+      "empty-title": "No photos yet",
+      "empty-description": "Upload your first photo to start building this tree's gallery.",
+      "empty-cta": "Upload photo"
     },
     "image-sheet": {
       "toast-success": "Image details saved",

@@ -25,6 +25,13 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { MapPin, Check, ChevronsUpDown } from "lucide-react";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
@@ -348,13 +355,20 @@ export const MapView = () => {
       </div>
 
       {locationGroups.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-          <MapPin className="w-16 h-16 mb-4 opacity-50" />
-          <p className="text-lg">{t("no-mappable-events")}</p>
-          {unmappedCount === 0 && (
-            <p className="text-sm">{t("add-location-hint")}</p>
-          )}
-        </div>
+        <Empty
+          className="border"
+          style={{ height: "calc(100% - 130px)" }}
+        >
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <MapPin />
+            </EmptyMedia>
+            <EmptyTitle>{t("no-mappable-events")}</EmptyTitle>
+            {unmappedCount === 0 && (
+              <EmptyDescription>{t("add-location-hint")}</EmptyDescription>
+            )}
+          </EmptyHeader>
+        </Empty>
       ) : (
         // position+zIndex creates a stacking context so Leaflet's internal
         // z-indices don't escape and cover Radix UI portals (e.g. the member picker)
