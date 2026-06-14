@@ -77,9 +77,9 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
 
     // Switch to list view for reliable text-based assertion (avoids React Flow)
     await adminPage.getByRole("tab", { name: /list/i }).click();
-    // Use the full name — "SeedTest" alone is ambiguous (matches both the
-    // first-name table cell and the "SeedTest Member" name card).
-    await expect(adminPage.getByText("SeedTest Member")).toBeVisible({
+    // The canvas panel (which has a "SeedTest Member" card) stays in the DOM
+    // but hidden. Target the table cell that only exists in list view.
+    await expect(adminPage.getByRole("cell", { name: "SeedTest" })).toBeVisible({
       timeout: 15_000,
     });
   } finally {
