@@ -58,24 +58,22 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
   });
 
   try {
-    // Reload the SPA — the new tree should appear in the tree selector.
-    // The tree was just created with last_opened=now so it auto-selects first.
+    // Touch the tree via GET so last_opened is bumped to right now.
+    // The backend sorts /trees by last_opened desc, so this tree will be
+    // first in the list and auto-selected after reload, even if another
+    // parallel worker has connected to a different tree more recently.
+    await adminApi.get(`/trees/${tree.id}`);
+
     await adminPage.reload({ waitUntil: "networkidle" });
 
-    // If not auto-selected (parallel workers may have created a newer tree),
-    // pick it from the dropdown. The SelectItem accessible name includes the
-    // icon aria-label ("Owned by you …"), so use a regex partial match.
-    const treeSelector = adminPage.getByRole("combobox").first();
-    const currentText = await treeSelector.textContent();
-    if (!currentText?.includes("Smoke-Seed-Tree")) {
-      await treeSelector.click();
-      await adminPage
-        .getByRole("option", { name: /Smoke-Seed-Tree/i })
-        .click();
-      await adminPage.waitForLoadState("networkidle");
-    }
+    // The SPA auto-selects trees[0] (sorted by last_opened) when no tree is
+    // pre-selected. Wait for the combobox to reflect our tree.
+    await expect(adminPage.getByRole("combobox").first()).toContainText(
+      "Smoke-Seed-Tree",
+      { timeout: 15_000 },
+    );
 
-    // Switch to list view for reliable text-based assertion (no React Flow)
+    // Switch to list view for reliable text-based assertion (avoids React Flow)
     await adminPage.getByRole("tab", { name: /list/i }).click();
     await expect(adminPage.getByText("SeedTest")).toBeVisible({
       timeout: 15_000,
