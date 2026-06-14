@@ -16,23 +16,26 @@ test("login success — valid credentials land on the authenticated layout", asy
   page,
 }) => {
   await page.goto("/");
-  await page.getByLabel(/username/i).fill(ADMIN_USERNAME);
-  await page.getByLabel(/password/i).fill(ADMIN_PASSWORD);
-  await page.getByRole("button", { name: /login|sign in/i }).click();
-  // Should no longer see the login form
-  await expect(page.getByLabel(/username/i)).not.toBeVisible({ timeout: 10_000 });
+  // Use id-based selectors — label text is locale-dependent (e.g. "Benutzername" in DE)
+  await expect(page.locator("#username")).toBeVisible({ timeout: 15_000 });
+  await page.locator("#username").fill(ADMIN_USERNAME);
+  await page.locator("#password").fill(ADMIN_PASSWORD);
+  await page.locator('button[type="submit"]').click();
+  // Login form should disappear once authenticated
+  await expect(page.locator("#username")).not.toBeVisible({ timeout: 10_000 });
 });
 
 test("login failure — wrong password shows error, stays on login page", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByLabel(/username/i).fill(ADMIN_USERNAME);
-  await page.getByLabel(/password/i).fill("definitely-wrong-password");
-  await page.getByRole("button", { name: /login|sign in/i }).click();
+  await expect(page.locator("#username")).toBeVisible({ timeout: 15_000 });
+  await page.locator("#username").fill(ADMIN_USERNAME);
+  await page.locator("#password").fill("definitely-wrong-password");
+  await page.locator('button[type="submit"]').click();
   // Login form stays visible
-  await expect(page.getByLabel(/username/i)).toBeVisible({ timeout: 5_000 });
-  // An error message appears
+  await expect(page.locator("#username")).toBeVisible({ timeout: 5_000 });
+  // An error toast appears — English locale forced in playwright.config.ts
   await expect(
     page.getByText(/incorrect|invalid|wrong|unauthorized/i),
   ).toBeVisible({ timeout: 5_000 });
@@ -41,12 +44,12 @@ test("login failure — wrong password shows error, stays on login page", async 
 test("logout — returns to login page and clears the session", async ({
   adminPage,
 }) => {
-  // Open the user menu and click logout
-  await adminPage.getByRole("button", { name: /user|account|menu/i }).first().click();
-  const logoutItem = adminPage.getByRole("menuitem", { name: /logout|sign out/i });
-  await logoutItem.click();
-  // Should land back on login
-  await expect(adminPage.getByLabel(/username/i)).toBeVisible({ timeout: 10_000 });
+  // The UserMenu trigger is a button whose text is the admin username
+  await adminPage.getByRole("button", { name: ADMIN_USERNAME }).click();
+  // "Log out" from t("auth.user-menu.logout")
+  await adminPage.getByRole("menuitem", { name: /log out/i }).click();
+  // Should land back on login (login form visible again)
+  await expect(adminPage.locator("#username")).toBeVisible({ timeout: 10_000 });
 
   // A protected API call should now 401
   const res = await adminPage.request.get("/api/auth/me");
@@ -69,29 +72,28 @@ test("registration — new user can register and then log in", async ({
   }
 
   await page.goto("/");
+  await expect(page.locator("#username")).toBeVisible({ timeout: 15_000 });
+
   const suffix = Date.now().toString(36);
   const newUsername = `reg-${suffix}`;
   const newPassword = `RegPass-${suffix}!`;
 
-  // Navigate to the register tab/form
-  const registerLink = page.getByRole("tab", { name: /register/i }).or(
-    page.getByRole("link", { name: /register|sign up/i }),
-  );
-  await registerLink.click();
+  // The toggle is a type="button" (not a tab or link); text: "Need an account? Register"
+  await page
+    .locator('button[type="button"]')
+    .filter({ hasText: /register/i })
+    .click();
 
-  await page.getByLabel(/username/i).fill(newUsername);
-  await page.getByLabel(/password/i).first().fill(newPassword);
-  // Confirm password field, if present
-  const confirm = page.getByLabel(/confirm|repeat/i);
-  if (await confirm.isVisible()) await confirm.fill(newPassword);
-  const emailField = page.getByLabel(/email/i);
-  if (await emailField.isVisible())
-    await emailField.fill(`${newUsername}@e2e.invalid`);
+  await page.locator("#username").fill(newUsername);
+  await page.locator("#password").fill(newPassword);
+  // Email field (optional in this form)
+  const emailField = page.locator("#email");
+  if (await emailField.isVisible()) await emailField.fill(`${newUsername}@e2e.invalid`);
 
-  await page.getByRole("button", { name: /register|sign up|create/i }).click();
+  await page.locator('button[type="submit"]').click();
 
-  // Should now be authenticated
-  await expect(page.getByLabel(/username/i)).not.toBeVisible({ timeout: 10_000 });
+  // Should now be authenticated (login form gone)
+  await expect(page.locator("#username")).not.toBeVisible({ timeout: 10_000 });
 });
 
 // ---------------------------------------------------------------------------
@@ -283,7 +285,7 @@ test("restore account — account can log in again after restoration", async ({
       body: JSON.stringify({ password: user.password }),
     });
 
-    // Restore (no auth needed — the endpoint uses the recovery token from deletion)
+    // Restore
     const restoreRes = await fetch(`${API_URL}/auth/restore-account`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
