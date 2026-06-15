@@ -20,7 +20,14 @@ from app.core.security import create_access_token, hash_password
 from app.db.base import Base
 from app.db.init_db import DEFAULT_RELATION_TYPES
 from app.db.session import get_db
-from app.models import Member, RelationType, Tree, TreeMembership, User
+from app.models import (
+    Friendship,
+    Member,
+    RelationType,
+    Tree,
+    TreeMembership,
+    User,
+)
 
 # The dev .env uses a short key; patch before any JWT operation so
 # PyJWT's InsecureKeyLengthWarning (RFC 7518 §3.2, 32-byte minimum) is silent.
@@ -131,3 +138,10 @@ def add_member(db: Session, tree: Tree, member_id: str, **kw) -> Member:
     db.add(member)
     db.commit()
     return member
+
+
+def befriend(db: Session, a: User, b: User, status: str = "accepted") -> Friendship:
+    friendship = Friendship(requester_id=a.id, addressee_id=b.id, status=status)
+    db.add(friendship)
+    db.commit()
+    return friendship

@@ -47,6 +47,78 @@ interface HistoryEntry {
 }
 
 const MAX_HISTORY = 50;
+const MEMBER_DELETE_GRACE_MS = 8000;
+
+interface PendingMemberDeletion {
+  treeId: string;
+  member: Member;
+  originalIndex: number;
+  timeoutId: ReturnType<typeof setTimeout>;
+  toastId?: string | number;
+  status: "pending" | "committing";
+}
+
+const pendingMemberDeletions = new Map<string, PendingMemberDeletion>();
+
+function pendingDeletionKey(treeId: string, memberId: string) {
+  return `${treeId}:${memberId}`;
+}
+
+function restorePendingMember(pending: PendingMemberDeletion) {
+  if (!isActiveTree(pending.treeId)) return;
+
+  useMemberStore.setState((state) => {
+    if (state.members.some((member) => member.id === pending.member.id)) {
+      return {};
+    }
+
+    const members = [...state.members];
+    members.splice(
+      Math.min(pending.originalIndex, members.length),
+      0,
+      pending.member,
+    );
+    return { members };
+  });
+}
+
+function undoPendingMemberDeletion(key: string) {
+  const pending = pendingMemberDeletions.get(key);
+  if (!pending || pending.status !== "pending") return;
+
+  clearTimeout(pending.timeoutId);
+  pendingMemberDeletions.delete(key);
+  if (pending.toastId !== undefined) {
+    toast.dismiss(pending.toastId);
+  }
+  restorePendingMember(pending);
+}
+
+async function commitPendingMemberDeletion(key: string) {
+  const pending = pendingMemberDeletions.get(key);
+  if (!pending || pending.status !== "pending") return;
+
+  pending.status = "committing";
+  if (pending.toastId !== undefined) {
+    toast.dismiss(pending.toastId);
+  }
+  try {
+    await TreeService.removeMember(pending.treeId, pending.member.id);
+  } catch {
+    pendingMemberDeletions.delete(key);
+    restorePendingMember(pending);
+    toast.error(i18n.t("hooks.member-store.delete-error"));
+    return;
+  }
+
+  pendingMemberDeletions.delete(key);
+  if (isActiveTree(pending.treeId)) {
+    await refreshAfterOptimisticFailure(
+      useMemberStore.getState().refreshMembers,
+      pending.treeId,
+    );
+  }
+}
 
 function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
   const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
@@ -88,6 +160,7 @@ async function refreshAfterOptimisticFailure(
     await refreshMembers(treeId);
   } catch (error) {
     console.error("Failed to refresh members after optimistic write:", error);
+    toast.error(i18n.t("hooks.member-store.refresh-error"));
   }
 }
 
@@ -199,22 +272,27 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     }
 
-    const appMembers = result.map((member) => {
-      const memberRelations = relationsByMember.get(member.id) ?? [];
-      const memberDiseases = (diseasesByMember.get(member.id) ?? []).map(
-        mapDiseaseFromDB,
+    const appMembers = result
+      .map((member) => {
+        const memberRelations = relationsByMember.get(member.id) ?? [];
+        const memberDiseases = (diseasesByMember.get(member.id) ?? []).map(
+          mapDiseaseFromDB,
+        );
+
+        const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
+
+        // Reconstruct parents from relations
+        mapped.parents = reconstructParents(
+          memberRelations.filter((r) => r.relation_type === "parent"),
+          memberGenderMap,
+        );
+
+        return mapped;
+      })
+      .filter(
+        (member) =>
+          !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
       );
-
-      const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
-
-      // Reconstruct parents from relations
-      mapped.parents = reconstructParents(
-        memberRelations.filter((r) => r.relation_type === "parent"),
-        memberGenderMap,
-      );
-
-      return mapped;
-    });
 
     set({ members: appMembers });
   },
@@ -321,28 +399,34 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
 
-    const captured = get().members.find((m) => m.id === memberId);
+    const originalIndex = get().members.findIndex((m) => m.id === memberId);
+    const captured = get().members[originalIndex];
     if (!captured) return;
 
-    await TreeService.removeMember(treeId, memberId);
-    await get().refreshMembers(treeId);
+    const key = pendingDeletionKey(treeId, memberId);
+    if (pendingMemberDeletions.has(key)) return;
 
-    get()._pushHistory({
-      undo: async () => {
-        await TreeService.addMember(treeId, captured);
-        for (const rel of captured.relations ?? []) {
-          await TreeService.addRelation(
-            treeId,
-            rel.fromMemberId,
-            rel.toMemberId,
-            rel.relationType as RelationType,
-          );
-        }
-        await get().refreshMembers(treeId);
-      },
-      redo: async () => {
-        await TreeService.removeMember(treeId, captured.id);
-        await get().refreshMembers(treeId);
+    set((state) => ({
+      members: state.members.filter((member) => member.id !== memberId),
+      redoStack: [],
+    }));
+
+    const pending: PendingMemberDeletion = {
+      treeId,
+      member: captured,
+      originalIndex,
+      timeoutId: setTimeout(() => {
+        void commitPendingMemberDeletion(key);
+      }, MEMBER_DELETE_GRACE_MS),
+      status: "pending",
+    };
+    pendingMemberDeletions.set(key, pending);
+
+    pending.toastId = toast.info(i18n.t("hooks.member-store.delete-pending"), {
+      duration: MEMBER_DELETE_GRACE_MS,
+      action: {
+        label: i18n.t("hooks.member-store.undo-delete"),
+        onClick: () => undoPendingMemberDeletion(key),
       },
     });
   },
@@ -576,6 +660,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     } catch (error) {
       console.error("Failed to update layout:", error);
+      toast.error(i18n.t("hooks.member-store.layout-error"));
       await refreshMembers(treeId);
     }
   },

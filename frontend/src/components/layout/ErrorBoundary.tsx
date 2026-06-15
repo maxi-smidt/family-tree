@@ -1,6 +1,7 @@
 import { Component, ErrorInfo, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
+import i18n from "@/i18n/i18n";
 
 interface Props {
   children: ReactNode;
@@ -37,16 +38,22 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="max-w-md rounded-lg border border-destructive/50 bg-card p-6 text-center shadow-lg">
             <AlertCircle className="mx-auto mb-4 h-12 w-12 text-destructive" />
             <h1 className="mb-2 text-2xl font-bold text-foreground">
-              Something went wrong
+              {i18n.t("layout.error-boundary.title", {
+                defaultValue: "Something went wrong",
+              })}
             </h1>
             <p className="mb-4 text-sm text-muted-foreground">
-              An unexpected error occurred. Please try reloading the
-              application.
+              {i18n.t("layout.error-boundary.description", {
+                defaultValue:
+                  "An unexpected error occurred. Please try reloading the application.",
+              })}
             </p>
             {this.state.error && (
               <details className="mb-4 rounded bg-muted p-3 text-left text-xs">
                 <summary className="cursor-pointer font-semibold">
-                  Error details
+                  {i18n.t("layout.error-boundary.details", {
+                    defaultValue: "Error details",
+                  })}
                 </summary>
                 <pre className="mt-2 overflow-auto whitespace-pre-wrap">
                   {this.state.error.message}
@@ -54,7 +61,9 @@ export class ErrorBoundary extends Component<Props, State> {
               </details>
             )}
             <Button onClick={this.handleReset} className="w-full">
-              Reload Application
+              {i18n.t("layout.error-boundary.reload", {
+                defaultValue: "Reload Application",
+              })}
             </Button>
           </div>
         </div>

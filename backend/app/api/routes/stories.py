@@ -29,6 +29,7 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.settings_service import get_media_limits
 from app.services.storage import (
     FileTooLarge,
     UnsupportedFileType,
@@ -178,7 +179,12 @@ def add_attachment(
 ):
     story = _get_story(db, tree, story_id)
     try:
-        url, mime, size = store_document(tree.id, payload.filename, payload.data)
+        url, mime, size = store_document(
+            tree.id,
+            payload.filename,
+            payload.data,
+            get_media_limits(db),
+        )
     except FileTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except UnsupportedFileType as exc:

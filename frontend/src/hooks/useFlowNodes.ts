@@ -3,6 +3,7 @@ import { Node } from "@xyflow/react";
 import { Member } from "@/types/member";
 import { useTranslation } from "react-i18next";
 import { TFunction } from "i18next";
+import { getYear } from "@/utils/dateUtils";
 
 const EMPTY_MEMBER_IDS = new Set<string>();
 
@@ -12,12 +13,8 @@ function memberAriaLabel(
 ): string {
   const name = `${member.firstName} ${member.lastName}`.trim();
   const gender = t(`common.gender.${member.gender}`);
-  const birthYear = member.date.birth
-    ? new Date(member.date.birth).getFullYear().toString()
-    : "";
-  const deathYear = member.date.death
-    ? new Date(member.date.death).getFullYear().toString()
-    : "";
+  const birthYear = getYear(member.date.birth)?.toString() ?? "";
+  const deathYear = getYear(member.date.death)?.toString() ?? "";
   const dates = birthYear
     ? deathYear
       ? `${birthYear}–${deathYear}`

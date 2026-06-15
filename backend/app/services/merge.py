@@ -83,6 +83,8 @@ def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
 # ---------------------------------------------------------------------------
 
 _CONFLICT_FIELDS: list[str] = [
+    "middleNames",
+    "baptismalName",
     "maidenName",
     "birthplace",
     "hometown",
@@ -217,6 +219,8 @@ def _clone_member(m: Member, new_tree_id: str, new_id: str) -> Member:
         tree_id=new_tree_id,
         gender=m.gender,
         firstName=m.firstName,
+        middleNames=m.middleNames,
+        baptismalName=m.baptismalName,
         lastName=m.lastName,
         maidenName=m.maidenName,
         imageData=copy_media_to_tree(m.imageData, new_tree_id),
@@ -245,8 +249,16 @@ def _apply_field_choices(
     """
     text_fields = {"additionalData", "placesLived"}
     choosable = {
-        "maidenName", "birthplace", "hometown", "placesLived",
-        "additionalData", "imageData", "dateOfBirth", "dateOfDeath",
+        "middleNames",
+        "baptismalName",
+        "maidenName",
+        "birthplace",
+        "hometown",
+        "placesLived",
+        "additionalData",
+        "imageData",
+        "dateOfBirth",
+        "dateOfDeath",
     }
     for field, choice in fields.items():
         if field not in choosable:

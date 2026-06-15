@@ -15,12 +15,9 @@ test("app shell loads and shows login page when unauthenticated", async ({
   page,
 }) => {
   await page.goto("/");
-  // The login page renders for unauthenticated visitors
-  await expect(
-    page.getByRole("heading", { name: /login|sign in/i }).or(
-      page.getByLabel(/username/i),
-    ),
-  ).toBeVisible({ timeout: 15_000 });
+  // The login page renders for unauthenticated visitors.
+  // Use the input's id — label text is locale-dependent.
+  await expect(page.locator("#username")).toBeVisible({ timeout: 15_000 });
 });
 
 test("health endpoint reports ready", async () => {
@@ -45,9 +42,7 @@ test("adminPage fixture yields an authenticated session", async ({
   adminPage,
 }) => {
   // After the adminPage fixture we should be in the main app, not the login page
-  await expect(adminPage.getByLabel(/username/i)).not.toBeVisible({
-    timeout: 5_000,
-  });
+  await expect(adminPage.locator("#username")).not.toBeVisible({ timeout: 5_000 });
   // The page URL should be the root (authenticated layout)
   expect(adminPage.url()).toMatch(/https?:\/\/[^/]+\/?$/);
 });
@@ -63,22 +58,28 @@ test("seed helper can create a tree and a member via API; UI reflects it after r
   });
 
   try {
-    // Reload the SPA — the new tree should appear in the tree selector
+    // Touch the tree via GET so last_opened is bumped to right now.
+    // The backend sorts /trees by last_opened desc, so this tree will be
+    // first in the list and auto-selected after reload, even if another
+    // parallel worker has connected to a different tree more recently.
+    await adminApi.get(`/trees/${tree.id}`);
+
     await adminPage.reload({ waitUntil: "networkidle" });
 
-    // Select the newly created tree (it may already be active if it was the
-    // first; otherwise find it in the dropdown)
-    const treeSelector = adminPage.getByRole("combobox").first();
-    const currentText = await treeSelector.textContent();
-    if (!currentText?.includes("Smoke-Seed-Tree")) {
-      await treeSelector.click();
-      await adminPage
-        .getByRole("option", { name: "Smoke-Seed-Tree" })
-        .click();
-    }
+    // The SPA auto-selects trees[0] (sorted by last_opened) when no tree is
+    // pre-selected. Wait for the tree selector to reflect our tree.
+    // Use data-testid to target DatabaseSelector specifically — the sidebar
+    // has ThemeSelector/LanguageSelector/EdgeTypeSelector above it in the DOM.
+    await expect(adminPage.locator('[data-testid="tree-selector"]')).toContainText(
+      "Smoke-Seed-Tree",
+      { timeout: 15_000 },
+    );
 
-    // Wait for the canvas / list to load and contain the seeded member name
-    await expect(adminPage.getByText("SeedTest")).toBeVisible({
+    // Switch to list view for reliable text-based assertion (avoids React Flow)
+    await adminPage.getByRole("tab", { name: /list/i }).click();
+    // The canvas panel (which has a "SeedTest Member" card) stays in the DOM
+    // but hidden. Target the table cell that only exists in list view.
+    await expect(adminPage.getByRole("cell", { name: "SeedTest" })).toBeVisible({
       timeout: 15_000,
     });
   } finally {
@@ -94,7 +95,7 @@ test("a deliberately failing assertion produces screenshot artifact in CI", asyn
   // a controlled failure path at least reaches the assertion without throwing
   // a setup error. In CI, run with --reporter=html to validate artifact upload.
   await page.goto("/");
-  const visible = await page.getByLabel(/username/i).isVisible();
+  const visible = await page.locator("#username").isVisible();
   // We just confirm the assertion machinery runs — not that the value is wrong.
   expect(typeof visible).toBe("boolean");
 });

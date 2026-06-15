@@ -28,6 +28,7 @@ from app.schemas.tree import (
     TreeTransfer,
     TreeUpdate,
 )
+from app.services import friendships
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
 
@@ -217,8 +218,12 @@ def list_share_candidates(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Active users this tree can still be shared with (excludes the owner and
-    anyone who already has access). Only the owner may enumerate them."""
+    """Users this tree can still be shared with: the owner's accepted friends
+    who are not already members. Only the owner may enumerate them.
+
+    Sharing is friendship-gated, so the picker is the owner's friend list rather
+    than every account — this also keeps the full user list unenumerable. Admins
+    sharing someone else's tree fall back to the *tree owner's* friends."""
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can share a tree")
     member_ids = set(
@@ -227,9 +232,12 @@ def list_share_candidates(
         ).all()
     )
     member_ids.add(tree.owner_id)
+    friend_ids = friendships.accepted_friend_ids(db, tree.owner_id) - member_ids
+    if not friend_ids:
+        return []
     candidates = db.scalars(
         select(User)
-        .where(User.id.notin_(member_ids), User.is_active.is_(True))
+        .where(User.id.in_(friend_ids), User.is_active.is_(True))
         .order_by(User.username)
     ).all()
     return [ShareCandidate(user_id=u.id, username=u.username) for u in candidates]
@@ -252,6 +260,10 @@ def share_tree(
         raise HTTPException(status_code=404, detail="User not found")
     if target.id == tree.owner_id:
         raise HTTPException(status_code=400, detail="User already owns this tree")
+    if not user.is_admin and not friendships.are_friends(db, tree.owner_id, target.id):
+        raise HTTPException(
+            status_code=403, detail="You can only share with friends"
+        )
 
     membership = db.get(TreeMembership, (tree.id, target.id))
     if membership is None:
@@ -303,6 +315,10 @@ def transfer_ownership(
     if not target.is_active:
         raise HTTPException(
             status_code=400, detail="Cannot transfer to an inactive account"
+        )
+    if not user.is_admin and not friendships.are_friends(db, tree.owner_id, target.id):
+        raise HTTPException(
+            status_code=403, detail="You can only transfer to a friend"
         )
 
     tree.owner_id = target.id

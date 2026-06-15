@@ -36,6 +36,7 @@ from app.models import (
 )
 from app.schemas.tree import TreeOut
 from app.services import crypto_export, gedcom
+from app.services.settings_service import get_media_limits
 from app.services.storage import (
     media_url_to_data_url,
     process_image_field,
@@ -161,13 +162,18 @@ async def import_tree(
     )
     db.add(tree)
     db.flush()
+    media_limits = get_media_limits(db)
 
     member_map = _remap(bundle.get("members", []))
     for row in bundle.get("members", []):
         data = dict(row)
         data.pop("tree_id", None)
         data["id"] = member_map[row["id"]]
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["imageData"] = process_image_field(
+            tree.id,
+            data.get("imageData"),
+            media_limits,
+        )
         db.add(Member(tree_id=tree.id, **data))
     # Members must exist before anything that references them (relations,
     # diseases, gallery/event/story links).
@@ -205,7 +211,11 @@ async def import_tree(
         data = dict(row)
         data.pop("tree_id", None)
         data["id"] = gallery_map[row["id"]]
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["imageData"] = process_image_field(
+            tree.id,
+            data.get("imageData"),
+            media_limits,
+        )
         db.add(GalleryImage(tree_id=tree.id, **data))
     _import_links(db, bundle.get("gallery_links", []), GalleryMemberLink,
                   "gallery_image_id", gallery_map, member_map)
@@ -235,7 +245,12 @@ async def import_tree(
         if story_id is None:
             continue
         try:
-            url, mime, size = store_document(tree.id, row["filename"], row["url"])
+            url, mime, size = store_document(
+                tree.id,
+                row["filename"],
+                row["url"],
+                media_limits,
+            )
         except ValueError:
             continue  # skip an attachment we can't decode rather than fail the import
         db.add(
@@ -269,7 +284,10 @@ async def import_tree(
         if row.get("kind") == "file":
             try:
                 ev_url, ev_mime, ev_size = store_document(
-                    tree.id, row.get("filename", "file"), ev_url
+                    tree.id,
+                    row.get("filename", "file"),
+                    ev_url,
+                    media_limits,
                 )
             except ValueError:
                 continue
