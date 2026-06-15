@@ -29,11 +29,7 @@ export const MemberPhotos = ({ member }: Props) => {
 
   const handleUpload = () => fileInputRef.current?.click();
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
+  const uploadFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64String = event.target?.result as string;
@@ -88,6 +84,12 @@ export const MemberPhotos = ({ member }: Props) => {
     reader.readAsDataURL(file);
   };
 
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    files.forEach(uploadFile);
+  };
+
   return (
     <Item variant="muted">
       <ItemContent>
@@ -102,6 +104,7 @@ export const MemberPhotos = ({ member }: Props) => {
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          multiple
           onChange={handleFileChange}
           className="hidden"
         />
