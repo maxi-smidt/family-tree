@@ -102,9 +102,9 @@ export const ShareTreeDialog = ({
     tree.public_role ?? null,
   );
   const [confirmPublicOpen, setConfirmPublicOpen] = useState(false);
-  const [pendingPublicRole, setPendingPublicRole] = useState<
-    "viewer" | null
-  >(null);
+  const [pendingPublicRole, setPendingPublicRole] = useState<"viewer" | null>(
+    null,
+  );
 
   // Any active user other than the current owner is an eligible new owner:
   // existing members plus the share candidates (users without access yet).
@@ -211,11 +211,7 @@ export const ShareTreeDialog = ({
     setCreatingInvite(true);
     try {
       const expiresInDays =
-        inviteExpiry === "never"
-          ? undefined
-          : inviteExpiry === "7"
-            ? 7
-            : 30;
+        inviteExpiry === "never" ? undefined : inviteExpiry === "7" ? 7 : 30;
       await TreeSharingService.createInvitation(tree.id, {
         email: inviteEmail || undefined,
         role: inviteRole,
@@ -311,9 +307,7 @@ export const ShareTreeDialog = ({
                   <div className="flex items-center gap-2">
                     <Select
                       value={a.role}
-                      onValueChange={(v) =>
-                        handleRoleChange(a, v as ShareRole)
-                      }
+                      onValueChange={(v) => handleRoleChange(a, v as ShareRole)}
                     >
                       <SelectTrigger className="h-8 w-28">
                         <SelectValue />
@@ -344,6 +338,9 @@ export const ShareTreeDialog = ({
           {/* Add new people */}
           <div className="space-y-2 border-t pt-4">
             <p className="text-sm font-medium">{t("add-people")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("friends-only-hint")}
+            </p>
 
             <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
               <PopoverTrigger asChild>
@@ -666,10 +663,7 @@ export const ShareTreeDialog = ({
       </AlertDialog>
 
       {/* Public access confirmation */}
-      <AlertDialog
-        open={confirmPublicOpen}
-        onOpenChange={setConfirmPublicOpen}
-      >
+      <AlertDialog open={confirmPublicOpen} onOpenChange={setConfirmPublicOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -684,7 +678,9 @@ export const ShareTreeDialog = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("transfer-confirm-cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("transfer-confirm-cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handlePublicConfirm}>
               {pendingPublicRole === "viewer"
                 ? t("public.enable")
