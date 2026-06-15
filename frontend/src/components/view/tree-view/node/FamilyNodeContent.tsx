@@ -73,7 +73,7 @@ export const FamilyNodeContent = ({
         <div className="flex h-11 w-full items-center justify-center px-1">
           {disableNameLink ? (
             <span className="font-bold text-lg leading-tight text-center line-clamp-2 overflow-hidden block w-full max-w-full p-1">
-              {member.academicTitle ? `${member.academicTitle} ` : ""}{member.firstName} {member.lastName}
+              {member.firstName} {member.lastName}
             </span>
           ) : (
             <Button
@@ -82,7 +82,7 @@ export const FamilyNodeContent = ({
               onClick={() => setDetailDialogOpen(true)}
             >
               <span className="font-bold text-lg leading-tight text-center line-clamp-2 text-ellipsis overflow-hidden">
-                {member.academicTitle ? `${member.academicTitle} ` : ""}{member.firstName} {member.lastName}
+                {member.firstName} {member.lastName}
               </span>
             </Button>
           )}
