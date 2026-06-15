@@ -20,6 +20,7 @@ const member = (
   firstName: id,
   lastName: "Member",
   gender: "o",
+  academicTitle: null,
   middleNames: null,
   baptismalName: null,
   maidenName: null,

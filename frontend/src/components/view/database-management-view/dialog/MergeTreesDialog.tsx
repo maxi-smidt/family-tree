@@ -263,6 +263,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
                     conflicts: previewData.duplicates.map((d) => ({
                       id: d.member_a.id,
                       gender: (d.member_a.gender as "m" | "f" | "o") ?? "o",
+                      academicTitle: d.member_a.academicTitle ?? null,
                       firstName: d.member_a.firstName ?? "",
                       middleNames: d.member_a.middleNames ?? null,
                       baptismalName: d.member_a.baptismalName ?? null,

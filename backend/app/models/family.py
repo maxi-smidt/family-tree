@@ -19,6 +19,7 @@ class Member(Base):
     )
 
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    academicTitle: Mapped[str | None] = mapped_column(String(100), nullable=True)
     firstName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     middleNames: Mapped[str | None] = mapped_column(String(255), nullable=True)
     baptismalName: Mapped[str | None] = mapped_column(String(255), nullable=True)

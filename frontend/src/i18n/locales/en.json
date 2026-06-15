@@ -374,7 +374,9 @@
       "places-lived-from": "From (year)",
       "places-lived-to": "To (year)",
       "places-lived-empty": "No locations added yet.",
-      "deceased-field": "Deceased"
+      "deceased-field": "Deceased",
+      "academic-title-field": "Academic / Honorific Title",
+      "academic-title-placeholder": "e.g. Dr., Prof., Dipl.-Ing."
     },
     "view-mode": {
       "firstname-item": "First Name",
@@ -400,7 +402,8 @@
       "locations-section": "Locations",
       "birthplace-label": "Birthplace",
       "hometown-label": "Hometown",
-      "dod-deceased-no-date": "Deceased (date unknown)"
+      "dod-deceased-no-date": "Deceased (date unknown)",
+      "academic-title-item": "Academic / Honorific Title"
     },
     "member-sheet": {
       "edit-title": "Edit Member",

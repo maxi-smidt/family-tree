@@ -17,6 +17,7 @@ import type { MemberDB } from "@/types/member";
 const makeDB = (overrides: Partial<MemberDB> = {}): MemberDB => ({
   id: "test-id",
   gender: "m",
+  academicTitle: null,
   firstName: "John",
   lastName: "Doe",
   middleNames: null,
