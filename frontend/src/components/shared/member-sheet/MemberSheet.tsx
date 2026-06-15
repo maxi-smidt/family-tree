@@ -15,7 +15,7 @@ import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { UnsavedChangesDialog } from "@/components/shared/member-sheet/dialog/UnsavedChangesDialog";
+import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 
 type Props = {
   isOpen: boolean;

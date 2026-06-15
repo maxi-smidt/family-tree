@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { TabWrapper } from "@/components/layout/TabWrapper";
 import { MobileManagementSheet } from "@/components/layout/MobileManagementSheet";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SlidersHorizontal } from "lucide-react";
 
 const FlowPanel = lazy(() =>
@@ -51,6 +52,11 @@ const MapView = lazy(() =>
     default: m.MapView,
   })),
 );
+const FriendsView = lazy(() =>
+  import("@/components/view/friends-view/FriendsView").then((m) => ({
+    default: m.FriendsView,
+  })),
+);
 import {
   Select,
   SelectContent,
@@ -59,25 +65,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import {
   DATABASE_MANAGEMENT_VIEW,
-  TREE_VIEW,
-  LIST_VIEW,
+  FRIENDS_VIEW,
   ViewId,
   isViewId,
   resolveTabs,
 } from "@/lib/tabs";
 import { filterViewsByFeatures } from "@/lib/features";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { isVirtualId } from "@/hooks/useTreeStore";
-
-const VIRTUAL_VIEW_TABS = new Set<ViewId>([
-  TREE_VIEW,
-  LIST_VIEW,
-  DATABASE_MANAGEMENT_VIEW,
-]);
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
@@ -91,6 +90,7 @@ const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "quality-report-view": <QualityReportView />,
   "statistics-view": <StatisticsView />,
   "database-management-view": <DatabaseManagementView />,
+  "friends-view": <FriendsView />,
 };
 
 const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
@@ -106,16 +106,22 @@ export const MainPanel = () => {
     return stored && isViewId(stored) ? stored : "tree-view";
   });
 
-  const handleTabChange = (value: string) => {
+  const applyTab = (value: string) => {
     if (!isViewId(value)) return;
     setActiveTab(value);
     localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, value);
   };
 
+  const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
+
+  const handleTabChange = (value: string) => {
+    guardNavigate(() => applyTab(value));
+  };
+
   const { pendingView, clearPending } = useNavigationStore();
   useEffect(() => {
     if (pendingView !== null) {
-      handleTabChange(pendingView);
+      applyTab(pendingView);
       clearPending();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,25 +130,29 @@ export const MainPanel = () => {
   const user = useAuthStore((s) => s.user);
   const features = useAuthStore((s) => s.features);
   const { order, hidden, loaded, load } = useTabPreferences();
-  const selectedTree = useTreeStore((s) => s.selectedTree);
-  const isVirtualActive = !!selectedTree?.id && isVirtualId(selectedTree.id);
   const [manageOpen, setManageOpen] = useState(false);
+  const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
+  const incomingFriendCount = useIncomingFriendCount();
 
   useEffect(() => {
     if (user) load();
   }, [user, load]);
 
+  // Keep the Friends tab badge accurate without opening the tab.
+  useEffect(() => {
+    if (user) void loadIncomingFriends();
+  }, [user, loadIncomingFriends]);
+
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
-  const enabledVisible = filterViewsByFeatures(allVisible, features);
-  const visible = isVirtualActive
-    ? enabledVisible.filter((v) => VIRTUAL_VIEW_TABS.has(v))
-    : enabledVisible;
+  // A virtual tree exposes the same tabs as a normal tree (read-only,
+  // aggregated live from its sources); only feature flags filter the set.
+  const visible = filterViewsByFeatures(allVisible, features);
   const mobileViews = visible.filter((v) => !MANAGEMENT_VIEWS.has(v));
 
   // If the active tab is hidden and no pending navigation, move to first visible.
   useEffect(() => {
     if (loaded && pendingView === null && !visible.includes(activeTab)) {
-      handleTabChange(visible[0]);
+      applyTab(visible[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, visible, activeTab, pendingView]);
@@ -157,6 +167,7 @@ export const MainPanel = () => {
     "quality-report-view": t("quality-report"),
     "statistics-view": t("statistics"),
     "database-management-view": t("database-management"),
+    "friends-view": t("friends"),
   };
 
   return (
@@ -195,7 +206,14 @@ export const MainPanel = () => {
             {view === DATABASE_MANAGEMENT_VIEW && visible.length > 1 && (
               <div className="border-l border-border self-stretch h-auto mx-2" />
             )}
-            <TabsTrigger value={view}>{viewLabels[view]}</TabsTrigger>
+            <TabsTrigger value={view}>
+              {viewLabels[view]}
+              {view === FRIENDS_VIEW && incomingFriendCount > 0 && (
+                <Badge variant="default" className="ml-1.5 px-1.5">
+                  {incomingFriendCount}
+                </Badge>
+              )}
+            </TabsTrigger>
           </span>
         ))}
       </TabsList>

@@ -51,7 +51,8 @@
       "title": "Bild zuschneiden",
       "description": "Wähle das Bild das zugeschnitten werden soll.",
       "cancel": "Abbrechen",
-      "crop": "Zuschneiden"
+      "crop": "Zuschneiden",
+      "crop-error": "Das Bild konnte nicht zugeschnitten werden."
     },
     "password": {
       "title": {
@@ -96,7 +97,7 @@
     "remove-node": {
       "title_one": "Lösche Person",
       "title_other": "Lösche Personen",
-      "description": "Diese Aktion löscht unwiderruflich die folgenden Personen aus dem Stammbaum.",
+      "description": "Die ausgewählten Personen werden aus dem Stammbaum gelöscht. Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "validation": "Bis du dir sicher das folgende Personen gelöscht werden sollen?",
       "cancel": "Abbrechen",
       "delete": "Löschen"
@@ -131,8 +132,9 @@
       "revoke-error": "Zugriff konnte nicht entzogen werden.",
       "current-access": "Personen mit Zugriff",
       "add-people": "Personen hinzufügen",
+      "friends-only-hint": "Du kannst nur mit Freunden teilen. Freunde fügst du im Kontomenü hinzu.",
       "select-users": "Benutzer auswählen…",
-      "no-candidates": "Alle haben bereits Zugriff",
+      "no-candidates": "Noch keine Freunde zum Teilen",
       "search-placeholder": "Benutzer suchen…",
       "no-users": "Keine Benutzer gefunden.",
       "share-button_one": "Mit {{count}} Person teilen",
@@ -219,7 +221,11 @@
       "toast-create-error": "Virtuelle Ansicht konnte nicht erstellt werden.",
       "toast-update-success": "Virtuelle Ansicht aktualisiert!",
       "toast-update-error": "Virtuelle Ansicht konnte nicht aktualisiert werden.",
-      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt."
+      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt.",
+      "views-label": "Oder andere virtuelle Ansichten einbeziehen",
+      "no-other-views": "Keine weiteren virtuellen Ansichten verfügbar.",
+      "virtual-badge": "virtuell",
+      "error-cycle": "Eine virtuelle Ansicht kann sich nicht selbst enthalten – weder direkt noch über eine andere Ansicht."
     }
   },
   "gallery-view": {
@@ -236,7 +242,10 @@
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
-      "image-alt-fallback": "Galeriebild"
+      "image-alt-fallback": "Galeriebild",
+      "empty-title": "Noch keine Fotos",
+      "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Stammbaums zu füllen.",
+      "empty-cta": "Foto hochladen"
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -270,6 +279,7 @@
       "quality-report": "Qualität",
       "statistics": "Statistiken",
       "database-management": "Stammbaumverwaltung",
+      "friends": "Freunde",
       "map": "Karte"
     },
     "no-database-placeholder": {
@@ -298,6 +308,12 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter"
+    },
+    "error-boundary": {
+      "title": "Etwas ist schiefgelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Bitte laden Sie die Anwendung neu.",
+      "details": "Fehlerdetails",
+      "reload": "Anwendung neu laden"
     }
   },
   "list-view": {
@@ -339,11 +355,13 @@
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
       "firstname-field": "Vorname",
+      "middle-names-field": "Weitere Vornamen",
+      "baptismal-name-field": "Taufname",
       "lastname-field": "Nachname",
       "maiden-field": "Mädchenname",
       "born-field": "Geburtsdatum",
       "death-field": "Sterbedatum",
-      "date-placeholder": "Wähle ein Datum",
+      "date-placeholder": "Datum auswählen",
       "notes-field": "Notizen / Biografie",
       "notes-placeholder": "Biographische Notizen, persönliche Geschichte oder andere Details hinzufügen…",
       "paternal-parent-field": "Väterlicherseits",
@@ -357,13 +375,27 @@
       "places-lived-add": "Ort hinzufügen",
       "places-lived-from": "Von (Jahr)",
       "places-lived-to": "Bis (Jahr)",
-      "places-lived-empty": "Noch keine Orte hinzugefügt."
+      "places-lived-empty": "Noch keine Orte hinzugefügt.",
+      "deceased-field": "Verstorben",
+      "academic-title-field": "Akademischer / Ehrentitel",
+      "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-relations": "Beziehungen",
+      "tab-records": "Einträge",
+      "photos-field": "Fotos",
+      "photos-add": "Foto hinzufügen",
+      "photos-empty": "Noch keine Fotos mit dieser Person verknüpft.",
+      "toast-success-photo-upload": "Foto hochgeladen und verknüpft.",
+      "toast-error-photo-upload": "Hochladen des Fotos fehlgeschlagen."
     },
     "view-mode": {
       "firstname-item": "Vorname",
+      "middle-names-item": "Weitere Vornamen",
+      "baptismal-name-item": "Taufname",
       "lastname-item": "Nachname",
       "maiden-item": "Mädchenname",
-      "maiden-fallback": "keiner",
+      "name-fallback": "Keine Angabe",
       "gender-item": "Geschlecht",
       "dob-item": "Geburtsdatum",
       "dod-item": "Sterbedatum",
@@ -380,7 +412,12 @@
       "sources": "Quellennachweise",
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
-      "hometown-label": "Heimatort"
+      "hometown-label": "Heimatort",
+      "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
+      "academic-title-item": "Akademischer / Ehrentitel",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-records": "Einträge"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",
@@ -390,16 +427,9 @@
       "save": "Speichern",
       "delete": "Löschen",
       "delete-confirm-title": "Person löschen",
-      "delete-confirm-description": "Bist du sicher, dass diese Person unwiderruflich gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "delete-confirm-description": "Bist du sicher, dass diese Person gelöscht werden soll? Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "delete-confirm-cancel": "Abbrechen",
       "delete-confirm-confirm": "Löschen",
-      "unsaved": {
-        "title": "Ungespeicherte Änderungen",
-        "description": "Es gibt ungespeicherte Änderungen.",
-        "stay": "Bleiben",
-        "save": "Speichern",
-        "discard": "Verwerfen"
-      },
       "show-less": "Weniger anzeigen",
       "show-more": "Zeige {{count}} mehr",
       "events": {
@@ -469,9 +499,10 @@
             "download": "Herunterladen",
             "remove": "Datei entfernen",
             "filename": "Dateiname",
-            "hint": "Bilder, PDF und Dokumente bis 25 MB.",
+            "hint": "Bilder, PDF und Dokumente bis {{max}}.",
+            "hint-without-limit": "Bilder, PDF und Dokumente.",
             "error-type": "Nicht unterstützter Dateityp",
-            "error-size": "Datei ist zu groß (max. 25 MB)"
+            "error-size": "Datei ist zu groß (max. {{max}})"
           },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
@@ -586,7 +617,8 @@
       "add-parent": "Elternteil hinzufügen",
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
-      "add-right": "Verwandte Person rechts hinzufügen"
+      "add-right": "Verwandte Person rechts hinzufügen",
+      "life-deceased-unknown": "verstorben"
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {
@@ -750,6 +782,16 @@
   "hooks": {
     "flow-interactions": {
       "toast-error-database-create": "Verbindung konnte nicht erstellt werden."
+    },
+    "member-store": {
+      "refresh-error": "Änderungen konnten nicht synchronisiert werden. Bitte neu laden.",
+      "layout-error": "Das Layout konnte nicht aktualisiert werden.",
+      "delete-pending": "Person gelöscht.",
+      "undo-delete": "Rückgängig",
+      "delete-error": "Die Person konnte nicht gelöscht werden und wurde wiederhergestellt."
+    },
+    "geocode": {
+      "resolve-error": "Kartenorte konnten nicht aufgelöst werden."
     }
   },
   "quality-report-view": {
@@ -844,7 +886,12 @@
     "view-degraded": "Zugriffsprobleme",
     "recompute-button": "Übereinstimmungen neu berechnen",
     "toast-recompute-success": "Übereinstimmungen neu berechnet. {{count}} gemeinsame Mitglieder gefunden.",
-    "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden."
+    "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden.",
+    "new-menu-button": "Neu",
+    "import-menu-button": "Importieren",
+    "row-actions-button": "Weitere Aktionen",
+    "export-button": "Stammbaum exportieren",
+    "delete-button": "Löschen"
   },
   "common": {
     "english": "Englisch",
@@ -865,7 +912,8 @@
       "f": "weiblich",
       "o": "anderes"
     },
-    "date-unknown": "unknown"
+    "date-unknown": "unknown",
+    "clear-date": "Datum löschen"
   },
   "auth": {
     "session": {
@@ -927,6 +975,38 @@
       "delete-account": "Konto löschen",
       "logout": "Abmelden",
       "two-factor": "Zwei-Faktor-Authentifizierung"
+    },
+    "friends": {
+      "title": "Freunde",
+      "description": "Vernetze dich mit anderen Benutzern. Stammbäume kannst du nur mit Freunden teilen.",
+      "tab-friends": "Freunde",
+      "tab-requests": "Anfragen",
+      "tab-add": "Freund hinzufügen",
+      "no-friends": "Du hast noch keine Freunde.",
+      "unfriend": "Freund entfernen",
+      "incoming": "Eingehende Anfragen",
+      "no-incoming": "Keine eingehenden Anfragen.",
+      "outgoing": "Gesendete Anfragen",
+      "no-outgoing": "Keine gesendeten Anfragen.",
+      "accept": "Annehmen",
+      "decline": "Ablehnen",
+      "cancel-request": "Anfrage zurückziehen",
+      "search-placeholder": "Nach Benutzername suchen…",
+      "no-results": "Keine Benutzer gefunden.",
+      "add": "Hinzufügen",
+      "status-friends": "Befreundet",
+      "status-pending": "Ausstehend",
+      "status-blocked": "Blockiert",
+      "request-sent": "Freundschaftsanfrage gesendet.",
+      "send-error": "Freundschaftsanfrage konnte nicht gesendet werden.",
+      "blocked-error": "Du kannst diesem Benutzer keine Anfrage senden.",
+      "accept-error": "Anfrage konnte nicht angenommen werden.",
+      "decline-error": "Anfrage konnte nicht abgelehnt werden.",
+      "remove-error": "Freund konnte nicht entfernt werden.",
+      "confirm-remove-title": "Freund entfernen?",
+      "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
+      "confirm-remove-confirm": "Entfernen",
+      "confirm-remove-cancel": "Abbrechen"
     },
     "delete-account": {
       "title": "Konto löschen",
@@ -1046,6 +1126,11 @@
     "self-registration-hint": "Jeder kann ein eigenes Konto erstellen.",
     "deletion-grace-period": "Löschfrist (Tage)",
     "deletion-grace-period-hint": "Wie lange ein zum Löschen vorgemerktes Konto wiederherstellbar bleibt, bevor es und alle seine Daten endgültig gelöscht werden.",
+    "upload-limits": "Upload-Limits",
+    "upload-limits-hint": "Änderungen gelten sofort für neue Uploads.",
+    "max-image-upload": "Bildgröße (MB)",
+    "max-document-upload": "Anhangsgröße (MB)",
+    "max-image-dimension": "Bildkante (px)",
     "save-settings": "Einstellungen speichern",
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
     "cancel-deletion": "Löschung abbrechen",
@@ -1157,12 +1242,22 @@
       "no-mappable-events": "Keine darstellbaren Ereignisse gefunden",
       "add-location-hint": "Füge einem Ereignis einen Ort hinzu, um es auf der Karte zu sehen",
       "unlocatable-count": "{{count}} Ereignis(se) haben Orte, die auf der Karte nicht aufgelöst werden konnten",
+      "filter-location-types": "Ortstypen",
       "legend-event": "Ereignis",
       "legend-birthplace": "Geburtsort",
       "legend-hometown": "Heimatort",
       "legend-places-lived": "Wohnort",
+      "no-location-types-visible": "Alle Ortstypen sind ausgeblendet",
+      "enable-location-type-hint": "Aktiviere oben einen Ortstyp, um seine Markierungen anzuzeigen",
       "from": "ab",
       "until": "bis"
     }
+  },
+  "unsaved-changes": {
+    "title": "Ungespeicherte Änderungen",
+    "description": "Es gibt ungespeicherte Änderungen.",
+    "stay": "Bleiben",
+    "save": "Speichern",
+    "discard": "Verwerfen"
   }
 }

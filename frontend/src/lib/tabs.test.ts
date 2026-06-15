@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ALL_VIEWS,
   DATABASE_MANAGEMENT_VIEW,
+  FRIENDS_VIEW,
   TREE_VIEW,
   resolveTabs,
 } from "./tabs";
@@ -42,8 +43,8 @@ describe("resolveTabs", () => {
     expect(visible).toEqual([TREE_VIEW]);
   });
 
-  it("keeps DATABASE_MANAGEMENT_VIEW last by default", () => {
+  it("keeps the management and friends tabs last by default", () => {
     const { ordered } = resolveTabs([], []);
-    expect(ordered[ordered.length - 1]).toBe(DATABASE_MANAGEMENT_VIEW);
+    expect(ordered.slice(-2)).toEqual([DATABASE_MANAGEMENT_VIEW, FRIENDS_VIEW]);
   });
 });

@@ -125,6 +125,8 @@ def _build_test_data() -> tuple[list[dict], list[dict]]:
         {
             "id": father_id,
             "firstName": "James",
+            "middleNames": "Arthur Henry",
+            "baptismalName": "Jacobus",
             "lastName": "Smith",
             "maidenName": None,
             "gender": "m",
@@ -268,6 +270,14 @@ class TestServiceRoundTrip:
 
     def test_father_name(self):
         assert ("James", "Smith") in self.by_name
+
+    def test_name_details_round_trip(self):
+        james = self.by_name[("James", "Smith")]
+        assert james["middleNames"] == "Arthur Henry"
+        assert james["baptismalName"] == "Jacobus"
+        assert "2 _FIRST_NAME James" in self.ged_text
+        assert "2 _MIDDLE_NAMES Arthur Henry" in self.ged_text
+        assert "2 TYPE baptismal" in self.ged_text
 
     def test_mother_maiden_name(self):
         mary = self.by_name[("Mary", "Smith")]
@@ -423,8 +433,9 @@ def test_api_gedcom_round_trip(client, db):
 
     # Add members.
     father = _post_member(client, tree_id, headers,
-                          firstName="George", lastName="Brown", gender="m",
-                          dateOfBirth="1940")
+                          firstName="George", middleNames="Albert",
+                          baptismalName="Georgius", lastName="Brown",
+                          gender="m", dateOfBirth="1940")
     mother = _post_member(client, tree_id, headers,
                           firstName="Helen", lastName="Brown", gender="f",
                           dateOfBirth="1945-06")
@@ -491,6 +502,27 @@ def test_api_gedcom_round_trip(client, db):
     assert ("George", "Brown") in names
     assert ("Helen", "Brown") in names
     assert ("Paul", "Brown") in names
+    imported_father = next(
+        m for m in imported_members if m.get("firstName") == "George"
+    )
+    assert imported_father["middleNames"] == "Albert"
+    assert imported_father["baptismalName"] == "Georgius"
+
+
+def test_gedcom_import_splits_standard_given_names():
+    ged = (
+        "0 HEAD\n"
+        "0 @I1@ INDI\n"
+        "1 NAME John Paul /Doe/\n"
+        "2 GIVN John Paul\n"
+        "2 SURN Doe\n"
+        "0 TRLR\n"
+    )
+
+    member = parse_gedcom(ged)["members"][0]
+
+    assert member["firstName"] == "John"
+    assert member["middleNames"] == "Paul"
 
 
 def test_api_export_requires_auth(client, db):
@@ -684,3 +716,96 @@ def test_api_import_gedcom_utf16_be(client, db):
     imported_members = members_resp.json()
     # Must have imported both INDI records — this was 0 before the fix.
     assert len(imported_members) == 2
+
+    # A FAM with HUSB + WIFE but no MARR/DIV/_RELTYPE must yield a "married"
+    # couple relation so the union node renders green, not grey. (#295)
+    relations_resp = client.get(
+        f"{API}/trees/{new_tree_id}/relations", headers=headers
+    )
+    assert relations_resp.status_code == 200
+    married_rels = [
+        r for r in relations_resp.json() if r["relation_type"] == "married"
+    ]
+    assert len(married_rels) == 1
+
+
+# ---------------------------------------------------------------------------
+# 6. Union relation-type defaulting (#295)
+# ---------------------------------------------------------------------------
+
+def _fam_gedcom(
+    husb: bool = True,
+    wife: bool = True,
+    extra_fam_lines: list[str] | None = None,
+) -> str:
+    """Build a minimal GEDCOM with optional HUSB/WIFE and optional extra FAM lines."""
+    lines = ["0 HEAD", "1 CHAR UTF-8"]
+    if husb:
+        lines += ["0 @I1@ INDI", "1 NAME Tom /Smith/", "1 SEX M"]
+    if wife:
+        lines += ["0 @I2@ INDI", "1 NAME Mary /Smith/", "1 SEX F"]
+    fam = ["0 @F1@ FAM"]
+    if husb:
+        fam.append("1 HUSB @I1@")
+    if wife:
+        fam.append("1 WIFE @I2@")
+    if extra_fam_lines:
+        fam.extend(extra_fam_lines)
+    lines += fam + ["0 TRLR"]
+    return "\n".join(lines) + "\n"
+
+
+class TestUnionRelationTypeDefaulting:
+    """Regression tests for issue #295 — grey union nodes after GEDCOM import."""
+
+    def test_two_spouses_no_type_defaults_married(self):
+        """FAM with HUSB + WIFE but no MARR/DIV/_RELTYPE must yield a married relation."""
+        parsed = parse_gedcom(_fam_gedcom())
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(couple_rels) == 1
+
+    def test_explicit_marr_still_married(self):
+        """Explicit MARR event must still produce a married relation."""
+        parsed = parse_gedcom(_fam_gedcom(extra_fam_lines=["1 MARR Y"]))
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(couple_rels) == 1
+
+    def test_explicit_div_overrides_default(self):
+        """FAM with DIV event must produce divorced, not married."""
+        parsed = parse_gedcom(_fam_gedcom(extra_fam_lines=["1 DIV Y"]))
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "divorced"]
+        assert len(couple_rels) == 1
+        non_divorced = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(non_divorced) == 0
+
+    def test_explicit_reltype_wins_over_default(self):
+        """_RELTYPE tag must take precedence over the two-spouse default."""
+        parsed = parse_gedcom(_fam_gedcom(extra_fam_lines=["1 _RELTYPE partner"]))
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "partner"]
+        assert len(couple_rels) == 1
+        married_rels = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(married_rels) == 0
+
+    def test_single_spouse_no_type_no_couple_relation(self):
+        """FAM with only one spouse and no type tags — no couple relation."""
+        parsed = parse_gedcom(_fam_gedcom(wife=False))  # only HUSB
+        couple_rels = [
+            r for r in parsed["relations"]
+            if r["relation_type"] in ("married", "divorced", "partner")
+        ]
+        assert len(couple_rels) == 0
+
+    def test_no_spouses_no_couple_relation(self):
+        """FAM with no HUSB/WIFE (children only) must not produce a couple relation."""
+        lines = [
+            "0 HEAD", "1 CHAR UTF-8",
+            "0 @I1@ INDI", "1 NAME Kid /One/",
+            "0 @F1@ FAM", "1 CHIL @I1@",
+            "0 TRLR",
+        ]
+        parsed = parse_gedcom("\n".join(lines) + "\n")
+        couple_rels = [
+            r for r in parsed["relations"]
+            if r["relation_type"] in ("married", "divorced", "partner")
+        ]
+        assert len(couple_rels) == 0

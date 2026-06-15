@@ -1,7 +1,7 @@
 """Tree ownership transfer."""
 
 from app.models import Tree, TreeMembership
-from tests.conftest import API, auth, make_tree, make_user, share
+from tests.conftest import API, auth, befriend, make_tree, make_user, share
 
 
 def _transfer(client, actor, tree, username):
@@ -15,6 +15,7 @@ def _transfer(client, actor, tree, username):
 def test_owner_can_transfer_to_member(client, db):
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
+    befriend(db, owner, bob)
     tree = make_tree(db, owner)
     share(db, tree, bob, "editor")
 
@@ -30,12 +31,21 @@ def test_owner_can_transfer_to_member(client, db):
 
 def test_owner_can_transfer_to_non_member(client, db):
     owner = make_user(db, "owner")
-    make_user(db, "carol")
+    carol = make_user(db, "carol")
+    befriend(db, owner, carol)
     tree = make_tree(db, owner)
 
     res = _transfer(client, owner, tree, "carol")
     assert res.status_code == 200
     assert {m["username"]: m["role"] for m in res.json()} == {"carol": "owner"}
+
+
+def test_transfer_requires_friendship(client, db):
+    owner = make_user(db, "owner")
+    make_user(db, "stranger")
+    tree = make_tree(db, owner)
+
+    assert _transfer(client, owner, tree, "stranger").status_code == 403
 
 
 def test_admin_can_transfer_any_tree(client, db):

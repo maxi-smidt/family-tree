@@ -10,12 +10,16 @@ class MemberOut(BaseModel):
 
     id: str
     gender: str | None = None
+    academicTitle: str | None = None
     firstName: str | None = None
+    middleNames: str | None = None
+    baptismalName: str | None = None
     lastName: str | None = None
     maidenName: str | None = None
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    deceased: bool = False
     additionalData: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
@@ -28,12 +32,16 @@ class MemberOut(BaseModel):
 class MemberCreate(BaseModel):
     id: str
     gender: str | None = None
+    academicTitle: str | None = None
     firstName: str | None = None
+    middleNames: str | None = None
+    baptismalName: str | None = None
     lastName: str | None = None
     maidenName: str | None = None
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    deceased: bool = False
     additionalData: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
@@ -45,12 +53,16 @@ class MemberCreate(BaseModel):
 
 class MemberUpdate(BaseModel):
     gender: str | None = None
+    academicTitle: str | None = None
     firstName: str | None = None
+    middleNames: str | None = None
+    baptismalName: str | None = None
     lastName: str | None = None
     maidenName: str | None = None
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    deceased: bool | None = None
     additionalData: str | None = None
     birthplace: str | None = None
     hometown: str | None = None

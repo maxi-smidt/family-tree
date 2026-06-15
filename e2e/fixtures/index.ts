@@ -34,6 +34,21 @@ type E2EFixtures = {
 };
 
 export const test = base.extend<E2EFixtures>({
+  // The SPA reads its language from localStorage and otherwise defaults to
+  // German; force English so locale-dependent text selectors are reliable.
+  // (Playwright's `locale` option only sets navigator.language, which the app
+  // ignores.) Applies to every test's `page`, including `adminPage`.
+  page: async ({ page }, use) => {
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("i18nextLng", "en");
+      } catch {
+        /* ignore storage errors */
+      }
+    });
+    await use(page);
+  },
+
   adminApi: async ({}, use) => {
     const token = await getAdminToken();
     await use(makeApiClient(token));
@@ -42,15 +57,14 @@ export const test = base.extend<E2EFixtures>({
   adminPage: async ({ page }, use) => {
     // Log in via the UI login form so the SPA's auth store is properly
     // initialised (JWT stored in memory, not just a network cookie).
+    // Use ID selectors — label text is locale-dependent (e.g. "Benutzername" in DE).
     await page.goto("/");
-    await page.getByLabel(/username/i).fill(ADMIN_USERNAME);
-    await page.getByLabel(/password/i).fill(ADMIN_PASSWORD);
-    await page.getByRole("button", { name: /login|sign in/i }).click();
-    // Wait for the authenticated layout (sidebar / main panel appears)
-    await page.waitForURL(/\//, { waitUntil: "networkidle" });
-    await expect(page.locator("body")).not.toContainText("Login", {
-      timeout: 10_000,
-    });
+    await expect(page.locator("#username")).toBeVisible({ timeout: 15_000 });
+    await page.locator("#username").fill(ADMIN_USERNAME);
+    await page.locator("#password").fill(ADMIN_PASSWORD);
+    await page.locator('button[type="submit"]').click();
+    // Wait for the login form to disappear (auth store transitions to "authenticated")
+    await expect(page.locator("#username")).not.toBeVisible({ timeout: 15_000 });
     await use(page);
   },
 

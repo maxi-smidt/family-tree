@@ -19,17 +19,18 @@ import { Card } from "@/components/ui/card";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import type { StatisticsReport } from "@/types/statistics";
+import { ChartTooltipContent } from "./ChartTooltipContent";
 
 const GENDER_COLORS = {
-  male: "#6366f1",
-  female: "#ec4899",
-  other: "#f59e0b",
-  unknown: "#94a3b8",
+  male: "var(--color-chart-gender-male)",
+  female: "var(--color-chart-gender-female)",
+  other: "var(--color-chart-gender-other)",
+  unknown: "var(--color-chart-gender-unknown)",
 };
 
-const BIRTH_COLOR = "#6366f1";
-const DEATH_COLOR = "#f43f5e";
-const NAME_COLOR = "#6366f1";
+const BIRTH_COLOR = "var(--color-chart-birth)";
+const DEATH_COLOR = "var(--color-chart-death)";
+const NAME_COLOR = "var(--color-chart-birth)";
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -39,11 +40,11 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value }: StatCardProps) {
   return (
-    <Card className="p-4 flex items-center gap-3">
+    <Card className="items-center gap-3 p-4 text-center">
       <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
         {icon}
       </div>
-      <div className="min-w-0">
+      <div className="w-full min-w-0">
         <p className="text-xs text-muted-foreground truncate">{label}</p>
         <p className="text-xl font-semibold leading-tight">{value}</p>
       </div>
@@ -91,7 +92,16 @@ function GenderChart({
               <Cell key={entry.name} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip
+            content={({ active, label, payload }) => (
+              <ChartTooltipContent
+                active={active}
+                hideLabel
+                label={label}
+                payload={payload}
+              />
+            )}
+          />
           <Legend
             iconType="circle"
             iconSize={8}
@@ -135,11 +145,18 @@ function TimelineChart({
             width={28}
           />
           <Tooltip
-            labelFormatter={(l) => `${l}`}
-            formatter={(value, name) => [
-              value,
-              name === "births" ? t("timeline-births") : t("timeline-deaths"),
-            ]}
+            content={({ active, label, payload }) => (
+              <ChartTooltipContent
+                active={active}
+                label={label}
+                nameFormatter={(name) =>
+                  name === "births"
+                    ? t("timeline-births")
+                    : t("timeline-deaths")
+                }
+                payload={payload}
+              />
+            )}
           />
           <Bar
             dataKey="births"
@@ -199,7 +216,16 @@ function LifespanChart({
             axisLine={false}
             width={28}
           />
-          <Tooltip formatter={(value) => [value, t("lifespan-people")]} />
+          <Tooltip
+            content={({ active, label, payload }) => (
+              <ChartTooltipContent
+                active={active}
+                label={label}
+                nameFormatter={() => t("lifespan-people")}
+                payload={payload}
+              />
+            )}
+          />
           <Bar
             dataKey="count"
             fill={BIRTH_COLOR}
@@ -250,7 +276,16 @@ function NamesChart({
             axisLine={false}
             width={72}
           />
-          <Tooltip formatter={(value) => [value, t("names-count")]} />
+          <Tooltip
+            content={({ active, label, payload }) => (
+              <ChartTooltipContent
+                active={active}
+                label={label}
+                nameFormatter={() => t("names-count")}
+                payload={payload}
+              />
+            )}
+          />
           <Bar
             dataKey="count"
             fill={NAME_COLOR}
