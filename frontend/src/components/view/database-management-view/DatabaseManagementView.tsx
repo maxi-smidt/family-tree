@@ -31,6 +31,7 @@ import {
   AlertTriangle,
   RefreshCw,
   MoreHorizontal,
+  Scissors,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -50,6 +51,7 @@ import { RemoveDatabaseDialog } from "@/components/view/database-management-view
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
 import { MergeTreesDialog } from "@/components/view/database-management-view/dialog/MergeTreesDialog";
 import { DuplicateTreeDialog } from "@/components/view/database-management-view/dialog/DuplicateTreeDialog";
+import { ExtractSubtreeDialog } from "@/components/view/database-management-view/dialog/ExtractSubtreeDialog";
 import { VirtualViewDialog } from "@/components/view/database-management-view/dialog/VirtualViewDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
@@ -90,6 +92,7 @@ export const DatabaseManagementView = () => {
     null,
   );
   const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
+  const [extractTree, setExtractTree] = useState<Tree | null>(null);
   const [shareTree, setShareTree] = useState<Tree | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
@@ -361,6 +364,10 @@ export const DatabaseManagementView = () => {
                 <DropdownMenuItem onSelect={() => setDuplicateTree(database)}>
                   <Copy className="h-4 w-4" />
                   {t("duplicate-button")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setExtractTree(database)}>
+                  <Scissors className="h-4 w-4" />
+                  {t("extract-subtree-button")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   disabled={editingDatabaseId !== null}
@@ -750,6 +757,10 @@ export const DatabaseManagementView = () => {
       <DuplicateTreeDialog
         tree={duplicateTree}
         onClose={() => setDuplicateTree(null)}
+      />
+      <ExtractSubtreeDialog
+        tree={extractTree}
+        onClose={() => setExtractTree(null)}
       />
       {shareTree && (
         <ShareTreeDialog
