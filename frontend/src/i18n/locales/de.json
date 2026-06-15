@@ -412,7 +412,10 @@
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
       "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
-      "academic-title-item": "Akademischer / Ehrentitel"
+      "academic-title-item": "Akademischer / Ehrentitel",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-records": "Einträge"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",

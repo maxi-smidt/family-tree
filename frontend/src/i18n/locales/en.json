@@ -412,7 +412,10 @@
       "birthplace-label": "Birthplace",
       "hometown-label": "Hometown",
       "dod-deceased-no-date": "Deceased (date unknown)",
-      "academic-title-item": "Academic / Honorific Title"
+      "academic-title-item": "Academic / Honorific Title",
+      "tab-identity": "Identity",
+      "tab-life": "Life",
+      "tab-records": "Records"
     },
     "member-sheet": {
       "edit-title": "Edit Member",
