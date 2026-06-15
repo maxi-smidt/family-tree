@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { TabWrapper } from "@/components/layout/TabWrapper";
 import { MobileManagementSheet } from "@/components/layout/MobileManagementSheet";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { SlidersHorizontal } from "lucide-react";
 
 const FlowPanel = lazy(() =>
@@ -51,6 +52,11 @@ const MapView = lazy(() =>
     default: m.MapView,
   })),
 );
+const FriendsView = lazy(() =>
+  import("@/components/view/friends-view/FriendsView").then((m) => ({
+    default: m.FriendsView,
+  })),
+);
 import {
   Select,
   SelectContent,
@@ -61,9 +67,11 @@ import {
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import {
   DATABASE_MANAGEMENT_VIEW,
+  FRIENDS_VIEW,
   ViewId,
   isViewId,
   resolveTabs,
@@ -82,6 +90,7 @@ const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "quality-report-view": <QualityReportView />,
   "statistics-view": <StatisticsView />,
   "database-management-view": <DatabaseManagementView />,
+  "friends-view": <FriendsView />,
 };
 
 const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
@@ -122,10 +131,17 @@ export const MainPanel = () => {
   const features = useAuthStore((s) => s.features);
   const { order, hidden, loaded, load } = useTabPreferences();
   const [manageOpen, setManageOpen] = useState(false);
+  const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
+  const incomingFriendCount = useIncomingFriendCount();
 
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  // Keep the Friends tab badge accurate without opening the tab.
+  useEffect(() => {
+    if (user) void loadIncomingFriends();
+  }, [user, loadIncomingFriends]);
 
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
   // A virtual tree exposes the same tabs as a normal tree (read-only,
@@ -151,6 +167,7 @@ export const MainPanel = () => {
     "quality-report-view": t("quality-report"),
     "statistics-view": t("statistics"),
     "database-management-view": t("database-management"),
+    "friends-view": t("friends"),
   };
 
   return (
@@ -189,7 +206,14 @@ export const MainPanel = () => {
             {view === DATABASE_MANAGEMENT_VIEW && visible.length > 1 && (
               <div className="border-l border-border self-stretch h-auto mx-2" />
             )}
-            <TabsTrigger value={view}>{viewLabels[view]}</TabsTrigger>
+            <TabsTrigger value={view}>
+              {viewLabels[view]}
+              {view === FRIENDS_VIEW && incomingFriendCount > 0 && (
+                <Badge variant="default" className="ml-1.5 px-1.5">
+                  {incomingFriendCount}
+                </Badge>
+              )}
+            </TabsTrigger>
           </span>
         ))}
       </TabsList>
