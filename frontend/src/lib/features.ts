@@ -36,6 +36,12 @@ export const VIEW_FEATURES: Partial<Record<ViewId, FeatureName>> = {
   "statistics-view": "statistics",
 };
 
+/** View tabs that map to a restrictable domain. */
+export const VIEW_DOMAINS: Partial<Record<ViewId, string>> = {
+  "gallery-view": "gallery",
+  "timeline-view": "events",
+};
+
 /**
  * Drop views whose feature flag is disabled. Falls back to the tree view
  * when flags (or tab preferences) would otherwise hide every tab.
@@ -48,6 +54,23 @@ export function filterViewsByFeatures(
   const visible = views.filter((view) => {
     const required = VIEW_FEATURES[view];
     return required === undefined || enabled.has(required);
+  });
+  return visible.length > 0 ? visible : [TREE_VIEW];
+}
+
+/**
+ * Drop views whose domain is in the member's restriction list. Falls back to
+ * the tree view when restrictions would otherwise hide every tab.
+ */
+export function filterViewsByRestrictions(
+  views: ViewId[],
+  restrictions: readonly string[],
+): ViewId[] {
+  if (restrictions.length === 0) return views;
+  const hidden = new Set(restrictions);
+  const visible = views.filter((view) => {
+    const domain = VIEW_DOMAINS[view];
+    return domain === undefined || !hidden.has(domain);
   });
   return visible.length > 0 ? visible : [TREE_VIEW];
 }

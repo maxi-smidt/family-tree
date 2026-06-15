@@ -144,6 +144,15 @@
       "role-owner": "Owner",
       "role-editor": "Editor",
       "role-viewer": "Viewer",
+      "restrictions-title": "Hidden content",
+      "restrictions-button": "Content restrictions",
+      "restrictions-error": "Could not update content restrictions.",
+      "domains": {
+        "gallery": "Gallery",
+        "events": "Events",
+        "stories": "Stories",
+        "sources": "Sources"
+      },
       "transfer-title": "Transfer ownership",
       "transfer-hint": "The new owner gets full control. You will lose owner rights and your access to this tree.",
       "transfer-select": "Select a new owner…",

@@ -4,6 +4,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/services/api";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useFeature } from "@/hooks/useAuthStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import {
   ChangeEvent,
   FormEvent,
@@ -76,10 +77,11 @@ export const EditMode = ({
     keyPrefix: "sheet.edit-mode",
   });
   const { updateMemberPartial, members } = useMemberStore();
-  const eventsEnabled = useFeature("events");
-  const storiesEnabled = useFeature("stories");
-  const sourcesEnabled = useFeature("sources");
-  const galleryEnabled = useFeature("gallery");
+  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
+  const eventsEnabled = useFeature("events") && !restrictions.includes("events");
+  const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
+  const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
+  const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);

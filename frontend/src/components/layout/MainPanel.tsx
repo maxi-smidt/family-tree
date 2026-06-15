@@ -76,7 +76,8 @@ import {
   isViewId,
   resolveTabs,
 } from "@/lib/tabs";
-import { filterViewsByFeatures } from "@/lib/features";
+import { filterViewsByFeatures, filterViewsByRestrictions } from "@/lib/features";
+import { useTreeStore } from "@/hooks/useTreeStore";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
@@ -143,10 +144,16 @@ export const MainPanel = () => {
     if (user) void loadIncomingFriends();
   }, [user, loadIncomingFriends]);
 
+  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const restrictions = selectedTree?.restrictions ?? [];
+
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
   // A virtual tree exposes the same tabs as a normal tree (read-only,
   // aggregated live from its sources); only feature flags filter the set.
-  const visible = filterViewsByFeatures(allVisible, features);
+  const visible = filterViewsByRestrictions(
+    filterViewsByFeatures(allVisible, features),
+    restrictions,
+  );
   const mobileViews = visible.filter((v) => !MANAGEMENT_VIEWS.has(v));
 
   // If the active tab is hidden and no pending navigation, move to first visible.

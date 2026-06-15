@@ -144,6 +144,15 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter",
+      "restrictions-title": "Ausgeblendete Inhalte",
+      "restrictions-button": "Inhaltsbeschränkungen",
+      "restrictions-error": "Inhaltsbeschränkungen konnten nicht aktualisiert werden.",
+      "domains": {
+        "gallery": "Galerie",
+        "events": "Ereignisse",
+        "stories": "Geschichten",
+        "sources": "Quellen"
+      },
       "transfer-title": "Eigentümerschaft übertragen",
       "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
       "transfer-select": "Neuen Eigentümer auswählen…",

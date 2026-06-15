@@ -47,6 +47,9 @@ FEATURES: dict[str, FeatureState] = {
     "sharing_invites": "on",
 }
 
+# Domains whose visibility can be restricted per shared member.
+RESTRICTABLE_DOMAINS: set[str] = {"gallery", "events", "stories", "sources"}
+
 _SETTING_PREFIX = "feature."
 
 _VALID_STATES: set[str] = {"on", "off", "beta"}

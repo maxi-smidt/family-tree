@@ -79,6 +79,34 @@ def require_feature(feature: str):
     return dependency
 
 
+def require_domain(domain: str):
+    """Dependency factory hiding a content domain from a restricted member.
+
+    Mirrors require_feature: restricted domains answer 404 so they are
+    indistinguishable from disabled features. Owners, admins, and public
+    viewers have no membership row and always pass.
+    """
+    from app.services import feature_service
+
+    if domain not in feature_service.RESTRICTABLE_DOMAINS:
+        raise ValueError(f"Unknown restrictable domain: {domain}")
+
+    def dependency(
+        tree_id: str,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> None:
+        membership = db.get(TreeMembership, (tree_id, user.id))
+        if (
+            membership
+            and membership.restrictions
+            and domain in membership.restrictions
+        ):
+            raise HTTPException(status_code=404, detail="Not found")
+
+    return dependency
+
+
 def role_for(db: Session, tree: Tree, user: User) -> str | None:
     """The user's genuine relationship to the tree: 'owner' | 'editor' |
     'viewer', or None when they have no explicit access.

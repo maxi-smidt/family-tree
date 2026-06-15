@@ -46,6 +46,7 @@ import {
   ChevronsUpDown,
   Copy,
   Crown,
+  EyeOff,
   Globe,
   Link,
   UserPlus,
@@ -54,6 +55,7 @@ import {
 import { TreeSharingService } from "@/services/TreeSharingService";
 import { cn } from "@/lib/utils";
 import {
+  RESTRICTABLE_DOMAINS,
   ShareCandidate,
   ShareRole,
   Tree,
@@ -184,6 +186,28 @@ export const ShareTreeDialog = ({
     }
   };
 
+  const handleRestrictionToggle = async (
+    member: TreeAccess,
+    domain: string,
+    hidden: boolean,
+  ) => {
+    const current = member.restrictions ?? [];
+    const next = hidden
+      ? [...new Set([...current, domain])]
+      : current.filter((d) => d !== domain);
+    try {
+      const updated = await TreeSharingService.updateMemberRestrictions(
+        tree.id,
+        member.user_id,
+        next,
+      );
+      setAccess(updated);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("restrictions-error"));
+    }
+  };
+
   const handleRevoke = async (userId: string) => {
     try {
       await TreeSharingService.revokeAccess(tree.id, userId);
@@ -305,6 +329,50 @@ export const ShareTreeDialog = ({
                   <Badge variant="secondary">{t("role-owner")}</Badge>
                 ) : (
                   <div className="flex items-center gap-2">
+                    {isOwner && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={t("restrictions-button")}
+                          >
+                            <EyeOff className="h-4 w-4" />
+                            {(a.restrictions?.length ?? 0) > 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1 h-4 px-1 text-xs"
+                              >
+                                {a.restrictions!.length}
+                              </Badge>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2" align="end">
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">
+                            {t("restrictions-title")}
+                          </p>
+                          {RESTRICTABLE_DOMAINS.map((domain) => (
+                            <div
+                              key={domain}
+                              className="flex items-center justify-between py-1"
+                            >
+                              <span className="text-sm">
+                                {t(`domains.${domain}`)}
+                              </span>
+                              <Switch
+                                checked={
+                                  a.restrictions?.includes(domain) ?? false
+                                }
+                                onCheckedChange={(checked) =>
+                                  handleRestrictionToggle(a, domain, checked)
+                                }
+                              />
+                            </div>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    )}
                     <Select
                       value={a.role}
                       onValueChange={(v) => handleRoleChange(a, v as ShareRole)}

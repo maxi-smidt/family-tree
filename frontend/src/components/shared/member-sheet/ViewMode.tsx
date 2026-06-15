@@ -9,6 +9,7 @@ import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useFeature } from "@/hooks/useAuthStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
@@ -42,10 +43,11 @@ export const ViewMode = ({ member }: Props) => {
   const { galleryImages } = useGalleryStore();
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
-  const galleryEnabled = useFeature("gallery");
-  const eventsEnabled = useFeature("events");
-  const storiesEnabled = useFeature("stories");
-  const sourcesEnabled = useFeature("sources");
+  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
+  const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
+  const eventsEnabled = useFeature("events") && !restrictions.includes("events");
+  const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
+  const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
