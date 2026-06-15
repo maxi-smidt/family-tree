@@ -128,7 +128,17 @@ export const DatabaseManagementView = () => {
       }
 
       await importDatabase(file, password);
-      toast.success(t("toast-import-success"));
+      if (info.app_version && info.exported_at) {
+        const date = new Date(info.exported_at).toLocaleDateString();
+        toast.success(t("toast-import-success"), {
+          description: t("import-provenance", {
+            version: info.app_version,
+            date,
+          }),
+        });
+      } else {
+        toast.success(t("toast-import-success"));
+      }
     } catch (err) {
       console.error(err);
       toast.error(t("toast-import-error"));

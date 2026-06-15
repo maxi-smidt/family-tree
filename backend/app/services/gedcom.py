@@ -171,6 +171,7 @@ def serialize_to_gedcom(
     relations: list[dict],
     sources: list[dict] | None = None,
     citations: list[dict] | None = None,
+    app_version: str | None = None,
 ) -> str:
     """Serialize a family tree to a GEDCOM 5.5.1 LINEAGE-LINKED string.
 
@@ -198,6 +199,9 @@ def serialize_to_gedcom(
     day_str = f"{today.day:02d} {MONTHS[today.month - 1]} {today.year}"
     L("0 HEAD")
     L("1 SOUR FamilyTree")
+    L("2 NAME Family Tree")
+    if app_version:
+        L(f"2 VERS {app_version}")
     L("1 GEDC")
     L("2 VERS 5.5.1")
     L("2 FORM LINEAGE-LINKED")
