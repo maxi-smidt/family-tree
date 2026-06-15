@@ -59,6 +59,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import {
@@ -96,16 +97,22 @@ export const MainPanel = () => {
     return stored && isViewId(stored) ? stored : "tree-view";
   });
 
-  const handleTabChange = (value: string) => {
+  const applyTab = (value: string) => {
     if (!isViewId(value)) return;
     setActiveTab(value);
     localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, value);
   };
 
+  const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
+
+  const handleTabChange = (value: string) => {
+    guardNavigate(() => applyTab(value));
+  };
+
   const { pendingView, clearPending } = useNavigationStore();
   useEffect(() => {
     if (pendingView !== null) {
-      handleTabChange(pendingView);
+      applyTab(pendingView);
       clearPending();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,7 +136,7 @@ export const MainPanel = () => {
   // If the active tab is hidden and no pending navigation, move to first visible.
   useEffect(() => {
     if (loaded && pendingView === null && !visible.includes(activeTab)) {
-      handleTabChange(visible[0]);
+      applyTab(visible[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, visible, activeTab, pendingView]);

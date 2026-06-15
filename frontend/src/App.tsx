@@ -6,6 +6,7 @@ import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder
 import { Layout } from "@/components/layout/Layout";
 import { MainPanel } from "@/components/layout/MainPanel";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
+import { UnsavedChangesGuard } from "@/components/layout/UnsavedChangesGuard";
 import { LoginPage } from "@/components/auth/LoginPage";
 import { PublicTreeViewer } from "@/components/public/PublicTreeViewer";
 import { ReloginDialog } from "@/components/auth/ReloginDialog";
@@ -69,6 +70,7 @@ export const App = () => {
 
     return (
       <ErrorBoundary>
+        <UnsavedChangesGuard />
         <Layout>
           {selectedTree ? <MainPanel /> : <NoDatabasePlaceholder />}
         </Layout>
