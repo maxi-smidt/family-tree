@@ -83,6 +83,7 @@ export const EditMode = ({
   const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
   const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
   const diseasesEnabled = !restrictions.includes("diseases");
+  const mapEnabled = !restrictions.includes("map");
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -492,7 +493,7 @@ export const EditMode = ({
               </Field>
 
               {formData.deceased && (
-                <div className="grid grid-cols-2 gap-3">
+                <div className={mapEnabled ? "grid grid-cols-2 gap-3" : ""}>
                   <Field>
                     <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                       {t("death-field")}
@@ -505,22 +506,24 @@ export const EditMode = ({
                     />
                   </Field>
 
-                  <Field>
-                    <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                      {t("hometown-field")}
-                    </FieldLabel>
-                    <Input
-                      id="hometown"
-                      value={formData.hometown || ""}
-                      className="h-7 text-xs! shadow-none"
-                      placeholder={t("location-placeholder")}
-                      onChange={(e) => handleChange("hometown", e.target.value)}
-                    />
-                  </Field>
+                  {mapEnabled && (
+                    <Field>
+                      <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                        {t("hometown-field")}
+                      </FieldLabel>
+                      <Input
+                        id="hometown"
+                        value={formData.hometown || ""}
+                        className="h-7 text-xs! shadow-none"
+                        placeholder={t("location-placeholder")}
+                        onChange={(e) => handleChange("hometown", e.target.value)}
+                      />
+                    </Field>
+                  )}
                 </div>
               )}
 
-              {!formData.deceased && (
+              {!formData.deceased && mapEnabled && (
                 <Field>
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("hometown-field")}
@@ -535,95 +538,97 @@ export const EditMode = ({
                 </Field>
               )}
 
-              <Field>
-                <div className="flex items-center justify-between">
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                    {t("places-lived-field")}
-                  </FieldLabel>
-                  <button
-                    type="button"
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() =>
-                      handleChange("placesLived", [
-                        ...formData.placesLived,
-                        { location: "", from: null, to: null },
-                      ])
-                    }
-                  >
-                    <Plus className="size-3" />
-                    {t("places-lived-add")}
-                  </button>
-                </div>
-                <div className="flex flex-col gap-2">
-                  {formData.placesLived.map((place, idx) => (
-                    <div
-                      key={idx}
-                      className="flex flex-col gap-1 border rounded p-2"
+              {mapEnabled && (
+                <Field>
+                  <div className="flex items-center justify-between">
+                    <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                      {t("places-lived-field")}
+                    </FieldLabel>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                      onClick={() =>
+                        handleChange("placesLived", [
+                          ...formData.placesLived,
+                          { location: "", from: null, to: null },
+                        ])
+                      }
                     >
-                      <div className="flex items-center gap-1">
-                        <Input
-                          value={place.location}
-                          className="h-7 text-xs! shadow-none flex-1"
-                          placeholder={t("location-placeholder")}
-                          onChange={(e) => {
-                            const next = formData.placesLived.map((p, i) =>
-                              i === idx
-                                ? { ...p, location: e.target.value }
-                                : p,
-                            );
-                            handleChange("placesLived", next);
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="text-muted-foreground hover:text-destructive transition-colors"
-                          onClick={() => {
-                            handleChange(
-                              "placesLived",
-                              formData.placesLived.filter((_, i) => i !== idx),
-                            );
-                          }}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                      <Plus className="size-3" />
+                      {t("places-lived-add")}
+                    </button>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {formData.placesLived.map((place, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col gap-1 border rounded p-2"
+                      >
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={place.location}
+                            className="h-7 text-xs! shadow-none flex-1"
+                            placeholder={t("location-placeholder")}
+                            onChange={(e) => {
+                              const next = formData.placesLived.map((p, i) =>
+                                i === idx
+                                  ? { ...p, location: e.target.value }
+                                  : p,
+                              );
+                              handleChange("placesLived", next);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-destructive transition-colors"
+                            onClick={() => {
+                              handleChange(
+                                "placesLived",
+                                formData.placesLived.filter((_, i) => i !== idx),
+                              );
+                            }}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex gap-1">
+                          <Input
+                            value={place.from || ""}
+                            className="h-7 text-xs! shadow-none"
+                            placeholder={t("places-lived-from")}
+                            onChange={(e) => {
+                              const next = formData.placesLived.map((p, i) =>
+                                i === idx
+                                  ? { ...p, from: e.target.value || null }
+                                  : p,
+                              );
+                              handleChange("placesLived", next);
+                            }}
+                          />
+                          <Input
+                            value={place.to || ""}
+                            className="h-7 text-xs! shadow-none"
+                            placeholder={t("places-lived-to")}
+                            onChange={(e) => {
+                              const next = formData.placesLived.map((p, i) =>
+                                i === idx
+                                  ? { ...p, to: e.target.value || null }
+                                  : p,
+                              );
+                              handleChange("placesLived", next);
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div className="flex gap-1">
-                        <Input
-                          value={place.from || ""}
-                          className="h-7 text-xs! shadow-none"
-                          placeholder={t("places-lived-from")}
-                          onChange={(e) => {
-                            const next = formData.placesLived.map((p, i) =>
-                              i === idx
-                                ? { ...p, from: e.target.value || null }
-                                : p,
-                            );
-                            handleChange("placesLived", next);
-                          }}
-                        />
-                        <Input
-                          value={place.to || ""}
-                          className="h-7 text-xs! shadow-none"
-                          placeholder={t("places-lived-to")}
-                          onChange={(e) => {
-                            const next = formData.placesLived.map((p, i) =>
-                              i === idx
-                                ? { ...p, to: e.target.value || null }
-                                : p,
-                            );
-                            handleChange("placesLived", next);
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                  {formData.placesLived.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      {t("places-lived-empty")}
-                    </p>
-                  )}
-                </div>
-              </Field>
+                    ))}
+                    {formData.placesLived.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("places-lived-empty")}
+                      </p>
+                    )}
+                  </div>
+                </Field>
+              )}
 
               <Field>
                 <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">

@@ -49,6 +49,7 @@ export const ViewMode = ({ member }: Props) => {
   const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
   const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
+  const mapEnabled = !restrictions.includes("map");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -204,8 +205,8 @@ export const ViewMode = ({ member }: Props) => {
               )}
 
               {(member.birthplace ||
-                member.hometown ||
-                member.placesLived.length > 0) && (
+                (mapEnabled && member.hometown) ||
+                (mapEnabled && member.placesLived.length > 0)) && (
                 <Item variant="muted">
                   <ItemContent>
                     <ItemTitle>{t("locations-section")}</ItemTitle>
@@ -221,7 +222,7 @@ export const ViewMode = ({ member }: Props) => {
                           </span>
                         </div>
                       )}
-                      {member.hometown && (
+                      {mapEnabled && member.hometown && (
                         <div className="flex items-start gap-2 text-sm">
                           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
                           <span>
@@ -232,7 +233,7 @@ export const ViewMode = ({ member }: Props) => {
                           </span>
                         </div>
                       )}
-                      {member.placesLived.map((place, idx) => (
+                      {mapEnabled && member.placesLived.map((place, idx) => (
                         <div key={idx} className="flex items-start gap-2 text-sm">
                           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
                           <span>
