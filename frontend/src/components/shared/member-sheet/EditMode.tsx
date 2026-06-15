@@ -35,6 +35,7 @@ import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
 import { MemberSources } from "./MemberSources";
 import { MemberPicker } from "./MemberPicker";
+import { MemberPhotos } from "./MemberPhotos";
 
 function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   const descendants = new Set<string>();
@@ -75,6 +76,7 @@ export const EditMode = ({
   const eventsEnabled = useFeature("events");
   const storiesEnabled = useFeature("stories");
   const sourcesEnabled = useFeature("sources");
+  const galleryEnabled = useFeature("gallery");
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -609,6 +611,7 @@ export const EditMode = ({
         </FieldGroup>
 
         <div className="space-y-4 mt-6">
+          {galleryEnabled && !isNew && <MemberPhotos member={member} />}
           {eventsEnabled && <MemberEvents member={member} />}
           {storiesEnabled && <MemberStories member={member} />}
           {sourcesEnabled && <MemberSources member={member} />}

@@ -376,7 +376,12 @@
       "places-lived-empty": "No locations added yet.",
       "deceased-field": "Deceased",
       "academic-title-field": "Academic / Honorific Title",
-      "academic-title-placeholder": "e.g. Dr., Prof., Dipl.-Ing."
+      "academic-title-placeholder": "e.g. Dr., Prof., Dipl.-Ing.",
+      "photos-field": "Photos",
+      "photos-add": "Add photo",
+      "photos-empty": "No photos linked to this person yet.",
+      "toast-success-photo-upload": "Photo uploaded and linked.",
+      "toast-error-photo-upload": "Failed to upload photo."
     },
     "view-mode": {
       "firstname-item": "First Name",
