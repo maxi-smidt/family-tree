@@ -1,15 +1,67 @@
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Check, Search, UserMinus, UserPlus, X } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty";
+import {
+  Check,
+  Clock,
+  Search,
+  UserMinus,
+  UserPlus,
+  Users,
+  X,
+} from "lucide-react";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { UserSearchResult } from "@/types/friend";
 import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  const first = parts[0][0];
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return (first + last).toUpperCase();
+}
+
+/** Avatar + name/subtitle row with trailing actions, used across all tabs. */
+function PersonCard({
+  name,
+  subtitle,
+  actions,
+}: {
+  name: string;
+  subtitle?: string | null;
+  actions: ReactNode;
+}) {
+  return (
+    <Card className="flex-row items-center gap-3 p-3">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+        {initials(subtitle || name)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{name}</p>
+        {subtitle && (
+          <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">{actions}</div>
+    </Card>
+  );
+}
+
+const GRID = "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4";
 
 export const FriendsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.friends" });
@@ -23,6 +75,7 @@ export const FriendsView = () => {
   const decline = useFriendStore((s) => s.decline);
   const remove = useFriendStore((s) => s.remove);
 
+  const [tab, setTab] = useState("friends");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
@@ -83,186 +136,204 @@ export const FriendsView = () => {
     return null;
   };
 
+  const tabBadge = (count: number, variant: "secondary" | "default") =>
+    count > 0 ? (
+      <Badge variant={variant} className="ml-1.5 px-1.5">
+        {count}
+      </Badge>
+    ) : null;
+
   return (
     <ViewLayout title={t("title")}>
-      <div className="mx-auto max-w-2xl space-y-4">
-        <p className="text-sm text-muted-foreground">{t("description")}</p>
+      <Tabs value={tab} onValueChange={setTab} className="h-full">
+        <TabsList>
+          <TabsTrigger value="friends">
+            {t("tab-friends")}
+            {tabBadge(friends.length, "secondary")}
+          </TabsTrigger>
+          <TabsTrigger value="requests">
+            {t("tab-requests")}
+            {tabBadge(incoming.length, "default")}
+          </TabsTrigger>
+          <TabsTrigger value="add">{t("tab-add")}</TabsTrigger>
+        </TabsList>
 
-        <Tabs defaultValue={incoming.length > 0 ? "requests" : "friends"}>
-          <TabsList>
-            <TabsTrigger value="friends">
-              {t("tab-friends")}
-              {friends.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {friends.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="requests">
-              {t("tab-requests")}
-              {incoming.length > 0 && (
-                <Badge variant="default" className="ml-1">
-                  {incoming.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="add">{t("tab-add")}</TabsTrigger>
-          </TabsList>
-
-          {/* Accepted friends */}
-          <TabsContent value="friends" className="space-y-2">
-            {friends.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                {t("no-friends")}
-              </p>
-            ) : (
-              friends.map((f) => (
-                <div
+        {/* Accepted friends */}
+        <TabsContent value="friends" className="mt-4">
+          {friends.length === 0 ? (
+            <Empty className="border">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Users />
+                </EmptyMedia>
+                <EmptyTitle>{t("no-friends")}</EmptyTitle>
+                <EmptyDescription>{t("description")}</EmptyDescription>
+              </EmptyHeader>
+              <Button onClick={() => setTab("add")}>
+                <UserPlus className="h-4 w-4" />
+                {t("tab-add")}
+              </Button>
+            </Empty>
+          ) : (
+            <div className={GRID}>
+              {friends.map((f) => (
+                <PersonCard
                   key={f.user_id}
-                  className="flex items-center justify-between rounded-md border p-2"
-                >
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{f.username}</span>
-                    {f.full_name && (
-                      <span className="text-xs text-muted-foreground">
-                        {f.full_name}
-                      </span>
-                    )}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => run(() => remove(f.user_id), "remove-error")}
-                    title={t("unfriend")}
-                  >
-                    <UserMinus className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))
-            )}
-          </TabsContent>
-
-          {/* Incoming + outgoing pending requests */}
-          <TabsContent value="requests" className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium">{t("incoming")}</p>
-              {incoming.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("no-incoming")}
-                </p>
-              ) : (
-                incoming.map((f) => (
-                  <div
-                    key={f.user_id}
-                    className="flex items-center justify-between rounded-md border p-2"
-                  >
-                    <span className="text-sm font-medium">{f.username}</span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          run(() => accept(f.user_id), "accept-error")
-                        }
-                        title={t("accept")}
-                      >
-                        <Check className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          run(() => decline(f.user_id), "decline-error")
-                        }
-                        title={t("decline")}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="space-y-2 border-t pt-4">
-              <p className="text-sm font-medium">{t("outgoing")}</p>
-              {outgoing.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  {t("no-outgoing")}
-                </p>
-              ) : (
-                outgoing.map((f) => (
-                  <div
-                    key={f.user_id}
-                    className="flex items-center justify-between rounded-md border p-2"
-                  >
-                    <span className="text-sm font-medium">{f.username}</span>
+                  name={f.username}
+                  subtitle={f.full_name}
+                  actions={
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon"
+                      className="text-muted-foreground hover:text-destructive"
                       onClick={() =>
                         run(() => remove(f.user_id), "remove-error")
                       }
-                      title={t("cancel-request")}
+                      title={t("unfriend")}
+                      aria-label={t("unfriend")}
                     >
-                      <X className="h-4 w-4" />
+                      <UserMinus className="h-4 w-4" />
                     </Button>
-                  </div>
-                ))
-              )}
+                  }
+                />
+              ))}
             </div>
-          </TabsContent>
+          )}
+        </TabsContent>
 
-          {/* Search & add */}
-          <TabsContent value="add" className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-8"
-                placeholder={t("search-placeholder")}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-            {query.trim() && !searching && results.length === 0 && (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                {t("no-results")}
+        {/* Incoming + outgoing pending requests */}
+        <TabsContent value="requests" className="mt-4 space-y-6">
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-muted-foreground">
+              {t("incoming")}
+            </h2>
+            {incoming.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("no-incoming")}
               </p>
+            ) : (
+              <div className={GRID}>
+                {incoming.map((f) => (
+                  <PersonCard
+                    key={f.user_id}
+                    name={f.username}
+                    subtitle={f.full_name}
+                    actions={
+                      <>
+                        <Button
+                          variant="default"
+                          size="icon"
+                          onClick={() =>
+                            run(() => accept(f.user_id), "accept-error")
+                          }
+                          title={t("accept")}
+                          aria-label={t("accept")}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            run(() => decline(f.user_id), "decline-error")
+                          }
+                          title={t("decline")}
+                          aria-label={t("decline")}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    }
+                  />
+                ))}
+              </div>
             )}
-            <div className="space-y-2">
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold text-muted-foreground">
+              {t("outgoing")}
+            </h2>
+            {outgoing.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t("no-outgoing")}
+              </p>
+            ) : (
+              <div className={GRID}>
+                {outgoing.map((f) => (
+                  <PersonCard
+                    key={f.user_id}
+                    name={f.username}
+                    subtitle={f.full_name}
+                    actions={
+                      <>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5" />
+                          {t("status-pending")}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            run(() => remove(f.user_id), "remove-error")
+                          }
+                          title={t("cancel-request")}
+                          aria-label={t("cancel-request")}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </>
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+        </TabsContent>
+
+        {/* Search & add */}
+        <TabsContent value="add" className="mt-4 space-y-4">
+          <div className="relative max-w-md">
+            <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-8"
+              placeholder={t("search-placeholder")}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          {query.trim() && !searching && results.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("no-results")}</p>
+          ) : (
+            <div className={GRID}>
               {results.map((r) => {
                 const label = statusLabel(r.status);
                 return (
-                  <div
+                  <PersonCard
                     key={r.user_id}
-                    className="flex items-center justify-between rounded-md border p-2"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">{r.username}</span>
-                      {r.full_name && (
-                        <span className="text-xs text-muted-foreground">
-                          {r.full_name}
-                        </span>
-                      )}
-                    </div>
-                    {label ? (
-                      <Badge variant="secondary">{label}</Badge>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleSend(r.username)}
-                      >
-                        <UserPlus className="h-4 w-4" />
-                        {t("add")}
-                      </Button>
-                    )}
-                  </div>
+                    name={r.username}
+                    subtitle={r.full_name}
+                    actions={
+                      label ? (
+                        <Badge variant="secondary">{label}</Badge>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSend(r.username)}
+                        >
+                          <UserPlus className="h-4 w-4" />
+                          {t("add")}
+                        </Button>
+                      )
+                    }
+                  />
                 );
               })}
             </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </ViewLayout>
   );
 };
