@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
-import { RelationTypeDB } from "@/types/member";
+import { Member, MemberDB, RelationTypeDB, mapMemberFromDB } from "@/types/member";
 import { MergeResolution } from "@/types/merge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -42,6 +42,15 @@ interface DatabaseState {
     sourceB?: string,
     resolutions?: MergeResolution[],
   ) => Promise<Tree>;
+  extractSubtree: (payload: {
+    name: string;
+    source_tree_id: string;
+    root_member_id: string;
+    direction: "descendants" | "ancestors" | "both";
+    depth: number | null;
+    include_partners: boolean;
+  }) => Promise<Tree>;
+  fetchTreeMembers: (treeId: string) => Promise<Member[]>;
   createVirtualView: (name: string, sourceTreeIds: string[]) => Promise<Tree>;
   renameVirtualView: (view: Tree, name: string) => Promise<void>;
   updateVirtualViewSources: (
@@ -132,6 +141,18 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     await get().loadTrees();
     await get().selectTree(tree);
     return tree;
+  },
+
+  extractSubtree: async (payload) => {
+    const tree = await TreeService.extractSubtree(payload);
+    await get().loadTrees();
+    await get().selectTree(tree);
+    return tree;
+  },
+
+  fetchTreeMembers: async (treeId: string) => {
+    const rows = await TreeService.getMembers(treeId);
+    return (rows as MemberDB[]).map((r) => mapMemberFromDB(r));
   },
 
   createVirtualView: async (name: string, sourceTreeIds: string[]) => {

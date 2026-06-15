@@ -16,6 +16,7 @@ from app.api.deps import (
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
+from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
     PublicAccessUpdate,
@@ -29,6 +30,7 @@ from app.schemas.tree import (
     TreeUpdate,
 )
 from app.services import friendships
+from app.services.extract import compute_subtree_preview, extract_subtree
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
 
@@ -113,6 +115,28 @@ def merge(
     tree = merge_trees(
         db, user, payload.name, payload.source_a, payload.source_b, payload.resolutions
     )
+    return _tree_out(db, tree, user)
+
+
+@router.post("/extract-subtree/preview", response_model=SubtreePreview)
+def extract_subtree_preview(
+    payload: SubtreeExtractRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Compute a sub-tree extraction preview (no data is written)."""
+    return compute_subtree_preview(db, user, payload)
+
+
+@router.post("/extract-subtree", response_model=TreeOut, status_code=201)
+def extract_subtree_endpoint(
+    payload: SubtreeExtractRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="A name is required")
+    tree = extract_subtree(db, user, payload)
     return _tree_out(db, tree, user)
 
 
