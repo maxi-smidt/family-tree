@@ -14,7 +14,18 @@ export interface TreeRecord {
 export interface MemberRecord {
   id: string;
   firstName?: string | null;
+  middleNames?: string | null;
   lastName?: string | null;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  dateOfDeath?: string | null;
+  deceased?: boolean;
+  additionalData?: string | null;
+  birthplace?: string | null;
+  hometown?: string | null;
+  isCollapsed?: boolean;
+  positionX?: number;
+  positionY?: number;
 }
 
 export interface RelationRecord {

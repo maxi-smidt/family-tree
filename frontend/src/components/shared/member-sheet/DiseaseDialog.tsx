@@ -70,6 +70,7 @@ export const DiseaseDialog = ({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (!name.trim()) {
       return;

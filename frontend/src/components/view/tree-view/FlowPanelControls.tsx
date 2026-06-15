@@ -58,6 +58,7 @@ export const FlowPanelControls = ({
                 size="icon"
                 onClick={() => undo()}
                 disabled={undoStack.length === 0}
+                aria-label={t("undo")}
               >
                 <Undo2 />
               </Button>
@@ -71,6 +72,7 @@ export const FlowPanelControls = ({
                 size="icon"
                 onClick={() => redo()}
                 disabled={redoStack.length === 0}
+                aria-label={t("redo")}
               >
                 <Redo2 />
               </Button>
@@ -150,11 +152,7 @@ export const FlowPanelControls = ({
             disabled={isExporting}
             aria-label={t("export-image")}
           >
-            {isExporting ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <ImageDown />
-            )}
+            {isExporting ? <Loader2 className="animate-spin" /> : <ImageDown />}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">{t("export-image")}</TooltipContent>
