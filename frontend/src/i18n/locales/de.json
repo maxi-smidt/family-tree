@@ -376,7 +376,12 @@
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
       "deceased-field": "Verstorben",
       "academic-title-field": "Akademischer / Ehrentitel",
-      "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing."
+      "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
+      "photos-field": "Fotos",
+      "photos-add": "Foto hinzufügen",
+      "photos-empty": "Noch keine Fotos mit dieser Person verknüpft.",
+      "toast-success-photo-upload": "Foto hochgeladen und verknüpft.",
+      "toast-error-photo-upload": "Hochladen des Fotos fehlgeschlagen."
     },
     "view-mode": {
       "firstname-item": "Vorname",
