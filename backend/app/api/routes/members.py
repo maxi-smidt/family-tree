@@ -9,6 +9,7 @@ from app.api.deps import (
     get_readable_tree,
     get_readable_tree_public,
     get_writable_tree,
+    require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
@@ -279,7 +280,11 @@ def remove_relation(
 
 
 # --- Diseases --------------------------------------------------------------
-@router.get("/diseases", response_model=list[DiseaseOut])
+@router.get(
+    "/diseases",
+    response_model=list[DiseaseOut],
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def list_diseases(
     pagination: Pagination = Depends(pagination_params),
     tree: Tree = Depends(get_readable_tree),
@@ -293,7 +298,12 @@ def list_diseases(
     return db.scalars(apply_pagination(statement, pagination)).all()
 
 
-@router.post("/diseases", response_model=DiseaseOut, status_code=201)
+@router.post(
+    "/diseases",
+    response_model=DiseaseOut,
+    status_code=201,
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def add_disease(
     payload: DiseaseCreate,
     tree: Tree = Depends(get_writable_tree),
@@ -310,7 +320,11 @@ def add_disease(
     return disease
 
 
-@router.patch("/diseases/{disease_id}", response_model=DiseaseOut)
+@router.patch(
+    "/diseases/{disease_id}",
+    response_model=DiseaseOut,
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def update_disease(
     disease_id: str,
     payload: DiseaseUpdate,
@@ -332,7 +346,11 @@ def update_disease(
     return disease
 
 
-@router.delete("/diseases/{disease_id}", status_code=204)
+@router.delete(
+    "/diseases/{disease_id}",
+    status_code=204,
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def delete_disease(
     disease_id: str,
     tree: Tree = Depends(get_writable_tree),

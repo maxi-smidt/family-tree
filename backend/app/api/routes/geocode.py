@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree, require_feature
+from app.api.deps import get_readable_tree, require_domain, require_feature
 from app.db.session import get_db
 from app.models import Tree
 from app.schemas.content import GeocodeOut, GeocodeRequest
@@ -12,7 +12,7 @@ from app.services.geocoding import resolve_batch, resolve_single
 router = APIRouter(
     prefix="/trees/{tree_id}/geocode",
     tags=["geocode"],
-    dependencies=[Depends(require_feature("map"))],
+    dependencies=[Depends(require_feature("map")), Depends(require_domain("map"))],
 )
 
 

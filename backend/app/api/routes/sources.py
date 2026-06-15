@@ -10,6 +10,7 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
+    require_domain,
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -40,7 +41,10 @@ from app.services.storage import (
 router = APIRouter(
     prefix="/trees/{tree_id}/sources",
     tags=["sources"],
-    dependencies=[Depends(require_feature("sources"))],
+    dependencies=[
+        Depends(require_feature("sources")),
+        Depends(require_domain("sources")),
+    ],
 )
 
 _MEDIA_PREFIX = "/api/media/"

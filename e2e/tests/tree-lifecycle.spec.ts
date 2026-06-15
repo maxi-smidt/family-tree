@@ -427,11 +427,11 @@ test("transfer: a friend becomes owner and the original owner loses access", asy
     >(`/trees/${tree.id}/transfer`, {
       username: recipient.username,
     });
-    expect(access).toContainEqual({
+    expect(access).toContainEqual(expect.objectContaining({
       user_id: recipient.id,
       username: recipient.username,
       role: "owner",
-    });
+    }));
 
     const recipientTrees = await recipientApi.get<TreeListItem[]>("/trees");
     expect(recipientTrees.find((item) => item.id === tree.id)).toMatchObject({
