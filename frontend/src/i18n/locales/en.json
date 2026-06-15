@@ -97,7 +97,7 @@
     "remove-node": {
       "title_one": "Delete Member",
       "title_other": "Delete Members",
-      "description": "This action will permanently delete the following members from the family tree. This action cannot be undone.",
+      "description": "The selected members will be deleted from the family tree. You can undo this for a few seconds afterward.",
       "validation": "Are you sure you want to delete",
       "cancel": "Cancel",
       "delete": "Delete"
@@ -427,7 +427,7 @@
       "save": "Save",
       "delete": "Delete",
       "delete-confirm-title": "Delete Member",
-      "delete-confirm-description": "Are you sure you want to permanently delete this member? This action cannot be undone.",
+      "delete-confirm-description": "Are you sure you want to delete this member? You can undo this for a few seconds afterward.",
       "delete-confirm-cancel": "Cancel",
       "delete-confirm-confirm": "Delete",
       "show-less": "Show less",
@@ -785,7 +785,10 @@
     },
     "member-store": {
       "refresh-error": "Could not sync your changes. Please reload.",
-      "layout-error": "Could not update the layout."
+      "layout-error": "Could not update the layout.",
+      "delete-pending": "Member deleted.",
+      "undo-delete": "Undo",
+      "delete-error": "Could not delete the member. It has been restored."
     },
     "geocode": {
       "resolve-error": "Could not resolve map locations."

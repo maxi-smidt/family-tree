@@ -97,7 +97,7 @@
     "remove-node": {
       "title_one": "Lösche Person",
       "title_other": "Lösche Personen",
-      "description": "Diese Aktion löscht unwiderruflich die folgenden Personen aus dem Stammbaum.",
+      "description": "Die ausgewählten Personen werden aus dem Stammbaum gelöscht. Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "validation": "Bis du dir sicher das folgende Personen gelöscht werden sollen?",
       "cancel": "Abbrechen",
       "delete": "Löschen"
@@ -427,7 +427,7 @@
       "save": "Speichern",
       "delete": "Löschen",
       "delete-confirm-title": "Person löschen",
-      "delete-confirm-description": "Bist du sicher, dass diese Person unwiderruflich gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "delete-confirm-description": "Bist du sicher, dass diese Person gelöscht werden soll? Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "delete-confirm-cancel": "Abbrechen",
       "delete-confirm-confirm": "Löschen",
       "show-less": "Weniger anzeigen",
@@ -785,7 +785,10 @@
     },
     "member-store": {
       "refresh-error": "Änderungen konnten nicht synchronisiert werden. Bitte neu laden.",
-      "layout-error": "Das Layout konnte nicht aktualisiert werden."
+      "layout-error": "Das Layout konnte nicht aktualisiert werden.",
+      "delete-pending": "Person gelöscht.",
+      "undo-delete": "Rückgängig",
+      "delete-error": "Die Person konnte nicht gelöscht werden und wurde wiederhergestellt."
     },
     "geocode": {
       "resolve-error": "Kartenorte konnten nicht aufgelöst werden."
