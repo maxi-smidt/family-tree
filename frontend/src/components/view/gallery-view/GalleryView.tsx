@@ -29,13 +29,46 @@ import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { formatDateTime } from "@/utils/dateUtils";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
 
+const SKELETON_CARDS = 10;
+
+function GallerySkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-4 flex items-center justify-between gap-4 p-1">
+        <Skeleton className="h-9 w-72" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-9 w-48" />
+          <Skeleton className="h-9 w-9" />
+        </div>
+      </div>
+      <div className="grid flex-1 auto-rows-[300px] grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        {Array.from({ length: SKELETON_CARDS }).map((_, index) => (
+          <div
+            key={index}
+            className="flex h-full flex-col overflow-hidden rounded-xl border"
+          >
+            <Skeleton className="min-h-0 flex-1 rounded-none" />
+            <div className="space-y-2 p-2">
+              <Skeleton className="h-3 w-3/4" />
+              <Skeleton className="h-2.5 w-1/3" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
   const { galleryImages, addGalleryImage } = useGalleryStore();
+  const isReady = useTreeStore((state) => state.isReady);
   const mediaLimits = useAuthStore((state) => state.config?.media_limits);
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
@@ -155,6 +188,14 @@ export const GalleryView = () => {
   };
 
   const isEmpty = galleryImages.length === 0;
+
+  if (!isReady) {
+    return (
+      <ViewLayout title={t("title")}>
+        <GallerySkeleton />
+      </ViewLayout>
+    );
+  }
 
   return (
     <ViewLayout title={t("title")}>
