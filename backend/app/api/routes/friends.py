@@ -99,12 +99,18 @@ def search_users(
     results: list[UserSearchResult] = []
     for match in matches:
         friendship = friendships.get_friendship(db, user.id, match.id)
+        direction = None
+        if friendship is not None and friendship.status == "pending":
+            direction = (
+                "incoming" if friendship.addressee_id == user.id else "outgoing"
+            )
         results.append(
             UserSearchResult(
                 user_id=match.id,
                 username=match.username,
                 full_name=match.full_name,
                 status=friendship.status if friendship else None,
+                direction=direction,
             )
         )
     return results

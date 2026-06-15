@@ -28,9 +28,12 @@ class UserSearchResult(BaseModel):
 
     ``status`` is None when there is no existing friendship, so the UI can offer
     a "send request" action; otherwise it reflects the current state.
+    ``direction`` is set only for ``pending`` ("incoming" when they requested me,
+    "outgoing" when I requested them) so the UI can offer accept vs. revoke.
     """
 
     user_id: str
     username: str
     full_name: str | None = None
     status: str | None = None
+    direction: str | None = None

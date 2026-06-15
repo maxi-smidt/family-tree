@@ -18,4 +18,6 @@ export interface UserSearchResult {
   username: string;
   full_name: string | null;
   status: FriendStatus | null;
+  /** Set only for a pending status: who sent the request. */
+  direction: "incoming" | "outgoing" | null;
 }

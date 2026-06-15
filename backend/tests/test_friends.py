@@ -118,6 +118,17 @@ def test_search_excludes_self_and_annotates_status(client, db):
     assert "email" not in bob_hit[0]  # privacy: emails never exposed
 
 
+def test_search_annotates_pending_direction(client, db):
+    alice = make_user(db, "alice")
+    make_user(db, "bob")
+    _send(client, alice, "bob")
+
+    # Alice sent the request → from her side it's an outgoing pending.
+    hit = client.get(f"{API}/friends/search?q=bob", headers=auth(alice)).json()[0]
+    assert hit["status"] == "pending"
+    assert hit["direction"] == "outgoing"
+
+
 def test_search_empty_query_returns_nothing(client, db):
     alice = make_user(db, "alice")
     make_user(db, "bob")

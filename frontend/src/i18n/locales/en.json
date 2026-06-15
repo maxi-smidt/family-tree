@@ -998,7 +998,11 @@
       "blocked-error": "You can't send a request to this user.",
       "accept-error": "Could not accept the request.",
       "decline-error": "Could not decline the request.",
-      "remove-error": "Could not remove the friend."
+      "remove-error": "Could not remove the friend.",
+      "confirm-remove-title": "Remove friend?",
+      "confirm-remove-description": "Remove {{name}} from your friends? Any trees shared between you will no longer be accessible.",
+      "confirm-remove-confirm": "Remove",
+      "confirm-remove-cancel": "Cancel"
     },
     "delete-account": {
       "title": "Delete my account",

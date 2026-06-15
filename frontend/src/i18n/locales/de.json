@@ -998,7 +998,11 @@
       "blocked-error": "Du kannst diesem Benutzer keine Anfrage senden.",
       "accept-error": "Anfrage konnte nicht angenommen werden.",
       "decline-error": "Anfrage konnte nicht abgelehnt werden.",
-      "remove-error": "Freund konnte nicht entfernt werden."
+      "remove-error": "Freund konnte nicht entfernt werden.",
+      "confirm-remove-title": "Freund entfernen?",
+      "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
+      "confirm-remove-confirm": "Entfernen",
+      "confirm-remove-cancel": "Abbrechen"
     },
     "delete-account": {
       "title": "Konto löschen",

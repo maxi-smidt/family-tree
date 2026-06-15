@@ -71,7 +71,13 @@ describe("useFriendStore", () => {
 
   it("search delegates to the service without mutating state", async () => {
     vi.mocked(FriendService.search).mockResolvedValue([
-      { user_id: "x", username: "xavier", full_name: null, status: null },
+      {
+        user_id: "x",
+        username: "xavier",
+        full_name: null,
+        status: null,
+        direction: null,
+      },
     ]);
     const results = await useFriendStore.getState().search("xav");
     expect(results).toHaveLength(1);

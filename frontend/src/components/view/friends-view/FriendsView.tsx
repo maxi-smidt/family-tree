@@ -21,8 +21,9 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useFriendStore } from "@/hooks/useFriendStore";
-import { UserSearchResult } from "@/types/friend";
+import { Friend, UserSearchResult } from "@/types/friend";
 import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -79,6 +80,7 @@ export const FriendsView = () => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [toUnfriend, setToUnfriend] = useState<Friend | null>(null);
 
   useEffect(() => {
     void loadAll();
@@ -116,7 +118,9 @@ export const FriendsView = () => {
       // Reflect the new relationship in the open search results.
       setResults((prev) =>
         prev.map((r) =>
-          r.username === username ? { ...r, status: "pending" } : r,
+          r.username === username
+            ? { ...r, status: "pending", direction: "outgoing" }
+            : r,
         ),
       );
     } catch (err) {
@@ -129,11 +133,65 @@ export const FriendsView = () => {
     }
   };
 
-  const statusLabel = (status: UserSearchResult["status"]) => {
-    if (status === "accepted") return t("status-friends");
-    if (status === "pending") return t("status-pending");
-    if (status === "blocked") return t("status-blocked");
-    return null;
+  const patchResult = (userId: string, patch: Partial<UserSearchResult>) =>
+    setResults((prev) =>
+      prev.map((r) => (r.user_id === userId ? { ...r, ...patch } : r)),
+    );
+
+  // The trailing control for a search hit depends on our relationship: send,
+  // accept an incoming request, revoke an outgoing one, or just label it.
+  const searchAction = (r: UserSearchResult): ReactNode => {
+    if (r.status === "accepted") {
+      return <Badge variant="secondary">{t("status-friends")}</Badge>;
+    }
+    if (r.status === "blocked") {
+      return <Badge variant="secondary">{t("status-blocked")}</Badge>;
+    }
+    if (r.status === "pending" && r.direction === "incoming") {
+      return (
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() =>
+            run(async () => {
+              await accept(r.user_id);
+              patchResult(r.user_id, { status: "accepted", direction: null });
+            }, "accept-error")
+          }
+        >
+          <Check className="h-4 w-4" />
+          {t("accept")}
+        </Button>
+      );
+    }
+    if (r.status === "pending") {
+      return (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-muted-foreground"
+          onClick={() =>
+            run(async () => {
+              await remove(r.user_id);
+              patchResult(r.user_id, { status: null, direction: null });
+            }, "remove-error")
+          }
+        >
+          <X className="h-4 w-4" />
+          {t("cancel-request")}
+        </Button>
+      );
+    }
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => handleSend(r.username)}
+      >
+        <UserPlus className="h-4 w-4" />
+        {t("add")}
+      </Button>
+    );
   };
 
   const tabBadge = (count: number, variant: "secondary" | "default") =>
@@ -145,7 +203,9 @@ export const FriendsView = () => {
 
   return (
     <ViewLayout title={t("title")}>
-      <Tabs value={tab} onValueChange={setTab} className="h-full">
+      {/* px-1 keeps focus rings (e.g. the search box) from being clipped by the
+          ViewLayout scroll container's left edge. */}
+      <Tabs value={tab} onValueChange={setTab} className="h-full px-1">
         <TabsList>
           <TabsTrigger value="friends">
             {t("tab-friends")}
@@ -186,9 +246,7 @@ export const FriendsView = () => {
                       variant="ghost"
                       size="icon"
                       className="text-muted-foreground hover:text-destructive"
-                      onClick={() =>
-                        run(() => remove(f.user_id), "remove-error")
-                      }
+                      onClick={() => setToUnfriend(f)}
                       title={t("unfriend")}
                       aria-label={t("unfriend")}
                     >
@@ -306,34 +364,35 @@ export const FriendsView = () => {
             <p className="text-sm text-muted-foreground">{t("no-results")}</p>
           ) : (
             <div className={GRID}>
-              {results.map((r) => {
-                const label = statusLabel(r.status);
-                return (
-                  <PersonCard
-                    key={r.user_id}
-                    name={r.username}
-                    subtitle={r.full_name}
-                    actions={
-                      label ? (
-                        <Badge variant="secondary">{label}</Badge>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleSend(r.username)}
-                        >
-                          <UserPlus className="h-4 w-4" />
-                          {t("add")}
-                        </Button>
-                      )
-                    }
-                  />
-                );
-              })}
+              {results.map((r) => (
+                <PersonCard
+                  key={r.user_id}
+                  name={r.username}
+                  subtitle={r.full_name}
+                  actions={searchAction(r)}
+                />
+              ))}
             </div>
           )}
         </TabsContent>
       </Tabs>
+
+      <ConfirmDeleteDialog
+        open={toUnfriend !== null}
+        onOpenChange={(open) => !open && setToUnfriend(null)}
+        onConfirm={() => {
+          if (toUnfriend) {
+            void run(() => remove(toUnfriend.user_id), "remove-error");
+          }
+          setToUnfriend(null);
+        }}
+        title={t("confirm-remove-title")}
+        description={t("confirm-remove-description", {
+          name: toUnfriend?.username ?? "",
+        })}
+        cancelText={t("confirm-remove-cancel")}
+        confirmText={t("confirm-remove-confirm")}
+      />
     </ViewLayout>
   );
 };
