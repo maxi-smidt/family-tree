@@ -24,10 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  STORED_IMAGE_HEIGHT as MAX_HEIGHT,
-  STORED_IMAGE_WIDTH as MAX_WIDTH,
-} from "@/constants";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
@@ -39,6 +36,7 @@ type SortDirection = "asc" | "desc";
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
   const { galleryImages, addGalleryImage } = useGalleryStore();
+  const mediaLimits = useAuthStore((state) => state.config?.media_limits);
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -73,15 +71,15 @@ export const GalleryView = () => {
           let width = img.width;
           let height = img.height;
 
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height *= MAX_WIDTH / width;
-              width = MAX_WIDTH;
+          if (mediaLimits && width > height) {
+            if (width > mediaLimits.stored_image_width) {
+              height *= mediaLimits.stored_image_width / width;
+              width = mediaLimits.stored_image_width;
             }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width *= MAX_HEIGHT / height;
-              height = MAX_HEIGHT;
+          } else if (mediaLimits) {
+            if (height > mediaLimits.stored_image_height) {
+              width *= mediaLimits.stored_image_height / height;
+              height = mediaLimits.stored_image_height;
             }
           }
           canvas.width = width;

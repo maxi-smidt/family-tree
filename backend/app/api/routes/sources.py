@@ -29,6 +29,7 @@ from app.schemas.content import (
     SourceUpdate,
 )
 from app.services.activity import record_activity
+from app.services.settings_service import get_media_limits
 from app.services.storage import (
     FileTooLarge,
     UnsupportedFileType,
@@ -173,7 +174,12 @@ def add_evidence(
                 status_code=400, detail="filename and data are required for file evidence"
             )
         try:
-            url, mime, size = store_document(tree.id, payload.filename, payload.data)
+            url, mime, size = store_document(
+                tree.id,
+                payload.filename,
+                payload.data,
+                get_media_limits(db),
+            )
         except FileTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except UnsupportedFileType as exc:

@@ -41,7 +41,7 @@ from app.schemas.user import (
     UserOut,
 )
 from app.services import feature_service
-from app.services.settings_service import get_bool_setting
+from app.services.settings_service import get_bool_setting, get_media_limits
 from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -64,6 +64,7 @@ def auth_config(db: Session = Depends(get_db)):
         authentik_enabled=settings.authentik_enabled,
         allow_self_registration=get_bool_setting(db, "allow_self_registration", False),
         authentik_login_url=login_url,
+        media_limits=get_media_limits(db),
     )
 
 

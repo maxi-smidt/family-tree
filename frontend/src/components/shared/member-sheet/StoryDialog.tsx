@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { AttachmentOps, Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
@@ -20,6 +21,7 @@ import { getMemberOptions } from "@/utils/memberUtils";
 import {
   ATTACHMENT_ACCEPT,
   attachmentError,
+  formatFileSize,
   isImageAttachment,
   readFileAsDataUrl,
 } from "@/utils/attachmentUtils";
@@ -58,6 +60,13 @@ export const StoryDialog = ({
   });
   const { addStory, updateStory } = useStoryStore();
   const { members } = useMemberStore();
+  const maxAttachmentBytes = useAuthStore(
+    (state) => state.config?.media_limits.max_document_bytes,
+  );
+  const maxAttachmentSize =
+    maxAttachmentBytes === undefined
+      ? null
+      : formatFileSize(maxAttachmentBytes);
   const [formData, setFormData] = useState<StoryInput>({
     title: "",
     content: "",
@@ -119,9 +128,11 @@ export const StoryDialog = ({
     if (!fileList) return;
     setFileError(null);
     for (const file of Array.from(fileList)) {
-      const err = attachmentError(file);
+      const err = attachmentError(file, maxAttachmentBytes);
       if (err) {
-        setFileError(t(`attachments.error-${err}`));
+        setFileError(
+          t(`attachments.error-${err}`, { max: maxAttachmentSize ?? "" }),
+        );
         continue;
       }
       const dataUrl = await readFileAsDataUrl(file);
@@ -158,8 +169,9 @@ export const StoryDialog = ({
       formData.content !== initialSnapshot.formData.content ||
       JSON.stringify(selectedMemberIds) !==
         JSON.stringify(initialSnapshot.selectedMemberIds) ||
-      JSON.stringify(existing.map((a) => ({ id: a.id, filename: a.filename }))) !==
-        initialSnapshot.existingJson ||
+      JSON.stringify(
+        existing.map((a) => ({ id: a.id, filename: a.filename })),
+      ) !== initialSnapshot.existingJson ||
       added.length > 0);
 
   const save = useCallback(async (): Promise<boolean> => {
@@ -178,8 +190,17 @@ export const StoryDialog = ({
     } finally {
       setSubmitting(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [story, formData, selectedMemberIds, existing, added, addStory, updateStory, onOpenChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    story,
+    formData,
+    selectedMemberIds,
+    existing,
+    added,
+    addStory,
+    updateStory,
+    onOpenChange,
+  ]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -365,7 +386,9 @@ export const StoryDialog = ({
               ) : (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Paperclip className="w-3 h-3" />
-                  {t("attachments.hint")}
+                  {maxAttachmentSize
+                    ? t("attachments.hint", { max: maxAttachmentSize })
+                    : t("attachments.hint-without-limit")}
                 </p>
               )}
             </div>
