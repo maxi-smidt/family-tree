@@ -36,6 +36,7 @@ import { MemberDiseases } from "./MemberDiseases";
 import { MemberSources } from "./MemberSources";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   const descendants = new Set<string>();
@@ -81,6 +82,7 @@ export const EditMode = ({
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [recordsMounted, setRecordsMounted] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -129,7 +131,7 @@ export const EditMode = ({
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file later
+    e.target.value = "";
     if (!file) return;
 
     const reader = new FileReader();
@@ -247,25 +249,24 @@ export const EditMode = ({
 
   return (
     <form id="edit-member-form" onSubmit={handleSave} className="flex flex-col">
-      <div className="flex flex-col gap-1 w-full nodrag">
-        <label className="block relative mb-2 cursor-pointer group w-fit mx-auto">
+      <div className="nodrag">
+        <label className="block relative mb-4 cursor-pointer group w-fit mx-auto">
           {formData.imageData ? (
             <AuthenticatedImage
               src={formData.imageData}
-              className="size-32 rounded-full object-cover mx-auto bg-gray-100"
+              className="size-24 rounded-full object-cover mx-auto bg-gray-100"
               alt="Profile"
             />
           ) : (
-            <div className="size-32 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
-              <User size={64} />
+            <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+              <User size={48} />
             </div>
           )}
-
           <div
             className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={handleSelectImage}
           >
-            <Upload className="text-white w-8 h-8" />
+            <Upload className="text-white w-6 h-6" />
           </div>
         </label>
         <input
@@ -282,341 +283,410 @@ export const EditMode = ({
           onCancel={() => setSelectedImage(null)}
         />
 
-        <FieldGroup className="gap-4">
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("academic-title-field")}
-            </FieldLabel>
-            <Input
-              id="academicTitle"
-              value={formData.academicTitle || ""}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("academic-title-placeholder")}
-              onChange={(e) => handleChange("academicTitle", e.target.value)}
-            />
-          </Field>
+        <Tabs
+          defaultValue="identity"
+          onValueChange={(v) => {
+            if (v === "records") setRecordsMounted(true);
+          }}
+        >
+          <TabsList variant="line" className="w-full justify-start mb-3">
+            <TabsTrigger value="identity">{t("tab-identity")}</TabsTrigger>
+            <TabsTrigger value="life">{t("tab-life")}</TabsTrigger>
+            {!isNew && (
+              <TabsTrigger value="relations">{t("tab-relations")}</TabsTrigger>
+            )}
+            {!isNew && (
+              <TabsTrigger value="records">{t("tab-records")}</TabsTrigger>
+            )}
+          </TabsList>
 
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("gender-field")}
-            </FieldLabel>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
-              value={formData.gender}
-              onValueChange={(val) => handleGenderChange(val as Gender)}
-              className="justify-start"
-            >
-              <ToggleGroupItem
-                value="m"
-                aria-label="Male"
-                className="h-7 min-w-7 text-xs"
-              >
-                <Mars />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="f"
-                aria-label="Female"
-                className="h-7 min-w-7 text-xs"
-              >
-                <Venus />
-              </ToggleGroupItem>
-              <ToggleGroupItem
-                value="o"
-                aria-label="Other"
-                className="h-7 min-w-7 text-xs"
-              >
-                <VenusAndMars />
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </Field>
+          {/* Identity tab */}
+          <TabsContent value="identity">
+            <FieldGroup className="gap-4">
+              <Field>
+                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  {t("academic-title-field")}
+                </FieldLabel>
+                <Input
+                  id="academicTitle"
+                  value={formData.academicTitle || ""}
+                  className="h-7 text-xs! shadow-none"
+                  placeholder={t("academic-title-placeholder")}
+                  onChange={(e) => handleChange("academicTitle", e.target.value)}
+                />
+              </Field>
 
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("firstname-field")}
-            </FieldLabel>
-            <Input
-              autoFocus
-              id="firstName"
-              value={formData.firstName}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("firstname-field")}
-              onChange={(e) => handleChange("firstName", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("middle-names-field")}
-            </FieldLabel>
-            <Input
-              id="middleNames"
-              value={formData.middleNames || ""}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("middle-names-field")}
-              onChange={(e) => handleChange("middleNames", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("baptismal-name-field")}
-            </FieldLabel>
-            <Input
-              id="baptismalName"
-              value={formData.baptismalName || ""}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("baptismal-name-field")}
-              onChange={(e) => handleChange("baptismalName", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("lastname-field")}
-            </FieldLabel>
-            <Input
-              id="lastName"
-              value={formData.lastName}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("lastname-field")}
-              onChange={(e) => handleChange("lastName", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("maiden-field")}
-            </FieldLabel>
-            <Input
-              id="maidenName"
-              value={formData.maidenName || ""}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("lastname-field")}
-              onChange={(e) => handleChange("maidenName", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("born-field")}
-            </FieldLabel>
-            <PartialDatePicker
-              className="h-7 text-xs shadow-none border-input"
-              value={formData.date.birth}
-              onChange={(date) => handleDateChange("birth", date)}
-              placeholder={t("date-placeholder")}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("death-field")}
-            </FieldLabel>
-            <PartialDatePicker
-              className="h-7 text-xs shadow-none border-input"
-              value={formData.date.death}
-              onChange={(date) => handleDateChange("death", date)}
-              placeholder={t("date-placeholder")}
-            />
-          </Field>
-
-          <Field>
-            <div className="flex items-center justify-between">
-              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                {t("deceased-field")}
-              </FieldLabel>
-              <Switch
-                checked={formData.deceased}
-                onCheckedChange={(checked) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    deceased: checked,
-                    date: {
-                      ...prev.date,
-                      death: checked ? prev.date.death : null,
-                    },
-                  }));
-                }}
-              />
-            </div>
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("notes-field")}
-            </FieldLabel>
-            <Textarea
-              id="additionalData"
-              value={formData.additionalData || ""}
-              className="text-xs! shadow-none resize-none"
-              rows={4}
-              placeholder={t("notes-placeholder")}
-              onChange={(e) => handleChange("additionalData", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("birthplace-field")}
-            </FieldLabel>
-            <Input
-              id="birthplace"
-              value={formData.birthplace || ""}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("location-placeholder")}
-              onChange={(e) => handleChange("birthplace", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-              {t("hometown-field")}
-            </FieldLabel>
-            <Input
-              id="hometown"
-              value={formData.hometown || ""}
-              className="h-7 text-xs! shadow-none"
-              placeholder={t("location-placeholder")}
-              onChange={(e) => handleChange("hometown", e.target.value)}
-            />
-          </Field>
-
-          <Field>
-            <div className="flex items-center justify-between">
-              <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                {t("places-lived-field")}
-              </FieldLabel>
-              <button
-                type="button"
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                onClick={() =>
-                  handleChange("placesLived", [
-                    ...formData.placesLived,
-                    { location: "", from: null, to: null },
-                  ])
-                }
-              >
-                <Plus className="size-3" />
-                {t("places-lived-add")}
-              </button>
-            </div>
-            <div className="flex flex-col gap-2">
-              {formData.placesLived.map((place, idx) => (
-                <div
-                  key={idx}
-                  className="flex flex-col gap-1 border rounded p-2"
+              <Field>
+                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  {t("gender-field")}
+                </FieldLabel>
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  size="sm"
+                  value={formData.gender}
+                  onValueChange={(val) => handleGenderChange(val as Gender)}
+                  className="justify-start"
                 >
-                  <div className="flex items-center gap-1">
-                    <Input
-                      value={place.location}
-                      className="h-7 text-xs! shadow-none flex-1"
-                      placeholder={t("location-placeholder")}
-                      onChange={(e) => {
-                        const next = formData.placesLived.map((p, i) =>
-                          i === idx ? { ...p, location: e.target.value } : p,
-                        );
-                        handleChange("placesLived", next);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="text-muted-foreground hover:text-destructive transition-colors"
-                      onClick={() => {
-                        handleChange(
-                          "placesLived",
-                          formData.placesLived.filter((_, i) => i !== idx),
-                        );
-                      }}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </div>
-                  <div className="flex gap-1">
-                    <Input
-                      value={place.from || ""}
-                      className="h-7 text-xs! shadow-none"
-                      placeholder={t("places-lived-from")}
-                      onChange={(e) => {
-                        const next = formData.placesLived.map((p, i) =>
-                          i === idx
-                            ? { ...p, from: e.target.value || null }
-                            : p,
-                        );
-                        handleChange("placesLived", next);
-                      }}
-                    />
-                    <Input
-                      value={place.to || ""}
-                      className="h-7 text-xs! shadow-none"
-                      placeholder={t("places-lived-to")}
-                      onChange={(e) => {
-                        const next = formData.placesLived.map((p, i) =>
-                          i === idx ? { ...p, to: e.target.value || null } : p,
-                        );
-                        handleChange("placesLived", next);
-                      }}
-                    />
-                  </div>
+                  <ToggleGroupItem
+                    value="m"
+                    aria-label="Male"
+                    className="h-7 min-w-7 text-xs"
+                  >
+                    <Mars />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="f"
+                    aria-label="Female"
+                    className="h-7 min-w-7 text-xs"
+                  >
+                    <Venus />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="o"
+                    aria-label="Other"
+                    className="h-7 min-w-7 text-xs"
+                  >
+                    <VenusAndMars />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("firstname-field")}
+                  </FieldLabel>
+                  <Input
+                    autoFocus
+                    id="firstName"
+                    value={formData.firstName}
+                    className="h-7 text-xs! shadow-none"
+                    placeholder={t("firstname-field")}
+                    onChange={(e) => handleChange("firstName", e.target.value)}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("lastname-field")}
+                  </FieldLabel>
+                  <Input
+                    id="lastName"
+                    value={formData.lastName}
+                    className="h-7 text-xs! shadow-none"
+                    placeholder={t("lastname-field")}
+                    onChange={(e) => handleChange("lastName", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("middle-names-field")}
+                  </FieldLabel>
+                  <Input
+                    id="middleNames"
+                    value={formData.middleNames || ""}
+                    className="h-7 text-xs! shadow-none"
+                    placeholder={t("middle-names-field")}
+                    onChange={(e) => handleChange("middleNames", e.target.value)}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("maiden-field")}
+                  </FieldLabel>
+                  <Input
+                    id="maidenName"
+                    value={formData.maidenName || ""}
+                    className="h-7 text-xs! shadow-none"
+                    placeholder={t("lastname-field")}
+                    onChange={(e) => handleChange("maidenName", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <Field>
+                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  {t("baptismal-name-field")}
+                </FieldLabel>
+                <Input
+                  id="baptismalName"
+                  value={formData.baptismalName || ""}
+                  className="h-7 text-xs! shadow-none"
+                  placeholder={t("baptismal-name-field")}
+                  onChange={(e) =>
+                    handleChange("baptismalName", e.target.value)
+                  }
+                />
+              </Field>
+            </FieldGroup>
+          </TabsContent>
+
+          {/* Life tab */}
+          <TabsContent value="life">
+            <FieldGroup className="gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("born-field")}
+                  </FieldLabel>
+                  <PartialDatePicker
+                    className="h-7 text-xs shadow-none border-input"
+                    value={formData.date.birth}
+                    onChange={(date) => handleDateChange("birth", date)}
+                    placeholder={t("date-placeholder")}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("birthplace-field")}
+                  </FieldLabel>
+                  <Input
+                    id="birthplace"
+                    value={formData.birthplace || ""}
+                    className="h-7 text-xs! shadow-none"
+                    placeholder={t("location-placeholder")}
+                    onChange={(e) => handleChange("birthplace", e.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <Field>
+                <div className="flex items-center justify-between">
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("deceased-field")}
+                  </FieldLabel>
+                  <Switch
+                    checked={formData.deceased}
+                    onCheckedChange={(checked) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        deceased: checked,
+                        date: {
+                          ...prev.date,
+                          death: checked ? prev.date.death : null,
+                        },
+                      }));
+                    }}
+                  />
                 </div>
-              ))}
-              {formData.placesLived.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  {t("places-lived-empty")}
-                </p>
+              </Field>
+
+              {formData.deceased && (
+                <div className="grid grid-cols-2 gap-3">
+                  <Field>
+                    <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                      {t("death-field")}
+                    </FieldLabel>
+                    <PartialDatePicker
+                      className="h-7 text-xs shadow-none border-input"
+                      value={formData.date.death}
+                      onChange={(date) => handleDateChange("death", date)}
+                      placeholder={t("date-placeholder")}
+                    />
+                  </Field>
+
+                  <Field>
+                    <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                      {t("hometown-field")}
+                    </FieldLabel>
+                    <Input
+                      id="hometown"
+                      value={formData.hometown || ""}
+                      className="h-7 text-xs! shadow-none"
+                      placeholder={t("location-placeholder")}
+                      onChange={(e) => handleChange("hometown", e.target.value)}
+                    />
+                  </Field>
+                </div>
               )}
-            </div>
-          </Field>
 
+              {!formData.deceased && (
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("hometown-field")}
+                  </FieldLabel>
+                  <Input
+                    id="hometown"
+                    value={formData.hometown || ""}
+                    className="h-7 text-xs! shadow-none"
+                    placeholder={t("location-placeholder")}
+                    onChange={(e) => handleChange("hometown", e.target.value)}
+                  />
+                </Field>
+              )}
+
+              <Field>
+                <div className="flex items-center justify-between">
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("places-lived-field")}
+                  </FieldLabel>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() =>
+                      handleChange("placesLived", [
+                        ...formData.placesLived,
+                        { location: "", from: null, to: null },
+                      ])
+                    }
+                  >
+                    <Plus className="size-3" />
+                    {t("places-lived-add")}
+                  </button>
+                </div>
+                <div className="flex flex-col gap-2">
+                  {formData.placesLived.map((place, idx) => (
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-1 border rounded p-2"
+                    >
+                      <div className="flex items-center gap-1">
+                        <Input
+                          value={place.location}
+                          className="h-7 text-xs! shadow-none flex-1"
+                          placeholder={t("location-placeholder")}
+                          onChange={(e) => {
+                            const next = formData.placesLived.map((p, i) =>
+                              i === idx
+                                ? { ...p, location: e.target.value }
+                                : p,
+                            );
+                            handleChange("placesLived", next);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                          onClick={() => {
+                            handleChange(
+                              "placesLived",
+                              formData.placesLived.filter((_, i) => i !== idx),
+                            );
+                          }}
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex gap-1">
+                        <Input
+                          value={place.from || ""}
+                          className="h-7 text-xs! shadow-none"
+                          placeholder={t("places-lived-from")}
+                          onChange={(e) => {
+                            const next = formData.placesLived.map((p, i) =>
+                              i === idx
+                                ? { ...p, from: e.target.value || null }
+                                : p,
+                            );
+                            handleChange("placesLived", next);
+                          }}
+                        />
+                        <Input
+                          value={place.to || ""}
+                          className="h-7 text-xs! shadow-none"
+                          placeholder={t("places-lived-to")}
+                          onChange={(e) => {
+                            const next = formData.placesLived.map((p, i) =>
+                              i === idx
+                                ? { ...p, to: e.target.value || null }
+                                : p,
+                            );
+                            handleChange("placesLived", next);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {formData.placesLived.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("places-lived-empty")}
+                    </p>
+                  )}
+                </div>
+              </Field>
+
+              <Field>
+                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                  {t("notes-field")}
+                </FieldLabel>
+                <Textarea
+                  id="additionalData"
+                  value={formData.additionalData || ""}
+                  className="text-xs! shadow-none resize-none"
+                  rows={4}
+                  placeholder={t("notes-placeholder")}
+                  onChange={(e) =>
+                    handleChange("additionalData", e.target.value)
+                  }
+                />
+              </Field>
+            </FieldGroup>
+          </TabsContent>
+
+          {/* Relations tab */}
           {!isNew && (
-            <>
-              <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  {t("paternal-parent-field")}
-                </FieldLabel>
-                <MemberPicker
-                  members={eligibleParents}
-                  value={formData.parents.paternalParent}
-                  onChange={(id) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      parents: { ...prev.parents, paternalParent: id },
-                    }))
-                  }
-                  placeholder={t("parent-placeholder")}
-                  noResultsText={t("parent-no-results")}
-                />
-              </Field>
+            <TabsContent value="relations">
+              <FieldGroup className="gap-4">
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("paternal-parent-field")}
+                  </FieldLabel>
+                  <MemberPicker
+                    members={eligibleParents}
+                    value={formData.parents.paternalParent}
+                    onChange={(id) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        parents: { ...prev.parents, paternalParent: id },
+                      }))
+                    }
+                    placeholder={t("parent-placeholder")}
+                    noResultsText={t("parent-no-results")}
+                  />
+                </Field>
 
-              <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  {t("maternal-parent-field")}
-                </FieldLabel>
-                <MemberPicker
-                  members={eligibleParents}
-                  value={formData.parents.maternalParent}
-                  onChange={(id) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      parents: { ...prev.parents, maternalParent: id },
-                    }))
-                  }
-                  placeholder={t("parent-placeholder")}
-                  noResultsText={t("parent-no-results")}
-                />
-              </Field>
-            </>
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("maternal-parent-field")}
+                  </FieldLabel>
+                  <MemberPicker
+                    members={eligibleParents}
+                    value={formData.parents.maternalParent}
+                    onChange={(id) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        parents: { ...prev.parents, maternalParent: id },
+                      }))
+                    }
+                    placeholder={t("parent-placeholder")}
+                    noResultsText={t("parent-no-results")}
+                  />
+                </Field>
+              </FieldGroup>
+            </TabsContent>
           )}
-        </FieldGroup>
 
-        <div className="space-y-4 mt-6">
-          {galleryEnabled && !isNew && <MemberPhotos member={member} />}
-          {eventsEnabled && <MemberEvents member={member} />}
-          {storiesEnabled && <MemberStories member={member} />}
-          {sourcesEnabled && <MemberSources member={member} />}
-          <MemberDiseases member={member} />
-        </div>
+          {/* Records tab — lazy-mounted on first activate */}
+          {!isNew && (
+            <TabsContent value="records">
+              {recordsMounted && (
+                <div className="space-y-4">
+                  {galleryEnabled && <MemberPhotos member={member} />}
+                  {eventsEnabled && <MemberEvents member={member} />}
+                  {storiesEnabled && <MemberStories member={member} />}
+                  {sourcesEnabled && <MemberSources member={member} />}
+                  <MemberDiseases member={member} />
+                </div>
+              )}
+            </TabsContent>
+          )}
+        </Tabs>
       </div>
     </form>
   );
