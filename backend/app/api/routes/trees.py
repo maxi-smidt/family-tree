@@ -16,8 +16,10 @@ from app.api.deps import (
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
+from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
+    MemberRestrictionsUpdate,
     PublicAccessUpdate,
     ShareCandidate,
     TreeCreate,
@@ -29,6 +31,8 @@ from app.schemas.tree import (
     TreeUpdate,
 )
 from app.services import friendships
+from app.services.extract import compute_subtree_preview, extract_subtree
+from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
 
@@ -47,6 +51,9 @@ def _tree_out(
             .where(TreeMembership.tree_id == tree.id)
         )
     out.shared_count = shared_count or 0
+    if user is not None and out.role not in ("owner",) and not user.is_admin:
+        membership = db.get(TreeMembership, (tree.id, user.id))
+        out.restrictions = list(membership.restrictions or []) if membership else []
     return out
 
 
@@ -113,6 +120,28 @@ def merge(
     tree = merge_trees(
         db, user, payload.name, payload.source_a, payload.source_b, payload.resolutions
     )
+    return _tree_out(db, tree, user)
+
+
+@router.post("/extract-subtree/preview", response_model=SubtreePreview)
+def extract_subtree_preview(
+    payload: SubtreeExtractRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Compute a sub-tree extraction preview (no data is written)."""
+    return compute_subtree_preview(db, user, payload)
+
+
+@router.post("/extract-subtree", response_model=TreeOut, status_code=201)
+def extract_subtree_endpoint(
+    payload: SubtreeExtractRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="A name is required")
+    tree = extract_subtree(db, user, payload)
     return _tree_out(db, tree, user)
 
 
@@ -206,7 +235,10 @@ def list_access(
         if member_user:
             result.append(
                 TreeMemberOut(
-                    user_id=member_user.id, username=member_user.username, role=m.role
+                    user_id=member_user.id,
+                    username=member_user.username,
+                    role=m.role,
+                    restrictions=list(m.restrictions or []),
                 )
             )
     return result
@@ -267,7 +299,14 @@ def share_tree(
 
     membership = db.get(TreeMembership, (tree.id, target.id))
     if membership is None:
-        db.add(TreeMembership(tree_id=tree.id, user_id=target.id, role=payload.role))
+        db.add(
+            TreeMembership(
+                tree_id=tree.id,
+                user_id=target.id,
+                role=payload.role,
+                restrictions=DEFAULT_RESTRICTIONS,
+            )
+        )
     else:
         membership.role = payload.role
     db.commit()
@@ -287,6 +326,32 @@ def revoke_access(
     if membership is not None:
         db.delete(membership)
         db.commit()
+
+
+@router.patch(
+    "/{tree_id}/access/{user_id}/restrictions",
+    response_model=list[TreeMemberOut],
+)
+def update_member_restrictions(
+    user_id: str,
+    payload: MemberRestrictionsUpdate,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can manage restrictions"
+        )
+    invalid = set(payload.restrictions) - RESTRICTABLE_DOMAINS
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Invalid domains: {sorted(invalid)}")
+    membership = db.get(TreeMembership, (tree.id, user_id))
+    if membership is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    membership.restrictions = payload.restrictions or None
+    db.commit()
+    return list_access(tree=tree, db=db)
 
 
 @router.post("/{tree_id}/transfer", response_model=list[TreeMemberOut])

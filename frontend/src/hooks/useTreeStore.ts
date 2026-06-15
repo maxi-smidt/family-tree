@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
-import { RelationTypeDB } from "@/types/member";
+import { Member, MemberDB, RelationTypeDB, mapMemberFromDB } from "@/types/member";
 import { MergeResolution } from "@/types/merge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -42,6 +42,15 @@ interface DatabaseState {
     sourceB?: string,
     resolutions?: MergeResolution[],
   ) => Promise<Tree>;
+  extractSubtree: (payload: {
+    name: string;
+    source_tree_id: string;
+    root_member_id: string;
+    direction: "descendants" | "ancestors" | "both";
+    depth: number | null;
+    include_partners: boolean;
+  }) => Promise<Tree>;
+  fetchTreeMembers: (treeId: string) => Promise<Member[]>;
   createVirtualView: (name: string, sourceTreeIds: string[]) => Promise<Tree>;
   renameVirtualView: (view: Tree, name: string) => Promise<void>;
   updateVirtualViewSources: (
@@ -132,6 +141,18 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     await get().loadTrees();
     await get().selectTree(tree);
     return tree;
+  },
+
+  extractSubtree: async (payload) => {
+    const tree = await TreeService.extractSubtree(payload);
+    await get().loadTrees();
+    await get().selectTree(tree);
+    return tree;
+  },
+
+  fetchTreeMembers: async (treeId: string) => {
+    const rows = await TreeService.getMembers(treeId);
+    return (rows as MemberDB[]).map((r) => mapMemberFromDB(r));
   },
 
   createVirtualView: async (name: string, sourceTreeIds: string[]) => {
@@ -227,22 +248,25 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     // stores, aggregated live from its sources (read-only — the viewer role
     // hides every edit affordance). Stores behind a disabled feature flag stay
     // empty — their API routes answer 404, so loading them would just be noise.
+    const restrictions = get().selectedTree?.restrictions ?? [];
+    const notRestricted = (domain: string) => !restrictions.includes(domain);
+
     const loads = [
       get().refreshMetadata(tree.id),
       get().refreshRelationTypes(),
       useMemberStore.getState().refreshMembers(tree.id),
     ];
-    if (hasFeature("gallery"))
+    if (hasFeature("gallery") && notRestricted("gallery"))
       loads.push(useGalleryStore.getState().refreshGalleryImages(tree.id));
-    if (hasFeature("events"))
+    if (hasFeature("events") && notRestricted("events"))
       loads.push(useEventStore.getState().refreshEvents(tree.id));
-    if (hasFeature("stories"))
+    if (hasFeature("stories") && notRestricted("stories"))
       loads.push(useStoryStore.getState().refreshStories(tree.id));
-    if (hasFeature("sources"))
+    if (hasFeature("sources") && notRestricted("sources"))
       loads.push(useSourceStore.getState().refreshSources(tree.id));
     if (hasFeature("activity_log"))
       loads.push(useActivityStore.getState().refreshActivity(tree.id));
-    await Promise.all(loads);
+    await Promise.allSettled(loads);
 
     // Virtual trees are read-only composites: auto-arrange the layout only
     // until the user saves an alignment overlay, then respect it.

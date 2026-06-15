@@ -9,6 +9,7 @@ import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useFeature } from "@/hooks/useAuthStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
@@ -42,10 +43,14 @@ export const ViewMode = ({ member }: Props) => {
   const { galleryImages } = useGalleryStore();
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
-  const galleryEnabled = useFeature("gallery");
-  const eventsEnabled = useFeature("events");
-  const storiesEnabled = useFeature("stories");
-  const sourcesEnabled = useFeature("sources");
+  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
+  const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
+  const eventsEnabled = useFeature("events") && !restrictions.includes("events");
+  const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
+  const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
+  const diseasesEnabled = !restrictions.includes("diseases");
+  const mapEnabled = !restrictions.includes("map");
+  const biographyEnabled = !restrictions.includes("biography");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -189,7 +194,7 @@ export const ViewMode = ({ member }: Props) => {
         {hasLifeContent && (
           <TabsContent value="life">
             <div className="space-y-3">
-              {member.additionalData && (
+              {biographyEnabled && member.additionalData && (
                 <Item variant="muted">
                   <ItemContent>
                     <ItemTitle>{t("notes-item")}</ItemTitle>
@@ -201,8 +206,8 @@ export const ViewMode = ({ member }: Props) => {
               )}
 
               {(member.birthplace ||
-                member.hometown ||
-                member.placesLived.length > 0) && (
+                (mapEnabled && member.hometown) ||
+                (mapEnabled && member.placesLived.length > 0)) && (
                 <Item variant="muted">
                   <ItemContent>
                     <ItemTitle>{t("locations-section")}</ItemTitle>
@@ -218,7 +223,7 @@ export const ViewMode = ({ member }: Props) => {
                           </span>
                         </div>
                       )}
-                      {member.hometown && (
+                      {mapEnabled && member.hometown && (
                         <div className="flex items-start gap-2 text-sm">
                           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
                           <span>
@@ -229,7 +234,7 @@ export const ViewMode = ({ member }: Props) => {
                           </span>
                         </div>
                       )}
-                      {member.placesLived.map((place, idx) => (
+                      {mapEnabled && member.placesLived.map((place, idx) => (
                         <div key={idx} className="flex items-start gap-2 text-sm">
                           <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
                           <span>
@@ -468,7 +473,7 @@ export const ViewMode = ({ member }: Props) => {
               </Item>
             )}
 
-            <Item variant="muted">
+            {diseasesEnabled && <Item variant="muted">
               <ItemContent>
                 <ItemTitle>{t("genetic-conditions")}</ItemTitle>
                 {memberDiseases.length > 0 ? (
@@ -526,7 +531,7 @@ export const ViewMode = ({ member }: Props) => {
                   </ItemDescription>
                 )}
               </ItemContent>
-            </Item>
+            </Item>}
           </div>
         </TabsContent>
       </Tabs>
