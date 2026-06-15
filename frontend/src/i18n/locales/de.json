@@ -279,6 +279,7 @@
       "quality-report": "Qualität",
       "statistics": "Statistiken",
       "database-management": "Stammbaumverwaltung",
+      "friends": "Freunde",
       "map": "Karte"
     },
     "no-database-placeholder": {
@@ -967,7 +968,6 @@
       "change-password": "Passwort ändern",
       "customize-tabs": "Tabs anpassen",
       "admin": "Verwaltung",
-      "friends": "Freunde",
       "delete-account": "Konto löschen",
       "logout": "Abmelden",
       "two-factor": "Zwei-Faktor-Authentifizierung"

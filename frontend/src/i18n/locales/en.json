@@ -279,6 +279,7 @@
       "quality-report": "Quality",
       "statistics": "Statistics",
       "database-management": "Tree Management",
+      "friends": "Friends",
       "map": "Map"
     },
     "no-database-placeholder": {
@@ -967,7 +968,6 @@
       "change-password": "Change password",
       "customize-tabs": "Customize tabs",
       "admin": "Administration",
-      "friends": "Friends",
       "delete-account": "Delete my account",
       "logout": "Log out",
       "two-factor": "Two-factor authentication"

@@ -1,11 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { useEffect, useState } from "react";
+import { ViewLayout } from "@/components/layout/ViewLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +11,7 @@ import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-type Props = {
-  isOpen: boolean;
-  onClose: () => void;
-};
-
-export const FriendsDialog = ({ isOpen, onClose }: Props) => {
+export const FriendsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.friends" });
   const friends = useFriendStore((s) => s.friends);
   const incoming = useFriendStore((s) => s.incoming);
@@ -39,12 +28,8 @@ export const FriendsDialog = ({ isOpen, onClose }: Props) => {
   const [searching, setSearching] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      setQuery("");
-      setResults([]);
-      void loadAll();
-    }
-  }, [isOpen, loadAll]);
+    void loadAll();
+  }, [loadAll]);
 
   // Debounced username search.
   useEffect(() => {
@@ -62,17 +47,14 @@ export const FriendsDialog = ({ isOpen, onClose }: Props) => {
     return () => clearTimeout(handle);
   }, [query, search]);
 
-  const run = useCallback(
-    async (action: () => Promise<void>, errorKey: string) => {
-      try {
-        await action();
-      } catch (err) {
-        console.error(err);
-        toast.error(t(errorKey));
-      }
-    },
-    [t],
-  );
+  const run = async (action: () => Promise<void>, errorKey: string) => {
+    try {
+      await action();
+    } catch (err) {
+      console.error(err);
+      toast.error(t(errorKey));
+    }
+  };
 
   const handleSend = async (username: string) => {
     try {
@@ -102,12 +84,9 @@ export const FriendsDialog = ({ isOpen, onClose }: Props) => {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
-        </DialogHeader>
+    <ViewLayout title={t("title")}>
+      <div className="mx-auto max-w-2xl space-y-4">
+        <p className="text-sm text-muted-foreground">{t("description")}</p>
 
         <Tabs defaultValue={incoming.length > 0 ? "requests" : "friends"}>
           <TabsList>
@@ -283,7 +262,7 @@ export const FriendsDialog = ({ isOpen, onClose }: Props) => {
             </div>
           </TabsContent>
         </Tabs>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </ViewLayout>
   );
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,7 +8,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   KeyRound,
   LogOut,
@@ -17,13 +16,10 @@ import {
   SlidersHorizontal,
   Trash2,
   UserIcon,
-  Users,
 } from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { DeleteAccountDialog } from "@/components/auth/DeleteAccountDialog";
-import { FriendsDialog } from "@/components/auth/FriendsDialog";
 import { TabSettingsDialog } from "@/components/auth/TabSettingsDialog";
 import { TwoFactorDialog } from "@/components/auth/TwoFactorDialog";
 import { AdminDialog } from "@/components/admin/AdminDialog";
@@ -33,20 +29,11 @@ export const UserMenu = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.user-menu" });
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const loadIncoming = useFriendStore((s) => s.loadIncoming);
-  const incomingCount = useIncomingFriendCount();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tabSettingsOpen, setTabSettingsOpen] = useState(false);
-  const [friendsOpen, setFriendsOpen] = useState(false);
-
-  // Pick up pending friend requests so the badge is accurate without opening
-  // the dialog.
-  useEffect(() => {
-    void loadIncoming();
-  }, [loadIncoming]);
 
   if (!user) return null;
 
@@ -57,18 +44,10 @@ export const UserMenu = () => {
           <Button
             variant="ghost"
             size="sm"
-            className="relative w-full justify-start gap-2"
+            className="w-full justify-start gap-2"
           >
             <UserIcon className="h-4 w-4" />
             <span className="truncate">{user.username}</span>
-            {incomingCount > 0 && (
-              <Badge
-                variant="default"
-                className="ml-auto h-5 min-w-5 justify-center px-1"
-              >
-                {incomingCount}
-              </Badge>
-            )}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
@@ -76,15 +55,6 @@ export const UserMenu = () => {
             {user.full_name || user.username}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => setFriendsOpen(true)}>
-            <Users className="h-4 w-4" />
-            {t("friends")}
-            {incomingCount > 0 && (
-              <Badge variant="default" className="ml-auto">
-                {incomingCount}
-              </Badge>
-            )}
-          </DropdownMenuItem>
           {user.auth_provider === "local" && (
             <DropdownMenuItem onClick={() => setPasswordOpen(true)}>
               <KeyRound className="h-4 w-4" />
@@ -123,10 +93,6 @@ export const UserMenu = () => {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <FriendsDialog
-        isOpen={friendsOpen}
-        onClose={() => setFriendsOpen(false)}
-      />
       <ChangePasswordDialog
         isOpen={passwordOpen}
         onClose={() => setPasswordOpen(false)}
