@@ -888,6 +888,7 @@
     "none-selected": "Keine",
     "toast-import-success": "Stammbaum erfolgreich importiert!",
     "toast-import-error": "Stammbaum konnte nicht importiert werden.",
+    "import-provenance": "Exportiert aus v{{version}} am {{date}}",
     "toast-gedcom-import-success": "Stammbaum erfolgreich aus GEDCOM importiert!",
     "toast-gedcom-import-error": "GEDCOM-Datei konnte nicht importiert werden.",
     "toast-gedcom-export-error": "Stammbaum konnte nicht als GEDCOM exportiert werden.",

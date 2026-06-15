@@ -888,6 +888,7 @@
     "none-selected": "None",
     "toast-import-success": "Tree imported successfully!",
     "toast-import-error": "Failed to import tree.",
+    "import-provenance": "Exported from v{{version}} on {{date}}",
     "toast-gedcom-import-success": "Tree imported from GEDCOM successfully!",
     "toast-gedcom-import-error": "Failed to import GEDCOM file.",
     "toast-gedcom-export-error": "Could not export the tree as GEDCOM.",
