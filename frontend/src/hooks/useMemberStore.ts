@@ -245,11 +245,18 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       return;
     }
 
-    const [result, relations, diseases] = await Promise.all([
+    const [membersResult, relationsResult, diseasesResult] = await Promise.allSettled([
       TreeService.getMembers(treeId),
       TreeService.getRelations(treeId),
       TreeService.getDiseases(treeId),
     ]);
+
+    if (membersResult.status === "rejected" || relationsResult.status === "rejected") {
+      return;
+    }
+    const result = membersResult.value;
+    const relations = relationsResult.value;
+    const diseases = diseasesResult.status === "fulfilled" ? diseasesResult.value : [];
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 

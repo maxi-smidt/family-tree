@@ -62,6 +62,7 @@ export type RestrictableDomain =
   | "tree"
   | "gallery"
   | "events"
+  | "map"
   | "stories"
   | "sources"
   | "diseases";
@@ -70,6 +71,7 @@ export const RESTRICTABLE_DOMAINS: RestrictableDomain[] = [
   "tree",
   "gallery",
   "events",
+  "map",
   "stories",
   "sources",
   "diseases",

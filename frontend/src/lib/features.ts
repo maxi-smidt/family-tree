@@ -42,6 +42,7 @@ export const VIEW_DOMAINS: Partial<Record<ViewId, string>> = {
   "list-view": "tree",
   "gallery-view": "gallery",
   "timeline-view": "events",
+  "map-view": "map",
 };
 
 /**

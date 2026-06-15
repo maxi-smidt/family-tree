@@ -54,6 +54,7 @@ RESTRICTABLE_DOMAINS: set[str] = {
     "tree",
     "gallery",
     "events",
+    "map",
     "stories",
     "sources",
     "diseases",
@@ -64,6 +65,7 @@ RESTRICTABLE_DOMAINS: set[str] = {
 DEFAULT_RESTRICTIONS: list[str] = [
     "gallery",
     "events",
+    "map",
     "stories",
     "sources",
     "diseases",
