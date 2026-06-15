@@ -377,6 +377,10 @@
       "deceased-field": "Verstorben",
       "academic-title-field": "Akademischer / Ehrentitel",
       "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-relations": "Beziehungen",
+      "tab-records": "Einträge",
       "photos-field": "Fotos",
       "photos-add": "Foto hinzufügen",
       "photos-empty": "Noch keine Fotos mit dieser Person verknüpft.",
@@ -408,7 +412,10 @@
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
       "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
-      "academic-title-item": "Akademischer / Ehrentitel"
+      "academic-title-item": "Akademischer / Ehrentitel",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-records": "Einträge"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",
