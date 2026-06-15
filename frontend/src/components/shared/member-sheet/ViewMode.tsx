@@ -90,6 +90,14 @@ export const ViewMode = ({ member }: Props) => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {member.academicTitle && (
+          <Item variant="muted" className="sm:col-span-2">
+            <ItemContent>
+              <ItemTitle>{t("academic-title-item")}</ItemTitle>
+              <ItemDescription>{member.academicTitle}</ItemDescription>
+            </ItemContent>
+          </Item>
+        )}
         <Item variant="muted">
           <ItemContent>
             <ItemTitle>{t("firstname-item")}</ItemTitle>

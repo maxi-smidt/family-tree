@@ -175,7 +175,7 @@ export const ListView = () => {
                   onClick={() => setViewingMember(member)}
                 >
                   <div className="truncate font-medium">
-                    {`${member.firstName} ${member.lastName}`.trim()}
+                    {[member.academicTitle, member.firstName, member.lastName].filter(Boolean).join(" ")}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-1">

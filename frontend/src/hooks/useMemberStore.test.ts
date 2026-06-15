@@ -18,6 +18,7 @@ const TREE_ID = "tree-abc";
 const MEMBER_DB_ROW: MemberDB = {
   id: "m1",
   gender: "m",
+  academicTitle: null,
   firstName: "John",
   lastName: "Doe",
   middleNames: null,
@@ -110,6 +111,7 @@ describe("useMemberStore — addMember", () => {
     const newMember = {
       id: "m2",
       gender: "f" as const,
+      academicTitle: null,
       firstName: "Jane",
       lastName: "Doe",
       middleNames: null,
@@ -146,6 +148,7 @@ describe("useMemberStore — addMember", () => {
     const member = {
       id: "m3",
       gender: "m" as const,
+      academicTitle: null,
       firstName: "Bob",
       lastName: "Smith",
       middleNames: null,
@@ -292,6 +295,7 @@ describe("useMemberStore — undo/redo", () => {
     const member = {
       id: "m4",
       gender: "m" as const,
+      academicTitle: null,
       firstName: "Undo",
       lastName: "Test",
       middleNames: null,
@@ -331,6 +335,7 @@ describe("useMemberStore — undo/redo", () => {
     const member = {
       id: "m5",
       gender: "f" as const,
+      academicTitle: null,
       firstName: "Redo",
       lastName: "Test",
       middleNames: null,

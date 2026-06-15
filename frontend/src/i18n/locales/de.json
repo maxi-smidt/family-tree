@@ -374,7 +374,9 @@
       "places-lived-from": "Von (Jahr)",
       "places-lived-to": "Bis (Jahr)",
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
-      "deceased-field": "Verstorben"
+      "deceased-field": "Verstorben",
+      "academic-title-field": "Akademischer / Ehrentitel",
+      "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing."
     },
     "view-mode": {
       "firstname-item": "Vorname",
@@ -400,7 +402,8 @@
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
-      "dod-deceased-no-date": "Verstorben (Datum unbekannt)"
+      "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
+      "academic-title-item": "Akademischer / Ehrentitel"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",

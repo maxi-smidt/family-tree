@@ -343,6 +343,11 @@ def serialize_to_gedcom(
                 L(f"2 GIVN {given_names}")
             L(f"2 SURN {maiden}")
 
+        # TITL (academic / honorific title)
+        title = (member.get("academicTitle") or "").strip()
+        if title:
+            L(f"1 TITL {title}")
+
         # SEX
         gender = member.get("gender")
         if gender == "m":
@@ -649,6 +654,7 @@ def parse_gedcom(text: str) -> dict:
 
         member: dict = {
             "id": new_id,
+            "academicTitle": None,
             "firstName": None,
             "middleNames": None,
             "baptismalName": None,
@@ -718,6 +724,11 @@ def parse_gedcom(text: str) -> dict:
                         member["baptismalName"] = baptismal_name.strip() or None
                     member["lastName"] = surname or None
                     primary_name_done = True
+
+            elif tag == "TITL":
+                val = (child["value"] or "").strip()
+                if val:
+                    member["academicTitle"] = val
 
             elif tag == "SEX":
                 val = (child["value"] or "").strip().upper()

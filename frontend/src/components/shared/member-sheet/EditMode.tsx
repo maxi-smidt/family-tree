@@ -89,6 +89,7 @@ export const EditMode = ({
 
   useEffect(() => {
     const isDirty =
+      (formData.academicTitle || "") !== (initialData.academicTitle || "") ||
       formData.firstName !== initialData.firstName ||
       (formData.middleNames || "") !== (initialData.middleNames || "") ||
       (formData.baptismalName || "") !== (initialData.baptismalName || "") ||
@@ -206,6 +207,7 @@ export const EditMode = ({
     }
 
     updateMemberPartial(member.id, {
+      academicTitle: formData.academicTitle || null,
       firstName: formData.firstName,
       middleNames: formData.middleNames || null,
       baptismalName: formData.baptismalName || null,
@@ -279,6 +281,19 @@ export const EditMode = ({
         />
 
         <FieldGroup className="gap-4">
+          <Field>
+            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+              {t("academic-title-field")}
+            </FieldLabel>
+            <Input
+              id="academicTitle"
+              value={formData.academicTitle || ""}
+              className="h-7 text-xs! shadow-none"
+              placeholder={t("academic-title-placeholder")}
+              onChange={(e) => handleChange("academicTitle", e.target.value)}
+            />
+          </Field>
+
           <Field>
             <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
               {t("gender-field")}

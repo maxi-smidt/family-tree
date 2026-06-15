@@ -10,6 +10,7 @@ describe("getLayoutedElements", () => {
         firstName: "John",
         lastName: "Doe",
         gender: "m",
+        academicTitle: null,
         middleNames: null,
         baptismalName: null,
         maidenName: null,
@@ -44,6 +45,7 @@ describe("getLayoutedElements", () => {
         firstName: "Parent",
         lastName: "One",
         gender: "m",
+        academicTitle: null,
         middleNames: null,
         baptismalName: null,
         maidenName: null,
@@ -63,6 +65,7 @@ describe("getLayoutedElements", () => {
         firstName: "Child",
         lastName: "One",
         gender: "m",
+        academicTitle: null,
         middleNames: null,
         baptismalName: null,
         maidenName: null,
@@ -85,6 +88,7 @@ describe("getLayoutedElements", () => {
         firstName: "Child",
         lastName: "Two",
         gender: "f",
+        academicTitle: null,
         middleNames: null,
         baptismalName: null,
         maidenName: null,
@@ -114,6 +118,7 @@ describe("getLayoutedElements", () => {
 
   it("places a merged (vm_) node at the sibling-group edge facing its partner", () => {
     const base = {
+      academicTitle: null,
       middleNames: null,
       baptismalName: null,
       maidenName: null,
@@ -219,6 +224,7 @@ describe("getLayoutedElements", () => {
     // spouse Marge sits inside a 3-sister Bouvier group. Marge must end up on
     // the side of her group nearest Homer, not stranded at the far end.
     const base = {
+      academicTitle: null,
       middleNames: null,
       baptismalName: null,
       maidenName: null,
@@ -359,6 +365,7 @@ describe("getLayoutedElements", () => {
         firstName: "John",
         lastName: "Doe",
         gender: "m",
+        academicTitle: null,
         middleNames: null,
         baptismalName: null,
         maidenName: null,
