@@ -84,6 +84,7 @@ export const EditMode = ({
   const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
+  const biographyEnabled = !restrictions.includes("biography");
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -630,21 +631,23 @@ export const EditMode = ({
                 </Field>
               )}
 
-              <Field>
-                <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                  {t("notes-field")}
-                </FieldLabel>
-                <Textarea
-                  id="additionalData"
-                  value={formData.additionalData || ""}
-                  className="text-xs! shadow-none resize-none"
-                  rows={4}
-                  placeholder={t("notes-placeholder")}
-                  onChange={(e) =>
-                    handleChange("additionalData", e.target.value)
-                  }
-                />
-              </Field>
+              {biographyEnabled && (
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("notes-field")}
+                  </FieldLabel>
+                  <Textarea
+                    id="additionalData"
+                    value={formData.additionalData || ""}
+                    className="text-xs! shadow-none resize-none"
+                    rows={4}
+                    placeholder={t("notes-placeholder")}
+                    onChange={(e) =>
+                      handleChange("additionalData", e.target.value)
+                    }
+                  />
+                </Field>
+              )}
             </FieldGroup>
           </TabsContent>
 

@@ -58,6 +58,7 @@ RESTRICTABLE_DOMAINS: set[str] = {
     "stories",
     "sources",
     "diseases",
+    "biography",
 }
 
 # Domains restricted by default on a new share (everything except the tree
@@ -69,6 +70,7 @@ DEFAULT_RESTRICTIONS: list[str] = [
     "stories",
     "sources",
     "diseases",
+    "biography",
 ]
 
 _SETTING_PREFIX = "feature."

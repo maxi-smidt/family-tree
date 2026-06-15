@@ -154,7 +154,8 @@
         "map": "Map",
         "stories": "Stories",
         "sources": "Sources",
-        "diseases": "Diseases"
+        "diseases": "Diseases",
+        "biography": "Biography"
       },
       "transfer-title": "Transfer ownership",
       "transfer-hint": "The new owner gets full control. You will lose owner rights and your access to this tree.",

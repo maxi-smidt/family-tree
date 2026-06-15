@@ -50,6 +50,7 @@ export const ViewMode = ({ member }: Props) => {
   const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
+  const biographyEnabled = !restrictions.includes("biography");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -193,7 +194,7 @@ export const ViewMode = ({ member }: Props) => {
         {hasLifeContent && (
           <TabsContent value="life">
             <div className="space-y-3">
-              {member.additionalData && (
+              {biographyEnabled && member.additionalData && (
                 <Item variant="muted">
                   <ItemContent>
                     <ItemTitle>{t("notes-item")}</ItemTitle>

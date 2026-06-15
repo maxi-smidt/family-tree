@@ -65,7 +65,8 @@ export type RestrictableDomain =
   | "map"
   | "stories"
   | "sources"
-  | "diseases";
+  | "diseases"
+  | "biography";
 
 export const RESTRICTABLE_DOMAINS: RestrictableDomain[] = [
   "tree",
@@ -75,6 +76,7 @@ export const RESTRICTABLE_DOMAINS: RestrictableDomain[] = [
   "stories",
   "sources",
   "diseases",
+  "biography",
 ];
 
 export interface TreeAccess {

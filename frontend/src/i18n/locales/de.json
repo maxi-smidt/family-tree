@@ -154,7 +154,8 @@
         "map": "Karte",
         "stories": "Geschichten",
         "sources": "Quellen",
-        "diseases": "Krankheiten"
+        "diseases": "Krankheiten",
+        "biography": "Biografie"
       },
       "transfer-title": "Eigentümerschaft übertragen",
       "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
