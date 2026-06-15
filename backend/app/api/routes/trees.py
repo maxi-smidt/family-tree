@@ -32,7 +32,7 @@ from app.schemas.tree import (
 )
 from app.services import friendships
 from app.services.extract import compute_subtree_preview, extract_subtree
-from app.services.feature_service import RESTRICTABLE_DOMAINS
+from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
 
@@ -299,7 +299,14 @@ def share_tree(
 
     membership = db.get(TreeMembership, (tree.id, target.id))
     if membership is None:
-        db.add(TreeMembership(tree_id=tree.id, user_id=target.id, role=payload.role))
+        db.add(
+            TreeMembership(
+                tree_id=tree.id,
+                user_id=target.id,
+                role=payload.role,
+                restrictions=DEFAULT_RESTRICTIONS,
+            )
+        )
     else:
         membership.role = payload.role
     db.commit()

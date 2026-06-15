@@ -144,14 +144,16 @@
       "role-owner": "Owner",
       "role-editor": "Editor",
       "role-viewer": "Viewer",
-      "restrictions-title": "Hidden content",
-      "restrictions-button": "Content restrictions",
-      "restrictions-error": "Could not update content restrictions.",
+      "restrictions-title": "Content access",
+      "restrictions-button": "Content access",
+      "restrictions-error": "Could not update content access.",
       "domains": {
+        "tree": "Tree",
         "gallery": "Gallery",
         "events": "Events",
         "stories": "Stories",
-        "sources": "Sources"
+        "sources": "Sources",
+        "diseases": "Diseases"
       },
       "transfer-title": "Transfer ownership",
       "transfer-hint": "The new owner gets full control. You will lose owner rights and your access to this tree.",

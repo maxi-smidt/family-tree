@@ -144,14 +144,16 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter",
-      "restrictions-title": "Ausgeblendete Inhalte",
-      "restrictions-button": "Inhaltsbeschränkungen",
-      "restrictions-error": "Inhaltsbeschränkungen konnten nicht aktualisiert werden.",
+      "restrictions-title": "Inhaltszugriff",
+      "restrictions-button": "Inhaltszugriff",
+      "restrictions-error": "Inhaltszugriff konnte nicht aktualisiert werden.",
       "domains": {
+        "tree": "Stammbaum",
         "gallery": "Galerie",
         "events": "Ereignisse",
         "stories": "Geschichten",
-        "sources": "Quellen"
+        "sources": "Quellen",
+        "diseases": "Krankheiten"
       },
       "transfer-title": "Eigentümerschaft übertragen",
       "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",

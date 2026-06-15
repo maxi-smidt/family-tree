@@ -58,13 +58,21 @@ export interface InvitationAcceptResult {
 
 export type ShareRole = "viewer" | "editor";
 
-export type RestrictableDomain = "gallery" | "events" | "stories" | "sources";
+export type RestrictableDomain =
+  | "tree"
+  | "gallery"
+  | "events"
+  | "stories"
+  | "sources"
+  | "diseases";
 
 export const RESTRICTABLE_DOMAINS: RestrictableDomain[] = [
+  "tree",
   "gallery",
   "events",
   "stories",
   "sources",
+  "diseases",
 ];
 
 export interface TreeAccess {

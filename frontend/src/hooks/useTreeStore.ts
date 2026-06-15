@@ -248,22 +248,25 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     // stores, aggregated live from its sources (read-only — the viewer role
     // hides every edit affordance). Stores behind a disabled feature flag stay
     // empty — their API routes answer 404, so loading them would just be noise.
+    const restrictions = get().selectedTree?.restrictions ?? [];
+    const notRestricted = (domain: string) => !restrictions.includes(domain);
+
     const loads = [
       get().refreshMetadata(tree.id),
       get().refreshRelationTypes(),
       useMemberStore.getState().refreshMembers(tree.id),
     ];
-    if (hasFeature("gallery"))
+    if (hasFeature("gallery") && notRestricted("gallery"))
       loads.push(useGalleryStore.getState().refreshGalleryImages(tree.id));
-    if (hasFeature("events"))
+    if (hasFeature("events") && notRestricted("events"))
       loads.push(useEventStore.getState().refreshEvents(tree.id));
-    if (hasFeature("stories"))
+    if (hasFeature("stories") && notRestricted("stories"))
       loads.push(useStoryStore.getState().refreshStories(tree.id));
-    if (hasFeature("sources"))
+    if (hasFeature("sources") && notRestricted("sources"))
       loads.push(useSourceStore.getState().refreshSources(tree.id));
     if (hasFeature("activity_log"))
       loads.push(useActivityStore.getState().refreshActivity(tree.id));
-    await Promise.all(loads);
+    await Promise.allSettled(loads);
 
     // Virtual trees are read-only composites: auto-arrange the layout only
     // until the user saves an alignment overlay, then respect it.

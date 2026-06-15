@@ -48,6 +48,7 @@ export const ViewMode = ({ member }: Props) => {
   const eventsEnabled = useFeature("events") && !restrictions.includes("events");
   const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
   const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
+  const diseasesEnabled = !restrictions.includes("diseases");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
 
@@ -470,7 +471,7 @@ export const ViewMode = ({ member }: Props) => {
               </Item>
             )}
 
-            <Item variant="muted">
+            {diseasesEnabled && <Item variant="muted">
               <ItemContent>
                 <ItemTitle>{t("genetic-conditions")}</ItemTitle>
                 {memberDiseases.length > 0 ? (
@@ -528,7 +529,7 @@ export const ViewMode = ({ member }: Props) => {
                   </ItemDescription>
                 )}
               </ItemContent>
-            </Item>
+            </Item>}
           </div>
         </TabsContent>
       </Tabs>

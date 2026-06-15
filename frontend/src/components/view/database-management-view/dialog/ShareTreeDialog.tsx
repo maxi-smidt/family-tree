@@ -189,12 +189,12 @@ export const ShareTreeDialog = ({
   const handleRestrictionToggle = async (
     member: TreeAccess,
     domain: string,
-    hidden: boolean,
+    accessible: boolean,
   ) => {
     const current = member.restrictions ?? [];
-    const next = hidden
-      ? [...new Set([...current, domain])]
-      : current.filter((d) => d !== domain);
+    const next = accessible
+      ? current.filter((d) => d !== domain)
+      : [...new Set([...current, domain])];
     try {
       const updated = await TreeSharingService.updateMemberRestrictions(
         tree.id,
@@ -362,7 +362,7 @@ export const ShareTreeDialog = ({
                               </span>
                               <Switch
                                 checked={
-                                  a.restrictions?.includes(domain) ?? false
+                                  !(a.restrictions?.includes(domain) ?? false)
                                 }
                                 onCheckedChange={(checked) =>
                                   handleRestrictionToggle(a, domain, checked)

@@ -82,6 +82,7 @@ export const EditMode = ({
   const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
   const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
   const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
+  const diseasesEnabled = !restrictions.includes("diseases");
 
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
@@ -694,7 +695,7 @@ export const EditMode = ({
                   {eventsEnabled && <MemberEvents member={member} />}
                   {storiesEnabled && <MemberStories member={member} />}
                   {sourcesEnabled && <MemberSources member={member} />}
-                  <MemberDiseases member={member} />
+                  {diseasesEnabled && <MemberDiseases member={member} />}
                 </div>
               )}
             </TabsContent>

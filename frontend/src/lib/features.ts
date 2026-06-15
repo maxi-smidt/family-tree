@@ -38,6 +38,8 @@ export const VIEW_FEATURES: Partial<Record<ViewId, FeatureName>> = {
 
 /** View tabs that map to a restrictable domain. */
 export const VIEW_DOMAINS: Partial<Record<ViewId, string>> = {
+  "tree-view": "tree",
+  "list-view": "tree",
   "gallery-view": "gallery",
   "timeline-view": "events",
 };

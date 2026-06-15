@@ -48,7 +48,26 @@ FEATURES: dict[str, FeatureState] = {
 }
 
 # Domains whose visibility can be restricted per shared member.
-RESTRICTABLE_DOMAINS: set[str] = {"gallery", "events", "stories", "sources"}
+# "tree" is UI-only (no backend route enforcement) but stored so the PATCH
+# endpoint accepts it and the frontend can hide the tree-view tab.
+RESTRICTABLE_DOMAINS: set[str] = {
+    "tree",
+    "gallery",
+    "events",
+    "stories",
+    "sources",
+    "diseases",
+}
+
+# Domains restricted by default on a new share (everything except the tree
+# view so a freshly shared user sees only the family tree by default).
+DEFAULT_RESTRICTIONS: list[str] = [
+    "gallery",
+    "events",
+    "stories",
+    "sources",
+    "diseases",
+]
 
 _SETTING_PREFIX = "feature."
 
