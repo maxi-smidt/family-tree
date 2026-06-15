@@ -18,8 +18,8 @@ logger = logging.getLogger("app.init")
 # backend/app/db/init_db.py -> backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
-# Seeded into the instance-wide registry when it is empty (first start, or an
-# admin emptied it). Admins manage the registry afterwards.
+# Seeded into the instance-wide registry on startup. Admins manage the registry
+# afterwards, so startup only tops up built-in defaults that are missing.
 DEFAULT_RELATION_TYPES: list[str] = [
     "parent",
     "sibling",
@@ -54,12 +54,14 @@ def init_db() -> None:
 
 
 def _seed_relation_types(db) -> None:
-    if db.scalar(select(func.count()).select_from(RelationType)):
+    existing = set(db.scalars(select(RelationType.id)).all())
+    missing = [rt for rt in DEFAULT_RELATION_TYPES if rt not in existing]
+    if not missing:
         return
-    for rt in DEFAULT_RELATION_TYPES:
+    for rt in missing:
         db.add(RelationType(id=rt))
     db.commit()
-    logger.info("Seeded %d default relation types", len(DEFAULT_RELATION_TYPES))
+    logger.info("Seeded %d missing default relation types", len(missing))
 
 
 def _seed_admin(db) -> None:
