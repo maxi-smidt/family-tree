@@ -220,7 +220,11 @@
       "toast-create-error": "Could not create virtual view.",
       "toast-update-success": "Virtual view updated!",
       "toast-update-error": "Could not update virtual view.",
-      "error-no-overlap": "These trees share no overlapping members. Virtual views require at least one person in common across the selected trees."
+      "error-no-overlap": "These trees share no overlapping members. Virtual views require at least one person in common across the selected trees.",
+      "views-label": "Or include other virtual views",
+      "no-other-views": "No other virtual views available.",
+      "virtual-badge": "virtual",
+      "error-cycle": "A virtual view can't include itself, directly or through another view."
     }
   },
   "gallery-view": {

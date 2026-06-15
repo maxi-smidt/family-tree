@@ -202,63 +202,52 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       relationTypes: [],
     });
 
-    if (isVirtualId(tree.id)) {
-      // Virtual views are read-only composites — no gallery/events/stories.
-      try {
-        const fresh = await api.get<Tree>(`/virtual-views/${tree.id}`);
-        set((s) => ({
-          selectedTree: fresh,
-          virtualViews: s.virtualViews.map((v) =>
-            v.id === fresh.id ? fresh : v,
-          ),
-        }));
-      } catch {
-        // non-fatal; continue with what we have
-      }
-      useGalleryStore.getState().clear();
-      useEventStore.getState().clear();
-      useStoryStore.getState().clear();
-      useActivityStore.getState().clear();
-      useStatisticsStore.getState().clear();
-      await Promise.all([
-        get().refreshMetadata(tree.id),
-        get().refreshRelationTypes(),
-        useMemberStore.getState().refreshMembers(tree.id),
-      ]);
-      // Only auto-layout when there are no saved overlay positions yet.
-      // Once the user has arranged the view, respect those positions.
-      if (get().metadata.hasLayout !== true) {
-        await useMemberStore.getState().updateLayout();
-      }
-    } else {
-      // Marks the tree as "opened" server-side and returns the latest role.
-      try {
-        const fresh = await api.get<Tree>(`/trees/${tree.id}`);
-        set((s) => ({
-          selectedTree: fresh,
-          trees: s.trees.map((t) => (t.id === fresh.id ? fresh : t)),
-        }));
-      } catch {
-        // non-fatal; continue with what we have
-      }
-      // Stores behind a disabled feature flag stay empty — their API routes
-      // answer 404, so loading them would just produce noise.
-      const loads = [
-        get().refreshMetadata(tree.id),
-        get().refreshRelationTypes(),
-        useMemberStore.getState().refreshMembers(tree.id),
-      ];
-      if (hasFeature("gallery"))
-        loads.push(useGalleryStore.getState().refreshGalleryImages(tree.id));
-      if (hasFeature("events"))
-        loads.push(useEventStore.getState().refreshEvents(tree.id));
-      if (hasFeature("stories"))
-        loads.push(useStoryStore.getState().refreshStories(tree.id));
-      if (hasFeature("sources"))
-        loads.push(useSourceStore.getState().refreshSources(tree.id));
-      if (hasFeature("activity_log"))
-        loads.push(useActivityStore.getState().refreshActivity(tree.id));
-      await Promise.all(loads);
+    const virtual = isVirtualId(tree.id);
+
+    // Marks the tree/view as "opened" server-side and returns the latest
+    // role + (for views) the resolved source list.
+    try {
+      const fresh = await api.get<Tree>(
+        virtual ? `/virtual-views/${tree.id}` : `/trees/${tree.id}`,
+      );
+      set((s) => ({
+        selectedTree: fresh,
+        trees: virtual
+          ? s.trees
+          : s.trees.map((t) => (t.id === fresh.id ? fresh : t)),
+        virtualViews: virtual
+          ? s.virtualViews.map((v) => (v.id === fresh.id ? fresh : v))
+          : s.virtualViews,
+      }));
+    } catch {
+      // non-fatal; continue with what we have
+    }
+
+    // A virtual tree behaves like a normal tree: it loads the same feature
+    // stores, aggregated live from its sources (read-only — the viewer role
+    // hides every edit affordance). Stores behind a disabled feature flag stay
+    // empty — their API routes answer 404, so loading them would just be noise.
+    const loads = [
+      get().refreshMetadata(tree.id),
+      get().refreshRelationTypes(),
+      useMemberStore.getState().refreshMembers(tree.id),
+    ];
+    if (hasFeature("gallery"))
+      loads.push(useGalleryStore.getState().refreshGalleryImages(tree.id));
+    if (hasFeature("events"))
+      loads.push(useEventStore.getState().refreshEvents(tree.id));
+    if (hasFeature("stories"))
+      loads.push(useStoryStore.getState().refreshStories(tree.id));
+    if (hasFeature("sources"))
+      loads.push(useSourceStore.getState().refreshSources(tree.id));
+    if (hasFeature("activity_log"))
+      loads.push(useActivityStore.getState().refreshActivity(tree.id));
+    await Promise.all(loads);
+
+    // Virtual trees are read-only composites: auto-arrange the layout only
+    // until the user saves an alignment overlay, then respect it.
+    if (virtual && get().metadata.hasLayout !== true) {
+      await useMemberStore.getState().updateLayout();
     }
     set({ isReady: true });
   },
