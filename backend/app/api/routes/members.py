@@ -27,6 +27,7 @@ from app.schemas.family import (
     RelationOut,
 )
 from app.services.activity import record_activity
+from app.services.settings_service import get_media_limits
 from app.services.storage import ImageTooLarge, UnsupportedImageType, process_image_field
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
@@ -59,7 +60,11 @@ def create_member(
 ):
     data = payload.model_dump()
     try:
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["imageData"] = process_image_field(
+            tree.id,
+            data.get("imageData"),
+            get_media_limits(db),
+        )
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
@@ -141,7 +146,11 @@ def update_member(
     changes = payload.model_dump(exclude_unset=True)
     if "imageData" in changes:
         try:
-            changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+            changes["imageData"] = process_image_field(
+                tree.id,
+                changes["imageData"],
+                get_media_limits(db),
+            )
         except ImageTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (UnsupportedImageType, ValueError) as exc:

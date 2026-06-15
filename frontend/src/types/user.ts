@@ -20,6 +20,13 @@ export interface AuthConfig {
   authentik_enabled: boolean;
   allow_self_registration: boolean;
   authentik_login_url: string | null;
+  media_limits: {
+    max_image_bytes: number;
+    max_image_dimension: number;
+    max_document_bytes: number;
+    stored_image_width: number;
+    stored_image_height: number;
+  };
 }
 
 export interface TokenResponse {

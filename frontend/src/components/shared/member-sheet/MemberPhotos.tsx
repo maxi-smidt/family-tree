@@ -7,10 +7,7 @@ import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { ImagePlus } from "lucide-react";
 import { ApiError } from "@/services/api";
 import { toast } from "sonner";
-import {
-  STORED_IMAGE_HEIGHT as MAX_HEIGHT,
-  STORED_IMAGE_WIDTH as MAX_WIDTH,
-} from "@/constants";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "@/utils/dateUtils";
 
@@ -21,6 +18,7 @@ type Props = {
 export const MemberPhotos = ({ member }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "sheet.edit-mode" });
   const { galleryImages, addGalleryImage } = useGalleryStore();
+  const mediaLimits = useAuthStore((state) => state.config?.media_limits);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const linkedImages = galleryImages.filter((img) =>
@@ -39,15 +37,15 @@ export const MemberPhotos = ({ member }: Props) => {
         let width = img.width;
         let height = img.height;
 
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
+        if (mediaLimits && width > height) {
+          if (width > mediaLimits.stored_image_width) {
+            height *= mediaLimits.stored_image_width / width;
+            width = mediaLimits.stored_image_width;
           }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
+        } else if (mediaLimits) {
+          if (height > mediaLimits.stored_image_height) {
+            width *= mediaLimits.stored_image_height / height;
+            height = mediaLimits.stored_image_height;
           }
         }
         canvas.width = width;
@@ -95,7 +93,12 @@ export const MemberPhotos = ({ member }: Props) => {
       <ItemContent>
         <div className="flex items-center justify-between mb-2">
           <ItemTitle>{t("photos-field")}</ItemTitle>
-          <Button size="sm" variant="ghost" type="button" onClick={handleUpload}>
+          <Button
+            size="sm"
+            variant="ghost"
+            type="button"
+            onClick={handleUpload}
+          >
             <ImagePlus />
             {t("photos-add")}
           </Button>
