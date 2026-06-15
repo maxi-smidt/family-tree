@@ -111,7 +111,7 @@ function ActivityItem({ item }: { item: Activity }) {
 
   return (
     <Card
-      className={`p-4 flex gap-4 items-start${canNavigate ? " group cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+      className={`p-4 flex flex-row gap-4 items-center${canNavigate ? " group cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
       onClick={canNavigate ? handleNavigate : undefined}
       role={canNavigate ? "button" : undefined}
       tabIndex={canNavigate ? 0 : undefined}
