@@ -7,6 +7,7 @@ import { useFeature } from "@/hooks/useAuthStore";
 import {
   ChangeEvent,
   FormEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -37,6 +38,7 @@ import { MemberSources } from "./MemberSources";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
 function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   const descendants = new Set<string>();
@@ -83,16 +85,18 @@ export const EditMode = ({
   const [initialData, setInitialData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [recordsMounted, setRecordsMounted] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(member);
     setInitialData(member);
+    setIsDirty(false);
     onDirtyChange?.(false);
   }, [member]);
 
   useEffect(() => {
-    const isDirty =
+    const dirty =
       (formData.academicTitle || "") !== (initialData.academicTitle || "") ||
       formData.firstName !== initialData.firstName ||
       (formData.middleNames || "") !== (initialData.middleNames || "") ||
@@ -112,7 +116,8 @@ export const EditMode = ({
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
       formData.parents.maternalParent !== initialData.parents.maternalParent;
 
-    onDirtyChange?.(isDirty);
+    setIsDirty(dirty);
+    onDirtyChange?.(dirty);
   }, [formData, initialData, onDirtyChange]);
 
   const eligibleParents = useMemo(() => {
@@ -180,12 +185,10 @@ export const EditMode = ({
     handleChange("gender", value);
   };
 
-  const handleSave = (e: FormEvent) => {
-    e.preventDefault();
-
+  const save = useCallback(async (): Promise<boolean> => {
     if (!formData.firstName.trim() || !formData.lastName.trim()) {
       toast.error(t("toast-error-required"));
-      return;
+      return false;
     }
 
     const duplicate = members.find(
@@ -202,50 +205,58 @@ export const EditMode = ({
 
     if (duplicate) {
       toast.error(t("toast-error-duplicate"));
-      return;
+      return false;
     }
 
     if (isNew) {
       onSaved?.(formData);
-      return;
+      return true;
     }
 
-    updateMemberPartial(member.id, {
-      academicTitle: formData.academicTitle || null,
-      firstName: formData.firstName,
-      middleNames: formData.middleNames || null,
-      baptismalName: formData.baptismalName || null,
-      lastName: formData.lastName,
-      maidenName: formData.maidenName || null,
-      gender: formData.gender,
-      imageData: formData.imageData || undefined,
-      dateOfBirth: formData.date.birth,
-      dateOfDeath: formData.date.death || null,
-      deceased: formData.deceased,
-      additionalData: formData.additionalData || null,
-      birthplace: formData.birthplace || null,
-      hometown: formData.hometown || null,
-      placesLived:
-        formData.placesLived.length > 0
-          ? JSON.stringify(formData.placesLived)
-          : null,
-      paternalParentId: formData.parents.paternalParent,
-      maternalParentId: formData.parents.maternalParent,
-    })
-      .then(() => {
-        toast.success(t("toast-success"));
-        onSaved?.(formData);
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 413) {
-          toast.error(t("toast-error-image-too-large"));
-        } else if (err instanceof ApiError && err.status === 400) {
-          toast.error(t("toast-error-image-unsupported"));
-        } else {
-          toast.error(t("toast-error-save"));
-        }
+    try {
+      await updateMemberPartial(member.id, {
+        academicTitle: formData.academicTitle || null,
+        firstName: formData.firstName,
+        middleNames: formData.middleNames || null,
+        baptismalName: formData.baptismalName || null,
+        lastName: formData.lastName,
+        maidenName: formData.maidenName || null,
+        gender: formData.gender,
+        imageData: formData.imageData || undefined,
+        dateOfBirth: formData.date.birth,
+        dateOfDeath: formData.date.death || null,
+        deceased: formData.deceased,
+        additionalData: formData.additionalData || null,
+        birthplace: formData.birthplace || null,
+        hometown: formData.hometown || null,
+        placesLived:
+          formData.placesLived.length > 0
+            ? JSON.stringify(formData.placesLived)
+            : null,
+        paternalParentId: formData.parents.paternalParent,
+        maternalParentId: formData.parents.maternalParent,
       });
+      toast.success(t("toast-success"));
+      onSaved?.(formData);
+      return true;
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 413) {
+        toast.error(t("toast-error-image-too-large"));
+      } else if (err instanceof ApiError && err.status === 400) {
+        toast.error(t("toast-error-image-unsupported"));
+      } else {
+        toast.error(t("toast-error-save"));
+      }
+      return false;
+    }
+  }, [formData, member, members, isNew, onSaved, t, updateMemberPartial]);
+
+  const handleSave = (e: FormEvent) => {
+    e.preventDefault();
+    void save();
   };
+
+  useUnsavedGuard("member-edit", isDirty, save);
 
   return (
     <form id="edit-member-form" onSubmit={handleSave} className="flex flex-col">

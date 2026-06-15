@@ -428,13 +428,6 @@
       "delete-confirm-description": "Are you sure you want to permanently delete this member? This action cannot be undone.",
       "delete-confirm-cancel": "Cancel",
       "delete-confirm-confirm": "Delete",
-      "unsaved": {
-        "title": "Unsaved changes",
-        "description": "You have unsaved changes. What would you like to do?",
-        "stay": "Stay",
-        "save": "Save",
-        "discard": "Discard"
-      },
       "show-less": "Show less",
       "show-more": "Show {{count}} more",
       "events": {
@@ -1216,5 +1209,12 @@
       "from": "from",
       "until": "until"
     }
+  },
+  "unsaved-changes": {
+    "title": "Unsaved changes",
+    "description": "You have unsaved changes. What would you like to do?",
+    "stay": "Stay",
+    "save": "Save",
+    "discard": "Discard"
   }
 }
