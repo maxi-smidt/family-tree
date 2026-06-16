@@ -81,6 +81,8 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
+const TREE_INDEPENDENT_VIEWS: ViewId[] = [DATABASE_MANAGEMENT_VIEW, FRIENDS_VIEW];
+
 const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "tree-view": <FlowPanel />,
   "list-view": <ListView />,
@@ -150,10 +152,14 @@ export const MainPanel = () => {
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
   // A virtual tree exposes the same tabs as a normal tree (read-only,
   // aggregated live from its sources); only feature flags filter the set.
-  const visible = filterViewsByRestrictions(
-    filterViewsByFeatures(allVisible, features),
-    restrictions,
-  );
+  // When no tree is selected, only show tree-independent views so the user
+  // can still access Friends and Database Management (create/import).
+  const visible = selectedTree
+    ? filterViewsByRestrictions(
+        filterViewsByFeatures(allVisible, features),
+        restrictions,
+      )
+    : TREE_INDEPENDENT_VIEWS;
   const mobileViews = visible.filter((v) => !MANAGEMENT_VIEWS.has(v));
 
   // If the active tab is hidden and no pending navigation, move to first visible.

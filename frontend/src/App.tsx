@@ -2,7 +2,6 @@ import "./App.css";
 import { useEffect } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
-import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { Layout } from "@/components/layout/Layout";
 import { MainPanel } from "@/components/layout/MainPanel";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
@@ -18,7 +17,6 @@ export const App = () => {
   const init = useAuthStore((s) => s.init);
   const pendingPublicTreeId = useAuthStore((s) => s.pendingPublicTreeId);
   const loadTrees = useTreeStore((s) => s.loadTrees);
-  const selectedTree = useTreeStore((s) => s.selectedTree);
 
   useEffect(() => {
     void init();
@@ -72,7 +70,7 @@ export const App = () => {
       <ErrorBoundary>
         <UnsavedChangesGuard />
         <Layout>
-          {selectedTree ? <MainPanel /> : <NoDatabasePlaceholder />}
+          <MainPanel />
         </Layout>
       </ErrorBoundary>
     );
