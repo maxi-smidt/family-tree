@@ -8,6 +8,7 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
+    require_domain,
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -21,7 +22,10 @@ from app.services.content_links import replace_member_links
 router = APIRouter(
     prefix="/trees/{tree_id}/events",
     tags=["events"],
-    dependencies=[Depends(require_feature("events"))],
+    dependencies=[
+        Depends(require_feature("events")),
+        Depends(require_domain("events")),
+    ],
 )
 
 

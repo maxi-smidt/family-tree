@@ -6,6 +6,7 @@ describe("mapMemberFromDB", () => {
     const dbMember: MemberDB = {
       id: "1",
       gender: "m",
+      academicTitle: null,
       firstName: "John",
       lastName: "Doe",
       middleNames: "Paul",
@@ -41,6 +42,7 @@ describe("mapMemberFromDB", () => {
     const dbMember: MemberDB = {
       id: "1",
       gender: "f",
+      academicTitle: null,
       firstName: "Jane",
       lastName: "Doe",
       middleNames: null,
@@ -66,6 +68,7 @@ describe("MemberObject.equalDB", () => {
   const member: MemberDB = {
     id: "1",
     gender: "m",
+    academicTitle: null,
     firstName: "John",
     middleNames: "Paul",
     baptismalName: "Johannes",

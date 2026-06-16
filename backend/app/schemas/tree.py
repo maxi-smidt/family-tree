@@ -18,6 +18,8 @@ class TreeOut(BaseModel):
     shared_count: int = 0
     # null = private; "viewer" = public read-only.
     public_role: str | None = None
+    # Domains the requesting member may not see. Empty for owner/admin.
+    restrictions: list[str] = []
 
 
 class TreeCreate(BaseModel):
@@ -61,6 +63,11 @@ class TreeMemberOut(BaseModel):
     user_id: str
     username: str
     role: str  # "owner", "editor" or "viewer"
+    restrictions: list[str] = []
+
+
+class MemberRestrictionsUpdate(BaseModel):
+    restrictions: list[str] = []
 
 
 class ShareCandidate(BaseModel):

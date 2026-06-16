@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, FormEvent } from "react";
+import { useState, useEffect, useRef, useCallback, FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,13 +12,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { AttachmentOps, Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { getMemberOptions } from "@/utils/memberUtils";
 import {
   ATTACHMENT_ACCEPT,
   attachmentError,
+  formatFileSize,
   isImageAttachment,
   readFileAsDataUrl,
 } from "@/utils/attachmentUtils";
@@ -57,6 +60,13 @@ export const StoryDialog = ({
   });
   const { addStory, updateStory } = useStoryStore();
   const { members } = useMemberStore();
+  const maxAttachmentBytes = useAuthStore(
+    (state) => state.config?.media_limits.max_document_bytes,
+  );
+  const maxAttachmentSize =
+    maxAttachmentBytes === undefined
+      ? null
+      : formatFileSize(maxAttachmentBytes);
   const [formData, setFormData] = useState<StoryInput>({
     title: "",
     content: "",
@@ -68,12 +78,30 @@ export const StoryDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [initialSnapshot, setInitialSnapshot] = useState<{
+    formData: StoryInput;
+    selectedMemberIds: string[];
+    existingJson: string;
+  } | null>(null);
+
   useEffect(() => {
     setFileError(null);
     setAdded([]);
+    if (!open) {
+      setInitialSnapshot(null);
+      return;
+    }
     if (story) {
-      setFormData({ title: story.title, content: story.content });
-      setSelectedMemberIds(story.linkedMemberIds || []);
+      const snap = {
+        formData: { title: story.title, content: story.content },
+        selectedMemberIds: story.linkedMemberIds || [],
+        existingJson: JSON.stringify(
+          story.attachments.map((a) => ({ id: a.id, filename: a.filename })),
+        ),
+      };
+      setInitialSnapshot(snap);
+      setFormData(snap.formData);
+      setSelectedMemberIds(snap.selectedMemberIds);
       setExisting(
         story.attachments.map((a) => ({
           id: a.id,
@@ -84,8 +112,14 @@ export const StoryDialog = ({
         })),
       );
     } else {
+      const ids = initialMemberId ? [initialMemberId] : [];
+      setInitialSnapshot({
+        formData: { title: "", content: "" },
+        selectedMemberIds: ids,
+        existingJson: "[]",
+      });
       setFormData({ title: "", content: "" });
-      setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
+      setSelectedMemberIds(ids);
       setExisting([]);
     }
   }, [story, initialMemberId, open]);
@@ -94,9 +128,11 @@ export const StoryDialog = ({
     if (!fileList) return;
     setFileError(null);
     for (const file of Array.from(fileList)) {
-      const err = attachmentError(file);
+      const err = attachmentError(file, maxAttachmentBytes);
       if (err) {
-        setFileError(t(`attachments.error-${err}`));
+        setFileError(
+          t(`attachments.error-${err}`, { max: maxAttachmentSize ?? "" }),
+        );
         continue;
       }
       const dataUrl = await readFileAsDataUrl(file);
@@ -127,8 +163,18 @@ export const StoryDialog = ({
     return { added: addedOps, removedIds, renamed };
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const isDirty =
+    initialSnapshot !== null &&
+    (formData.title !== initialSnapshot.formData.title ||
+      formData.content !== initialSnapshot.formData.content ||
+      JSON.stringify(selectedMemberIds) !==
+        JSON.stringify(initialSnapshot.selectedMemberIds) ||
+      JSON.stringify(
+        existing.map((a) => ({ id: a.id, filename: a.filename })),
+      ) !== initialSnapshot.existingJson ||
+      added.length > 0);
+
+  const save = useCallback(async (): Promise<boolean> => {
     setSubmitting(true);
     try {
       const ops = buildAttachmentOps();
@@ -138,10 +184,30 @@ export const StoryDialog = ({
         await addStory(selectedMemberIds, formData, ops);
       }
       onOpenChange(false);
+      return true;
+    } catch {
+      return false;
     } finally {
       setSubmitting(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    story,
+    formData,
+    selectedMemberIds,
+    existing,
+    added,
+    addStory,
+    updateStory,
+    onOpenChange,
+  ]);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void save();
   };
+
+  useUnsavedGuard("story", isDirty, save);
 
   const memberOptions = getMemberOptions(members);
 
@@ -320,7 +386,9 @@ export const StoryDialog = ({
               ) : (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Paperclip className="w-3 h-3" />
-                  {t("attachments.hint")}
+                  {maxAttachmentSize
+                    ? t("attachments.hint", { max: maxAttachmentSize })
+                    : t("attachments.hint-without-limit")}
                 </p>
               )}
             </div>

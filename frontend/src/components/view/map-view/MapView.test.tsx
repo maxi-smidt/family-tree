@@ -42,6 +42,7 @@ vi.mock("@/components/ui/partial-date-picker", () => ({
 const member: Member = {
   id: "member-1",
   gender: "o",
+  academicTitle: null,
   firstName: "Alex",
   middleNames: null,
   baptismalName: null,

@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, require_feature
+from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -36,6 +37,7 @@ from app.models import (
 )
 from app.schemas.tree import TreeOut
 from app.services import crypto_export, gedcom
+from app.services.settings_service import get_media_limits
 from app.services.storage import (
     media_url_to_data_url,
     process_image_field,
@@ -45,6 +47,29 @@ from app.services.storage import (
 router = APIRouter(prefix="/trees", tags=["export"])
 
 BUNDLE_VERSION = 2
+
+
+def migrate_bundle(bundle: dict) -> dict:
+    """Bring an older bundle up to BUNDLE_VERSION.
+
+    Add a migration step here and bump BUNDLE_VERSION when the bundle schema
+    changes.  Pre-first-release the ladder is empty; the scaffolding is in
+    place so the first real migration is easy to add.
+    """
+    return bundle
+
+
+def _validate_and_migrate(bundle: dict) -> dict:
+    version = bundle.get("version", 1)
+    if version > BUNDLE_VERSION:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"This file was created by a newer version of the app "
+                f"(bundle v{version}). Please update before importing."
+            ),
+        )
+    return migrate_bundle(bundle)
 
 
 def _rows(db: Session, model, tree_id: str) -> list[dict]:
@@ -78,6 +103,8 @@ def export_tree(
 
     bundle = {
         "version": BUNDLE_VERSION,
+        "app_version": settings.APP_VERSION,
+        "exported_at": utcnow_iso(),
         "tree": {"name": tree.name, "created_at": tree.created_at},
         "members": members,
         "relations": _rows(db, Relation, tree.id),
@@ -129,11 +156,24 @@ async def inspect_import(file: UploadFile, db: Session = Depends(get_db)):
     blob = await file.read()
     try:
         if crypto_export.is_password_protected(blob):
-            return {"password_required": True, "name": None}
+            return {
+                "password_required": True,
+                "name": None,
+                "app_version": None,
+                "exported_at": None,
+                "bundle_version": None,
+            }
         bundle = crypto_export.decrypt_bundle(blob, None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return {"password_required": False, "name": bundle.get("tree", {}).get("name")}
+    bundle = _validate_and_migrate(bundle)
+    return {
+        "password_required": False,
+        "name": bundle.get("tree", {}).get("name"),
+        "app_version": bundle.get("app_version"),
+        "exported_at": bundle.get("exported_at"),
+        "bundle_version": bundle.get("version"),
+    }
 
 
 @router.post("/import", response_model=TreeOut, status_code=201)
@@ -152,6 +192,8 @@ async def import_tree(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail="Could not read export file") from exc
 
+    bundle = _validate_and_migrate(bundle)
+
     tree = Tree(
         id=str(uuid4()),
         name=name or bundle.get("tree", {}).get("name") or "Imported tree",
@@ -161,13 +203,18 @@ async def import_tree(
     )
     db.add(tree)
     db.flush()
+    media_limits = get_media_limits(db)
 
     member_map = _remap(bundle.get("members", []))
     for row in bundle.get("members", []):
         data = dict(row)
         data.pop("tree_id", None)
         data["id"] = member_map[row["id"]]
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["imageData"] = process_image_field(
+            tree.id,
+            data.get("imageData"),
+            media_limits,
+        )
         db.add(Member(tree_id=tree.id, **data))
     # Members must exist before anything that references them (relations,
     # diseases, gallery/event/story links).
@@ -205,7 +252,11 @@ async def import_tree(
         data = dict(row)
         data.pop("tree_id", None)
         data["id"] = gallery_map[row["id"]]
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["imageData"] = process_image_field(
+            tree.id,
+            data.get("imageData"),
+            media_limits,
+        )
         db.add(GalleryImage(tree_id=tree.id, **data))
     _import_links(db, bundle.get("gallery_links", []), GalleryMemberLink,
                   "gallery_image_id", gallery_map, member_map)
@@ -235,7 +286,12 @@ async def import_tree(
         if story_id is None:
             continue
         try:
-            url, mime, size = store_document(tree.id, row["filename"], row["url"])
+            url, mime, size = store_document(
+                tree.id,
+                row["filename"],
+                row["url"],
+                media_limits,
+            )
         except ValueError:
             continue  # skip an attachment we can't decode rather than fail the import
         db.add(
@@ -269,7 +325,10 @@ async def import_tree(
         if row.get("kind") == "file":
             try:
                 ev_url, ev_mime, ev_size = store_document(
-                    tree.id, row.get("filename", "file"), ev_url
+                    tree.id,
+                    row.get("filename", "file"),
+                    ev_url,
+                    media_limits,
                 )
             except ValueError:
                 continue
@@ -358,6 +417,7 @@ def export_tree_gedcom(
         relations,
         sources=sources_ged,
         citations=citations_ged,
+        app_version=settings.APP_VERSION,
     )
     filename = f"{tree.name or 'family-tree'}.ged"
     return Response(

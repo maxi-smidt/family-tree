@@ -10,6 +10,7 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
+    require_domain,
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -29,6 +30,7 @@ from app.schemas.content import (
     SourceUpdate,
 )
 from app.services.activity import record_activity
+from app.services.settings_service import get_media_limits
 from app.services.storage import (
     FileTooLarge,
     UnsupportedFileType,
@@ -39,7 +41,10 @@ from app.services.storage import (
 router = APIRouter(
     prefix="/trees/{tree_id}/sources",
     tags=["sources"],
-    dependencies=[Depends(require_feature("sources"))],
+    dependencies=[
+        Depends(require_feature("sources")),
+        Depends(require_domain("sources")),
+    ],
 )
 
 _MEDIA_PREFIX = "/api/media/"
@@ -173,7 +178,12 @@ def add_evidence(
                 status_code=400, detail="filename and data are required for file evidence"
             )
         try:
-            url, mime, size = store_document(tree.id, payload.filename, payload.data)
+            url, mime, size = store_document(
+                tree.id,
+                payload.filename,
+                payload.data,
+                get_media_limits(db),
+            )
         except FileTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except UnsupportedFileType as exc:

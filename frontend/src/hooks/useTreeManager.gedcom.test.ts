@@ -50,6 +50,7 @@ const MEMBERS_DB: MemberDB[] = [
   {
     id: "robert",
     gender: "m",
+    academicTitle: null,
     firstName: "Robert",
     lastName: "Williams",
     middleNames: null,
@@ -67,6 +68,7 @@ const MEMBERS_DB: MemberDB[] = [
   {
     id: "mary",
     gender: "f",
+    academicTitle: null,
     firstName: "Mary",
     lastName: "Wilson",
     middleNames: null,
@@ -84,6 +86,7 @@ const MEMBERS_DB: MemberDB[] = [
   {
     id: "joe",
     gender: "m",
+    academicTitle: null,
     firstName: "Joe",
     lastName: "Williams",
     middleNames: null,

@@ -36,6 +36,7 @@ export function isDeceased(member: Pick<Member, "deceased" | "date">): boolean {
 export interface Member {
   id: string;
   gender: Gender;
+  academicTitle: string | null;
   firstName: string;
   middleNames: string | null;
   baptismalName: string | null;
@@ -90,6 +91,7 @@ export class MemberObject {
     };
 
     return (
+      normalizeStr(m1.academicTitle) === normalizeStr(m2.academicTitle) &&
       normalizeStr(m1.firstName) === normalizeStr(m2.firstName) &&
       normalizeStr(m1.middleNames) === normalizeStr(m2.middleNames) &&
       normalizeStr(m1.baptismalName) === normalizeStr(m2.baptismalName) &&
@@ -105,6 +107,7 @@ export class MemberObject {
 export interface MemberDB {
   id: string;
   gender: string;
+  academicTitle: string | null;
   firstName: string;
   middleNames: string | null;
   baptismalName: string | null;
@@ -138,6 +141,7 @@ export interface RelationDB {
 
 export interface MemberUpdate {
   gender?: Gender;
+  academicTitle?: string | null;
   firstName?: string;
   middleNames?: string | null;
   baptismalName?: string | null;
@@ -176,6 +180,7 @@ export function mapMemberFromDB(
   return {
     id: row.id,
     gender: (row.gender as Gender) || "o",
+    academicTitle: row.academicTitle ?? null,
     firstName: row.firstName,
     middleNames: row.middleNames,
     baptismalName: row.baptismalName,
@@ -219,6 +224,7 @@ export function mapMemberToDB(member: Member): MemberDB {
   return {
     id: member.id,
     gender: member.gender,
+    academicTitle: member.academicTitle ?? null,
     firstName: member.firstName,
     middleNames: member.middleNames,
     baptismalName: member.baptismalName,
@@ -244,6 +250,7 @@ export function createMember(position: { x: number; y: number }): Member {
   return {
     id: crypto.randomUUID(),
     gender: "o",
+    academicTitle: null,
     firstName: "",
     middleNames: null,
     baptismalName: null,

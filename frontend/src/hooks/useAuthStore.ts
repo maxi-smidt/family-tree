@@ -28,6 +28,7 @@ interface AuthState {
   totpRequired: boolean;
   totpSessionToken: string | null;
   init: () => Promise<void>;
+  refreshConfig: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
   verifyTotp: (code: string) => Promise<void>;
   cancelTotp: () => void;
@@ -93,6 +94,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   pendingPublicTreeId: null,
   totpRequired: false,
   totpSessionToken: null,
+
+  refreshConfig: async () => {
+    const config = await api.get<AuthConfig>("/auth/config");
+    set({ config });
+  },
 
   init: async () => {
     // Pick up a token handed back by the Authentik OAuth redirect (#token=...).

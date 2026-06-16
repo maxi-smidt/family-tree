@@ -45,6 +45,7 @@ type Props = {
 export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "admin" });
   const currentUser = useAuthStore((s) => s.user);
+  const refreshConfig = useAuthStore((s) => s.refreshConfig);
 
   const [users, setUsers] = useState<User[]>([]);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -157,6 +158,11 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
     try {
       const updated = await AdminService.updateSettings(settings);
       setSettings(updated);
+      try {
+        await refreshConfig();
+      } catch (configError) {
+        console.error(configError);
+      }
       toast.success(t("settings-saved"));
     } catch (err) {
       console.error(err);
@@ -403,6 +409,80 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
                   <p className="text-xs text-muted-foreground">
                     {t("deletion-grace-period-hint")}
                   </p>
+                </div>
+                <div className="space-y-3 border-t pt-4">
+                  <div>
+                    <p className="font-medium text-sm">{t("upload-limits")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("upload-limits-hint")}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="max-image-upload">
+                        {t("max-image-upload")}
+                      </FieldLabel>
+                      <Input
+                        id="max-image-upload"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={settings.max_image_upload_mb}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            max_image_upload_mb: Math.min(
+                              100,
+                              Math.max(1, Number(e.target.value)),
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="max-document-upload">
+                        {t("max-document-upload")}
+                      </FieldLabel>
+                      <Input
+                        id="max-document-upload"
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={settings.max_document_upload_mb}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            max_document_upload_mb: Math.min(
+                              500,
+                              Math.max(1, Number(e.target.value)),
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="max-image-dimension">
+                        {t("max-image-dimension")}
+                      </FieldLabel>
+                      <Input
+                        id="max-image-dimension"
+                        type="number"
+                        min={256}
+                        max={16384}
+                        step={256}
+                        value={settings.max_image_dimension}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            max_image_dimension: Math.min(
+                              16384,
+                              Math.max(256, Number(e.target.value)),
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>

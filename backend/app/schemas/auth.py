@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+from app.schemas.setting import MediaLimits
 from app.schemas.user import CurrentUserOut
 
 
@@ -59,3 +60,4 @@ class AuthConfig(BaseModel):
     authentik_enabled: bool
     allow_self_registration: bool
     authentik_login_url: str | None = None
+    media_limits: MediaLimits
