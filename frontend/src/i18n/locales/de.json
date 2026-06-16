@@ -642,6 +642,23 @@
           "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown-Formatierungsleiste",
+      "bold": "Fett",
+      "bold-default": "fetter Text",
+      "italic": "Kursiv",
+      "italic-default": "kursiver Text",
+      "heading": "Überschrift",
+      "heading-default": "Überschrift",
+      "bullet": "Aufzählungsliste",
+      "bullet-default": "Listeneintrag",
+      "link": "Link",
+      "link-default": "Linktext",
+      "link-url-placeholder": "https://",
+      "tab-write": "Schreiben",
+      "tab-preview": "Vorschau",
+      "preview-empty": "Noch nichts zum Anzeigen."
     }
   },
   "tree-view": {
