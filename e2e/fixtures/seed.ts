@@ -89,14 +89,14 @@ export async function seedMinimalFamily(
   const alice = await createMember(api, treeId, {
     firstName: "Alice",
     lastName: "Smith",
-    gender: "female",
+    gender: "f",
     dateOfBirth: "1980-01-01",
   } as Partial<MemberRecord> & Record<string, unknown>);
 
   const bob = await createMember(api, treeId, {
     firstName: "Bob",
     lastName: "Smith",
-    gender: "male",
+    gender: "m",
     dateOfBirth: "1978-06-15",
   } as Partial<MemberRecord> & Record<string, unknown>);
 
@@ -105,7 +105,7 @@ export async function seedMinimalFamily(
   const charlie = await createMember(api, treeId, {
     firstName: "Charlie",
     lastName: "Smith",
-    gender: "male",
+    gender: "m",
     dateOfBirth: "2005-03-20",
   } as Partial<MemberRecord> & Record<string, unknown>);
 
