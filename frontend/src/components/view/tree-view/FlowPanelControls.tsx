@@ -152,11 +152,7 @@ export const FlowPanelControls = ({
             disabled={isExporting}
             aria-label={t("export-image")}
           >
-            {isExporting ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <ImageDown />
-            )}
+            {isExporting ? <Loader2 className="animate-spin" /> : <ImageDown />}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">{t("export-image")}</TooltipContent>
