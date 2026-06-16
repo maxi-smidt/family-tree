@@ -91,7 +91,7 @@ export const RelationTypesPanel = () => {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">{t("hint")}</p>
-      <div className="border rounded-lg overflow-hidden max-h-72 overflow-y-auto">
+      <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
