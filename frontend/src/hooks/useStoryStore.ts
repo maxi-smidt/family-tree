@@ -12,6 +12,7 @@ const NO_OPS: AttachmentOps = { added: [], removedIds: [], renamed: [] };
 
 interface StoryState {
   stories: Story[];
+  initialized: boolean;
   refreshStories: (treeId?: string) => Promise<void>;
   getStoriesByMember: (memberId: string) => Story[];
   addStory: (
@@ -52,6 +53,7 @@ async function applyAttachmentOps(
 
 export const useStoryStore = create<StoryState>((set, get) => ({
   stories: [],
+  initialized: false,
 
   refreshStories: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -79,7 +81,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
       return mapStoryFromDB(row, linkedMemberIds);
     });
 
-    set({ stories });
+    set({ stories, initialized: true });
   },
 
   getStoriesByMember: (memberId: string) => {
@@ -130,5 +132,5 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     await get().refreshStories(treeId);
   },
 
-  clear: () => set({ stories: [] }),
+  clear: () => set({ stories: [], initialized: false }),
 }));

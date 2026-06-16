@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   mapMemberFromDB,
   Member,
+  MemberDB,
   MemberUpdate,
   RelationDB,
   RelationType,
@@ -172,6 +173,7 @@ interface MemberState {
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   refreshMembers: (treeId?: string) => Promise<void>;
+  fetchMemberDetail: (id: string) => Promise<Member | undefined>;
   clear: () => void;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
@@ -194,8 +196,8 @@ interface MemberState {
     type: RelationType,
   ) => Promise<void>;
   addDisease: (memberId: string, disease: DiseaseInput) => Promise<void>;
-  updateDisease: (diseaseId: string, disease: DiseaseInput) => Promise<void>;
-  removeDisease: (diseaseId: string) => Promise<void>;
+  updateDisease: (memberId: string, diseaseId: string, disease: DiseaseInput) => Promise<void>;
+  removeDisease: (memberId: string, diseaseId: string) => Promise<void>;
 }
 
 export const useMemberStore = create<MemberState>((set, get) => ({
@@ -245,10 +247,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       return;
     }
 
-    const [membersResult, relationsResult, diseasesResult] = await Promise.allSettled([
-      TreeService.getMembers(treeId),
+    const [membersResult, relationsResult] = await Promise.allSettled([
+      TreeService.getMembers(treeId, true),
       TreeService.getRelations(treeId),
-      TreeService.getDiseases(treeId),
     ]);
 
     if (membersResult.status === "rejected" || relationsResult.status === "rejected") {
@@ -256,12 +257,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
     const result = membersResult.value;
     const relations = relationsResult.value;
-    const diseases = diseasesResult.status === "fulfilled" ? diseasesResult.value : [];
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const memberGenderMap = new Map<string, string>();
-    result.forEach((m) => memberGenderMap.set(m.id, m.gender));
+    result.forEach((m) => memberGenderMap.set(m.id, m.gender ?? "o"));
 
     const relationsByMember = new Map<string, RelationDB[]>();
     for (const r of relations) {
@@ -271,22 +271,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     }
 
-    const diseasesByMember = new Map<string, DiseaseDB[]>();
-    for (const d of diseases) {
-      diseasesByMember.set(
-        d.member_id,
-        (diseasesByMember.get(d.member_id) ?? []).concat(d),
-      );
-    }
-
     const appMembers = result
       .map((member) => {
         const memberRelations = relationsByMember.get(member.id) ?? [];
-        const memberDiseases = (diseasesByMember.get(member.id) ?? []).map(
-          mapDiseaseFromDB,
-        );
 
-        const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
+        const mapped = mapMemberFromDB(member, memberRelations, []);
 
         // Reconstruct parents from relations
         mapped.parents = reconstructParents(
@@ -302,6 +291,68 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
 
     set({ members: appMembers });
+  },
+
+  fetchMemberDetail: async (id: string) => {
+    const treeId = activeTreeId();
+    if (!treeId) return undefined;
+
+    // Virtual view members: return surface data from store (no throw)
+    if (isVirtualId(treeId)) {
+      return get().members.find((m) => m.id === id);
+    }
+
+    let detailRow: MemberDB;
+    let diseases: DiseaseDB[];
+
+    try {
+      const [detailResult, diseasesResult] = await Promise.allSettled([
+        TreeService.getMember(treeId, id),
+        TreeService.getDiseases(treeId),
+      ]);
+
+      if (detailResult.status === "rejected") {
+        // If the detail fetch fails, return the existing surface member from the store
+        return get().members.find((m) => m.id === id);
+      }
+      detailRow = detailResult.value;
+      diseases = diseasesResult.status === "fulfilled" ? diseasesResult.value : [];
+    } catch {
+      // On unexpected failure, return the existing surface member from the store
+      return get().members.find((m) => m.id === id);
+    }
+
+    const memberDiseases = diseases
+      .filter((d) => d.member_id === id)
+      .map(mapDiseaseFromDB);
+
+    // Merge detail fields into the existing store member (preserve relations/parents/position)
+    const existing = get().members.find((m) => m.id === id);
+    if (!existing) return undefined;
+
+    const merged: Member = {
+      ...existing,
+      additionalData: detailRow.additionalData ?? null,
+      birthplace: detailRow.birthplace ?? null,
+      hometown: detailRow.hometown ?? null,
+      placesLived: detailRow.placesLived
+        ? (() => {
+            try {
+              const parsed = JSON.parse(detailRow.placesLived);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [],
+      diseases: memberDiseases,
+    };
+
+    set((state) => ({
+      members: state.members.map((m) => (m.id === id ? merged : m)),
+    }));
+
+    return merged;
   },
 
   clear: () => set({ members: [], undoStack: [], redoStack: [] }),
@@ -713,20 +764,20 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     const id = crypto.randomUUID();
     await TreeService.addDisease(treeId, id, memberId, disease);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId);
   },
 
-  updateDisease: async (diseaseId: string, disease: DiseaseInput) => {
+  updateDisease: async (memberId: string, diseaseId: string, disease: DiseaseInput) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.updateDisease(treeId, diseaseId, disease);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId);
   },
 
-  removeDisease: async (diseaseId: string) => {
+  removeDisease: async (memberId: string, diseaseId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.removeDisease(treeId, diseaseId);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId);
   },
 }));

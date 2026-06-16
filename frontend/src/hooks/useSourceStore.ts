@@ -21,6 +21,7 @@ const NO_OPS: EvidenceOps = {
 interface SourceState {
   sources: Source[];
   citations: Citation[];
+  initialized: boolean;
   refreshSources: (treeId?: string) => Promise<void>;
   getCitationsByMember: (memberId: string) => Citation[];
   getSourcesForMember: (memberId: string) => Source[];
@@ -40,6 +41,7 @@ interface SourceState {
 export const useSourceStore = create<SourceState>((set, get) => ({
   sources: [],
   citations: [],
+  initialized: false,
 
   refreshSources: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -57,6 +59,7 @@ export const useSourceStore = create<SourceState>((set, get) => ({
     set({
       sources: sourcesResult.map(mapSourceFromDB),
       citations: citationsResult.map(mapCitationFromDB),
+      initialized: true,
     });
   },
 
@@ -154,5 +157,5 @@ export const useSourceStore = create<SourceState>((set, get) => ({
     await get().refreshSources(treeId);
   },
 
-  clear: () => set({ sources: [], citations: [] }),
+  clear: () => set({ sources: [], citations: [], initialized: false }),
 }));

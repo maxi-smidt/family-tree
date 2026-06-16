@@ -43,8 +43,15 @@ export class TreeService {
   }
 
   // --- Members -------------------------------------------------------------
-  static getMembers(treeId: string) {
-    return api.get<MemberDB[]>(`${base(treeId)}/members`);
+  static getMembers(treeId: string, surface = false) {
+    const url = surface
+      ? `${base(treeId)}/members?surface=true`
+      : `${base(treeId)}/members`;
+    return api.get<MemberDB[]>(url);
+  }
+
+  static getMember(treeId: string, id: string) {
+    return api.get<MemberDB>(`${base(treeId)}/members/${id}`);
   }
 
   static getRelations(treeId: string) {

@@ -1,6 +1,6 @@
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -88,8 +88,15 @@ export const TimelineView = () => {
     keyPrefix: "timeline-view.view",
   });
   const { members } = useMemberStore();
-  const { events, removeEvent } = useEventStore();
+  const { events, removeEvent, refreshEvents, initialized: eventsInitialized } = useEventStore();
   const isReady = useTreeStore((state) => state.isReady);
+  const selectedTree = useTreeStore((state) => state.selectedTree);
+
+  useEffect(() => {
+    if (!eventsInitialized && selectedTree) {
+      void refreshEvents(selectedTree.id);
+    }
+  }, [eventsInitialized, selectedTree, refreshEvents]);
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",
   );

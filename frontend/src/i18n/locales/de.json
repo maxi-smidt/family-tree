@@ -460,6 +460,7 @@
       "tab-records": "Einträge"
     },
     "member-sheet": {
+      "loading-detail": "Details werden geladen...",
       "edit-title": "Person bearbeiten",
       "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
