@@ -643,6 +643,23 @@
           "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown-Formatierungsleiste",
+      "bold": "Fett",
+      "bold-default": "fetter Text",
+      "italic": "Kursiv",
+      "italic-default": "kursiver Text",
+      "heading": "Überschrift",
+      "heading-default": "Überschrift",
+      "bullet": "Aufzählungsliste",
+      "bullet-default": "Listeneintrag",
+      "link": "Link",
+      "link-default": "Linktext",
+      "link-url-placeholder": "https://",
+      "tab-write": "Schreiben",
+      "tab-preview": "Vorschau",
+      "preview-empty": "Noch nichts zum Anzeigen."
     }
   },
   "tree-view": {
@@ -882,8 +899,15 @@
     "timeline-deaths": "Todesfälle",
     "lifespan-title": "Altersverteilung bei Tod (Jahre)",
     "lifespan-people": "Personen",
-    "names-title": "Häufigste Vornamen",
-    "names-count": "Anzahl"
+    "first-names-title": "Häufigste Vornamen",
+    "last-names-title": "Häufigste Nachnamen",
+    "names-count": "Anzahl",
+    "customize": "Anpassen",
+    "customize-title": "Widgets",
+    "customize-reset": "Zurücksetzen",
+    "move-up": "Nach oben",
+    "move-down": "Nach unten",
+    "all-hidden": "Alle Widgets sind ausgeblendet. Über 'Anpassen' wieder einblenden."
   },
   "database-management-view": {
     "title": "Stammbaumverwaltung",
@@ -1114,6 +1138,7 @@
   "admin": {
     "title": "Verwaltung",
     "description": "Benutzer und Instanzeinstellungen verwalten.",
+    "back": "Zurück",
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",

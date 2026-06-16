@@ -1,4 +1,5 @@
 import { Member, isDeceased } from "@/types/member";
+import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import {
   Item,
   ItemContent,
@@ -198,9 +199,9 @@ export const ViewMode = ({ member }: Props) => {
                 <Item variant="muted">
                   <ItemContent>
                     <ItemTitle>{t("notes-item")}</ItemTitle>
-                    <ItemDescription className="whitespace-pre-wrap">
-                      {member.additionalData}
-                    </ItemDescription>
+                    <div className="text-muted-foreground text-sm font-normal">
+                      <MarkdownContent content={member.additionalData} />
+                    </div>
                   </ItemContent>
                 </Item>
               )}

@@ -643,6 +643,23 @@
           "error-update": "Failed to update condition. Please try again."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown formatting toolbar",
+      "bold": "Bold",
+      "bold-default": "bold text",
+      "italic": "Italic",
+      "italic-default": "italic text",
+      "heading": "Heading",
+      "heading-default": "Heading",
+      "bullet": "Bullet list",
+      "bullet-default": "List item",
+      "link": "Link",
+      "link-default": "link text",
+      "link-url-placeholder": "https://",
+      "tab-write": "Write",
+      "tab-preview": "Preview",
+      "preview-empty": "Nothing to preview yet."
     }
   },
   "tree-view": {
@@ -882,8 +899,15 @@
     "timeline-deaths": "Deaths",
     "lifespan-title": "Lifespan Distribution (years at death)",
     "lifespan-people": "People",
-    "names-title": "Most Common First Names",
-    "names-count": "Count"
+    "first-names-title": "Most Common First Names",
+    "last-names-title": "Most Common Last Names",
+    "names-count": "Count",
+    "customize": "Customize",
+    "customize-title": "Widgets",
+    "customize-reset": "Reset",
+    "move-up": "Move up",
+    "move-down": "Move down",
+    "all-hidden": "All widgets are hidden. Use Customize to show some."
   },
   "database-management-view": {
     "title": "Tree Management",
@@ -1114,6 +1138,7 @@
   "admin": {
     "title": "Administration",
     "description": "Manage users and instance settings.",
+    "back": "Back",
     "users-tab": "Users",
     "settings-tab": "Settings",
     "features-tab": "Features",
