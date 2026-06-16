@@ -26,6 +26,59 @@ type InsertionSpec = {
 
 type EditorTab = "write" | "preview";
 
+const CARET_SCROLL_PADDING = 24;
+const DEFAULT_LINE_HEIGHT = 16;
+
+function findScrollContainer(element: HTMLElement): HTMLElement | null {
+  let parent = element.parentElement;
+
+  while (parent) {
+    const overflowY = window.getComputedStyle(parent).overflowY;
+    if (overflowY === "auto" || overflowY === "scroll") {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+
+  return null;
+}
+
+function numericStyleValue(value: string): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getLineHeight(styles: CSSStyleDeclaration): number {
+  const lineHeight = Number.parseFloat(styles.lineHeight);
+  if (Number.isFinite(lineHeight)) return lineHeight;
+
+  const fontSize = Number.parseFloat(styles.fontSize);
+  return Number.isFinite(fontSize) ? fontSize * 1.2 : DEFAULT_LINE_HEIGHT;
+}
+
+function scrollCaretIntoView(textarea: HTMLTextAreaElement) {
+  const scrollContainer = findScrollContainer(textarea);
+  if (!scrollContainer) return;
+
+  const styles = window.getComputedStyle(textarea);
+  const lineHeight = getLineHeight(styles);
+  const paddingTop = numericStyleValue(styles.paddingTop);
+  const caretLine =
+    textarea.value.slice(0, textarea.selectionStart).split("\n").length - 1;
+  const textareaTop = textarea.getBoundingClientRect().top;
+  const caretTop = textareaTop + paddingTop + caretLine * lineHeight;
+  const caretBottom = caretTop + lineHeight;
+  const scrollRect = scrollContainer.getBoundingClientRect();
+  const visibleTop = scrollRect.top + CARET_SCROLL_PADDING;
+  const visibleBottom = scrollRect.bottom - CARET_SCROLL_PADDING;
+
+  if (caretBottom > visibleBottom) {
+    scrollContainer.scrollTop += caretBottom - visibleBottom;
+  } else if (caretTop < visibleTop) {
+    scrollContainer.scrollTop -= visibleTop - caretTop;
+  }
+}
+
 function insertMarkdown(
   textarea: HTMLTextAreaElement,
   spec: InsertionSpec,
@@ -69,9 +122,20 @@ export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
+    const scrollContainer = findScrollContainer(textarea);
+    const scrollTop = scrollContainer?.scrollTop;
+
     textarea.style.height = "auto";
     textarea.style.height = `${textarea.scrollHeight}px`;
     textarea.style.overflowY = "hidden";
+
+    if (scrollContainer && scrollTop !== undefined) {
+      scrollContainer.scrollTop = scrollTop;
+    }
+
+    if (document.activeElement === textarea) {
+      scrollCaretIntoView(textarea);
+    }
   }, []);
 
   useLayoutEffect(() => {
