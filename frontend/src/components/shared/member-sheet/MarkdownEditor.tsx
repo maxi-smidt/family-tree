@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { Bold, Italic, Heading2, List, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +23,8 @@ type InsertionSpec = {
   suffix: string;
   defaultText: string;
 };
+
+type EditorTab = "write" | "preview";
 
 const MIN_TEXTAREA_HEIGHT = 96;
 const SHEET_SCROLL_AREA_SELECTOR = "[data-member-sheet-scroll-area]";
@@ -81,6 +83,7 @@ export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
     keyPrefix: "sheet.markdown-editor",
   });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [activeTab, setActiveTab] = useState<EditorTab>("write");
 
   const resizeTextarea = useCallback(() => {
     const textarea = textareaRef.current;
@@ -97,8 +100,13 @@ export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
   }, []);
 
   useLayoutEffect(() => {
+    if (activeTab !== "write") return;
+
     resizeTextarea();
-  }, [resizeTextarea, value]);
+    const frame = requestAnimationFrame(resizeTextarea);
+
+    return () => cancelAnimationFrame(frame);
+  }, [activeTab, resizeTextarea, value]);
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current;
@@ -166,7 +174,13 @@ export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
   ];
 
   return (
-    <Tabs defaultValue="write" className="w-full gap-1.5">
+    <Tabs
+      value={activeTab}
+      onValueChange={(tab) =>
+        setActiveTab(tab === "preview" ? "preview" : "write")
+      }
+      className="w-full gap-1.5"
+    >
       <div className="flex items-center justify-between gap-2">
         {/* Toolbar */}
         <div

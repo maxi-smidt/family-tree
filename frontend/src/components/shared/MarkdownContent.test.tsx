@@ -16,9 +16,7 @@ describe("MarkdownContent", () => {
   });
 
   it("strips script tags (XSS protection)", () => {
-    render(
-      <MarkdownContent content='<script>alert("xss")</script>' />,
-    );
+    render(<MarkdownContent content='<script>alert("xss")</script>' />);
     // rehype-sanitize must remove the script element entirely
     expect(document.querySelector("script")).toBeNull();
   });
@@ -36,9 +34,7 @@ describe("MarkdownContent", () => {
   });
 
   it("strips javascript: href links (XSS protection)", () => {
-    render(
-      <MarkdownContent content="[click me](javascript:alert(1))" />,
-    );
+    render(<MarkdownContent content="[click me](javascript:alert(1))" />);
     const link = document.querySelector("a");
     // rehype-sanitize removes javascript: hrefs — either the href is null or absent
     if (link) {
@@ -58,5 +54,15 @@ describe("MarkdownContent", () => {
     render(<MarkdownContent content={"- item one\n- item two"} />);
     const items = document.querySelectorAll("li");
     expect(items).toHaveLength(2);
+  });
+
+  it("preserves soft line breaks inside paragraphs", () => {
+    render(<MarkdownContent content={"line one\nline two"} />);
+    const paragraph = document.querySelector("p");
+
+    expect(paragraph?.textContent).toBe("line one\nline two");
+    expect(paragraph?.parentElement?.className).toContain(
+      "[&_p]:whitespace-pre-wrap",
+    );
   });
 });
