@@ -72,6 +72,7 @@ import { useTabPreferences } from "@/hooks/useTabPreferences";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  TREE_VIEW,
   ViewId,
   isViewId,
   resolveTabs,
@@ -80,6 +81,12 @@ import { filterViewsByFeatures, filterViewsByRestrictions } from "@/lib/features
 import { useTreeStore } from "@/hooks/useTreeStore";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
+
+const NO_TREE_VIEWS: ViewId[] = [
+  TREE_VIEW,
+  DATABASE_MANAGEMENT_VIEW,
+  FRIENDS_VIEW,
+];
 
 const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "tree-view": <FlowPanel />,
@@ -150,10 +157,14 @@ export const MainPanel = () => {
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
   // A virtual tree exposes the same tabs as a normal tree (read-only,
   // aggregated live from its sources); only feature flags filter the set.
-  const visible = filterViewsByRestrictions(
-    filterViewsByFeatures(allVisible, features),
-    restrictions,
-  );
+  // When no tree is selected, keep the first-run tree placeholder reachable
+  // alongside Friends and Database Management.
+  const visible = selectedTree
+    ? filterViewsByRestrictions(
+        filterViewsByFeatures(allVisible, features),
+        restrictions,
+      )
+    : NO_TREE_VIEWS;
   const mobileViews = visible.filter((v) => !MANAGEMENT_VIEWS.has(v));
 
   // If the active tab is hidden and no pending navigation, move to first visible.
