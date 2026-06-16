@@ -881,8 +881,15 @@
     "timeline-deaths": "Deaths",
     "lifespan-title": "Lifespan Distribution (years at death)",
     "lifespan-people": "People",
-    "names-title": "Most Common First Names",
-    "names-count": "Count"
+    "first-names-title": "Most Common First Names",
+    "last-names-title": "Most Common Last Names",
+    "names-count": "Count",
+    "customize": "Customize",
+    "customize-title": "Widgets",
+    "customize-reset": "Reset",
+    "move-up": "Move up",
+    "move-down": "Move down",
+    "all-hidden": "All widgets are hidden. Use Customize to show some."
   },
   "database-management-view": {
     "title": "Tree Management",

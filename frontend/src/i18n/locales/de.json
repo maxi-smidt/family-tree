@@ -881,8 +881,15 @@
     "timeline-deaths": "Todesfälle",
     "lifespan-title": "Altersverteilung bei Tod (Jahre)",
     "lifespan-people": "Personen",
-    "names-title": "Häufigste Vornamen",
-    "names-count": "Anzahl"
+    "first-names-title": "Häufigste Vornamen",
+    "last-names-title": "Häufigste Nachnamen",
+    "names-count": "Anzahl",
+    "customize": "Anpassen",
+    "customize-title": "Widgets",
+    "customize-reset": "Zurücksetzen",
+    "move-up": "Nach oben",
+    "move-down": "Nach unten",
+    "all-hidden": "Alle Widgets sind ausgeblendet. Über 'Anpassen' wieder einblenden."
   },
   "database-management-view": {
     "title": "Stammbaumverwaltung",
