@@ -54,6 +54,17 @@ export const TreeSharingService = {
     return api.del<void>(`/trees/${treeId}/access/${userId}`);
   },
 
+  updateMemberRestrictions(
+    treeId: string,
+    userId: string,
+    restrictions: string[],
+  ): Promise<TreeAccess[]> {
+    return api.patch<TreeAccess[]>(
+      `/trees/${treeId}/access/${userId}/restrictions`,
+      { restrictions },
+    );
+  },
+
   transferOwnership(treeId: string, username: string): Promise<void> {
     return api.post<void>(`/trees/${treeId}/transfer`, { username });
   },

@@ -171,6 +171,7 @@ def serialize_to_gedcom(
     relations: list[dict],
     sources: list[dict] | None = None,
     citations: list[dict] | None = None,
+    app_version: str | None = None,
 ) -> str:
     """Serialize a family tree to a GEDCOM 5.5.1 LINEAGE-LINKED string.
 
@@ -198,6 +199,9 @@ def serialize_to_gedcom(
     day_str = f"{today.day:02d} {MONTHS[today.month - 1]} {today.year}"
     L("0 HEAD")
     L("1 SOUR FamilyTree")
+    L("2 NAME Family Tree")
+    if app_version:
+        L(f"2 VERS {app_version}")
     L("1 GEDC")
     L("2 VERS 5.5.1")
     L("2 FORM LINEAGE-LINKED")
@@ -342,6 +346,11 @@ def serialize_to_gedcom(
             if given_names:
                 L(f"2 GIVN {given_names}")
             L(f"2 SURN {maiden}")
+
+        # TITL (academic / honorific title)
+        title = (member.get("academicTitle") or "").strip()
+        if title:
+            L(f"1 TITL {title}")
 
         # SEX
         gender = member.get("gender")
@@ -649,6 +658,7 @@ def parse_gedcom(text: str) -> dict:
 
         member: dict = {
             "id": new_id,
+            "academicTitle": None,
             "firstName": None,
             "middleNames": None,
             "baptismalName": None,
@@ -718,6 +728,11 @@ def parse_gedcom(text: str) -> dict:
                         member["baptismalName"] = baptismal_name.strip() or None
                     member["lastName"] = surname or None
                     primary_name_done = True
+
+            elif tag == "TITL":
+                val = (child["value"] or "").strip()
+                if val:
+                    member["academicTitle"] = val
 
             elif tag == "SEX":
                 val = (child["value"] or "").strip().upper()

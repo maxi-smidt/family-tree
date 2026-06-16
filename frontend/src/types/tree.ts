@@ -3,9 +3,12 @@
  * "databases", but in code they are trees, matching the backend.)
  */
 export interface VirtualViewSource {
+  // The source id — a real tree id, or a `vv_` view id when `kind === "view"`.
   tree_id: string;
   tree_name: string;
   accessible: boolean;
+  kind?: "tree" | "view";
+  is_virtual?: boolean;
 }
 
 export interface Tree {
@@ -20,6 +23,8 @@ export interface Tree {
   shared_count?: number;
   // null = private; "viewer" = public read-only.
   public_role?: "viewer" | null;
+  // Domains the current user may not see. Empty for owner/admin.
+  restrictions?: string[];
   // Set on virtual views returned by /virtual-views.
   is_virtual?: boolean;
   sources?: VirtualViewSource[];
@@ -53,10 +58,32 @@ export interface InvitationAcceptResult {
 
 export type ShareRole = "viewer" | "editor";
 
+export type RestrictableDomain =
+  | "tree"
+  | "gallery"
+  | "events"
+  | "map"
+  | "stories"
+  | "sources"
+  | "diseases"
+  | "biography";
+
+export const RESTRICTABLE_DOMAINS: RestrictableDomain[] = [
+  "tree",
+  "gallery",
+  "events",
+  "map",
+  "stories",
+  "sources",
+  "diseases",
+  "biography",
+];
+
 export interface TreeAccess {
   user_id: string;
   username: string;
   role: "owner" | "editor" | "viewer";
+  restrictions: string[];
 }
 
 /** A user a tree can still be shared with (returned by the candidates endpoint). */

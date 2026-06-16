@@ -203,6 +203,33 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(TreeService.getStories).toHaveBeenCalled();
     expect(TreeService.getActivity).toHaveBeenCalled();
   });
+
+  it("loads the same content stores for a virtual tree (read parity)", async () => {
+    const VV: Tree = {
+      id: "vv_x",
+      name: "Composite",
+      role: "viewer",
+      is_virtual: true,
+    };
+    mockEmptySubStores();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/virtual-views/${VV.id}`) return Promise.resolve(VV);
+      // hasLayout: true so connect() respects the saved overlay (no auto-layout).
+      if (path.includes("/metadata"))
+        return Promise.resolve({ hasLayout: true });
+      return Promise.resolve([]);
+    });
+
+    await useTreeStore.getState().connect(VV);
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(VV.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
+    // A virtual tree behaves like a normal one: every content store loads.
+    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(TreeService.getEvents).toHaveBeenCalled();
+    expect(TreeService.getStories).toHaveBeenCalled();
+    expect(TreeService.getActivity).toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------

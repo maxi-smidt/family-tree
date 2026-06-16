@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import {
   Dialog,
@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { useSourceStore } from "@/hooks/useSourceStore";
 import { Citation, EvidenceOps, FACT_TYPES, FactType, Source } from "@/types/source";
 import { useTranslation } from "react-i18next";
+import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
 interface Props {
   open: boolean;
@@ -53,6 +54,16 @@ const EMPTY_SOURCE_INPUT = {
   sourceDate: "",
   notes: "",
 };
+
+interface InitialSnapshot {
+  selectedSourceId: string;
+  newSource: typeof EMPTY_SOURCE_INPUT;
+  isCreatingNew: boolean;
+  factType: FactType;
+  page: string;
+  detail: string;
+  evidenceOpsJson: string;
+}
 
 const NEW_SOURCE_SENTINEL = "__new__";
 
@@ -84,13 +95,48 @@ export const SourceCitationDialog = ({
   const [linkLabelInput, setLinkLabelInput] = useState("");
   const [showLinkForm, setShowLinkForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [initialSnapshot, setInitialSnapshot] =
+    useState<InitialSnapshot | null>(null);
 
   const existingCitationSource: Source | undefined = citation
     ? sources.find((s) => s.id === citation.sourceId)
     : undefined;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setInitialSnapshot(null);
+      return;
+    }
+    const snap: InitialSnapshot = citation
+      ? {
+          selectedSourceId: citation.sourceId,
+          newSource: EMPTY_SOURCE_INPUT,
+          isCreatingNew: false,
+          factType: citation.factType,
+          page: citation.page ?? "",
+          detail: citation.detail ?? "",
+          evidenceOpsJson: JSON.stringify({
+            addedFiles: [],
+            addedLinks: [],
+            removedIds: [],
+            renamed: [],
+          }),
+        }
+      : {
+          selectedSourceId: "",
+          newSource: EMPTY_SOURCE_INPUT,
+          isCreatingNew: false,
+          factType: "general",
+          page: "",
+          detail: "",
+          evidenceOpsJson: JSON.stringify({
+            addedFiles: [],
+            addedLinks: [],
+            removedIds: [],
+            renamed: [],
+          }),
+        };
+    setInitialSnapshot(snap);
     if (citation) {
       setSelectedSourceId(citation.sourceId);
       setFactType(citation.factType);
@@ -165,13 +211,27 @@ export const SourceCitationDialog = ({
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const canSubmit = isCreatingNew
+    ? newSource.title.trim().length > 0
+    : selectedSourceId.length > 0;
+
+  const isDirty = initialSnapshot !== null && (
+    isCreatingNew !== initialSnapshot.isCreatingNew ||
+    selectedSourceId !== initialSnapshot.selectedSourceId ||
+    factType !== initialSnapshot.factType ||
+    page !== initialSnapshot.page ||
+    detail !== initialSnapshot.detail ||
+    JSON.stringify(newSource) !== JSON.stringify(initialSnapshot.newSource) ||
+    JSON.stringify(evidenceOps) !== initialSnapshot.evidenceOpsJson
+  );
+
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!canSubmit) return false;
 
     let finalSourceId = selectedSourceId;
 
     if (isCreatingNew) {
-      if (!newSource.title.trim()) return;
+      if (!newSource.title.trim()) return false;
       const created = await addSource(
         {
           title: newSource.title,
@@ -183,7 +243,7 @@ export const SourceCitationDialog = ({
         },
         evidenceOps,
       );
-      if (!created) return;
+      if (!created) return false;
       finalSourceId = created.id;
     } else if (existingCitationSource) {
       await updateSource(existingCitationSource.id, {
@@ -199,7 +259,7 @@ export const SourceCitationDialog = ({
     if (citation) {
       await updateCitation(citation.id, { factType, page, detail });
     } else {
-      if (!finalSourceId) return;
+      if (!finalSourceId) return false;
       await addCitation({
         sourceId: finalSourceId,
         memberId,
@@ -210,11 +270,32 @@ export const SourceCitationDialog = ({
     }
 
     onOpenChange(false);
+    return true;
+  }, [
+    canSubmit,
+    selectedSourceId,
+    isCreatingNew,
+    newSource,
+    existingCitationSource,
+    evidenceOps,
+    citation,
+    factType,
+    page,
+    detail,
+    memberId,
+    addSource,
+    updateSource,
+    addCitation,
+    updateCitation,
+    onOpenChange,
+  ]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void save();
   };
 
-  const canSubmit = isCreatingNew
-    ? newSource.title.trim().length > 0
-    : selectedSourceId.length > 0;
+  useUnsavedGuard("source-citation", isDirty, save);
 
   const displayedEvidence =
     existingCitationSource?.evidence.filter(

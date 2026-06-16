@@ -46,6 +46,7 @@ import {
   ChevronsUpDown,
   Copy,
   Crown,
+  EyeOff,
   Globe,
   Link,
   UserPlus,
@@ -54,6 +55,7 @@ import {
 import { TreeSharingService } from "@/services/TreeSharingService";
 import { cn } from "@/lib/utils";
 import {
+  RESTRICTABLE_DOMAINS,
   ShareCandidate,
   ShareRole,
   Tree,
@@ -102,9 +104,9 @@ export const ShareTreeDialog = ({
     tree.public_role ?? null,
   );
   const [confirmPublicOpen, setConfirmPublicOpen] = useState(false);
-  const [pendingPublicRole, setPendingPublicRole] = useState<
-    "viewer" | null
-  >(null);
+  const [pendingPublicRole, setPendingPublicRole] = useState<"viewer" | null>(
+    null,
+  );
 
   // Any active user other than the current owner is an eligible new owner:
   // existing members plus the share candidates (users without access yet).
@@ -184,6 +186,28 @@ export const ShareTreeDialog = ({
     }
   };
 
+  const handleRestrictionToggle = async (
+    member: TreeAccess,
+    domain: string,
+    accessible: boolean,
+  ) => {
+    const current = member.restrictions ?? [];
+    const next = accessible
+      ? current.filter((d) => d !== domain)
+      : [...new Set([...current, domain])];
+    try {
+      const updated = await TreeSharingService.updateMemberRestrictions(
+        tree.id,
+        member.user_id,
+        next,
+      );
+      setAccess(updated);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("restrictions-error"));
+    }
+  };
+
   const handleRevoke = async (userId: string) => {
     try {
       await TreeSharingService.revokeAccess(tree.id, userId);
@@ -211,11 +235,7 @@ export const ShareTreeDialog = ({
     setCreatingInvite(true);
     try {
       const expiresInDays =
-        inviteExpiry === "never"
-          ? undefined
-          : inviteExpiry === "7"
-            ? 7
-            : 30;
+        inviteExpiry === "never" ? undefined : inviteExpiry === "7" ? 7 : 30;
       await TreeSharingService.createInvitation(tree.id, {
         email: inviteEmail || undefined,
         role: inviteRole,
@@ -309,11 +329,53 @@ export const ShareTreeDialog = ({
                   <Badge variant="secondary">{t("role-owner")}</Badge>
                 ) : (
                   <div className="flex items-center gap-2">
+                    {isOwner && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={t("restrictions-button")}
+                          >
+                            <EyeOff className="h-4 w-4" />
+                            {(a.restrictions?.length ?? 0) > 0 && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-1 h-4 px-1 text-xs"
+                              >
+                                {a.restrictions!.length}
+                              </Badge>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48 p-2" align="end">
+                          <p className="mb-2 text-xs font-medium text-muted-foreground">
+                            {t("restrictions-title")}
+                          </p>
+                          {RESTRICTABLE_DOMAINS.map((domain) => (
+                            <div
+                              key={domain}
+                              className="flex items-center justify-between py-1"
+                            >
+                              <span className="text-sm">
+                                {t(`domains.${domain}`)}
+                              </span>
+                              <Switch
+                                checked={
+                                  !(a.restrictions?.includes(domain) ?? false)
+                                }
+                                onCheckedChange={(checked) =>
+                                  handleRestrictionToggle(a, domain, checked)
+                                }
+                              />
+                            </div>
+                          ))}
+                        </PopoverContent>
+                      </Popover>
+                    )}
                     <Select
                       value={a.role}
-                      onValueChange={(v) =>
-                        handleRoleChange(a, v as ShareRole)
-                      }
+                      onValueChange={(v) => handleRoleChange(a, v as ShareRole)}
                     >
                       <SelectTrigger className="h-8 w-28">
                         <SelectValue />
@@ -344,6 +406,9 @@ export const ShareTreeDialog = ({
           {/* Add new people */}
           <div className="space-y-2 border-t pt-4">
             <p className="text-sm font-medium">{t("add-people")}</p>
+            <p className="text-xs text-muted-foreground">
+              {t("friends-only-hint")}
+            </p>
 
             <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
               <PopoverTrigger asChild>
@@ -666,10 +731,7 @@ export const ShareTreeDialog = ({
       </AlertDialog>
 
       {/* Public access confirmation */}
-      <AlertDialog
-        open={confirmPublicOpen}
-        onOpenChange={setConfirmPublicOpen}
-      >
+      <AlertDialog open={confirmPublicOpen} onOpenChange={setConfirmPublicOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -684,7 +746,9 @@ export const ShareTreeDialog = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("transfer-confirm-cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t("transfer-confirm-cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handlePublicConfirm}>
               {pendingPublicRole === "viewer"
                 ? t("public.enable")

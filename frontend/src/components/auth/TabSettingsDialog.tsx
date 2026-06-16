@@ -121,6 +121,7 @@ export const TabSettingsDialog = ({ isOpen, onClose }: Props) => {
     "quality-report-view": tTabs("quality-report"),
     "statistics-view": tTabs("statistics"),
     "database-management-view": tTabs("database-management"),
+    "friends-view": tTabs("friends"),
   };
 
   function handleDragEnd(event: DragEndEvent) {

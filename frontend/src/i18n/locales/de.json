@@ -97,7 +97,7 @@
     "remove-node": {
       "title_one": "Lösche Person",
       "title_other": "Lösche Personen",
-      "description": "Diese Aktion löscht unwiderruflich die folgenden Personen aus dem Stammbaum.",
+      "description": "Die ausgewählten Personen werden aus dem Stammbaum gelöscht. Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "validation": "Bis du dir sicher das folgende Personen gelöscht werden sollen?",
       "cancel": "Abbrechen",
       "delete": "Löschen"
@@ -132,8 +132,9 @@
       "revoke-error": "Zugriff konnte nicht entzogen werden.",
       "current-access": "Personen mit Zugriff",
       "add-people": "Personen hinzufügen",
+      "friends-only-hint": "Du kannst nur mit Freunden teilen. Freunde fügst du im Kontomenü hinzu.",
       "select-users": "Benutzer auswählen…",
-      "no-candidates": "Alle haben bereits Zugriff",
+      "no-candidates": "Noch keine Freunde zum Teilen",
       "search-placeholder": "Benutzer suchen…",
       "no-users": "Keine Benutzer gefunden.",
       "share-button_one": "Mit {{count}} Person teilen",
@@ -143,6 +144,19 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter",
+      "restrictions-title": "Inhaltszugriff",
+      "restrictions-button": "Inhaltszugriff",
+      "restrictions-error": "Inhaltszugriff konnte nicht aktualisiert werden.",
+      "domains": {
+        "tree": "Stammbaum",
+        "gallery": "Galerie",
+        "events": "Ereignisse",
+        "map": "Karte",
+        "stories": "Geschichten",
+        "sources": "Quellen",
+        "diseases": "Krankheiten",
+        "biography": "Biografie"
+      },
       "transfer-title": "Eigentümerschaft übertragen",
       "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
       "transfer-select": "Neuen Eigentümer auswählen…",
@@ -197,6 +211,28 @@
       "toast-error": "Stammbaum konnte nicht dupliziert werden.",
       "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an."
     },
+    "extract-subtree": {
+      "title": "Teilbaum extrahieren",
+      "description": "Einen neuen unabhängigen Stammbaum aus einem Teil von \"{{name}}\" erstellen.",
+      "name-label": "Name des neuen Stammbaums",
+      "name-suffix": "(Teilbaum)",
+      "root-label": "Ausgangsperson",
+      "root-placeholder": "Person auswählen...",
+      "root-no-results": "Keine Personen gefunden.",
+      "direction-label": "Richtung",
+      "direction-descendants": "Nachkommen",
+      "direction-ancestors": "Vorfahren",
+      "direction-both": "Beide",
+      "depth-label": "Tiefe (Generationen)",
+      "depth-hint": "Leer lassen für alle Generationen",
+      "cancel": "Abbrechen",
+      "extract": "Extrahieren",
+      "extracting": "Wird extrahiert...",
+      "toast-success": "Teilbaum erfolgreich extrahiert.",
+      "toast-error": "Teilbaum konnte nicht extrahiert werden.",
+      "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
+      "toast-error-no-root": "Bitte wähle eine Ausgangsperson aus."
+    },
     "tab-settings": {
       "title": "Tabs anpassen",
       "description": "Ordne Tabs per Drag-and-drop neu an und blende sie ein oder aus.",
@@ -220,7 +256,11 @@
       "toast-create-error": "Virtuelle Ansicht konnte nicht erstellt werden.",
       "toast-update-success": "Virtuelle Ansicht aktualisiert!",
       "toast-update-error": "Virtuelle Ansicht konnte nicht aktualisiert werden.",
-      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt."
+      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt.",
+      "views-label": "Oder andere virtuelle Ansichten einbeziehen",
+      "no-other-views": "Keine weiteren virtuellen Ansichten verfügbar.",
+      "virtual-badge": "virtuell",
+      "error-cycle": "Eine virtuelle Ansicht kann sich nicht selbst enthalten – weder direkt noch über eine andere Ansicht."
     }
   },
   "gallery-view": {
@@ -274,6 +314,7 @@
       "quality-report": "Qualität",
       "statistics": "Statistiken",
       "database-management": "Stammbaumverwaltung",
+      "friends": "Freunde",
       "map": "Karte"
     },
     "no-database-placeholder": {
@@ -370,7 +411,18 @@
       "places-lived-from": "Von (Jahr)",
       "places-lived-to": "Bis (Jahr)",
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
-      "deceased-field": "Verstorben"
+      "deceased-field": "Verstorben",
+      "academic-title-field": "Akademischer / Ehrentitel",
+      "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-relations": "Beziehungen",
+      "tab-records": "Einträge",
+      "photos-field": "Fotos",
+      "photos-add": "Foto hinzufügen",
+      "photos-empty": "Noch keine Fotos mit dieser Person verknüpft.",
+      "toast-success-photo-upload": "Foto hochgeladen und verknüpft.",
+      "toast-error-photo-upload": "Hochladen des Fotos fehlgeschlagen."
     },
     "view-mode": {
       "firstname-item": "Vorname",
@@ -396,7 +448,11 @@
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
-      "dod-deceased-no-date": "Verstorben (Datum unbekannt)"
+      "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
+      "academic-title-item": "Akademischer / Ehrentitel",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-records": "Einträge"
     },
     "member-sheet": {
       "edit-title": "Person bearbeiten",
@@ -406,16 +462,9 @@
       "save": "Speichern",
       "delete": "Löschen",
       "delete-confirm-title": "Person löschen",
-      "delete-confirm-description": "Bist du sicher, dass diese Person unwiderruflich gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "delete-confirm-description": "Bist du sicher, dass diese Person gelöscht werden soll? Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "delete-confirm-cancel": "Abbrechen",
       "delete-confirm-confirm": "Löschen",
-      "unsaved": {
-        "title": "Ungespeicherte Änderungen",
-        "description": "Es gibt ungespeicherte Änderungen.",
-        "stay": "Bleiben",
-        "save": "Speichern",
-        "discard": "Verwerfen"
-      },
       "show-less": "Weniger anzeigen",
       "show-more": "Zeige {{count}} mehr",
       "events": {
@@ -485,9 +534,10 @@
             "download": "Herunterladen",
             "remove": "Datei entfernen",
             "filename": "Dateiname",
-            "hint": "Bilder, PDF und Dokumente bis 25 MB.",
+            "hint": "Bilder, PDF und Dokumente bis {{max}}.",
+            "hint-without-limit": "Bilder, PDF und Dokumente.",
             "error-type": "Nicht unterstützter Dateityp",
-            "error-size": "Datei ist zu groß (max. 25 MB)"
+            "error-size": "Datei ist zu groß (max. {{max}})"
           },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
@@ -776,7 +826,10 @@
     },
     "member-store": {
       "refresh-error": "Änderungen konnten nicht synchronisiert werden. Bitte neu laden.",
-      "layout-error": "Das Layout konnte nicht aktualisiert werden."
+      "layout-error": "Das Layout konnte nicht aktualisiert werden.",
+      "delete-pending": "Person gelöscht.",
+      "undo-delete": "Rückgängig",
+      "delete-error": "Die Person konnte nicht gelöscht werden und wurde wiederhergestellt."
     },
     "geocode": {
       "resolve-error": "Kartenorte konnten nicht aufgelöst werden."
@@ -832,6 +885,7 @@
     "import-button": "Stammbaum importieren",
     "merge-button": "Vereinen",
     "duplicate-button": "Duplizieren",
+    "extract-subtree-button": "Teilbaum extrahieren",
     "table-name": "Name",
     "table-actions": "Aktionen",
     "copy-id-button": "ID kopieren",
@@ -840,6 +894,7 @@
     "none-selected": "Keine",
     "toast-import-success": "Stammbaum erfolgreich importiert!",
     "toast-import-error": "Stammbaum konnte nicht importiert werden.",
+    "import-provenance": "Exportiert aus v{{version}} am {{date}}",
     "toast-gedcom-import-success": "Stammbaum erfolgreich aus GEDCOM importiert!",
     "toast-gedcom-import-error": "GEDCOM-Datei konnte nicht importiert werden.",
     "toast-gedcom-export-error": "Stammbaum konnte nicht als GEDCOM exportiert werden.",
@@ -964,6 +1019,38 @@
       "logout": "Abmelden",
       "two-factor": "Zwei-Faktor-Authentifizierung"
     },
+    "friends": {
+      "title": "Freunde",
+      "description": "Vernetze dich mit anderen Benutzern. Stammbäume kannst du nur mit Freunden teilen.",
+      "tab-friends": "Freunde",
+      "tab-requests": "Anfragen",
+      "tab-add": "Freund hinzufügen",
+      "no-friends": "Du hast noch keine Freunde.",
+      "unfriend": "Freund entfernen",
+      "incoming": "Eingehende Anfragen",
+      "no-incoming": "Keine eingehenden Anfragen.",
+      "outgoing": "Gesendete Anfragen",
+      "no-outgoing": "Keine gesendeten Anfragen.",
+      "accept": "Annehmen",
+      "decline": "Ablehnen",
+      "cancel-request": "Anfrage zurückziehen",
+      "search-placeholder": "Nach Benutzername suchen…",
+      "no-results": "Keine Benutzer gefunden.",
+      "add": "Hinzufügen",
+      "status-friends": "Befreundet",
+      "status-pending": "Ausstehend",
+      "status-blocked": "Blockiert",
+      "request-sent": "Freundschaftsanfrage gesendet.",
+      "send-error": "Freundschaftsanfrage konnte nicht gesendet werden.",
+      "blocked-error": "Du kannst diesem Benutzer keine Anfrage senden.",
+      "accept-error": "Anfrage konnte nicht angenommen werden.",
+      "decline-error": "Anfrage konnte nicht abgelehnt werden.",
+      "remove-error": "Freund konnte nicht entfernt werden.",
+      "confirm-remove-title": "Freund entfernen?",
+      "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
+      "confirm-remove-confirm": "Entfernen",
+      "confirm-remove-cancel": "Abbrechen"
+    },
     "delete-account": {
       "title": "Konto löschen",
       "description": "Konto zum Löschen vormerken. Der Zugriff wird sofort gesperrt und alle Daten werden nach Ablauf der Frist endgültig gelöscht.",
@@ -1082,6 +1169,11 @@
     "self-registration-hint": "Jeder kann ein eigenes Konto erstellen.",
     "deletion-grace-period": "Löschfrist (Tage)",
     "deletion-grace-period-hint": "Wie lange ein zum Löschen vorgemerktes Konto wiederherstellbar bleibt, bevor es und alle seine Daten endgültig gelöscht werden.",
+    "upload-limits": "Upload-Limits",
+    "upload-limits-hint": "Änderungen gelten sofort für neue Uploads.",
+    "max-image-upload": "Bildgröße (MB)",
+    "max-document-upload": "Anhangsgröße (MB)",
+    "max-image-dimension": "Bildkante (px)",
     "save-settings": "Einstellungen speichern",
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
     "cancel-deletion": "Löschung abbrechen",
@@ -1203,5 +1295,12 @@
       "from": "ab",
       "until": "bis"
     }
+  },
+  "unsaved-changes": {
+    "title": "Ungespeicherte Änderungen",
+    "description": "Es gibt ungespeicherte Änderungen.",
+    "stay": "Bleiben",
+    "save": "Speichern",
+    "discard": "Verwerfen"
   }
 }

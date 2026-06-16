@@ -7,8 +7,22 @@ database is the source of truth so admins can change them at runtime.
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.media_config import (
+    DEFAULT_MAX_DOCUMENT_UPLOAD_MB,
+    DEFAULT_MAX_IMAGE_DIMENSION,
+    DEFAULT_MAX_IMAGE_UPLOAD_MB,
+    MAX_MAX_DOCUMENT_UPLOAD_MB,
+    MAX_MAX_IMAGE_DIMENSION,
+    MAX_MAX_IMAGE_UPLOAD_MB,
+    MEBIBYTE,
+    MIN_MAX_DOCUMENT_UPLOAD_MB,
+    MIN_MAX_IMAGE_DIMENSION,
+    MIN_MAX_IMAGE_UPLOAD_MB,
+    STORED_IMAGE_HEIGHT,
+    STORED_IMAGE_WIDTH,
+)
 from app.models import AppSetting
-from app.schemas.setting import SettingsOut, SettingsUpdate
+from app.schemas.setting import MediaLimits, SettingsOut, SettingsUpdate
 
 DEFAULTS: dict[str, str] = {
     "allow_self_registration": "true" if settings.ALLOW_SELF_REGISTRATION else "false",
@@ -18,6 +32,9 @@ DEFAULTS: dict[str, str] = {
     "backup_schedule_enabled": "false",
     "backup_interval_hours": "24",
     "backup_retention_count": "7",
+    "max_image_upload_mb": str(DEFAULT_MAX_IMAGE_UPLOAD_MB),
+    "max_image_dimension": str(DEFAULT_MAX_IMAGE_DIMENSION),
+    "max_document_upload_mb": str(DEFAULT_MAX_DOCUMENT_UPLOAD_MB),
 }
 
 _TRUTHY = {"true", "1", "yes", "on"}
@@ -49,6 +66,18 @@ def get_int_setting(db: Session, key: str, default: int = 0) -> int:
         return default
 
 
+def get_bounded_int_setting(
+    db: Session,
+    key: str,
+    default: int,
+    *,
+    minimum: int,
+    maximum: int,
+) -> int:
+    value = get_int_setting(db, key, default)
+    return value if minimum <= value <= maximum else default
+
+
 def set_setting(db: Session, key: str, value: str) -> None:
     row = db.get(AppSetting, key)
     if row is None:
@@ -67,7 +96,38 @@ def ensure_defaults(db: Session) -> None:
         db.commit()
 
 
+def get_media_limits(db: Session) -> MediaLimits:
+    max_image_upload_mb = get_bounded_int_setting(
+        db,
+        "max_image_upload_mb",
+        DEFAULT_MAX_IMAGE_UPLOAD_MB,
+        minimum=MIN_MAX_IMAGE_UPLOAD_MB,
+        maximum=MAX_MAX_IMAGE_UPLOAD_MB,
+    )
+    max_document_upload_mb = get_bounded_int_setting(
+        db,
+        "max_document_upload_mb",
+        DEFAULT_MAX_DOCUMENT_UPLOAD_MB,
+        minimum=MIN_MAX_DOCUMENT_UPLOAD_MB,
+        maximum=MAX_MAX_DOCUMENT_UPLOAD_MB,
+    )
+    return MediaLimits(
+        max_image_bytes=max_image_upload_mb * MEBIBYTE,
+        max_image_dimension=get_bounded_int_setting(
+            db,
+            "max_image_dimension",
+            DEFAULT_MAX_IMAGE_DIMENSION,
+            minimum=MIN_MAX_IMAGE_DIMENSION,
+            maximum=MAX_MAX_IMAGE_DIMENSION,
+        ),
+        max_document_bytes=max_document_upload_mb * MEBIBYTE,
+        stored_image_width=STORED_IMAGE_WIDTH,
+        stored_image_height=STORED_IMAGE_HEIGHT,
+    )
+
+
 def get_settings_out(db: Session) -> SettingsOut:
+    media_limits = get_media_limits(db)
     return SettingsOut(
         allow_self_registration=get_bool_setting(db, "allow_self_registration", False),
         instance_name=get_setting(db, "instance_name", settings.APP_NAME),
@@ -82,6 +142,9 @@ def get_settings_out(db: Session) -> SettingsOut:
         backup_retention_count=get_int_setting(
             db, "backup_retention_count", DEFAULT_BACKUP_RETENTION_COUNT
         ),
+        max_image_upload_mb=media_limits.max_image_bytes // MEBIBYTE,
+        max_image_dimension=media_limits.max_image_dimension,
+        max_document_upload_mb=media_limits.max_document_bytes // MEBIBYTE,
     )
 
 
@@ -112,5 +175,15 @@ def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
         set_setting(db, "backup_interval_hours", str(payload.backup_interval_hours))
     if payload.backup_retention_count is not None:
         set_setting(db, "backup_retention_count", str(payload.backup_retention_count))
+    if payload.max_image_upload_mb is not None:
+        set_setting(db, "max_image_upload_mb", str(payload.max_image_upload_mb))
+    if payload.max_image_dimension is not None:
+        set_setting(db, "max_image_dimension", str(payload.max_image_dimension))
+    if payload.max_document_upload_mb is not None:
+        set_setting(
+            db,
+            "max_document_upload_mb",
+            str(payload.max_document_upload_mb),
+        )
     db.commit()
     return get_settings_out(db)
