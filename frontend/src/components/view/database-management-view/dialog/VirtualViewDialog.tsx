@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Layers } from "lucide-react";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import {
   Dialog,
@@ -27,12 +28,38 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
     keyPrefix: "dialog.virtual-view",
   });
   const trees = useTreeStore((s) => s.trees);
+  const virtualViews = useTreeStore((s) => s.virtualViews);
   const createVirtualView = useTreeStore((s) => s.createVirtualView);
   const updateVirtualViewSources = useTreeStore(
     (s) => s.updateVirtualViewSources,
   );
 
   const isEdit = !!view;
+
+  // Other virtual views that may be used as sources. A candidate is excluded
+  // when picking it would form a cycle — i.e. the view being edited is reachable
+  // through the candidate's own (virtual) sources. The backend enforces this
+  // too; this just keeps impossible options out of the list.
+  const selectableViews = useMemo(() => {
+    if (!view) return virtualViews;
+    const byId = new Map(virtualViews.map((v) => [v.id, v]));
+    const reachesEdited = (startId: string): boolean => {
+      const stack = [startId];
+      const seen = new Set<string>();
+      while (stack.length) {
+        const id = stack.pop();
+        if (id === undefined) continue;
+        if (id === view.id) return true;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        byId.get(id)?.sources?.forEach((s) => {
+          if (s.is_virtual) stack.push(s.tree_id);
+        });
+      }
+      return false;
+    };
+    return virtualViews.filter((v) => v.id !== view.id && !reachesEdited(v.id));
+  }, [view, virtualViews]);
   const [name, setName] = useState(view?.name ?? "");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
     new Set(view?.sources?.map((s) => s.tree_id) ?? []),
@@ -60,8 +87,8 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
     (isEdit || name.trim().length > 0) &&
     selectedIds.size >= 2;
 
-  const isNoOverlapError = (err: unknown) =>
-    err instanceof ApiError && err.message === "virtual_view_sources_no_overlap";
+  const errorCode = (err: unknown) =>
+    err instanceof ApiError ? err.message : undefined;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -76,8 +103,11 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
       }
       onClose();
     } catch (err) {
-      if (isNoOverlapError(err)) {
+      const code = errorCode(err);
+      if (code === "virtual_view_sources_no_overlap") {
         toast.error(t("error-no-overlap"));
+      } else if (code === "virtual_view_source_cycle") {
+        toast.error(t("error-cycle"));
       } else {
         toast.error(isEdit ? t("toast-update-error") : t("toast-create-error"));
       }
@@ -126,6 +156,29 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
                   <span className="text-sm">{tree.name}</span>
                 </label>
               ))}
+
+              {selectableViews.length > 0 && (
+                <>
+                  <div className="mt-1 pt-1 border-t text-xs font-medium text-muted-foreground">
+                    {t("views-label")}
+                  </div>
+                  {selectableViews.map((v) => (
+                    <label
+                      key={v.id}
+                      className="flex items-center gap-2 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(v.id)}
+                        onChange={() => toggleTree(v.id)}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      <Layers className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-sm">{v.name}</span>
+                    </label>
+                  ))}
+                </>
+              )}
             </div>
             {selectedIds.size < 2 && (
               <p className="text-xs text-muted-foreground">

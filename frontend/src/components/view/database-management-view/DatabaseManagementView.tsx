@@ -30,7 +30,16 @@ import {
   Layers,
   AlertTriangle,
   RefreshCw,
+  MoreHorizontal,
+  Scissors,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -42,6 +51,7 @@ import { RemoveDatabaseDialog } from "@/components/view/database-management-view
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
 import { MergeTreesDialog } from "@/components/view/database-management-view/dialog/MergeTreesDialog";
 import { DuplicateTreeDialog } from "@/components/view/database-management-view/dialog/DuplicateTreeDialog";
+import { ExtractSubtreeDialog } from "@/components/view/database-management-view/dialog/ExtractSubtreeDialog";
 import { VirtualViewDialog } from "@/components/view/database-management-view/dialog/VirtualViewDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
@@ -82,6 +92,7 @@ export const DatabaseManagementView = () => {
     null,
   );
   const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
+  const [extractTree, setExtractTree] = useState<Tree | null>(null);
   const [shareTree, setShareTree] = useState<Tree | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
@@ -117,7 +128,17 @@ export const DatabaseManagementView = () => {
       }
 
       await importDatabase(file, password);
-      toast.success(t("toast-import-success"));
+      if (info.app_version && info.exported_at) {
+        const date = new Date(info.exported_at).toLocaleDateString();
+        toast.success(t("toast-import-success"), {
+          description: t("import-provenance", {
+            version: info.app_version,
+            date,
+          }),
+        });
+      } else {
+        toast.success(t("toast-import-success"));
+      }
     } catch (err) {
       console.error(err);
       toast.error(t("toast-import-error"));
@@ -332,58 +353,64 @@ export const DatabaseManagementView = () => {
         </TableCell>
         <TableCell>{renderStatusCell(database)}</TableCell>
         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex justify-end gap-1">
-            {isOwned && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShareTree(database)}
-                title={t("share-button")}
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setDuplicateTree(database)}
-              title={t("duplicate-button")}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleStartRename(database)}
-              disabled={editingDatabaseId !== null}
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleExportDatabase(database)}
-            >
-              <HardDriveUpload className="h-4 w-4" />
-            </Button>
-            {gedcomEnabled && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleExportGedcom(database)}
-                title={t("export-gedcom-button")}
-              >
-                <FileUp className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleOpenRemoveDialog(database)}
-              disabled={!isOwned}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t("row-actions-button")}
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {isOwned && (
+                  <DropdownMenuItem onSelect={() => setShareTree(database)}>
+                    <Share2 className="h-4 w-4" />
+                    {t("share-button")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={() => setDuplicateTree(database)}>
+                  <Copy className="h-4 w-4" />
+                  {t("duplicate-button")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setExtractTree(database)}>
+                  <Scissors className="h-4 w-4" />
+                  {t("extract-subtree-button")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={editingDatabaseId !== null}
+                  onSelect={() => handleStartRename(database)}
+                >
+                  <Edit2 className="h-4 w-4" />
+                  {t("rename-button")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => void handleExportDatabase(database)}
+                >
+                  <HardDriveUpload className="h-4 w-4" />
+                  {t("export-button")}
+                </DropdownMenuItem>
+                {gedcomEnabled && (
+                  <DropdownMenuItem
+                    onSelect={() => void handleExportGedcom(database)}
+                  >
+                    <FileUp className="h-4 w-4" />
+                    {t("export-gedcom-button")}
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={!isOwned}
+                  onSelect={() => void handleOpenRemoveDialog(database)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {t("delete-button")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </TableCell>
       </TableRow>
@@ -437,47 +464,65 @@ export const DatabaseManagementView = () => {
       title={t("title")}
       action={
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsCreateDatabaseDialogOpen(true)}
-          >
-            <Plus />
-            {t("create-button")}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleImportDatabase}>
-            <HardDriveDownload />
-            {t("import-button")}
-          </Button>
-          {gedcomEnabled && (
-            <Button variant="outline" size="sm" onClick={handleImportGedcom}>
-              <FileDown />
-              {t("import-gedcom-button")}
-            </Button>
-          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4" />
+                {t("new-menu-button")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onSelect={() => setIsCreateDatabaseDialogOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                {t("create-button")}
+              </DropdownMenuItem>
+              {virtualViewsEnabled && (
+                <DropdownMenuItem
+                  disabled={trees.length < 2}
+                  onSelect={() => {
+                    setEditingVirtualView(null);
+                    setIsVirtualViewDialogOpen(true);
+                  }}
+                >
+                  <Layers className="h-4 w-4" />
+                  {t("virtual-view-button")}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <HardDriveDownload className="h-4 w-4" />
+                {t("import-menu-button")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => void handleImportDatabase()}>
+                <HardDriveDownload className="h-4 w-4" />
+                {t("import-button")}
+              </DropdownMenuItem>
+              {gedcomEnabled && (
+                <DropdownMenuItem onSelect={() => void handleImportGedcom()}>
+                  <FileDown className="h-4 w-4" />
+                  {t("import-gedcom-button")}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button
             variant="outline"
             size="sm"
             onClick={() => setIsMergeDialogOpen(true)}
             disabled={trees.length < 2}
           >
-            <GitMerge />
+            <GitMerge className="h-4 w-4" />
             {t("merge-button")}
           </Button>
-          {virtualViewsEnabled && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setEditingVirtualView(null);
-                setIsVirtualViewDialogOpen(true);
-              }}
-              disabled={trees.length < 2}
-            >
-              <Layers />
-              {t("virtual-view-button")}
-            </Button>
-          )}
         </div>
       }
     >
@@ -613,6 +658,9 @@ export const DatabaseManagementView = () => {
                                       {!src.accessible && (
                                         <AlertTriangle className="h-3 w-3 text-destructive" />
                                       )}
+                                      {src.is_virtual && (
+                                        <Layers className="h-3 w-3" />
+                                      )}
                                       {src.tree_name}
                                     </Badge>
                                   </TooltipTrigger>
@@ -634,45 +682,54 @@ export const DatabaseManagementView = () => {
                             className="text-right"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingVirtualView(view);
-                                  setIsVirtualViewDialogOpen(true);
-                                }}
-                                title={t("edit-sources-button")}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRecomputeMatches(view)}
-                                title={t("recompute-button")}
-                              >
-                                <RefreshCw className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  handleStartRename(view);
-                                }}
-                                disabled={editingDatabaseId !== null}
-                                title={t("rename-button")}
-                              >
-                                <Hash className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteVirtualView(view)}
-                                title={t("delete-virtual-view-button")}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                            <div className="flex justify-end">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    aria-label={t("row-actions-button")}
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onSelect={() => {
+                                      setEditingVirtualView(view);
+                                      setIsVirtualViewDialogOpen(true);
+                                    }}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                    {t("edit-sources-button")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      void handleRecomputeMatches(view)
+                                    }
+                                  >
+                                    <RefreshCw className="h-4 w-4" />
+                                    {t("recompute-button")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    disabled={editingDatabaseId !== null}
+                                    onSelect={() => handleStartRename(view)}
+                                  >
+                                    <Hash className="h-4 w-4" />
+                                    {t("rename-button")}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onSelect={() =>
+                                      void handleDeleteVirtualView(view)
+                                    }
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                    {t("delete-virtual-view-button")}
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -710,6 +767,10 @@ export const DatabaseManagementView = () => {
       <DuplicateTreeDialog
         tree={duplicateTree}
         onClose={() => setDuplicateTree(null)}
+      />
+      <ExtractSubtreeDialog
+        tree={extractTree}
+        onClose={() => setExtractTree(null)}
       />
       {shareTree && (
         <ShareTreeDialog

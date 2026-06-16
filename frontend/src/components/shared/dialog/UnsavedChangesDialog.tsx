@@ -26,7 +26,7 @@ export const UnsavedChangesDialog = ({
   onDiscard,
 }: Props) => {
   const { t } = useTranslation(undefined, {
-    keyPrefix: "sheet.member-sheet.unsaved",
+    keyPrefix: "unsaved-changes",
   });
 
   return (

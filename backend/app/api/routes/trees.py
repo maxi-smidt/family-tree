@@ -7,15 +7,20 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     accessible_tree_ids,
     get_current_user,
+    get_current_user_optional,
     get_readable_tree,
+    get_readable_tree_public,
     get_writable_tree,
     role_for,
 )
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
+from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
+    MemberRestrictionsUpdate,
+    PublicAccessUpdate,
     ShareCandidate,
     TreeCreate,
     TreeMemberOut,
@@ -25,6 +30,9 @@ from app.schemas.tree import (
     TreeTransfer,
     TreeUpdate,
 )
+from app.services import friendships
+from app.services.extract import compute_subtree_preview, extract_subtree
+from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
 
@@ -32,10 +40,10 @@ router = APIRouter(prefix="/trees", tags=["trees"])
 
 
 def _tree_out(
-    db: Session, tree: Tree, user: User, shared_count: int | None = None
+    db: Session, tree: Tree, user: User | None, shared_count: int | None = None
 ) -> TreeOut:
     out = TreeOut.model_validate(tree)
-    out.role = role_for(db, tree, user) or "viewer"
+    out.role = role_for(db, tree, user) if user is not None else "viewer"
     if shared_count is None:
         shared_count = db.scalar(
             select(func.count())
@@ -43,6 +51,9 @@ def _tree_out(
             .where(TreeMembership.tree_id == tree.id)
         )
     out.shared_count = shared_count or 0
+    if user is not None and out.role not in ("owner",) and not user.is_admin:
+        membership = db.get(TreeMembership, (tree.id, user.id))
+        out.restrictions = list(membership.restrictions or []) if membership else []
     return out
 
 
@@ -112,20 +123,43 @@ def merge(
     return _tree_out(db, tree, user)
 
 
-@router.get("/{tree_id}", response_model=TreeOut)
-def get_tree(
-    tree: Tree = Depends(get_readable_tree),
+@router.post("/extract-subtree/preview", response_model=SubtreePreview)
+def extract_subtree_preview(
+    payload: SubtreeExtractRequest,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Selecting a tree counts as "opening" it.
-    tree.last_opened = utcnow_iso()
-    db.commit()
+    """Compute a sub-tree extraction preview (no data is written)."""
+    return compute_subtree_preview(db, user, payload)
+
+
+@router.post("/extract-subtree", response_model=TreeOut, status_code=201)
+def extract_subtree_endpoint(
+    payload: SubtreeExtractRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not payload.name.strip():
+        raise HTTPException(status_code=400, detail="A name is required")
+    tree = extract_subtree(db, user, payload)
+    return _tree_out(db, tree, user)
+
+
+@router.get("/{tree_id}", response_model=TreeOut)
+def get_tree(
+    tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+):
+    # Selecting a tree counts as "opening" it (only for authenticated users).
+    if user is not None:
+        tree.last_opened = utcnow_iso()
+        db.commit()
     return _tree_out(db, tree, user)
 
 
 @router.get("/{tree_id}/metadata")
-def get_metadata(tree: Tree = Depends(get_readable_tree)):
+def get_metadata(tree: Tree = Depends(get_readable_tree_public)):
     return {
         "id": tree.id,
         "name": tree.name,
@@ -163,6 +197,28 @@ def delete_tree(
     delete_tree_media(tree_id)
 
 
+# --- Public access ---------------------------------------------------------
+@router.patch("/{tree_id}/public", response_model=TreeOut)
+def set_public_access(
+    payload: PublicAccessUpdate,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can change public access"
+        )
+    if payload.public_role not in (None, "viewer"):
+        raise HTTPException(
+            status_code=400, detail="public_role must be 'viewer' or null"
+        )
+    tree.public_role = payload.public_role
+    db.commit()
+    db.refresh(tree)
+    return _tree_out(db, tree, user)
+
+
 # --- Sharing ---------------------------------------------------------------
 @router.get("/{tree_id}/access", response_model=list[TreeMemberOut])
 def list_access(
@@ -179,7 +235,10 @@ def list_access(
         if member_user:
             result.append(
                 TreeMemberOut(
-                    user_id=member_user.id, username=member_user.username, role=m.role
+                    user_id=member_user.id,
+                    username=member_user.username,
+                    role=m.role,
+                    restrictions=list(m.restrictions or []),
                 )
             )
     return result
@@ -191,8 +250,12 @@ def list_share_candidates(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Active users this tree can still be shared with (excludes the owner and
-    anyone who already has access). Only the owner may enumerate them."""
+    """Users this tree can still be shared with: the owner's accepted friends
+    who are not already members. Only the owner may enumerate them.
+
+    Sharing is friendship-gated, so the picker is the owner's friend list rather
+    than every account — this also keeps the full user list unenumerable. Admins
+    sharing someone else's tree fall back to the *tree owner's* friends."""
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can share a tree")
     member_ids = set(
@@ -201,9 +264,12 @@ def list_share_candidates(
         ).all()
     )
     member_ids.add(tree.owner_id)
+    friend_ids = friendships.accepted_friend_ids(db, tree.owner_id) - member_ids
+    if not friend_ids:
+        return []
     candidates = db.scalars(
         select(User)
-        .where(User.id.notin_(member_ids), User.is_active.is_(True))
+        .where(User.id.in_(friend_ids), User.is_active.is_(True))
         .order_by(User.username)
     ).all()
     return [ShareCandidate(user_id=u.id, username=u.username) for u in candidates]
@@ -226,10 +292,21 @@ def share_tree(
         raise HTTPException(status_code=404, detail="User not found")
     if target.id == tree.owner_id:
         raise HTTPException(status_code=400, detail="User already owns this tree")
+    if not user.is_admin and not friendships.are_friends(db, tree.owner_id, target.id):
+        raise HTTPException(
+            status_code=403, detail="You can only share with friends"
+        )
 
     membership = db.get(TreeMembership, (tree.id, target.id))
     if membership is None:
-        db.add(TreeMembership(tree_id=tree.id, user_id=target.id, role=payload.role))
+        db.add(
+            TreeMembership(
+                tree_id=tree.id,
+                user_id=target.id,
+                role=payload.role,
+                restrictions=DEFAULT_RESTRICTIONS,
+            )
+        )
     else:
         membership.role = payload.role
     db.commit()
@@ -249,6 +326,32 @@ def revoke_access(
     if membership is not None:
         db.delete(membership)
         db.commit()
+
+
+@router.patch(
+    "/{tree_id}/access/{user_id}/restrictions",
+    response_model=list[TreeMemberOut],
+)
+def update_member_restrictions(
+    user_id: str,
+    payload: MemberRestrictionsUpdate,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can manage restrictions"
+        )
+    invalid = set(payload.restrictions) - RESTRICTABLE_DOMAINS
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Invalid domains: {sorted(invalid)}")
+    membership = db.get(TreeMembership, (tree.id, user_id))
+    if membership is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    membership.restrictions = payload.restrictions or None
+    db.commit()
+    return list_access(tree=tree, db=db)
 
 
 @router.post("/{tree_id}/transfer", response_model=list[TreeMemberOut])
@@ -277,6 +380,10 @@ def transfer_ownership(
     if not target.is_active:
         raise HTTPException(
             status_code=400, detail="Cannot transfer to an inactive account"
+        )
+    if not user.is_admin and not friendships.are_friends(db, tree.owner_id, target.id):
+        raise HTTPException(
+            status_code=403, detail="You can only transfer to a friend"
         )
 
     tree.owner_id = target.id

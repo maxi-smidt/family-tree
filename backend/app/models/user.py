@@ -44,3 +44,11 @@ class User(Base):
     )
 
     tab_preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+    # TOTP two-factor authentication (local accounts only).
+    # totp_secret holds the base32 secret while enrollment is in progress
+    # and after 2FA is enabled. totp_enabled gates the second step at login.
+    # totp_recovery_codes is a JSON list of SHA-256-hashed single-use codes.
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    totp_recovery_codes: Mapped[list | None] = mapped_column(JSON, nullable=True)

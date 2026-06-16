@@ -34,6 +34,7 @@ class CurrentUserOut(UserOut):
     """
 
     features: list[str] = []
+    totp_enabled: bool = False
 
 
 class UserCreate(BaseModel):

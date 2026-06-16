@@ -1,9 +1,9 @@
-import { Member } from "@/types/member";
+import React, { useState } from "react";
+import { Member, isDeceased } from "@/types/member";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Mars, User, Venus, VenusAndMars } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
 import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
 
@@ -143,13 +143,16 @@ export const FamilyNodeContent = ({
     death: string | null;
   }) {
     const start = dates.birth ? formatLocaleDate(dates.birth) : <i>???</i>;
-    const end = dates.death ? (
-      formatLocaleDate(dates.death)
-    ) : dates.birth ? (
-      <i>{t("life-ongoing")}</i>
-    ) : (
-      <i>{t("life-unknown")}</i>
-    );
+    let end: React.ReactNode;
+    if (dates.death) {
+      end = formatLocaleDate(dates.death);
+    } else if (isDeceased(member)) {
+      end = <i>{t("life-deceased-unknown")}</i>;
+    } else if (dates.birth) {
+      end = <i>{t("life-ongoing")}</i>;
+    } else {
+      end = <i>{t("life-unknown")}</i>;
+    }
 
     return (
       <>
