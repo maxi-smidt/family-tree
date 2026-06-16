@@ -228,7 +228,14 @@ export const GalleryView = () => {
                 <SelectItem value="title">{t("select-title")}</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="icon" onClick={toggleSortDirection}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSortDirection}
+              aria-label={
+                sortDirection === "asc" ? t("sort-ascending") : t("sort-descending")
+              }
+            >
               {sortDirection === "asc" ? <ArrowUp /> : <ArrowDown />}
             </Button>
           </div>
