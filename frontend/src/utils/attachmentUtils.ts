@@ -25,8 +25,6 @@ export const ATTACHMENT_ACCEPT = ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(
   ",",
 );
 
-export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024; // 25 MB
-
 export function getExtension(name: string): string {
   const clean = name.split(/[?#]/)[0];
   const i = clean.lastIndexOf(".");
@@ -68,10 +66,13 @@ export function formatFileSize(bytes: number | null | undefined): string {
 }
 
 /** Returns a translation-key suffix for an invalid file, or null if it's OK. */
-export function attachmentError(file: File): "type" | "size" | null {
+export function attachmentError(
+  file: File,
+  maxBytes?: number,
+): "type" | "size" | null {
   if (!ALLOWED_EXTENSIONS.includes(getExtension(file.name) as never))
     return "type";
-  if (file.size > MAX_ATTACHMENT_BYTES) return "size";
+  if (maxBytes !== undefined && file.size > maxBytes) return "size";
   return null;
 }
 

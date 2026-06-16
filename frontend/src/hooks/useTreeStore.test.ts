@@ -11,6 +11,7 @@ import { useTreeStore } from "./useTreeStore";
 import { useMemberStore } from "./useMemberStore";
 import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
+import { useSourceStore } from "./useSourceStore";
 import { useGalleryStore } from "./useGalleryStore";
 import { useActivityStore } from "./useActivityStore";
 import { useAuthStore } from "./useAuthStore";
@@ -46,6 +47,8 @@ function mockEmptySubStores() {
   vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getStories).mockResolvedValue([]);
   vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+  vi.mocked(TreeService.getSources).mockResolvedValue([]);
+  vi.mocked(TreeService.getCitations).mockResolvedValue([]);
   vi.mocked(TreeService.getActivity).mockResolvedValue([]);
   vi.mocked(TreeService.getRelationTypes).mockResolvedValue([]);
   vi.mocked(TreeService.listVirtualViews).mockResolvedValue([]);
@@ -91,6 +94,7 @@ beforeEach(() => {
   useMemberStore.setState({ members: [], undoStack: [], redoStack: [] });
   useEventStore.setState({ events: [] });
   useStoryStore.setState({ stories: [] });
+  useSourceStore.setState({ sources: [], citations: [] });
   useGalleryStore.setState({ galleryImages: [] });
   useActivityStore.setState({ activities: [] });
   // All feature flags enabled (the production default) so connect() loads
@@ -196,6 +200,33 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(useTreeStore.getState().isReady).toBe(true);
     expect(TreeService.getGalleryImages).not.toHaveBeenCalled();
     expect(TreeService.getEvents).not.toHaveBeenCalled();
+    expect(TreeService.getStories).toHaveBeenCalled();
+    expect(TreeService.getActivity).toHaveBeenCalled();
+  });
+
+  it("loads the same content stores for a virtual tree (read parity)", async () => {
+    const VV: Tree = {
+      id: "vv_x",
+      name: "Composite",
+      role: "viewer",
+      is_virtual: true,
+    };
+    mockEmptySubStores();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/virtual-views/${VV.id}`) return Promise.resolve(VV);
+      // hasLayout: true so connect() respects the saved overlay (no auto-layout).
+      if (path.includes("/metadata"))
+        return Promise.resolve({ hasLayout: true });
+      return Promise.resolve([]);
+    });
+
+    await useTreeStore.getState().connect(VV);
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(VV.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
+    // A virtual tree behaves like a normal one: every content store loads.
+    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+    expect(TreeService.getEvents).toHaveBeenCalled();
     expect(TreeService.getStories).toHaveBeenCalled();
     expect(TreeService.getActivity).toHaveBeenCalled();
   });

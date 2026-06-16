@@ -1,5 +1,7 @@
 """Schemas for gallery images, events and stories (frontend `*DB` shapes)."""
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict
 
 
@@ -114,6 +116,19 @@ class StoryUpdate(BaseModel):
     updated_at: str
 
 
+# --- Geocode ---------------------------------------------------------------
+class GeocodeOut(BaseModel):
+    query: str
+    lat: float | None = None
+    lon: float | None = None
+    display_name: str | None = None
+    resolved: bool
+
+
+class GeocodeRequest(BaseModel):
+    locations: list[str] = []
+
+
 # --- Member link rows (returned by the *_link list endpoints) --------------
 class GalleryLinkOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -134,3 +149,96 @@ class StoryLinkOut(BaseModel):
 
     story_id: str
     member_id: str
+
+
+# --- Sources ---------------------------------------------------------------
+FactType = Literal[
+    "name", "birth", "death", "birthplace", "hometown", "residence", "general"
+]
+
+
+class EvidenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    kind: str
+    filename: str | None = None
+    url: str
+    mime_type: str | None = None
+    size: int | None = None
+    created_at: str
+
+
+class EvidenceCreate(BaseModel):
+    kind: Literal["file", "link"]
+    filename: str | None = None
+    data: str | None = None  # base64 data URL when kind == "file"
+    url: str | None = None   # external link when kind == "link"
+
+
+class EvidenceUpdate(BaseModel):
+    filename: str
+
+
+class SourceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    author: str | None = None
+    publication_info: str | None = None
+    repository: str | None = None
+    source_date: str | None = None
+    notes: str | None = None
+    created_at: str
+    updated_at: str
+    evidence: list[EvidenceOut] = []
+
+
+class SourceCreate(BaseModel):
+    id: str
+    title: str
+    author: str | None = None
+    publication_info: str | None = None
+    repository: str | None = None
+    source_date: str | None = None
+    notes: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class SourceUpdate(BaseModel):
+    title: str
+    author: str | None = None
+    publication_info: str | None = None
+    repository: str | None = None
+    source_date: str | None = None
+    notes: str | None = None
+
+
+class CitationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    source_id: str
+    member_id: str
+    fact_type: str
+    page: str | None = None
+    detail: str | None = None
+    created_at: str
+
+
+class CitationCreate(BaseModel):
+    id: str
+    source_id: str
+    member_id: str
+    fact_type: FactType
+    page: str | None = None
+    detail: str | None = None
+    created_at: str
+
+
+class CitationUpdate(BaseModel):
+    fact_type: FactType
+    page: str | None = None
+    detail: str | None = None

@@ -79,6 +79,34 @@ def require_feature(feature: str):
     return dependency
 
 
+def require_domain(domain: str):
+    """Dependency factory hiding a content domain from a restricted member.
+
+    Mirrors require_feature: restricted domains answer 404 so they are
+    indistinguishable from disabled features. Owners, admins, and public
+    viewers have no membership row and always pass.
+    """
+    from app.services import feature_service
+
+    if domain not in feature_service.RESTRICTABLE_DOMAINS:
+        raise ValueError(f"Unknown restrictable domain: {domain}")
+
+    def dependency(
+        tree_id: str,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> None:
+        membership = db.get(TreeMembership, (tree_id, user.id))
+        if (
+            membership
+            and membership.restrictions
+            and domain in membership.restrictions
+        ):
+            raise HTTPException(status_code=404, detail="Not found")
+
+    return dependency
+
+
 def role_for(db: Session, tree: Tree, user: User) -> str | None:
     """The user's genuine relationship to the tree: 'owner' | 'editor' |
     'viewer', or None when they have no explicit access.
@@ -97,16 +125,51 @@ def role_for(db: Session, tree: Tree, user: User) -> str | None:
     return "owner" if user.is_admin else None
 
 
-def _resolve_tree(db: Session, tree_id: str, user: User, *, write: bool) -> Tree:
+def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """Like get_current_user but returns None instead of raising on missing creds."""
+    if credentials is None:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+    except Exception:  # noqa: BLE001
+        return None
+    user = db.get(User, payload.get("sub"))
+    if user is None or not user.is_active or user.deletion_requested_at is not None:
+        return None
+    return user
+
+
+def _resolve_tree(
+    db: Session, tree_id: str, user: User | None, *, write: bool
+) -> Tree:
     tree = db.get(Tree, tree_id)
     if tree is None:
         raise HTTPException(status_code=404, detail="Tree not found")
+
+    if user is None:
+        # Anonymous requests succeed only for public read-only trees.
+        if not write and tree.public_role == "viewer":
+            return tree
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # Admins always have full read/write access, regardless of any explicit
     # (possibly read-only) membership they were granted.
     if user.is_admin:
         return tree
+
+    # Authenticated users: check role. Public trees are still accessible to
+    # authenticated users who have no explicit membership.
     role = role_for(db, tree, user)
     if role is None:
+        if not write and tree.public_role == "viewer":
+            return tree
         raise HTTPException(status_code=403, detail="No access to this tree")
     if write and role == "viewer":
         raise HTTPException(status_code=403, detail="Read-only access to this tree")
@@ -118,6 +181,15 @@ def get_readable_tree(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Tree:
+    return _resolve_tree(db, tree_id, user, write=False)
+
+
+def get_readable_tree_public(
+    tree_id: str,
+    user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+) -> Tree:
+    """Like get_readable_tree but allows anonymous access to public trees."""
     return _resolve_tree(db, tree_id, user, write=False)
 
 

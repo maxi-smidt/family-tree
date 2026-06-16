@@ -97,7 +97,9 @@ docker compose up -d
 
 ### Configuration
 
-Everything is configured through the `.env` file. The headline settings:
+Deploy-time configuration lives in the `.env` file. Administrators can change
+runtime settings such as upload limits, backups, deletion grace periods, and
+self-registration from the admin dialog. The headline deploy-time settings:
 
 | Variable        | Description                                          | Default        |
 | --------------- | ---------------------------------------------------- | -------------- |
@@ -111,6 +113,8 @@ Everything is configured through the `.env` file. The headline settings:
 
 See [.env.example](./.env.example) for the full list (database credentials,
 initial admin, self-registration, and Authentik OIDC settings).
+See [docs/HARDCODED_VALUES.md](./docs/HARDCODED_VALUES.md) for the runtime,
+deploy-time, and code-invariant settings inventory.
 
 ## Architecture
 

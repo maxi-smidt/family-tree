@@ -8,6 +8,7 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
+    require_domain,
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -23,6 +24,7 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.settings_service import get_media_limits
 from app.services.storage import (
     ImageTooLarge,
     UnsupportedImageType,
@@ -33,7 +35,10 @@ from app.services.storage import (
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
     tags=["gallery"],
-    dependencies=[Depends(require_feature("gallery"))],
+    dependencies=[
+        Depends(require_feature("gallery")),
+        Depends(require_domain("gallery")),
+    ],
 )
 
 
@@ -82,7 +87,11 @@ def create_image(
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
     try:
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["imageData"] = process_image_field(
+            tree.id,
+            data.get("imageData"),
+            get_media_limits(db),
+        )
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
@@ -119,7 +128,11 @@ def update_image(
     changes = payload.model_dump(exclude_unset=True)
     if "imageData" in changes:
         try:
-            changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+            changes["imageData"] = process_image_field(
+                tree.id,
+                changes["imageData"],
+                get_media_limits(db),
+            )
         except ImageTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (UnsupportedImageType, ValueError) as exc:

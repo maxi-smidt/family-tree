@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from app.db.base import utcnow_iso
 from app.models import Member
 from app.models.virtual_view import VirtualViewMemberMatch, VirtualViewPosition
+from app.services.virtual_view_sources import flatten_tree_ids
 
 if TYPE_CHECKING:
     from app.models.virtual_view import VirtualView
@@ -131,7 +132,10 @@ def persist_matches(db: Session, view: VirtualView) -> int:
 
     Returns the number of match groups found.
     """
-    source_ids = [s.tree_id for s in view.sources]
+    # Sources may be real trees or nested virtual views — flatten the DAG to the
+    # underlying real tree ids before matching so nesting behaves like a flat
+    # composite of the same trees.
+    source_ids = flatten_tree_ids(db, view)
 
     # Wipe old match rows (cascade would only fire on member deletion; we also
     # need a clean slate when sources change).

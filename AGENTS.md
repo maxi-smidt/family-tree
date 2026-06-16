@@ -22,9 +22,11 @@ as `viewer` or `editor`.
 ```
 frontend/   React + TypeScript + Vite SPA — Shadcn UI + Tailwind, React Flow, Zustand (own Dockerfile + nginx.conf)
 backend/    FastAPI service — SQLAlchemy 2.0 + Alembic, managed with uv (own Dockerfile)
+e2e/        Playwright end-to-end tests (standalone npm workspace)
 docs/       AGENTS.md (architecture), COPILOT.md, SETUP.md, SECURITY.md, I18N_GUIDE.md
 .github/    CI workflows + Copilot instructions
 docker-compose*.yml, .env.example   the deployment stack
+docker-compose.e2e.yml              ephemeral stack for E2E tests (adds Postgres)
 package.json (root)   repo-level tooling ONLY — prettier + husky (this is NOT the app)
 ```
 
@@ -127,6 +129,31 @@ uv run ruff check
 uv run python -m compileall -q app alembic && uv run python -c "import app.main"
 uv run pytest
 ```
+
+### End-to-end tests (Playwright)
+
+```bash
+# 1. Start the full test stack (Postgres + backend + frontend, built from source)
+docker compose -f docker-compose.e2e.yml up --build -d
+
+# 2. Install Playwright and its browser
+cd e2e && npm install
+npx playwright install --with-deps chromium
+
+# 3. Run the suite
+E2E_ADMIN_USERNAME=e2e-admin E2E_ADMIN_PASSWORD=e2e-admin-password npx playwright test
+
+# 4. Tear down
+docker compose -f docker-compose.e2e.yml down -v
+```
+
+- `E2E_BASE_URL` defaults to `http://localhost:8080`; override for remote stacks.
+- `E2E_API_URL` defaults to `${E2E_BASE_URL}/api`.
+- `E2E_ADMIN_USERNAME` / `E2E_ADMIN_PASSWORD` must match the compose stack's
+  `FIRST_ADMIN_*` env vars — defaults in the compose file are `e2e-admin` / `e2e-admin-password`.
+- Reports land in `e2e/playwright-report/`; run `npm run report` to open them.
+- The `e2e.yml` CI workflow runs on every PR to `main` but is **not** a required
+  check yet (keep PR latency acceptable until the suite stabilises).
 
 ### Database migration (after editing `backend/app/models/`)
 

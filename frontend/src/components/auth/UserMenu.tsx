@@ -8,11 +8,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { KeyRound, LogOut, Shield, SlidersHorizontal, Trash2, UserIcon } from "lucide-react";
+import {
+  KeyRound,
+  LogOut,
+  Shield,
+  ShieldCheck,
+  SlidersHorizontal,
+  Trash2,
+  UserIcon,
+} from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { DeleteAccountDialog } from "@/components/auth/DeleteAccountDialog";
 import { TabSettingsDialog } from "@/components/auth/TabSettingsDialog";
+import { TwoFactorDialog } from "@/components/auth/TwoFactorDialog";
 import { AdminDialog } from "@/components/admin/AdminDialog";
 import { useTranslation } from "react-i18next";
 
@@ -21,6 +30,7 @@ export const UserMenu = () => {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const [passwordOpen, setPasswordOpen] = useState(false);
+  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tabSettingsOpen, setTabSettingsOpen] = useState(false);
@@ -49,6 +59,12 @@ export const UserMenu = () => {
             <DropdownMenuItem onClick={() => setPasswordOpen(true)}>
               <KeyRound className="h-4 w-4" />
               {t("change-password")}
+            </DropdownMenuItem>
+          )}
+          {user.auth_provider === "local" && (
+            <DropdownMenuItem onClick={() => setTwoFactorOpen(true)}>
+              <ShieldCheck className="h-4 w-4" />
+              {t("two-factor")}
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => setTabSettingsOpen(true)}>
@@ -80,6 +96,10 @@ export const UserMenu = () => {
       <ChangePasswordDialog
         isOpen={passwordOpen}
         onClose={() => setPasswordOpen(false)}
+      />
+      <TwoFactorDialog
+        isOpen={twoFactorOpen}
+        onClose={() => setTwoFactorOpen(false)}
       />
       <TabSettingsDialog
         isOpen={tabSettingsOpen}

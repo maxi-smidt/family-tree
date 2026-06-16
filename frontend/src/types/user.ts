@@ -12,16 +12,39 @@ export interface User {
   deletion_requested_by?: string | null;
   /** Resolved feature-flag set; only present on login/me responses. */
   features?: string[];
+  /** Whether TOTP 2FA is active on this account. */
+  totp_enabled?: boolean;
 }
 
 export interface AuthConfig {
   authentik_enabled: boolean;
   allow_self_registration: boolean;
   authentik_login_url: string | null;
+  media_limits: {
+    max_image_bytes: number;
+    max_image_dimension: number;
+    max_document_bytes: number;
+    stored_image_width: number;
+    stored_image_height: number;
+  };
 }
 
 export interface TokenResponse {
   access_token: string;
   token_type: string;
   user: User;
+}
+
+export interface LoginResponse {
+  access_token?: string | null;
+  token_type?: string;
+  user?: User | null;
+  totp_required?: boolean;
+  totp_session_token?: string | null;
+}
+
+export interface TotpSetupResponse {
+  secret: string;
+  otpauth_url: string;
+  recovery_codes: string[];
 }
