@@ -5,6 +5,8 @@ import {
   PlusIcon,
   Activity,
   AlertTriangle,
+  ShieldAlert,
+  Dna,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
@@ -178,6 +180,18 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     (d) => d.carrierStatus === "carrier",
   );
 
+  const diseaseSeverity = hasAffectedDisease
+    ? "affected"
+    : hasCarrierDisease
+      ? "carrier"
+      : "other";
+  const DiseaseIcon =
+    diseaseSeverity === "affected"
+      ? ShieldAlert
+      : diseaseSeverity === "carrier"
+        ? Dna
+        : Activity;
+
   // Calculate if this person has potential disease risk from parents
   const hasRisk = isDiseaseMode && calculateDiseaseRisk(data, members);
   const handleClassName = `${
@@ -271,7 +285,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         <div
           className="absolute bottom-2 left-2 rounded-full p-1"
           role="img"
-          aria-label={t("disease-indicator", { count: data.diseases?.length || 0 })}
+          aria-label={`${t("disease-indicator", { count: data.diseases?.length || 0 })} · ${t(`disease-severity.${diseaseSeverity}`)}`}
           style={{
             backgroundColor: hasAffectedDisease
               ? "var(--color-disease-affected-bg)"
@@ -279,9 +293,9 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
                 ? "var(--color-disease-carrier-bg)"
                 : "var(--color-disease-other-bg)",
           }}
-          title={t("disease-indicator", { count: data.diseases?.length || 0 })}
+          title={`${t("disease-indicator", { count: data.diseases?.length || 0 })} · ${t(`disease-severity.${diseaseSeverity}`)}`}
         >
-          <Activity
+          <DiseaseIcon
             aria-hidden="true"
             size={12}
             style={{

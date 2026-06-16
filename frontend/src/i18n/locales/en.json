@@ -595,6 +595,12 @@
       "life-unknown": "unknown",
       "disease-indicator_one": "{{count}} genetic condition",
       "disease-indicator_other": "{{count}} genetic conditions",
+      "disease-severity": {
+        "affected": "Affected",
+        "carrier": "Carrier",
+        "other": "Status unknown"
+      },
+      "union-type": "Relationship: {{type}}",
       "risk-indicator": "Potential genetic risk from parents · Not medical advice",
       "view-details": "View member details",
       "edit-member": "Edit member",
