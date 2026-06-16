@@ -14,6 +14,7 @@ import { PublicTreeViewer } from "@/components/public/PublicTreeViewer";
 import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Toaster } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export const App = () => {
   const status = useAuthStore((s) => s.status);
@@ -75,15 +76,15 @@ export const App = () => {
     return (
       <ErrorBoundary>
         <UnsavedChangesGuard />
-        <Layout>
-          {adminOpen && user?.is_admin ? (
+        {adminOpen && user?.is_admin ? (
+          <TooltipProvider delayDuration={500}>
             <AdminView />
-          ) : selectedTree ? (
-            <MainPanel />
-          ) : (
-            <NoDatabasePlaceholder />
-          )}
-        </Layout>
+          </TooltipProvider>
+        ) : (
+          <Layout>
+            {selectedTree ? <MainPanel /> : <NoDatabasePlaceholder />}
+          </Layout>
+        )}
       </ErrorBoundary>
     );
   }

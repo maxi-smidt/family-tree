@@ -25,6 +25,7 @@ import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDia
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { RelationTypesPanel } from "@/components/admin/RelationTypesPanel";
+import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import { ArrowLeft, KeyRound, Plus, ShieldOff, Trash2, Undo2 } from "lucide-react";
 import {
   AdminService,
@@ -168,65 +169,66 @@ export const AdminView = () => {
 
   return (
     <>
-      <div className="h-full flex flex-col p-4 overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-6">
+      <Tabs
+        defaultValue="users"
+        orientation="vertical"
+        className="w-screen h-screen flex flex-col bg-background overflow-hidden"
+      >
+        <SessionExpiryBanner />
+
+        {/* Header bar */}
+        <div className="shrink-0 h-14 border-b flex items-center gap-3 px-4">
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={closeAdmin}
             aria-label={t("back")}
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div>
-            <h1 className="text-xl font-semibold leading-none">{t("title")}</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("description")}
-            </p>
-          </div>
+          <h1 className="text-lg font-semibold">{t("title")}</h1>
         </div>
 
-        {/* Vertical tabs layout */}
-        <Tabs
-          defaultValue="users"
-          orientation="vertical"
-          className="flex flex-1 gap-6 overflow-hidden"
-        >
-          <TabsList className="flex flex-col h-auto w-44 shrink-0 items-stretch gap-1 bg-transparent p-0">
-            <TabsTrigger
-              value="users"
-              className="justify-start data-[state=active]:bg-muted"
-            >
-              {t("users-tab")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="settings"
-              className="justify-start data-[state=active]:bg-muted"
-            >
-              {t("settings-tab")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="features"
-              className="justify-start data-[state=active]:bg-muted"
-            >
-              {t("features-tab")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="backups"
-              className="justify-start data-[state=active]:bg-muted"
-            >
-              {t("backups-tab")}
-            </TabsTrigger>
-            <TabsTrigger
-              value="relation-types"
-              className="justify-start data-[state=active]:bg-muted"
-            >
-              {t("relation-types-tab")}
-            </TabsTrigger>
-          </TabsList>
+        {/* Body: left nav + scrollable content */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left nav rail */}
+          <div className="w-52 shrink-0 border-r p-3 flex flex-col gap-1">
+            <TabsList className="flex flex-col h-auto w-full items-stretch gap-1 bg-transparent p-0">
+              <TabsTrigger
+                value="users"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                {t("users-tab")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="settings"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                {t("settings-tab")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="features"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                {t("features-tab")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="backups"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                {t("backups-tab")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="relation-types"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                {t("relation-types-tab")}
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          <div className="flex-1 overflow-auto">
+          {/* Content area */}
+          <div className="flex-1 overflow-auto p-6">
             <TabsContent value="users" className="mt-0 space-y-4">
               <div className="border rounded-lg overflow-hidden">
                 <Table>
@@ -561,8 +563,8 @@ export const AdminView = () => {
               <RelationTypesPanel />
             </TabsContent>
           </div>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
 
       <ConfirmDeleteDialog
         open={!!userToDelete}
