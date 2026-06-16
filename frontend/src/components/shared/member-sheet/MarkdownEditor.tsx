@@ -1,11 +1,5 @@
-import { useRef } from "react";
-import {
-  Bold,
-  Italic,
-  Heading2,
-  List,
-  Link,
-} from "lucide-react";
+import { useCallback, useLayoutEffect, useRef } from "react";
+import { Bold, Italic, Heading2, List, Link } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,6 +24,26 @@ type InsertionSpec = {
   defaultText: string;
 };
 
+const MIN_TEXTAREA_HEIGHT = 96;
+const SHEET_SCROLL_AREA_SELECTOR = "[data-member-sheet-scroll-area]";
+
+function getAvailableTextareaHeight(textarea: HTMLTextAreaElement): number {
+  const scrollArea = textarea.closest<HTMLElement>(SHEET_SCROLL_AREA_SELECTOR);
+  const textareaTop = textarea.getBoundingClientRect().top;
+
+  if (!scrollArea) {
+    return Math.max(MIN_TEXTAREA_HEIGHT, window.innerHeight - textareaTop);
+  }
+
+  const scrollAreaStyle = window.getComputedStyle(scrollArea);
+  const paddingBottom = Number.parseFloat(scrollAreaStyle.paddingBottom) || 0;
+
+  return Math.max(
+    MIN_TEXTAREA_HEIGHT,
+    scrollArea.getBoundingClientRect().bottom - textareaTop - paddingBottom,
+  );
+}
+
 function insertMarkdown(
   textarea: HTMLTextAreaElement,
   spec: InsertionSpec,
@@ -50,7 +64,10 @@ function insertMarkdown(
   // Restore selection after React re-render
   requestAnimationFrame(() => {
     if (selected.length > 0) {
-      textarea.setSelectionRange(start + prefix.length, start + prefix.length + text.length);
+      textarea.setSelectionRange(
+        start + prefix.length,
+        start + prefix.length + text.length,
+      );
     } else {
       const cursor = start + prefix.length + text.length;
       textarea.setSelectionRange(cursor, cursor);
@@ -60,8 +77,51 @@ function insertMarkdown(
 }
 
 export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
-  const { t } = useTranslation(undefined, { keyPrefix: "sheet.markdown-editor" });
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "sheet.markdown-editor",
+  });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const resizeTextarea = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "auto";
+
+    const maxHeight = getAvailableTextareaHeight(textarea);
+    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
+
+    textarea.style.height = `${nextHeight}px`;
+    textarea.style.overflowY =
+      textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+  }, []);
+
+  useLayoutEffect(() => {
+    resizeTextarea();
+  }, [resizeTextarea, value]);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    const scrollArea = textarea?.closest<HTMLElement>(
+      SHEET_SCROLL_AREA_SELECTOR,
+    );
+
+    if (!textarea || !scrollArea) return;
+
+    const handleResize = () => resizeTextarea();
+    window.addEventListener("resize", handleResize);
+
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(handleResize);
+    resizeObserver?.observe(scrollArea);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      resizeObserver?.disconnect();
+    };
+  }, [resizeTextarea]);
 
   function handleToolbarAction(spec: InsertionSpec) {
     if (textareaRef.current) {
@@ -152,10 +212,11 @@ export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
           ref={textareaRef}
           id={id}
           value={value}
-          className="text-xs! shadow-none resize-none font-mono"
+          className="overflow-hidden text-xs! shadow-none resize-none font-mono"
           rows={4}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={resizeTextarea}
         />
       </TabsContent>
 
