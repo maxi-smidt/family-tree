@@ -271,6 +271,8 @@
       "select-date-taken": "Date Taken",
       "select-title": "Title",
       "sort-placeholder": "Sort by",
+      "sort-ascending": "Sort ascending",
+      "sort-descending": "Sort descending",
       "toast-error-canvas-context": "Failed to get canvas context",
       "toast-error-image-upload": "Failed to load image. Please ensure it's a valid image file.",
       "toast-error-image-too-large": "Image is too large. Maximum size is 10 MB.",
