@@ -15,7 +15,7 @@ const coupleStyle = (relationType: string) => {
     case "divorced":
       return { stroke: "var(--destructive)", strokeDasharray: "5,5" };
     case "partner":
-      return { stroke: "hsl(217 91% 60%)", strokeDasharray: "5,5" };
+      return { stroke: "hsl(217 91% 60%)", strokeDasharray: "2,4" };
     default:
       return { stroke: "var(--muted-foreground)", strokeDasharray: "5,5" };
   }

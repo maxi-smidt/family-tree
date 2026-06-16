@@ -1,9 +1,12 @@
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
 import { UnionInfo } from "@/hooks/useFlowUnions";
+import { useTranslation } from "react-i18next";
 
 export const UNION_NODE_SIZE = 10;
 
 export const UnionNode = ({ data }: NodeProps<Node<UnionInfo>>) => {
+  const { t } = useTranslation(undefined, { keyPrefix: "tree-view.node" });
+  const { t: tRoot } = useTranslation();
   const isConnectionPath = data.isConnectionPath === true;
   const isConnectionDimmed = data.isConnectionDimmed === true;
   const color =
@@ -15,8 +18,17 @@ export const UnionNode = ({ data }: NodeProps<Node<UnionInfo>>) => {
           ? "hsl(217 91% 60%)"
           : "var(--muted-foreground)";
 
+  const unionLabel = data.relationType
+    ? t("union-type", {
+        type: tRoot(`common.relation-types.${data.relationType}`),
+      })
+    : undefined;
+
   return (
     <div
+      role={unionLabel ? "img" : undefined}
+      aria-label={unionLabel}
+      title={unionLabel}
       style={{
         width: UNION_NODE_SIZE,
         height: UNION_NODE_SIZE,
