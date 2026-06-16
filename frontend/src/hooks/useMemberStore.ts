@@ -196,8 +196,8 @@ interface MemberState {
     type: RelationType,
   ) => Promise<void>;
   addDisease: (memberId: string, disease: DiseaseInput) => Promise<void>;
-  updateDisease: (diseaseId: string, disease: DiseaseInput) => Promise<void>;
-  removeDisease: (diseaseId: string) => Promise<void>;
+  updateDisease: (memberId: string, diseaseId: string, disease: DiseaseInput) => Promise<void>;
+  removeDisease: (memberId: string, diseaseId: string) => Promise<void>;
 }
 
 export const useMemberStore = create<MemberState>((set, get) => ({
@@ -764,20 +764,20 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     const id = crypto.randomUUID();
     await TreeService.addDisease(treeId, id, memberId, disease);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId);
   },
 
-  updateDisease: async (diseaseId: string, disease: DiseaseInput) => {
+  updateDisease: async (memberId: string, diseaseId: string, disease: DiseaseInput) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.updateDisease(treeId, diseaseId, disease);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId);
   },
 
-  removeDisease: async (diseaseId: string) => {
+  removeDisease: async (memberId: string, diseaseId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.removeDisease(treeId, diseaseId);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId);
   },
 }));

@@ -50,7 +50,7 @@ export const MemberDiseases = ({ member }: Props) => {
 
   const handleDelete = async () => {
     if (diseaseToDelete) {
-      await removeDisease(diseaseToDelete.id);
+      await removeDisease(member.id, diseaseToDelete.id);
       closeDeleteDialog();
     }
   };
