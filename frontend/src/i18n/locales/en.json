@@ -1113,6 +1113,7 @@
   "admin": {
     "title": "Administration",
     "description": "Manage users and instance settings.",
+    "back": "Back",
     "users-tab": "Users",
     "settings-tab": "Settings",
     "features-tab": "Features",

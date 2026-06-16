@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useAuthStore, useFeature } from "@/hooks/useAuthStore";
+import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
-import { AdminDialog } from "@/components/admin/AdminDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import {
@@ -43,6 +43,7 @@ export const MobileManagementSheet = ({
   const gedcomEnabled = useFeature("gedcom");
   const activityEnabled = useFeature("activity_log");
   const { navigateTo } = useNavigationStore();
+  const openAdmin = useAdminViewStore((s) => s.openAdmin);
   const {
     exportDatabase,
     importDatabase,
@@ -56,7 +57,6 @@ export const MobileManagementSheet = ({
   const isAdmin = !!user?.is_admin;
 
   const [shareOpen, setShareOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
     mode: "export" | "import";
@@ -243,7 +243,10 @@ export const MobileManagementSheet = ({
                 <Button
                   variant="ghost"
                   className="w-full justify-start gap-3"
-                  onClick={() => setAdminOpen(true)}
+                  onClick={() => {
+                    openAdmin();
+                    onOpenChange(false);
+                  }}
                 >
                   <Settings className="h-4 w-4 shrink-0" />
                   {t("admin-action")}
@@ -263,10 +266,6 @@ export const MobileManagementSheet = ({
             void loadTrees();
           }}
         />
-      )}
-
-      {isAdmin && (
-        <AdminDialog isOpen={adminOpen} onClose={() => setAdminOpen(false)} />
       )}
 
       <PasswordDialog

@@ -2,9 +2,11 @@ import "./App.css";
 import { useEffect } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { Layout } from "@/components/layout/Layout";
 import { MainPanel } from "@/components/layout/MainPanel";
+import { AdminView } from "@/components/admin/AdminView";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { UnsavedChangesGuard } from "@/components/layout/UnsavedChangesGuard";
 import { LoginPage } from "@/components/auth/LoginPage";
@@ -16,9 +18,11 @@ import { Toaster } from "@/components/ui/sonner";
 export const App = () => {
   const status = useAuthStore((s) => s.status);
   const init = useAuthStore((s) => s.init);
+  const user = useAuthStore((s) => s.user);
   const pendingPublicTreeId = useAuthStore((s) => s.pendingPublicTreeId);
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const selectedTree = useTreeStore((s) => s.selectedTree);
+  const adminOpen = useAdminViewStore((s) => s.open);
 
   useEffect(() => {
     void init();
@@ -72,7 +76,13 @@ export const App = () => {
       <ErrorBoundary>
         <UnsavedChangesGuard />
         <Layout>
-          {selectedTree ? <MainPanel /> : <NoDatabasePlaceholder />}
+          {adminOpen && user?.is_admin ? (
+            <AdminView />
+          ) : selectedTree ? (
+            <MainPanel />
+          ) : (
+            <NoDatabasePlaceholder />
+          )}
         </Layout>
       </ErrorBoundary>
     );
