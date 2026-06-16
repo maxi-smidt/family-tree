@@ -26,26 +26,6 @@ type InsertionSpec = {
 
 type EditorTab = "write" | "preview";
 
-const MIN_TEXTAREA_HEIGHT = 96;
-const SHEET_SCROLL_AREA_SELECTOR = "[data-member-sheet-scroll-area]";
-
-function getAvailableTextareaHeight(textarea: HTMLTextAreaElement): number {
-  const scrollArea = textarea.closest<HTMLElement>(SHEET_SCROLL_AREA_SELECTOR);
-  const textareaTop = textarea.getBoundingClientRect().top;
-
-  if (!scrollArea) {
-    return Math.max(MIN_TEXTAREA_HEIGHT, window.innerHeight - textareaTop);
-  }
-
-  const scrollAreaStyle = window.getComputedStyle(scrollArea);
-  const paddingBottom = Number.parseFloat(scrollAreaStyle.paddingBottom) || 0;
-
-  return Math.max(
-    MIN_TEXTAREA_HEIGHT,
-    scrollArea.getBoundingClientRect().bottom - textareaTop - paddingBottom,
-  );
-}
-
 function insertMarkdown(
   textarea: HTMLTextAreaElement,
   spec: InsertionSpec,
@@ -90,13 +70,8 @@ export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
     if (!textarea) return;
 
     textarea.style.height = "auto";
-
-    const maxHeight = getAvailableTextareaHeight(textarea);
-    const nextHeight = Math.min(textarea.scrollHeight, maxHeight);
-
-    textarea.style.height = `${nextHeight}px`;
-    textarea.style.overflowY =
-      textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+    textarea.style.overflowY = "hidden";
   }, []);
 
   useLayoutEffect(() => {
@@ -109,27 +84,24 @@ export function MarkdownEditor({ id, value, placeholder, onChange }: Props) {
   }, [activeTab, resizeTextarea, value]);
 
   useLayoutEffect(() => {
-    const textarea = textareaRef.current;
-    const scrollArea = textarea?.closest<HTMLElement>(
-      SHEET_SCROLL_AREA_SELECTOR,
-    );
-
-    if (!textarea || !scrollArea) return;
+    if (activeTab !== "write") return;
 
     const handleResize = () => resizeTextarea();
     window.addEventListener("resize", handleResize);
 
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(handleResize);
-    resizeObserver?.observe(scrollArea);
+    const observedElement = textareaRef.current?.parentElement;
+    let resizeObserver: ResizeObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined" && observedElement) {
+      resizeObserver = new ResizeObserver(handleResize);
+      resizeObserver.observe(observedElement);
+    }
 
     return () => {
       window.removeEventListener("resize", handleResize);
       resizeObserver?.disconnect();
     };
-  }, [resizeTextarea]);
+  }, [activeTab, resizeTextarea]);
 
   function handleToolbarAction(spec: InsertionSpec) {
     if (textareaRef.current) {

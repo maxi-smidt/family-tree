@@ -127,10 +127,7 @@ export const MemberSheet = ({
         </SheetHeader>
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
-          <div
-            data-member-sheet-scroll-area
-            className="px-4 pb-4 overflow-y-auto flex-1"
-          >
+          <div className="px-4 pb-4 overflow-y-auto flex-1">
             {isViewingEditMode ? (
               <EditMode
                 member={member}
