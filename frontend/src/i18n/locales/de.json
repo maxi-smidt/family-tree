@@ -1130,6 +1130,7 @@
   "admin": {
     "title": "Verwaltung",
     "description": "Benutzer und Instanzeinstellungen verwalten.",
+    "back": "Zurück",
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",

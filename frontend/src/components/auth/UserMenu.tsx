@@ -18,20 +18,20 @@ import {
   UserIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { DeleteAccountDialog } from "@/components/auth/DeleteAccountDialog";
 import { TabSettingsDialog } from "@/components/auth/TabSettingsDialog";
 import { TwoFactorDialog } from "@/components/auth/TwoFactorDialog";
-import { AdminDialog } from "@/components/admin/AdminDialog";
 import { useTranslation } from "react-i18next";
 
 export const UserMenu = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.user-menu" });
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const openAdmin = useAdminViewStore((s) => s.openAdmin);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [tabSettingsOpen, setTabSettingsOpen] = useState(false);
 
@@ -72,7 +72,7 @@ export const UserMenu = () => {
             {t("customize-tabs")}
           </DropdownMenuItem>
           {user.is_admin && (
-            <DropdownMenuItem onClick={() => setAdminOpen(true)}>
+            <DropdownMenuItem onClick={() => openAdmin()}>
               <Shield className="h-4 w-4" />
               {t("admin")}
             </DropdownMenuItem>
@@ -105,9 +105,6 @@ export const UserMenu = () => {
         isOpen={tabSettingsOpen}
         onClose={() => setTabSettingsOpen(false)}
       />
-      {user.is_admin && (
-        <AdminDialog isOpen={adminOpen} onClose={() => setAdminOpen(false)} />
-      )}
       <DeleteAccountDialog
         isOpen={deleteOpen}
         onClose={() => setDeleteOpen(false)}
