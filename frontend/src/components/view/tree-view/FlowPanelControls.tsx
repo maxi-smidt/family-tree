@@ -58,6 +58,7 @@ export const FlowPanelControls = ({
                 size="icon"
                 onClick={() => undo()}
                 disabled={undoStack.length === 0}
+                aria-label={t("undo")}
               >
                 <Undo2 />
               </Button>
@@ -71,6 +72,7 @@ export const FlowPanelControls = ({
                 size="icon"
                 onClick={() => redo()}
                 disabled={redoStack.length === 0}
+                aria-label={t("redo")}
               >
                 <Redo2 />
               </Button>
