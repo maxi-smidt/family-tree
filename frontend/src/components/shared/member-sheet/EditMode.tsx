@@ -1,7 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
-import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/services/api";
+import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -678,15 +678,11 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("notes-field")}
                   </FieldLabel>
-                  <Textarea
+                  <MarkdownEditor
                     id="additionalData"
                     value={formData.additionalData || ""}
-                    className="text-xs! shadow-none resize-none"
-                    rows={4}
                     placeholder={t("notes-placeholder")}
-                    onChange={(e) =>
-                      handleChange("additionalData", e.target.value)
-                    }
+                    onChange={(value) => handleChange("additionalData", value)}
                   />
                 </Field>
               )}

@@ -196,7 +196,7 @@ export const BackupPanel = ({
           {t("no-backups")}
         </p>
       ) : (
-        <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+        <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>

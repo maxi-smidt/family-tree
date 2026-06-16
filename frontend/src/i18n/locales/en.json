@@ -642,6 +642,23 @@
           "error-update": "Failed to update condition. Please try again."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown formatting toolbar",
+      "bold": "Bold",
+      "bold-default": "bold text",
+      "italic": "Italic",
+      "italic-default": "italic text",
+      "heading": "Heading",
+      "heading-default": "Heading",
+      "bullet": "Bullet list",
+      "bullet-default": "List item",
+      "link": "Link",
+      "link-default": "link text",
+      "link-url-placeholder": "https://",
+      "tab-write": "Write",
+      "tab-preview": "Preview",
+      "preview-empty": "Nothing to preview yet."
     }
   },
   "tree-view": {
@@ -1120,6 +1137,7 @@
   "admin": {
     "title": "Administration",
     "description": "Manage users and instance settings.",
+    "back": "Back",
     "users-tab": "Users",
     "settings-tab": "Settings",
     "features-tab": "Features",
