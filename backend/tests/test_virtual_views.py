@@ -3,7 +3,13 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Relation
+from app.models import (
+    Event,
+    EventMemberLink,
+    GalleryImage,
+    GalleryMemberLink,
+    Relation,
+)
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 # ---------------------------------------------------------------------------
@@ -421,3 +427,230 @@ def test_delete_requires_ownership(client: TestClient, db: Session):
 
     r = client.delete(f"{API}/virtual-views/{view_id}", headers=auth(bob))
     assert r.status_code in (403, 404)
+
+
+# ---------------------------------------------------------------------------
+# Nested virtual views (recursive composition)
+# ---------------------------------------------------------------------------
+
+
+def create_view_n(client, user, source_ids, name="Nested"):
+    return client.post(
+        f"{API}/virtual-views",
+        json={"name": name, "source_tree_ids": source_ids},
+        headers=auth(user),
+    )
+
+
+def _john(db, *trees) -> None:
+    for i, t in enumerate(trees):
+        add_member(
+            db, t, f"john-{t.id[:8]}-{i}",
+            firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+        )
+
+
+def test_virtual_view_can_source_another_virtual_view(
+    client: TestClient, db: Session
+):
+    """A virtual view may be a source of another; matching runs over the
+    flattened underlying trees, so {C, vv(A, B)} behaves like {A, B, C}."""
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    tree_c = make_tree(db, alice)
+    _john(db, tree_a, tree_b, tree_c)
+
+    inner = create_view_n(client, alice, [tree_a.id, tree_b.id], "Inner").json()
+    outer = create_view_n(client, alice, [inner["id"], tree_c.id], "Outer")
+    assert outer.status_code == 201
+    data = outer.json()
+
+    virtual_sources = [s for s in data["sources"] if s.get("is_virtual")]
+    assert len(virtual_sources) == 1
+    assert virtual_sources[0]["kind"] == "view"
+    assert virtual_sources[0]["tree_id"] == inner["id"]
+
+    members = client.get(
+        f"{API}/virtual-views/{data['id']}/members", headers=auth(alice)
+    ).json()
+    merged = [m for m in members if m["isMerged"]]
+    assert len(merged) == 1
+    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id, tree_c.id}
+
+
+def test_cycle_rejected_on_update(client: TestClient, db: Session):
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    tree_c = make_tree(db, alice)
+    _john(db, tree_a, tree_b, tree_c)
+
+    inner = create_view_n(client, alice, [tree_a.id, tree_b.id]).json()
+    outer = create_view_n(client, alice, [inner["id"], tree_c.id]).json()
+
+    # Making inner source outer would close a loop (outer already sources inner).
+    r = client.patch(
+        f"{API}/virtual-views/{inner['id']}",
+        json={"source_tree_ids": [outer["id"], tree_a.id]},
+        headers=auth(alice),
+    )
+    assert r.status_code == 409
+    assert r.json()["detail"] == "virtual_view_source_cycle"
+
+
+def test_nested_source_deleted_makes_parent_missing(
+    client: TestClient, db: Session
+):
+    """Deleting a nested source view cascades the junction row, dropping the
+    parent below its 2-source minimum."""
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    tree_c = make_tree(db, alice)
+    _john(db, tree_a, tree_b, tree_c)
+
+    inner = create_view_n(client, alice, [tree_a.id, tree_b.id]).json()
+    outer = create_view_n(client, alice, [inner["id"], tree_c.id]).json()
+
+    assert (
+        client.delete(
+            f"{API}/virtual-views/{inner['id']}", headers=auth(alice)
+        ).status_code
+        == 204
+    )
+    r = client.get(f"{API}/virtual-views/{outer['id']}", headers=auth(alice))
+    assert r.status_code == 409
+    assert r.json()["detail"] == "virtual_view_sources_missing"
+
+
+def test_nested_source_access_revoked(client: TestClient, db: Session):
+    """Access is checked recursively: losing a tree buried under a nested view
+    breaks the outer view."""
+    alice = make_user(db)
+    bob = make_user(db, "bob")
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, bob)
+    share(db, tree_b, alice, role="viewer")
+    tree_c = make_tree(db, alice)
+    _john(db, tree_a, tree_b, tree_c)
+
+    inner = create_view_n(client, alice, [tree_a.id, tree_b.id]).json()
+    outer = create_view_n(client, alice, [inner["id"], tree_c.id]).json()
+
+    client.delete(
+        f"{API}/trees/{tree_b.id}/access/{alice.id}", headers=auth(bob)
+    )
+
+    r = client.get(f"{API}/virtual-views/{outer['id']}", headers=auth(alice))
+    assert r.status_code == 403
+    assert r.json()["detail"] == "virtual_view_source_access_revoked"
+
+
+# ---------------------------------------------------------------------------
+# Composite feature parity
+# ---------------------------------------------------------------------------
+
+
+def _add_homer(db, tree_a, tree_b):
+    """Homer exists in both trees (merged) — returns the two member ids."""
+    add_member(
+        db, tree_a, "homer-a",
+        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+    )
+    add_member(
+        db, tree_b, "homer-b",
+        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+    )
+
+
+def test_composite_gallery_and_events_remap_member_links(
+    client: TestClient, db: Session
+):
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    _add_homer(db, tree_a, tree_b)
+    # Image in tree_a links homer-a; event in tree_b links homer-b.
+    db.add(GalleryImage(id="img1", tree_id=tree_a.id, title="Pic"))
+    db.add(GalleryMemberLink(gallery_image_id="img1", member_id="homer-a"))
+    db.add(
+        Event(
+            id="ev1", tree_id=tree_b.id, event_type="birth",
+            date="1956", created_at="2020-01-01",
+        )
+    )
+    db.add(EventMemberLink(event_id="ev1", member_id="homer-b"))
+    db.commit()
+
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+    members = client.get(
+        f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
+    ).json()
+    merged_id = next(m["id"] for m in members if m["isMerged"])
+
+    imgs = client.get(
+        f"{API}/virtual-views/{view_id}/gallery/images", headers=auth(alice)
+    ).json()
+    assert {i["id"] for i in imgs} == {"img1"}
+    glinks = client.get(
+        f"{API}/virtual-views/{view_id}/gallery/links", headers=auth(alice)
+    ).json()
+    assert glinks == [{"gallery_image_id": "img1", "member_id": merged_id}]
+
+    evs = client.get(
+        f"{API}/virtual-views/{view_id}/events", headers=auth(alice)
+    ).json()
+    assert {e["id"] for e in evs} == {"ev1"}
+    elinks = client.get(
+        f"{API}/virtual-views/{view_id}/events/links", headers=auth(alice)
+    ).json()
+    assert elinks == [{"event_id": "ev1", "member_id": merged_id}]
+
+
+def test_composite_statistics_dedupes_merged_people(
+    client: TestClient, db: Session
+):
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    _add_homer(db, tree_a, tree_b)  # merged → counts once
+    add_member(
+        db, tree_a, "marge",
+        firstName="Marge", lastName="Simpson", dateOfBirth="1958", gender="f",
+    )
+    add_member(
+        db, tree_b, "bart",
+        firstName="Bart", lastName="Simpson", dateOfBirth="1980", gender="m",
+    )
+
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+    stats = client.get(
+        f"{API}/virtual-views/{view_id}/statistics", headers=auth(alice)
+    ).json()
+    # Homer, Marge, Bart — Homer is not double-counted.
+    assert stats["total_members"] == 3
+
+
+def test_composite_geocode_and_quality_reachable(
+    client: TestClient, db: Session
+):
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    add_overlap(db, tree_a, tree_b)
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+
+    geo = client.post(
+        f"{API}/virtual-views/{view_id}/geocode",
+        json={"locations": []},
+        headers=auth(alice),
+    )
+    assert geo.status_code == 200
+    assert geo.json() == []
+
+    quality = client.get(
+        f"{API}/virtual-views/{view_id}/quality-report", headers=auth(alice)
+    )
+    assert quality.status_code == 200
+    assert quality.json()["tree_id"] == view_id

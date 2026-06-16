@@ -11,6 +11,9 @@ export interface AdminSettings {
   backup_schedule_enabled: boolean;
   backup_interval_hours: number;
   backup_retention_count: number;
+  max_image_upload_mb: number;
+  max_image_dimension: number;
+  max_document_upload_mb: number;
 }
 
 export interface BackupRecord {
@@ -73,6 +76,10 @@ export const AdminService = {
 
   resetUserPassword(userId: string, password: string): Promise<void> {
     return api.post<void>(`/users/${userId}/reset-password`, { password });
+  },
+
+  resetUserTotp(userId: string): Promise<void> {
+    return api.del<void>(`/users/${userId}/2fa`);
   },
 
   updateSettings(settings: AdminSettings): Promise<AdminSettings> {

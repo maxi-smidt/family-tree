@@ -1,6 +1,8 @@
 """Instance-wide relation type registry: listing and admin CRUD."""
 
-from app.db.init_db import DEFAULT_RELATION_TYPES
+from sqlalchemy import select
+
+from app.db.init_db import DEFAULT_RELATION_TYPES, _seed_relation_types
 from app.models import RelationType
 from tests.conftest import API, auth, make_tree, make_user
 
@@ -11,6 +13,19 @@ def test_list_returns_seeded_defaults(client, db):
     res = client.get(f"{API}/relation-types", headers=auth(user))
     assert res.status_code == 200
     assert {t["id"] for t in res.json()} == set(DEFAULT_RELATION_TYPES)
+
+
+def test_startup_seed_tops_up_missing_defaults(db):
+    db.query(RelationType).delete()
+    db.add(RelationType(id="partner"))
+    db.add(RelationType(id="child", description="Legacy child type"))
+    db.commit()
+
+    _seed_relation_types(db)
+
+    ids = set(db.scalars(select(RelationType.id)).all())
+    assert set(DEFAULT_RELATION_TYPES).issubset(ids)
+    assert "child" in ids
 
 
 def test_list_requires_auth(client):
