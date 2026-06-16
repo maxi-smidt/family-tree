@@ -162,7 +162,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     selected || isConnectionSelected
       ? "var(--primary)"
       : isConnectionPath
-        ? "hsl(45 93% 47%)"
+        ? "var(--connection-path)"
         : "var(--border)";
   const borderWidth =
     selected || isConnectionSelected || isConnectionPath ? "2px" : "1px";
@@ -219,6 +219,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="top"
         isConnectable={!data.isReadOnly}
         className={handleClassName}
+        data-export-hide="true"
       />
       <Handle
         type="source"
@@ -226,6 +227,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="left"
         isConnectable={!data.isReadOnly}
         className={horizontalHandleClassName}
+        data-export-hide="true"
       />
       <Handle
         type="source"
@@ -233,8 +235,9 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="right"
         isConnectable={!data.isReadOnly}
         className={horizontalHandleClassName}
+        data-export-hide="true"
       />
-      <div className="absolute top-2 flex justify-between w-full px-2">
+      <div className="absolute top-2 flex justify-between w-full px-2" data-export-hide="true">
         <Button
           type="button"
           variant="outline"
@@ -271,10 +274,10 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           aria-label={t("disease-indicator", { count: data.diseases?.length || 0 })}
           style={{
             backgroundColor: hasAffectedDisease
-              ? "rgba(239, 68, 68, 0.15)"
+              ? "var(--color-disease-affected-bg)"
               : hasCarrierDisease
-                ? "rgba(251, 191, 36, 0.15)"
-                : "rgba(156, 163, 175, 0.15)",
+                ? "var(--color-disease-carrier-bg)"
+                : "var(--color-disease-other-bg)",
           }}
           title={t("disease-indicator", { count: data.diseases?.length || 0 })}
         >
@@ -283,10 +286,10 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             size={12}
             style={{
               color: hasAffectedDisease
-                ? "rgb(239, 68, 68)"
+                ? "var(--color-disease-affected)"
                 : hasCarrierDisease
-                  ? "rgb(251, 191, 36)"
-                  : "rgb(156, 163, 175)",
+                  ? "var(--color-disease-carrier)"
+                  : "var(--color-disease-other)",
             }}
           />
         </div>
@@ -299,8 +302,8 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           role="img"
           aria-label={t("risk-indicator")}
           style={{
-            backgroundColor: "rgba(234, 179, 8, 0.1)",
-            borderColor: "rgba(234, 179, 8, 0.5)",
+            backgroundColor: "var(--color-disease-risk-bg)",
+            borderColor: "var(--color-disease-risk-border)",
           }}
           title={t("risk-indicator")}
         >
@@ -308,7 +311,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             aria-hidden="true"
             size={12}
             style={{
-              color: "rgb(234, 179, 8)",
+              color: "var(--color-disease-risk)",
             }}
           />
         </div>
@@ -321,7 +324,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
       )}
 
       {isFastMode && !data.isReadOnly && (
-        <>
+        <div data-export-hide="true">
           <Button
             variant="ghost"
             aria-label={t("add-parent")}
@@ -378,7 +381,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
           >
             <PlusIcon className="text-card" aria-hidden="true" />
           </Button>
-        </>
+        </div>
       )}
 
       <Handle
@@ -387,6 +390,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         id="bottom"
         isConnectable={!data.isReadOnly}
         className={handleClassName}
+        data-export-hide="true"
       />
     </div>
   );

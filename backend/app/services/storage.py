@@ -14,6 +14,7 @@ from io import BytesIO
 from uuid import uuid4
 
 from app.core.config import settings
+from app.schemas.setting import MediaLimits
 
 MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
 
@@ -27,17 +28,6 @@ _MIME_EXT = {
     "image/gif": "gif",
     "image/avif": "avif",
 }
-
-# --- Image upload limits ---------------------------------------------------
-# Applied to member photos and gallery images (not document attachments).
-MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
-# Reject images where either dimension exceeds this value before processing.
-MAX_IMAGE_DIMENSION = 4096
-
-# --- Document attachments --------------------------------------------------
-# Story attachments accept common document/image types and are stored on disk
-# unmodified (unlike gallery images, which are normalized to WebP).
-MAX_DOCUMENT_BYTES = 25 * 1024 * 1024  # 25 MB
 
 # Canonical extension for each allowed MIME type.
 _DOC_MIME_EXT = {
@@ -87,7 +77,7 @@ class UnsupportedFileType(ValueError):
 
 
 class FileTooLarge(ValueError):
-    """Raised when an attachment exceeds ``MAX_DOCUMENT_BYTES``."""
+    """Raised when an attachment exceeds the configured document limit."""
 
 
 class UnsupportedImageType(ValueError):
@@ -95,18 +85,23 @@ class UnsupportedImageType(ValueError):
 
 
 class ImageTooLarge(ValueError):
-    """Raised when an image upload exceeds ``MAX_IMAGE_BYTES``."""
+    """Raised when an image upload exceeds the configured image limit."""
 
 
 class InvalidImageURL(ValueError):
     """Raised when an image field contains an external or cross-tree URL."""
 
 
-def store_document(tree_id: str, filename: str, data_url: str) -> tuple[str, str, int]:
+def store_document(
+    tree_id: str,
+    filename: str,
+    data_url: str,
+    limits: MediaLimits,
+) -> tuple[str, str, int]:
     """Persist an attachment from a base64 data URL, unmodified.
 
     Validates the type against the allowlist (by declared MIME, falling back to
-    the user filename's extension) and the size against ``MAX_DOCUMENT_BYTES``.
+    the user filename's extension) and the configured document size limit.
     Returns ``(media_url, mime_type, size_bytes)``.
     """
     match = _DATA_URL_RE.match(data_url)
@@ -119,8 +114,10 @@ def store_document(tree_id: str, filename: str, data_url: str) -> tuple[str, str
     except (binascii.Error, ValueError) as exc:
         raise ValueError("Invalid base64 file data") from exc
 
-    if len(raw) > MAX_DOCUMENT_BYTES:
-        raise FileTooLarge("File too large")
+    if len(raw) > limits.max_document_bytes:
+        raise FileTooLarge(
+            f"File exceeds the {limits.max_document_bytes // (1024 * 1024)} MB limit."
+        )
 
     name_ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if mime in _DOC_MIME_EXT:
@@ -187,11 +184,11 @@ def is_data_url(value: str | None) -> bool:
     return isinstance(value, str) and value.startswith("data:")
 
 
-def store_data_url(tree_id: str, data_url: str) -> str:
+def store_data_url(tree_id: str, data_url: str, limits: MediaLimits) -> str:
     """Persist a base64 data URL to disk and return its relative media URL.
 
     Raises ``UnsupportedImageType`` for unknown or unparseable MIME types and
-    ``ImageTooLarge`` when the decoded payload exceeds ``MAX_IMAGE_BYTES``.
+    ``ImageTooLarge`` when the decoded payload exceeds the configured limit.
     """
     match = _DATA_URL_RE.match(data_url)
     if not match:
@@ -210,36 +207,40 @@ def store_data_url(tree_id: str, data_url: str) -> str:
     except (binascii.Error, ValueError) as exc:
         raise ValueError("Invalid base64 image data") from exc
 
-    if len(raw) > MAX_IMAGE_BYTES:
+    if len(raw) > limits.max_image_bytes:
         raise ImageTooLarge(
-            f"Image exceeds the {MAX_IMAGE_BYTES // (1024 * 1024)} MB limit."
+            f"Image exceeds the {limits.max_image_bytes // (1024 * 1024)} MB limit."
         )
 
-    raw, ext = _normalize_image(raw, ext)
+    raw, ext = _normalize_image(raw, ext, limits)
 
     filename = f"{uuid4().hex}.{ext}"
     (_tree_media_dir(tree_id) / filename).write_bytes(raw)
     return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
 
 
-def _normalize_image(raw: bytes, ext: str) -> tuple[bytes, str]:
+def _normalize_image(
+    raw: bytes,
+    ext: str,
+    limits: MediaLimits,
+) -> tuple[bytes, str]:
     """Validate dimensions, resize to fit within the display cap, and re-encode as WebP.
 
     Raises ``UnsupportedImageType`` when Pillow cannot parse the payload or
-    either image dimension exceeds ``MAX_IMAGE_DIMENSION`` before resizing.
+    either image dimension exceeds the configured limit before resizing.
     """
     from PIL import Image, UnidentifiedImageError
 
     try:
         with Image.open(BytesIO(raw)) as img:
             w, h = img.size
-            if w > MAX_IMAGE_DIMENSION or h > MAX_IMAGE_DIMENSION:
+            if w > limits.max_image_dimension or h > limits.max_image_dimension:
                 raise UnsupportedImageType(
                     f"Image dimensions {w}×{h} exceed the "
-                    f"{MAX_IMAGE_DIMENSION}px limit per side."
+                    f"{limits.max_image_dimension}px limit per side."
                 )
             img = img.convert("RGB") if img.mode in ("P", "RGBA", "LA") else img
-            img.thumbnail((1920, 1080))
+            img.thumbnail((limits.stored_image_width, limits.stored_image_height))
             buffer = BytesIO()
             img.save(buffer, format="WEBP", quality=85)
             return buffer.getvalue(), "webp"
@@ -294,7 +295,11 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
-def process_image_field(tree_id: str, value: str | None) -> str | None:
+def process_image_field(
+    tree_id: str,
+    value: str | None,
+    limits: MediaLimits,
+) -> str | None:
     """Resolve an incoming image field to its persisted form.
 
     Accepts only:
@@ -308,7 +313,7 @@ def process_image_field(tree_id: str, value: str | None) -> str | None:
     if value is None:
         return None
     if is_data_url(value):
-        return store_data_url(tree_id, value)
+        return store_data_url(tree_id, value, limits)
     own_prefix = f"{MEDIA_URL_PREFIX}/{tree_id}/"
     if value.startswith(own_prefix):
         return value

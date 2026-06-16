@@ -13,20 +13,37 @@ def test_member_crud_roundtrip(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
 
-    created = _create_member(client, tree, user, "m1", firstName="Ada")
+    created = _create_member(
+        client,
+        tree,
+        user,
+        "m1",
+        firstName="Ada",
+        middleNames="Augusta",
+        baptismalName="Augusta Ada",
+    )
     assert created.status_code == 201
     assert created.json()["firstName"] == "Ada"
+    assert created.json()["middleNames"] == "Augusta"
+    assert created.json()["baptismalName"] == "Augusta Ada"
 
     updated = client.patch(
         f"{API}/trees/{tree.id}/members/m1",
         headers=auth(user),
-        json={"lastName": "Lovelace"},
+        json={
+            "middleNames": "Augusta Byron",
+            "baptismalName": None,
+            "lastName": "Lovelace",
+        },
     )
     assert updated.status_code == 200
     assert updated.json()["lastName"] == "Lovelace"
+    assert updated.json()["middleNames"] == "Augusta Byron"
+    assert updated.json()["baptismalName"] is None
 
     listed = client.get(f"{API}/trees/{tree.id}/members", headers=auth(user)).json()
     assert len(listed) == 1
+    assert listed[0]["middleNames"] == "Augusta Byron"
 
     deleted = client.delete(
         f"{API}/trees/{tree.id}/members/m1", headers=auth(user)

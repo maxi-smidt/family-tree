@@ -1,5 +1,13 @@
 import { api } from "@/services/api";
-import { ShareCandidate, ShareRole, TreeAccess } from "@/types/tree";
+import {
+  InvitationAcceptResult,
+  InvitationPreview,
+  ShareCandidate,
+  ShareRole,
+  Tree,
+  TreeAccess,
+  TreeInvitation,
+} from "@/types/tree";
 
 export interface TreeSharingData {
   access: TreeAccess[];
@@ -46,7 +54,54 @@ export const TreeSharingService = {
     return api.del<void>(`/trees/${treeId}/access/${userId}`);
   },
 
+  updateMemberRestrictions(
+    treeId: string,
+    userId: string,
+    restrictions: string[],
+  ): Promise<TreeAccess[]> {
+    return api.patch<TreeAccess[]>(
+      `/trees/${treeId}/access/${userId}/restrictions`,
+      { restrictions },
+    );
+  },
+
   transferOwnership(treeId: string, username: string): Promise<void> {
     return api.post<void>(`/trees/${treeId}/transfer`, { username });
+  },
+
+  listInvitations(treeId: string): Promise<TreeInvitation[]> {
+    return api.get<TreeInvitation[]>(`/trees/${treeId}/invitations`);
+  },
+
+  createInvitation(
+    treeId: string,
+    opts: { email?: string; role: ShareRole; expiresInDays?: number },
+  ): Promise<TreeInvitation> {
+    return api.post<TreeInvitation>(`/trees/${treeId}/invitations`, {
+      email: opts.email ?? null,
+      role: opts.role,
+      expires_in_days: opts.expiresInDays ?? null,
+    });
+  },
+
+  revokeInvitation(treeId: string, invitationId: string): Promise<void> {
+    return api.del<void>(`/trees/${treeId}/invitations/${invitationId}`);
+  },
+
+  previewInvite(token: string): Promise<InvitationPreview> {
+    return api.get<InvitationPreview>(`/invites/${token}`);
+  },
+
+  acceptInvite(token: string): Promise<InvitationAcceptResult> {
+    return api.post<InvitationAcceptResult>(`/invites/${token}/accept`, {});
+  },
+
+  setPublicAccess(
+    treeId: string,
+    publicRole: "viewer" | null,
+  ): Promise<Tree> {
+    return api.patch<Tree>(`/trees/${treeId}/public`, {
+      public_role: publicRole,
+    });
   },
 };

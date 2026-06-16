@@ -50,12 +50,16 @@ const MEMBERS_DB: MemberDB[] = [
   {
     id: "robert",
     gender: "m",
+    academicTitle: null,
     firstName: "Robert",
     lastName: "Williams",
+    middleNames: null,
+    baptismalName: null,
     maidenName: null,
     imageData: null,
     dateOfBirth: "1822",
     dateOfDeath: null,
+    deceased: false,
     additionalData: null,
     isCollapsed: 0,
     positionX: 0,
@@ -64,12 +68,16 @@ const MEMBERS_DB: MemberDB[] = [
   {
     id: "mary",
     gender: "f",
+    academicTitle: null,
     firstName: "Mary",
     lastName: "Wilson",
+    middleNames: null,
+    baptismalName: null,
     maidenName: null,
     imageData: null,
     dateOfBirth: "BEF 1828", // ← GEDCOM qualifier — not ISO
     dateOfDeath: null,
+    deceased: false,
     additionalData: null,
     isCollapsed: 0,
     positionX: 0,
@@ -78,12 +86,16 @@ const MEMBERS_DB: MemberDB[] = [
   {
     id: "joe",
     gender: "m",
+    academicTitle: null,
     firstName: "Joe",
     lastName: "Williams",
+    middleNames: null,
+    baptismalName: null,
     maidenName: null,
     imageData: null,
     dateOfBirth: "11 Jun 1845",
     dateOfDeath: null,
+    deceased: false,
     additionalData: null,
     isCollapsed: 0,
     positionX: 0,
@@ -107,6 +119,8 @@ function mockSubStoresForGedcomTree() {
   vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getStories).mockResolvedValue([]);
   vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+  vi.mocked(TreeService.getSources).mockResolvedValue([]);
+  vi.mocked(TreeService.getCitations).mockResolvedValue([]);
   vi.mocked(TreeService.getActivity).mockResolvedValue([]);
   vi.mocked(TreeService.getRelationTypes).mockResolvedValue(
     ["parent", "married", "partner", "divorced", "sibling"].map((id) => ({

@@ -25,7 +25,7 @@ import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDia
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { RelationTypesPanel } from "@/components/admin/RelationTypesPanel";
-import { KeyRound, Plus, Trash2, Undo2 } from "lucide-react";
+import { KeyRound, Plus, ShieldOff, Trash2, Undo2 } from "lucide-react";
 import {
   AdminService,
   AdminSettings,
@@ -45,11 +45,13 @@ type Props = {
 export const AdminDialog = ({ isOpen, onClose }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "admin" });
   const currentUser = useAuthStore((s) => s.user);
+  const refreshConfig = useAuthStore((s) => s.refreshConfig);
 
   const [users, setUsers] = useState<User[]>([]);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [resetPassword, setResetPassword] = useState("");
+  const [userToResetTotp, setUserToResetTotp] = useState<User | null>(null);
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -138,11 +140,29 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
     }
   };
 
+  const resetUserTotp = async () => {
+    if (!userToResetTotp) return;
+    try {
+      await AdminService.resetUserTotp(userToResetTotp.id);
+      await loadUsers();
+      toast.success(t("totp-reset-success"));
+      setUserToResetTotp(null);
+    } catch (err) {
+      console.error(err);
+      toast.error(t("totp-reset-error"));
+    }
+  };
+
   const saveSettings = async () => {
     if (!settings) return;
     try {
       const updated = await AdminService.updateSettings(settings);
       setSettings(updated);
+      try {
+        await refreshConfig();
+      } catch (configError) {
+        console.error(configError);
+      }
       toast.success(t("settings-saved"));
     } catch (err) {
       console.error(err);
@@ -256,6 +276,17 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
                               >
                                 <KeyRound className="h-4 w-4" />
                               </Button>
+                              {u.totp_enabled && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title={t("reset-totp")}
+                                  aria-label={t("reset-totp")}
+                                  onClick={() => setUserToResetTotp(u)}
+                                >
+                                  <ShieldOff className="h-4 w-4" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -379,6 +410,80 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
                     {t("deletion-grace-period-hint")}
                   </p>
                 </div>
+                <div className="space-y-3 border-t pt-4">
+                  <div>
+                    <p className="font-medium text-sm">{t("upload-limits")}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t("upload-limits-hint")}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="max-image-upload">
+                        {t("max-image-upload")}
+                      </FieldLabel>
+                      <Input
+                        id="max-image-upload"
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={settings.max_image_upload_mb}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            max_image_upload_mb: Math.min(
+                              100,
+                              Math.max(1, Number(e.target.value)),
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="max-document-upload">
+                        {t("max-document-upload")}
+                      </FieldLabel>
+                      <Input
+                        id="max-document-upload"
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={settings.max_document_upload_mb}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            max_document_upload_mb: Math.min(
+                              500,
+                              Math.max(1, Number(e.target.value)),
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="max-image-dimension">
+                        {t("max-image-dimension")}
+                      </FieldLabel>
+                      <Input
+                        id="max-image-dimension"
+                        type="number"
+                        min={256}
+                        max={16384}
+                        step={256}
+                        value={settings.max_image_dimension}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            max_image_dimension: Math.min(
+                              16384,
+                              Math.max(256, Number(e.target.value)),
+                            ),
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div>
                     <p className="font-medium text-sm">
@@ -479,6 +584,18 @@ export const AdminDialog = ({ isOpen, onClose }: Props) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!userToResetTotp}
+        onOpenChange={(open) => !open && setUserToResetTotp(null)}
+        onConfirm={resetUserTotp}
+        title={t("totp-reset-dialog.title")}
+        description={t("totp-reset-dialog.description", {
+          username: userToResetTotp?.username ?? "",
+        })}
+        cancelText={t("totp-reset-dialog.cancel")}
+        confirmText={t("totp-reset-dialog.confirm")}
+      />
     </Dialog>
   );
 };

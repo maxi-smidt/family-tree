@@ -124,6 +124,7 @@ export const MemberControls = ({
               size="icon"
               onClick={onCollapseMembers}
               disabled={selectedNoExpandedMember()}
+              aria-label={t("collapse-children")}
             >
               <ChevronsDownUp />
             </Button>
@@ -137,6 +138,7 @@ export const MemberControls = ({
               size="icon"
               onClick={onExpandMembers}
               disabled={selectedNoCollapsedMember()}
+              aria-label={t("expand-children")}
             >
               <ChevronsUpDown />
             </Button>
@@ -150,6 +152,7 @@ export const MemberControls = ({
               size="icon"
               onClick={onExpandAllMembers}
               disabled={noCollapsedMember()}
+              aria-label={t("expand-all-children")}
             >
               <ListChevronsUpDown />
             </Button>
@@ -172,6 +175,7 @@ export const MemberControls = ({
                 size="icon"
                 onClick={onAddMember}
                 disabled={isLockedScreen}
+                aria-label={t("add-person")}
                 className="text-green-600 hover:bg-green-50 hover:text-green-700"
               >
                 <UserPlus size={20} />
@@ -186,6 +190,7 @@ export const MemberControls = ({
                 size="icon"
                 onClick={onRemoveMembers}
                 disabled={!selectedNodes.length || isLockedScreen}
+                aria-label={t("remove-person")}
                 className="text-red-600 hover:bg-red-50 hover:text-red-700"
               >
                 <UserMinus />

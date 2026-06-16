@@ -1,6 +1,15 @@
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, false
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, utcnow_iso
@@ -24,6 +33,7 @@ class VirtualView(Base):
         back_populates="view",
         cascade="all, delete-orphan",
         order_by="VirtualViewSource.position",
+        foreign_keys="VirtualViewSource.view_id",
     )
     matches: Mapped[list["VirtualViewMemberMatch"]] = relationship(
         cascade="all, delete-orphan",
@@ -34,17 +44,47 @@ class VirtualView(Base):
 
 
 class VirtualViewSource(Base):
+    """A source of a virtual view — either a real tree or another virtual view.
+
+    Exactly one of ``tree_id`` / ``source_view_id`` is set (enforced by a check
+    constraint). ``ON DELETE CASCADE`` on both FKs means deleting a source tree
+    *or* a nested source view drops this row, so the parent view naturally falls
+    below its 2-source minimum and reports ``virtual_view_sources_missing``.
+
+    Nesting is pure sugar: a virtual view's sources are flattened to the
+    underlying real ``tree_id``s (see ``services/virtual_view_sources.py``), so
+    a view over ``{A, vv1}`` with ``vv1 = {B, C}`` behaves exactly like ``{A, B,
+    C}``.
+    """
+
     __tablename__ = "virtual_view_sources"
+    __table_args__ = (
+        CheckConstraint(
+            "(tree_id IS NULL) <> (source_view_id IS NULL)",
+            name="ck_vvs_exactly_one_source",
+        ),
+    )
 
     view_id: Mapped[str] = mapped_column(
-        String(40), ForeignKey("virtual_views.id", ondelete="CASCADE"), primary_key=True
+        String(40),
+        ForeignKey("virtual_views.id", ondelete="CASCADE"),
+        primary_key=True,
     )
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), primary_key=True
+    # Positions are assigned 0..n per view (unique within a view), so they form
+    # the rest of the primary key now that a source may be a tree or a view.
+    position: Mapped[int] = mapped_column(Integer, primary_key=True, default=0)
+    tree_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), nullable=True
     )
-    position: Mapped[int] = mapped_column(Integer, default=0)
+    source_view_id: Mapped[str | None] = mapped_column(
+        String(40),
+        ForeignKey("virtual_views.id", ondelete="CASCADE"),
+        nullable=True,
+    )
 
-    view: Mapped["VirtualView"] = relationship(back_populates="sources")
+    view: Mapped["VirtualView"] = relationship(
+        back_populates="sources", foreign_keys=[view_id]
+    )
 
 
 class VirtualViewMemberMatch(Base):

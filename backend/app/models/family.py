@@ -19,7 +19,10 @@ class Member(Base):
     )
 
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
+    academicTitle: Mapped[str | None] = mapped_column(String(100), nullable=True)
     firstName: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    middleNames: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    baptismalName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     lastName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     maidenName: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Relative media URL (e.g. /api/media/<tree>/<file>) or null.
@@ -30,6 +33,7 @@ class Member(Base):
     birthplace: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hometown: Mapped[str | None] = mapped_column(String(255), nullable=True)
     placesLived: Mapped[str | None] = mapped_column(Text, nullable=True)
+    deceased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     isCollapsed: Mapped[bool] = mapped_column(Boolean, default=False)
     positionX: Mapped[float] = mapped_column(Float, default=0)
     positionY: Mapped[float] = mapped_column(Float, default=0)
