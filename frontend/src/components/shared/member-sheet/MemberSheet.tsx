@@ -93,6 +93,14 @@ export const MemberSheet = ({
       <SheetContent
         className="w-full max-w-full sm:w-135 sm:max-w-none"
         showCloseButton={false}
+        onOpenAutoFocus={(e) => {
+          if (isViewingEditMode) {
+            e.preventDefault();
+            requestAnimationFrame(() => {
+              document.getElementById("firstName")?.focus();
+            });
+          }
+        }}
       >
         <SheetHeader className="border-b">
           <div className="pr-10">

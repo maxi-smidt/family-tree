@@ -342,7 +342,6 @@
       "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
       "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",
       "toast-error-duplicate": "Eine Person mit denselben Daten existiert bereits.",
-      "toast-error-required": "Vor- und Nachname sind erforderlich.",
       "toast-error-image-too-large": "Das Foto ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-error-save": "Speichern fehlgeschlagen.",
@@ -370,7 +369,11 @@
       "places-lived-from": "Von (Jahr)",
       "places-lived-to": "Bis (Jahr)",
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
-      "deceased-field": "Verstorben"
+      "deceased-field": "Verstorben",
+      "error-firstname-required": "Vorname ist erforderlich.",
+      "error-lastname-required": "Nachname ist erforderlich.",
+      "firstname-placeholder": "z. B. Jana",
+      "maiden-placeholder": "Mädchenname"
     },
     "view-mode": {
       "firstname-item": "Vorname",

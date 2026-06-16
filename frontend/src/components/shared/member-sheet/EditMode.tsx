@@ -25,7 +25,7 @@ import { Gender, Member } from "@/types/member";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
@@ -79,11 +79,18 @@ export const EditMode = ({
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{
+    firstName?: string;
+    lastName?: string;
+  }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(member);
     setInitialData(member);
+    setErrors({});
     onDirtyChange?.(false);
   }, [member]);
 
@@ -178,8 +185,14 @@ export const EditMode = ({
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      toast.error(t("toast-error-required"));
+    const nextErrors: { firstName?: string; lastName?: string } = {};
+    if (!formData.firstName.trim())
+      nextErrors.firstName = t("error-firstname-required");
+    if (!formData.lastName.trim())
+      nextErrors.lastName = t("error-lastname-required");
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      (nextErrors.firstName ? firstNameRef : lastNameRef).current?.focus();
       return;
     }
 
@@ -315,22 +328,39 @@ export const EditMode = ({
             </ToggleGroup>
           </Field>
 
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+          <Field data-invalid={!!errors.firstName}>
+            <FieldLabel
+              htmlFor="firstName"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("firstname-field")}
             </FieldLabel>
             <Input
-              autoFocus
+              ref={firstNameRef}
               id="firstName"
+              required
+              aria-required="true"
+              aria-invalid={!!errors.firstName}
+              aria-describedby={
+                errors.firstName ? "firstName-error" : undefined
+              }
               value={formData.firstName}
               className="h-7 text-xs! shadow-none"
-              placeholder={t("firstname-field")}
-              onChange={(e) => handleChange("firstName", e.target.value)}
+              placeholder={t("firstname-placeholder")}
+              onChange={(e) => {
+                handleChange("firstName", e.target.value);
+                if (errors.firstName)
+                  setErrors((p) => ({ ...p, firstName: undefined }));
+              }}
             />
+            <FieldError id="firstName-error">{errors.firstName}</FieldError>
           </Field>
 
           <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+            <FieldLabel
+              htmlFor="middleNames"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("middle-names-field")}
             </FieldLabel>
             <Input
@@ -343,7 +373,10 @@ export const EditMode = ({
           </Field>
 
           <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+            <FieldLabel
+              htmlFor="baptismalName"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("baptismal-name-field")}
             </FieldLabel>
             <Input
@@ -355,28 +388,44 @@ export const EditMode = ({
             />
           </Field>
 
-          <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+          <Field data-invalid={!!errors.lastName}>
+            <FieldLabel
+              htmlFor="lastName"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("lastname-field")}
             </FieldLabel>
             <Input
+              ref={lastNameRef}
               id="lastName"
+              required
+              aria-required="true"
+              aria-invalid={!!errors.lastName}
+              aria-describedby={errors.lastName ? "lastName-error" : undefined}
               value={formData.lastName}
               className="h-7 text-xs! shadow-none"
               placeholder={t("lastname-field")}
-              onChange={(e) => handleChange("lastName", e.target.value)}
+              onChange={(e) => {
+                handleChange("lastName", e.target.value);
+                if (errors.lastName)
+                  setErrors((p) => ({ ...p, lastName: undefined }));
+              }}
             />
+            <FieldError id="lastName-error">{errors.lastName}</FieldError>
           </Field>
 
           <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+            <FieldLabel
+              htmlFor="maidenName"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("maiden-field")}
             </FieldLabel>
             <Input
               id="maidenName"
               value={formData.maidenName || ""}
               className="h-7 text-xs! shadow-none"
-              placeholder={t("lastname-field")}
+              placeholder={t("maiden-placeholder")}
               onChange={(e) => handleChange("maidenName", e.target.value)}
             />
           </Field>
@@ -427,7 +476,10 @@ export const EditMode = ({
           </Field>
 
           <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+            <FieldLabel
+              htmlFor="additionalData"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("notes-field")}
             </FieldLabel>
             <Textarea
@@ -441,7 +493,10 @@ export const EditMode = ({
           </Field>
 
           <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+            <FieldLabel
+              htmlFor="birthplace"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("birthplace-field")}
             </FieldLabel>
             <Input
@@ -454,7 +509,10 @@ export const EditMode = ({
           </Field>
 
           <Field>
-            <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+            <FieldLabel
+              htmlFor="hometown"
+              className="text-[12px] font-semibold text-muted-foreground uppercase"
+            >
               {t("hometown-field")}
             </FieldLabel>
             <Input
