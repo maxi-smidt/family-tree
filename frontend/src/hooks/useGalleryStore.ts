@@ -5,6 +5,7 @@ import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 
 interface GalleryState {
   galleryImages: GalleryImage[];
+  initialized: boolean;
   refreshGalleryImages: (treeId?: string) => Promise<void>;
   addGalleryImage: (
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
@@ -19,6 +20,7 @@ interface GalleryState {
 
 export const useGalleryStore = create<GalleryState>((set, get) => ({
   galleryImages: [],
+  initialized: false,
 
   refreshGalleryImages: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -49,7 +51,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       };
     });
 
-    set({ galleryImages: images });
+    set({ galleryImages: images, initialized: true });
   },
 
   addGalleryImage: async (
@@ -88,5 +90,5 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     await get().refreshGalleryImages(treeId);
   },
 
-  clear: () => set({ galleryImages: [] }),
+  clear: () => set({ galleryImages: [], initialized: false }),
 }));

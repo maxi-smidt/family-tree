@@ -2,7 +2,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { ImageCard } from "@/components/view/gallery-view/ImageCard";
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 import { GalleryImage } from "@/types/gallery";
 import { UploadImageCard } from "@/components/view/gallery-view/UploadImageCard";
@@ -67,8 +67,15 @@ function GallerySkeleton() {
 
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
-  const { galleryImages, addGalleryImage } = useGalleryStore();
+  const { galleryImages, addGalleryImage, refreshGalleryImages, initialized } = useGalleryStore();
   const isReady = useTreeStore((state) => state.isReady);
+  const selectedTree = useTreeStore((state) => state.selectedTree);
+
+  useEffect(() => {
+    if (!initialized && selectedTree) {
+      void refreshGalleryImages(selectedTree.id);
+    }
+  }, [initialized, selectedTree, refreshGalleryImages]);
   const mediaLimits = useAuthStore((state) => state.config?.media_limits);
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");

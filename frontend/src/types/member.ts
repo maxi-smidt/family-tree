@@ -117,7 +117,7 @@ export interface MemberDB {
   dateOfBirth: string;
   dateOfDeath: string | null;
   deceased: boolean;
-  additionalData: string | null;
+  additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
   placesLived?: string | null;
@@ -196,7 +196,7 @@ export function mapMemberFromDB(
       paternalParent: null,
       maternalParent: null,
     },
-    additionalData: row.additionalData,
+    additionalData: row.additionalData ?? null,
     birthplace: row.birthplace ?? null,
     hometown: row.hometown ?? null,
     placesLived: parsePlacesLived(row.placesLived),

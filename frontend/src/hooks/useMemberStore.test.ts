@@ -89,18 +89,19 @@ describe("useMemberStore — refreshMembers", () => {
     expect(members[0].gender).toBe("m");
     expect(members[0].date.birth).toBe("1980-01-01");
     expect(members[0].isCollapsed).toBe(false);
-    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID);
+    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID, true);
   });
 
-  it("calls getMembers, getRelations, and getDiseases in parallel", async () => {
+  it("calls getMembers and getRelations in parallel (diseases deferred to fetchMemberDetail)", async () => {
     selectTree();
     mockServiceEmpty();
 
     await useMemberStore.getState().refreshMembers();
 
-    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID);
+    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID, true);
     expect(TreeService.getRelations).toHaveBeenCalledWith(TREE_ID);
-    expect(TreeService.getDiseases).toHaveBeenCalledWith(TREE_ID);
+    // getDiseases is no longer called on refreshMembers — it is deferred to fetchMemberDetail
+    expect(TreeService.getDiseases).not.toHaveBeenCalled();
   });
 });
 

@@ -181,3 +181,65 @@ def test_relation_valid_path(client, db):
     assert res.json()["from_member_id"] == "m1"
     assert res.json()["to_member_id"] == "m2"
     assert res.json()["relation_type"] == "sibling"
+
+
+def test_surface_list_omits_detail_fields(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _create_member(
+        client,
+        tree,
+        user,
+        "m1",
+        additionalData="some notes",
+        birthplace="Berlin",
+        hometown="Munich",
+    )
+
+    # With surface=true, detail fields should be absent/None
+    res = client.get(
+        f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["additionalData"] is None
+    assert data[0]["birthplace"] is None
+    assert data[0]["hometown"] is None
+    # Surface fields should be present
+    assert data[0]["id"] == "m1"
+    assert data[0]["firstName"] == "Jo"
+
+    # Without surface param, detail fields should be present
+    res2 = client.get(
+        f"{API}/trees/{tree.id}/members", headers=auth(user)
+    )
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert len(data2) == 1
+    assert data2[0]["additionalData"] == "some notes"
+    assert data2[0]["birthplace"] == "Berlin"
+    assert data2[0]["hometown"] == "Munich"
+
+
+def test_member_detail_endpoint(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _create_member(
+        client,
+        tree,
+        user,
+        "m1",
+        additionalData="detailed notes",
+        birthplace="Hamburg",
+    )
+
+    res = client.get(
+        f"{API}/trees/{tree.id}/members/m1", headers=auth(user)
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["id"] == "m1"
+    assert data["additionalData"] == "detailed notes"
+    assert data["birthplace"] == "Hamburg"
+    assert data["firstName"] == "Jo"

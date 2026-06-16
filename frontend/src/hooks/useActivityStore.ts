@@ -8,6 +8,7 @@ interface ActivityState {
   filterActor: string;
   filterAction: string;
   filterTargetType: string;
+  initialized: boolean;
   refreshActivity: (treeId?: string) => Promise<void>;
   setFilter: (
     key: "filterActor" | "filterAction" | "filterTargetType",
@@ -21,6 +22,7 @@ export const useActivityStore = create<ActivityState>((set) => ({
   filterActor: "",
   filterAction: "",
   filterTargetType: "",
+  initialized: false,
 
   refreshActivity: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -29,12 +31,12 @@ export const useActivityStore = create<ActivityState>((set) => ({
     }
     const result = await TreeService.getActivity(treeId);
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
-    set({ activities: result.map(mapActivityFromDB) });
+    set({ activities: result.map(mapActivityFromDB), initialized: true });
   },
 
   setFilter: (key, val) => set({ [key]: val }),
 
-  clear: () => set({ activities: [] }),
+  clear: () => set({ activities: [], initialized: false }),
 }));
 
 export function selectFilteredActivities(state: ActivityState): Activity[] {

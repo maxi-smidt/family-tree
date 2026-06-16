@@ -460,6 +460,7 @@
       "tab-records": "Records"
     },
     "member-sheet": {
+      "loading-detail": "Loading details...",
       "edit-title": "Edit Member",
       "detail-title": "Member Details",
       "edit-description": "Update the member's information.",

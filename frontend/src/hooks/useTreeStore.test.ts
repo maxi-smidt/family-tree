@@ -176,19 +176,24 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(useTreeStore.getState().isReady).toBe(true);
   });
 
-  it("loads all content stores when every feature flag is enabled", async () => {
+  it("defers secondary store loads until first tab visit (connect only loads members)", async () => {
     mockEmptySubStores();
     mockApiGetForConnect(TREE_A.id, TREE_A);
 
     await useTreeStore.getState().connect(TREE_A);
 
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
-    expect(TreeService.getEvents).toHaveBeenCalled();
-    expect(TreeService.getStories).toHaveBeenCalled();
-    expect(TreeService.getActivity).toHaveBeenCalled();
+    expect(useTreeStore.getState().isReady).toBe(true);
+    // Secondary stores are deferred to first tab visit — connect() does NOT load them.
+    expect(TreeService.getGalleryImages).not.toHaveBeenCalled();
+    expect(TreeService.getEvents).not.toHaveBeenCalled();
+    expect(TreeService.getStories).not.toHaveBeenCalled();
+    expect(TreeService.getActivity).not.toHaveBeenCalled();
+    // Core stores are still loaded eagerly.
+    expect(TreeService.getMembers).toHaveBeenCalled();
+    expect(TreeService.getRelationTypes).toHaveBeenCalled();
   });
 
-  it("skips content loads for disabled features", async () => {
+  it("secondary stores are not called regardless of feature flags", async () => {
     useAuthStore.setState({
       features: ALL_FEATURES.filter((f) => f !== "gallery" && f !== "events"),
     });
@@ -198,13 +203,14 @@ describe("useTreeStore — connect / selectTree", () => {
     await useTreeStore.getState().connect(TREE_A);
 
     expect(useTreeStore.getState().isReady).toBe(true);
+    // No secondary stores loaded on connect (deferred to first tab visit).
     expect(TreeService.getGalleryImages).not.toHaveBeenCalled();
     expect(TreeService.getEvents).not.toHaveBeenCalled();
-    expect(TreeService.getStories).toHaveBeenCalled();
-    expect(TreeService.getActivity).toHaveBeenCalled();
+    expect(TreeService.getStories).not.toHaveBeenCalled();
+    expect(TreeService.getActivity).not.toHaveBeenCalled();
   });
 
-  it("loads the same content stores for a virtual tree (read parity)", async () => {
+  it("virtual tree connect still defers secondary stores", async () => {
     const VV: Tree = {
       id: "vv_x",
       name: "Composite",
@@ -224,11 +230,11 @@ describe("useTreeStore — connect / selectTree", () => {
 
     expect(useTreeStore.getState().selectedTree?.id).toBe(VV.id);
     expect(useTreeStore.getState().isReady).toBe(true);
-    // A virtual tree behaves like a normal one: every content store loads.
-    expect(TreeService.getGalleryImages).toHaveBeenCalled();
-    expect(TreeService.getEvents).toHaveBeenCalled();
-    expect(TreeService.getStories).toHaveBeenCalled();
-    expect(TreeService.getActivity).toHaveBeenCalled();
+    // Secondary stores are deferred even for virtual trees.
+    expect(TreeService.getGalleryImages).not.toHaveBeenCalled();
+    expect(TreeService.getEvents).not.toHaveBeenCalled();
+    expect(TreeService.getStories).not.toHaveBeenCalled();
+    expect(TreeService.getActivity).not.toHaveBeenCalled();
   });
 });
 

@@ -3,7 +3,9 @@ import {
   selectFilteredActivities,
 } from "@/hooks/useActivityStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { Activity } from "@/types/activity";
+import { useEffect } from "react";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -181,8 +183,15 @@ export const ActivityView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "activity-view" });
   const store = useActivityStore();
   const filteredActivities = selectFilteredActivities(store);
-  const { filterActor, filterAction, filterTargetType, setFilter, activities } =
+  const { filterActor, filterAction, filterTargetType, setFilter, activities, refreshActivity, initialized } =
     store;
+  const selectedTree = useTreeStore((state) => state.selectedTree);
+
+  useEffect(() => {
+    if (!initialized && selectedTree) {
+      void refreshActivity(selectedTree.id);
+    }
+  }, [initialized, selectedTree, refreshActivity]);
 
   const uniqueActors = Array.from(
     new Set(activities.map((a) => a.actorUsername).filter(Boolean)),

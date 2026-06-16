@@ -15,7 +15,10 @@ import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
+import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
   isOpen: boolean;
@@ -41,17 +44,35 @@ export const MemberSheet = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
   });
-  const { removeMember } = useMemberStore();
+  const { removeMember, fetchMemberDetail } = useMemberStore();
+  const { refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const selectedTree = useTreeStore((s) => s.selectedTree);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
+
+  // Fetch full member detail when the sheet opens for an existing member
+  useEffect(() => {
+    if (isOpen && member && !isNewMember) {
+      setIsLoadingDetail(true);
+      void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
+    }
+  }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load events if not yet loaded (needed for syncVitalEvent in updateMemberPartial)
+  useEffect(() => {
+    if (isOpen && !isNewMember && !eventsInitialized && selectedTree) {
+      void refreshEvents(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, eventsInitialized, selectedTree, refreshEvents]);
 
   if (!member) return null;
 
@@ -128,7 +149,12 @@ export const MemberSheet = ({
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-4 overflow-y-auto flex-1">
-            {isViewingEditMode ? (
+            {isLoadingDetail && !isNewMember ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                <Spinner className="size-5" />
+                <span className="text-sm">{t("loading-detail")}</span>
+              </div>
+            ) : isViewingEditMode ? (
               <EditMode
                 member={member}
                 isNew={isNewMember}
