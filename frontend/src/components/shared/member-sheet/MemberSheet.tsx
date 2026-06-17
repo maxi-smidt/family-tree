@@ -44,7 +44,7 @@ export const MemberSheet = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
   });
-  const { removeMember, fetchMemberDetail } = useMemberStore();
+  const { removeMember, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -58,10 +58,14 @@ export const MemberSheet = ({
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
 
-  // Fetch full member detail when the sheet opens for an existing member
+  // Fetch full member detail when the sheet opens for an existing member.
+  // Skip the spinner entirely when detail is already cached for this member.
   useEffect(() => {
     if (isOpen && member && !isNewMember) {
-      setIsLoadingDetail(true);
+      const alreadyLoaded = detailLoadedIds.has(member.id);
+      if (!alreadyLoaded) {
+        setIsLoadingDetail(true);
+      }
       void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
     }
   }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps

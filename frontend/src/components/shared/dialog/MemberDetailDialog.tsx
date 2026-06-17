@@ -48,14 +48,17 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   const { galleryImages } = useGalleryStore();
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
-  const { members, fetchMemberDetail } = useMemberStore();
+  const { members, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   useEffect(() => {
     if (open && member) {
-      setIsLoadingDetail(true);
+      const alreadyLoaded = detailLoadedIds.has(member.id);
+      if (!alreadyLoaded) {
+        setIsLoadingDetail(true);
+      }
       void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
     }
   }, [open, member?.id]); // eslint-disable-line react-hooks/exhaustive-deps
