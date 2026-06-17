@@ -26,6 +26,7 @@ import { GeocodeDB } from "@/types/geocode";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { StatisticsReport } from "@/types/statistics";
+import { TreeStorageUsageDB } from "@/types/storage";
 
 const base = (treeId: string) =>
   treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
@@ -554,6 +555,11 @@ export class TreeService {
   // --- Statistics -----------------------------------------------------------
   static getStatistics(treeId: string) {
     return api.get<StatisticsReport>(`${base(treeId)}/statistics`);
+  }
+
+  // --- Storage usage -------------------------------------------------------
+  static getStorageUsage(treeId: string) {
+    return api.get<TreeStorageUsageDB>(`${base(treeId)}/storage`);
   }
 
   // --- Virtual views --------------------------------------------------------

@@ -24,6 +24,9 @@ class UserOut(BaseModel):
     created_at: str
     deletion_scheduled_for: str | None = None
     deletion_requested_by: str | None = None
+    tree_quota_bytes: int | None = None
+    media_quota_bytes: int | None = None
+    total_quota_bytes: int | None = None
 
 
 class CurrentUserOut(UserOut):
@@ -56,6 +59,9 @@ class UserUpdate(BaseModel):
     password: str | None = None
     is_admin: bool | None = None
     is_active: bool | None = None
+    tree_quota_bytes: int | None = Field(default=None, ge=0)
+    media_quota_bytes: int | None = Field(default=None, ge=0)
+    total_quota_bytes: int | None = Field(default=None, ge=0)
 
     @field_validator("password")
     @classmethod

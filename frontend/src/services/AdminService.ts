@@ -14,6 +14,9 @@ export interface AdminSettings {
   max_image_upload_mb: number;
   max_image_dimension: number;
   max_document_upload_mb: number;
+  default_tree_quota_mb: number;
+  default_media_quota_mb: number;
+  default_total_quota_mb: number;
 }
 
 export interface BackupRecord {

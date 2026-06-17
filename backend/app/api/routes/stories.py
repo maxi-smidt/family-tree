@@ -37,6 +37,7 @@ from app.services.storage import (
     delete_media,
     store_document,
 )
+from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/stories",
@@ -100,6 +101,10 @@ def create_story(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
+    try:
+        check_tree_quota(db, tree, len(str(data).encode()))
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     story = Story(tree_id=tree.id, **data)
     db.add(story)
     db.flush()  # story row must exist before its links reference it
@@ -195,6 +200,12 @@ def add_attachment(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    try:
+        check_media_quota(db, tree, size)
+    except QuotaExceeded as exc:
+        delete_media(url)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
 
     att = StoryAttachment(
         id=str(uuid4()),

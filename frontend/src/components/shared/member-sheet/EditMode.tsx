@@ -1,6 +1,7 @@
 import { Input } from "@/components/ui/input";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { ApiError } from "@/services/api";
+import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useFeature } from "@/hooks/useAuthStore";
@@ -259,7 +260,12 @@ export const EditMode = ({
       return true;
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 413) {
-        toast.error(t("toast-error-image-too-large"));
+        const bucket = getQuotaBucket(err.message);
+        if (bucket) {
+          toast.error(t(quotaToastKey(bucket)));
+        } else {
+          toast.error(t("toast-error-image-too-large"));
+        }
       } else if (err instanceof ApiError && err.status === 400) {
         toast.error(t("toast-error-image-unsupported"));
       } else {

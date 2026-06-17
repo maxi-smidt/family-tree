@@ -27,6 +27,7 @@ from app.schemas.tree import (
     TreeMerge,
     TreeOut,
     TreeShare,
+    TreeStorageUsageOut,
     TreeTransfer,
     TreeUpdate,
 )
@@ -35,6 +36,7 @@ from app.services.extract import compute_subtree_preview, extract_subtree
 from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
+from app.services.storage_usage import compute_usage, owner_quotas
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -166,6 +168,24 @@ def get_metadata(tree: Tree = Depends(get_readable_tree_public)):
         "createdAt": tree.created_at,
         "lastOpened": tree.last_opened,
     }
+
+
+@router.get("/{tree_id}/storage", response_model=TreeStorageUsageOut)
+def get_storage_usage(
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    """Return per-tree storage usage (tree rows + media files) and quota limits."""
+    usage = compute_usage(db, tree.id)
+    quotas = owner_quotas(db, tree)
+    return TreeStorageUsageOut(
+        tree_bytes=usage["tree_bytes"],
+        media_bytes=usage["media_bytes"],
+        total_bytes=usage["total_bytes"],
+        tree_quota_bytes=quotas["tree_quota_bytes"],
+        media_quota_bytes=quotas["media_quota_bytes"],
+        total_quota_bytes=quotas["total_quota_bytes"],
+    )
 
 
 @router.patch("/{tree_id}", response_model=TreeOut)

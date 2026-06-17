@@ -524,6 +524,78 @@ export const AdminView = () => {
                       </div>
                     </div>
                   </div>
+                  <div className="space-y-3 border-t pt-4">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {t("storage-quotas")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("storage-quotas-hint")}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <FieldLabel htmlFor="default-tree-quota">
+                          {t("default-tree-quota")}
+                        </FieldLabel>
+                        <Input
+                          id="default-tree-quota"
+                          type="number"
+                          min={0}
+                          value={settings.default_tree_quota_mb}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              default_tree_quota_mb: Math.max(
+                                0,
+                                Number(e.target.value),
+                              ),
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <FieldLabel htmlFor="default-media-quota">
+                          {t("default-media-quota")}
+                        </FieldLabel>
+                        <Input
+                          id="default-media-quota"
+                          type="number"
+                          min={0}
+                          value={settings.default_media_quota_mb}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              default_media_quota_mb: Math.max(
+                                0,
+                                Number(e.target.value),
+                              ),
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <FieldLabel htmlFor="default-total-quota">
+                          {t("default-total-quota")}
+                        </FieldLabel>
+                        <Input
+                          id="default-total-quota"
+                          type="number"
+                          min={0}
+                          value={settings.default_total_quota_mb}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              default_total_quota_mb: Math.max(
+                                0,
+                                Number(e.target.value),
+                              ),
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between rounded-lg border p-3">
                     <div>
                       <p className="font-medium text-sm">
