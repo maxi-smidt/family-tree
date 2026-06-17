@@ -271,6 +271,8 @@
       "select-date-taken": "Datum Aufgenommen",
       "select-title": "Titel",
       "sort-placeholder": "Sortiere nach",
+      "sort-ascending": "Aufsteigend sortieren",
+      "sort-descending": "Absteigend sortieren",
       "toast-error-canvas-context": "Canvas Kontext konnte nicht geladen werden.",
       "toast-error-image-upload": "Das Bild konnte nicht geladen werden. Ist es ein gültiges Dokument?",
       "toast-error-image-too-large": "Das Bild ist zu groß. Maximale Größe: 10 MB.",
@@ -383,7 +385,6 @@
       "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
       "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",
       "toast-error-duplicate": "Eine Person mit denselben Daten existiert bereits.",
-      "toast-error-required": "Vor- und Nachname sind erforderlich.",
       "toast-error-image-too-large": "Das Foto ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-error-save": "Speichern fehlgeschlagen.",
@@ -412,6 +413,10 @@
       "places-lived-to": "Bis (Jahr)",
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
       "deceased-field": "Verstorben",
+      "error-firstname-required": "Vorname ist erforderlich.",
+      "error-lastname-required": "Nachname ist erforderlich.",
+      "firstname-placeholder": "z. B. Jana",
+      "maiden-placeholder": "Mädchenname",
       "academic-title-field": "Akademischer / Ehrentitel",
       "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
       "tab-identity": "Identität",
@@ -455,6 +460,7 @@
       "tab-records": "Einträge"
     },
     "member-sheet": {
+      "loading-detail": "Details werden geladen...",
       "edit-title": "Person bearbeiten",
       "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
@@ -637,14 +643,35 @@
           "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown-Formatierungsleiste",
+      "bold": "Fett",
+      "bold-default": "fetter Text",
+      "italic": "Kursiv",
+      "italic-default": "kursiver Text",
+      "heading": "Überschrift",
+      "heading-default": "Überschrift",
+      "bullet": "Aufzählungsliste",
+      "bullet-default": "Listeneintrag",
+      "link": "Link",
+      "link-default": "Linktext",
+      "link-url-placeholder": "https://",
+      "tab-write": "Schreiben",
+      "tab-preview": "Vorschau",
+      "preview-empty": "Noch nichts zum Anzeigen."
     }
   },
   "tree-view": {
     "node": {
-      "life-ongoing": "lebt",
-      "life-unknown": "ungewiss",
       "disease-indicator_one": "{{count}} genetische Erkrankung",
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
+      "disease-severity": {
+        "affected": "Betroffen",
+        "carrier": "Träger",
+        "other": "Status unbekannt"
+      },
+      "union-type": "Beziehung: {{type}}",
       "risk-indicator": "Mögliches genetisches Risiko von Eltern · Kein medizinischer Rat",
       "view-details": "Personendetails anzeigen",
       "edit-member": "Person bearbeiten",
@@ -653,7 +680,7 @@
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
       "add-right": "Verwandte Person rechts hinzufügen",
-      "life-deceased-unknown": "verstorben"
+      "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {
@@ -870,8 +897,15 @@
     "timeline-deaths": "Todesfälle",
     "lifespan-title": "Altersverteilung bei Tod (Jahre)",
     "lifespan-people": "Personen",
-    "names-title": "Häufigste Vornamen",
-    "names-count": "Anzahl"
+    "first-names-title": "Häufigste Vornamen",
+    "last-names-title": "Häufigste Nachnamen",
+    "names-count": "Anzahl",
+    "customize": "Anpassen",
+    "customize-title": "Widgets",
+    "customize-reset": "Zurücksetzen",
+    "move-up": "Nach oben",
+    "move-down": "Nach unten",
+    "all-hidden": "Alle Widgets sind ausgeblendet. Über 'Anpassen' wieder einblenden."
   },
   "database-management-view": {
     "title": "Stammbaumverwaltung",
@@ -1102,6 +1136,7 @@
   "admin": {
     "title": "Verwaltung",
     "description": "Benutzer und Instanzeinstellungen verwalten.",
+    "back": "Zurück",
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",

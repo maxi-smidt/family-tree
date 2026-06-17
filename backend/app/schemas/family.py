@@ -19,11 +19,35 @@ class MemberOut(BaseModel):
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    dateOfBirthSort: str | None = None
+    dateOfDeathSort: str | None = None
     deceased: bool = False
     additionalData: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
     placesLived: str | None = None
+    isCollapsed: bool = False
+    positionX: float = 0
+    positionY: float = 0
+
+
+class MemberSurfaceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    gender: str | None = None
+    academicTitle: str | None = None
+    firstName: str | None = None
+    middleNames: str | None = None
+    baptismalName: str | None = None
+    lastName: str | None = None
+    maidenName: str | None = None
+    imageData: str | None = None
+    dateOfBirth: str | None = None
+    dateOfDeath: str | None = None
+    dateOfBirthSort: str | None = None
+    dateOfDeathSort: str | None = None
+    deceased: bool = False
     isCollapsed: bool = False
     positionX: float = 0
     positionY: float = 0

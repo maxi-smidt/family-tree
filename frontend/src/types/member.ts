@@ -47,6 +47,8 @@ export interface Member {
   date: {
     birth: string;
     death: string | null;
+    birthSort?: string | null;
+    deathSort?: string | null;
   };
   parents: {
     paternalParent: string | null;
@@ -116,8 +118,10 @@ export interface MemberDB {
   imageData: string | null;
   dateOfBirth: string;
   dateOfDeath: string | null;
+  dateOfBirthSort?: string | null;
+  dateOfDeathSort?: string | null;
   deceased: boolean;
-  additionalData: string | null;
+  additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
   placesLived?: string | null;
@@ -191,12 +195,14 @@ export function mapMemberFromDB(
     date: {
       birth: row.dateOfBirth,
       death: row.dateOfDeath,
+      birthSort: row.dateOfBirthSort ?? null,
+      deathSort: row.dateOfDeathSort ?? null,
     },
     parents: {
       paternalParent: null,
       maternalParent: null,
     },
-    additionalData: row.additionalData,
+    additionalData: row.additionalData ?? null,
     birthplace: row.birthplace ?? null,
     hometown: row.hometown ?? null,
     placesLived: parsePlacesLived(row.placesLived),

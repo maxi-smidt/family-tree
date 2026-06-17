@@ -1,6 +1,6 @@
 """Members, relations and diseases — all scoped to a tree."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,7 @@ from app.schemas.family import (
     MemberCreate,
     MemberOut,
     MemberPositionUpdate,
+    MemberSurfaceOut,
     MemberUpdate,
     RelationCreate,
     RelationOut,
@@ -47,7 +48,36 @@ def list_members(
     pagination: Pagination = Depends(pagination_params),
     tree: Tree = Depends(get_readable_tree_public),
     db: Session = Depends(get_db),
+    surface: bool = Query(False),
 ):
+    if surface:
+        stmt = (
+            select(
+                Member.id,
+                Member.gender,
+                Member.academicTitle,
+                Member.firstName,
+                Member.middleNames,
+                Member.baptismalName,
+                Member.lastName,
+                Member.maidenName,
+                Member.imageData,
+                Member.dateOfBirth,
+                Member.dateOfDeath,
+                Member.dateOfBirthSort,
+                Member.dateOfDeathSort,
+                Member.deceased,
+                Member.isCollapsed,
+                Member.positionX,
+                Member.positionY,
+            )
+            .where(Member.tree_id == tree.id)
+            .order_by(Member.id)
+        )
+        return [
+            MemberSurfaceOut(**row._mapping)
+            for row in db.execute(apply_pagination(stmt, pagination)).all()
+        ]
     statement = select(Member).where(Member.tree_id == tree.id).order_by(Member.id)
     return db.scalars(apply_pagination(statement, pagination)).all()
 
@@ -133,6 +163,15 @@ def update_member_collapsed(
         if member is not None:
             member.isCollapsed = p.isCollapsed
     db.commit()
+
+
+@router.get("/members/{member_id}", response_model=MemberOut)
+def get_member(
+    member_id: str,
+    tree: Tree = Depends(get_readable_tree_public),
+    db: Session = Depends(get_db),
+):
+    return _get_member(db, tree, member_id)
 
 
 @router.patch("/members/{member_id}", response_model=MemberOut)

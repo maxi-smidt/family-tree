@@ -30,6 +30,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { formatDateTime } from "@/utils/dateUtils";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type SortKey = "createdAt" | "uploadedAt" | "title";
@@ -67,8 +68,10 @@ function GallerySkeleton() {
 
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
-  const { galleryImages, addGalleryImage } = useGalleryStore();
+  const { galleryImages, addGalleryImage, refreshGalleryImages, initialized } = useGalleryStore();
   const isReady = useTreeStore((state) => state.isReady);
+
+  useDeferredStoreLoad(initialized, refreshGalleryImages);
   const mediaLimits = useAuthStore((state) => state.config?.media_limits);
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
@@ -228,7 +231,14 @@ export const GalleryView = () => {
                 <SelectItem value="title">{t("select-title")}</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="icon" onClick={toggleSortDirection}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSortDirection}
+              aria-label={
+                sortDirection === "asc" ? t("sort-ascending") : t("sort-descending")
+              }
+            >
               {sortDirection === "asc" ? <ArrowUp /> : <ArrowDown />}
             </Button>
           </div>
