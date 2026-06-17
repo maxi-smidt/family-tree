@@ -52,7 +52,7 @@ def test_create_member_writes_activity(client, db):
 def test_update_member_writes_activity(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
-    add_member(db, tree, "m1", firstName="Ada", lastName="Doe")
+    add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     res = client.patch(
         f"{API}/trees/{tree.id}/members/m1",
@@ -70,7 +70,7 @@ def test_update_member_writes_activity(client, db):
 def test_delete_member_writes_activity(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
-    add_member(db, tree, "m1", firstName="Ada", lastName="Doe")
+    add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     res = client.delete(
         f"{API}/trees/{tree.id}/members/m1",

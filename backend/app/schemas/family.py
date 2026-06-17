@@ -1,110 +1,133 @@
 """Schemas mirroring the frontend `MemberDB`, `RelationDB`, `DiseaseDB`
-contracts so the React data layer keeps working unchanged."""
+contracts so the React data layer keeps working unchanged.
+
+The DB columns are now snake_case; camelCase is preserved at the API boundary
+via Pydantic ``Field(alias=...)`` / ``serialization_alias``.  All schemas that
+are populated from ORM objects use ``from_attributes=True`` and
+``populate_by_name=True`` so both the snake_case attribute name and the
+camelCase alias work as input keys.
+"""
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- Members ---------------------------------------------------------------
 class MemberOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
     id: str
     gender: str | None = None
-    academicTitle: str | None = None
-    firstName: str | None = None
-    middleNames: str | None = None
-    baptismalName: str | None = None
-    lastName: str | None = None
-    maidenName: str | None = None
-    imageData: str | None = None
-    dateOfBirth: str | None = None
-    dateOfDeath: str | None = None
+    academic_title: str | None = Field(default=None, serialization_alias="academicTitle")
+    first_name: str | None = Field(default=None, serialization_alias="firstName")
+    middle_names: str | None = Field(default=None, serialization_alias="middleNames")
+    baptismal_name: str | None = Field(default=None, serialization_alias="baptismalName")
+    last_name: str | None = Field(default=None, serialization_alias="lastName")
+    maiden_name: str | None = Field(default=None, serialization_alias="maidenName")
+    image_data: str | None = Field(default=None, serialization_alias="imageData")
+    date_of_birth: str | None = Field(default=None, serialization_alias="dateOfBirth")
+    date_of_death: str | None = Field(default=None, serialization_alias="dateOfDeath")
     deceased: bool = False
-    additionalData: str | None = None
+    additional_data: str | None = Field(
+        default=None, serialization_alias="additionalData"
+    )
     birthplace: str | None = None
     hometown: str | None = None
-    placesLived: str | None = None
-    isCollapsed: bool = False
-    positionX: float = 0
-    positionY: float = 0
+    places_lived: str | None = Field(default=None, serialization_alias="placesLived")
+    is_collapsed: bool = Field(default=False, serialization_alias="isCollapsed")
+    position_x: float = Field(default=0, serialization_alias="positionX")
+    position_y: float = Field(default=0, serialization_alias="positionY")
 
 
 class MemberSurfaceOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
     id: str
     gender: str | None = None
-    academicTitle: str | None = None
-    firstName: str | None = None
-    middleNames: str | None = None
-    baptismalName: str | None = None
-    lastName: str | None = None
-    maidenName: str | None = None
-    imageData: str | None = None
-    dateOfBirth: str | None = None
-    dateOfDeath: str | None = None
+    academic_title: str | None = Field(default=None, serialization_alias="academicTitle")
+    first_name: str | None = Field(default=None, serialization_alias="firstName")
+    middle_names: str | None = Field(default=None, serialization_alias="middleNames")
+    baptismal_name: str | None = Field(default=None, serialization_alias="baptismalName")
+    last_name: str | None = Field(default=None, serialization_alias="lastName")
+    maiden_name: str | None = Field(default=None, serialization_alias="maidenName")
+    image_data: str | None = Field(default=None, serialization_alias="imageData")
+    date_of_birth: str | None = Field(default=None, serialization_alias="dateOfBirth")
+    date_of_death: str | None = Field(default=None, serialization_alias="dateOfDeath")
     deceased: bool = False
-    isCollapsed: bool = False
-    positionX: float = 0
-    positionY: float = 0
+    is_collapsed: bool = Field(default=False, serialization_alias="isCollapsed")
+    position_x: float = Field(default=0, serialization_alias="positionX")
+    position_y: float = Field(default=0, serialization_alias="positionY")
 
 
 class MemberCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
     gender: str | None = None
-    academicTitle: str | None = None
-    firstName: str | None = None
-    middleNames: str | None = None
-    baptismalName: str | None = None
-    lastName: str | None = None
-    maidenName: str | None = None
-    imageData: str | None = None
-    dateOfBirth: str | None = None
-    dateOfDeath: str | None = None
+    academic_title: str | None = Field(default=None, alias="academicTitle")
+    first_name: str | None = Field(default=None, alias="firstName")
+    middle_names: str | None = Field(default=None, alias="middleNames")
+    baptismal_name: str | None = Field(default=None, alias="baptismalName")
+    last_name: str | None = Field(default=None, alias="lastName")
+    maiden_name: str | None = Field(default=None, alias="maidenName")
+    image_data: str | None = Field(default=None, alias="imageData")
+    date_of_birth: str | None = Field(default=None, alias="dateOfBirth")
+    date_of_death: str | None = Field(default=None, alias="dateOfDeath")
     deceased: bool = False
-    additionalData: str | None = None
+    additional_data: str | None = Field(default=None, alias="additionalData")
     birthplace: str | None = None
     hometown: str | None = None
-    placesLived: str | None = None
-    isCollapsed: bool = False
-    positionX: float = 0
-    positionY: float = 0
+    places_lived: str | None = Field(default=None, alias="placesLived")
+    is_collapsed: bool = Field(default=False, alias="isCollapsed")
+    position_x: float = Field(default=0, alias="positionX")
+    position_y: float = Field(default=0, alias="positionY")
 
 
 class MemberUpdate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     gender: str | None = None
-    academicTitle: str | None = None
-    firstName: str | None = None
-    middleNames: str | None = None
-    baptismalName: str | None = None
-    lastName: str | None = None
-    maidenName: str | None = None
-    imageData: str | None = None
-    dateOfBirth: str | None = None
-    dateOfDeath: str | None = None
+    academic_title: str | None = Field(default=None, alias="academicTitle")
+    first_name: str | None = Field(default=None, alias="firstName")
+    middle_names: str | None = Field(default=None, alias="middleNames")
+    baptismal_name: str | None = Field(default=None, alias="baptismalName")
+    last_name: str | None = Field(default=None, alias="lastName")
+    maiden_name: str | None = Field(default=None, alias="maidenName")
+    image_data: str | None = Field(default=None, alias="imageData")
+    date_of_birth: str | None = Field(default=None, alias="dateOfBirth")
+    date_of_death: str | None = Field(default=None, alias="dateOfDeath")
     deceased: bool | None = None
-    additionalData: str | None = None
+    additional_data: str | None = Field(default=None, alias="additionalData")
     birthplace: str | None = None
     hometown: str | None = None
-    placesLived: str | None = None
-    isCollapsed: bool | None = None
-    positionX: float | None = None
-    positionY: float | None = None
+    places_lived: str | None = Field(default=None, alias="placesLived")
+    is_collapsed: bool | None = Field(default=None, alias="isCollapsed")
+    position_x: float | None = Field(default=None, alias="positionX")
+    position_y: float | None = Field(default=None, alias="positionY")
 
 
 class MemberPositionUpdate(BaseModel):
     """One entry in a bulk position update (used after a re-layout / drag)."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    positionX: float
-    positionY: float
+    position_x: float = Field(alias="positionX")
+    position_y: float = Field(alias="positionY")
 
 
 class MemberCollapsedUpdate(BaseModel):
     """One entry in a bulk collapsed-state update (expand-all / collapse-selected)."""
 
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    isCollapsed: bool
+    is_collapsed: bool = Field(alias="isCollapsed")
 
 
 # --- Relations -------------------------------------------------------------

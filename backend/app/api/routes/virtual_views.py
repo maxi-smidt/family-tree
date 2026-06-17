@@ -341,8 +341,8 @@ def _build_composite_members(
         tree_members = [m for m, _ in rows if m.tree_id == tid]
         tree_offsets[tid] = x_offset
         if tree_members:
-            min_x = min(m.positionX for m in tree_members)
-            max_x = max(m.positionX for m in tree_members)
+            min_x = min(m.position_x for m in tree_members)
+            max_x = max(m.position_x for m in tree_members)
             tree_min_x[tid] = min_x
             x_offset += (max_x - min_x) + GAP
 
@@ -373,13 +373,13 @@ def _build_composite_members(
 
         # Coalesce nullable fields from all members in source order.
         all_members = [m for m, _ in member_rows_sorted]
-        coalesced_middle = _coalesce(*[m.middleNames for m in all_members])
-        coalesced_baptismal = _coalesce(*[m.baptismalName for m in all_members])
-        coalesced_maiden = _coalesce(*[m.maidenName for m in all_members])
-        coalesced_image = _coalesce(*[m.imageData for m in all_members])
-        coalesced_dob = _coalesce(*[m.dateOfBirth for m in all_members])
-        coalesced_dod = _coalesce(*[m.dateOfDeath for m in all_members])
-        coalesced_add = _coalesce(*[m.additionalData for m in all_members])
+        coalesced_middle = _coalesce(*[m.middle_names for m in all_members])
+        coalesced_baptismal = _coalesce(*[m.baptismal_name for m in all_members])
+        coalesced_maiden = _coalesce(*[m.maiden_name for m in all_members])
+        coalesced_image = _coalesce(*[m.image_data for m in all_members])
+        coalesced_dob = _coalesce(*[m.date_of_birth for m in all_members])
+        coalesced_dod = _coalesce(*[m.date_of_death for m in all_members])
+        coalesced_add = _coalesce(*[m.additional_data for m in all_members])
 
         # Determine position: overlay first, then per-tree X-offset fallback.
         if node_id in overlay:
@@ -387,10 +387,10 @@ def _build_composite_members(
         else:
             offset = tree_offsets.get(primary_m.tree_id, 0.0)
             min_x_tree = tree_min_x.get(primary_m.tree_id, 0.0)
-            pos_x = primary_m.positionX - min_x_tree + offset
-            pos_y = primary_m.positionY
+            pos_x = primary_m.position_x - min_x_tree + offset
+            pos_y = primary_m.position_y
 
-        out = MemberOut.model_validate(primary_m).model_dump()
+        out = MemberOut.model_validate(primary_m).model_dump(by_alias=True)
         out["id"] = node_id
         out["positionX"] = pos_x
         out["positionY"] = pos_y
@@ -1058,15 +1058,15 @@ def save_virtual_positions(
     for item in positions:
         existing = db.get(VirtualViewPosition, (view_id, item.id))
         if existing:
-            existing.position_x = item.positionX
-            existing.position_y = item.positionY
+            existing.position_x = item.position_x
+            existing.position_y = item.position_y
         else:
             db.add(
                 VirtualViewPosition(
                     view_id=view_id,
                     node_id=item.id,
-                    position_x=item.positionX,
-                    position_y=item.positionY,
+                    position_x=item.position_x,
+                    position_y=item.position_y,
                 )
             )
     db.commit()

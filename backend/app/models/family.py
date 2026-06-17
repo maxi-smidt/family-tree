@@ -1,8 +1,4 @@
-"""Core genealogy tables.
-
-Member columns intentionally use camelCase names so the JSON contract with
-the React frontend (`MemberDB` & friends) is preserved 1:1.
-"""
+"""Core genealogy tables."""
 
 from sqlalchemy import Boolean, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -19,24 +15,24 @@ class Member(Base):
     )
 
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
-    academicTitle: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    firstName: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    middleNames: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    baptismalName: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    lastName: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    maidenName: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    academic_title: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    middle_names: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    baptismal_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    maiden_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Relative media URL (e.g. /api/media/<tree>/<file>) or null.
-    imageData: Mapped[str | None] = mapped_column(Text, nullable=True)
-    dateOfBirth: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    dateOfDeath: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    additionalData: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_data: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_of_birth: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    date_of_death: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    additional_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthplace: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hometown: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    placesLived: Mapped[str | None] = mapped_column(Text, nullable=True)
+    places_lived: Mapped[str | None] = mapped_column(Text, nullable=True)
     deceased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    isCollapsed: Mapped[bool] = mapped_column(Boolean, default=False)
-    positionX: Mapped[float] = mapped_column(Float, default=0)
-    positionY: Mapped[float] = mapped_column(Float, default=0)
+    is_collapsed: Mapped[bool] = mapped_column(Boolean, default=False)
+    position_x: Mapped[float] = mapped_column(Float, default=0)
+    position_y: Mapped[float] = mapped_column(Float, default=0)
 
 
 class Relation(Base):

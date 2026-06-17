@@ -55,19 +55,19 @@ def list_members(
             select(
                 Member.id,
                 Member.gender,
-                Member.academicTitle,
-                Member.firstName,
-                Member.middleNames,
-                Member.baptismalName,
-                Member.lastName,
-                Member.maidenName,
-                Member.imageData,
-                Member.dateOfBirth,
-                Member.dateOfDeath,
+                Member.academic_title,
+                Member.first_name,
+                Member.middle_names,
+                Member.baptismal_name,
+                Member.last_name,
+                Member.maiden_name,
+                Member.image_data,
+                Member.date_of_birth,
+                Member.date_of_death,
                 Member.deceased,
-                Member.isCollapsed,
-                Member.positionX,
-                Member.positionY,
+                Member.is_collapsed,
+                Member.position_x,
+                Member.position_y,
             )
             .where(Member.tree_id == tree.id)
             .order_by(Member.id)
@@ -89,9 +89,9 @@ def create_member(
 ):
     data = payload.model_dump()
     try:
-        data["imageData"] = process_image_field(
+        data["image_data"] = process_image_field(
             tree.id,
-            data.get("imageData"),
+            data.get("image_data"),
             get_media_limits(db),
         )
     except ImageTooLarge as exc:
@@ -100,7 +100,9 @@ def create_member(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     member = Member(tree_id=tree.id, **data)
     db.add(member)
-    label = " ".join(filter(None, [data.get("firstName"), data.get("lastName")])) or None
+    label = (
+        " ".join(filter(None, [data.get("first_name"), data.get("last_name")])) or None
+    )
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="member", target_id=member.id, target_label=label)
     db.commit()
@@ -131,8 +133,8 @@ def update_member_positions(
     for p in payload:
         member = members.get(p.id)
         if member is not None:
-            member.positionX = p.positionX
-            member.positionY = p.positionY
+            member.position_x = p.position_x
+            member.position_y = p.position_y
     db.commit()
 
 
@@ -159,7 +161,7 @@ def update_member_collapsed(
     for p in payload:
         member = members.get(p.id)
         if member is not None:
-            member.isCollapsed = p.isCollapsed
+            member.is_collapsed = p.is_collapsed
     db.commit()
 
 
@@ -182,11 +184,11 @@ def update_member(
 ):
     member = _get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
-    if "imageData" in changes:
+    if "image_data" in changes:
         try:
-            changes["imageData"] = process_image_field(
+            changes["image_data"] = process_image_field(
                 tree.id,
-                changes["imageData"],
+                changes["image_data"],
                 get_media_limits(db),
             )
         except ImageTooLarge as exc:
@@ -194,7 +196,7 @@ def update_member(
         except (UnsupportedImageType, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     # Capture before-state for diff details (skip noisy positional/internal fields).
-    _SKIP_DIFF = {"positionX", "positionY", "isCollapsed", "imageData"}
+    _SKIP_DIFF = {"position_x", "position_y", "is_collapsed", "image_data"}
     before = {k: getattr(member, k) for k in changes if k not in _SKIP_DIFF}
     for key, value in changes.items():
         setattr(member, key, value)
@@ -210,7 +212,7 @@ def update_member(
             "before": {k: v["before"] for k, v in changed.items()},
             "after": {k: v["after"] for k, v in changed.items()},
         }
-    label = " ".join(filter(None, [member.firstName, member.lastName])) or None
+    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="update",
                     target_type="member", target_id=member.id, target_label=label,
                     details=diff_details)
@@ -227,7 +229,7 @@ def delete_member(
     db: Session = Depends(get_db),
 ):
     member = _get_member(db, tree, member_id)
-    label = " ".join(filter(None, [member.firstName, member.lastName])) or None
+    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="delete",
                     target_type="member", target_id=member.id, target_label=label)
     db.delete(member)

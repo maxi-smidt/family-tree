@@ -124,90 +124,90 @@ def _build_test_data() -> tuple[list[dict], list[dict]]:
     members = [
         {
             "id": father_id,
-            "firstName": "James",
-            "middleNames": "Arthur Henry",
-            "baptismalName": "Jacobus",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "James",
+            "middle_names": "Arthur Henry",
+            "baptismal_name": "Jacobus",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "m",
-            "dateOfBirth": "1950-03-15",
-            "dateOfDeath": None,
+            "date_of_birth": "1950-03-15",
+            "date_of_death": None,
             "birthplace": "London",
             "hometown": "Manchester",
-            "additionalData": "A note\nSecond line",
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": "A note\nSecond line",
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": mother_id,
-            "firstName": "Mary",
-            "lastName": "Smith",
-            "maidenName": "Jones",
+            "first_name": "Mary",
+            "last_name": "Smith",
+            "maiden_name": "Jones",
             "gender": "f",
-            "dateOfBirth": "1952-07",
-            "dateOfDeath": None,
+            "date_of_birth": "1952-07",
+            "date_of_death": None,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": child1_id,
-            "firstName": "Tom",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "Tom",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "m",
-            "dateOfBirth": "1975",
-            "dateOfDeath": None,
+            "date_of_birth": "1975",
+            "date_of_death": None,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": child2_id,
-            "firstName": "Sara",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "Sara",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "f",
-            "dateOfBirth": "1978-11-22",
-            "dateOfDeath": "2020-01-10",
+            "date_of_birth": "1978-11-22",
+            "date_of_death": "2020-01-10",
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": single_parent_child_id,
-            "firstName": "Alex",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "Alex",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "o",
-            "dateOfBirth": "1985",
-            "dateOfDeath": None,
+            "date_of_birth": "1985",
+            "date_of_death": None,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
     ]
 
@@ -239,7 +239,7 @@ class TestServiceRoundTrip:
         self.parsed = parse_gedcom(self.ged_text)
         # Build lookup by name for assertions.
         self.by_name = {
-            (m.get("firstName"), m.get("lastName")): m
+            (m.get("first_name"), m.get("last_name")): m
             for m in self.parsed["members"]
         }
 
@@ -273,15 +273,15 @@ class TestServiceRoundTrip:
 
     def test_name_details_round_trip(self):
         james = self.by_name[("James", "Smith")]
-        assert james["middleNames"] == "Arthur Henry"
-        assert james["baptismalName"] == "Jacobus"
+        assert james["middle_names"] == "Arthur Henry"
+        assert james["baptismal_name"] == "Jacobus"
         assert "2 _FIRST_NAME James" in self.ged_text
         assert "2 _MIDDLE_NAMES Arthur Henry" in self.ged_text
         assert "2 TYPE baptismal" in self.ged_text
 
     def test_mother_maiden_name(self):
         mary = self.by_name[("Mary", "Smith")]
-        assert mary["maidenName"] == "Jones"
+        assert mary["maiden_name"] == "Jones"
 
     def test_gender_o_round_trips(self):
         alex = self.by_name[("Alex", "Smith")]
@@ -297,19 +297,19 @@ class TestServiceRoundTrip:
 
     def test_full_date_round_trips(self):
         james = self.by_name[("James", "Smith")]
-        assert james["dateOfBirth"] == "1950-03-15"
+        assert james["date_of_birth"] == "1950-03-15"
 
     def test_year_month_date_round_trips(self):
         mary = self.by_name[("Mary", "Smith")]
-        assert mary["dateOfBirth"] == "1952-07"
+        assert mary["date_of_birth"] == "1952-07"
 
     def test_year_only_round_trips(self):
         tom = self.by_name[("Tom", "Smith")]
-        assert tom["dateOfBirth"] == "1975"
+        assert tom["date_of_birth"] == "1975"
 
     def test_death_date_round_trips(self):
         sara = self.by_name[("Sara", "Smith")]
-        assert sara["dateOfDeath"] == "2020-01-10"
+        assert sara["date_of_death"] == "2020-01-10"
 
     def test_birthplace_round_trips(self):
         james = self.by_name[("James", "Smith")]
@@ -321,7 +321,7 @@ class TestServiceRoundTrip:
 
     def test_multiline_note_round_trips(self):
         james = self.by_name[("James", "Smith")]
-        assert james["additionalData"] == "A note\nSecond line"
+        assert james["additional_data"] == "A note\nSecond line"
 
     def _get_id(self, first: str, last: str) -> str:
         return self.by_name[(first, last)]["id"]
@@ -521,8 +521,8 @@ def test_gedcom_import_splits_standard_given_names():
 
     member = parse_gedcom(ged)["members"][0]
 
-    assert member["firstName"] == "John"
-    assert member["middleNames"] == "Paul"
+    assert member["first_name"] == "John"
+    assert member["middle_names"] == "Paul"
 
 
 def test_api_export_requires_auth(client, db):
@@ -660,8 +660,8 @@ class TestDecodeGedcomBytes:
         text = decode_gedcom_bytes(raw)
         parsed = parse_gedcom(text)
         assert len(parsed["members"]) == 1
-        assert parsed["members"][0]["firstName"] == "John"
-        assert parsed["members"][0]["lastName"] == "Doe"
+        assert parsed["members"][0]["first_name"] == "John"
+        assert parsed["members"][0]["last_name"] == "Doe"
 
     def test_parse_after_decode_utf16_le(self):
         """parse_gedcom should find the INDI record after UTF-16-LE decoding."""

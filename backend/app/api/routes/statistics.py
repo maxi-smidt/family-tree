@@ -79,8 +79,8 @@ def compute_statistics(members: list[Member], tree_id: str) -> StatisticsReport:
         else:
             gender_counts["unknown"] += 1
 
-        birth_year = _extract_year(m.dateOfBirth)
-        death_year = _extract_year(m.dateOfDeath)
+        birth_year = _extract_year(m.date_of_birth)
+        death_year = _extract_year(m.date_of_death)
 
         if birth_year:
             birth_years.append(birth_year)
@@ -89,10 +89,10 @@ def compute_statistics(members: list[Member], tree_id: str) -> StatisticsReport:
         if birth_year and death_year and death_year >= birth_year:
             lifespans.append(death_year - birth_year)
 
-        if m.firstName and m.firstName.strip():
-            first_name_counter[m.firstName.strip()] += 1
-        if m.lastName and m.lastName.strip():
-            last_name_counter[m.lastName.strip()] += 1
+        if m.first_name and m.first_name.strip():
+            first_name_counter[m.first_name.strip()] += 1
+        if m.last_name and m.last_name.strip():
+            last_name_counter[m.last_name.strip()] += 1
 
     # Birth / death by decade
     decade_births: dict[str, int] = defaultdict(int)

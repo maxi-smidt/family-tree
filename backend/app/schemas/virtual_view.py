@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.family import MemberOut
 
@@ -47,6 +47,8 @@ class VirtualMemberOut(MemberOut):
 
 
 class VirtualPositionItem(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    positionX: float
-    positionY: float
+    position_x: float = Field(alias="positionX")
+    position_y: float = Field(alias="positionY")

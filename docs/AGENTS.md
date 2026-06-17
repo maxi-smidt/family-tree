@@ -134,17 +134,23 @@ is versioned with **Alembic** (`backend/alembic/`). On startup the service runs
 
 ### Field naming convention
 
-Some legacy content columns intentionally keep camelCase names from the
-original frontend contract (`firstName`, `positionX`, `imageData`, ...).
-Keep those existing ORM and Pydantic field names stable unless there is a
-separate migration plan: they are part of the `*DB` response shapes consumed by
-`TreeService` and the frontend stores.
+All ORM model attributes and database columns use **snake_case** (e.g.
+`first_name`, `position_x`, `image_data`). The camelCase JSON field names that
+the frontend `*DB` contracts expect are preserved exclusively at the API
+boundary via Pydantic aliases:
 
-For new backend-owned tables or fields, prefer idiomatic snake_case in the
-database and API schema. Only add a new camelCase field when it is explicitly
-part of a frontend `*DB` contract. If an existing camelCase column is renamed,
-ship an Alembic migration and use Pydantic aliases or mapping helpers so the
-frontend response/request shapes remain stable through the transition.
+- **Output schemas** (`*Out`): use `serialization_alias` so that SQLAlchemy
+  ORM attributes (snake_case) are serialised to camelCase JSON. These schemas
+  also set `ConfigDict(from_attributes=True, populate_by_name=True)`.
+- **Input schemas** (`*Create`, `*Update`): use `alias` so that incoming
+  camelCase JSON maps to snake_case Python attributes. These schemas set
+  `ConfigDict(populate_by_name=True)`.
+
+Never add camelCase attribute names to ORM models. When introducing a new
+field, add it as snake_case in the model and add appropriate Pydantic aliases in
+the schema. If changing an existing column name, ship an Alembic migration using
+`op.alter_column(table, old_name, new_column_name=new_name)` so existing data
+is preserved.
 
 ### Adding a field / table
 
