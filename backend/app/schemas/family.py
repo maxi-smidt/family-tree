@@ -19,6 +19,8 @@ class MemberOut(BaseModel):
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    dateOfBirthSort: str | None = None
+    dateOfDeathSort: str | None = None
     deceased: bool = False
     additionalData: str | None = None
     birthplace: str | None = None
@@ -43,6 +45,8 @@ class MemberSurfaceOut(BaseModel):
     imageData: str | None = None
     dateOfBirth: str | None = None
     dateOfDeath: str | None = None
+    dateOfBirthSort: str | None = None
+    dateOfDeathSort: str | None = None
     deceased: bool = False
     isCollapsed: bool = False
     positionX: float = 0

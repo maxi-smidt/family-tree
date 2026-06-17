@@ -5,7 +5,7 @@ the React frontend (`MemberDB` & friends) is preserved 1:1.
 """
 
 from sqlalchemy import Boolean, Float, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
 
@@ -29,6 +29,12 @@ class Member(Base):
     imageData: Mapped[str | None] = mapped_column(Text, nullable=True)
     dateOfBirth: Mapped[str | None] = mapped_column(String(40), nullable=True)
     dateOfDeath: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    dateOfBirthSort: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, index=True
+    )
+    dateOfDeathSort: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, index=True
+    )
     additionalData: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthplace: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hometown: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -37,6 +43,23 @@ class Member(Base):
     isCollapsed: Mapped[bool] = mapped_column(Boolean, default=False)
     positionX: Mapped[float] = mapped_column(Float, default=0)
     positionY: Mapped[float] = mapped_column(Float, default=0)
+
+    @validates("dateOfBirth", "dateOfDeath")
+    def _derive_date_sort(self, key: str, value: str | None) -> str | None:
+        """Automatically keep the ``*Sort`` columns in sync with date changes.
+
+        Called by SQLAlchemy whenever ``dateOfBirth`` or ``dateOfDeath`` is
+        assigned, including on ``__init__``, ``setattr``-based updates, and
+        bulk-attribute updates.  The sort key is derived lazily to avoid an
+        import at module load time.
+        """
+        # Lazy import to prevent any potential circular-import issues at
+        # module load time (genealogy_date has no DB imports, but being
+        # defensive is cheap here).
+        from app.services.genealogy_date import sort_key  # noqa: PLC0415
+
+        setattr(self, f"{key}Sort", sort_key(value))
+        return value
 
 
 class Relation(Base):
