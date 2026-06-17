@@ -181,3 +181,146 @@ def test_relation_valid_path(client, db):
     assert res.json()["from_member_id"] == "m1"
     assert res.json()["to_member_id"] == "m2"
     assert res.json()["relation_type"] == "sibling"
+
+
+def test_surface_list_omits_detail_fields(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _create_member(
+        client,
+        tree,
+        user,
+        "m1",
+        additionalData="some notes",
+        birthplace="Berlin",
+        hometown="Munich",
+    )
+
+    # With surface=true, detail fields should be absent/None
+    res = client.get(
+        f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["additionalData"] is None
+    assert data[0]["birthplace"] is None
+    assert data[0]["hometown"] is None
+    # Surface fields should be present
+    assert data[0]["id"] == "m1"
+    assert data[0]["firstName"] == "Jo"
+
+    # Without surface param, detail fields should be present
+    res2 = client.get(
+        f"{API}/trees/{tree.id}/members", headers=auth(user)
+    )
+    assert res2.status_code == 200
+    data2 = res2.json()
+    assert len(data2) == 1
+    assert data2[0]["additionalData"] == "some notes"
+    assert data2[0]["birthplace"] == "Berlin"
+    assert data2[0]["hometown"] == "Munich"
+
+
+# ---------------------------------------------------------------------------
+# Date sort-column tests
+# ---------------------------------------------------------------------------
+
+def test_create_member_populates_date_sort_columns(client, db):
+    """Creating a member with dates must populate the *Sort columns in the response."""
+    user = make_user(db, "alice-ds")
+    tree = make_tree(db, user)
+
+    res = _create_member(
+        client, tree, user, "m-sort-1",
+        dateOfBirth="1950-06-15",
+        dateOfDeath="2020-03",
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["dateOfBirthSort"] == "1950-06-15"
+    assert data["dateOfDeathSort"] == "2020-03-00"
+
+
+def test_create_member_fuzzy_birth_date(client, db):
+    """Fuzzy date strings should produce year-only sort keys."""
+    user = make_user(db, "bob-ds")
+    tree = make_tree(db, user)
+
+    res = _create_member(
+        client, tree, user, "m-sort-2",
+        dateOfBirth="about 1850",
+    )
+    assert res.status_code == 201
+    data = res.json()
+    assert data["dateOfBirthSort"] == "1850-00-00"
+    assert data["dateOfDeathSort"] is None
+
+
+def test_update_member_refreshes_date_sort_columns(client, db):
+    """Updating dates via PATCH must refresh the *Sort columns."""
+    user = make_user(db, "carol-ds")
+    tree = make_tree(db, user)
+
+    _create_member(client, tree, user, "m-sort-3", dateOfBirth="1900")
+
+    updated = client.patch(
+        f"{API}/trees/{tree.id}/members/m-sort-3",
+        headers=auth(user),
+        json={"dateOfBirth": "1905-04-20", "dateOfDeath": "before 1970"},
+    )
+    assert updated.status_code == 200
+    data = updated.json()
+    assert data["dateOfBirthSort"] == "1905-04-20"
+    assert data["dateOfDeathSort"] == "1970-00-00"
+
+
+def test_surface_list_includes_date_sort_columns(client, db):
+    """The surface=true endpoint must include the sort columns."""
+    user = make_user(db, "dave-ds")
+    tree = make_tree(db, user)
+
+    _create_member(client, tree, user, "m-sort-4", dateOfBirth="15 JUN 1930")
+
+    res = client.get(
+        f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["dateOfBirthSort"] == "1930-06-15"
+
+
+def test_member_with_no_dates_has_null_sort_columns(client, db):
+    """Members created without dates must have null sort columns."""
+    user = make_user(db, "eve-ds")
+    tree = make_tree(db, user)
+
+    res = _create_member(client, tree, user, "m-sort-5")
+    assert res.status_code == 201
+    data = res.json()
+    assert data["dateOfBirthSort"] is None
+    assert data["dateOfDeathSort"] is None
+
+
+def test_member_detail_endpoint(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _create_member(
+        client,
+        tree,
+        user,
+        "m1",
+        additionalData="detailed notes",
+        birthplace="Hamburg",
+    )
+
+    res = client.get(
+        f"{API}/trees/{tree.id}/members/m1", headers=auth(user)
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["id"] == "m1"
+    assert data["additionalData"] == "detailed notes"
+    assert data["birthplace"] == "Hamburg"
+    assert data["firstName"] == "Jo"

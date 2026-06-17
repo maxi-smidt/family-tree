@@ -63,7 +63,7 @@ export const FeatureFlagsPanel = ({ users }: Props) => {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">{t("hint")}</p>
-      <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+      <div className="space-y-2">
         {flags.map((flag) => (
           <div key={flag.name} className="rounded-lg border p-3 space-y-2">
             <div className="flex items-center justify-between gap-4">

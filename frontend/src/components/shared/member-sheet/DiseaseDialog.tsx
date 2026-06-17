@@ -93,7 +93,7 @@ export const DiseaseDialog = ({
 
     try {
       if (disease) {
-        await updateDisease(disease.id, input);
+        await updateDisease(memberId, disease.id, input);
       } else {
         await addDisease(memberId, input);
       }

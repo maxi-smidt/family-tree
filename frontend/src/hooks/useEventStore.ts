@@ -5,6 +5,7 @@ import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 
 interface EventState {
   events: Event[];
+  initialized: boolean;
   refreshEvents: (treeId?: string) => Promise<void>;
   getEventsByMember: (memberId: string) => Event[];
   addEvent: (memberIds: string[], event: EventInput) => Promise<void>;
@@ -19,6 +20,7 @@ interface EventState {
 
 export const useEventStore = create<EventState>((set, get) => ({
   events: [],
+  initialized: false,
 
   refreshEvents: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -46,7 +48,7 @@ export const useEventStore = create<EventState>((set, get) => ({
       return mapEventFromDB(row, linkedMemberIds);
     });
 
-    set({ events });
+    set({ events, initialized: true });
   },
 
   getEventsByMember: (memberId: string) => {
@@ -83,5 +85,5 @@ export const useEventStore = create<EventState>((set, get) => ({
     await get().refreshEvents(treeId);
   },
 
-  clear: () => set({ events: [] }),
+  clear: () => set({ events: [], initialized: false }),
 }));

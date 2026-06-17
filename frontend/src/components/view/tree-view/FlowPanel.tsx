@@ -14,6 +14,11 @@ import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
@@ -39,6 +44,7 @@ import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
+import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
@@ -46,8 +52,15 @@ const edgeTypes = { relation: RelationEdge };
 export const FlowPanel = () => {
   const { t } = useTranslation();
   const activeTree = useTreeStore((s) => s.selectedTree);
+  const availableTreeCount = useTreeStore(
+    (s) => s.trees.length + s.virtualViews.length,
+  );
   const isMobile = useIsMobile();
   const { members, removeMember, updateLayout } = useMemberStore();
+  const { refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const { refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
+  const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
   const canWrite = activeTree?.role !== "viewer";
   const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
   const isCanvasReadOnly = isMobile || !canWrite;
@@ -56,6 +69,14 @@ export const FlowPanel = () => {
   const canDragLayout = !isMobile && (canWrite || isVirtualView);
   useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useTreeStore();
+
+  // Lazy-load secondary stores when the tree view mounts, so that
+  // MemberDetailDialog (opened from FamilyNode) has events, stories, sources,
+  // and gallery images available without requiring the user to visit each view.
+  useDeferredStoreLoad(eventsInitialized, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized, refreshStories);
+  useDeferredStoreLoad(sourcesInitialized, refreshSources);
+  useDeferredStoreLoad(galleryInitialized, refreshGalleryImages);
   const {
     edgeType,
     isLockedScreen,
@@ -296,7 +317,11 @@ export const FlowPanel = () => {
     setMembersToDelete([]);
   };
 
-  if (!isReady || !activeTree) return null;
+  if (!activeTree) {
+    return availableTreeCount === 0 ? <NoDatabasePlaceholder /> : null;
+  }
+
+  if (!isReady) return null;
 
   return (
     <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>

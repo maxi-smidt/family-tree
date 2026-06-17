@@ -16,7 +16,8 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { StoryAttachments } from "@/components/shared/member-sheet/StoryAttachments";
@@ -47,9 +48,17 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   const { galleryImages } = useGalleryStore();
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
-  const { members } = useMemberStore();
+  const { members, fetchMemberDetail } = useMemberStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+  useEffect(() => {
+    if (open && member) {
+      setIsLoadingDetail(true);
+      void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
+    }
+  }, [open, member?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!member) return null;
 
@@ -120,8 +129,9 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[90%] w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
               {currentMember.firstName} {currentMember.lastName}
+              {isLoadingDetail && <Spinner className="size-4" />}
             </DialogTitle>
           </DialogHeader>
 
