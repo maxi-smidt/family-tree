@@ -1,7 +1,5 @@
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useStoryStore } from "@/hooks/useStoryStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Member } from "@/types/member";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -58,21 +56,11 @@ export const ListView = () => {
     keyPrefix: "common",
   });
   const { members, removeMember } = useMemberStore();
-  const { refreshStories, initialized: storiesInitialized } = useStoryStore();
-  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
   const activeTree = useTreeStore((s) => s.selectedTree);
   const isReady = useTreeStore((s) => s.isReady);
   const canWrite = activeTree?.role !== "viewer";
   const isVirtual = !!activeTree?.id && isVirtualId(activeTree.id);
   const isMobile = useIsMobile();
-
-  useEffect(() => {
-    if (!storiesInitialized && activeTree) void refreshStories(activeTree.id);
-  }, [storiesInitialized, activeTree, refreshStories]);
-
-  useEffect(() => {
-    if (!sourcesInitialized && activeTree) void refreshSources(activeTree.id);
-  }, [sourcesInitialized, activeTree, refreshSources]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
