@@ -11,6 +11,9 @@ from app.core.media_config import (
     DEFAULT_MAX_DOCUMENT_UPLOAD_MB,
     DEFAULT_MAX_IMAGE_DIMENSION,
     DEFAULT_MAX_IMAGE_UPLOAD_MB,
+    DEFAULT_MEDIA_QUOTA_MB,
+    DEFAULT_TOTAL_QUOTA_MB,
+    DEFAULT_TREE_QUOTA_MB,
     MAX_MAX_DOCUMENT_UPLOAD_MB,
     MAX_MAX_IMAGE_DIMENSION,
     MAX_MAX_IMAGE_UPLOAD_MB,
@@ -35,6 +38,9 @@ DEFAULTS: dict[str, str] = {
     "max_image_upload_mb": str(DEFAULT_MAX_IMAGE_UPLOAD_MB),
     "max_image_dimension": str(DEFAULT_MAX_IMAGE_DIMENSION),
     "max_document_upload_mb": str(DEFAULT_MAX_DOCUMENT_UPLOAD_MB),
+    "default_tree_quota_mb": str(DEFAULT_TREE_QUOTA_MB),
+    "default_media_quota_mb": str(DEFAULT_MEDIA_QUOTA_MB),
+    "default_total_quota_mb": str(DEFAULT_TOTAL_QUOTA_MB),
 }
 
 _TRUTHY = {"true", "1", "yes", "on"}
@@ -145,6 +151,15 @@ def get_settings_out(db: Session) -> SettingsOut:
         max_image_upload_mb=media_limits.max_image_bytes // MEBIBYTE,
         max_image_dimension=media_limits.max_image_dimension,
         max_document_upload_mb=media_limits.max_document_bytes // MEBIBYTE,
+        default_tree_quota_mb=get_int_setting(
+            db, "default_tree_quota_mb", DEFAULT_TREE_QUOTA_MB
+        ),
+        default_media_quota_mb=get_int_setting(
+            db, "default_media_quota_mb", DEFAULT_MEDIA_QUOTA_MB
+        ),
+        default_total_quota_mb=get_int_setting(
+            db, "default_total_quota_mb", DEFAULT_TOTAL_QUOTA_MB
+        ),
     )
 
 
@@ -185,5 +200,11 @@ def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
             "max_document_upload_mb",
             str(payload.max_document_upload_mb),
         )
+    if payload.default_tree_quota_mb is not None:
+        set_setting(db, "default_tree_quota_mb", str(payload.default_tree_quota_mb))
+    if payload.default_media_quota_mb is not None:
+        set_setting(db, "default_media_quota_mb", str(payload.default_media_quota_mb))
+    if payload.default_total_quota_mb is not None:
+        set_setting(db, "default_total_quota_mb", str(payload.default_total_quota_mb))
     db.commit()
     return get_settings_out(db)

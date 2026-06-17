@@ -26,11 +26,13 @@ from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
+    MEDIA_URL_PREFIX,
     ImageTooLarge,
     UnsupportedImageType,
     delete_media,
     process_image_field,
 )
+from app.services.storage_usage import QuotaExceeded, check_media_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
@@ -40,6 +42,21 @@ router = APIRouter(
         Depends(require_domain("gallery")),
     ],
 )
+
+
+def _stat_media_file(media_url: str) -> int:
+    """Return on-disk byte size of a stored media file, or 0 on error."""
+    import os
+
+    from app.core.config import settings as _s
+
+    if not media_url or not media_url.startswith(MEDIA_URL_PREFIX + "/"):
+        return 0
+    rel = media_url[len(MEDIA_URL_PREFIX) + 1:]
+    try:
+        return os.stat(_s.media_root / rel).st_size
+    except OSError:
+        return 0
 
 
 def _get_image(db: Session, tree: Tree, image_id: str) -> GalleryImage:
@@ -86,16 +103,29 @@ def create_image(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
+    new_image_url: str | None = None
     try:
-        data["imageData"] = process_image_field(
+        new_url = process_image_field(
             tree.id,
             data.get("imageData"),
             get_media_limits(db),
         )
+        data["imageData"] = new_url
+        if new_url and new_url.startswith(MEDIA_URL_PREFIX):
+            new_image_url = new_url
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if new_image_url:
+        actual_size = _stat_media_file(new_image_url)
+        try:
+            check_media_quota(db, tree, actual_size)
+        except QuotaExceeded as exc:
+            delete_media(new_image_url)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+
     image = GalleryImage(tree_id=tree.id, **data)
     db.add(image)
     db.flush()  # image row must exist before its links reference it
@@ -126,17 +156,30 @@ def update_image(
 ):
     image = _get_image(db, tree, image_id)
     changes = payload.model_dump(exclude_unset=True)
+    new_image_url: str | None = None
     if "imageData" in changes:
         try:
-            changes["imageData"] = process_image_field(
+            new_url = process_image_field(
                 tree.id,
                 changes["imageData"],
                 get_media_limits(db),
             )
+            changes["imageData"] = new_url
+            if new_url and new_url.startswith(MEDIA_URL_PREFIX):
+                new_image_url = new_url
         except ImageTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (UnsupportedImageType, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if new_image_url:
+        actual_size = _stat_media_file(new_image_url)
+        try:
+            check_media_quota(db, tree, actual_size)
+        except QuotaExceeded as exc:
+            delete_media(new_image_url)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+
     for key, value in changes.items():
         setattr(image, key, value)
     record_activity(

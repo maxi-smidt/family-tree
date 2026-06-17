@@ -1,5 +1,6 @@
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { ApiError } from "@/services/api";
+import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { toast } from "sonner";
 import { ImageCard } from "@/components/view/gallery-view/ImageCard";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -143,7 +144,12 @@ export const GalleryView = () => {
             })
             .catch((err: unknown) => {
               if (err instanceof ApiError && err.status === 413) {
-                toast.error(t("toast-error-image-too-large"));
+                const bucket = getQuotaBucket(err.message);
+                if (bucket) {
+                  toast.error(t(quotaToastKey(bucket)));
+                } else {
+                  toast.error(t("toast-error-image-too-large"));
+                }
               } else if (err instanceof ApiError && err.status === 400) {
                 toast.error(t("toast-error-image-unsupported"));
               } else {

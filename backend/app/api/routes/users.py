@@ -55,6 +55,16 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
         if not payload.is_admin and user.is_admin and _admin_count(db) <= 1:
             raise HTTPException(status_code=400, detail="Cannot demote the last admin")
         user.is_admin = payload.is_admin
+    # Quota fields: 0 is stored as-is (means "unlimited"); None leaves unchanged.
+    # To clear a per-user quota (revert to instance default) pass null in the JSON.
+    # We use a sentinel approach: the field validator allows ge=0, and we only
+    # update when the key is present in the payload.
+    if "tree_quota_bytes" in payload.model_fields_set:
+        user.tree_quota_bytes = payload.tree_quota_bytes
+    if "media_quota_bytes" in payload.model_fields_set:
+        user.media_quota_bytes = payload.media_quota_bytes
+    if "total_quota_bytes" in payload.model_fields_set:
+        user.total_quota_bytes = payload.total_quota_bytes
 
     db.commit()
     db.refresh(user)
