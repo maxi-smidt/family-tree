@@ -673,8 +673,6 @@
   },
   "tree-view": {
     "node": {
-      "life-ongoing": "lebt",
-      "life-unknown": "ungewiss",
       "disease-indicator_one": "{{count}} genetische Erkrankung",
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
       "disease-severity": {
@@ -691,7 +689,7 @@
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
       "add-right": "Verwandte Person rechts hinzufügen",
-      "life-deceased-unknown": "verstorben"
+      "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {

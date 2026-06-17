@@ -673,8 +673,6 @@
   },
   "tree-view": {
     "node": {
-      "life-ongoing": "ongoing",
-      "life-unknown": "unknown",
       "disease-indicator_one": "{{count}} genetic condition",
       "disease-indicator_other": "{{count}} genetic conditions",
       "disease-severity": {
@@ -691,7 +689,7 @@
       "add-child": "Add child",
       "add-left": "Add relative on the left",
       "add-right": "Add relative on the right",
-      "life-deceased-unknown": "deceased"
+      "life-deceased-unknown": "Deceased, date of death unknown"
     },
     "canvas-label": "Family tree canvas",
     "a11y": {

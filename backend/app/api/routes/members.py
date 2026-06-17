@@ -71,6 +71,8 @@ def list_members(
                 Member.imageData,
                 Member.dateOfBirth,
                 Member.dateOfDeath,
+                Member.dateOfBirthSort,
+                Member.dateOfDeathSort,
                 Member.deceased,
                 Member.isCollapsed,
                 Member.positionX,

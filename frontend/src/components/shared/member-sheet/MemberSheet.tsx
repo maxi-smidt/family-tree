@@ -16,7 +16,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -46,7 +46,6 @@ export const MemberSheet = ({
   });
   const { removeMember, fetchMemberDetail } = useMemberStore();
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
-  const selectedTree = useTreeStore((s) => s.selectedTree);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
@@ -68,11 +67,7 @@ export const MemberSheet = ({
   }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load events if not yet loaded (needed for syncVitalEvent in updateMemberPartial)
-  useEffect(() => {
-    if (isOpen && !isNewMember && !eventsInitialized && selectedTree) {
-      void refreshEvents(selectedTree.id);
-    }
-  }, [isOpen, isNewMember, eventsInitialized, selectedTree, refreshEvents]);
+  useDeferredStoreLoad(eventsInitialized || !isOpen || isNewMember, refreshEvents);
 
   if (!member) return null;
 
