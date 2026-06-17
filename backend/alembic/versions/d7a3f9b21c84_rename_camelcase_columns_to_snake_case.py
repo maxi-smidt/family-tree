@@ -26,7 +26,7 @@ Tables and column renames:
     createdAt  → created_at
     uploadedAt → uploaded_at
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: d7a3f9b21c84
 Revises: f8c1d2e3a4b5
 Create Date: 2026-06-17
 
@@ -36,7 +36,7 @@ from typing import Sequence, Union
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "a1b2c3d4e5f6"
+revision: str = "d7a3f9b21c84"
 down_revision: Union[str, None] = "f8c1d2e3a4b5"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
