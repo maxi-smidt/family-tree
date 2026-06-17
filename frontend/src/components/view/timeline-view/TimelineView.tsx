@@ -1,6 +1,6 @@
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -40,6 +40,7 @@ import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 
 interface VitalEvent {
   kind: "vital";
@@ -90,13 +91,8 @@ export const TimelineView = () => {
   const { members } = useMemberStore();
   const { events, removeEvent, refreshEvents, initialized: eventsInitialized } = useEventStore();
   const isReady = useTreeStore((state) => state.isReady);
-  const selectedTree = useTreeStore((state) => state.selectedTree);
 
-  useEffect(() => {
-    if (!eventsInitialized && selectedTree) {
-      void refreshEvents(selectedTree.id);
-    }
-  }, [eventsInitialized, selectedTree, refreshEvents]);
+  useDeferredStoreLoad(eventsInitialized, refreshEvents);
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",
   );
