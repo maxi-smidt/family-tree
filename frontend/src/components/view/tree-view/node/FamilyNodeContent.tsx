@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Member, isDeceased } from "@/types/member";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Mars, User, Venus, VenusAndMars } from "lucide-react";
@@ -142,22 +142,67 @@ export const FamilyNodeContent = ({
     birth: string | null;
     death: string | null;
   }) {
-    const start = dates.birth ? formatLocaleDate(dates.birth) : <i>???</i>;
-    let end: React.ReactNode;
-    if (dates.death) {
-      end = formatLocaleDate(dates.death);
-    } else if (isDeceased(member)) {
-      end = <i>{t("life-deceased-unknown")}</i>;
-    } else if (dates.birth) {
-      end = <i>{t("life-ongoing")}</i>;
-    } else {
-      end = <i>{t("life-unknown")}</i>;
+    const hasBirth = !!dates.birth;
+    const hasDeath = !!dates.death;
+    const deceased = isDeceased(member);
+
+    // Case 1: No birth date AND not deceased / no death info → render nothing
+    if (!hasBirth && !deceased && !hasDeath) {
+      return null;
     }
 
-    return (
-      <>
-        {start} - {end}
-      </>
+    const birthFormatted = hasBirth ? formatLocaleDate(dates.birth!) : null;
+    const deathFormatted = hasDeath ? formatLocaleDate(dates.death!) : null;
+
+    const crossMarker = (
+      <span
+        role="img"
+        aria-label={t("life-deceased-unknown")}
+        title={t("life-deceased-unknown")}
+      >
+        †
+      </span>
     );
+
+    // Case 3: Deceased with known death date
+    if (deceased && hasDeath) {
+      if (hasBirth) {
+        // birth – death
+        return (
+          <>
+            {birthFormatted} – {deathFormatted}
+          </>
+        );
+      } else {
+        // no birth but death known → † death
+        return (
+          <>
+            {crossMarker} {deathFormatted}
+          </>
+        );
+      }
+    }
+
+    // Case 4: Deceased, unknown death date
+    if (deceased && !hasDeath) {
+      if (hasBirth) {
+        // birth †
+        return (
+          <>
+            {birthFormatted} {crossMarker}
+          </>
+        );
+      } else {
+        // just †
+        return crossMarker;
+      }
+    }
+
+    // Case 2: Living (has birth, not deceased, no death date) → just birth date
+    if (hasBirth) {
+      return <>{birthFormatted}</>;
+    }
+
+    return null;
   }
 };
