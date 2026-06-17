@@ -18,6 +18,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
@@ -72,21 +73,10 @@ export const FlowPanel = () => {
   // Lazy-load secondary stores when the tree view mounts, so that
   // MemberDetailDialog (opened from FamilyNode) has events, stories, sources,
   // and gallery images available without requiring the user to visit each view.
-  useEffect(() => {
-    if (!eventsInitialized && activeTree) void refreshEvents(activeTree.id);
-  }, [eventsInitialized, activeTree, refreshEvents]);
-
-  useEffect(() => {
-    if (!storiesInitialized && activeTree) void refreshStories(activeTree.id);
-  }, [storiesInitialized, activeTree, refreshStories]);
-
-  useEffect(() => {
-    if (!sourcesInitialized && activeTree) void refreshSources(activeTree.id);
-  }, [sourcesInitialized, activeTree, refreshSources]);
-
-  useEffect(() => {
-    if (!galleryInitialized && activeTree) void refreshGalleryImages(activeTree.id);
-  }, [galleryInitialized, activeTree, refreshGalleryImages]);
+  useDeferredStoreLoad(eventsInitialized, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized, refreshStories);
+  useDeferredStoreLoad(sourcesInitialized, refreshSources);
+  useDeferredStoreLoad(galleryInitialized, refreshGalleryImages);
   const {
     edgeType,
     isLockedScreen,

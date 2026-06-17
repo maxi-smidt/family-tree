@@ -1,7 +1,8 @@
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
-import { useState, useMemo, useEffect } from "react";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useState, useMemo } from "react";
 import { Member } from "@/types/member";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -66,13 +67,8 @@ export const ListView = () => {
   const isVirtual = !!activeTree?.id && isVirtualId(activeTree.id);
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    if (!storiesInitialized && activeTree) void refreshStories(activeTree.id);
-  }, [storiesInitialized, activeTree, refreshStories]);
-
-  useEffect(() => {
-    if (!sourcesInitialized && activeTree) void refreshSources(activeTree.id);
-  }, [sourcesInitialized, activeTree, refreshSources]);
+  useDeferredStoreLoad(storiesInitialized, refreshStories);
+  useDeferredStoreLoad(sourcesInitialized, refreshSources);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
