@@ -262,3 +262,23 @@ def check_tree_quota(db: Session, tree, incoming_bytes: int) -> None:
     _check_bucket(
         "total", quotas["total_quota_bytes"], usage["total_bytes"], incoming_bytes
     )
+
+
+def check_full_usage_quota(db: Session, tree) -> None:
+    """Raise QuotaExceeded if the tree's *current* usage already exceeds quota.
+
+    Unlike check_tree_quota/check_media_quota (which project an additional
+    increment before a row is added), this verifies the fully-materialised
+    state and is meant for bulk operations such as import, where all rows and
+    media files have already been written/flushed. The caller is responsible
+    for rolling back (DB + media) when this raises.
+    """
+    quotas = owner_quotas(db, tree)
+    if all(v is None for v in quotas.values()):
+        return  # everything unlimited — fast path
+
+    usage = compute_usage(db, tree.id)
+    _check_bucket("tree", quotas["tree_quota_bytes"], usage["tree_bytes"], 0)
+    _check_bucket("media", quotas["media_quota_bytes"], usage["media_bytes"], 0)
+    _check_bucket("total", quotas["total_quota_bytes"], usage["total_bytes"], 0)
+

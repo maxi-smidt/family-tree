@@ -81,16 +81,18 @@ describe("useStorageStore — refreshStorageUsage", () => {
     expect(useStorageStore.getState().isLoading).toBe(false);
   });
 
-  it("resets isLoading to false even when the API throws", async () => {
+  it("sets error and resets isLoading when the API throws (no rejection)", async () => {
     useTreeStore.setState({ selectedTree: TREE });
     vi.mocked(TreeService.getStorageUsage).mockRejectedValue(
       new Error("network error"),
     );
 
+    // Must resolve, not reject — the store swallows the failure into an error flag.
     await expect(
       useStorageStore.getState().refreshStorageUsage(TREE_ID),
-    ).rejects.toThrow("network error");
+    ).resolves.toBeUndefined();
 
+    expect(useStorageStore.getState().error).toBe(true);
     expect(useStorageStore.getState().isLoading).toBe(false);
   });
 });

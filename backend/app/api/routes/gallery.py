@@ -44,21 +44,6 @@ router = APIRouter(
 )
 
 
-def _stat_media_file(media_url: str) -> int:
-    """Return on-disk byte size of a stored media file, or 0 on error."""
-    import os
-
-    from app.core.config import settings as _s
-
-    if not media_url or not media_url.startswith(MEDIA_URL_PREFIX + "/"):
-        return 0
-    rel = media_url[len(MEDIA_URL_PREFIX) + 1:]
-    try:
-        return os.stat(_s.media_root / rel).st_size
-    except OSError:
-        return 0
-
-
 def _get_image(db: Session, tree: Tree, image_id: str) -> GalleryImage:
     image = db.get(GalleryImage, image_id)
     if image is None or image.tree_id != tree.id:
@@ -118,10 +103,11 @@ def create_image(
     except (UnsupportedImageType, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # Write-then-verify: the file is already on disk and counted by
+    # compute_usage, so pass 0 to avoid double-counting it.
     if new_image_url:
-        actual_size = _stat_media_file(new_image_url)
         try:
-            check_media_quota(db, tree, actual_size)
+            check_media_quota(db, tree, 0)
         except QuotaExceeded as exc:
             delete_media(new_image_url)
             raise HTTPException(status_code=413, detail=str(exc)) from exc
@@ -172,10 +158,11 @@ def update_image(
         except (UnsupportedImageType, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # Write-then-verify: the file is already on disk and counted by
+    # compute_usage, so pass 0 to avoid double-counting it.
     if new_image_url:
-        actual_size = _stat_media_file(new_image_url)
         try:
-            check_media_quota(db, tree, actual_size)
+            check_media_quota(db, tree, 0)
         except QuotaExceeded as exc:
             delete_media(new_image_url)
             raise HTTPException(status_code=413, detail=str(exc)) from exc

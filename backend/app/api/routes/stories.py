@@ -201,8 +201,10 @@ def add_attachment(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # Write-then-verify: the file is already on disk and counted by
+    # compute_usage, so pass 0 to avoid double-counting it.
     try:
-        check_media_quota(db, tree, size)
+        check_media_quota(db, tree, 0)
     except QuotaExceeded as exc:
         delete_media(url)
         raise HTTPException(status_code=413, detail=str(exc)) from exc

@@ -1353,6 +1353,7 @@
     "total": "Total",
     "used-of": "{{used}} of {{quota}}",
     "unlimited": "unlimited",
+    "error": "Could not load storage usage.",
     "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
     "toast-error-quota-tree": "Tree data quota exceeded.",

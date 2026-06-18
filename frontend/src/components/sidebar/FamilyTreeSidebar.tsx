@@ -13,11 +13,15 @@ import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
 import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
 import { ThemeSelector } from "@/components/sidebar/ThemeSelector.tsx";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { StorageUsagePanel } from "@/components/shared/StorageUsagePanel";
 import { APP_VERSION } from "@/lib/buildInfo";
 import { useTranslation } from "react-i18next";
+import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
 
 export function FamilyTreeSidebar() {
   const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
+  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const showStorage = !!selectedTree?.id && !isVirtualId(selectedTree.id);
 
   return (
     <Sidebar>
@@ -49,6 +53,16 @@ export function FamilyTreeSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {showStorage && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <div className="px-2">
+                <StorageUsagePanel treeId={selectedTree.id} />
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <UserMenu />

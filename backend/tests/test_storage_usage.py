@@ -12,6 +12,7 @@ from app.services.storage_usage import (
     QuotaExceeded,
     _media_bytes,
     _tree_model_bytes,
+    check_full_usage_quota,
     check_media_quota,
     check_tree_quota,
     compute_usage,
@@ -209,6 +210,29 @@ def test_quota_zero_means_unlimited(db: Session):
     tree = make_tree(db, owner, "QuotaZeroTree")
     # Should not raise
     check_media_quota(db, tree, 999_999_999)
+
+
+def test_check_full_usage_quota_raises_when_already_over(db: Session):
+    """Bulk-operation check (used by import) rejects an already-over-quota tree."""
+    owner = make_user(db, "full-usage-owner")
+    owner.tree_quota_bytes = 50  # 50 bytes — a single member blows past it
+    db.commit()
+    tree = make_tree(db, owner, "FullUsageTree")
+    add_member(db, tree, "fm1", first_name="A" * 500)
+    db.flush()
+    with pytest.raises(QuotaExceeded) as exc_info:
+        check_full_usage_quota(db, tree)
+    assert exc_info.value.bucket in ("tree", "total")
+
+
+def test_check_full_usage_quota_passes_when_unlimited(db: Session):
+    """Bulk-operation check is a no-op when the owner has no quota set."""
+    owner = make_user(db, "full-usage-owner2")
+    tree = make_tree(db, owner, "FullUsageTree2")
+    add_member(db, tree, "fm2", first_name="A" * 500)
+    db.flush()
+    # Should not raise (all quotas unlimited)
+    check_full_usage_quota(db, tree)
 
 
 # ---------------------------------------------------------------------------

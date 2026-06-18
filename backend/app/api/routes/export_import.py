@@ -39,10 +39,12 @@ from app.schemas.tree import TreeOut
 from app.services import crypto_export, gedcom
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
+    delete_tree_media,
     media_url_to_data_url,
     process_image_field,
     store_document,
 )
+from app.services.storage_usage import QuotaExceeded, check_full_usage_quota
 
 router = APIRouter(prefix="/trees", tags=["export"])
 
@@ -364,11 +366,29 @@ async def import_tree(
             )
         )
 
+    _enforce_import_quota(db, tree)
     db.commit()
     db.refresh(tree)
     out = TreeOut.model_validate(tree)
     out.role = "owner"
     return out
+
+
+def _enforce_import_quota(db: Session, tree: Tree) -> None:
+    """Reject an over-quota import, rolling back the whole tree + its media.
+
+    The bundle is fully written (rows flushed, media on disk) before this runs,
+    so a single full-usage check enforces the owner's quota; on violation we
+    undo every inserted row and remove the tree's media directory.
+    """
+    tree_id = tree.id
+    db.flush()
+    try:
+        check_full_usage_quota(db, tree)
+    except QuotaExceeded as exc:
+        db.rollback()
+        delete_tree_media(tree_id)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
 
 
 def _remap(rows: list[dict]) -> dict[str, str]:
@@ -491,6 +511,7 @@ async def import_tree_gedcom(
                 )
             )
 
+    _enforce_import_quota(db, tree)
     db.commit()
     db.refresh(tree)
     out = TreeOut.model_validate(tree)

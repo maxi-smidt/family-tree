@@ -1353,6 +1353,7 @@
     "total": "Gesamt",
     "used-of": "{{used}} von {{quota}}",
     "unlimited": "unbegrenzt",
+    "error": "Speichernutzung konnte nicht geladen werden.",
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
     "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",

@@ -69,7 +69,7 @@ interface StorageUsagePanelProps {
 
 export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
   const { t } = useTranslation(undefined, { keyPrefix: "storage-usage" });
-  const { usage, isLoading, refreshStorageUsage } = useStorageStore();
+  const { usage, isLoading, error, refreshStorageUsage } = useStorageStore();
 
   useEffect(() => {
     void refreshStorageUsage(treeId);
@@ -79,6 +79,10 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
     return (
       <div className="text-sm text-muted-foreground">{t("title")}…</div>
     );
+  }
+
+  if (error && !usage) {
+    return <div className="text-sm text-destructive">{t("error")}</div>;
   }
 
   if (!usage) return null;
