@@ -16,7 +16,10 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
-import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -46,6 +49,10 @@ export const MemberSheet = ({
   });
   const { removeMember, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const { refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
+  const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
+  const selectedTree = useTreeStore((s) => s.selectedTree);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
@@ -70,8 +77,30 @@ export const MemberSheet = ({
     }
   }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load events if not yet loaded (needed for syncVitalEvent in updateMemberPartial)
-  useDeferredStoreLoad(eventsInitialized || !isOpen || isNewMember, refreshEvents);
+  // Defer secondary-domain stores until the sheet opens
+  useEffect(() => {
+    if (isOpen && !isNewMember && !eventsInitialized && selectedTree) {
+      void refreshEvents(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, eventsInitialized, selectedTree, refreshEvents]);
+
+  useEffect(() => {
+    if (isOpen && !isNewMember && !storiesInitialized && selectedTree) {
+      void refreshStories(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, storiesInitialized, selectedTree, refreshStories]);
+
+  useEffect(() => {
+    if (isOpen && !isNewMember && !sourcesInitialized && selectedTree) {
+      void refreshSources(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, sourcesInitialized, selectedTree, refreshSources]);
+
+  useEffect(() => {
+    if (isOpen && !isNewMember && !galleryInitialized && selectedTree) {
+      void refreshGalleryImages(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, galleryInitialized, selectedTree, refreshGalleryImages]);
 
   if (!member) return null;
 

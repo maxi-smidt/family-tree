@@ -88,10 +88,10 @@ def export_tree(
 ):
     members = _rows(db, Member, tree.id)
     for m in members:
-        m["imageData"] = media_url_to_data_url(m.get("imageData"))
+        m["image_data"] = media_url_to_data_url(m.get("image_data"))
     gallery = _rows(db, GalleryImage, tree.id)
     for g in gallery:
-        g["imageData"] = media_url_to_data_url(g.get("imageData"))
+        g["image_data"] = media_url_to_data_url(g.get("image_data"))
     story_attachments = _rows(db, StoryAttachment, tree.id)
     for a in story_attachments:
         a["url"] = media_url_to_data_url(a.get("url"))
@@ -210,9 +210,9 @@ async def import_tree(
         data = dict(row)
         data.pop("tree_id", None)
         data["id"] = member_map[row["id"]]
-        data["imageData"] = process_image_field(
+        data["image_data"] = process_image_field(
             tree.id,
-            data.get("imageData"),
+            data.get("image_data"),
             media_limits,
         )
         db.add(Member(tree_id=tree.id, **data))
@@ -252,9 +252,9 @@ async def import_tree(
         data = dict(row)
         data.pop("tree_id", None)
         data["id"] = gallery_map[row["id"]]
-        data["imageData"] = process_image_field(
+        data["image_data"] = process_image_field(
             tree.id,
-            data.get("imageData"),
+            data.get("image_data"),
             media_limits,
         )
         db.add(GalleryImage(tree_id=tree.id, **data))

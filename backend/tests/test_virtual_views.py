@@ -33,11 +33,11 @@ def add_overlap(db, tree_a, tree_b) -> None:
     """Add a matching member (same name + birth year) in both trees so creation passes."""
     add_member(
         db, tree_a, f"overlap-a-{tree_a.id[:8]}",
-        firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
     )
     add_member(
         db, tree_b, f"overlap-b-{tree_b.id[:8]}",
-        firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
     )
 
 
@@ -80,8 +80,8 @@ def test_create_fails_without_overlap(client: TestClient, db: Session):
     alice = make_user(db)
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
-    add_member(db, tree_a, "a1", firstName="Alice", lastName="A")
-    add_member(db, tree_b, "b1", firstName="Bob", lastName="B")
+    add_member(db, tree_a, "a1", first_name="Alice", last_name="A")
+    add_member(db, tree_b, "b1", first_name="Bob", last_name="B")
 
     r = create_view(client, alice, tree_a.id, tree_b.id)
     assert r.status_code == 409
@@ -220,16 +220,16 @@ def test_members_returns_union_with_source_tags(client: TestClient, db: Session)
     tree_a = make_tree(db, alice, name="Paternal")
     tree_b = make_tree(db, alice, name="Maternal")
     # Distinct members (no overlap on their own)
-    add_member(db, tree_a, "m1", firstName="Alice", lastName="A")
-    add_member(db, tree_b, "m2", firstName="Bob", lastName="B")
+    add_member(db, tree_a, "m1", first_name="Alice", last_name="A")
+    add_member(db, tree_b, "m2", first_name="Bob", last_name="B")
     # Overlap pair that satisfies the creation constraint (will be merged)
     add_member(
         db, tree_a, "j1",
-        firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
     )
     add_member(
         db, tree_b, "j2",
-        firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
     )
 
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
@@ -277,15 +277,15 @@ def test_merged_node_keeps_parents_from_secondary_tree(
     # Homer exists in both trees (merged, primary = tree_a member).
     add_member(
         db, tree_a, "homer-a",
-        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
     )
     add_member(
         db, tree_b, "homer-b",
-        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
     )
     # His parents only exist in tree_b.
-    add_member(db, tree_b, "abe", firstName="Abraham", lastName="Simpson", gender="m")
-    add_member(db, tree_b, "mona", firstName="Mona", lastName="Simpson", gender="f")
+    add_member(db, tree_b, "abe", first_name="Abraham", last_name="Simpson", gender="m")
+    add_member(db, tree_b, "mona", first_name="Mona", last_name="Simpson", gender="f")
     add_relation(db, tree_b, "homer-b", "abe")
     add_relation(db, tree_b, "homer-b", "mona")
 
@@ -315,17 +315,17 @@ def test_merged_node_prefers_primary_parents(client: TestClient, db: Session):
     tree_b = make_tree(db, alice)
     add_member(
         db, tree_a, "homer-a",
-        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
     )
     add_member(
         db, tree_b, "homer-b",
-        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
     )
     # Distinctly-named parents in each tree so they do not merge themselves.
-    add_member(db, tree_a, "abe-a", firstName="Abe", lastName="Simpson", gender="m")
+    add_member(db, tree_a, "abe-a", first_name="Abe", last_name="Simpson", gender="m")
     add_member(
         db, tree_b, "abraham-b",
-        firstName="Abraham", lastName="Simpson", gender="m",
+        first_name="Abraham", last_name="Simpson", gender="m",
     )
     add_relation(db, tree_a, "homer-a", "abe-a")
     add_relation(db, tree_b, "homer-b", "abraham-b")
@@ -382,7 +382,7 @@ def test_patch_sources_recomputes_matches_against_new_trees(
     # The same person also exists in tree_c.
     add_member(
         db, tree_c, "overlap-c",
-        firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
     )
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
 
@@ -446,7 +446,7 @@ def _john(db, *trees) -> None:
     for i, t in enumerate(trees):
         add_member(
             db, t, f"john-{t.id[:8]}-{i}",
-            firstName="John", lastName="Smith", dateOfBirth="1900", gender="m",
+            first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
         )
 
 
@@ -556,11 +556,11 @@ def _add_homer(db, tree_a, tree_b):
     """Homer exists in both trees (merged) — returns the two member ids."""
     add_member(
         db, tree_a, "homer-a",
-        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
     )
     add_member(
         db, tree_b, "homer-b",
-        firstName="Homer", lastName="Simpson", dateOfBirth="1956", gender="m",
+        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
     )
 
 
@@ -617,11 +617,11 @@ def test_composite_statistics_dedupes_merged_people(
     _add_homer(db, tree_a, tree_b)  # merged → counts once
     add_member(
         db, tree_a, "marge",
-        firstName="Marge", lastName="Simpson", dateOfBirth="1958", gender="f",
+        first_name="Marge", last_name="Simpson", date_of_birth="1958", gender="f",
     )
     add_member(
         db, tree_b, "bart",
-        firstName="Bart", lastName="Simpson", dateOfBirth="1980", gender="m",
+        first_name="Bart", last_name="Simpson", date_of_birth="1980", gender="m",
     )
 
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]

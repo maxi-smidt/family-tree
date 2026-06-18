@@ -265,11 +265,11 @@ def extract_subtree(
             GalleryImage(
                 id=new_id,
                 tree_id=new_tree.id,
-                imageData=copy_media_to_tree(img.imageData, new_tree.id),
+                image_data=copy_media_to_tree(img.image_data, new_tree.id),
                 title=img.title,
                 description=img.description,
-                createdAt=img.createdAt,
-                uploadedAt=img.uploadedAt,
+                created_at=img.created_at,
+                uploaded_at=img.uploaded_at,
             )
         )
     db.flush()
