@@ -19,7 +19,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -52,7 +52,6 @@ export const MemberSheet = ({
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
   const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
   const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
-  const selectedTree = useTreeStore((s) => s.selectedTree);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
@@ -77,30 +76,16 @@ export const MemberSheet = ({
     }
   }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Defer secondary-domain stores until the sheet opens
-  useEffect(() => {
-    if (isOpen && !isNewMember && !eventsInitialized && selectedTree) {
-      void refreshEvents(selectedTree.id);
-    }
-  }, [isOpen, isNewMember, eventsInitialized, selectedTree, refreshEvents]);
-
-  useEffect(() => {
-    if (isOpen && !isNewMember && !storiesInitialized && selectedTree) {
-      void refreshStories(selectedTree.id);
-    }
-  }, [isOpen, isNewMember, storiesInitialized, selectedTree, refreshStories]);
-
-  useEffect(() => {
-    if (isOpen && !isNewMember && !sourcesInitialized && selectedTree) {
-      void refreshSources(selectedTree.id);
-    }
-  }, [isOpen, isNewMember, sourcesInitialized, selectedTree, refreshSources]);
-
-  useEffect(() => {
-    if (isOpen && !isNewMember && !galleryInitialized && selectedTree) {
-      void refreshGalleryImages(selectedTree.id);
-    }
-  }, [isOpen, isNewMember, galleryInitialized, selectedTree, refreshGalleryImages]);
+  // Defer secondary-domain stores until the sheet opens for an existing member.
+  // Passing `|| !isOpen || isNewMember` makes the shared hook a no-op while the
+  // sheet is closed or showing an unsaved new member.
+  useDeferredStoreLoad(eventsInitialized || !isOpen || isNewMember, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized || !isOpen || isNewMember, refreshStories);
+  useDeferredStoreLoad(sourcesInitialized || !isOpen || isNewMember, refreshSources);
+  useDeferredStoreLoad(
+    galleryInitialized || !isOpen || isNewMember,
+    refreshGalleryImages,
+  );
 
   if (!member) return null;
 

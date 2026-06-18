@@ -16,7 +16,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
@@ -50,7 +50,6 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   const { getEventsByMember, refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { getStoriesByMember, refreshStories, initialized: storiesInitialized } = useStoryStore();
   const { members, fetchMemberDetail, detailLoadedIds } = useMemberStore();
-  const selectedTree = useTreeStore((s) => s.selectedTree);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -65,18 +64,10 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
     }
   }, [open, member?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Defer secondary-domain stores until the dialog opens
-  useEffect(() => {
-    if (open && !eventsInitialized && selectedTree) void refreshEvents(selectedTree.id);
-  }, [open, eventsInitialized, selectedTree, refreshEvents]);
-
-  useEffect(() => {
-    if (open && !storiesInitialized && selectedTree) void refreshStories(selectedTree.id);
-  }, [open, storiesInitialized, selectedTree, refreshStories]);
-
-  useEffect(() => {
-    if (open && !galleryInitialized && selectedTree) void refreshGalleryImages(selectedTree.id);
-  }, [open, galleryInitialized, selectedTree, refreshGalleryImages]);
+  // Defer secondary-domain stores until the dialog opens (no-op while closed).
+  useDeferredStoreLoad(eventsInitialized || !open, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized || !open, refreshStories);
+  useDeferredStoreLoad(galleryInitialized || !open, refreshGalleryImages);
 
   if (!member) return null;
 
