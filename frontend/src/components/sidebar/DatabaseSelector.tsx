@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { SettingsField } from "@/components/sidebar/SettingsField";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useTranslation } from "react-i18next";
 import { Crown, Layers, Users } from "lucide-react";
 
@@ -21,11 +22,11 @@ export const DatabaseSelector = () => {
   const virtualViews = useTreeStore((s) => s.virtualViews);
   const selectedTree = useTreeStore((s) => s.selectedTree);
   const selectTree = useTreeStore((s) => s.selectTree);
+  const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
 
-  const handleDatabaseChange = async (dbId: string) => {
-    const item =
-      [...trees, ...virtualViews].find((d) => d.id === dbId);
-    if (item) await selectTree(item);
+  const handleDatabaseChange = (dbId: string) => {
+    const item = [...trees, ...virtualViews].find((d) => d.id === dbId);
+    if (item) guardNavigate(() => void selectTree(item));
   };
 
   return (
@@ -34,7 +35,7 @@ export const DatabaseSelector = () => {
         onValueChange={handleDatabaseChange}
         value={selectedTree?.id ?? ""}
       >
-        <SelectTrigger size="sm" className="w-full text-xs">
+        <SelectTrigger size="sm" className="w-full text-xs" data-testid="tree-selector">
           <SelectValue placeholder={t("placeholder")} />
         </SelectTrigger>
         <SelectContent>

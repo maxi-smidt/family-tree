@@ -37,6 +37,7 @@ describe("filterViewsByFeatures", () => {
       "tree-view",
       "list-view",
       "database-management-view",
+      "friends-view",
     ]);
   });
 

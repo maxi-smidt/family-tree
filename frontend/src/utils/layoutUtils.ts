@@ -27,11 +27,31 @@ export const getLayoutedElements = (members: Member[]) => {
     const bIsVM = b.id.startsWith("vm_");
     if (aIsVM !== bIsVM) return aIsVM ? -1 : 1;
 
-    const dateA = new Date(a.date.birth || "9999-12-31").getTime();
-    const dateB = new Date(b.date.birth || "9999-12-31").getTime();
+    // Prefer the pre-computed zero-padded sort key (YYYY-MM-DD) when available;
+    // members without a sort key sort last (equivalent to the old "9999-12-31"
+    // sentinel). Fall back to new Date(...) comparison only when both keys are
+    // absent so un-backfilled data is handled gracefully.
+    const aSortKey = a.date.birthSort || null;
+    const bSortKey = b.date.birthSort || null;
 
-    if (dateA !== dateB) {
-      return dateA - dateB;
+    let dateCmp: number;
+    if (aSortKey !== null && bSortKey !== null) {
+      dateCmp = aSortKey < bSortKey ? -1 : aSortKey > bSortKey ? 1 : 0;
+    } else if (aSortKey !== null) {
+      // b has no sort key → b sorts last
+      dateCmp = -1;
+    } else if (bSortKey !== null) {
+      // a has no sort key → a sorts last
+      dateCmp = 1;
+    } else {
+      // Neither has a sort key — fall back to Date parsing for backward compat.
+      const dateA = new Date(a.date.birth || "9999-12-31").getTime();
+      const dateB = new Date(b.date.birth || "9999-12-31").getTime();
+      dateCmp = dateA - dateB;
+    }
+
+    if (dateCmp !== 0) {
+      return dateCmp;
     }
 
     if (a.gender !== b.gender) {
@@ -240,11 +260,15 @@ export const getLayoutedElements = (members: Member[]) => {
     }
   });
 
-  // Post-process: move each merged (vm_) node to the edge of its sibling group
-  // facing its in-view partner. Dagre orders same-parent siblings arbitrarily,
-  // which can strand the merged node behind a sibling so the partner connector
-  // runs across that sibling's card. Siblings share the same parents, so
-  // permuting their x slots is always safe.
+  // Post-process: order siblings so that a member married to someone OUTSIDE
+  // the group sits on the side nearest that partner. Dagre orders same-parent
+  // siblings by its barycenter heuristic, which routinely strands a married
+  // sibling at the far end of the group so the partner connector crosses the
+  // other siblings' cards (e.g. Marge ends up at the opposite end of her
+  // Bouvier sibling group from Homer). This generalises the merged-node case:
+  // the stranded partner may be the merged node, the merged node's spouse, or
+  // any couple in a plain tree. Permuting members within their own group's
+  // x-slots is always safe — siblings share parents and form a contiguous block.
   const PARTNER_RELATIONS = ["partner", "married", "divorced"];
   const partnerOf = new Map<string, string>();
   members.forEach((m) => {
@@ -256,45 +280,47 @@ export const getLayoutedElements = (members: Member[]) => {
     });
   });
 
-  const parentKeyOf = (m: Member): string | null => {
-    const ids = [m.parents.paternalParent, m.parents.maternalParent].filter(
-      (id): id is string => !!id,
-    );
-    return ids.length > 0 ? getUnionKey(ids) : null;
+  // The sibling-group key a member was laid out under (explicit or inferred).
+  const groupKeyOf = (id: string): string | null =>
+    memberEffectiveParentKey.get(id) ?? memberParentKeys.get(id) ?? null;
+
+  // Each member's horizontal "pull": the x of a partner living outside its
+  // sibling group, else its own current x. Read from the pre-permutation
+  // snapshot so a group's ordering never depends on iteration order.
+  const anchorX = (m: Member): number => {
+    const own = finalPositions[m.id]?.x ?? 0;
+    const partnerId = partnerOf.get(m.id);
+    if (!partnerId) return own;
+    const myGroup = groupKeyOf(m.id);
+    if (myGroup !== null && groupKeyOf(partnerId) === myGroup) return own;
+    return finalPositions[partnerId]?.x ?? own;
   };
 
+  // Bucket members into (sibling group, rank) cells, then permute each cell's
+  // members across their own x-slots in anchor order.
+  const siblingCells = new Map<string, Member[]>();
   members.forEach((m) => {
-    if (!m.id.startsWith("vm_")) return;
-    const partnerId = partnerOf.get(m.id);
-    if (!partnerId) return;
-    const myPos = finalPositions[m.id];
-    const partnerPos = finalPositions[partnerId];
-    if (!myPos || !partnerPos) return;
-    const myParentKey = parentKeyOf(m);
-    if (!myParentKey) return;
+    const gk = groupKeyOf(m.id);
+    const pos = finalPositions[m.id];
+    if (!gk || !pos) return;
+    const cell = `${gk}@${pos.y}`;
+    if (!siblingCells.has(cell)) siblingCells.set(cell, []);
+    siblingCells.get(cell)!.push(m);
+  });
 
-    const siblings = members.filter(
-      (s) =>
-        s.id !== m.id &&
-        parentKeyOf(s) === myParentKey &&
-        finalPositions[s.id] &&
-        finalPositions[s.id].y === myPos.y,
-    );
-    if (siblings.length === 0) return;
-
-    const group = [m, ...siblings];
+  siblingCells.forEach((group) => {
+    if (group.length < 2) return;
     const slots = group
-      .map((g) => finalPositions[g.id].x)
+      .map((m) => finalPositions[m.id].x)
       .sort((a, b) => a - b);
-    const orderedSiblings = [...siblings].sort(
-      (a, b) => finalPositions[a.id].x - finalPositions[b.id].x,
-    );
-    const ordered =
-      partnerPos.x < myPos.x
-        ? [m, ...orderedSiblings]
-        : [...orderedSiblings, m];
-    ordered.forEach((g, i) => {
-      finalPositions[g.id] = { ...finalPositions[g.id], x: slots[i] };
+    const anchors = new Map(group.map((m) => [m.id, anchorX(m)]));
+    const ordered = [...group].sort((a, b) => {
+      const delta = anchors.get(a.id)! - anchors.get(b.id)!;
+      if (delta !== 0) return delta;
+      return finalPositions[a.id].x - finalPositions[b.id].x;
+    });
+    ordered.forEach((m, i) => {
+      finalPositions[m.id] = { ...finalPositions[m.id], x: slots[i] };
     });
   });
 
@@ -308,7 +334,8 @@ export const getLayoutedElements = (members: Member[]) => {
     if (!m.id.startsWith("vm_")) return;
     const { paternalParent, maternalParent } = m.parents;
     if (!paternalParent || !maternalParent) return;
-    if (!memberIds.has(paternalParent) || !memberIds.has(maternalParent)) return;
+    if (!memberIds.has(paternalParent) || !memberIds.has(maternalParent))
+      return;
 
     // All members that share exactly these two parents.
     const sharedChildren = members.filter(

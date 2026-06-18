@@ -57,16 +57,12 @@ def _decade_label(year: int) -> str:
     return f"{(year // 10) * 10}s"
 
 
-@router.get("/statistics", response_model=StatisticsReport)
-def get_statistics(
-    tree: Tree = Depends(get_readable_tree),
-    db: Session = Depends(get_db),
-) -> StatisticsReport:
-    """Return aggregate statistics for the tree. Read-only, scoped by tree_id."""
-    members = list(
-        db.scalars(select(Member).where(Member.tree_id == tree.id)).all()
-    )
+def compute_statistics(members: list[Member], tree_id: str) -> StatisticsReport:
+    """Build the statistics report from a member list.
 
+    Pure (no DB): shared by the per-tree route and the virtual-view composite,
+    which passes the merged/deduplicated members of the flattened sources.
+    """
     total = len(members)
     gender_counts: dict[str, int] = {"m": 0, "f": 0, "o": 0, "unknown": 0}
     birth_years: list[int] = []
@@ -83,8 +79,8 @@ def get_statistics(
         else:
             gender_counts["unknown"] += 1
 
-        birth_year = _extract_year(m.dateOfBirth)
-        death_year = _extract_year(m.dateOfDeath)
+        birth_year = _extract_year(m.date_of_birth)
+        death_year = _extract_year(m.date_of_death)
 
         if birth_year:
             birth_years.append(birth_year)
@@ -93,10 +89,10 @@ def get_statistics(
         if birth_year and death_year and death_year >= birth_year:
             lifespans.append(death_year - birth_year)
 
-        if m.firstName and m.firstName.strip():
-            first_name_counter[m.firstName.strip()] += 1
-        if m.lastName and m.lastName.strip():
-            last_name_counter[m.lastName.strip()] += 1
+        if m.first_name and m.first_name.strip():
+            first_name_counter[m.first_name.strip()] += 1
+        if m.last_name and m.last_name.strip():
+            last_name_counter[m.last_name.strip()] += 1
 
     # Birth / death by decade
     decade_births: dict[str, int] = defaultdict(int)
@@ -133,7 +129,7 @@ def get_statistics(
     avg_lifespan = (sum(lifespans) / len(lifespans)) if lifespans else None
 
     return StatisticsReport(
-        tree_id=tree.id,
+        tree_id=tree_id,
         total_members=total,
         members_with_birth_date=len(birth_years),
         members_with_death_date=len(death_years),
@@ -155,3 +151,15 @@ def get_statistics(
             for n, c in last_name_counter.most_common(10)
         ],
     )
+
+
+@router.get("/statistics", response_model=StatisticsReport)
+def get_statistics(
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+) -> StatisticsReport:
+    """Return aggregate statistics for the tree. Read-only, scoped by tree_id."""
+    members = list(
+        db.scalars(select(Member).where(Member.tree_id == tree.id)).all()
+    )
+    return compute_statistics(members, tree.id)

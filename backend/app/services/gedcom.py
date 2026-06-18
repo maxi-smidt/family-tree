@@ -105,8 +105,10 @@ def _to_gedcom_date(s: str | None) -> str | None:
     """
     if not s:
         return None
-    # Strip ISO time component.
-    s = s.split("T")[0].strip()
+    # Strip ISO time component (YYYY-MM-DDTHH:… only; don't corrupt
+    # GEDCOM qualifier prefixes such as "AFT", "EST", "BEF" which also
+    # contain the letter "T").
+    s = re.sub(r"(\d{4}-\d{2}-\d{2})T.*", r"\1", s).strip()
     # Full date: YYYY-MM-DD
     m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
     if m:
@@ -169,6 +171,9 @@ def serialize_to_gedcom(
     tree_name: str,
     members: list[dict],
     relations: list[dict],
+    sources: list[dict] | None = None,
+    citations: list[dict] | None = None,
+    app_version: str | None = None,
 ) -> str:
     """Serialize a family tree to a GEDCOM 5.5.1 LINEAGE-LINKED string.
 
@@ -196,6 +201,9 @@ def serialize_to_gedcom(
     day_str = f"{today.day:02d} {MONTHS[today.month - 1]} {today.year}"
     L("0 HEAD")
     L("1 SOUR FamilyTree")
+    L("2 NAME Family Tree")
+    if app_version:
+        L(f"2 VERS {app_version}")
     L("1 GEDC")
     L("2 VERS 5.5.1")
     L("2 FORM LINEAGE-LINKED")
@@ -210,6 +218,24 @@ def serialize_to_gedcom(
     member_xref: dict[str, str] = {}  # member_id → "@I{n}@"
     for idx, member in enumerate(members, start=1):
         member_xref[member["id"]] = f"@I{idx}@"
+
+    # --- Assign SOUR xrefs and build citations index -------------------------
+    sources = sources or []
+    citations = citations or []
+    source_xref: dict[str, str] = {}
+    for idx, src in enumerate(sources, start=1):
+        source_xref[src["id"]] = f"@S{idx}@"
+    # member_id → list of (fact_type, source_xref, page)
+    member_citations: dict[str, list[tuple[str, str, str | None]]] = {}
+    for cit in citations:
+        src_id = cit.get("source_id", "")
+        xref = source_xref.get(src_id)
+        if xref is None:
+            continue
+        mem_id = cit.get("member_id", "")
+        member_citations.setdefault(mem_id, []).append(
+            (cit.get("fact_type", "general"), xref, cit.get("page"))
+        )
 
     # --- Build family groups -------------------------------------------------
     # A family is keyed by a frozenset of spouse ids (1 or 2 members).
@@ -285,25 +311,48 @@ def serialize_to_gedcom(
         xref = member_xref[member["id"]]
         L(f"0 {xref} INDI")
 
-        first = (member.get("firstName") or "").strip()
-        last = (member.get("lastName") or "").strip()
+        first = (member.get("first_name") or "").strip()
+        middle = (member.get("middle_names") or "").strip()
+        given_names = " ".join(part for part in (first, middle) if part)
+        last = (member.get("last_name") or "").strip()
         # Primary NAME
-        name_value = f"{first} /{last}/" if first or last else "//"
+        name_value = f"{given_names} /{last}/" if given_names or last else "//"
         L(f"1 NAME {name_value}")
+        if given_names:
+            L(f"2 GIVN {given_names}")
         if first:
-            L(f"2 GIVN {first}")
+            L(f"2 _FIRST_NAME {first}")
+        if middle:
+            L(f"2 _MIDDLE_NAMES {middle}")
         if last:
             L(f"2 SURN {last}")
 
+        # Baptismal name (alternate NAME tag).
+        baptismal = (member.get("baptismal_name") or "").strip()
+        if baptismal:
+            baptismal_value = f"{baptismal} /{last}/" if last else baptismal
+            L(f"1 NAME {baptismal_value}")
+            L("2 TYPE baptismal")
+            L(f"2 GIVN {baptismal}")
+            if last:
+                L(f"2 SURN {last}")
+
         # Maiden name (second NAME tag)
-        maiden = (member.get("maidenName") or "").strip()
+        maiden = (member.get("maiden_name") or "").strip()
         if maiden:
-            maiden_value = f"{first} /{maiden}/" if first else f"/{maiden}/"
+            maiden_value = (
+                f"{given_names} /{maiden}/" if given_names else f"/{maiden}/"
+            )
             L(f"1 NAME {maiden_value}")
             L("2 TYPE maiden")
-            if first:
-                L(f"2 GIVN {first}")
+            if given_names:
+                L(f"2 GIVN {given_names}")
             L(f"2 SURN {maiden}")
+
+        # TITL (academic / honorific title)
+        title = (member.get("academic_title") or "").strip()
+        if title:
+            L(f"1 TITL {title}")
 
         # SEX
         gender = member.get("gender")
@@ -317,7 +366,7 @@ def serialize_to_gedcom(
                 L("1 _GENDER o")
 
         # BIRT
-        dob_ged = _to_gedcom_date(member.get("dateOfBirth"))
+        dob_ged = _to_gedcom_date(member.get("date_of_birth"))
         birthplace = (member.get("birthplace") or "").strip()
         if dob_ged or birthplace:
             L("1 BIRT")
@@ -327,10 +376,12 @@ def serialize_to_gedcom(
                 L(f"2 PLAC {birthplace}")
 
         # DEAT
-        dod_ged = _to_gedcom_date(member.get("dateOfDeath"))
+        dod_ged = _to_gedcom_date(member.get("date_of_death"))
         if dod_ged:
             L("1 DEAT")
             L(f"2 DATE {dod_ged}")
+        elif member.get("deceased"):
+            L("1 DEAT Y")
 
         # RESI
         hometown = (member.get("hometown") or "").strip()
@@ -339,15 +390,24 @@ def serialize_to_gedcom(
             L(f"2 PLAC {hometown}")
 
         # NOTE
-        note = (member.get("additionalData") or "").strip()
+        note = (member.get("additional_data") or "").strip()
         if note:
             note_lines = note.splitlines()
             L(f"1 NOTE {note_lines[0]}")
             for cont_line in note_lines[1:]:
                 L(f"2 CONT {cont_line}")
 
-        # FAMC / FAMS pointers
+        # Source citations at individual level
         mid = member["id"]
+        for fact_type, sx, page in member_citations.get(mid, []):
+            L(f"1 SOUR {sx}")
+            if page:
+                L(f"2 PAGE {page}")
+            if fact_type not in ("general", "name", "birth", "death",
+                                 "birthplace", "hometown", "residence"):
+                L(f"2 _FACT {fact_type}")
+
+        # FAMC / FAMS pointers
         for fx in child_in_fams.get(mid, []):
             L(f"1 FAMC {fx}")
         for fx in spouse_in_fams.get(mid, []):
@@ -440,6 +500,26 @@ def serialize_to_gedcom(
         L(f"1 _TO {member_xref[to_id]}")
         L(f"1 _TYPE {rtype}")
         rel_idx += 1
+
+    # --- SOUR records -------------------------------------------------------
+    for src in sources:
+        sx = source_xref.get(src["id"])
+        if not sx:
+            continue
+        L(f"0 {sx} SOUR")
+        if src.get("title"):
+            L(f"1 TITL {src['title']}")
+        if src.get("author"):
+            L(f"1 AUTH {src['author']}")
+        if src.get("publication_info"):
+            L(f"1 PUBL {src['publication_info']}")
+        if src.get("repository"):
+            L(f"1 REPO {src['repository']}")
+        if src.get("notes"):
+            note_lines = src["notes"].splitlines()
+            L(f"1 NOTE {note_lines[0]}")
+            for cont in note_lines[1:]:
+                L(f"2 CONT {cont}")
 
     # --- SUBM record (required by the header reference) ---------------------
     L(f"0 {SUBMITTER_XREF} SUBM")
@@ -580,20 +660,24 @@ def parse_gedcom(text: str) -> dict:
 
         member: dict = {
             "id": new_id,
-            "firstName": None,
-            "lastName": None,
-            "maidenName": None,
+            "academic_title": None,
+            "first_name": None,
+            "middle_names": None,
+            "baptismal_name": None,
+            "last_name": None,
+            "maiden_name": None,
             "gender": None,
-            "dateOfBirth": None,
-            "dateOfDeath": None,
+            "date_of_birth": None,
+            "date_of_death": None,
+            "deceased": False,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         }
 
         primary_name_done = False
@@ -622,11 +706,35 @@ def parse_gedcom(text: str) -> dict:
 
                 name_type = _child_value(child, "TYPE")
                 if name_type and name_type.lower() == "maiden":
-                    member["maidenName"] = surname or None
+                    member["maiden_name"] = surname or None
+                elif name_type and name_type.lower() == "baptismal":
+                    member["baptismal_name"] = given or None
                 elif not primary_name_done:
-                    member["firstName"] = given or None
-                    member["lastName"] = surname or None
+                    first_name = _child_value(child, "_FIRST_NAME")
+                    middle_names = _child_value(child, "_MIDDLE_NAMES")
+                    baptismal_name = _child_value(child, "_BAPTISMAL_NAME")
+                    if first_name is not None or middle_names is not None:
+                        member["first_name"] = (
+                            first_name.strip() if first_name else None
+                        )
+                        member["middle_names"] = (
+                            middle_names.strip() if middle_names else None
+                        )
+                    else:
+                        given_parts = given.split(maxsplit=1)
+                        member["first_name"] = given_parts[0] if given_parts else None
+                        member["middle_names"] = (
+                            given_parts[1] if len(given_parts) > 1 else None
+                        )
+                    if baptismal_name is not None:
+                        member["baptismal_name"] = baptismal_name.strip() or None
+                    member["last_name"] = surname or None
                     primary_name_done = True
+
+            elif tag == "TITL":
+                val = (child["value"] or "").strip()
+                if val:
+                    member["academic_title"] = val
 
             elif tag == "SEX":
                 val = (child["value"] or "").strip().upper()
@@ -648,15 +756,16 @@ def parse_gedcom(text: str) -> dict:
             elif tag == "BIRT":
                 date_val = _child_value(child, "DATE")
                 if date_val:
-                    member["dateOfBirth"] = _from_gedcom_date(date_val)
+                    member["date_of_birth"] = _from_gedcom_date(date_val)
                 plac_val = _child_value(child, "PLAC")
                 if plac_val:
                     member["birthplace"] = plac_val.strip()
 
             elif tag == "DEAT":
+                member["deceased"] = True
                 date_val = _child_value(child, "DATE")
                 if date_val:
-                    member["dateOfDeath"] = _from_gedcom_date(date_val)
+                    member["date_of_death"] = _from_gedcom_date(date_val)
 
             elif tag == "RESI":
                 plac_val = _child_value(child, "PLAC")
@@ -671,7 +780,7 @@ def parse_gedcom(text: str) -> dict:
                         parts.append(cont["value"] or "")
                     elif cont["tag"] == "CONC":
                         parts[-1] = parts[-1] + (cont["value"] or "")
-                member["additionalData"] = "\n".join(parts).strip() or None
+                member["additional_data"] = "\n".join(parts).strip() or None
 
         members.append(member)
 
@@ -704,6 +813,11 @@ def parse_gedcom(text: str) -> dict:
         elif has_div:
             couple_type = "divorced"
         elif has_marr:
+            couple_type = "married"
+        elif len(spouse_ids) == 2:
+            # Two spouses but no explicit relation tags — common in third-party
+            # GEDCOMs that link spouses only via shared CHIL. Default to "married"
+            # so the union node renders green instead of grey. (#295)
             couple_type = "married"
         else:
             couple_type = None  # parent-only family; no couple relation

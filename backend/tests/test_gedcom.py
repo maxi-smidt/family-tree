@@ -124,88 +124,90 @@ def _build_test_data() -> tuple[list[dict], list[dict]]:
     members = [
         {
             "id": father_id,
-            "firstName": "James",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "James",
+            "middle_names": "Arthur Henry",
+            "baptismal_name": "Jacobus",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "m",
-            "dateOfBirth": "1950-03-15",
-            "dateOfDeath": None,
+            "date_of_birth": "1950-03-15",
+            "date_of_death": None,
             "birthplace": "London",
             "hometown": "Manchester",
-            "additionalData": "A note\nSecond line",
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": "A note\nSecond line",
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": mother_id,
-            "firstName": "Mary",
-            "lastName": "Smith",
-            "maidenName": "Jones",
+            "first_name": "Mary",
+            "last_name": "Smith",
+            "maiden_name": "Jones",
             "gender": "f",
-            "dateOfBirth": "1952-07",
-            "dateOfDeath": None,
+            "date_of_birth": "1952-07",
+            "date_of_death": None,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": child1_id,
-            "firstName": "Tom",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "Tom",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "m",
-            "dateOfBirth": "1975",
-            "dateOfDeath": None,
+            "date_of_birth": "1975",
+            "date_of_death": None,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": child2_id,
-            "firstName": "Sara",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "Sara",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "f",
-            "dateOfBirth": "1978-11-22",
-            "dateOfDeath": "2020-01-10",
+            "date_of_birth": "1978-11-22",
+            "date_of_death": "2020-01-10",
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
         {
             "id": single_parent_child_id,
-            "firstName": "Alex",
-            "lastName": "Smith",
-            "maidenName": None,
+            "first_name": "Alex",
+            "last_name": "Smith",
+            "maiden_name": None,
             "gender": "o",
-            "dateOfBirth": "1985",
-            "dateOfDeath": None,
+            "date_of_birth": "1985",
+            "date_of_death": None,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         },
     ]
 
@@ -237,7 +239,7 @@ class TestServiceRoundTrip:
         self.parsed = parse_gedcom(self.ged_text)
         # Build lookup by name for assertions.
         self.by_name = {
-            (m.get("firstName"), m.get("lastName")): m
+            (m.get("first_name"), m.get("last_name")): m
             for m in self.parsed["members"]
         }
 
@@ -269,9 +271,17 @@ class TestServiceRoundTrip:
     def test_father_name(self):
         assert ("James", "Smith") in self.by_name
 
+    def test_name_details_round_trip(self):
+        james = self.by_name[("James", "Smith")]
+        assert james["middle_names"] == "Arthur Henry"
+        assert james["baptismal_name"] == "Jacobus"
+        assert "2 _FIRST_NAME James" in self.ged_text
+        assert "2 _MIDDLE_NAMES Arthur Henry" in self.ged_text
+        assert "2 TYPE baptismal" in self.ged_text
+
     def test_mother_maiden_name(self):
         mary = self.by_name[("Mary", "Smith")]
-        assert mary["maidenName"] == "Jones"
+        assert mary["maiden_name"] == "Jones"
 
     def test_gender_o_round_trips(self):
         alex = self.by_name[("Alex", "Smith")]
@@ -287,19 +297,19 @@ class TestServiceRoundTrip:
 
     def test_full_date_round_trips(self):
         james = self.by_name[("James", "Smith")]
-        assert james["dateOfBirth"] == "1950-03-15"
+        assert james["date_of_birth"] == "1950-03-15"
 
     def test_year_month_date_round_trips(self):
         mary = self.by_name[("Mary", "Smith")]
-        assert mary["dateOfBirth"] == "1952-07"
+        assert mary["date_of_birth"] == "1952-07"
 
     def test_year_only_round_trips(self):
         tom = self.by_name[("Tom", "Smith")]
-        assert tom["dateOfBirth"] == "1975"
+        assert tom["date_of_birth"] == "1975"
 
     def test_death_date_round_trips(self):
         sara = self.by_name[("Sara", "Smith")]
-        assert sara["dateOfDeath"] == "2020-01-10"
+        assert sara["date_of_death"] == "2020-01-10"
 
     def test_birthplace_round_trips(self):
         james = self.by_name[("James", "Smith")]
@@ -311,7 +321,7 @@ class TestServiceRoundTrip:
 
     def test_multiline_note_round_trips(self):
         james = self.by_name[("James", "Smith")]
-        assert james["additionalData"] == "A note\nSecond line"
+        assert james["additional_data"] == "A note\nSecond line"
 
     def _get_id(self, first: str, last: str) -> str:
         return self.by_name[(first, last)]["id"]
@@ -423,8 +433,9 @@ def test_api_gedcom_round_trip(client, db):
 
     # Add members.
     father = _post_member(client, tree_id, headers,
-                          firstName="George", lastName="Brown", gender="m",
-                          dateOfBirth="1940")
+                          firstName="George", middleNames="Albert",
+                          baptismalName="Georgius", lastName="Brown",
+                          gender="m", dateOfBirth="1940")
     mother = _post_member(client, tree_id, headers,
                           firstName="Helen", lastName="Brown", gender="f",
                           dateOfBirth="1945-06")
@@ -491,6 +502,27 @@ def test_api_gedcom_round_trip(client, db):
     assert ("George", "Brown") in names
     assert ("Helen", "Brown") in names
     assert ("Paul", "Brown") in names
+    imported_father = next(
+        m for m in imported_members if m.get("firstName") == "George"
+    )
+    assert imported_father["middleNames"] == "Albert"
+    assert imported_father["baptismalName"] == "Georgius"
+
+
+def test_gedcom_import_splits_standard_given_names():
+    ged = (
+        "0 HEAD\n"
+        "0 @I1@ INDI\n"
+        "1 NAME John Paul /Doe/\n"
+        "2 GIVN John Paul\n"
+        "2 SURN Doe\n"
+        "0 TRLR\n"
+    )
+
+    member = parse_gedcom(ged)["members"][0]
+
+    assert member["first_name"] == "John"
+    assert member["middle_names"] == "Paul"
 
 
 def test_api_export_requires_auth(client, db):
@@ -628,8 +660,8 @@ class TestDecodeGedcomBytes:
         text = decode_gedcom_bytes(raw)
         parsed = parse_gedcom(text)
         assert len(parsed["members"]) == 1
-        assert parsed["members"][0]["firstName"] == "John"
-        assert parsed["members"][0]["lastName"] == "Doe"
+        assert parsed["members"][0]["first_name"] == "John"
+        assert parsed["members"][0]["last_name"] == "Doe"
 
     def test_parse_after_decode_utf16_le(self):
         """parse_gedcom should find the INDI record after UTF-16-LE decoding."""
@@ -684,3 +716,157 @@ def test_api_import_gedcom_utf16_be(client, db):
     imported_members = members_resp.json()
     # Must have imported both INDI records — this was 0 before the fix.
     assert len(imported_members) == 2
+
+    # A FAM with HUSB + WIFE but no MARR/DIV/_RELTYPE must yield a "married"
+    # couple relation so the union node renders green, not grey. (#295)
+    relations_resp = client.get(
+        f"{API}/trees/{new_tree_id}/relations", headers=headers
+    )
+    assert relations_resp.status_code == 200
+    married_rels = [
+        r for r in relations_resp.json() if r["relation_type"] == "married"
+    ]
+    assert len(married_rels) == 1
+
+
+# ---------------------------------------------------------------------------
+# 6. Union relation-type defaulting (#295)
+# ---------------------------------------------------------------------------
+
+def _fam_gedcom(
+    husb: bool = True,
+    wife: bool = True,
+    extra_fam_lines: list[str] | None = None,
+) -> str:
+    """Build a minimal GEDCOM with optional HUSB/WIFE and optional extra FAM lines."""
+    lines = ["0 HEAD", "1 CHAR UTF-8"]
+    if husb:
+        lines += ["0 @I1@ INDI", "1 NAME Tom /Smith/", "1 SEX M"]
+    if wife:
+        lines += ["0 @I2@ INDI", "1 NAME Mary /Smith/", "1 SEX F"]
+    fam = ["0 @F1@ FAM"]
+    if husb:
+        fam.append("1 HUSB @I1@")
+    if wife:
+        fam.append("1 WIFE @I2@")
+    if extra_fam_lines:
+        fam.extend(extra_fam_lines)
+    lines += fam + ["0 TRLR"]
+    return "\n".join(lines) + "\n"
+
+
+class TestUnionRelationTypeDefaulting:
+    """Regression tests for issue #295 — grey union nodes after GEDCOM import."""
+
+    def test_two_spouses_no_type_defaults_married(self):
+        """FAM with HUSB + WIFE but no MARR/DIV/_RELTYPE must yield a married relation."""
+        parsed = parse_gedcom(_fam_gedcom())
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(couple_rels) == 1
+
+    def test_explicit_marr_still_married(self):
+        """Explicit MARR event must still produce a married relation."""
+        parsed = parse_gedcom(_fam_gedcom(extra_fam_lines=["1 MARR Y"]))
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(couple_rels) == 1
+
+    def test_explicit_div_overrides_default(self):
+        """FAM with DIV event must produce divorced, not married."""
+        parsed = parse_gedcom(_fam_gedcom(extra_fam_lines=["1 DIV Y"]))
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "divorced"]
+        assert len(couple_rels) == 1
+        non_divorced = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(non_divorced) == 0
+
+    def test_explicit_reltype_wins_over_default(self):
+        """_RELTYPE tag must take precedence over the two-spouse default."""
+        parsed = parse_gedcom(_fam_gedcom(extra_fam_lines=["1 _RELTYPE partner"]))
+        couple_rels = [r for r in parsed["relations"] if r["relation_type"] == "partner"]
+        assert len(couple_rels) == 1
+        married_rels = [r for r in parsed["relations"] if r["relation_type"] == "married"]
+        assert len(married_rels) == 0
+
+    def test_single_spouse_no_type_no_couple_relation(self):
+        """FAM with only one spouse and no type tags — no couple relation."""
+        parsed = parse_gedcom(_fam_gedcom(wife=False))  # only HUSB
+        couple_rels = [
+            r for r in parsed["relations"]
+            if r["relation_type"] in ("married", "divorced", "partner")
+        ]
+        assert len(couple_rels) == 0
+
+    def test_no_spouses_no_couple_relation(self):
+        """FAM with no HUSB/WIFE (children only) must not produce a couple relation."""
+        lines = [
+            "0 HEAD", "1 CHAR UTF-8",
+            "0 @I1@ INDI", "1 NAME Kid /One/",
+            "0 @F1@ FAM", "1 CHIL @I1@",
+            "0 TRLR",
+        ]
+        parsed = parse_gedcom("\n".join(lines) + "\n")
+        couple_rels = [
+            r for r in parsed["relations"]
+            if r["relation_type"] in ("married", "divorced", "partner")
+        ]
+        assert len(couple_rels) == 0
+
+
+# ---------------------------------------------------------------------------
+# 7. Fuzzy date round-trip (issue #343)
+# ---------------------------------------------------------------------------
+
+class TestFuzzyDateRoundTrip:
+    """Fuzzy / qualified dates must survive a full serialize → parse cycle
+    without losing the qualifier prefix.
+
+    ``serialize_to_gedcom`` calls ``_to_gedcom_date`` which passes through
+    unrecognised strings (e.g. ``"about 1850"``, ``"ABT 1900"``) verbatim, and
+    ``parse_gedcom`` stores them unchanged via ``_from_gedcom_date`` (qualifier
+    passthrough).  The member that comes out of ``parse_gedcom`` must have the
+    same date string as the one that went in.
+    """
+
+    def _round_trip(self, date_value: str) -> str | None:
+        """Round-trip *date_value* through serialize → parse and return result."""
+        member = {
+            "id": str(uuid4()),
+            "first_name": "Test",
+            "last_name": "Person",
+            "gender": "m",
+            "date_of_birth": date_value,
+            "date_of_death": None,
+            "birthplace": None,
+            "hometown": None,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+        }
+        gedcom_text = serialize_to_gedcom("TestTree", [member], [])
+        result = parse_gedcom(gedcom_text)
+        imported = result["members"]
+        assert len(imported) == 1
+        return imported[0].get("date_of_birth")
+
+    def test_fuzzy_about_survives_round_trip(self):
+        """``"about 1850"`` must come back as ``"about 1850"``."""
+        assert self._round_trip("about 1850") == "about 1850"
+
+    def test_abt_qualifier_survives_round_trip(self):
+        """GEDCOM ``"ABT 1900"`` must come back as ``"ABT 1900"``."""
+        assert self._round_trip("ABT 1900") == "ABT 1900"
+
+    def test_bef_qualifier_survives_round_trip(self):
+        """GEDCOM ``"BEF 1850"`` must come back as ``"BEF 1850"``."""
+        assert self._round_trip("BEF 1850") == "BEF 1850"
+
+    def test_aft_qualifier_survives_round_trip(self):
+        """GEDCOM ``"AFT 1800"`` must come back as ``"AFT 1800"``."""
+        assert self._round_trip("AFT 1800") == "AFT 1800"
+
+    def test_est_qualifier_survives_round_trip(self):
+        """GEDCOM ``"EST 1880"`` must come back as ``"EST 1880"``."""
+        assert self._round_trip("EST 1880") == "EST 1880"
+
+    def test_exact_iso_date_still_converts(self):
+        """An exact ISO date must still convert to GEDCOM and back correctly."""
+        assert self._round_trip("1975-08-20") == "1975-08-20"

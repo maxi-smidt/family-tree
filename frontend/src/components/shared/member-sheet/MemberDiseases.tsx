@@ -19,6 +19,7 @@ export const MemberDiseases = ({ member }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.diseases",
   });
+  const { t: tRoot } = useTranslation();
   const { removeDisease } = useMemberStore();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -49,7 +50,7 @@ export const MemberDiseases = ({ member }: Props) => {
 
   const handleDelete = async () => {
     if (diseaseToDelete) {
-      await removeDisease(diseaseToDelete.id);
+      await removeDisease(member.id, diseaseToDelete.id);
       closeDeleteDialog();
     }
   };
@@ -122,6 +123,9 @@ export const MemberDiseases = ({ member }: Props) => {
                       variant="ghost"
                       type="button"
                       onClick={() => handleEdit(disease)}
+                      aria-label={tRoot(
+                        "sheet.member-sheet.diseases.dialog.title-edit",
+                      )}
                     >
                       <Pencil />
                     </Button>
@@ -130,6 +134,9 @@ export const MemberDiseases = ({ member }: Props) => {
                       variant="ghost"
                       type="button"
                       onClick={() => openDeleteDialog(disease)}
+                      aria-label={tRoot(
+                        "sheet.member-sheet.diseases.delete-dialog.title",
+                      )}
                     >
                       <Trash2 />
                     </Button>

@@ -1,35 +1,13 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
-import type { StatisticsReport } from "@/types/statistics";
-
-const GENDER_COLORS = {
-  male: "#6366f1",
-  female: "#ec4899",
-  other: "#f59e0b",
-  unknown: "#94a3b8",
-};
-
-const BIRTH_COLOR = "#6366f1";
-const DEATH_COLOR = "#f43f5e";
-const NAME_COLOR = "#6366f1";
+import { useStatisticsSettings, normalizeOrder } from "@/hooks/useStatisticsSettings";
+import { WIDGET_MAP } from "./widgets";
+import { CustomizePopover } from "./CustomizePopover";
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -39,226 +17,14 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value }: StatCardProps) {
   return (
-    <Card className="p-4 flex items-center gap-3">
+    <Card className="items-center gap-3 p-4 text-center">
       <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
         {icon}
       </div>
-      <div className="min-w-0">
+      <div className="w-full min-w-0">
         <p className="text-xs text-muted-foreground truncate">{label}</p>
         <p className="text-xl font-semibold leading-tight">{value}</p>
       </div>
-    </Card>
-  );
-}
-
-function GenderChart({
-  report,
-  t,
-}: {
-  report: StatisticsReport;
-  t: (k: string) => string;
-}) {
-  const { gender_distribution: g } = report;
-  const data = [
-    { name: t("gender-male"), value: g.male, color: GENDER_COLORS.male },
-    { name: t("gender-female"), value: g.female, color: GENDER_COLORS.female },
-    { name: t("gender-other"), value: g.other, color: GENDER_COLORS.other },
-    {
-      name: t("gender-unknown"),
-      value: g.unknown,
-      color: GENDER_COLORS.unknown,
-    },
-  ].filter((d) => d.value > 0);
-
-  if (data.length === 0) return null;
-
-  return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("gender-title")}</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart>
-          <Pie
-            data={data}
-            dataKey="value"
-            nameKey="name"
-            cx="50%"
-            cy="50%"
-            innerRadius={55}
-            outerRadius={85}
-            paddingAngle={3}
-          >
-            {data.map((entry) => (
-              <Cell key={entry.name} fill={entry.color} />
-            ))}
-          </Pie>
-          <Tooltip />
-          <Legend
-            iconType="circle"
-            iconSize={8}
-            formatter={(value) => (
-              <span className="text-xs text-foreground">{value}</span>
-            )}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-    </Card>
-  );
-}
-
-function TimelineChart({
-  report,
-  t,
-}: {
-  report: StatisticsReport;
-  t: (k: string) => string;
-}) {
-  const data = report.birth_death_by_decade;
-  if (data.length === 0) return null;
-
-  return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("timeline-title")}</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data} barGap={2}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis
-            dataKey="decade"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={28}
-          />
-          <Tooltip
-            labelFormatter={(l) => `${l}`}
-            formatter={(value, name) => [
-              value,
-              name === "births" ? t("timeline-births") : t("timeline-deaths"),
-            ]}
-          />
-          <Bar
-            dataKey="births"
-            fill={BIRTH_COLOR}
-            radius={[3, 3, 0, 0]}
-            name="births"
-          />
-          <Bar
-            dataKey="deaths"
-            fill={DEATH_COLOR}
-            radius={[3, 3, 0, 0]}
-            name="deaths"
-          />
-          <Legend
-            iconType="square"
-            iconSize={8}
-            formatter={(value) => (
-              <span className="text-xs text-foreground">
-                {value === "births"
-                  ? t("timeline-births")
-                  : t("timeline-deaths")}
-              </span>
-            )}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </Card>
-  );
-}
-
-function LifespanChart({
-  report,
-  t,
-}: {
-  report: StatisticsReport;
-  t: (k: string) => string;
-}) {
-  const data = report.lifespan_distribution;
-  if (data.length === 0) return null;
-
-  return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("lifespan-title")}</h2>
-      <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-          <XAxis
-            dataKey="range"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            allowDecimals={false}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={28}
-          />
-          <Tooltip formatter={(value) => [value, t("lifespan-people")]} />
-          <Bar
-            dataKey="count"
-            fill={BIRTH_COLOR}
-            radius={[3, 3, 0, 0]}
-            name="count"
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </Card>
-  );
-}
-
-function NamesChart({
-  report,
-  t,
-}: {
-  report: StatisticsReport;
-  t: (k: string) => string;
-}) {
-  const data = report.top_first_names.slice(0, 10);
-  if (data.length === 0) return null;
-
-  return (
-    <Card className="p-4">
-      <h2 className="text-sm font-medium mb-4">{t("names-title")}</h2>
-      <ResponsiveContainer
-        width="100%"
-        height={Math.max(180, data.length * 28 + 40)}
-      >
-        <BarChart data={data} layout="vertical" margin={{ left: 4, right: 16 }}>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            horizontal={false}
-            className="stroke-border"
-          />
-          <XAxis
-            type="number"
-            allowDecimals={false}
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            tick={{ fontSize: 11 }}
-            tickLine={false}
-            axisLine={false}
-            width={72}
-          />
-          <Tooltip formatter={(value) => [value, t("names-count")]} />
-          <Bar
-            dataKey="count"
-            fill={NAME_COLOR}
-            radius={[0, 3, 3, 0]}
-            name="count"
-          />
-        </BarChart>
-      </ResponsiveContainer>
     </Card>
   );
 }
@@ -291,6 +57,7 @@ function EmptyState({ t }: { t: (k: string) => string }) {
 export const StatisticsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
   const { report, isLoading, refreshStatistics } = useStatisticsStore();
+  const { order, hidden } = useStatisticsSettings();
 
   useEffect(() => {
     if (!report) {
@@ -298,28 +65,33 @@ export const StatisticsView = () => {
     }
   }, [report, refreshStatistics]);
 
-  const refreshButton = (
-    <Button
-      variant="outline"
-      size="sm"
-      className="h-8 gap-1.5 text-xs"
-      onClick={() => refreshStatistics()}
-      disabled={isLoading}
-    >
-      <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-      {t("refresh")}
-    </Button>
+  const visibleIds = normalizeOrder(order).filter((id) => !hidden.includes(id));
+
+  const actions = (
+    <div className="flex items-center gap-2">
+      <CustomizePopover />
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-8 gap-1.5 text-xs"
+        onClick={() => refreshStatistics()}
+        disabled={isLoading}
+      >
+        <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+        {t("refresh")}
+      </Button>
+    </div>
   );
 
   return (
-    <ViewLayout title={t("title")} action={refreshButton}>
+    <ViewLayout title={t("title")} action={actions}>
       {isLoading && !report ? (
         <LoadingState t={t} />
       ) : !report || report.total_members === 0 ? (
         <EmptyState t={t} />
       ) : (
         <div className="space-y-4 pb-4">
-          {/* Overview cards */}
+          {/* Overview cards — always shown */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <StatCard
               icon={<Users className="w-5 h-5 text-muted-foreground" />}
@@ -349,13 +121,19 @@ export const StatisticsView = () => {
             />
           </div>
 
-          {/* Charts grid */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <GenderChart report={report} t={t} />
-            <TimelineChart report={report} t={t} />
-            <LifespanChart report={report} t={t} />
-            <NamesChart report={report} t={t} />
-          </div>
+          {/* Customizable charts grid */}
+          {visibleIds.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              {t("all-hidden")}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {visibleIds.map((id) => {
+                const Widget = WIDGET_MAP[id].Component;
+                return <Widget key={id} report={report} t={t} />;
+              })}
+            </div>
+          )}
         </div>
       )}
     </ViewLayout>

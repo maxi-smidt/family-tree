@@ -20,8 +20,12 @@ const member = (
   firstName: id,
   lastName: "Member",
   gender: "o",
+  academicTitle: null,
+  middleNames: null,
+  baptismalName: null,
   maidenName: null,
   imageData: null,
+  deceased: false,
   date: { birth: "1990-01-01", death: null },
   parents: {
     paternalParent: options.paternalParent ?? null,

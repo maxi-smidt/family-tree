@@ -51,7 +51,8 @@
       "title": "Crop image",
       "description": "Select the image crop.",
       "cancel": "Cancel",
-      "crop": "Crop"
+      "crop": "Crop",
+      "crop-error": "Could not crop the image."
     },
     "password": {
       "title": {
@@ -96,7 +97,7 @@
     "remove-node": {
       "title_one": "Delete Member",
       "title_other": "Delete Members",
-      "description": "This action will permanently delete the following members from the family tree. This action cannot be undone.",
+      "description": "The selected members will be deleted from the family tree. You can undo this for a few seconds afterward.",
       "validation": "Are you sure you want to delete",
       "cancel": "Cancel",
       "delete": "Delete"
@@ -131,8 +132,9 @@
       "revoke-error": "Could not revoke access.",
       "current-access": "People with access",
       "add-people": "Add people",
+      "friends-only-hint": "You can only share with friends. Add friends from the account menu.",
       "select-users": "Select users…",
-      "no-candidates": "Everyone already has access",
+      "no-candidates": "No friends to share with yet",
       "search-placeholder": "Search users…",
       "no-users": "No users found.",
       "share-button_one": "Share with {{count}} person",
@@ -142,6 +144,19 @@
       "role-owner": "Owner",
       "role-editor": "Editor",
       "role-viewer": "Viewer",
+      "restrictions-title": "Content access",
+      "restrictions-button": "Content access",
+      "restrictions-error": "Could not update content access.",
+      "domains": {
+        "tree": "Tree",
+        "gallery": "Gallery",
+        "events": "Events",
+        "map": "Map",
+        "stories": "Stories",
+        "sources": "Sources",
+        "diseases": "Diseases",
+        "biography": "Biography"
+      },
       "transfer-title": "Transfer ownership",
       "transfer-hint": "The new owner gets full control. You will lose owner rights and your access to this tree.",
       "transfer-select": "Select a new owner…",
@@ -196,6 +211,28 @@
       "toast-error": "Failed to duplicate the tree.",
       "toast-error-name": "Please provide a name for the new tree."
     },
+    "extract-subtree": {
+      "title": "Extract Sub-Tree",
+      "description": "Create a new independent tree from a subset of \"{{name}}\".",
+      "name-label": "New tree name",
+      "name-suffix": "(sub-tree)",
+      "root-label": "Root member",
+      "root-placeholder": "Select a member...",
+      "root-no-results": "No members found.",
+      "direction-label": "Direction",
+      "direction-descendants": "Descendants",
+      "direction-ancestors": "Ancestors",
+      "direction-both": "Both",
+      "depth-label": "Depth (generations)",
+      "depth-hint": "Leave empty for all generations",
+      "cancel": "Cancel",
+      "extract": "Extract",
+      "extracting": "Extracting...",
+      "toast-success": "Sub-tree extracted successfully.",
+      "toast-error": "Failed to extract the sub-tree.",
+      "toast-error-name": "Please provide a name for the new tree.",
+      "toast-error-no-root": "Please select a root member."
+    },
     "tab-settings": {
       "title": "Customize tabs",
       "description": "Reorder tabs by dragging and toggle their visibility.",
@@ -219,7 +256,11 @@
       "toast-create-error": "Could not create virtual view.",
       "toast-update-success": "Virtual view updated!",
       "toast-update-error": "Could not update virtual view.",
-      "error-no-overlap": "These trees share no overlapping members. Virtual views require at least one person in common across the selected trees."
+      "error-no-overlap": "These trees share no overlapping members. Virtual views require at least one person in common across the selected trees.",
+      "views-label": "Or include other virtual views",
+      "no-other-views": "No other virtual views available.",
+      "virtual-badge": "virtual",
+      "error-cycle": "A virtual view can't include itself, directly or through another view."
     }
   },
   "gallery-view": {
@@ -230,13 +271,18 @@
       "select-date-taken": "Date Taken",
       "select-title": "Title",
       "sort-placeholder": "Sort by",
+      "sort-ascending": "Sort ascending",
+      "sort-descending": "Sort descending",
       "toast-error-canvas-context": "Failed to get canvas context",
       "toast-error-image-upload": "Failed to load image. Please ensure it's a valid image file.",
       "toast-error-image-too-large": "Image is too large. Maximum size is 10 MB.",
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
       "toast-success-image-upload": "Image uploaded successfully.",
       "toast-error-read-file": "Failed to read file",
-      "image-alt-fallback": "Gallery image"
+      "image-alt-fallback": "Gallery image",
+      "empty-title": "No photos yet",
+      "empty-description": "Upload your first photo to start building this tree's gallery.",
+      "empty-cta": "Upload photo"
     },
     "image-sheet": {
       "toast-success": "Image details saved",
@@ -269,7 +315,9 @@
       "activity": "Activity",
       "quality-report": "Quality",
       "statistics": "Statistics",
-      "database-management": "Tree Management"
+      "database-management": "Tree Management",
+      "friends": "Friends",
+      "map": "Map"
     },
     "no-database-placeholder": {
       "title": "No Trees Yet",
@@ -297,6 +345,12 @@
       "role-owner": "Owner",
       "role-editor": "Editor",
       "role-viewer": "Viewer"
+    },
+    "error-boundary": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try reloading the application.",
+      "details": "Error details",
+      "reload": "Reload Application"
     }
   },
   "list-view": {
@@ -331,13 +385,14 @@
       "toast-error-birth": "Death date cannot be before birth date",
       "toast-error-death": "Birth date cannot be after death date",
       "toast-error-duplicate": "A member with the same details already exists.",
-      "toast-error-required": "First name and last name are required.",
       "toast-error-image-too-large": "Photo is too large. Maximum size is 10 MB.",
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
       "toast-error-save": "Failed to save member.",
       "toast-success": "Member updated successfully",
       "gender-field": "Gender",
       "firstname-field": "First Name",
+      "middle-names-field": "Second / Middle Names",
+      "baptismal-name-field": "Baptismal Name",
       "lastname-field": "Last Name",
       "maiden-field": "Maiden Name",
       "born-field": "Date of Birth",
@@ -356,13 +411,31 @@
       "places-lived-add": "Add location",
       "places-lived-from": "From (year)",
       "places-lived-to": "To (year)",
-      "places-lived-empty": "No locations added yet."
+      "places-lived-empty": "No locations added yet.",
+      "deceased-field": "Deceased",
+      "error-firstname-required": "First name is required.",
+      "error-lastname-required": "Last name is required.",
+      "firstname-placeholder": "e.g. Jane",
+      "maiden-placeholder": "Maiden name",
+      "academic-title-field": "Academic / Honorific Title",
+      "academic-title-placeholder": "e.g. Dr., Prof., Dipl.-Ing.",
+      "tab-identity": "Identity",
+      "tab-life": "Life",
+      "tab-relations": "Relations",
+      "tab-records": "Records",
+      "photos-field": "Photos",
+      "photos-add": "Add photo",
+      "photos-empty": "No photos linked to this person yet.",
+      "toast-success-photo-upload": "Photo uploaded and linked.",
+      "toast-error-photo-upload": "Failed to upload photo."
     },
     "view-mode": {
       "firstname-item": "First Name",
+      "middle-names-item": "Second / Middle Names",
+      "baptismal-name-item": "Baptismal Name",
       "lastname-item": "Last Name",
       "maiden-item": "Maiden Name",
-      "maiden-fallback": "None",
+      "name-fallback": "None",
       "gender-item": "Gender",
       "dob-item": "Date of Birth",
       "dod-item": "Date of Death",
@@ -376,11 +449,18 @@
       "no-stories": "Nothing stored yet",
       "genetic-conditions": "Genetic Conditions",
       "no-conditions": "No conditions recorded",
+      "sources": "Source Citations",
       "locations-section": "Locations",
       "birthplace-label": "Birthplace",
-      "hometown-label": "Hometown"
+      "hometown-label": "Hometown",
+      "dod-deceased-no-date": "Deceased (date unknown)",
+      "academic-title-item": "Academic / Honorific Title",
+      "tab-identity": "Identity",
+      "tab-life": "Life",
+      "tab-records": "Records"
     },
     "member-sheet": {
+      "loading-detail": "Loading details...",
       "edit-title": "Edit Member",
       "detail-title": "Member Details",
       "edit-description": "Update the member's information.",
@@ -388,16 +468,9 @@
       "save": "Save",
       "delete": "Delete",
       "delete-confirm-title": "Delete Member",
-      "delete-confirm-description": "Are you sure you want to permanently delete this member? This action cannot be undone.",
+      "delete-confirm-description": "Are you sure you want to delete this member? You can undo this for a few seconds afterward.",
       "delete-confirm-cancel": "Cancel",
       "delete-confirm-confirm": "Delete",
-      "unsaved": {
-        "title": "Unsaved changes",
-        "description": "You have unsaved changes. What would you like to do?",
-        "stay": "Stay",
-        "save": "Save",
-        "discard": "Discard"
-      },
       "show-less": "Show less",
       "show-more": "Show {{count}} more",
       "events": {
@@ -428,7 +501,10 @@
           "update": "Update",
           "add": "Add",
           "custom": "Custom...",
-          "custom-placeholder": "e.g., Graduation, Migration, Confirmation"
+          "custom-placeholder": "e.g., Graduation, Migration, Confirmation",
+          "location-checking": "Checking address...",
+          "location-found": "Address found",
+          "location-not-found": "Address not found — won't appear on map"
         }
       },
       "stories": {
@@ -464,13 +540,66 @@
             "download": "Download",
             "remove": "Remove file",
             "filename": "File name",
-            "hint": "Images, PDF and documents up to 25 MB.",
+            "hint": "Images, PDF and documents up to {{max}}.",
+            "hint-without-limit": "Images, PDF and documents.",
             "error-type": "Unsupported file type",
-            "error-size": "File is too large (max 25 MB)"
+            "error-size": "File is too large (max {{max}})"
           },
           "cancel": "Cancel",
           "update": "Update",
           "add": "Add"
+        }
+      },
+      "sources": {
+        "title": "Source Citations",
+        "add": "Add",
+        "no-citations": "No source citations yet",
+        "delete-dialog": {
+          "title": "Remove Citation",
+          "description": "Are you sure you want to remove this citation? The source record itself is not deleted.",
+          "cancel": "Cancel",
+          "delete": "Remove"
+        },
+        "fact": {
+          "name": "Name",
+          "birth": "Birth",
+          "death": "Death",
+          "birthplace": "Birthplace",
+          "hometown": "Hometown",
+          "residence": "Residence",
+          "general": "General"
+        },
+        "dialog": {
+          "add-title": "Add Source Citation",
+          "edit-title": "Edit Citation",
+          "source-label": "Source",
+          "source-placeholder": "Select a source...",
+          "source-search-placeholder": "Search sources...",
+          "source-empty": "No sources found",
+          "source-new": "Create new source...",
+          "source-title": "Title",
+          "source-title-placeholder": "e.g., 1920 US Census, Birth certificate",
+          "author": "Author",
+          "author-placeholder": "e.g., John Smith",
+          "repository": "Repository / Archive",
+          "repository-placeholder": "e.g., National Archives",
+          "source-date": "Date",
+          "notes": "Notes",
+          "notes-placeholder": "Additional notes about this source",
+          "fact-type": "Cited fact",
+          "page": "Page / Folio",
+          "page-placeholder": "e.g., p. 42, roll 123",
+          "detail": "Transcription / Detail",
+          "detail-placeholder": "Quote the relevant passage or add context",
+          "evidence": "Evidence",
+          "evidence-hint": "Attach the actual record this citation is based on — e.g. a scanned certificate, census image, or URL to an online database entry.",
+          "add-file": "Attach file",
+          "add-link": "Add link",
+          "link-url-placeholder": "https://...",
+          "link-label-placeholder": "Label (optional)",
+          "link-add": "Add",
+          "save": "Save",
+          "cancel": "Cancel"
         }
       },
       "diseases": {
@@ -514,14 +643,35 @@
           "error-update": "Failed to update condition. Please try again."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown formatting toolbar",
+      "bold": "Bold",
+      "bold-default": "bold text",
+      "italic": "Italic",
+      "italic-default": "italic text",
+      "heading": "Heading",
+      "heading-default": "Heading",
+      "bullet": "Bullet list",
+      "bullet-default": "List item",
+      "link": "Link",
+      "link-default": "link text",
+      "link-url-placeholder": "https://",
+      "tab-write": "Write",
+      "tab-preview": "Preview",
+      "preview-empty": "Nothing to preview yet."
     }
   },
   "tree-view": {
     "node": {
-      "life-ongoing": "ongoing",
-      "life-unknown": "unknown",
       "disease-indicator_one": "{{count}} genetic condition",
       "disease-indicator_other": "{{count}} genetic conditions",
+      "disease-severity": {
+        "affected": "Affected",
+        "carrier": "Carrier",
+        "other": "Status unknown"
+      },
+      "union-type": "Relationship: {{type}}",
       "risk-indicator": "Potential genetic risk from parents · Not medical advice",
       "view-details": "View member details",
       "edit-member": "Edit member",
@@ -529,7 +679,8 @@
       "add-parent": "Add parent",
       "add-child": "Add child",
       "add-left": "Add relative on the left",
-      "add-right": "Add relative on the right"
+      "add-right": "Add relative on the right",
+      "life-deceased-unknown": "Deceased, date of death unknown"
     },
     "canvas-label": "Family tree canvas",
     "a11y": {
@@ -565,7 +716,8 @@
       "enable-connection-mode": "Find connection",
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",
-      "connection-path-partial": "Some selected members are not connected."
+      "connection-path-partial": "Some selected members are not connected.",
+      "export-image": "Export tree as image"
     },
     "persistence": {
       "collapse-error": "Could not save collapsed members. The tree was restored.",
@@ -692,6 +844,16 @@
   "hooks": {
     "flow-interactions": {
       "toast-error-database-create": "Failed to create connection."
+    },
+    "member-store": {
+      "refresh-error": "Could not sync your changes. Please reload.",
+      "layout-error": "Could not update the layout.",
+      "delete-pending": "Member deleted.",
+      "undo-delete": "Undo",
+      "delete-error": "Could not delete the member. It has been restored."
+    },
+    "geocode": {
+      "resolve-error": "Could not resolve map locations."
     }
   },
   "quality-report-view": {
@@ -735,8 +897,15 @@
     "timeline-deaths": "Deaths",
     "lifespan-title": "Lifespan Distribution (years at death)",
     "lifespan-people": "People",
-    "names-title": "Most Common First Names",
-    "names-count": "Count"
+    "first-names-title": "Most Common First Names",
+    "last-names-title": "Most Common Last Names",
+    "names-count": "Count",
+    "customize": "Customize",
+    "customize-title": "Widgets",
+    "customize-reset": "Reset",
+    "move-up": "Move up",
+    "move-down": "Move down",
+    "all-hidden": "All widgets are hidden. Use Customize to show some."
   },
   "database-management-view": {
     "title": "Tree Management",
@@ -744,6 +913,7 @@
     "import-button": "Import Tree",
     "merge-button": "Merge",
     "duplicate-button": "Duplicate",
+    "extract-subtree-button": "Extract Sub-Tree",
     "table-name": "Name",
     "table-actions": "Actions",
     "copy-id-button": "Copy ID",
@@ -752,6 +922,7 @@
     "none-selected": "None",
     "toast-import-success": "Tree imported successfully!",
     "toast-import-error": "Failed to import tree.",
+    "import-provenance": "Exported from v{{version}} on {{date}}",
     "toast-gedcom-import-success": "Tree imported from GEDCOM successfully!",
     "toast-gedcom-import-error": "Failed to import GEDCOM file.",
     "toast-gedcom-export-error": "Could not export the tree as GEDCOM.",
@@ -786,7 +957,12 @@
     "view-degraded": "Access issues",
     "recompute-button": "Recompute matches",
     "toast-recompute-success": "Matches recomputed. {{count}} overlapping members found.",
-    "toast-recompute-error": "Could not recompute matches."
+    "toast-recompute-error": "Could not recompute matches.",
+    "new-menu-button": "New",
+    "import-menu-button": "Import",
+    "row-actions-button": "More actions",
+    "export-button": "Export Tree",
+    "delete-button": "Delete"
   },
   "common": {
     "english": "English",
@@ -807,7 +983,8 @@
       "f": "female",
       "o": "other"
     },
-    "date-unknown": "unknown"
+    "date-unknown": "unknown",
+    "clear-date": "Clear date"
   },
   "auth": {
     "session": {
@@ -870,6 +1047,38 @@
       "logout": "Log out",
       "two-factor": "Two-factor authentication"
     },
+    "friends": {
+      "title": "Friends",
+      "description": "Connect with other users. You can only share trees with friends.",
+      "tab-friends": "Friends",
+      "tab-requests": "Requests",
+      "tab-add": "Add friend",
+      "no-friends": "You don't have any friends yet.",
+      "unfriend": "Remove friend",
+      "incoming": "Incoming requests",
+      "no-incoming": "No incoming requests.",
+      "outgoing": "Sent requests",
+      "no-outgoing": "No sent requests.",
+      "accept": "Accept",
+      "decline": "Decline",
+      "cancel-request": "Cancel request",
+      "search-placeholder": "Search by username…",
+      "no-results": "No users found.",
+      "add": "Add",
+      "status-friends": "Friends",
+      "status-pending": "Pending",
+      "status-blocked": "Blocked",
+      "request-sent": "Friend request sent.",
+      "send-error": "Could not send the friend request.",
+      "blocked-error": "You can't send a request to this user.",
+      "accept-error": "Could not accept the request.",
+      "decline-error": "Could not decline the request.",
+      "remove-error": "Could not remove the friend.",
+      "confirm-remove-title": "Remove friend?",
+      "confirm-remove-description": "Remove {{name}} from your friends? Any trees shared between you will no longer be accessible.",
+      "confirm-remove-confirm": "Remove",
+      "confirm-remove-cancel": "Cancel"
+    },
     "delete-account": {
       "title": "Delete my account",
       "description": "Schedule your account for deletion. You will lose access immediately and all your data will be permanently deleted after the grace period.",
@@ -927,6 +1136,7 @@
   "admin": {
     "title": "Administration",
     "description": "Manage users and instance settings.",
+    "back": "Back",
     "users-tab": "Users",
     "settings-tab": "Settings",
     "features-tab": "Features",
@@ -949,7 +1159,9 @@
         "statistics": "Statistics",
         "virtual_views": "Virtual views",
         "gedcom": "GEDCOM import/export",
-        "sharing_invites": "Share invitations"
+        "sharing_invites": "Share invitations",
+        "map": "Map view",
+        "sources": "Sources & Citations"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -960,7 +1172,9 @@
         "statistics": "Aggregate statistics per tree.",
         "virtual_views": "Read-only views combining several trees.",
         "gedcom": "Import and export trees as GEDCOM files.",
-        "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode."
+        "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
+        "map": "Interactive map of timeline events by location.",
+        "sources": "Source citations and evidence records for member facts."
       }
     },
     "col-username": "Username",
@@ -984,6 +1198,11 @@
     "self-registration-hint": "Let anyone create their own account.",
     "deletion-grace-period": "Deletion grace period (days)",
     "deletion-grace-period-hint": "How long a scheduled account stays recoverable before it and all of its data are permanently deleted.",
+    "upload-limits": "Upload limits",
+    "upload-limits-hint": "Changes take effect immediately for new uploads.",
+    "max-image-upload": "Image size (MB)",
+    "max-document-upload": "Attachment size (MB)",
+    "max-image-dimension": "Image side (px)",
     "save-settings": "Save settings",
     "pending-deletion": "Pending deletion · {{date}}",
     "cancel-deletion": "Cancel deletion",
@@ -1081,5 +1300,36 @@
     "gender-female": "Female",
     "not-public": "This tree is private or the link is no longer valid.",
     "error": "Could not load this tree."
+  },
+  "map-view": {
+    "view": {
+      "title": "Map",
+      "member-fallback": "Unknown Member",
+      "all-members": "All Members",
+      "member-place-holder": "Select member...",
+      "member-search-placeholder": "Search members...",
+      "no-member": "No member found.",
+      "date-from": "From",
+      "date-to": "To",
+      "no-mappable-events": "No mappable events found",
+      "add-location-hint": "Add a location to an event to see it on the map",
+      "unlocatable-count": "{{count}} event(s) have locations that could not be resolved on the map",
+      "filter-location-types": "Location types",
+      "legend-event": "Event",
+      "legend-birthplace": "Birthplace",
+      "legend-hometown": "Hometown",
+      "legend-places-lived": "Place lived",
+      "no-location-types-visible": "All location types are hidden",
+      "enable-location-type-hint": "Enable a location type above to show its markers",
+      "from": "from",
+      "until": "until"
+    }
+  },
+  "unsaved-changes": {
+    "title": "Unsaved changes",
+    "description": "You have unsaved changes. What would you like to do?",
+    "stay": "Stay",
+    "save": "Save",
+    "discard": "Discard"
   }
 }

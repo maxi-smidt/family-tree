@@ -49,7 +49,7 @@ function IssueCard({ issue }: { issue: QualityIssue }) {
   const typeLabel = t(ISSUE_TYPE_KEY[issue.issue_type] ?? "issue-unknown");
 
   return (
-    <Card className="p-4 flex gap-4 items-start">
+    <Card className="p-4 flex flex-row gap-4 items-center">
       <div className="mt-0.5 flex-shrink-0">
         <Icon className={`w-5 h-5 ${iconClass}`} />
       </div>

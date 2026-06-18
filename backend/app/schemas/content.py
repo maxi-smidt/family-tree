@@ -1,33 +1,46 @@
-"""Schemas for gallery images, events and stories (frontend `*DB` shapes)."""
+"""Schemas for gallery images, events and stories (frontend `*DB` shapes).
 
-from pydantic import BaseModel, ConfigDict
+The DB columns are now snake_case; camelCase is preserved at the API boundary
+via Pydantic ``Field(alias=...)`` / ``serialization_alias``.
+"""
+
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- Gallery ---------------------------------------------------------------
 class GalleryImageOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
     id: str
-    imageData: str | None = None
+    image_data: str | None = Field(default=None, serialization_alias="imageData")
     title: str | None = None
     description: str | None = None
-    createdAt: str | None = None
-    uploadedAt: str | None = None
+    created_at: str | None = Field(default=None, serialization_alias="createdAt")
+    uploaded_at: str | None = Field(default=None, serialization_alias="uploadedAt")
 
 
 class GalleryImageCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    imageData: str | None = None
+    image_data: str | None = Field(default=None, alias="imageData")
     title: str | None = None
     description: str | None = None
-    createdAt: str | None = None
-    uploadedAt: str | None = None
+    created_at: str | None = Field(default=None, alias="createdAt")
+    uploaded_at: str | None = Field(default=None, alias="uploadedAt")
     # Members to link the new image to, in a single request.
     member_ids: list[str] = []
 
 
 class GalleryImageUpdate(BaseModel):
-    imageData: str | None = None
+    model_config = ConfigDict(populate_by_name=True)
+
+    image_data: str | None = Field(default=None, alias="imageData")
     title: str | None = None
     description: str | None = None
 
@@ -114,6 +127,19 @@ class StoryUpdate(BaseModel):
     updated_at: str
 
 
+# --- Geocode ---------------------------------------------------------------
+class GeocodeOut(BaseModel):
+    query: str
+    lat: float | None = None
+    lon: float | None = None
+    display_name: str | None = None
+    resolved: bool
+
+
+class GeocodeRequest(BaseModel):
+    locations: list[str] = []
+
+
 # --- Member link rows (returned by the *_link list endpoints) --------------
 class GalleryLinkOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -134,3 +160,96 @@ class StoryLinkOut(BaseModel):
 
     story_id: str
     member_id: str
+
+
+# --- Sources ---------------------------------------------------------------
+FactType = Literal[
+    "name", "birth", "death", "birthplace", "hometown", "residence", "general"
+]
+
+
+class EvidenceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    kind: str
+    filename: str | None = None
+    url: str
+    mime_type: str | None = None
+    size: int | None = None
+    created_at: str
+
+
+class EvidenceCreate(BaseModel):
+    kind: Literal["file", "link"]
+    filename: str | None = None
+    data: str | None = None  # base64 data URL when kind == "file"
+    url: str | None = None   # external link when kind == "link"
+
+
+class EvidenceUpdate(BaseModel):
+    filename: str
+
+
+class SourceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    author: str | None = None
+    publication_info: str | None = None
+    repository: str | None = None
+    source_date: str | None = None
+    notes: str | None = None
+    created_at: str
+    updated_at: str
+    evidence: list[EvidenceOut] = []
+
+
+class SourceCreate(BaseModel):
+    id: str
+    title: str
+    author: str | None = None
+    publication_info: str | None = None
+    repository: str | None = None
+    source_date: str | None = None
+    notes: str | None = None
+    created_at: str
+    updated_at: str
+
+
+class SourceUpdate(BaseModel):
+    title: str
+    author: str | None = None
+    publication_info: str | None = None
+    repository: str | None = None
+    source_date: str | None = None
+    notes: str | None = None
+
+
+class CitationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    source_id: str
+    member_id: str
+    fact_type: str
+    page: str | None = None
+    detail: str | None = None
+    created_at: str
+
+
+class CitationCreate(BaseModel):
+    id: str
+    source_id: str
+    member_id: str
+    fact_type: FactType
+    page: str | None = None
+    detail: str | None = None
+    created_at: str
+
+
+class CitationUpdate(BaseModel):
+    fact_type: FactType
+    page: str | None = None
+    detail: str | None = None

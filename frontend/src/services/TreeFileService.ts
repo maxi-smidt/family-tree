@@ -4,6 +4,9 @@ import { Tree } from "@/types/tree";
 export interface InspectImportResult {
   password_required: boolean;
   name: string | null;
+  app_version: string | null;
+  exported_at: string | null;
+  bundle_version: number | null;
 }
 
 function importForm(file: File, values: { password?: string; name?: string }) {

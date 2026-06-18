@@ -16,7 +16,9 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useState } from "react";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { StoryAttachments } from "@/components/shared/member-sheet/StoryAttachments";
@@ -44,12 +46,34 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "dialog.member-detail",
   });
-  const { galleryImages } = useGalleryStore();
-  const { getEventsByMember } = useEventStore();
-  const { getStoriesByMember } = useStoryStore();
-  const { members } = useMemberStore();
+  const { galleryImages, refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
+  const { getEventsByMember, refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const { getStoriesByMember, refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { members, fetchMemberDetail } = useMemberStore();
+  const selectedTree = useTreeStore((s) => s.selectedTree);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+  useEffect(() => {
+    if (open && member) {
+      setIsLoadingDetail(true);
+      void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
+    }
+  }, [open, member?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Defer secondary-domain stores until the dialog opens
+  useEffect(() => {
+    if (open && !eventsInitialized && selectedTree) void refreshEvents(selectedTree.id);
+  }, [open, eventsInitialized, selectedTree, refreshEvents]);
+
+  useEffect(() => {
+    if (open && !storiesInitialized && selectedTree) void refreshStories(selectedTree.id);
+  }, [open, storiesInitialized, selectedTree, refreshStories]);
+
+  useEffect(() => {
+    if (open && !galleryInitialized && selectedTree) void refreshGalleryImages(selectedTree.id);
+  }, [open, galleryInitialized, selectedTree, refreshGalleryImages]);
 
   if (!member) return null;
 
@@ -120,8 +144,9 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[90%] w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
               {currentMember.firstName} {currentMember.lastName}
+              {isLoadingDetail && <Spinner className="size-4" />}
             </DialogTitle>
           </DialogHeader>
 

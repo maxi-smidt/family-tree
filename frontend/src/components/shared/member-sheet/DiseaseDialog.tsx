@@ -70,6 +70,7 @@ export const DiseaseDialog = ({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (!name.trim()) {
       return;
@@ -92,7 +93,7 @@ export const DiseaseDialog = ({
 
     try {
       if (disease) {
-        await updateDisease(disease.id, input);
+        await updateDisease(memberId, disease.id, input);
       } else {
         await addDisease(memberId, input);
       }

@@ -51,7 +51,8 @@
       "title": "Bild zuschneiden",
       "description": "Wähle das Bild das zugeschnitten werden soll.",
       "cancel": "Abbrechen",
-      "crop": "Zuschneiden"
+      "crop": "Zuschneiden",
+      "crop-error": "Das Bild konnte nicht zugeschnitten werden."
     },
     "password": {
       "title": {
@@ -96,7 +97,7 @@
     "remove-node": {
       "title_one": "Lösche Person",
       "title_other": "Lösche Personen",
-      "description": "Diese Aktion löscht unwiderruflich die folgenden Personen aus dem Stammbaum.",
+      "description": "Die ausgewählten Personen werden aus dem Stammbaum gelöscht. Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "validation": "Bis du dir sicher das folgende Personen gelöscht werden sollen?",
       "cancel": "Abbrechen",
       "delete": "Löschen"
@@ -131,8 +132,9 @@
       "revoke-error": "Zugriff konnte nicht entzogen werden.",
       "current-access": "Personen mit Zugriff",
       "add-people": "Personen hinzufügen",
+      "friends-only-hint": "Du kannst nur mit Freunden teilen. Freunde fügst du im Kontomenü hinzu.",
       "select-users": "Benutzer auswählen…",
-      "no-candidates": "Alle haben bereits Zugriff",
+      "no-candidates": "Noch keine Freunde zum Teilen",
       "search-placeholder": "Benutzer suchen…",
       "no-users": "Keine Benutzer gefunden.",
       "share-button_one": "Mit {{count}} Person teilen",
@@ -142,6 +144,19 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter",
+      "restrictions-title": "Inhaltszugriff",
+      "restrictions-button": "Inhaltszugriff",
+      "restrictions-error": "Inhaltszugriff konnte nicht aktualisiert werden.",
+      "domains": {
+        "tree": "Stammbaum",
+        "gallery": "Galerie",
+        "events": "Ereignisse",
+        "map": "Karte",
+        "stories": "Geschichten",
+        "sources": "Quellen",
+        "diseases": "Krankheiten",
+        "biography": "Biografie"
+      },
       "transfer-title": "Eigentümerschaft übertragen",
       "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
       "transfer-select": "Neuen Eigentümer auswählen…",
@@ -196,6 +211,28 @@
       "toast-error": "Stammbaum konnte nicht dupliziert werden.",
       "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an."
     },
+    "extract-subtree": {
+      "title": "Teilbaum extrahieren",
+      "description": "Einen neuen unabhängigen Stammbaum aus einem Teil von \"{{name}}\" erstellen.",
+      "name-label": "Name des neuen Stammbaums",
+      "name-suffix": "(Teilbaum)",
+      "root-label": "Ausgangsperson",
+      "root-placeholder": "Person auswählen...",
+      "root-no-results": "Keine Personen gefunden.",
+      "direction-label": "Richtung",
+      "direction-descendants": "Nachkommen",
+      "direction-ancestors": "Vorfahren",
+      "direction-both": "Beide",
+      "depth-label": "Tiefe (Generationen)",
+      "depth-hint": "Leer lassen für alle Generationen",
+      "cancel": "Abbrechen",
+      "extract": "Extrahieren",
+      "extracting": "Wird extrahiert...",
+      "toast-success": "Teilbaum erfolgreich extrahiert.",
+      "toast-error": "Teilbaum konnte nicht extrahiert werden.",
+      "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
+      "toast-error-no-root": "Bitte wähle eine Ausgangsperson aus."
+    },
     "tab-settings": {
       "title": "Tabs anpassen",
       "description": "Ordne Tabs per Drag-and-drop neu an und blende sie ein oder aus.",
@@ -219,7 +256,11 @@
       "toast-create-error": "Virtuelle Ansicht konnte nicht erstellt werden.",
       "toast-update-success": "Virtuelle Ansicht aktualisiert!",
       "toast-update-error": "Virtuelle Ansicht konnte nicht aktualisiert werden.",
-      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt."
+      "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt.",
+      "views-label": "Oder andere virtuelle Ansichten einbeziehen",
+      "no-other-views": "Keine weiteren virtuellen Ansichten verfügbar.",
+      "virtual-badge": "virtuell",
+      "error-cycle": "Eine virtuelle Ansicht kann sich nicht selbst enthalten – weder direkt noch über eine andere Ansicht."
     }
   },
   "gallery-view": {
@@ -230,13 +271,18 @@
       "select-date-taken": "Datum Aufgenommen",
       "select-title": "Titel",
       "sort-placeholder": "Sortiere nach",
+      "sort-ascending": "Aufsteigend sortieren",
+      "sort-descending": "Absteigend sortieren",
       "toast-error-canvas-context": "Canvas Kontext konnte nicht geladen werden.",
       "toast-error-image-upload": "Das Bild konnte nicht geladen werden. Ist es ein gültiges Dokument?",
       "toast-error-image-too-large": "Das Bild ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
-      "image-alt-fallback": "Galeriebild"
+      "image-alt-fallback": "Galeriebild",
+      "empty-title": "Noch keine Fotos",
+      "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Stammbaums zu füllen.",
+      "empty-cta": "Foto hochladen"
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -269,7 +315,9 @@
       "activity": "Aktivität",
       "quality-report": "Qualität",
       "statistics": "Statistiken",
-      "database-management": "Stammbaumverwaltung"
+      "database-management": "Stammbaumverwaltung",
+      "friends": "Freunde",
+      "map": "Karte"
     },
     "no-database-placeholder": {
       "title": "Noch keine Stammbäume",
@@ -297,6 +345,12 @@
       "role-owner": "Eigentümer",
       "role-editor": "Bearbeiter",
       "role-viewer": "Betrachter"
+    },
+    "error-boundary": {
+      "title": "Etwas ist schiefgelaufen",
+      "description": "Ein unerwarteter Fehler ist aufgetreten. Bitte laden Sie die Anwendung neu.",
+      "details": "Fehlerdetails",
+      "reload": "Anwendung neu laden"
     }
   },
   "list-view": {
@@ -331,18 +385,19 @@
       "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
       "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",
       "toast-error-duplicate": "Eine Person mit denselben Daten existiert bereits.",
-      "toast-error-required": "Vor- und Nachname sind erforderlich.",
       "toast-error-image-too-large": "Das Foto ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-error-save": "Speichern fehlgeschlagen.",
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
       "firstname-field": "Vorname",
+      "middle-names-field": "Weitere Vornamen",
+      "baptismal-name-field": "Taufname",
       "lastname-field": "Nachname",
       "maiden-field": "Mädchenname",
       "born-field": "Geburtsdatum",
       "death-field": "Sterbedatum",
-      "date-placeholder": "Wähle ein Datum",
+      "date-placeholder": "Datum auswählen",
       "notes-field": "Notizen / Biografie",
       "notes-placeholder": "Biographische Notizen, persönliche Geschichte oder andere Details hinzufügen…",
       "paternal-parent-field": "Väterlicherseits",
@@ -356,13 +411,31 @@
       "places-lived-add": "Ort hinzufügen",
       "places-lived-from": "Von (Jahr)",
       "places-lived-to": "Bis (Jahr)",
-      "places-lived-empty": "Noch keine Orte hinzugefügt."
+      "places-lived-empty": "Noch keine Orte hinzugefügt.",
+      "deceased-field": "Verstorben",
+      "error-firstname-required": "Vorname ist erforderlich.",
+      "error-lastname-required": "Nachname ist erforderlich.",
+      "firstname-placeholder": "z. B. Jana",
+      "maiden-placeholder": "Mädchenname",
+      "academic-title-field": "Akademischer / Ehrentitel",
+      "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-relations": "Beziehungen",
+      "tab-records": "Einträge",
+      "photos-field": "Fotos",
+      "photos-add": "Foto hinzufügen",
+      "photos-empty": "Noch keine Fotos mit dieser Person verknüpft.",
+      "toast-success-photo-upload": "Foto hochgeladen und verknüpft.",
+      "toast-error-photo-upload": "Hochladen des Fotos fehlgeschlagen."
     },
     "view-mode": {
       "firstname-item": "Vorname",
+      "middle-names-item": "Weitere Vornamen",
+      "baptismal-name-item": "Taufname",
       "lastname-item": "Nachname",
       "maiden-item": "Mädchenname",
-      "maiden-fallback": "keiner",
+      "name-fallback": "Keine Angabe",
       "gender-item": "Geschlecht",
       "dob-item": "Geburtsdatum",
       "dod-item": "Sterbedatum",
@@ -376,11 +449,18 @@
       "no-stories": "Noch nichts gespeichert",
       "genetic-conditions": "Genetische Erkrankungen",
       "no-conditions": "Keine Erkrankungen erfasst",
+      "sources": "Quellennachweise",
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
-      "hometown-label": "Heimatort"
+      "hometown-label": "Heimatort",
+      "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
+      "academic-title-item": "Akademischer / Ehrentitel",
+      "tab-identity": "Identität",
+      "tab-life": "Leben",
+      "tab-records": "Einträge"
     },
     "member-sheet": {
+      "loading-detail": "Details werden geladen...",
       "edit-title": "Person bearbeiten",
       "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
@@ -388,16 +468,9 @@
       "save": "Speichern",
       "delete": "Löschen",
       "delete-confirm-title": "Person löschen",
-      "delete-confirm-description": "Bist du sicher, dass diese Person unwiderruflich gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "delete-confirm-description": "Bist du sicher, dass diese Person gelöscht werden soll? Dies kann anschließend einige Sekunden lang rückgängig gemacht werden.",
       "delete-confirm-cancel": "Abbrechen",
       "delete-confirm-confirm": "Löschen",
-      "unsaved": {
-        "title": "Ungespeicherte Änderungen",
-        "description": "Es gibt ungespeicherte Änderungen.",
-        "stay": "Bleiben",
-        "save": "Speichern",
-        "discard": "Verwerfen"
-      },
       "show-less": "Weniger anzeigen",
       "show-more": "Zeige {{count}} mehr",
       "events": {
@@ -428,7 +501,10 @@
           "update": "Aktualisieren",
           "add": "Hinzufügen",
           "custom": "Benutzerdefiniert...",
-          "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation"
+          "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation",
+          "location-checking": "Adresse wird geprüft...",
+          "location-found": "Adresse gefunden",
+          "location-not-found": "Adresse nicht gefunden – erscheint nicht auf der Karte"
         }
       },
       "stories": {
@@ -464,13 +540,66 @@
             "download": "Herunterladen",
             "remove": "Datei entfernen",
             "filename": "Dateiname",
-            "hint": "Bilder, PDF und Dokumente bis 25 MB.",
+            "hint": "Bilder, PDF und Dokumente bis {{max}}.",
+            "hint-without-limit": "Bilder, PDF und Dokumente.",
             "error-type": "Nicht unterstützter Dateityp",
-            "error-size": "Datei ist zu groß (max. 25 MB)"
+            "error-size": "Datei ist zu groß (max. {{max}})"
           },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
           "add": "Hinzufügen"
+        }
+      },
+      "sources": {
+        "title": "Quellennachweise",
+        "add": "Hinzufügen",
+        "no-citations": "Noch keine Quellennachweise",
+        "delete-dialog": {
+          "title": "Nachweis entfernen",
+          "description": "Möchtest du diesen Nachweis wirklich entfernen? Der Quelldatensatz selbst wird nicht gelöscht.",
+          "cancel": "Abbrechen",
+          "delete": "Entfernen"
+        },
+        "fact": {
+          "name": "Name",
+          "birth": "Geburt",
+          "death": "Tod",
+          "birthplace": "Geburtsort",
+          "hometown": "Heimatort",
+          "residence": "Wohnort",
+          "general": "Allgemein"
+        },
+        "dialog": {
+          "add-title": "Quellennachweis hinzufügen",
+          "edit-title": "Nachweis bearbeiten",
+          "source-label": "Quelle",
+          "source-placeholder": "Quelle auswählen...",
+          "source-search-placeholder": "Quellen suchen...",
+          "source-empty": "Keine Quellen gefunden",
+          "source-new": "Neue Quelle erstellen...",
+          "source-title": "Titel",
+          "source-title-placeholder": "z.B. Volkszählung 1920, Geburtsurkunde",
+          "author": "Autor",
+          "author-placeholder": "z.B. Max Mustermann",
+          "repository": "Archiv / Ablageort",
+          "repository-placeholder": "z.B. Bundesarchiv",
+          "source-date": "Datum",
+          "notes": "Notizen",
+          "notes-placeholder": "Zusätzliche Notizen zu dieser Quelle",
+          "fact-type": "Belegtes Merkmal",
+          "page": "Seite / Folio",
+          "page-placeholder": "z.B. S. 42, Rolle 123",
+          "detail": "Transkription / Detail",
+          "detail-placeholder": "Relevante Passage zitieren oder Kontext hinzufügen",
+          "evidence": "Belege",
+          "evidence-hint": "Füge den eigentlichen Beleg für diesen Nachweis hinzu – z. B. ein eingescanntes Dokument, ein Volkszählungsbild oder einen Link zu einem Online-Archiveintrag.",
+          "add-file": "Datei anhängen",
+          "add-link": "Link hinzufügen",
+          "link-url-placeholder": "https://...",
+          "link-label-placeholder": "Bezeichnung (optional)",
+          "link-add": "Hinzufügen",
+          "save": "Speichern",
+          "cancel": "Abbrechen"
         }
       },
       "diseases": {
@@ -514,14 +643,35 @@
           "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown-Formatierungsleiste",
+      "bold": "Fett",
+      "bold-default": "fetter Text",
+      "italic": "Kursiv",
+      "italic-default": "kursiver Text",
+      "heading": "Überschrift",
+      "heading-default": "Überschrift",
+      "bullet": "Aufzählungsliste",
+      "bullet-default": "Listeneintrag",
+      "link": "Link",
+      "link-default": "Linktext",
+      "link-url-placeholder": "https://",
+      "tab-write": "Schreiben",
+      "tab-preview": "Vorschau",
+      "preview-empty": "Noch nichts zum Anzeigen."
     }
   },
   "tree-view": {
     "node": {
-      "life-ongoing": "lebt",
-      "life-unknown": "ungewiss",
       "disease-indicator_one": "{{count}} genetische Erkrankung",
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
+      "disease-severity": {
+        "affected": "Betroffen",
+        "carrier": "Träger",
+        "other": "Status unbekannt"
+      },
+      "union-type": "Beziehung: {{type}}",
       "risk-indicator": "Mögliches genetisches Risiko von Eltern · Kein medizinischer Rat",
       "view-details": "Personendetails anzeigen",
       "edit-member": "Person bearbeiten",
@@ -529,7 +679,8 @@
       "add-parent": "Elternteil hinzufügen",
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
-      "add-right": "Verwandte Person rechts hinzufügen"
+      "add-right": "Verwandte Person rechts hinzufügen",
+      "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {
@@ -565,7 +716,8 @@
       "enable-connection-mode": "Verbindung finden",
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",
-      "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden."
+      "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden.",
+      "export-image": "Stammbaum als Bild exportieren"
     },
     "persistence": {
       "collapse-error": "Einklappstatus konnte nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt.",
@@ -692,6 +844,16 @@
   "hooks": {
     "flow-interactions": {
       "toast-error-database-create": "Verbindung konnte nicht erstellt werden."
+    },
+    "member-store": {
+      "refresh-error": "Änderungen konnten nicht synchronisiert werden. Bitte neu laden.",
+      "layout-error": "Das Layout konnte nicht aktualisiert werden.",
+      "delete-pending": "Person gelöscht.",
+      "undo-delete": "Rückgängig",
+      "delete-error": "Die Person konnte nicht gelöscht werden und wurde wiederhergestellt."
+    },
+    "geocode": {
+      "resolve-error": "Kartenorte konnten nicht aufgelöst werden."
     }
   },
   "quality-report-view": {
@@ -735,8 +897,15 @@
     "timeline-deaths": "Todesfälle",
     "lifespan-title": "Altersverteilung bei Tod (Jahre)",
     "lifespan-people": "Personen",
-    "names-title": "Häufigste Vornamen",
-    "names-count": "Anzahl"
+    "first-names-title": "Häufigste Vornamen",
+    "last-names-title": "Häufigste Nachnamen",
+    "names-count": "Anzahl",
+    "customize": "Anpassen",
+    "customize-title": "Widgets",
+    "customize-reset": "Zurücksetzen",
+    "move-up": "Nach oben",
+    "move-down": "Nach unten",
+    "all-hidden": "Alle Widgets sind ausgeblendet. Über 'Anpassen' wieder einblenden."
   },
   "database-management-view": {
     "title": "Stammbaumverwaltung",
@@ -744,6 +913,7 @@
     "import-button": "Stammbaum importieren",
     "merge-button": "Vereinen",
     "duplicate-button": "Duplizieren",
+    "extract-subtree-button": "Teilbaum extrahieren",
     "table-name": "Name",
     "table-actions": "Aktionen",
     "copy-id-button": "ID kopieren",
@@ -752,6 +922,7 @@
     "none-selected": "Keine",
     "toast-import-success": "Stammbaum erfolgreich importiert!",
     "toast-import-error": "Stammbaum konnte nicht importiert werden.",
+    "import-provenance": "Exportiert aus v{{version}} am {{date}}",
     "toast-gedcom-import-success": "Stammbaum erfolgreich aus GEDCOM importiert!",
     "toast-gedcom-import-error": "GEDCOM-Datei konnte nicht importiert werden.",
     "toast-gedcom-export-error": "Stammbaum konnte nicht als GEDCOM exportiert werden.",
@@ -786,7 +957,12 @@
     "view-degraded": "Zugriffsprobleme",
     "recompute-button": "Übereinstimmungen neu berechnen",
     "toast-recompute-success": "Übereinstimmungen neu berechnet. {{count}} gemeinsame Mitglieder gefunden.",
-    "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden."
+    "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden.",
+    "new-menu-button": "Neu",
+    "import-menu-button": "Importieren",
+    "row-actions-button": "Weitere Aktionen",
+    "export-button": "Stammbaum exportieren",
+    "delete-button": "Löschen"
   },
   "common": {
     "english": "Englisch",
@@ -807,7 +983,8 @@
       "f": "weiblich",
       "o": "anderes"
     },
-    "date-unknown": "unknown"
+    "date-unknown": "unknown",
+    "clear-date": "Datum löschen"
   },
   "auth": {
     "session": {
@@ -870,6 +1047,38 @@
       "logout": "Abmelden",
       "two-factor": "Zwei-Faktor-Authentifizierung"
     },
+    "friends": {
+      "title": "Freunde",
+      "description": "Vernetze dich mit anderen Benutzern. Stammbäume kannst du nur mit Freunden teilen.",
+      "tab-friends": "Freunde",
+      "tab-requests": "Anfragen",
+      "tab-add": "Freund hinzufügen",
+      "no-friends": "Du hast noch keine Freunde.",
+      "unfriend": "Freund entfernen",
+      "incoming": "Eingehende Anfragen",
+      "no-incoming": "Keine eingehenden Anfragen.",
+      "outgoing": "Gesendete Anfragen",
+      "no-outgoing": "Keine gesendeten Anfragen.",
+      "accept": "Annehmen",
+      "decline": "Ablehnen",
+      "cancel-request": "Anfrage zurückziehen",
+      "search-placeholder": "Nach Benutzername suchen…",
+      "no-results": "Keine Benutzer gefunden.",
+      "add": "Hinzufügen",
+      "status-friends": "Befreundet",
+      "status-pending": "Ausstehend",
+      "status-blocked": "Blockiert",
+      "request-sent": "Freundschaftsanfrage gesendet.",
+      "send-error": "Freundschaftsanfrage konnte nicht gesendet werden.",
+      "blocked-error": "Du kannst diesem Benutzer keine Anfrage senden.",
+      "accept-error": "Anfrage konnte nicht angenommen werden.",
+      "decline-error": "Anfrage konnte nicht abgelehnt werden.",
+      "remove-error": "Freund konnte nicht entfernt werden.",
+      "confirm-remove-title": "Freund entfernen?",
+      "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
+      "confirm-remove-confirm": "Entfernen",
+      "confirm-remove-cancel": "Abbrechen"
+    },
     "delete-account": {
       "title": "Konto löschen",
       "description": "Konto zum Löschen vormerken. Der Zugriff wird sofort gesperrt und alle Daten werden nach Ablauf der Frist endgültig gelöscht.",
@@ -927,6 +1136,7 @@
   "admin": {
     "title": "Verwaltung",
     "description": "Benutzer und Instanzeinstellungen verwalten.",
+    "back": "Zurück",
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",
@@ -949,7 +1159,9 @@
         "statistics": "Statistiken",
         "virtual_views": "Virtuelle Ansichten",
         "gedcom": "GEDCOM-Import/-Export",
-        "sharing_invites": "Einladungen teilen"
+        "sharing_invites": "Einladungen teilen",
+        "map": "Kartenansicht",
+        "sources": "Quellen & Zitate"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -960,7 +1172,9 @@
         "statistics": "Aggregierte Statistiken pro Stammbaum.",
         "virtual_views": "Schreibgeschützte Ansichten über mehrere Stammbäume.",
         "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
-        "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume."
+        "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
+        "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
+        "sources": "Quellennachweise und Belege für Personendaten."
       }
     },
     "col-username": "Benutzername",
@@ -984,6 +1198,11 @@
     "self-registration-hint": "Jeder kann ein eigenes Konto erstellen.",
     "deletion-grace-period": "Löschfrist (Tage)",
     "deletion-grace-period-hint": "Wie lange ein zum Löschen vorgemerktes Konto wiederherstellbar bleibt, bevor es und alle seine Daten endgültig gelöscht werden.",
+    "upload-limits": "Upload-Limits",
+    "upload-limits-hint": "Änderungen gelten sofort für neue Uploads.",
+    "max-image-upload": "Bildgröße (MB)",
+    "max-document-upload": "Anhangsgröße (MB)",
+    "max-image-dimension": "Bildkante (px)",
     "save-settings": "Einstellungen speichern",
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
     "cancel-deletion": "Löschung abbrechen",
@@ -1081,5 +1300,36 @@
     "gender-female": "Weiblich",
     "not-public": "Dieser Stammbaum ist privat oder der Link ist nicht mehr gültig.",
     "error": "Dieser Stammbaum konnte nicht geladen werden."
+  },
+  "map-view": {
+    "view": {
+      "title": "Karte",
+      "member-fallback": "Unbekanntes Mitglied",
+      "all-members": "Alle Mitglieder",
+      "member-place-holder": "Mitglied auswählen...",
+      "member-search-placeholder": "Mitglieder suchen...",
+      "no-member": "Kein Mitglied gefunden.",
+      "date-from": "Von",
+      "date-to": "Bis",
+      "no-mappable-events": "Keine darstellbaren Ereignisse gefunden",
+      "add-location-hint": "Füge einem Ereignis einen Ort hinzu, um es auf der Karte zu sehen",
+      "unlocatable-count": "{{count}} Ereignis(se) haben Orte, die auf der Karte nicht aufgelöst werden konnten",
+      "filter-location-types": "Ortstypen",
+      "legend-event": "Ereignis",
+      "legend-birthplace": "Geburtsort",
+      "legend-hometown": "Heimatort",
+      "legend-places-lived": "Wohnort",
+      "no-location-types-visible": "Alle Ortstypen sind ausgeblendet",
+      "enable-location-type-hint": "Aktiviere oben einen Ortstyp, um seine Markierungen anzuzeigen",
+      "from": "ab",
+      "until": "bis"
+    }
+  },
+  "unsaved-changes": {
+    "title": "Ungespeicherte Änderungen",
+    "description": "Es gibt ungespeicherte Änderungen.",
+    "stay": "Bleiben",
+    "save": "Speichern",
+    "discard": "Verwerfen"
   }
 }

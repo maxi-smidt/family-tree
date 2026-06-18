@@ -11,6 +11,9 @@ export interface AdminSettings {
   backup_schedule_enabled: boolean;
   backup_interval_hours: number;
   backup_retention_count: number;
+  max_image_upload_mb: number;
+  max_image_dimension: number;
+  max_document_upload_mb: number;
 }
 
 export interface BackupRecord {

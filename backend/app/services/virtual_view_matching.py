@@ -3,9 +3,9 @@
 Overlap is determined by deterministic key comparison — no ML or fuzzy matching.
 Two normalisation tiers:
 
-  Tier 1 (year-anchored): (fold(firstName), fold(lastName), birth_year)
-      — applies when birth_year can be extracted from dateOfBirth.
-  Tier 2 (year-less):     (fold(firstName), fold(lastName), gender or "o")
+  Tier 1 (year-anchored): (fold(first_name), fold(last_name), birth_year)
+      — applies when birth_year can be extracted from date_of_birth.
+  Tier 2 (year-less):     (fold(first_name), fold(last_name), gender or "o")
       — fallback when birth_year is absent for the member.
 
 A key is excluded from matching when a *single* source tree has 2+ members
@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from app.db.base import utcnow_iso
 from app.models import Member
 from app.models.virtual_view import VirtualViewMemberMatch, VirtualViewPosition
+from app.services.virtual_view_sources import flatten_tree_ids
 
 if TYPE_CHECKING:
     from app.models.virtual_view import VirtualView
@@ -58,11 +59,11 @@ def birth_year(date_str: str | None) -> str | None:
 
 def _member_keys(m: Member) -> list[tuple]:
     """Return the 1–2 matching keys for a member (Tier 1 preferred)."""
-    fn = fold(m.firstName)
-    ln = fold(m.lastName)
+    fn = fold(m.first_name)
+    ln = fold(m.last_name)
     if not fn and not ln:
         return []
-    by = birth_year(m.dateOfBirth)
+    by = birth_year(m.date_of_birth)
     if by is not None:
         return [(fn, ln, by)]
     # Fall back to gender-based tier when no year is available.
@@ -131,7 +132,10 @@ def persist_matches(db: Session, view: VirtualView) -> int:
 
     Returns the number of match groups found.
     """
-    source_ids = [s.tree_id for s in view.sources]
+    # Sources may be real trees or nested virtual views — flatten the DAG to the
+    # underlying real tree ids before matching so nesting behaves like a flat
+    # composite of the same trees.
+    source_ids = flatten_tree_ids(db, view)
 
     # Wipe old match rows (cascade would only fire on member deletion; we also
     # need a clean slate when sources change).

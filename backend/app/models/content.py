@@ -1,6 +1,6 @@
 """Gallery, events and stories — the rich content attached to members."""
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,11 +13,11 @@ class GalleryImage(Base):
     tree_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
     )
-    imageData: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    createdAt: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    uploadedAt: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    uploaded_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
 class GalleryMemberLink(Base):
@@ -113,3 +113,80 @@ class StoryMemberLink(Base):
     member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
     )
+
+
+class GeocodeCache(Base):
+    """Instance-wide cache of Nominatim geocoding results."""
+
+    __tablename__ = "geocode_cache"
+
+    query: Mapped[str] = mapped_column(String(255), primary_key=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    resolved: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    updated_at: Mapped[str] = mapped_column(String(40))
+
+
+class Source(Base):
+    __tablename__ = "sources"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(255))
+    author: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    publication_info: Mapped[str | None] = mapped_column(Text, nullable=True)
+    repository: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_date: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+    updated_at: Mapped[str] = mapped_column(String(40))
+
+    evidence: Mapped[list["SourceEvidence"]] = relationship(
+        back_populates="source",
+        cascade="all, delete-orphan",
+        order_by="SourceEvidence.created_at",
+    )
+
+
+class SourceEvidence(Base):
+    __tablename__ = "source_evidence"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    )
+    source_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(10))  # "file" | "link"
+    filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    url: Mapped[str] = mapped_column(Text)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+
+    source: Mapped["Source"] = relationship(back_populates="evidence")
+
+
+class Citation(Base):
+    __tablename__ = "citations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    )
+    source_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    )
+    member_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("members.id", ondelete="CASCADE"), index=True
+    )
+    fact_type: Mapped[str] = mapped_column(String(40))
+    page: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40))

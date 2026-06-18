@@ -1,0 +1,61 @@
+# End-to-end test stack — builds images from source, adds Postgres.
+# Run via: docker compose -f docker-compose.e2e.yml up --build -d
+# Then:     cd e2e && npm ci && npx playwright test
+#
+# All credentials are throwaway values safe for CI only.
+name: family-tree-e2e
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: familytree
+      POSTGRES_PASSWORD: familytree
+      POSTGRES_DB: familytree
+      PGDATA: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U familytree"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    tmpfs:
+      - /var/lib/postgresql/data  # ephemeral: wiped on every compose down
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SECRET_KEY: e2e-secret-not-for-production
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: familytree
+      POSTGRES_PASSWORD: familytree
+      POSTGRES_DB: familytree
+      DATA_PATH: /data
+      APP_DATA_PATH: /appdata
+      FRONTEND_URL: http://frontend:8080
+      CORS_ORIGINS: http://frontend:8080,http://localhost:8080
+      ALLOW_SELF_REGISTRATION: "true"
+      FIRST_ADMIN_USERNAME: ${E2E_ADMIN_USERNAME:-e2e-admin}
+      FIRST_ADMIN_PASSWORD: ${E2E_ADMIN_PASSWORD:-e2e-admin-password}
+      FIRST_ADMIN_EMAIL: e2e-admin@example.com
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:8000/api/health/ready'')"',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:8080"

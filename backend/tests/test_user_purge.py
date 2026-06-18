@@ -114,7 +114,7 @@ def test_delete_image_route_removes_file(client, db, media_root):
     image = GalleryImage(
         id=str(uuid4()),
         tree_id=tree.id,
-        imageData=f"{MEDIA_URL_PREFIX}/{tree.id}/img.webp",
+        image_data=f"{MEDIA_URL_PREFIX}/{tree.id}/img.webp",
     )
     db.add(image)
     db.commit()

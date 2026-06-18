@@ -1,9 +1,10 @@
-from tests.conftest import API, auth, make_tree, make_user, share
+from tests.conftest import API, auth, befriend, make_tree, make_user, share
 
 
 def test_owner_can_share_and_revoke(client, db):
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
+    befriend(db, owner, bob)
     tree = make_tree(db, owner)
 
     shared = client.post(
@@ -50,15 +51,30 @@ def test_non_owner_cannot_share(client, db):
     assert res.status_code == 403
 
 
-def test_share_candidates_excludes_owner_and_members(client, db):
+def test_share_candidates_are_friends_minus_members(client, db):
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
     carol = make_user(db, "carol")
+    make_user(db, "dave")  # a friend-less stranger, must never appear
+    befriend(db, owner, bob)
+    befriend(db, owner, carol)
     tree = make_tree(db, owner)
     share(db, tree, bob, "editor")
 
     res = client.get(f"{API}/trees/{tree.id}/access/candidates", headers=auth(owner))
     assert res.status_code == 200
-    usernames = {c["username"] for c in res.json()}
-    assert usernames == {"carol"}
-    assert carol.username in usernames
+    # bob is already a member; carol is a friend without access; dave is neither.
+    assert {c["username"] for c in res.json()} == {"carol"}
+
+
+def test_share_requires_friendship(client, db):
+    owner = make_user(db, "owner")
+    make_user(db, "stranger")
+    tree = make_tree(db, owner)
+
+    res = client.post(
+        f"{API}/trees/{tree.id}/access",
+        headers=auth(owner),
+        json={"username": "stranger", "role": "viewer"},
+    )
+    assert res.status_code == 403

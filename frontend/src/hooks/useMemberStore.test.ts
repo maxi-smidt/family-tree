@@ -10,6 +10,8 @@ vi.mock("@/services/TreeService");
 vi.mock("sonner", () => ({
   toast: {
     error: vi.fn(),
+    info: vi.fn(() => "toast-id"),
+    dismiss: vi.fn(),
   },
 }));
 
@@ -18,12 +20,16 @@ const TREE_ID = "tree-abc";
 const MEMBER_DB_ROW: MemberDB = {
   id: "m1",
   gender: "m",
+  academicTitle: null,
   firstName: "John",
   lastName: "Doe",
+  middleNames: null,
+  baptismalName: null,
   maidenName: null,
   imageData: null,
   dateOfBirth: "1980-01-01",
   dateOfDeath: null,
+  deceased: false,
   additionalData: null,
   isCollapsed: 0,
   positionX: 0,
@@ -83,18 +89,19 @@ describe("useMemberStore — refreshMembers", () => {
     expect(members[0].gender).toBe("m");
     expect(members[0].date.birth).toBe("1980-01-01");
     expect(members[0].isCollapsed).toBe(false);
-    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID);
+    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID, true);
   });
 
-  it("calls getMembers, getRelations, and getDiseases in parallel", async () => {
+  it("calls getMembers and getRelations in parallel (diseases deferred to fetchMemberDetail)", async () => {
     selectTree();
     mockServiceEmpty();
 
     await useMemberStore.getState().refreshMembers();
 
-    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID);
+    expect(TreeService.getMembers).toHaveBeenCalledWith(TREE_ID, true);
     expect(TreeService.getRelations).toHaveBeenCalledWith(TREE_ID);
-    expect(TreeService.getDiseases).toHaveBeenCalledWith(TREE_ID);
+    // getDiseases is no longer called on refreshMembers — it is deferred to fetchMemberDetail
+    expect(TreeService.getDiseases).not.toHaveBeenCalled();
   });
 });
 
@@ -107,11 +114,15 @@ describe("useMemberStore — addMember", () => {
     const newMember = {
       id: "m2",
       gender: "f" as const,
+      academicTitle: null,
       firstName: "Jane",
       lastName: "Doe",
+      middleNames: null,
+      baptismalName: null,
       maidenName: null,
       imageData: null,
       date: { birth: "1990-01-01", death: null },
+      deceased: false,
       parents: { paternalParent: null, maternalParent: null },
       additionalData: null,
       isCollapsed: false,
@@ -140,11 +151,15 @@ describe("useMemberStore — addMember", () => {
     const member = {
       id: "m3",
       gender: "m" as const,
+      academicTitle: null,
       firstName: "Bob",
       lastName: "Smith",
+      middleNames: null,
+      baptismalName: null,
       maidenName: null,
       imageData: null,
       date: { birth: "1970-06-15", death: null },
+      deceased: false,
       parents: { paternalParent: null, maternalParent: null },
       additionalData: null,
       isCollapsed: false,
@@ -164,19 +179,76 @@ describe("useMemberStore — addMember", () => {
 });
 
 describe("useMemberStore — removeMember", () => {
-  it("calls TreeService.removeMember then refreshes", async () => {
+  it("hides the member and defers the API delete until the grace period ends", async () => {
+    vi.useFakeTimers();
     selectTree();
     mockServiceWithMember();
-    // Pre-populate the store so removeMember finds the member
     await useMemberStore.getState().refreshMembers();
 
     vi.mocked(TreeService.removeMember).mockResolvedValue(undefined);
-    mockServiceEmpty(); // after deletion, list is empty
+    mockServiceEmpty();
 
     await useMemberStore.getState().removeMember("m1");
 
+    expect(useMemberStore.getState().members).toHaveLength(0);
+    expect(TreeService.removeMember).not.toHaveBeenCalled();
+    expect(toast.info).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        duration: 8000,
+        action: expect.objectContaining({ label: expect.any(String) }),
+      }),
+    );
+
+    await vi.advanceTimersByTimeAsync(8000);
+
     expect(TreeService.removeMember).toHaveBeenCalledWith(TREE_ID, "m1");
     expect(useMemberStore.getState().members).toHaveLength(0);
+    vi.useRealTimers();
+  });
+
+  it("cancels the API delete and restores the member when undo is clicked", async () => {
+    vi.useFakeTimers();
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    await useMemberStore.getState().removeMember("m1");
+    await useMemberStore.getState().refreshMembers();
+
+    expect(useMemberStore.getState().members).toHaveLength(0);
+
+    const toastOptions = vi.mocked(toast.info).mock.calls[0]?.[1];
+    const action = toastOptions?.action as unknown as { onClick: () => void };
+    action.onClick();
+
+    expect(
+      useMemberStore.getState().members.map((member) => member.id),
+    ).toEqual(["m1"]);
+    expect(toast.dismiss).toHaveBeenCalledWith("toast-id");
+
+    await vi.advanceTimersByTimeAsync(8000);
+
+    expect(TreeService.removeMember).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it("restores the member when the deferred API delete fails", async () => {
+    vi.useFakeTimers();
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.removeMember).mockRejectedValue(new Error("offline"));
+
+    await useMemberStore.getState().removeMember("m1");
+    await vi.advanceTimersByTimeAsync(8000);
+
+    expect(
+      useMemberStore.getState().members.map((member) => member.id),
+    ).toEqual(["m1"]);
+    expect(toast.error).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 
   it("does nothing when member is not found", async () => {
@@ -283,11 +355,15 @@ describe("useMemberStore — undo/redo", () => {
     const member = {
       id: "m4",
       gender: "m" as const,
+      academicTitle: null,
       firstName: "Undo",
       lastName: "Test",
+      middleNames: null,
+      baptismalName: null,
       maidenName: null,
       imageData: null,
       date: { birth: "2000-01-01", death: null },
+      deceased: false,
       parents: { paternalParent: null, maternalParent: null },
       additionalData: null,
       isCollapsed: false,
@@ -319,11 +395,15 @@ describe("useMemberStore — undo/redo", () => {
     const member = {
       id: "m5",
       gender: "f" as const,
+      academicTitle: null,
       firstName: "Redo",
       lastName: "Test",
+      middleNames: null,
+      baptismalName: null,
       maidenName: null,
       imageData: null,
       date: { birth: "1995-05-20", death: null },
+      deceased: false,
       parents: { paternalParent: null, maternalParent: null },
       additionalData: null,
       isCollapsed: false,

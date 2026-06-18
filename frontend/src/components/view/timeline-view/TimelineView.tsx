@@ -38,6 +38,9 @@ import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 
 interface VitalEvent {
   kind: "vital";
@@ -47,12 +50,49 @@ interface VitalEvent {
   date: string;
 }
 
+function TimelineSkeleton() {
+  return (
+    <div className="flex h-full flex-col">
+      <div className="mb-6 flex items-center gap-4 p-1">
+        <Skeleton className="h-9 flex-1" />
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-9 w-62.5" />
+      </div>
+      <div className="relative flex-1">
+        <div className="absolute bottom-0 left-8 top-0 w-0.5 bg-border" />
+        <div className="space-y-4">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="relative ml-16 rounded-xl border p-4">
+              <Skeleton className="absolute -left-10 top-6 h-4 w-4 rounded-full" />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5" />
+                  <Skeleton className="h-6 w-40" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+                <div className="flex gap-4">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-44" />
+                </div>
+                <Skeleton className="h-4 w-2/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const TimelineView = () => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "timeline-view.view",
   });
   const { members } = useMemberStore();
-  const { events, removeEvent } = useEventStore();
+  const { events, removeEvent, refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const isReady = useTreeStore((state) => state.isReady);
+
+  useDeferredStoreLoad(eventsInitialized, refreshEvents);
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",
   );
@@ -194,6 +234,14 @@ export const TimelineView = () => {
       setEventToDelete(null);
     }
   };
+
+  if (!isReady) {
+    return (
+      <ViewLayout title={t("title")} action={<Skeleton className="h-8 w-28" />}>
+        <TimelineSkeleton />
+      </ViewLayout>
+    );
+  }
 
   return (
     <ViewLayout
@@ -353,20 +401,14 @@ export const TimelineView = () => {
 
                         <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
                           <div className="flex items-center gap-1">
-                            <Calendar
-                              aria-hidden="true"
-                              className="w-4 h-4"
-                            />
+                            <Calendar aria-hidden="true" className="w-4 h-4" />
                             <span>
                               {formatDateWithFallback(item.data.date, i18n.t)}
                             </span>
                           </div>
                           {item.data.location && (
                             <div className="flex items-center gap-1">
-                              <MapPin
-                                aria-hidden="true"
-                                className="w-4 h-4"
-                              />
+                              <MapPin aria-hidden="true" className="w-4 h-4" />
                               <span>{item.data.location}</span>
                             </div>
                           )}
@@ -422,10 +464,7 @@ export const TimelineView = () => {
 
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
-                            <Calendar
-                              aria-hidden="true"
-                              className="w-4 h-4"
-                            />
+                            <Calendar aria-hidden="true" className="w-4 h-4" />
                             <span>
                               {formatDateWithFallback(item.data.date, i18n.t)}
                             </span>

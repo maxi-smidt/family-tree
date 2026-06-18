@@ -4,6 +4,7 @@ import {
 } from "@/hooks/useActivityStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { Activity } from "@/types/activity";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,7 +112,7 @@ function ActivityItem({ item }: { item: Activity }) {
 
   return (
     <Card
-      className={`p-4 flex gap-4 items-start${canNavigate ? " group cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
+      className={`p-4 flex flex-row gap-4 items-center${canNavigate ? " group cursor-pointer hover:bg-muted/50 transition-colors" : ""}`}
       onClick={canNavigate ? handleNavigate : undefined}
       role={canNavigate ? "button" : undefined}
       tabIndex={canNavigate ? 0 : undefined}
@@ -181,8 +182,9 @@ export const ActivityView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "activity-view" });
   const store = useActivityStore();
   const filteredActivities = selectFilteredActivities(store);
-  const { filterActor, filterAction, filterTargetType, setFilter, activities } =
+  const { filterActor, filterAction, filterTargetType, setFilter, activities, refreshActivity, initialized } =
     store;
+  useDeferredStoreLoad(initialized, refreshActivity);
 
   const uniqueActors = Array.from(
     new Set(activities.map((a) => a.actorUsername).filter(Boolean)),

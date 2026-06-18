@@ -8,6 +8,7 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
+    require_domain,
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -23,6 +24,7 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.settings_service import get_media_limits
 from app.services.storage import (
     ImageTooLarge,
     UnsupportedImageType,
@@ -33,7 +35,10 @@ from app.services.storage import (
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
     tags=["gallery"],
-    dependencies=[Depends(require_feature("gallery"))],
+    dependencies=[
+        Depends(require_feature("gallery")),
+        Depends(require_domain("gallery")),
+    ],
 )
 
 
@@ -52,7 +57,7 @@ def list_images(
     statement = (
         select(GalleryImage)
         .where(GalleryImage.tree_id == tree.id)
-        .order_by(GalleryImage.uploadedAt, GalleryImage.id)
+        .order_by(GalleryImage.uploaded_at, GalleryImage.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
 
@@ -82,7 +87,11 @@ def create_image(
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
     try:
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["image_data"] = process_image_field(
+            tree.id,
+            data.get("image_data"),
+            get_media_limits(db),
+        )
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
@@ -117,9 +126,13 @@ def update_image(
 ):
     image = _get_image(db, tree, image_id)
     changes = payload.model_dump(exclude_unset=True)
-    if "imageData" in changes:
+    if "image_data" in changes:
         try:
-            changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+            changes["image_data"] = process_image_field(
+                tree.id,
+                changes["image_data"],
+                get_media_limits(db),
+            )
         except ImageTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (UnsupportedImageType, ValueError) as exc:
@@ -143,7 +156,7 @@ def delete_image(
     db: Session = Depends(get_db),
 ):
     image = _get_image(db, tree, image_id)
-    image_url = image.imageData
+    image_url = image.image_data
     record_activity(
         db, tree_id=tree.id, actor=user, action="delete",
         target_type="gallery_image", target_id=image.id, target_label=image.title,

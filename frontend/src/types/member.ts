@@ -29,16 +29,26 @@ export interface PlaceLived {
   to?: string | null;
 }
 
+export function isDeceased(member: Pick<Member, "deceased" | "date">): boolean {
+  return member.deceased || !!member.date.death;
+}
+
 export interface Member {
   id: string;
   gender: Gender;
+  academicTitle: string | null;
   firstName: string;
+  middleNames: string | null;
+  baptismalName: string | null;
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
+  deceased: boolean;
   date: {
     birth: string;
     death: string | null;
+    birthSort?: string | null;
+    deathSort?: string | null;
   };
   parents: {
     paternalParent: string | null;
@@ -83,11 +93,15 @@ export class MemberObject {
     };
 
     return (
+      normalizeStr(m1.academicTitle) === normalizeStr(m2.academicTitle) &&
       normalizeStr(m1.firstName) === normalizeStr(m2.firstName) &&
+      normalizeStr(m1.middleNames) === normalizeStr(m2.middleNames) &&
+      normalizeStr(m1.baptismalName) === normalizeStr(m2.baptismalName) &&
       normalizeStr(m1.lastName) === normalizeStr(m2.lastName) &&
       m1.gender === m2.gender &&
       m1.dateOfBirth === m2.dateOfBirth &&
-      m1.dateOfDeath === m2.dateOfDeath
+      m1.dateOfDeath === m2.dateOfDeath &&
+      m1.deceased === m2.deceased
     );
   }
 }
@@ -95,13 +109,19 @@ export class MemberObject {
 export interface MemberDB {
   id: string;
   gender: string;
+  academicTitle: string | null;
   firstName: string;
+  middleNames: string | null;
+  baptismalName: string | null;
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
   dateOfBirth: string;
   dateOfDeath: string | null;
-  additionalData: string | null;
+  dateOfBirthSort?: string | null;
+  dateOfDeathSort?: string | null;
+  deceased: boolean;
+  additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
   placesLived?: string | null;
@@ -125,12 +145,16 @@ export interface RelationDB {
 
 export interface MemberUpdate {
   gender?: Gender;
+  academicTitle?: string | null;
   firstName?: string;
+  middleNames?: string | null;
+  baptismalName?: string | null;
   lastName?: string;
   maidenName?: string | null;
   imageData?: string;
   dateOfBirth?: string;
   dateOfDeath?: string | null;
+  deceased?: boolean;
   paternalParentId?: string | null;
   maternalParentId?: string | null;
   additionalData?: string | null;
@@ -160,19 +184,25 @@ export function mapMemberFromDB(
   return {
     id: row.id,
     gender: (row.gender as Gender) || "o",
+    academicTitle: row.academicTitle ?? null,
     firstName: row.firstName,
+    middleNames: row.middleNames,
+    baptismalName: row.baptismalName,
     lastName: row.lastName,
     maidenName: row.maidenName,
     imageData: row.imageData,
+    deceased: !!row.deceased,
     date: {
       birth: row.dateOfBirth,
       death: row.dateOfDeath,
+      birthSort: row.dateOfBirthSort ?? null,
+      deathSort: row.dateOfDeathSort ?? null,
     },
     parents: {
       paternalParent: null,
       maternalParent: null,
     },
-    additionalData: row.additionalData,
+    additionalData: row.additionalData ?? null,
     birthplace: row.birthplace ?? null,
     hometown: row.hometown ?? null,
     placesLived: parsePlacesLived(row.placesLived),
@@ -200,12 +230,16 @@ export function mapMemberToDB(member: Member): MemberDB {
   return {
     id: member.id,
     gender: member.gender,
+    academicTitle: member.academicTitle ?? null,
     firstName: member.firstName,
+    middleNames: member.middleNames,
+    baptismalName: member.baptismalName,
     lastName: member.lastName,
     maidenName: member.maidenName,
     imageData: member.imageData,
     dateOfBirth: member.date.birth,
     dateOfDeath: member.date.death,
+    deceased: member.deceased,
     positionX: member.position.x,
     positionY: member.position.y,
     additionalData: member.additionalData ? member.additionalData : null,
@@ -222,10 +256,14 @@ export function createMember(position: { x: number; y: number }): Member {
   return {
     id: crypto.randomUUID(),
     gender: "o",
+    academicTitle: null,
     firstName: "",
+    middleNames: null,
+    baptismalName: null,
     lastName: "",
     maidenName: null,
     imageData: null,
+    deceased: false,
     date: { birth: currentYear, death: null },
     parents: { paternalParent: null, maternalParent: null },
     additionalData: null,

@@ -1,6 +1,6 @@
 """Members, relations and diseases — all scoped to a tree."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.api.deps import (
     get_readable_tree,
     get_readable_tree_public,
     get_writable_tree,
+    require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
@@ -22,11 +23,13 @@ from app.schemas.family import (
     MemberCreate,
     MemberOut,
     MemberPositionUpdate,
+    MemberSurfaceOut,
     MemberUpdate,
     RelationCreate,
     RelationOut,
 )
 from app.services.activity import record_activity
+from app.services.settings_service import get_media_limits
 from app.services.storage import ImageTooLarge, UnsupportedImageType, process_image_field
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
@@ -45,7 +48,36 @@ def list_members(
     pagination: Pagination = Depends(pagination_params),
     tree: Tree = Depends(get_readable_tree_public),
     db: Session = Depends(get_db),
+    surface: bool = Query(False),
 ):
+    if surface:
+        stmt = (
+            select(
+                Member.id,
+                Member.gender,
+                Member.academic_title,
+                Member.first_name,
+                Member.middle_names,
+                Member.baptismal_name,
+                Member.last_name,
+                Member.maiden_name,
+                Member.image_data,
+                Member.date_of_birth,
+                Member.date_of_death,
+                Member.date_of_birth_sort,
+                Member.date_of_death_sort,
+                Member.deceased,
+                Member.is_collapsed,
+                Member.position_x,
+                Member.position_y,
+            )
+            .where(Member.tree_id == tree.id)
+            .order_by(Member.id)
+        )
+        return [
+            MemberSurfaceOut(**row._mapping)
+            for row in db.execute(apply_pagination(stmt, pagination)).all()
+        ]
     statement = select(Member).where(Member.tree_id == tree.id).order_by(Member.id)
     return db.scalars(apply_pagination(statement, pagination)).all()
 
@@ -59,14 +91,20 @@ def create_member(
 ):
     data = payload.model_dump()
     try:
-        data["imageData"] = process_image_field(tree.id, data.get("imageData"))
+        data["image_data"] = process_image_field(
+            tree.id,
+            data.get("image_data"),
+            get_media_limits(db),
+        )
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     member = Member(tree_id=tree.id, **data)
     db.add(member)
-    label = " ".join(filter(None, [data.get("firstName"), data.get("lastName")])) or None
+    label = (
+        " ".join(filter(None, [data.get("first_name"), data.get("last_name")])) or None
+    )
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="member", target_id=member.id, target_label=label)
     db.commit()
@@ -97,8 +135,8 @@ def update_member_positions(
     for p in payload:
         member = members.get(p.id)
         if member is not None:
-            member.positionX = p.positionX
-            member.positionY = p.positionY
+            member.position_x = p.position_x
+            member.position_y = p.position_y
     db.commit()
 
 
@@ -125,8 +163,17 @@ def update_member_collapsed(
     for p in payload:
         member = members.get(p.id)
         if member is not None:
-            member.isCollapsed = p.isCollapsed
+            member.is_collapsed = p.is_collapsed
     db.commit()
+
+
+@router.get("/members/{member_id}", response_model=MemberOut)
+def get_member(
+    member_id: str,
+    tree: Tree = Depends(get_readable_tree_public),
+    db: Session = Depends(get_db),
+):
+    return _get_member(db, tree, member_id)
 
 
 @router.patch("/members/{member_id}", response_model=MemberOut)
@@ -139,15 +186,19 @@ def update_member(
 ):
     member = _get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
-    if "imageData" in changes:
+    if "image_data" in changes:
         try:
-            changes["imageData"] = process_image_field(tree.id, changes["imageData"])
+            changes["image_data"] = process_image_field(
+                tree.id,
+                changes["image_data"],
+                get_media_limits(db),
+            )
         except ImageTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (UnsupportedImageType, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     # Capture before-state for diff details (skip noisy positional/internal fields).
-    _SKIP_DIFF = {"positionX", "positionY", "isCollapsed", "imageData"}
+    _SKIP_DIFF = {"position_x", "position_y", "is_collapsed", "image_data"}
     before = {k: getattr(member, k) for k in changes if k not in _SKIP_DIFF}
     for key, value in changes.items():
         setattr(member, key, value)
@@ -163,7 +214,7 @@ def update_member(
             "before": {k: v["before"] for k, v in changed.items()},
             "after": {k: v["after"] for k, v in changed.items()},
         }
-    label = " ".join(filter(None, [member.firstName, member.lastName])) or None
+    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="update",
                     target_type="member", target_id=member.id, target_label=label,
                     details=diff_details)
@@ -180,7 +231,7 @@ def delete_member(
     db: Session = Depends(get_db),
 ):
     member = _get_member(db, tree, member_id)
-    label = " ".join(filter(None, [member.firstName, member.lastName])) or None
+    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="delete",
                     target_type="member", target_id=member.id, target_label=label)
     db.delete(member)
@@ -270,7 +321,11 @@ def remove_relation(
 
 
 # --- Diseases --------------------------------------------------------------
-@router.get("/diseases", response_model=list[DiseaseOut])
+@router.get(
+    "/diseases",
+    response_model=list[DiseaseOut],
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def list_diseases(
     pagination: Pagination = Depends(pagination_params),
     tree: Tree = Depends(get_readable_tree),
@@ -284,7 +339,12 @@ def list_diseases(
     return db.scalars(apply_pagination(statement, pagination)).all()
 
 
-@router.post("/diseases", response_model=DiseaseOut, status_code=201)
+@router.post(
+    "/diseases",
+    response_model=DiseaseOut,
+    status_code=201,
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def add_disease(
     payload: DiseaseCreate,
     tree: Tree = Depends(get_writable_tree),
@@ -301,7 +361,11 @@ def add_disease(
     return disease
 
 
-@router.patch("/diseases/{disease_id}", response_model=DiseaseOut)
+@router.patch(
+    "/diseases/{disease_id}",
+    response_model=DiseaseOut,
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def update_disease(
     disease_id: str,
     payload: DiseaseUpdate,
@@ -323,7 +387,11 @@ def update_disease(
     return disease
 
 
-@router.delete("/diseases/{disease_id}", status_code=204)
+@router.delete(
+    "/diseases/{disease_id}",
+    status_code=204,
+    dependencies=[Depends(require_domain("diseases"))],
+)
 def delete_disease(
     disease_id: str,
     tree: Tree = Depends(get_writable_tree),

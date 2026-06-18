@@ -39,11 +39,14 @@ import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { isVirtualId } from "@/hooks/useTreeStore";
 import { useIsMobile } from "@/hooks/useMobile";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SortConfig = {
   key: keyof Member | "date.birth" | "date.death";
   direction: "asc" | "desc";
 };
+
+const SKELETON_ROWS = 6;
 
 export const ListView = () => {
   const { t } = useTranslation(undefined, {
@@ -54,9 +57,11 @@ export const ListView = () => {
   });
   const { members, removeMember } = useMemberStore();
   const activeTree = useTreeStore((s) => s.selectedTree);
+  const isReady = useTreeStore((s) => s.isReady);
   const canWrite = activeTree?.role !== "viewer";
   const isVirtual = !!activeTree?.id && isVirtualId(activeTree.id);
   const isMobile = useIsMobile();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "firstName",
@@ -135,14 +140,18 @@ export const ListView = () => {
     <ViewLayout
       title={t("title")}
       action={
-        <div
-          className="text-sm text-muted-foreground"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          {sortedMembers.length}{" "}
-          {t("selected-members", { count: sortedMembers.length })}
-        </div>
+        isReady ? (
+          <div
+            className="text-sm text-muted-foreground"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {sortedMembers.length}{" "}
+            {t("selected-members", { count: sortedMembers.length })}
+          </div>
+        ) : (
+          <Skeleton className="h-4 w-24" />
+        )
       }
     >
       <div className="flex items-center justify-between mb-4 p-1">
@@ -158,7 +167,25 @@ export const ListView = () => {
       </div>
 
       <div className="flex flex-col gap-2 md:hidden">
-        {sortedMembers.length === 0 ? (
+        {!isReady ? (
+          Array.from({ length: SKELETON_ROWS }).map((_, index) => (
+            <div
+              key={index}
+              className="rounded-md border bg-card p-3 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-3">
+                  <Skeleton className="h-5 w-2/3" />
+                  <div className="flex gap-3">
+                    <Skeleton className="h-4 w-4 rounded-full" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </div>
+                <Skeleton className="h-9 w-9" />
+              </div>
+            </div>
+          ))
+        ) : sortedMembers.length === 0 ? (
           <div className="rounded-md border p-6 text-center text-sm text-muted-foreground">
             {t("table.no-members")}
           </div>
@@ -175,7 +202,9 @@ export const ListView = () => {
                   onClick={() => setViewingMember(member)}
                 >
                   <div className="truncate font-medium">
-                    {`${member.firstName} ${member.lastName}`.trim()}
+                    {[member.academicTitle, member.firstName, member.lastName]
+                      .filter(Boolean)
+                      .join(" ")}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                     <span className="inline-flex items-center gap-1">
@@ -301,14 +330,30 @@ export const ListView = () => {
                     <ArrowUpDown />
                   </Button>
                 </TableHead>
-                {isVirtual && (
-                  <TableHead>{t("table.source-tree")}</TableHead>
-                )}
+                {isVirtual && <TableHead>{t("table.source-tree")}</TableHead>}
                 <TableHead className="w-12.5"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedMembers.length === 0 ? (
+              {!isReady ? (
+                Array.from({ length: SKELETON_ROWS }).map((_, rowIndex) => (
+                  <TableRow key={rowIndex}>
+                    {Array.from({ length: isVirtual ? 8 : 7 }).map(
+                      (_, cellIndex) => (
+                        <TableCell key={cellIndex}>
+                          <Skeleton
+                            className={
+                              cellIndex === (isVirtual ? 7 : 6)
+                                ? "h-8 w-8"
+                                : "h-4 w-full max-w-28"
+                            }
+                          />
+                        </TableCell>
+                      ),
+                    )}
+                  </TableRow>
+                ))
+              ) : sortedMembers.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={isVirtual ? 8 : 7}

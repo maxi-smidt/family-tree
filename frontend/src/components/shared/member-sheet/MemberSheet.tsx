@@ -15,7 +15,13 @@ import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { UnsavedChangesDialog } from "@/components/shared/member-sheet/dialog/UnsavedChangesDialog";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
+import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
   isOpen: boolean;
@@ -41,17 +47,56 @@ export const MemberSheet = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
   });
-  const { removeMember } = useMemberStore();
+  const { removeMember, fetchMemberDetail } = useMemberStore();
+  const { refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const { refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
+  const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
+  const selectedTree = useTreeStore((s) => s.selectedTree);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
+
+  // Fetch full member detail when the sheet opens for an existing member
+  useEffect(() => {
+    if (isOpen && member && !isNewMember) {
+      setIsLoadingDetail(true);
+      void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
+    }
+  }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Defer secondary-domain stores until the sheet opens
+  useEffect(() => {
+    if (isOpen && !isNewMember && !eventsInitialized && selectedTree) {
+      void refreshEvents(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, eventsInitialized, selectedTree, refreshEvents]);
+
+  useEffect(() => {
+    if (isOpen && !isNewMember && !storiesInitialized && selectedTree) {
+      void refreshStories(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, storiesInitialized, selectedTree, refreshStories]);
+
+  useEffect(() => {
+    if (isOpen && !isNewMember && !sourcesInitialized && selectedTree) {
+      void refreshSources(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, sourcesInitialized, selectedTree, refreshSources]);
+
+  useEffect(() => {
+    if (isOpen && !isNewMember && !galleryInitialized && selectedTree) {
+      void refreshGalleryImages(selectedTree.id);
+    }
+  }, [isOpen, isNewMember, galleryInitialized, selectedTree, refreshGalleryImages]);
 
   if (!member) return null;
 
@@ -93,6 +138,14 @@ export const MemberSheet = ({
       <SheetContent
         className="w-full max-w-full sm:w-135 sm:max-w-none"
         showCloseButton={false}
+        onOpenAutoFocus={(e) => {
+          if (isViewingEditMode) {
+            e.preventDefault();
+            requestAnimationFrame(() => {
+              document.getElementById("firstName")?.focus();
+            });
+          }
+        }}
       >
         <SheetHeader className="border-b">
           <div className="pr-10">
@@ -120,7 +173,12 @@ export const MemberSheet = ({
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-4 overflow-y-auto flex-1">
-            {isViewingEditMode ? (
+            {isLoadingDetail && !isNewMember ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                <Spinner className="size-5" />
+                <span className="text-sm">{t("loading-detail")}</span>
+              </div>
+            ) : isViewingEditMode ? (
               <EditMode
                 member={member}
                 isNew={isNewMember}

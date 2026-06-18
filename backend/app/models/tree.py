@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, new_uuid, utcnow_iso
@@ -39,6 +39,8 @@ class TreeMembership(Base):
     )
     # "viewer" or "editor".
     role: Mapped[str] = mapped_column(String(20), default="editor")
+    # List of domain keys the member may NOT see. None / [] = full access.
+    restrictions: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     tree: Mapped["Tree"] = relationship(back_populates="memberships")
 
