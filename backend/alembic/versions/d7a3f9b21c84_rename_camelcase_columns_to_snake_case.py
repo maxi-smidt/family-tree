@@ -6,20 +6,22 @@ Pydantic aliases in the schema layer, so the frontend JSON contract is unchanged
 Tables and column renames:
 
   members:
-    firstName      → first_name
-    lastName       → last_name
-    academicTitle  → academic_title
-    middleNames    → middle_names
-    baptismalName  → baptismal_name
-    maidenName     → maiden_name
-    imageData      → image_data
-    dateOfBirth    → date_of_birth
-    dateOfDeath    → date_of_death
-    additionalData → additional_data
-    placesLived    → places_lived
-    isCollapsed    → is_collapsed
-    positionX      → position_x
-    positionY      → position_y
+    firstName       → first_name
+    lastName        → last_name
+    academicTitle   → academic_title
+    middleNames     → middle_names
+    baptismalName   → baptismal_name
+    maidenName      → maiden_name
+    imageData       → image_data
+    dateOfBirth     → date_of_birth
+    dateOfDeath     → date_of_death
+    dateOfBirthSort → date_of_birth_sort
+    dateOfDeathSort → date_of_death_sort
+    additionalData  → additional_data
+    placesLived     → places_lived
+    isCollapsed     → is_collapsed
+    positionX       → position_x
+    positionY       → position_y
 
   gallery_images:
     imageData  → image_data
@@ -27,7 +29,7 @@ Tables and column renames:
     uploadedAt → uploaded_at
 
 Revision ID: d7a3f9b21c84
-Revises: f8c1d2e3a4b5
+Revises: a1b2c3d4e5f6
 Create Date: 2026-06-17
 
 """
@@ -37,7 +39,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d7a3f9b21c84"
-down_revision: Union[str, None] = "f8c1d2e3a4b5"
+down_revision: Union[str, None] = "a1b2c3d4e5f6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -59,6 +61,18 @@ def upgrade() -> None:
     op.alter_column("members", "positionX", new_column_name="position_x")
     op.alter_column("members", "positionY", new_column_name="position_y")
 
+    # Date sort columns (added in a1b2c3d4e5f6); rename column + its index.
+    op.alter_column("members", "dateOfBirthSort", new_column_name="date_of_birth_sort")
+    op.alter_column("members", "dateOfDeathSort", new_column_name="date_of_death_sort")
+    op.drop_index("ix_members_dateOfBirthSort", table_name="members")
+    op.drop_index("ix_members_dateOfDeathSort", table_name="members")
+    op.create_index(
+        "ix_members_date_of_birth_sort", "members", ["date_of_birth_sort"], unique=False
+    )
+    op.create_index(
+        "ix_members_date_of_death_sort", "members", ["date_of_death_sort"], unique=False
+    )
+
     # --- gallery_images table ---
     op.alter_column("gallery_images", "imageData", new_column_name="image_data")
     op.alter_column("gallery_images", "createdAt", new_column_name="created_at")
@@ -66,6 +80,18 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # --- members table: date sort columns + indexes ---
+    op.drop_index("ix_members_date_of_death_sort", table_name="members")
+    op.drop_index("ix_members_date_of_birth_sort", table_name="members")
+    op.alter_column("members", "date_of_death_sort", new_column_name="dateOfDeathSort")
+    op.alter_column("members", "date_of_birth_sort", new_column_name="dateOfBirthSort")
+    op.create_index(
+        "ix_members_dateOfBirthSort", "members", ["dateOfBirthSort"], unique=False
+    )
+    op.create_index(
+        "ix_members_dateOfDeathSort", "members", ["dateOfDeathSort"], unique=False
+    )
+
     # --- gallery_images table ---
     op.alter_column("gallery_images", "uploaded_at", new_column_name="uploadedAt")
     op.alter_column("gallery_images", "created_at", new_column_name="createdAt")

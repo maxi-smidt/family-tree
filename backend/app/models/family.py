@@ -1,7 +1,7 @@
 """Core genealogy tables."""
 
 from sqlalchemy import Boolean, Float, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
 
@@ -25,6 +25,12 @@ class Member(Base):
     image_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     date_of_birth: Mapped[str | None] = mapped_column(String(40), nullable=True)
     date_of_death: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    date_of_birth_sort: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, index=True
+    )
+    date_of_death_sort: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, index=True
+    )
     additional_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthplace: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hometown: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -33,6 +39,23 @@ class Member(Base):
     is_collapsed: Mapped[bool] = mapped_column(Boolean, default=False)
     position_x: Mapped[float] = mapped_column(Float, default=0)
     position_y: Mapped[float] = mapped_column(Float, default=0)
+
+    @validates("date_of_birth", "date_of_death")
+    def _derive_date_sort(self, key: str, value: str | None) -> str | None:
+        """Automatically keep the ``*_sort`` columns in sync with date changes.
+
+        Called by SQLAlchemy whenever ``date_of_birth`` or ``date_of_death`` is
+        assigned, including on ``__init__``, ``setattr``-based updates, and
+        bulk-attribute updates.  The sort key is derived lazily to avoid an
+        import at module load time.
+        """
+        # Lazy import to prevent any potential circular-import issues at
+        # module load time (genealogy_date has no DB imports, but being
+        # defensive is cheap here).
+        from app.services.genealogy_date import sort_key  # noqa: PLC0415
+
+        setattr(self, f"{key}_sort", sort_key(value))
+        return value
 
 
 class Relation(Base):

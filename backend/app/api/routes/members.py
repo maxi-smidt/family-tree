@@ -64,6 +64,8 @@ def list_members(
                 Member.image_data,
                 Member.date_of_birth,
                 Member.date_of_death,
+                Member.date_of_birth_sort,
+                Member.date_of_death_sort,
                 Member.deceased,
                 Member.is_collapsed,
                 Member.position_x,

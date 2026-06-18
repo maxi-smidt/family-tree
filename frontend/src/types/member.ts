@@ -47,6 +47,8 @@ export interface Member {
   date: {
     birth: string;
     death: string | null;
+    birthSort?: string | null;
+    deathSort?: string | null;
   };
   parents: {
     paternalParent: string | null;
@@ -116,6 +118,8 @@ export interface MemberDB {
   imageData: string | null;
   dateOfBirth: string;
   dateOfDeath: string | null;
+  dateOfBirthSort?: string | null;
+  dateOfDeathSort?: string | null;
   deceased: boolean;
   additionalData?: string | null;
   birthplace?: string | null;
@@ -191,6 +195,8 @@ export function mapMemberFromDB(
     date: {
       birth: row.dateOfBirth,
       death: row.dateOfDeath,
+      birthSort: row.dateOfBirthSort ?? null,
+      deathSort: row.dateOfDeathSort ?? null,
     },
     parents: {
       paternalParent: null,

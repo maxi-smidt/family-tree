@@ -105,8 +105,10 @@ def _to_gedcom_date(s: str | None) -> str | None:
     """
     if not s:
         return None
-    # Strip ISO time component.
-    s = s.split("T")[0].strip()
+    # Strip ISO time component (YYYY-MM-DDTHH:… only; don't corrupt
+    # GEDCOM qualifier prefixes such as "AFT", "EST", "BEF" which also
+    # contain the letter "T").
+    s = re.sub(r"(\d{4}-\d{2}-\d{2})T.*", r"\1", s).strip()
     # Full date: YYYY-MM-DD
     m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", s)
     if m:

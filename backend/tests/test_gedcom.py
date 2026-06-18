@@ -809,3 +809,64 @@ class TestUnionRelationTypeDefaulting:
             if r["relation_type"] in ("married", "divorced", "partner")
         ]
         assert len(couple_rels) == 0
+
+
+# ---------------------------------------------------------------------------
+# 7. Fuzzy date round-trip (issue #343)
+# ---------------------------------------------------------------------------
+
+class TestFuzzyDateRoundTrip:
+    """Fuzzy / qualified dates must survive a full serialize → parse cycle
+    without losing the qualifier prefix.
+
+    ``serialize_to_gedcom`` calls ``_to_gedcom_date`` which passes through
+    unrecognised strings (e.g. ``"about 1850"``, ``"ABT 1900"``) verbatim, and
+    ``parse_gedcom`` stores them unchanged via ``_from_gedcom_date`` (qualifier
+    passthrough).  The member that comes out of ``parse_gedcom`` must have the
+    same date string as the one that went in.
+    """
+
+    def _round_trip(self, date_value: str) -> str | None:
+        """Round-trip *date_value* through serialize → parse and return result."""
+        member = {
+            "id": str(uuid4()),
+            "first_name": "Test",
+            "last_name": "Person",
+            "gender": "m",
+            "date_of_birth": date_value,
+            "date_of_death": None,
+            "birthplace": None,
+            "hometown": None,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+        }
+        gedcom_text = serialize_to_gedcom("TestTree", [member], [])
+        result = parse_gedcom(gedcom_text)
+        imported = result["members"]
+        assert len(imported) == 1
+        return imported[0].get("date_of_birth")
+
+    def test_fuzzy_about_survives_round_trip(self):
+        """``"about 1850"`` must come back as ``"about 1850"``."""
+        assert self._round_trip("about 1850") == "about 1850"
+
+    def test_abt_qualifier_survives_round_trip(self):
+        """GEDCOM ``"ABT 1900"`` must come back as ``"ABT 1900"``."""
+        assert self._round_trip("ABT 1900") == "ABT 1900"
+
+    def test_bef_qualifier_survives_round_trip(self):
+        """GEDCOM ``"BEF 1850"`` must come back as ``"BEF 1850"``."""
+        assert self._round_trip("BEF 1850") == "BEF 1850"
+
+    def test_aft_qualifier_survives_round_trip(self):
+        """GEDCOM ``"AFT 1800"`` must come back as ``"AFT 1800"``."""
+        assert self._round_trip("AFT 1800") == "AFT 1800"
+
+    def test_est_qualifier_survives_round_trip(self):
+        """GEDCOM ``"EST 1880"`` must come back as ``"EST 1880"``."""
+        assert self._round_trip("EST 1880") == "EST 1880"
+
+    def test_exact_iso_date_still_converts(self):
+        """An exact ISO date must still convert to GEDCOM and back correctly."""
+        assert self._round_trip("1975-08-20") == "1975-08-20"

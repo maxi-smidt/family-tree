@@ -27,11 +27,31 @@ export const getLayoutedElements = (members: Member[]) => {
     const bIsVM = b.id.startsWith("vm_");
     if (aIsVM !== bIsVM) return aIsVM ? -1 : 1;
 
-    const dateA = new Date(a.date.birth || "9999-12-31").getTime();
-    const dateB = new Date(b.date.birth || "9999-12-31").getTime();
+    // Prefer the pre-computed zero-padded sort key (YYYY-MM-DD) when available;
+    // members without a sort key sort last (equivalent to the old "9999-12-31"
+    // sentinel). Fall back to new Date(...) comparison only when both keys are
+    // absent so un-backfilled data is handled gracefully.
+    const aSortKey = a.date.birthSort || null;
+    const bSortKey = b.date.birthSort || null;
 
-    if (dateA !== dateB) {
-      return dateA - dateB;
+    let dateCmp: number;
+    if (aSortKey !== null && bSortKey !== null) {
+      dateCmp = aSortKey < bSortKey ? -1 : aSortKey > bSortKey ? 1 : 0;
+    } else if (aSortKey !== null) {
+      // b has no sort key → b sorts last
+      dateCmp = -1;
+    } else if (bSortKey !== null) {
+      // a has no sort key → a sorts last
+      dateCmp = 1;
+    } else {
+      // Neither has a sort key — fall back to Date parsing for backward compat.
+      const dateA = new Date(a.date.birth || "9999-12-31").getTime();
+      const dateB = new Date(b.date.birth || "9999-12-31").getTime();
+      dateCmp = dateA - dateB;
+    }
+
+    if (dateCmp !== 0) {
+      return dateCmp;
     }
 
     if (a.gender !== b.gender) {

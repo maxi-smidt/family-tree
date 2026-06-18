@@ -29,6 +29,12 @@ class MemberOut(BaseModel):
     image_data: str | None = Field(default=None, serialization_alias="imageData")
     date_of_birth: str | None = Field(default=None, serialization_alias="dateOfBirth")
     date_of_death: str | None = Field(default=None, serialization_alias="dateOfDeath")
+    date_of_birth_sort: str | None = Field(
+        default=None, serialization_alias="dateOfBirthSort"
+    )
+    date_of_death_sort: str | None = Field(
+        default=None, serialization_alias="dateOfDeathSort"
+    )
     deceased: bool = False
     additional_data: str | None = Field(
         default=None, serialization_alias="additionalData"
@@ -58,6 +64,12 @@ class MemberSurfaceOut(BaseModel):
     image_data: str | None = Field(default=None, serialization_alias="imageData")
     date_of_birth: str | None = Field(default=None, serialization_alias="dateOfBirth")
     date_of_death: str | None = Field(default=None, serialization_alias="dateOfDeath")
+    date_of_birth_sort: str | None = Field(
+        default=None, serialization_alias="dateOfBirthSort"
+    )
+    date_of_death_sort: str | None = Field(
+        default=None, serialization_alias="dateOfDeathSort"
+    )
     deceased: bool = False
     is_collapsed: bool = Field(default=False, serialization_alias="isCollapsed")
     position_x: float = Field(default=0, serialization_alias="positionX")
