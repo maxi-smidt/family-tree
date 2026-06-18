@@ -90,7 +90,7 @@ UI Component → Zustand store action → TreeService (HTTP client)
 
 ## Toolchain
 
-- **Node.js 22** (CI pins `22`; dev floor is v20.19+ / v22.12+) — frontend uses
+- **Node.js 24** (CI pins `24`; dev floor is v20.19+ / v22.12+) — frontend uses
   **npm**.
 - **Python 3.12** + **[uv](https://docs.astral.sh/uv/)** — backend uses **uv**,
   not pip/poetry.

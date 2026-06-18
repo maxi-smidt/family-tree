@@ -12,7 +12,7 @@ Family Tree is a self-hostable **web application** for building and exploring fa
 2. **Build + tests green** — frontend (`npm run build`, `npx vitest run`) and backend (`uv run ruff check`, `uv run pytest`) must pass; the CI workflow runs all of these.
 3. **No ordinary PR version bumps** — only release-preparation PRs run `npm run bump:patch` / `bump:minor` / `bump:major`. Release tags must be `vX.Y.Z` and match `frontend/package.json`.
 
-> Toolchain: **Node 22** (frontend, npm) and **Python 3.12 + uv** (backend). System defaults are often too old.
+> Toolchain: **Node 24** (frontend, npm) and **Python 3.12 + uv** (backend). System defaults are often too old.
 
 ## Repo structure
 
