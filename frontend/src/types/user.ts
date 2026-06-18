@@ -14,6 +14,9 @@ export interface User {
   features?: string[];
   /** Whether TOTP 2FA is active on this account. */
   totp_enabled?: boolean;
+  /** Per-user storage quota overrides (null = use instance default; 0 = unlimited). */
+  tree_quota_bytes?: number | null;
+  media_quota_bytes?: number | null;
 }
 
 export interface AuthConfig {

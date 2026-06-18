@@ -11,6 +11,7 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
 import { hasFeature } from "@/hooks/useAuthStore";
 
 export const isVirtualId = (id: string) => id.startsWith("vv_");
@@ -76,6 +77,7 @@ const clearDataStores = () => {
   useSourceStore.getState().clear();
   useActivityStore.getState().clear();
   useStatisticsStore.getState().clear();
+  useStorageStore.getState().clear();
 };
 
 export const useTreeStore = create<DatabaseState>((set, get) => ({

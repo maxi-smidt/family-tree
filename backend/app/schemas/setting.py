@@ -44,6 +44,8 @@ class SettingsOut(BaseModel):
     max_image_upload_mb: int
     max_image_dimension: int
     max_document_upload_mb: int
+    default_tree_quota_mb: int = 0
+    default_media_quota_mb: int = 0
 
 
 class SettingsUpdate(BaseModel):
@@ -69,3 +71,5 @@ class SettingsUpdate(BaseModel):
         ge=MIN_MAX_DOCUMENT_UPLOAD_MB,
         le=MAX_MAX_DOCUMENT_UPLOAD_MB,
     )
+    default_tree_quota_mb: int | None = Field(default=None, ge=0)
+    default_media_quota_mb: int | None = Field(default=None, ge=0)

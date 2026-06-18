@@ -30,7 +30,14 @@ from app.schemas.family import (
 )
 from app.services.activity import record_activity
 from app.services.settings_service import get_media_limits
-from app.services.storage import ImageTooLarge, UnsupportedImageType, process_image_field
+from app.services.storage import (
+    MEDIA_URL_PREFIX,
+    ImageTooLarge,
+    UnsupportedImageType,
+    delete_media,
+    process_image_field,
+)
+from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -90,16 +97,39 @@ def create_member(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
+    new_image_url: str | None = None
     try:
-        data["image_data"] = process_image_field(
+        new_image_url_candidate = process_image_field(
             tree.id,
             data.get("image_data"),
             get_media_limits(db),
         )
+        data["image_data"] = new_image_url_candidate
+        prefix = MEDIA_URL_PREFIX
+        if new_image_url_candidate and new_image_url_candidate.startswith(prefix):
+            new_image_url = new_image_url_candidate
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Check media quota (write-then-verify: the file is already on disk, so
+    # compute_usage() counts it; pass 0 to avoid double-counting it).
+    if new_image_url:
+        try:
+            check_media_quota(db, tree, 0)
+        except QuotaExceeded as exc:
+            delete_media(new_image_url)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+
+    # Check tree-data quota (pre-write estimate).
+    try:
+        check_tree_quota(db, tree, len(str(data).encode()))
+    except QuotaExceeded as exc:
+        if new_image_url:
+            delete_media(new_image_url)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+
     member = Member(tree_id=tree.id, **data)
     db.add(member)
     label = (
@@ -186,17 +216,30 @@ def update_member(
 ):
     member = _get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
+    new_image_url: str | None = None
     if "image_data" in changes:
         try:
-            changes["image_data"] = process_image_field(
+            new_url = process_image_field(
                 tree.id,
                 changes["image_data"],
                 get_media_limits(db),
             )
+            changes["image_data"] = new_url
+            if new_url and new_url.startswith(MEDIA_URL_PREFIX):
+                new_image_url = new_url
         except ImageTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (UnsupportedImageType, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Check media quota for the new image (write-then-verify: file already on
+    # disk and counted by compute_usage, so pass 0 to avoid double-counting).
+    if new_image_url:
+        try:
+            check_media_quota(db, tree, 0)
+        except QuotaExceeded as exc:
+            delete_media(new_image_url)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
     # Capture before-state for diff details (skip noisy positional/internal fields).
     _SKIP_DIFF = {"position_x", "position_y", "is_collapsed", "image_data"}
     before = {k: getattr(member, k) for k in changes if k not in _SKIP_DIFF}
@@ -288,6 +331,10 @@ def add_relation(
     key = (tree.id, payload.from_member_id, payload.to_member_id, payload.relation_type)
     relation = db.get(Relation, key)
     if relation is None:
+        try:
+            check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
+        except QuotaExceeded as exc:
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
         relation = Relation(tree_id=tree.id, **payload.model_dump())
         db.add(relation)
         label = (
@@ -352,6 +399,10 @@ def add_disease(
     db: Session = Depends(get_db),
 ):
     _get_member(db, tree, payload.member_id)
+    try:
+        check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     disease = MemberDisease(tree_id=tree.id, **payload.model_dump())
     db.add(disease)
     record_activity(db, tree_id=tree.id, actor=user, action="create",

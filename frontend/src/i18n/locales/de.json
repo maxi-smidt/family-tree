@@ -277,6 +277,8 @@
       "toast-error-image-upload": "Das Bild konnte nicht geladen werden. Ist es ein gültiges Dokument?",
       "toast-error-image-too-large": "Das Bild ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
+      "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
+      "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
       "image-alt-fallback": "Galeriebild",
@@ -387,6 +389,8 @@
       "toast-error-duplicate": "Eine Person mit denselben Daten existiert bereits.",
       "toast-error-image-too-large": "Das Foto ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
+      "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
+      "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
       "toast-error-save": "Speichern fehlgeschlagen.",
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
@@ -543,7 +547,11 @@
             "hint": "Bilder, PDF und Dokumente bis {{max}}.",
             "hint-without-limit": "Bilder, PDF und Dokumente.",
             "error-type": "Nicht unterstützter Dateityp",
-            "error-size": "Datei ist zu groß (max. {{max}})"
+            "error-size": "Datei ist zu groß (max. {{max}})",
+            "error-quota-media": "Medienspeicher-Kontingent überschritten.",
+            "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+            "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
+            "error-save": "Geschichte konnte nicht gespeichert werden."
           },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
@@ -1203,6 +1211,10 @@
     "max-image-upload": "Bildgröße (MB)",
     "max-document-upload": "Anhangsgröße (MB)",
     "max-image-dimension": "Bildkante (px)",
+    "storage-quotas": "Standard-Speicherkontingente",
+    "storage-quotas-hint": "Setzt das Standard-Kontingent je Bucket pro Nutzer. 0 = unbegrenzt. Nutzer-spezifische Werte haben Vorrang.",
+    "default-tree-quota": "Stammbaumdaten (MB)",
+    "default-media-quota": "Mediendateien (MB)",
     "save-settings": "Einstellungen speichern",
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
     "cancel-deletion": "Löschung abbrechen",
@@ -1210,6 +1222,17 @@
     "delete-user": "Löschung vormerken",
     "reset-password": "Passwort zurücksetzen",
     "reset-password-unavailable": "Passwort kann nur für lokale Konten zurückgesetzt werden",
+    "edit-quotas": "Speicherkontingente",
+    "quota-dialog": {
+      "title": "Speicherkontingente",
+      "description": "Speicherkontingente für \"{{username}}\" überschreiben.",
+      "hint": "Werte in MB. Leer lassen, um den Instanz-Standard zu verwenden; 0 für unbegrenzt.",
+      "tree": "Stammbaumdaten (MB)",
+      "media": "Mediendateien (MB)",
+      "default-placeholder": "Standard",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
     "reset-dialog": {
       "title": "Passwort zurücksetzen",
       "description": "Neues Passwort für \"{{username}}\" festlegen.",
@@ -1331,5 +1354,17 @@
     "stay": "Bleiben",
     "save": "Speichern",
     "discard": "Verwerfen"
+  },
+  "storage-usage": {
+    "title": "Speicher",
+    "tree": "Stammbaumdaten",
+    "media": "Mediendateien",
+    "total": "Gesamt",
+    "used-of": "{{used}} / {{quota}}",
+    "unlimited": "unbegrenzt",
+    "error": "Speichernutzung konnte nicht geladen werden.",
+    "quota-label": "Kontingent",
+    "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
+    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten."
   }
 }

@@ -113,3 +113,15 @@ class InvitationPreview(BaseModel):
 
 class PublicAccessUpdate(BaseModel):
     public_role: str | None = None
+
+
+class TreeStorageUsageOut(BaseModel):
+    """Per-tree storage usage plus the owner's effective quota limits."""
+
+    tree_bytes: int
+    media_bytes: int
+    # total_bytes is the reported sum of tree + media; it has no separate quota.
+    total_bytes: int
+    # Effective quota limits for the tree's owner (None = unlimited).
+    tree_quota_bytes: int | None = None
+    media_quota_bytes: int | None = None

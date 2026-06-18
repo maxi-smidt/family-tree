@@ -13,6 +13,9 @@ import { Label } from "@/components/ui/label";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { ApiError } from "@/services/api";
+import { getQuotaBucket } from "@/lib/quotaError";
+import { toast } from "sonner";
 import { AttachmentOps, Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
@@ -185,7 +188,17 @@ export const StoryDialog = ({
       }
       onOpenChange(false);
       return true;
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 413) {
+        const bucket = getQuotaBucket(err.message);
+        if (bucket) {
+          toast.error(t(`attachments.error-quota-${bucket}`));
+        } else {
+          toast.error(t("attachments.error-size", { max: maxAttachmentSize }));
+        }
+      } else {
+        toast.error(t("attachments.error-save"));
+      }
       return false;
     } finally {
       setSubmitting(false);

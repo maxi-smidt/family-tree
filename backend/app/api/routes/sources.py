@@ -37,6 +37,7 @@ from app.services.storage import (
     delete_media,
     store_document,
 )
+from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/sources",
@@ -94,6 +95,10 @@ def create_source(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
+    try:
+        check_tree_quota(db, tree, len(str(data).encode()))
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     source = Source(tree_id=tree.id, **data)
     db.add(source)
     record_activity(
@@ -190,6 +195,14 @@ def add_evidence(
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        # Write-then-verify: the file is already on disk and counted by
+        # compute_usage, so pass 0 to avoid double-counting it.
+        try:
+            check_media_quota(db, tree, 0)
+        except QuotaExceeded as exc:
+            delete_media(url)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
 
         ev = SourceEvidence(
             id=str(uuid4()),
@@ -304,6 +317,10 @@ def create_citation(
         raise HTTPException(status_code=404, detail="Member not found")
 
     data = payload.model_dump()
+    try:
+        check_tree_quota(db, tree, len(str(data).encode()))
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     cit = Citation(tree_id=tree.id, **data)
     db.add(cit)
     db.commit()

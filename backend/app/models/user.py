@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, Boolean, String
+from sqlalchemy import JSON, BigInteger, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, new_uuid, utcnow_iso
@@ -52,3 +52,8 @@ class User(Base):
     totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
     totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     totp_recovery_codes: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
+    # Per-user storage quotas (NULL = use instance default; 0 = unlimited).
+    # The total is not a separate limit — it is reported as tree + media.
+    tree_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    media_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
