@@ -167,13 +167,14 @@ async function refreshAfterOptimisticFailure(
 
 interface MemberState {
   members: Member[];
+  detailLoadedIds: Set<string>;
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
   _pushHistory: (entry: HistoryEntry) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   refreshMembers: (treeId?: string) => Promise<void>;
-  fetchMemberDetail: (id: string) => Promise<Member | undefined>;
+  fetchMemberDetail: (id: string, force?: boolean) => Promise<Member | undefined>;
   clear: () => void;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
@@ -202,6 +203,7 @@ interface MemberState {
 
 export const useMemberStore = create<MemberState>((set, get) => ({
   members: [],
+  detailLoadedIds: new Set<string>(),
   undoStack: [],
   redoStack: [],
 
@@ -243,7 +245,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   refreshMembers: async (treeId = activeTreeId()) => {
     if (!treeId) {
-      set({ members: [] });
+      set({ members: [], detailLoadedIds: new Set<string>() });
       return;
     }
 
@@ -290,15 +292,20 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
       );
 
-    set({ members: appMembers });
+    set({ members: appMembers, detailLoadedIds: new Set<string>() });
   },
 
-  fetchMemberDetail: async (id: string) => {
+  fetchMemberDetail: async (id: string, force = false) => {
     const treeId = activeTreeId();
     if (!treeId) return undefined;
 
-    // Virtual view members: return surface data from store (no throw)
+    // Virtual view members: treat as already loaded — return surface data from store
     if (isVirtualId(treeId)) {
+      return get().members.find((m) => m.id === id);
+    }
+
+    // Cache hit: skip network round-trip when detail is already loaded and not forced
+    if (!force && get().detailLoadedIds.has(id)) {
       return get().members.find((m) => m.id === id);
     }
 
@@ -350,12 +357,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     set((state) => ({
       members: state.members.map((m) => (m.id === id ? merged : m)),
+      detailLoadedIds: new Set([...state.detailLoadedIds, id]),
     }));
 
     return merged;
   },
 
-  clear: () => set({ members: [], undoStack: [], redoStack: [] }),
+  clear: () => set({ members: [], detailLoadedIds: new Set<string>(), undoStack: [], redoStack: [] }),
 
   addMember: async (newMember: Member) => {
     const treeId = activeTreeId();
@@ -764,20 +772,20 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     const id = crypto.randomUUID();
     await TreeService.addDisease(treeId, id, memberId, disease);
-    await get().fetchMemberDetail(memberId);
+    await get().fetchMemberDetail(memberId, true);
   },
 
   updateDisease: async (memberId: string, diseaseId: string, disease: DiseaseInput) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.updateDisease(treeId, diseaseId, disease);
-    await get().fetchMemberDetail(memberId);
+    await get().fetchMemberDetail(memberId, true);
   },
 
   removeDisease: async (memberId: string, diseaseId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.removeDisease(treeId, diseaseId);
-    await get().fetchMemberDetail(memberId);
+    await get().fetchMemberDetail(memberId, true);
   },
 }));
