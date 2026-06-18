@@ -311,10 +311,10 @@ def serialize_to_gedcom(
         xref = member_xref[member["id"]]
         L(f"0 {xref} INDI")
 
-        first = (member.get("firstName") or "").strip()
-        middle = (member.get("middleNames") or "").strip()
+        first = (member.get("first_name") or "").strip()
+        middle = (member.get("middle_names") or "").strip()
         given_names = " ".join(part for part in (first, middle) if part)
-        last = (member.get("lastName") or "").strip()
+        last = (member.get("last_name") or "").strip()
         # Primary NAME
         name_value = f"{given_names} /{last}/" if given_names or last else "//"
         L(f"1 NAME {name_value}")
@@ -328,7 +328,7 @@ def serialize_to_gedcom(
             L(f"2 SURN {last}")
 
         # Baptismal name (alternate NAME tag).
-        baptismal = (member.get("baptismalName") or "").strip()
+        baptismal = (member.get("baptismal_name") or "").strip()
         if baptismal:
             baptismal_value = f"{baptismal} /{last}/" if last else baptismal
             L(f"1 NAME {baptismal_value}")
@@ -338,7 +338,7 @@ def serialize_to_gedcom(
                 L(f"2 SURN {last}")
 
         # Maiden name (second NAME tag)
-        maiden = (member.get("maidenName") or "").strip()
+        maiden = (member.get("maiden_name") or "").strip()
         if maiden:
             maiden_value = (
                 f"{given_names} /{maiden}/" if given_names else f"/{maiden}/"
@@ -350,7 +350,7 @@ def serialize_to_gedcom(
             L(f"2 SURN {maiden}")
 
         # TITL (academic / honorific title)
-        title = (member.get("academicTitle") or "").strip()
+        title = (member.get("academic_title") or "").strip()
         if title:
             L(f"1 TITL {title}")
 
@@ -366,7 +366,7 @@ def serialize_to_gedcom(
                 L("1 _GENDER o")
 
         # BIRT
-        dob_ged = _to_gedcom_date(member.get("dateOfBirth"))
+        dob_ged = _to_gedcom_date(member.get("date_of_birth"))
         birthplace = (member.get("birthplace") or "").strip()
         if dob_ged or birthplace:
             L("1 BIRT")
@@ -376,7 +376,7 @@ def serialize_to_gedcom(
                 L(f"2 PLAC {birthplace}")
 
         # DEAT
-        dod_ged = _to_gedcom_date(member.get("dateOfDeath"))
+        dod_ged = _to_gedcom_date(member.get("date_of_death"))
         if dod_ged:
             L("1 DEAT")
             L(f"2 DATE {dod_ged}")
@@ -390,7 +390,7 @@ def serialize_to_gedcom(
             L(f"2 PLAC {hometown}")
 
         # NOTE
-        note = (member.get("additionalData") or "").strip()
+        note = (member.get("additional_data") or "").strip()
         if note:
             note_lines = note.splitlines()
             L(f"1 NOTE {note_lines[0]}")
@@ -660,24 +660,24 @@ def parse_gedcom(text: str) -> dict:
 
         member: dict = {
             "id": new_id,
-            "academicTitle": None,
-            "firstName": None,
-            "middleNames": None,
-            "baptismalName": None,
-            "lastName": None,
-            "maidenName": None,
+            "academic_title": None,
+            "first_name": None,
+            "middle_names": None,
+            "baptismal_name": None,
+            "last_name": None,
+            "maiden_name": None,
             "gender": None,
-            "dateOfBirth": None,
-            "dateOfDeath": None,
+            "date_of_birth": None,
+            "date_of_death": None,
             "deceased": False,
             "birthplace": None,
             "hometown": None,
-            "additionalData": None,
-            "placesLived": None,
-            "imageData": None,
-            "isCollapsed": False,
-            "positionX": 0.0,
-            "positionY": 0.0,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "is_collapsed": False,
+            "position_x": 0.0,
+            "position_y": 0.0,
         }
 
         primary_name_done = False
@@ -706,35 +706,35 @@ def parse_gedcom(text: str) -> dict:
 
                 name_type = _child_value(child, "TYPE")
                 if name_type and name_type.lower() == "maiden":
-                    member["maidenName"] = surname or None
+                    member["maiden_name"] = surname or None
                 elif name_type and name_type.lower() == "baptismal":
-                    member["baptismalName"] = given or None
+                    member["baptismal_name"] = given or None
                 elif not primary_name_done:
                     first_name = _child_value(child, "_FIRST_NAME")
                     middle_names = _child_value(child, "_MIDDLE_NAMES")
                     baptismal_name = _child_value(child, "_BAPTISMAL_NAME")
                     if first_name is not None or middle_names is not None:
-                        member["firstName"] = (
+                        member["first_name"] = (
                             first_name.strip() if first_name else None
                         )
-                        member["middleNames"] = (
+                        member["middle_names"] = (
                             middle_names.strip() if middle_names else None
                         )
                     else:
                         given_parts = given.split(maxsplit=1)
-                        member["firstName"] = given_parts[0] if given_parts else None
-                        member["middleNames"] = (
+                        member["first_name"] = given_parts[0] if given_parts else None
+                        member["middle_names"] = (
                             given_parts[1] if len(given_parts) > 1 else None
                         )
                     if baptismal_name is not None:
-                        member["baptismalName"] = baptismal_name.strip() or None
-                    member["lastName"] = surname or None
+                        member["baptismal_name"] = baptismal_name.strip() or None
+                    member["last_name"] = surname or None
                     primary_name_done = True
 
             elif tag == "TITL":
                 val = (child["value"] or "").strip()
                 if val:
-                    member["academicTitle"] = val
+                    member["academic_title"] = val
 
             elif tag == "SEX":
                 val = (child["value"] or "").strip().upper()
@@ -756,7 +756,7 @@ def parse_gedcom(text: str) -> dict:
             elif tag == "BIRT":
                 date_val = _child_value(child, "DATE")
                 if date_val:
-                    member["dateOfBirth"] = _from_gedcom_date(date_val)
+                    member["date_of_birth"] = _from_gedcom_date(date_val)
                 plac_val = _child_value(child, "PLAC")
                 if plac_val:
                     member["birthplace"] = plac_val.strip()
@@ -765,7 +765,7 @@ def parse_gedcom(text: str) -> dict:
                 member["deceased"] = True
                 date_val = _child_value(child, "DATE")
                 if date_val:
-                    member["dateOfDeath"] = _from_gedcom_date(date_val)
+                    member["date_of_death"] = _from_gedcom_date(date_val)
 
             elif tag == "RESI":
                 plac_val = _child_value(child, "PLAC")
@@ -780,7 +780,7 @@ def parse_gedcom(text: str) -> dict:
                         parts.append(cont["value"] or "")
                     elif cont["tag"] == "CONC":
                         parts[-1] = parts[-1] + (cont["value"] or "")
-                member["additionalData"] = "\n".join(parts).strip() or None
+                member["additional_data"] = "\n".join(parts).strip() or None
 
         members.append(member)
 

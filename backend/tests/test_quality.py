@@ -27,61 +27,61 @@ def _relation(from_id: str, to_id: str, rtype: str = "parent") -> Relation:
 
 class TestBirthAfterDeath:
     def test_detects_birth_after_death(self):
-        m = _member("m1", dateOfBirth="2010", dateOfDeath="2005")
+        m = _member("m1", date_of_birth="2010", date_of_death="2005")
         issues = run_quality_checks([m], [])
         types = [i["issue_type"] for i in issues]
         assert "birth_after_death" in types
 
     def test_valid_dates_no_issue(self):
-        m = _member("m1", dateOfBirth="1980", dateOfDeath="2020")
+        m = _member("m1", date_of_birth="1980", date_of_death="2020")
         issues = run_quality_checks([m], [])
         assert not any(i["issue_type"] == "birth_after_death" for i in issues)
 
     def test_same_year_is_ok(self):
-        m = _member("m1", dateOfBirth="2000", dateOfDeath="2000")
+        m = _member("m1", date_of_birth="2000", date_of_death="2000")
         issues = run_quality_checks([m], [])
         assert not any(i["issue_type"] == "birth_after_death" for i in issues)
 
     def test_partial_date_year_only(self):
-        m = _member("m1", dateOfBirth="2010-06", dateOfDeath="2005-01")
+        m = _member("m1", date_of_birth="2010-06", date_of_death="2005-01")
         issues = run_quality_checks([m], [])
         assert any(i["issue_type"] == "birth_after_death" for i in issues)
 
 
 class TestParentChildAgeGap:
     def test_child_older_than_parent_is_error(self):
-        parent = _member("p1", dateOfBirth="1990")
-        child = _member("c1", dateOfBirth="1980")
+        parent = _member("p1", date_of_birth="1990")
+        child = _member("c1", date_of_birth="1980")
         # from=child, to=parent
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         assert any(i["issue_type"] == "child_older_than_parent" for i in issues)
 
     def test_parent_too_young_is_warning(self):
-        parent = _member("p1", dateOfBirth="1990")
-        child = _member("c1", dateOfBirth="1995")  # parent was 5
+        parent = _member("p1", date_of_birth="1990")
+        child = _member("c1", date_of_birth="1995")  # parent was 5
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         assert any(i["issue_type"] == "parent_too_young" for i in issues)
 
     def test_normal_age_gap_is_clean(self):
-        parent = _member("p1", dateOfBirth="1950")
-        child = _member("c1", dateOfBirth="1980")
+        parent = _member("p1", date_of_birth="1950")
+        child = _member("c1", date_of_birth="1980")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         gap_issues = {"child_older_than_parent", "parent_too_young", "parent_too_old"}
         assert not any(i["issue_type"] in gap_issues for i in issues)
 
     def test_parent_too_old_is_warning(self):
-        parent = _member("p1", dateOfBirth="1800")
-        child = _member("c1", dateOfBirth="1950")  # parent was 150
+        parent = _member("p1", date_of_birth="1800")
+        child = _member("c1", date_of_birth="1950")  # parent was 150
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         assert any(i["issue_type"] == "parent_too_old" for i in issues)
 
     def test_missing_dates_skipped(self):
         parent = _member("p1")
-        child = _member("c1", dateOfBirth="1990")
+        child = _member("c1", date_of_birth="1990")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         gap_issues = {"child_older_than_parent", "parent_too_young", "parent_too_old"}
@@ -114,20 +114,20 @@ class TestRelationshipCycle:
 
 class TestDuplicateCandidates:
     def test_same_name_flagged(self):
-        m1 = _member("m1", firstName="John", lastName="Doe")
-        m2 = _member("m2", firstName="John", lastName="Doe")
+        m1 = _member("m1", first_name="John", last_name="Doe")
+        m2 = _member("m2", first_name="John", last_name="Doe")
         issues = run_quality_checks([m1, m2], [])
         assert any(i["issue_type"] == "duplicate_candidate" for i in issues)
 
     def test_case_insensitive(self):
-        m1 = _member("m1", firstName="john", lastName="doe")
-        m2 = _member("m2", firstName="John", lastName="Doe")
+        m1 = _member("m1", first_name="john", last_name="doe")
+        m2 = _member("m2", first_name="John", last_name="Doe")
         issues = run_quality_checks([m1, m2], [])
         assert any(i["issue_type"] == "duplicate_candidate" for i in issues)
 
     def test_different_names_not_flagged(self):
-        m1 = _member("m1", firstName="John", lastName="Doe")
-        m2 = _member("m2", firstName="Jane", lastName="Doe")
+        m1 = _member("m1", first_name="John", last_name="Doe")
+        m2 = _member("m2", first_name="Jane", last_name="Doe")
         issues = run_quality_checks([m1, m2], [])
         assert not any(i["issue_type"] == "duplicate_candidate" for i in issues)
 
@@ -190,7 +190,9 @@ def test_quality_report_empty_tree(client, db):
 def test_quality_report_birth_after_death(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
-    add_member(db, tree, "m1", firstName="Bad", dateOfBirth="2020", dateOfDeath="2010")
+    add_member(
+        db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
+    )
 
     res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200
@@ -236,8 +238,8 @@ def test_quality_report_cycle_detected(client, db):
 def test_quality_report_duplicate_names(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
-    add_member(db, tree, "m1", firstName="John", lastName="Doe")
-    add_member(db, tree, "m2", firstName="John", lastName="Doe")
+    add_member(db, tree, "m1", first_name="John", last_name="Doe")
+    add_member(db, tree, "m2", first_name="John", last_name="Doe")
 
     res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200

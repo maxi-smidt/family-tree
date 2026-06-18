@@ -1,35 +1,46 @@
-"""Schemas for gallery images, events and stories (frontend `*DB` shapes)."""
+"""Schemas for gallery images, events and stories (frontend `*DB` shapes).
+
+The DB columns are now snake_case; camelCase is preserved at the API boundary
+via Pydantic ``Field(alias=...)`` / ``serialization_alias``.
+"""
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- Gallery ---------------------------------------------------------------
 class GalleryImageOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
     id: str
-    imageData: str | None = None
+    image_data: str | None = Field(default=None, serialization_alias="imageData")
     title: str | None = None
     description: str | None = None
-    createdAt: str | None = None
-    uploadedAt: str | None = None
+    created_at: str | None = Field(default=None, serialization_alias="createdAt")
+    uploaded_at: str | None = Field(default=None, serialization_alias="uploadedAt")
 
 
 class GalleryImageCreate(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str
-    imageData: str | None = None
+    image_data: str | None = Field(default=None, alias="imageData")
     title: str | None = None
     description: str | None = None
-    createdAt: str | None = None
-    uploadedAt: str | None = None
+    created_at: str | None = Field(default=None, alias="createdAt")
+    uploaded_at: str | None = Field(default=None, alias="uploadedAt")
     # Members to link the new image to, in a single request.
     member_ids: list[str] = []
 
 
 class GalleryImageUpdate(BaseModel):
-    imageData: str | None = None
+    model_config = ConfigDict(populate_by_name=True)
+
+    image_data: str | None = Field(default=None, alias="imageData")
     title: str | None = None
     description: str | None = None
 
