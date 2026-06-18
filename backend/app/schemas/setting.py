@@ -46,7 +46,6 @@ class SettingsOut(BaseModel):
     max_document_upload_mb: int
     default_tree_quota_mb: int = 0
     default_media_quota_mb: int = 0
-    default_total_quota_mb: int = 0
 
 
 class SettingsUpdate(BaseModel):
@@ -74,4 +73,3 @@ class SettingsUpdate(BaseModel):
     )
     default_tree_quota_mb: int | None = Field(default=None, ge=0)
     default_media_quota_mb: int | None = Field(default=None, ge=0)
-    default_total_quota_mb: int | None = Field(default=None, ge=0)

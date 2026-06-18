@@ -120,8 +120,8 @@ class TreeStorageUsageOut(BaseModel):
 
     tree_bytes: int
     media_bytes: int
+    # total_bytes is the reported sum of tree + media; it has no separate quota.
     total_bytes: int
     # Effective quota limits for the tree's owner (None = unlimited).
     tree_quota_bytes: int | None = None
     media_quota_bytes: int | None = None
-    total_quota_bytes: int | None = None

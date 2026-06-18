@@ -17,7 +17,6 @@ export interface User {
   /** Per-user storage quota overrides (null = use instance default; 0 = unlimited). */
   tree_quota_bytes?: number | null;
   media_quota_bytes?: number | null;
-  total_quota_bytes?: number | null;
 }
 
 export interface AuthConfig {

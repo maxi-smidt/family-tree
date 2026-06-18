@@ -64,7 +64,6 @@ export const AdminView = () => {
   const [quotaForm, setQuotaForm] = useState({
     tree: "",
     media: "",
-    total: "",
   });
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [newUser, setNewUser] = useState({
@@ -131,7 +130,6 @@ export const AdminView = () => {
     setQuotaForm({
       tree: bytesToMbInput(u.tree_quota_bytes),
       media: bytesToMbInput(u.media_quota_bytes),
-      total: bytesToMbInput(u.total_quota_bytes),
     });
     setUserToEditQuota(u);
   };
@@ -146,8 +144,6 @@ export const AdminView = () => {
       changes.tree_quota_bytes = mbInputToBytes(quotaForm.tree);
     if (quotaForm.media !== bytesToMbInput(u.media_quota_bytes))
       changes.media_quota_bytes = mbInputToBytes(quotaForm.media);
-    if (quotaForm.total !== bytesToMbInput(u.total_quota_bytes))
-      changes.total_quota_bytes = mbInputToBytes(quotaForm.total);
     if (Object.keys(changes).length > 0) {
       await patchUser(u, changes);
     }
@@ -639,26 +635,6 @@ export const AdminView = () => {
                           }
                         />
                       </div>
-                      <div className="space-y-2">
-                        <FieldLabel htmlFor="default-total-quota">
-                          {t("default-total-quota")}
-                        </FieldLabel>
-                        <Input
-                          id="default-total-quota"
-                          type="number"
-                          min={0}
-                          value={settings.default_total_quota_mb}
-                          onChange={(e) =>
-                            setSettings({
-                              ...settings,
-                              default_total_quota_mb: Math.max(
-                                0,
-                                Number(e.target.value),
-                              ),
-                            })
-                          }
-                        />
-                      </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-between rounded-lg border p-3">
@@ -791,7 +767,7 @@ export const AdminView = () => {
           <p className="text-xs text-muted-foreground">
             {t("quota-dialog.hint")}
           </p>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="space-y-2">
               <FieldLabel htmlFor="quota-tree">
                 {t("quota-dialog.tree")}
@@ -819,21 +795,6 @@ export const AdminView = () => {
                 value={quotaForm.media}
                 onChange={(e) =>
                   setQuotaForm({ ...quotaForm, media: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <FieldLabel htmlFor="quota-total">
-                {t("quota-dialog.total")}
-              </FieldLabel>
-              <Input
-                id="quota-total"
-                type="number"
-                min={0}
-                placeholder={t("quota-dialog.default-placeholder")}
-                value={quotaForm.total}
-                onChange={(e) =>
-                  setQuotaForm({ ...quotaForm, total: e.target.value })
                 }
               />
             </div>

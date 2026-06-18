@@ -16,7 +16,6 @@ export interface AdminSettings {
   max_document_upload_mb: number;
   default_tree_quota_mb: number;
   default_media_quota_mb: number;
-  default_total_quota_mb: number;
 }
 
 export interface BackupRecord {
@@ -51,14 +50,7 @@ export interface CreateAdminUserInput {
 }
 
 export type AdminUserUpdate = Partial<
-  Pick<
-    User,
-    | "is_admin"
-    | "is_active"
-    | "tree_quota_bytes"
-    | "media_quota_bytes"
-    | "total_quota_bytes"
-  >
+  Pick<User, "is_admin" | "is_active" | "tree_quota_bytes" | "media_quota_bytes">
 >;
 
 export const AdminService = {

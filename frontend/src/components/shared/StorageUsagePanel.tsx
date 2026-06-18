@@ -1,11 +1,13 @@
 /**
- * Displays per-tree storage usage (tree data / media / total) with quota limits.
- * Shows "unlimited" when the quota is null.
+ * Displays per-tree storage usage. Tree data and media each show usage against
+ * their quota (the ∞ symbol when the quota is null/unlimited); the total is just
+ * the reported sum of the two, with no quota of its own.
  */
 
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useStorageStore } from "@/hooks/useStorageStore";
+import { SidebarGroupLabel } from "@/components/ui/sidebar";
 
 // Unit suffixes are identical across the supported locales; only the number
 // (decimal separator/grouping) is localised via Intl.NumberFormat.
@@ -16,8 +18,7 @@ function formatBytes(bytes: number, locale: string): string {
     );
   if (bytes < 1024) return `${fmt(bytes, 0)} B`;
   if (bytes < 1024 * 1024) return `${fmt(bytes / 1024, 1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${fmt(bytes / (1024 * 1024), 1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${fmt(bytes / (1024 * 1024), 1)} MB`;
   return `${fmt(bytes / (1024 * 1024 * 1024), 2)} GB`;
 }
 
@@ -39,18 +40,20 @@ function UsageRow({
   usedOfLabel,
 }: UsageRowProps) {
   const usedFmt = formatBytes(used, locale);
-  const quotaFmt = quota != null ? formatBytes(quota, locale) : unlimitedLabel;
+  const isUnlimited = quota == null;
+  const quotaFmt = isUnlimited ? "∞" : formatBytes(quota, locale);
   const percent =
-    quota != null && quota > 0 ? Math.min(100, (used / quota) * 100) : null;
+    !isUnlimited && quota > 0 ? Math.min(100, (used / quota) * 100) : null;
 
   return (
     <div className="space-y-1">
-      <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="font-mono text-xs">
-          {quota != null
-            ? usedOfLabel(usedFmt, quotaFmt)
-            : `${usedFmt} / ${unlimitedLabel}`}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span
+          className="text-xs tabular-nums"
+          title={isUnlimited ? unlimitedLabel : undefined}
+        >
+          {usedOfLabel(usedFmt, quotaFmt)}
         </span>
       </div>
       {percent != null && (
@@ -85,12 +88,12 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
 
   if (isLoading && !usage) {
     return (
-      <div className="text-sm text-muted-foreground">{t("title")}…</div>
+      <div className="px-2 text-xs text-muted-foreground">{t("title")}…</div>
     );
   }
 
   if (error && !usage) {
-    return <div className="text-sm text-destructive">{t("error")}</div>;
+    return <div className="px-2 text-xs text-destructive">{t("error")}</div>;
   }
 
   if (!usage) return null;
@@ -101,32 +104,34 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
     t("used-of", { used, quota });
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium">{t("title")}</p>
-      <UsageRow
-        label={t("tree")}
-        used={usage.tree_bytes}
-        quota={usage.tree_quota_bytes}
-        locale={locale}
-        unlimitedLabel={unlimitedLabel}
-        usedOfLabel={usedOfLabel}
-      />
-      <UsageRow
-        label={t("media")}
-        used={usage.media_bytes}
-        quota={usage.media_quota_bytes}
-        locale={locale}
-        unlimitedLabel={unlimitedLabel}
-        usedOfLabel={usedOfLabel}
-      />
-      <UsageRow
-        label={t("total")}
-        used={usage.total_bytes}
-        quota={usage.total_quota_bytes}
-        locale={locale}
-        unlimitedLabel={unlimitedLabel}
-        usedOfLabel={usedOfLabel}
-      />
+    <div className="mb-3">
+      <SidebarGroupLabel>{t("title")}</SidebarGroupLabel>
+      <div className="flex flex-col gap-2 px-3 py-2">
+        <UsageRow
+          label={t("tree")}
+          used={usage.tree_bytes}
+          quota={usage.tree_quota_bytes}
+          locale={locale}
+          unlimitedLabel={unlimitedLabel}
+          usedOfLabel={usedOfLabel}
+        />
+        <UsageRow
+          label={t("media")}
+          used={usage.media_bytes}
+          quota={usage.media_quota_bytes}
+          locale={locale}
+          unlimitedLabel={unlimitedLabel}
+          usedOfLabel={usedOfLabel}
+        />
+        <div className="flex items-center justify-between gap-2 border-t border-sidebar-border pt-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {t("total")}
+          </span>
+          <span className="text-xs font-medium tabular-nums">
+            {formatBytes(usage.total_bytes, locale)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

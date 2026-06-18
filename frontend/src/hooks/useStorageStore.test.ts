@@ -16,7 +16,6 @@ const USAGE: TreeStorageUsageDB = {
   total_bytes: 3072,
   tree_quota_bytes: 10240,
   media_quota_bytes: null,
-  total_quota_bytes: 20480,
 };
 
 beforeEach(() => {
@@ -55,7 +54,6 @@ describe("useStorageStore — refreshStorageUsage", () => {
       ...USAGE,
       tree_quota_bytes: null,
       media_quota_bytes: null,
-      total_quota_bytes: null,
     };
     vi.mocked(TreeService.getStorageUsage).mockResolvedValue(unlimitedUsage);
 
@@ -64,7 +62,6 @@ describe("useStorageStore — refreshStorageUsage", () => {
     const stored = useStorageStore.getState().usage;
     expect(stored?.tree_quota_bytes).toBeNull();
     expect(stored?.media_quota_bytes).toBeNull();
-    expect(stored?.total_quota_bytes).toBeNull();
   });
 
   it("sets isLoading to true during fetch and false after", async () => {

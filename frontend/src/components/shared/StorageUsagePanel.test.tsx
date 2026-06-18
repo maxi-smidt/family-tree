@@ -58,7 +58,6 @@ describe("StorageUsagePanel", () => {
         total_bytes: 1536,
         tree_quota_bytes: 10240,
         media_quota_bytes: 20480,
-        total_quota_bytes: 30720,
       },
     });
 
@@ -70,9 +69,11 @@ describe("StorageUsagePanel", () => {
     expect(screen.getByText("Tree data")).toBeInTheDocument();
     expect(screen.getByText("Media files")).toBeInTheDocument();
     expect(screen.getByText("Total")).toBeInTheDocument();
+    // Total has no quota — it's just the formatted sum (1536 bytes == 1.5 KB).
+    expect(screen.getByText("1.5 KB")).toBeInTheDocument();
   });
 
-  it("shows 'unlimited' when quota is null", () => {
+  it("shows the ∞ symbol when quota is null", () => {
     mockStore({
       usage: {
         tree_bytes: 256,
@@ -80,15 +81,17 @@ describe("StorageUsagePanel", () => {
         total_bytes: 768,
         tree_quota_bytes: null,
         media_quota_bytes: null,
-        total_quota_bytes: null,
       },
     });
 
     render(<StorageUsagePanel treeId={TREE_ID} />);
 
-    // t("unlimited") == "unlimited"; one occurrence per null-quota row
-    const unlimitedEls = screen.getAllByText(/unlimited/i);
-    expect(unlimitedEls.length).toBe(3);
+    // Unlimited quotas render as "<used> / ∞" — one per null-quota row (tree +
+    // media only; the total is a plain sum), with the translated "unlimited"
+    // word exposed via the title attribute.
+    const unlimitedEls = screen.getAllByText(/∞/);
+    expect(unlimitedEls.length).toBe(2);
+    expect(unlimitedEls[0]).toHaveAttribute("title", "unlimited");
   });
 
   it("calls refreshStorageUsage with the treeId on mount", () => {

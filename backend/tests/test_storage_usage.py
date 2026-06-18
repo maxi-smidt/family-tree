@@ -124,7 +124,8 @@ def test_storage_endpoint_shape(client: TestClient, db: Session):
     assert "total_bytes" in data
     assert "tree_quota_bytes" in data
     assert "media_quota_bytes" in data
-    assert "total_quota_bytes" in data
+    # The total is reported as a plain sum, not a quota.
+    assert "total_quota_bytes" not in data
 
 
 def test_storage_endpoint_unlimited_when_no_quota(client: TestClient, db: Session):
@@ -136,7 +137,6 @@ def test_storage_endpoint_unlimited_when_no_quota(client: TestClient, db: Sessio
     data = resp.json()
     assert data["tree_quota_bytes"] is None
     assert data["media_quota_bytes"] is None
-    assert data["total_quota_bytes"] is None
 
 
 def test_storage_endpoint_requires_auth(client: TestClient, db: Session):
@@ -191,17 +191,6 @@ def test_check_tree_quota_raises_when_exceeded(db: Session):
     assert exc_info.value.bucket == "tree"
 
 
-def test_check_total_quota_raises_when_exceeded(db: Session):
-    owner = make_user(db, "quota-owner4")
-    owner.total_quota_bytes = 50
-    db.commit()
-    tree = make_tree(db, owner, "QuotaTree4")
-    # Even if media_quota is unlimited, total cap applies
-    with pytest.raises(QuotaExceeded) as exc_info:
-        check_media_quota(db, tree, 200)
-    assert exc_info.value.bucket == "total"
-
-
 def test_quota_zero_means_unlimited(db: Session):
     """A per-user quota of 0 means unlimited (not 'deny everything')."""
     owner = make_user(db, "quota-zero-owner")
@@ -222,7 +211,7 @@ def test_check_full_usage_quota_raises_when_already_over(db: Session):
     db.flush()
     with pytest.raises(QuotaExceeded) as exc_info:
         check_full_usage_quota(db, tree)
-    assert exc_info.value.bucket in ("tree", "total")
+    assert exc_info.value.bucket == "tree"
 
 
 def test_check_full_usage_quota_passes_when_unlimited(db: Session):
@@ -287,7 +276,6 @@ def test_owner_quotas_returns_none_by_default(db: Session):
     q = owner_quotas(db, tree)
     assert q["tree_quota_bytes"] is None
     assert q["media_quota_bytes"] is None
-    assert q["total_quota_bytes"] is None
 
 
 def test_owner_quotas_editor_uses_owner_quota(db: Session):

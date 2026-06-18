@@ -53,18 +53,9 @@ export function FamilyTreeSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {showStorage && (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <div className="px-2">
-                <StorageUsagePanel treeId={selectedTree.id} />
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
       <SidebarFooter>
+        {showStorage && <StorageUsagePanel treeId={selectedTree.id} />}
         <UserMenu />
         <div className="text-xs text-muted-foreground p-2 text-center select-none">
           v{APP_VERSION}

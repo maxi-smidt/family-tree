@@ -63,8 +63,6 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
         user.tree_quota_bytes = payload.tree_quota_bytes
     if "media_quota_bytes" in payload.model_fields_set:
         user.media_quota_bytes = payload.media_quota_bytes
-    if "total_quota_bytes" in payload.model_fields_set:
-        user.total_quota_bytes = payload.total_quota_bytes
 
     db.commit()
     db.refresh(user)

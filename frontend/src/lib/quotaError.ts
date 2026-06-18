@@ -5,12 +5,11 @@
  * and the ApiError message carries this detail string directly.
  */
 
-export type QuotaBucket = "media" | "tree" | "total";
+export type QuotaBucket = "media" | "tree";
 
 const QUOTA_ERROR_CODES: Record<string, QuotaBucket> = {
   quota_exceeded_media: "media",
   quota_exceeded_tree: "tree",
-  quota_exceeded_total: "total",
 };
 
 /** Return the bucket name if the error message is a quota-exceeded code. */

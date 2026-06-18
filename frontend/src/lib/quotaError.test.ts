@@ -10,8 +10,8 @@ describe("getQuotaBucket", () => {
     expect(getQuotaBucket("quota_exceeded_tree")).toBe("tree");
   });
 
-  it("maps quota_exceeded_total to 'total'", () => {
-    expect(getQuotaBucket("quota_exceeded_total")).toBe("total");
+  it("returns null for the removed total bucket", () => {
+    expect(getQuotaBucket("quota_exceeded_total")).toBeNull();
   });
 
   it("returns null for an unrecognised message", () => {
@@ -34,9 +34,5 @@ describe("quotaToastKey", () => {
 
   it("generates toast-error-quota-tree", () => {
     expect(quotaToastKey("tree")).toBe("toast-error-quota-tree");
-  });
-
-  it("generates toast-error-quota-total", () => {
-    expect(quotaToastKey("total")).toBe("toast-error-quota-total");
   });
 });

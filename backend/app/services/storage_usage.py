@@ -16,7 +16,6 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.media_config import (
     DEFAULT_MEDIA_QUOTA_MB,
-    DEFAULT_TOTAL_QUOTA_MB,
     DEFAULT_TREE_QUOTA_MB,
     MEBIBYTE,
 )
@@ -176,7 +175,6 @@ def owner_quotas(db: Session, tree) -> dict[str, int | None]:
         return {
             "tree_quota_bytes": None,
             "media_quota_bytes": None,
-            "total_quota_bytes": None,
         }
 
     def _resolve(user_col: int | None, instance_key: str, default_mb: int) -> int | None:
@@ -191,9 +189,6 @@ def owner_quotas(db: Session, tree) -> dict[str, int | None]:
         "media_quota_bytes": _resolve(
             owner.media_quota_bytes, "default_media_quota_mb", DEFAULT_MEDIA_QUOTA_MB
         ),
-        "total_quota_bytes": _resolve(
-            owner.total_quota_bytes, "default_total_quota_mb", DEFAULT_TOTAL_QUOTA_MB
-        ),
     }
 
 
@@ -206,7 +201,7 @@ class QuotaExceeded(ValueError):
 
     def __init__(
         self,
-        bucket: Literal["tree", "media", "total"],
+        bucket: Literal["tree", "media"],
         limit_bytes: int,
         current_bytes: int,
         would_be_bytes: int,
@@ -221,7 +216,7 @@ class QuotaExceeded(ValueError):
 
 
 def _check_bucket(
-    bucket: Literal["tree", "media", "total"],
+    bucket: Literal["tree", "media"],
     quota: int | None,
     current: int,
     incoming: int,
@@ -234,38 +229,26 @@ def _check_bucket(
 
 
 def check_media_quota(db: Session, tree, incoming_bytes: int) -> None:
-    """Raise QuotaExceeded if adding *incoming_bytes* of media would exceed quota.
-
-    Checks the media bucket and the total bucket.
-    """
+    """Raise QuotaExceeded if adding *incoming_bytes* of media would exceed quota."""
     quotas = owner_quotas(db, tree)
-    if quotas["media_quota_bytes"] is None and quotas["total_quota_bytes"] is None:
-        return  # both unlimited — fast path
+    if quotas["media_quota_bytes"] is None:
+        return  # unlimited — fast path
 
     usage = compute_usage(db, tree.id)
     _check_bucket(
         "media", quotas["media_quota_bytes"], usage["media_bytes"], incoming_bytes
     )
-    _check_bucket(
-        "total", quotas["total_quota_bytes"], usage["total_bytes"], incoming_bytes
-    )
 
 
 def check_tree_quota(db: Session, tree, incoming_bytes: int) -> None:
-    """Raise QuotaExceeded if adding *incoming_bytes* of tree data would exceed quota.
-
-    Checks the tree bucket and the total bucket.
-    """
+    """Raise QuotaExceeded if adding *incoming_bytes* of tree data would exceed quota."""
     quotas = owner_quotas(db, tree)
-    if quotas["tree_quota_bytes"] is None and quotas["total_quota_bytes"] is None:
-        return  # both unlimited — fast path
+    if quotas["tree_quota_bytes"] is None:
+        return  # unlimited — fast path
 
     usage = compute_usage(db, tree.id)
     _check_bucket(
         "tree", quotas["tree_quota_bytes"], usage["tree_bytes"], incoming_bytes
-    )
-    _check_bucket(
-        "total", quotas["total_quota_bytes"], usage["total_bytes"], incoming_bytes
     )
 
 
@@ -285,5 +268,4 @@ def check_full_usage_quota(db: Session, tree) -> None:
     usage = compute_usage(db, tree.id)
     _check_bucket("tree", quotas["tree_quota_bytes"], usage["tree_bytes"], 0)
     _check_bucket("media", quotas["media_quota_bytes"], usage["media_bytes"], 0)
-    _check_bucket("total", quotas["total_quota_bytes"], usage["total_bytes"], 0)
 

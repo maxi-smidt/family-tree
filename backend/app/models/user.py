@@ -54,6 +54,6 @@ class User(Base):
     totp_recovery_codes: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     # Per-user storage quotas (NULL = use instance default; 0 = unlimited).
+    # The total is not a separate limit — it is reported as tree + media.
     tree_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     media_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    total_quota_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)

@@ -279,7 +279,6 @@
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
       "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
-      "toast-error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
       "image-alt-fallback": "Galeriebild",
@@ -392,7 +391,6 @@
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
       "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
       "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
-      "toast-error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
       "toast-error-save": "Speichern fehlgeschlagen.",
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
@@ -1217,7 +1215,6 @@
     "storage-quotas-hint": "Setzt das Standard-Kontingent je Bucket pro Nutzer. 0 = unbegrenzt. Nutzer-spezifische Werte haben Vorrang.",
     "default-tree-quota": "Stammbaumdaten (MB)",
     "default-media-quota": "Mediendateien (MB)",
-    "default-total-quota": "Gesamt (MB)",
     "save-settings": "Einstellungen speichern",
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
     "cancel-deletion": "Löschung abbrechen",
@@ -1232,7 +1229,6 @@
       "hint": "Werte in MB. Leer lassen, um den Instanz-Standard zu verwenden; 0 für unbegrenzt.",
       "tree": "Stammbaumdaten (MB)",
       "media": "Mediendateien (MB)",
-      "total": "Gesamt (MB)",
       "default-placeholder": "Standard",
       "cancel": "Abbrechen",
       "save": "Speichern"
@@ -1364,12 +1360,11 @@
     "tree": "Stammbaumdaten",
     "media": "Mediendateien",
     "total": "Gesamt",
-    "used-of": "{{used}} von {{quota}}",
+    "used-of": "{{used}} / {{quota}}",
     "unlimited": "unbegrenzt",
     "error": "Speichernutzung konnte nicht geladen werden.",
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
-    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
-    "toast-error-quota-total": "Gesamtspeicher-Kontingent überschritten."
+    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten."
   }
 }

@@ -279,7 +279,6 @@
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
       "toast-error-quota-media": "Media storage quota exceeded.",
       "toast-error-quota-tree": "Tree data quota exceeded.",
-      "toast-error-quota-total": "Total storage quota exceeded.",
       "toast-success-image-upload": "Image uploaded successfully.",
       "toast-error-read-file": "Failed to read file",
       "image-alt-fallback": "Gallery image",
@@ -392,7 +391,6 @@
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
       "toast-error-quota-media": "Media storage quota exceeded.",
       "toast-error-quota-tree": "Tree data quota exceeded.",
-      "toast-error-quota-total": "Total storage quota exceeded.",
       "toast-error-save": "Failed to save member.",
       "toast-success": "Member updated successfully",
       "gender-field": "Gender",
@@ -1217,7 +1215,6 @@
     "storage-quotas-hint": "Set the default per-user quota for each bucket. 0 means unlimited. Per-user overrides take precedence.",
     "default-tree-quota": "Tree data (MB)",
     "default-media-quota": "Media files (MB)",
-    "default-total-quota": "Total (MB)",
     "save-settings": "Save settings",
     "pending-deletion": "Pending deletion · {{date}}",
     "cancel-deletion": "Cancel deletion",
@@ -1232,7 +1229,6 @@
       "hint": "Values are in MB. Leave a field empty to use the instance default; enter 0 for unlimited.",
       "tree": "Tree data (MB)",
       "media": "Media files (MB)",
-      "total": "Total (MB)",
       "default-placeholder": "Default",
       "cancel": "Cancel",
       "save": "Save"
@@ -1364,12 +1360,11 @@
     "tree": "Tree data",
     "media": "Media files",
     "total": "Total",
-    "used-of": "{{used}} of {{quota}}",
+    "used-of": "{{used}} / {{quota}}",
     "unlimited": "unlimited",
     "error": "Could not load storage usage.",
     "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
-    "toast-error-quota-tree": "Tree data quota exceeded.",
-    "toast-error-quota-total": "Total storage quota exceeded."
+    "toast-error-quota-tree": "Tree data quota exceeded."
   }
 }

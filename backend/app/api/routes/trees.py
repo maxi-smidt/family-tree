@@ -184,7 +184,6 @@ def get_storage_usage(
         total_bytes=usage["total_bytes"],
         tree_quota_bytes=quotas["tree_quota_bytes"],
         media_quota_bytes=quotas["media_quota_bytes"],
-        total_quota_bytes=quotas["total_quota_bytes"],
     )
 
 
