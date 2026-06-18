@@ -552,7 +552,8 @@
             "error-size": "Datei ist zu groß (max. {{max}})",
             "error-quota-media": "Medienspeicher-Kontingent überschritten.",
             "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
-            "error-quota-total": "Gesamtspeicher-Kontingent überschritten."
+            "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
+            "error-save": "Geschichte konnte nicht gespeichert werden."
           },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",

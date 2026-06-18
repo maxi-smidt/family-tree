@@ -40,11 +40,14 @@ from app.services.settings_service import get_int_setting
 # ---------------------------------------------------------------------------
 
 def _row_bytes(obj: object) -> int:
-    """Estimate the serialised byte size of a single ORM row.
+    """Estimate the byte footprint of a single ORM row.
 
     Sums ``len(str(value).encode())`` for every non-None persisted column value.
-    This is a portable estimate (works on SQLite and Postgres) that stays
-    consistent after deletes.
+    This is a deliberately rough, backend-agnostic estimate used only for
+    relative quota accounting: it runs identically on SQLite and Postgres but
+    does not reflect on-disk storage exactly (``str(value)`` is the Python
+    representation, not the DB-serialised form). It stays consistent after
+    deletes because it is recomputed from the live rows on every read.
     """
     mapper = sa.inspect(type(obj)).mapper  # type: ignore[arg-type]
     total = 0
@@ -114,9 +117,11 @@ def _tree_model_bytes(db: Session, tree_id: str) -> int:
 
 
 def _media_bytes(tree_id: str) -> int:
-    """Recursively sum on-disk file sizes under ``media_root/<tree_id>/``.
+    """Sum on-disk file sizes directly under ``media_root/<tree_id>/``.
 
-    Returns 0 when the directory does not exist (e.g. tree has no media).
+    All tree media is stored as flat files in this single directory, so a
+    one-level scan is sufficient. Returns 0 when the directory does not exist
+    (e.g. tree has no media).
     """
     tree_dir = settings.media_root / tree_id
     if not tree_dir.is_dir():

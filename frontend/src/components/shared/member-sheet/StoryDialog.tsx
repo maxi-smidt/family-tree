@@ -193,7 +193,11 @@ export const StoryDialog = ({
         const bucket = getQuotaBucket(err.message);
         if (bucket) {
           toast.error(t(`attachments.error-quota-${bucket}`));
+        } else {
+          toast.error(t("attachments.error-size", { max: maxAttachmentSize }));
         }
+      } else {
+        toast.error(t("attachments.error-save"));
       }
       return false;
     } finally {

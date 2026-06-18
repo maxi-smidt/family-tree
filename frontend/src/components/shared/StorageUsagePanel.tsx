@@ -7,18 +7,25 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useStorageStore } from "@/hooks/useStorageStore";
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+// Unit suffixes are identical across the supported locales; only the number
+// (decimal separator/grouping) is localised via Intl.NumberFormat.
+function formatBytes(bytes: number, locale: string): string {
+  const fmt = (value: number, digits: number) =>
+    new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(
+      value,
+    );
+  if (bytes < 1024) return `${fmt(bytes, 0)} B`;
+  if (bytes < 1024 * 1024) return `${fmt(bytes / 1024, 1)} KB`;
   if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    return `${fmt(bytes / (1024 * 1024), 1)} MB`;
+  return `${fmt(bytes / (1024 * 1024 * 1024), 2)} GB`;
 }
 
 interface UsageRowProps {
   label: string;
   used: number;
   quota: number | null;
+  locale: string;
   unlimitedLabel: string;
   usedOfLabel: (used: string, quota: string) => string;
 }
@@ -27,11 +34,12 @@ function UsageRow({
   label,
   used,
   quota,
+  locale,
   unlimitedLabel,
   usedOfLabel,
 }: UsageRowProps) {
-  const usedFmt = formatBytes(used);
-  const quotaFmt = quota != null ? formatBytes(quota) : unlimitedLabel;
+  const usedFmt = formatBytes(used, locale);
+  const quotaFmt = quota != null ? formatBytes(quota, locale) : unlimitedLabel;
   const percent =
     quota != null && quota > 0 ? Math.min(100, (used / quota) * 100) : null;
 
@@ -68,7 +76,7 @@ interface StorageUsagePanelProps {
 }
 
 export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
-  const { t } = useTranslation(undefined, { keyPrefix: "storage-usage" });
+  const { t, i18n } = useTranslation(undefined, { keyPrefix: "storage-usage" });
   const { usage, isLoading, error, refreshStorageUsage } = useStorageStore();
 
   useEffect(() => {
@@ -87,6 +95,7 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
 
   if (!usage) return null;
 
+  const locale = i18n.language;
   const unlimitedLabel = t("unlimited");
   const usedOfLabel = (used: string, quota: string) =>
     t("used-of", { used, quota });
@@ -98,6 +107,7 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
         label={t("tree")}
         used={usage.tree_bytes}
         quota={usage.tree_quota_bytes}
+        locale={locale}
         unlimitedLabel={unlimitedLabel}
         usedOfLabel={usedOfLabel}
       />
@@ -105,6 +115,7 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
         label={t("media")}
         used={usage.media_bytes}
         quota={usage.media_quota_bytes}
+        locale={locale}
         unlimitedLabel={unlimitedLabel}
         usedOfLabel={usedOfLabel}
       />
@@ -112,6 +123,7 @@ export function StorageUsagePanel({ treeId }: StorageUsagePanelProps) {
         label={t("total")}
         used={usage.total_bytes}
         quota={usage.total_quota_bytes}
+        locale={locale}
         unlimitedLabel={unlimitedLabel}
         usedOfLabel={usedOfLabel}
       />
