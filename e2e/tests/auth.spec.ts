@@ -143,7 +143,7 @@ test("change password — new password works; old password does not", async ({
 test("2FA — setup + enable + login challenge + disable", async ({
   adminApi,
 }) => {
-  const { authenticator } = await import("otplib");
+  const { generate } = await import("otplib");
   const user = await createTestUser(adminApi);
 
   try {
@@ -166,7 +166,7 @@ test("2FA — setup + enable + login challenge + disable", async ({
     expect(setup.secret).toBeTruthy();
 
     // 2. Enable: supply a valid TOTP code
-    const code = authenticator.generate(setup.secret);
+    const code = await generate({ secret: setup.secret });
     const enableRes = await fetch(`${API_URL}/auth/2fa/enable`, {
       method: "POST",
       headers,
@@ -202,7 +202,7 @@ test("2FA — setup + enable + login challenge + disable", async ({
     expect(badTotpRes.status).toBe(401);
 
     // 5. A valid TOTP code completes login
-    const validCode = authenticator.generate(setup.secret);
+    const validCode = await generate({ secret: setup.secret });
     const totpRes = await fetch(`${API_URL}/auth/totp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -225,7 +225,7 @@ test("2FA — setup + enable + login challenge + disable", async ({
       },
       body: JSON.stringify({
         password: user.password,
-        code: authenticator.generate(setup.secret),
+        code: await generate({ secret: setup.secret }),
       }),
     });
     expect(disableRes.status).toBe(204);
