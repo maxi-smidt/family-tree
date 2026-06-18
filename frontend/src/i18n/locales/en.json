@@ -1224,6 +1224,18 @@
     "delete-user": "Schedule deletion",
     "reset-password": "Reset password",
     "reset-password-unavailable": "Password reset is only available for local accounts",
+    "edit-quotas": "Storage quotas",
+    "quota-dialog": {
+      "title": "Storage quotas",
+      "description": "Override the storage quotas for \"{{username}}\".",
+      "hint": "Values are in MB. Leave a field empty to use the instance default; enter 0 for unlimited.",
+      "tree": "Tree data (MB)",
+      "media": "Media files (MB)",
+      "total": "Total (MB)",
+      "default-placeholder": "Default",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
     "reset-dialog": {
       "title": "Reset password",
       "description": "Set a new password for \"{{username}}\".",

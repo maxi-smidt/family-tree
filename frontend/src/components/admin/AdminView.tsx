@@ -26,7 +26,15 @@ import { BackupPanel } from "@/components/admin/BackupPanel";
 import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { RelationTypesPanel } from "@/components/admin/RelationTypesPanel";
 import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
-import { ArrowLeft, KeyRound, Plus, ShieldOff, Trash2, Undo2 } from "lucide-react";
+import {
+  ArrowLeft,
+  HardDrive,
+  KeyRound,
+  Plus,
+  ShieldOff,
+  Trash2,
+  Undo2,
+} from "lucide-react";
 import {
   AdminService,
   AdminSettings,
@@ -39,6 +47,8 @@ import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
+const MEBIBYTE = 1024 * 1024;
+
 export const AdminView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "admin" });
   const currentUser = useAuthStore((s) => s.user);
@@ -50,6 +60,12 @@ export const AdminView = () => {
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [userToResetTotp, setUserToResetTotp] = useState<User | null>(null);
+  const [userToEditQuota, setUserToEditQuota] = useState<User | null>(null);
+  const [quotaForm, setQuotaForm] = useState({
+    tree: "",
+    media: "",
+    total: "",
+  });
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [newUser, setNewUser] = useState({
     username: "",
@@ -96,6 +112,46 @@ export const AdminView = () => {
       console.error(err);
       toast.error(t("user-update-error"));
     }
+  };
+
+  // Per-user quota overrides are stored in bytes. The dialog edits them in MiB:
+  // an empty field = use the instance default (null), 0 = unlimited.
+  const bytesToMbInput = (b?: number | null): string =>
+    b == null ? "" : String(b / MEBIBYTE);
+
+  const mbInputToBytes = (s: string): number | null => {
+    const trimmed = s.trim();
+    if (trimmed === "") return null;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return Math.round(n * MEBIBYTE);
+  };
+
+  const openQuotaDialog = (u: User) => {
+    setQuotaForm({
+      tree: bytesToMbInput(u.tree_quota_bytes),
+      media: bytesToMbInput(u.media_quota_bytes),
+      total: bytesToMbInput(u.total_quota_bytes),
+    });
+    setUserToEditQuota(u);
+  };
+
+  const saveUserQuotas = async () => {
+    if (!userToEditQuota) return;
+    const u = userToEditQuota;
+    // Only send fields the admin actually changed, so untouched (and possibly
+    // non-MiB-aligned) values aren't rewritten.
+    const changes: AdminUserUpdate = {};
+    if (quotaForm.tree !== bytesToMbInput(u.tree_quota_bytes))
+      changes.tree_quota_bytes = mbInputToBytes(quotaForm.tree);
+    if (quotaForm.media !== bytesToMbInput(u.media_quota_bytes))
+      changes.media_quota_bytes = mbInputToBytes(quotaForm.media);
+    if (quotaForm.total !== bytesToMbInput(u.total_quota_bytes))
+      changes.total_quota_bytes = mbInputToBytes(quotaForm.total);
+    if (Object.keys(changes).length > 0) {
+      await patchUser(u, changes);
+    }
+    setUserToEditQuota(null);
   };
 
   const scheduleDeletion = async () => {
@@ -298,6 +354,15 @@ export const AdminView = () => {
                               </Button>
                             ) : (
                               <div className="flex justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title={t("edit-quotas")}
+                                  aria-label={t("edit-quotas")}
+                                  onClick={() => openQuotaDialog(u)}
+                                >
+                                  <HardDrive className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
@@ -709,6 +774,81 @@ export const AdminView = () => {
         cancelText={t("totp-reset-dialog.cancel")}
         confirmText={t("totp-reset-dialog.confirm")}
       />
+
+      <Dialog
+        open={!!userToEditQuota}
+        onOpenChange={(open) => !open && setUserToEditQuota(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("quota-dialog.title")}</DialogTitle>
+            <DialogDescription>
+              {t("quota-dialog.description", {
+                username: userToEditQuota?.username ?? "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            {t("quota-dialog.hint")}
+          </p>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="space-y-2">
+              <FieldLabel htmlFor="quota-tree">
+                {t("quota-dialog.tree")}
+              </FieldLabel>
+              <Input
+                id="quota-tree"
+                type="number"
+                min={0}
+                placeholder={t("quota-dialog.default-placeholder")}
+                value={quotaForm.tree}
+                onChange={(e) =>
+                  setQuotaForm({ ...quotaForm, tree: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel htmlFor="quota-media">
+                {t("quota-dialog.media")}
+              </FieldLabel>
+              <Input
+                id="quota-media"
+                type="number"
+                min={0}
+                placeholder={t("quota-dialog.default-placeholder")}
+                value={quotaForm.media}
+                onChange={(e) =>
+                  setQuotaForm({ ...quotaForm, media: e.target.value })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <FieldLabel htmlFor="quota-total">
+                {t("quota-dialog.total")}
+              </FieldLabel>
+              <Input
+                id="quota-total"
+                type="number"
+                min={0}
+                placeholder={t("quota-dialog.default-placeholder")}
+                value={quotaForm.total}
+                onChange={(e) =>
+                  setQuotaForm({ ...quotaForm, total: e.target.value })
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setUserToEditQuota(null)}
+            >
+              {t("quota-dialog.cancel")}
+            </Button>
+            <Button onClick={saveUserQuotas}>{t("quota-dialog.save")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };

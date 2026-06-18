@@ -50,7 +50,16 @@ export interface CreateAdminUserInput {
   is_admin: boolean;
 }
 
-export type AdminUserUpdate = Partial<Pick<User, "is_admin" | "is_active">>;
+export type AdminUserUpdate = Partial<
+  Pick<
+    User,
+    | "is_admin"
+    | "is_active"
+    | "tree_quota_bytes"
+    | "media_quota_bytes"
+    | "total_quota_bytes"
+  >
+>;
 
 export const AdminService = {
   listUsers(): Promise<User[]> {

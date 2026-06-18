@@ -1224,6 +1224,18 @@
     "delete-user": "Löschung vormerken",
     "reset-password": "Passwort zurücksetzen",
     "reset-password-unavailable": "Passwort kann nur für lokale Konten zurückgesetzt werden",
+    "edit-quotas": "Speicherkontingente",
+    "quota-dialog": {
+      "title": "Speicherkontingente",
+      "description": "Speicherkontingente für \"{{username}}\" überschreiben.",
+      "hint": "Werte in MB. Leer lassen, um den Instanz-Standard zu verwenden; 0 für unbegrenzt.",
+      "tree": "Stammbaumdaten (MB)",
+      "media": "Mediendateien (MB)",
+      "total": "Gesamt (MB)",
+      "default-placeholder": "Standard",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
     "reset-dialog": {
       "title": "Passwort zurücksetzen",
       "description": "Neues Passwort für \"{{username}}\" festlegen.",
