@@ -13,11 +13,11 @@ class GalleryImage(Base):
     tree_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
     )
-    imageData: Mapped[str | None] = mapped_column(Text, nullable=True)
+    image_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    createdAt: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    uploadedAt: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    created_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    uploaded_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
 
 class GalleryMemberLink(Base):

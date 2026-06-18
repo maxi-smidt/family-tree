@@ -16,6 +16,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
@@ -45,20 +46,28 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "dialog.member-detail",
   });
-  const { galleryImages } = useGalleryStore();
-  const { getEventsByMember } = useEventStore();
-  const { getStoriesByMember } = useStoryStore();
-  const { members, fetchMemberDetail } = useMemberStore();
+  const { galleryImages, refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
+  const { getEventsByMember, refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const { getStoriesByMember, refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { members, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   useEffect(() => {
     if (open && member) {
-      setIsLoadingDetail(true);
+      const alreadyLoaded = detailLoadedIds.has(member.id);
+      if (!alreadyLoaded) {
+        setIsLoadingDetail(true);
+      }
       void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
     }
   }, [open, member?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Defer secondary-domain stores until the dialog opens (no-op while closed).
+  useDeferredStoreLoad(eventsInitialized || !open, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized || !open, refreshStories);
+  useDeferredStoreLoad(galleryInitialized || !open, refreshGalleryImages);
 
   if (!member) return null;
 

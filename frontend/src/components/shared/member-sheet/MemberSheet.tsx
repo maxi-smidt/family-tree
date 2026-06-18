@@ -16,6 +16,9 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
@@ -44,8 +47,11 @@ export const MemberSheet = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
   });
-  const { removeMember, fetchMemberDetail } = useMemberStore();
+  const { removeMember, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const { refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
+  const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
@@ -58,16 +64,28 @@ export const MemberSheet = ({
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
 
-  // Fetch full member detail when the sheet opens for an existing member
+  // Fetch full member detail when the sheet opens for an existing member.
+  // Skip the spinner entirely when detail is already cached for this member.
   useEffect(() => {
     if (isOpen && member && !isNewMember) {
-      setIsLoadingDetail(true);
+      const alreadyLoaded = detailLoadedIds.has(member.id);
+      if (!alreadyLoaded) {
+        setIsLoadingDetail(true);
+      }
       void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
     }
   }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load events if not yet loaded (needed for syncVitalEvent in updateMemberPartial)
+  // Defer secondary-domain stores until the sheet opens for an existing member.
+  // Passing `|| !isOpen || isNewMember` makes the shared hook a no-op while the
+  // sheet is closed or showing an unsaved new member.
   useDeferredStoreLoad(eventsInitialized || !isOpen || isNewMember, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized || !isOpen || isNewMember, refreshStories);
+  useDeferredStoreLoad(sourcesInitialized || !isOpen || isNewMember, refreshSources);
+  useDeferredStoreLoad(
+    galleryInitialized || !isOpen || isNewMember,
+    refreshGalleryImages,
+  );
 
   if (!member) return null;
 

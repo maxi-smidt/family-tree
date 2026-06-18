@@ -74,7 +74,7 @@ def list_images(
     statement = (
         select(GalleryImage)
         .where(GalleryImage.tree_id == tree.id)
-        .order_by(GalleryImage.uploadedAt, GalleryImage.id)
+        .order_by(GalleryImage.uploaded_at, GalleryImage.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
 
@@ -107,10 +107,10 @@ def create_image(
     try:
         new_url = process_image_field(
             tree.id,
-            data.get("imageData"),
+            data.get("image_data"),
             get_media_limits(db),
         )
-        data["imageData"] = new_url
+        data["image_data"] = new_url
         if new_url and new_url.startswith(MEDIA_URL_PREFIX):
             new_image_url = new_url
     except ImageTooLarge as exc:
@@ -157,14 +157,14 @@ def update_image(
     image = _get_image(db, tree, image_id)
     changes = payload.model_dump(exclude_unset=True)
     new_image_url: str | None = None
-    if "imageData" in changes:
+    if "image_data" in changes:
         try:
             new_url = process_image_field(
                 tree.id,
-                changes["imageData"],
+                changes["image_data"],
                 get_media_limits(db),
             )
-            changes["imageData"] = new_url
+            changes["image_data"] = new_url
             if new_url and new_url.startswith(MEDIA_URL_PREFIX):
                 new_image_url = new_url
         except ImageTooLarge as exc:
@@ -199,7 +199,7 @@ def delete_image(
     db: Session = Depends(get_db),
 ):
     image = _get_image(db, tree, image_id)
-    image_url = image.imageData
+    image_url = image.image_data
     record_activity(
         db, tree_id=tree.id, actor=user, action="delete",
         target_type="gallery_image", target_id=image.id, target_label=image.title,

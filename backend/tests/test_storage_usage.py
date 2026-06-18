@@ -81,7 +81,7 @@ def test_tree_bytes_grows_with_member(db: Session):
     tree = make_tree(db, owner, "StorageTree")
 
     before = _tree_model_bytes(db, tree.id)
-    add_member(db, tree, "m1", firstName="Alice", lastName="Smith")
+    add_member(db, tree, "m1", first_name="Alice", last_name="Smith")
     after = _tree_model_bytes(db, tree.id)
     assert after > before
 
@@ -91,7 +91,7 @@ def test_tree_bytes_shrinks_after_delete(db: Session):
     tree = make_tree(db, owner, "StorageTree2")
     from app.models import Member
 
-    add_member(db, tree, "m2", firstName="Bob", lastName="Jones")
+    add_member(db, tree, "m2", first_name="Bob", last_name="Jones")
     before = _tree_model_bytes(db, tree.id)
     member = db.get(Member, "m2")
     db.delete(member)
@@ -290,7 +290,7 @@ def test_usage_recomputes_after_tree_delete(db: Session):
     """compute_usage on a deleted tree returns zeros (no rows, no media dir)."""
     owner = make_user(db, "cascade-owner")
     tree = make_tree(db, owner, "CascadeTree")
-    add_member(db, tree, "cm1", firstName="Test")
+    add_member(db, tree, "cm1", first_name="Test")
     from app.models import Tree as TreeModel
 
     usage_before = compute_usage(db, tree.id)

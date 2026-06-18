@@ -14,11 +14,6 @@ import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
-import { useEventStore } from "@/hooks/useEventStore";
-import { useStoryStore } from "@/hooks/useStoryStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
-import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
@@ -57,10 +52,6 @@ export const FlowPanel = () => {
   );
   const isMobile = useIsMobile();
   const { members, removeMember, updateLayout } = useMemberStore();
-  const { refreshEvents, initialized: eventsInitialized } = useEventStore();
-  const { refreshStories, initialized: storiesInitialized } = useStoryStore();
-  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
-  const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
   const canWrite = activeTree?.role !== "viewer";
   const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
   const isCanvasReadOnly = isMobile || !canWrite;
@@ -70,13 +61,6 @@ export const FlowPanel = () => {
   useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useTreeStore();
 
-  // Lazy-load secondary stores when the tree view mounts, so that
-  // MemberDetailDialog (opened from FamilyNode) has events, stories, sources,
-  // and gallery images available without requiring the user to visit each view.
-  useDeferredStoreLoad(eventsInitialized, refreshEvents);
-  useDeferredStoreLoad(storiesInitialized, refreshStories);
-  useDeferredStoreLoad(sourcesInitialized, refreshSources);
-  useDeferredStoreLoad(galleryInitialized, refreshGalleryImages);
   const {
     edgeType,
     isLockedScreen,

@@ -58,7 +58,7 @@ function mockServiceWithMember() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useMemberStore.setState({ members: [], undoStack: [], redoStack: [] });
+  useMemberStore.setState({ members: [], detailLoadedIds: new Set<string>(), undoStack: [], redoStack: [] });
   useTreeStore.setState({ selectedTree: undefined });
   // syncVitalEvent calls the event store which uses these service methods
   vi.mocked(TreeService.getEvents).mockResolvedValue([]);
@@ -497,5 +497,99 @@ describe("useMemberStore — stale-write guard", () => {
     expect(useMemberStore.getState().members).toHaveLength(0);
     expect(useMemberStore.getState().undoStack).toHaveLength(0);
     expect(useMemberStore.getState().redoStack).toHaveLength(0);
+  });
+});
+
+describe("useMemberStore — fetchMemberDetail caching", () => {
+  beforeEach(() => {
+    useMemberStore.setState({
+      members: [],
+      detailLoadedIds: new Set<string>(),
+      undoStack: [],
+      redoStack: [],
+    });
+  });
+
+  it("issues a network call on the first fetchMemberDetail and caches the id", async () => {
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.getMember).mockResolvedValue(MEMBER_DB_ROW);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+
+    await useMemberStore.getState().fetchMemberDetail("m1");
+
+    expect(TreeService.getMember).toHaveBeenCalledWith(TREE_ID, "m1");
+    expect(useMemberStore.getState().detailLoadedIds.has("m1")).toBe(true);
+  });
+
+  it("skips the network call on the second fetchMemberDetail for the same id", async () => {
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.getMember).mockResolvedValue(MEMBER_DB_ROW);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+
+    // First call — fetches from network
+    await useMemberStore.getState().fetchMemberDetail("m1");
+    expect(TreeService.getMember).toHaveBeenCalledTimes(1);
+
+    // Second call — served from cache, no extra GET
+    await useMemberStore.getState().fetchMemberDetail("m1");
+    expect(TreeService.getMember).toHaveBeenCalledTimes(1);
+  });
+
+  it("force=true bypasses the cache and re-fetches", async () => {
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.getMember).mockResolvedValue(MEMBER_DB_ROW);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+
+    // Seed the cache
+    await useMemberStore.getState().fetchMemberDetail("m1");
+    expect(TreeService.getMember).toHaveBeenCalledTimes(1);
+
+    // Force re-fetch despite cache hit
+    await useMemberStore.getState().fetchMemberDetail("m1", true);
+    expect(TreeService.getMember).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshMembers resets detailLoadedIds, re-arming future fetchMemberDetail calls", async () => {
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.getMember).mockResolvedValue(MEMBER_DB_ROW);
+    vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
+
+    // Populate the cache
+    await useMemberStore.getState().fetchMemberDetail("m1");
+    expect(useMemberStore.getState().detailLoadedIds.has("m1")).toBe(true);
+
+    // refreshMembers resets the cache
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+    expect(useMemberStore.getState().detailLoadedIds.has("m1")).toBe(false);
+
+    // Next fetchMemberDetail should hit the network again
+    await useMemberStore.getState().fetchMemberDetail("m1");
+    expect(TreeService.getMember).toHaveBeenCalledTimes(2);
+  });
+
+  it("clear() resets detailLoadedIds", () => {
+    useMemberStore.setState({
+      members: [{ id: "m1" } as never],
+      detailLoadedIds: new Set(["m1"]),
+      undoStack: [],
+      redoStack: [],
+    });
+
+    useMemberStore.getState().clear();
+
+    expect(useMemberStore.getState().detailLoadedIds.size).toBe(0);
   });
 });

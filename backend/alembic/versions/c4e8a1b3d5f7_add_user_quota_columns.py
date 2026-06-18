@@ -1,7 +1,7 @@
 """add user quota columns
 
-Revision ID: a1b2c3d4e5f6
-Revises: f8c1d2e3a4b5
+Revision ID: c4e8a1b3d5f7
+Revises: d7a3f9b21c84
 Create Date: 2026-06-17 00:00:00.000000
 
 """
@@ -10,8 +10,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "a1b2c3d4e5f6"
-down_revision = "f8c1d2e3a4b5"
+revision = "c4e8a1b3d5f7"
+down_revision = "d7a3f9b21c84"
 branch_labels = None
 depends_on = None
 
