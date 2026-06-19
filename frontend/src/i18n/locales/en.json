@@ -92,7 +92,10 @@
       "cancel": "Cancel",
       "remove": "Remove",
       "toast-warning": "You removed the last tree. Create a new one.",
-      "toast-success": "Tree removed successfully"
+      "toast-success": "Tree removed successfully",
+      "toast-error": "Could not remove the tree.",
+      "toast-permission-error": "You no longer have permission to delete this tree.",
+      "toast-undo-window-error": "The previous owner can still undo this transfer. Please wait a moment before deleting."
     },
     "remove-node": {
       "title_one": "Delete Member",
@@ -166,8 +169,16 @@
       "transfer-confirm-description": "Make \"{{username}}\" the owner of \"{{name}}\"? You will no longer be the owner of this tree.",
       "transfer-confirm-cancel": "Cancel",
       "transfer-confirm-action": "Transfer ownership",
+      "transfer-retain-toggle": "Keep my access",
+      "transfer-retain-hint": "You will remain a member of this tree after the transfer.",
+      "transfer-retain-role-label": "My role after transfer",
       "transfer-success": "Ownership transferred.",
       "transfer-error": "Could not transfer ownership.",
+      "transfer-undo-button": "Undo ({{seconds}}s)",
+      "transfer-undo-title": "Ownership transferred",
+      "transfer-undo-description": "\"{{name}}\" is now owned by {{username}}.",
+      "transfer-reverted": "Transfer undone. You are the owner again.",
+      "transfer-revert-error": "Could not undo the transfer.",
       "invites": {
         "title": "Invite by link",
         "description": "Anyone with the link can join — no account required to preview, account needed to accept.",

@@ -91,3 +91,8 @@ export interface ShareCandidate {
   user_id: string;
   username: string;
 }
+
+export interface TreeTransferResult {
+  access: TreeAccess[];
+  undo_available_until: string | null;
+}

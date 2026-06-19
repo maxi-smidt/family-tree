@@ -16,6 +16,13 @@ class Tree(Base):
     last_opened: Mapped[str | None] = mapped_column(String(40), nullable=True)
     # null = private; "viewer" = anyone with the link can read.
     public_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Set on ownership transfer; cleared on revert or next transfer.
+    previous_owner_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    ownership_transferred_at: Mapped[str | None] = mapped_column(
+        String(40), nullable=True
+    )
 
     memberships: Mapped[list["TreeMembership"]] = relationship(
         back_populates="tree", cascade="all, delete-orphan"

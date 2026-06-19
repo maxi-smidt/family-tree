@@ -92,7 +92,10 @@
       "cancel": "Abbrechen",
       "remove": "Entfernen",
       "toast-warning": "Du hast den letzten Stammbaum entfernt. Erstelle einen neuen.",
-      "toast-success": "Stammbaum erfolgreich entfernt."
+      "toast-success": "Stammbaum erfolgreich entfernt.",
+      "toast-error": "Stammbaum konnte nicht entfernt werden.",
+      "toast-permission-error": "Du hast keine Berechtigung mehr, diesen Stammbaum zu löschen.",
+      "toast-undo-window-error": "Der vorherige Eigentümer kann diese Übertragung noch rückgängig machen. Bitte warte kurz, bevor du löschst."
     },
     "remove-node": {
       "title_one": "Lösche Person",
@@ -168,6 +171,14 @@
       "transfer-confirm-action": "Eigentümerschaft übertragen",
       "transfer-success": "Eigentümerschaft übertragen.",
       "transfer-error": "Eigentümerschaft konnte nicht übertragen werden.",
+      "transfer-retain-toggle": "Meinen Zugriff behalten",
+      "transfer-retain-hint": "Sie bleiben nach der Übertragung Mitglied dieses Stammbaums.",
+      "transfer-retain-role-label": "Meine Rolle nach der Übertragung",
+      "transfer-undo-button": "Rückgängig ({{seconds}}s)",
+      "transfer-undo-title": "Eigentümerschaft übertragen",
+      "transfer-undo-description": "\"{{name}}\" gehört jetzt {{username}}.",
+      "transfer-reverted": "Übertragung rückgängig gemacht. Sie sind wieder Eigentümer.",
+      "transfer-revert-error": "Übertragung konnte nicht rückgängig gemacht werden.",
       "invites": {
         "title": "Per Link einladen",
         "description": "Jeder mit dem Link kann beitreten — kein Konto nötig zur Vorschau, aber zum Akzeptieren.",

@@ -52,6 +52,7 @@ describe("TreeSharingService", () => {
     expect(api.del).toHaveBeenCalledWith("/trees/tree-1/access/user-2");
     expect(api.post).toHaveBeenNthCalledWith(2, "/trees/tree-1/transfer", {
       username: "grace",
+      retain_role: null,
     });
   });
 });

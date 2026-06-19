@@ -24,6 +24,26 @@ def test_list_trees_includes_owned_and_shared(client, db):
     assert by_id[shared.id]["role"] == "viewer"
 
 
+def test_list_trees_for_admin_excludes_unshared_user_trees(client, db):
+    admin = make_user(db, "admin", is_admin=True)
+    owner = make_user(db, "owner")
+    admin_tree = make_tree(db, admin, "Admin Tree")
+    owner_tree = make_tree(db, owner, "Owner Tree")
+    shared_tree = make_tree(db, owner, "Shared Tree")
+    share(db, shared_tree, admin, "viewer")
+
+    res = client.get(f"{API}/trees", headers=auth(admin))
+    assert res.status_code == 200
+    ids = {t["id"] for t in res.json()}
+    assert admin_tree.id in ids
+    assert shared_tree.id in ids
+    assert owner_tree.id not in ids
+    assert (
+        client.get(f"{API}/trees/{owner_tree.id}", headers=auth(admin)).status_code
+        == 200
+    )
+
+
 def test_get_tree_updates_last_opened(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user)

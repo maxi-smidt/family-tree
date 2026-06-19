@@ -106,8 +106,13 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     // Drop a stale selection that no longer exists / is no longer accessible.
     const selected = get().selectedTree;
     const allItems = [...trees, ...virtualViews];
-    if (selected && !allItems.some((t) => t.id === selected.id)) {
-      await get().disconnect();
+    if (selected) {
+      const freshSelected = allItems.find((t) => t.id === selected.id);
+      if (freshSelected) {
+        set({ selectedTree: freshSelected });
+      } else {
+        await get().disconnect();
+      }
     }
   },
 
@@ -301,3 +306,15 @@ export const activeTreeId = (): string | undefined =>
 /** Stale-write guard for async loaders: true if `treeId` is still the active tree. */
 export const isActiveTree = (treeId: string | undefined): boolean =>
   treeId !== undefined && activeTreeId() === treeId;
+
+export const resetTreeStoreForSession = () => {
+  useTreeStore.setState({
+    trees: [],
+    virtualViews: [],
+    selectedTree: undefined,
+    metadata: {},
+    relationTypes: [],
+    isReady: false,
+  });
+  clearDataStores();
+};
