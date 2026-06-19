@@ -94,7 +94,8 @@
       "toast-warning": "Du hast den letzten Stammbaum entfernt. Erstelle einen neuen.",
       "toast-success": "Stammbaum erfolgreich entfernt.",
       "toast-error": "Stammbaum konnte nicht entfernt werden.",
-      "toast-permission-error": "Du hast keine Berechtigung mehr, diesen Stammbaum zu löschen."
+      "toast-permission-error": "Du hast keine Berechtigung mehr, diesen Stammbaum zu löschen.",
+      "toast-undo-window-error": "Der vorherige Eigentümer kann diese Übertragung noch rückgängig machen. Bitte warte kurz, bevor du löschst."
     },
     "remove-node": {
       "title_one": "Lösche Person",

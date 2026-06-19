@@ -94,7 +94,8 @@
       "toast-warning": "You removed the last tree. Create a new one.",
       "toast-success": "Tree removed successfully",
       "toast-error": "Could not remove the tree.",
-      "toast-permission-error": "You no longer have permission to delete this tree."
+      "toast-permission-error": "You no longer have permission to delete this tree.",
+      "toast-undo-window-error": "The previous owner can still undo this transfer. Please wait a moment before deleting."
     },
     "remove-node": {
       "title_one": "Delete Member",

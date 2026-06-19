@@ -268,3 +268,28 @@ def test_admin_can_revert_any_transfer(client, db):
     assert res.status_code == 200
     db.expunge_all()
     assert db.get(Tree, tree.id).owner_id == owner.id
+
+
+def test_new_owner_cannot_delete_during_undo_window(client, db):
+    owner = make_user(db, "owner")
+    bob = make_user(db, "bob")
+    befriend(db, owner, bob)
+    tree = make_tree(db, owner)
+
+    _transfer(client, owner, tree, "bob")
+
+    res = client.delete(f"{API}/trees/{tree.id}", headers=auth(bob))
+    assert res.status_code == 409
+
+
+def test_admin_can_delete_during_undo_window(client, db):
+    admin = make_user(db, "admin", is_admin=True)
+    owner = make_user(db, "owner")
+    bob = make_user(db, "bob")
+    befriend(db, owner, bob)
+    tree = make_tree(db, owner)
+
+    _transfer(client, owner, tree, "bob")
+
+    res = client.delete(f"{API}/trees/{tree.id}", headers=auth(admin))
+    assert res.status_code == 204

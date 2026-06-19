@@ -210,6 +210,14 @@ def delete_tree(
 ):
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete a tree")
+    if _within_undo_window(tree) and not user.is_admin:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Ownership was recently transferred;"
+                " deletion is blocked during the undo window."
+            ),
+        )
     tree_id = tree.id
     db.delete(tree)
     db.commit()
@@ -384,6 +392,19 @@ def _undo_deadline(transferred_at: str) -> str:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=UTC)
     return (dt + timedelta(seconds=TRANSFER_UNDO_WINDOW_SECONDS)).isoformat()
+
+
+def _within_undo_window(tree: Tree) -> bool:
+    """Return True if the transfer undo window is still open."""
+    from datetime import UTC, datetime
+
+    if tree.previous_owner_id is None or tree.ownership_transferred_at is None:
+        return False
+    transferred_at = datetime.fromisoformat(tree.ownership_transferred_at)
+    if transferred_at.tzinfo is None:
+        transferred_at = transferred_at.replace(tzinfo=UTC)
+    elapsed = (datetime.now(UTC) - transferred_at).total_seconds()
+    return elapsed <= TRANSFER_UNDO_WINDOW_SECONDS
 
 
 @router.post("/{tree_id}/transfer", response_model=TreeTransferResult)

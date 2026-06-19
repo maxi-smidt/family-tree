@@ -109,6 +109,11 @@ export const RemoveDatabaseDialog = ({
         onConfirm();
         return;
       }
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error(t("toast-undo-window-error"));
+        resetState();
+        return;
+      }
       toast.error(t("toast-error"));
     }
   }
