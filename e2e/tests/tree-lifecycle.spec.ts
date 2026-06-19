@@ -422,16 +422,19 @@ test("transfer: a friend becomes owner and the original owner loses access", asy
     });
     await recipientApi.post(`/friends/${secondUser.id}/accept`);
 
-    const access = await secondApi.post<
-      Array<{ user_id: string; username: string; role: string }>
-    >(`/trees/${tree.id}/transfer`, {
+    const result = await secondApi.post<{
+      access: Array<{ user_id: string; username: string; role: string }>;
+      undo_available_until: string | null;
+    }>(`/trees/${tree.id}/transfer`, {
       username: recipient.username,
     });
-    expect(access).toContainEqual(expect.objectContaining({
-      user_id: recipient.id,
-      username: recipient.username,
-      role: "owner",
-    }));
+    expect(result.access).toContainEqual(
+      expect.objectContaining({
+        user_id: recipient.id,
+        username: recipient.username,
+        role: "owner",
+      }),
+    );
 
     const recipientTrees = await recipientApi.get<TreeListItem[]>("/trees");
     expect(recipientTrees.find((item) => item.id === tree.id)).toMatchObject({
