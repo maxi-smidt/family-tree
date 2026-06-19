@@ -47,7 +47,7 @@ import {
   AdminSettings,
   AdminUserUpdate,
 } from "@/services/AdminService";
-import { User } from "@/types/user";
+import { User, ImageStorageMode } from "@/types/user";
 import { formatDate } from "@/utils/dateUtils";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
@@ -593,39 +593,89 @@ export const AdminView = () => {
                         />
                       </div>
                     </div>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <FieldLabel>
+                          {t("image-storage-mode-allowed")}
+                        </FieldLabel>
+                        <p className="text-xs text-muted-foreground">
+                          {t("image-storage-mode-allowed-hint")}
+                        </p>
+                      </div>
+                      {(
+                        ["compressed", "original", "both"] as ImageStorageMode[]
+                      ).map((mode) => {
+                        const isChecked =
+                          settings.image_storage_allowed_modes.includes(mode);
+                        const isLast =
+                          settings.image_storage_allowed_modes.length === 1 &&
+                          isChecked;
+                        return (
+                          <div key={mode} className="flex items-center gap-3">
+                            <Switch
+                              id={`allow-${mode}`}
+                              checked={isChecked}
+                              disabled={isLast}
+                              onCheckedChange={(checked) => {
+                                const next = checked
+                                  ? [
+                                      ...settings.image_storage_allowed_modes,
+                                      mode,
+                                    ]
+                                  : settings.image_storage_allowed_modes.filter(
+                                      (m) => m !== mode,
+                                    );
+                                const newDefault = next.includes(
+                                  settings.image_storage_mode,
+                                )
+                                  ? settings.image_storage_mode
+                                  : next[0];
+                                setSettings({
+                                  ...settings,
+                                  image_storage_allowed_modes: next,
+                                  image_storage_mode: newDefault,
+                                });
+                              }}
+                            />
+                            <label
+                              htmlFor={`allow-${mode}`}
+                              className="text-sm cursor-pointer"
+                            >
+                              {t(`image-storage-mode-${mode}`)}
+                            </label>
+                          </div>
+                        );
+                      })}
+                    </div>
                     <div className="space-y-2">
-                      <FieldLabel htmlFor="image-storage-mode">
-                        {t("image-storage-mode")}
+                      <FieldLabel htmlFor="image-storage-mode-default">
+                        {t("image-storage-mode-default")}
                       </FieldLabel>
                       <Select
                         value={settings.image_storage_mode}
                         onValueChange={(v) =>
                           setSettings({
                             ...settings,
-                            image_storage_mode: v as
-                              | "compressed"
-                              | "original"
-                              | "both",
+                            image_storage_mode: v as ImageStorageMode,
                           })
                         }
                       >
-                        <SelectTrigger id="image-storage-mode" className="w-64">
+                        <SelectTrigger
+                          id="image-storage-mode-default"
+                          className="w-64"
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="compressed">
-                            {t("image-storage-mode-compressed")}
-                          </SelectItem>
-                          <SelectItem value="original">
-                            {t("image-storage-mode-original")}
-                          </SelectItem>
-                          <SelectItem value="both">
-                            {t("image-storage-mode-both")}
-                          </SelectItem>
+                          {settings.image_storage_allowed_modes.map((mode) => (
+                            <SelectItem key={mode} value={mode}>
+                              {t(`image-storage-mode-${mode}`)}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground">
-                        {t("image-storage-mode-hint")}
+                        {t("image-storage-mode-default-hint")}
                       </p>
                     </div>
                   </div>

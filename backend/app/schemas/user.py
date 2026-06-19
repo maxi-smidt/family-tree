@@ -39,10 +39,10 @@ class CurrentUserOut(UserOut):
 
     features: list[str] = []
     totp_enabled: bool = False
-    # Effective storage mode (user preference clamped to admin ceiling) and
-    # the admin ceiling itself, so the frontend can filter available options.
+    # Effective storage mode (user preference or admin default) and the
+    # admin-allowed set so the frontend can filter available options.
     image_storage_mode: ImageStorageMode = "compressed"
-    image_storage_mode_max: ImageStorageMode = "compressed"
+    image_storage_allowed_modes: list[ImageStorageMode] = ["compressed"]
 
 
 class UserPreferences(BaseModel):

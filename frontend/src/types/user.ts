@@ -19,10 +19,10 @@ export interface User {
   /** Per-user storage quota overrides (null = use instance default; 0 = unlimited). */
   tree_quota_bytes?: number | null;
   media_quota_bytes?: number | null;
-  /** Effective gallery image storage mode (user pref clamped to admin ceiling). */
+  /** Effective gallery image storage mode (user pref or admin default). */
   image_storage_mode?: ImageStorageMode;
-  /** Admin ceiling — the maximum mode the user may select. */
-  image_storage_mode_max?: ImageStorageMode;
+  /** Modes the admin has explicitly allowed; user may only pick from these. */
+  image_storage_allowed_modes?: ImageStorageMode[];
 }
 
 export interface AuthConfig {
@@ -35,7 +35,8 @@ export interface AuthConfig {
     max_document_bytes: number;
     stored_image_width: number;
     stored_image_height: number;
-    image_storage_mode: "compressed" | "original" | "both";
+    image_storage_mode: ImageStorageMode;
+    image_storage_allowed_modes: ImageStorageMode[];
   };
 }
 

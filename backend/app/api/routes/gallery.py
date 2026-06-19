@@ -95,7 +95,9 @@ def create_image(
         limits = limits.model_copy(
             update={
                 "image_storage_mode": effective_storage_mode(
-                    limits.image_storage_mode, user_mode
+                    limits.image_storage_mode,
+                    limits.image_storage_allowed_modes,
+                    user_mode,
                 )
             }
         )

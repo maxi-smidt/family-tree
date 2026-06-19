@@ -5,7 +5,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import TabPreferences, UserPreferences
-from app.services.settings_service import allowed_storage_modes, get_media_limits
+from app.services.settings_service import get_media_limits
 
 router = APIRouter(prefix="/users/me/preferences", tags=["preferences"])
 
@@ -50,13 +50,11 @@ def put_user_preferences(
 ):
     if payload.image_storage_mode is not None:
         limits = get_media_limits(db)
-        if payload.image_storage_mode not in allowed_storage_modes(
-            limits.image_storage_mode
-        ):
+        if payload.image_storage_mode not in limits.image_storage_allowed_modes:
             raise HTTPException(
                 status_code=400,
                 detail=f"image_storage_mode '{payload.image_storage_mode}' is not "
-                f"permitted by the instance setting '{limits.image_storage_mode}'.",
+                f"in the allowed modes {limits.image_storage_allowed_modes}.",
             )
     prefs = dict(user.preferences or {})
     if payload.image_storage_mode is None:

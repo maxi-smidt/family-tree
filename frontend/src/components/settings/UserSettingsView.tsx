@@ -27,17 +27,6 @@ import { UserPreferencesService } from "@/services/UserPreferencesService";
 import type { ImageStorageMode } from "@/types/user";
 import { toast } from "sonner";
 
-const STORAGE_MODE_ORDER: ImageStorageMode[] = [
-  "compressed",
-  "both",
-  "original",
-];
-
-function allowedModes(max: ImageStorageMode): ImageStorageMode[] {
-  const idx = STORAGE_MODE_ORDER.indexOf(max);
-  return idx >= 0 ? STORAGE_MODE_ORDER.slice(0, idx + 1) : ["compressed"];
-}
-
 export const UserSettingsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "user-settings" });
   const closeSettings = useUserSettingsViewStore((s) => s.closeSettings);
@@ -46,9 +35,9 @@ export const UserSettingsView = () => {
 
   const effectiveMode: ImageStorageMode =
     user?.image_storage_mode ?? "compressed";
-  const maxMode: ImageStorageMode =
-    user?.image_storage_mode_max ?? "compressed";
-  const modes = allowedModes(maxMode);
+  const modes: ImageStorageMode[] = user?.image_storage_allowed_modes ?? [
+    "compressed",
+  ];
 
   const [selectedMode, setSelectedMode] =
     useState<ImageStorageMode>(effectiveMode);
