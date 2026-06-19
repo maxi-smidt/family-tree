@@ -7,7 +7,6 @@ import {
   RefreshCw,
   ShieldCheck,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { ViewLayout } from "@/components/layout/ViewLayout";
@@ -106,38 +105,22 @@ export const QualityReportView = () => {
 
   return (
     <ViewLayout title={t("title")}>
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div className="flex items-center gap-3">
-          {issues.length > 0 && (
-            <>
-              {errorCount > 0 && (
-                <span className="flex items-center gap-1 text-sm text-destructive">
-                  <AlertCircle className="w-4 h-4" />
-                  {t("count-errors", { count: errorCount })}
-                </span>
-              )}
-              {warningCount > 0 && (
-                <span className="flex items-center gap-1 text-sm text-yellow-600 dark:text-yellow-400">
-                  <AlertTriangle className="w-4 h-4" />
-                  {t("count-warnings", { count: warningCount })}
-                </span>
-              )}
-            </>
+      {issues.length > 0 && (
+        <div className="flex items-center gap-3 mb-4">
+          {errorCount > 0 && (
+            <span className="flex items-center gap-1 text-sm text-destructive">
+              <AlertCircle className="w-4 h-4" />
+              {t("count-errors", { count: errorCount })}
+            </span>
+          )}
+          {warningCount > 0 && (
+            <span className="flex items-center gap-1 text-sm text-yellow-600 dark:text-yellow-400">
+              <AlertTriangle className="w-4 h-4" />
+              {t("count-warnings", { count: warningCount })}
+            </span>
           )}
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 gap-1.5 text-xs"
-          onClick={() => refreshReport()}
-          disabled={isLoading}
-        >
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`}
-          />
-          {t("refresh")}
-        </Button>
-      </div>
+      )}
 
       {isLoading && !report ? (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
