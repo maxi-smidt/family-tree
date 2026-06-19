@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/empty";
 import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
+import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
 
 export const NoDatabasePlaceholder = () => {
@@ -24,6 +25,7 @@ export const NoDatabasePlaceholder = () => {
     isOpen: boolean;
     resolve: (password: string | null | undefined) => void;
   } | null>(null);
+  const tutorialRunning = useTutorialStore((s) => s.isRunning);
   const { importDatabase, inspectImport } = useTreeManager();
 
   const askPassword = () =>
@@ -55,6 +57,7 @@ export const NoDatabasePlaceholder = () => {
         isOpen={isCreateDialogOpen}
         onConfirm={() => setIsCreateDialogOpen(false)}
         onCancel={() => setIsCreateDialogOpen(false)}
+        disableCancel={tutorialRunning}
       />
       <PasswordDialog
         isOpen={!!passwordDialogState?.isOpen}

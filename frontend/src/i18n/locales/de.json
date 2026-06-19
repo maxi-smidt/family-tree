@@ -1463,7 +1463,11 @@
     },
     "create-tree": {
       "title": "Ersten Stammbaum erstellen",
-      "body": "Klicke auf Weiter (oder direkt auf den Button), um den Erstellungsdialog zu oeffnen - wir fuehren dich durch die Benennung deines Stammbaums."
+      "body": "Klicke auf Weiter (oder direkt auf den Button), um den Erstellungsdialog zu oeffnen. Wir fuehren dich durch die Benennung deines Stammbaums."
+    },
+    "existing-tree": {
+      "title": "Mit diesem Stammbaum fortfahren",
+      "body": "Du hast bereits einen Stammbaum ausgewaehlt. Deshalb ueberspringen wir die Einrichtung und zeigen dir direkt die taeglichen Werkzeuge."
     },
     "add-member": {
       "title": "Erste Person hinzufügen",

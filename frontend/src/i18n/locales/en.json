@@ -1463,7 +1463,11 @@
     },
     "create-tree": {
       "title": "Create your first tree",
-      "body": "Click Weiter (or the button itself) to open the create dialog — we will guide you through naming your tree."
+      "body": "Click Next (or the button itself) to open the create dialog. We will guide you through naming your tree."
+    },
+    "existing-tree": {
+      "title": "Continue with this tree",
+      "body": "You already have a tree selected, so we will skip setup and jump straight into the everyday tools."
     },
     "add-member": {
       "title": "Add your first person",

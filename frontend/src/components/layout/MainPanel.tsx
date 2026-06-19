@@ -215,7 +215,10 @@ export const MainPanel = () => {
       onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
-      <div className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2">
+      <div
+        className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2"
+        data-tutorial="views-tabs-mobile"
+      >
         <Select value={activeTab} onValueChange={handleTabChange}>
           <SelectTrigger className="h-10 flex-1 bg-background shadow-xs">
             <SelectValue />

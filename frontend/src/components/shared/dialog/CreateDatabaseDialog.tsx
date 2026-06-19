@@ -19,12 +19,14 @@ type Props = {
   isOpen: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  disableCancel?: boolean;
 };
 
 export const CreateDatabaseDialog = ({
   isOpen,
   onConfirm,
   onCancel,
+  disableCancel = false,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.create-database",
@@ -34,8 +36,20 @@ export const CreateDatabaseDialog = ({
   const createTree = useTreeStore((s) => s.createTree);
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancellation()}>
-      <DialogContent data-tutorial="create-dialog">
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => !open && !disableCancel && onCancellation()}
+    >
+      <DialogContent
+        data-tutorial="create-dialog"
+        showCloseButton={!disableCancel}
+        onEscapeKeyDown={(event) => {
+          if (disableCancel) event.preventDefault();
+        }}
+        onInteractOutside={(event) => {
+          if (disableCancel) event.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -56,11 +70,17 @@ export const CreateDatabaseDialog = ({
           </div>
         </div>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" size="sm" onClick={onCancellation}>
+          {disableCancel ? (
+            <Button variant="outline" size="sm" disabled>
               {t("cancel")}
             </Button>
-          </DialogClose>
+          ) : (
+            <DialogClose asChild>
+              <Button variant="outline" size="sm">
+                {t("cancel")}
+              </Button>
+            </DialogClose>
+          )}
           <Button
             variant="success"
             size="sm"
