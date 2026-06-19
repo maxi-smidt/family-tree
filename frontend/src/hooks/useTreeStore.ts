@@ -24,10 +24,10 @@ export const isVirtualId = (id: string) => id.startsWith("vv_");
 interface DatabaseMetaData {
   id?: string;
   name?: string;
-  created_at?: string;
-  last_opened?: string;
-  has_layout?: boolean;
-  overlap_count?: number;
+  createdAt?: string;
+  lastOpened?: string;
+  hasLayout?: boolean;
+  overlapCount?: number;
 }
 
 interface DatabaseState {
@@ -66,7 +66,7 @@ interface DatabaseState {
   deleteVirtualView: (view: Tree) => Promise<void>;
   recomputeMatches: (
     view: Tree,
-  ) => Promise<{ group_count: number; merged_member_count: number }>;
+  ) => Promise<{ groupCount: number; mergedMemberCount: number }>;
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -260,7 +260,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
 
     // Virtual trees are read-only composites: auto-arrange the layout only
     // until the user saves an alignment overlay, then respect it.
-    if (virtual && get().metadata.has_layout !== true) {
+    if (virtual && get().metadata.hasLayout !== true) {
       await useMemberStore.getState().updateLayout();
     }
     set({ isReady: true });

@@ -396,7 +396,7 @@ class TestServiceRoundTrip:
 
 def _post_member(client, tree_id: str, headers: dict, **kw) -> dict:
     mid = str(uuid4())
-    payload = {"id": mid, "first_name": "Test", "last_name": "Person", "gender": "f"}
+    payload = {"id": mid, "firstName": "Test", "lastName": "Person", "gender": "f"}
     payload.update(kw)
     resp = client.post(f"{API}/trees/{tree_id}/members", headers=headers, json=payload)
     assert resp.status_code == 201, resp.text
@@ -433,15 +433,15 @@ def test_api_gedcom_round_trip(client, db):
 
     # Add members.
     father = _post_member(client, tree_id, headers,
-                          first_name="George", middle_names="Albert",
-                          baptismal_name="Georgius", last_name="Brown",
-                          gender="m", date_of_birth="1940")
+                          firstName="George", middleNames="Albert",
+                          baptismalName="Georgius", lastName="Brown",
+                          gender="m", dateOfBirth="1940")
     mother = _post_member(client, tree_id, headers,
-                          first_name="Helen", last_name="Brown", gender="f",
-                          date_of_birth="1945-06")
+                          firstName="Helen", lastName="Brown", gender="f",
+                          dateOfBirth="1945-06")
     child = _post_member(client, tree_id, headers,
-                         first_name="Paul", last_name="Brown", gender="m",
-                         date_of_birth="1968-09-01")
+                         firstName="Paul", lastName="Brown", gender="m",
+                         dateOfBirth="1968-09-01")
 
     father_id = father["id"]
     mother_id = mother["id"]
@@ -498,15 +498,15 @@ def test_api_gedcom_round_trip(client, db):
     assert len(parent_rels) == 2
 
     # Verify name is preserved.
-    names = {(m.get("first_name"), m.get("last_name")) for m in imported_members}
+    names = {(m.get("firstName"), m.get("lastName")) for m in imported_members}
     assert ("George", "Brown") in names
     assert ("Helen", "Brown") in names
     assert ("Paul", "Brown") in names
     imported_father = next(
-        m for m in imported_members if m.get("first_name") == "George"
+        m for m in imported_members if m.get("firstName") == "George"
     )
-    assert imported_father["middle_names"] == "Albert"
-    assert imported_father["baptismal_name"] == "Georgius"
+    assert imported_father["middleNames"] == "Albert"
+    assert imported_father["baptismalName"] == "Georgius"
 
 
 def test_gedcom_import_splits_standard_given_names():

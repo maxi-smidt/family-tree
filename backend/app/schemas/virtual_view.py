@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.base import CamelCaseModel
 from app.schemas.family import MemberOut
 
 
@@ -46,7 +47,7 @@ class VirtualMemberOut(MemberOut):
     is_merged: bool = False
 
 
-class VirtualPositionItem(BaseModel):
+class VirtualPositionItem(CamelCaseModel):
     id: str
     position_x: float
     position_y: float

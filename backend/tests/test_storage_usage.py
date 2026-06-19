@@ -238,7 +238,7 @@ def test_create_member_tree_quota_exceeded(client: TestClient, db: Session):
     tree = make_tree(db, owner, "SmallTree")
     resp = client.post(
         f"{API}/trees/{tree.id}/members",
-        json={"id": str(uuid4()), "first_name": "Alice"},
+        json={"id": str(uuid4()), "firstName": "Alice"},
         headers=auth(owner),
     )
     assert resp.status_code == 413

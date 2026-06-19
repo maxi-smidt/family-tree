@@ -2,7 +2,7 @@ from tests.conftest import API, auth, make_tree, make_user, share
 
 
 def _member_payload(member_id="m1", **kw):
-    base = {"id": member_id, "first_name": "Jo", "last_name": "Doe", "gender": "f"}
+    base = {"id": member_id, "firstName": "Jo", "lastName": "Doe", "gender": "f"}
     base.update(kw)
     return base
 

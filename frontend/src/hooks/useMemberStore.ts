@@ -350,13 +350,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     const merged: Member = {
       ...existing,
-      additionalData: detailRow.additional_data ?? null,
+      additionalData: detailRow.additionalData ?? null,
       birthplace: detailRow.birthplace ?? null,
       hometown: detailRow.hometown ?? null,
-      placesLived: detailRow.places_lived
+      placesLived: detailRow.placesLived
         ? (() => {
             try {
-              const parsed = JSON.parse(detailRow.places_lived);
+              const parsed = JSON.parse(detailRow.placesLived);
               return Array.isArray(parsed) ? parsed : [];
             } catch {
               return [];

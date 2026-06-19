@@ -93,14 +93,14 @@ export class MemberObject {
     };
 
     return (
-      normalizeStr(m1.academic_title) === normalizeStr(m2.academic_title) &&
-      normalizeStr(m1.first_name) === normalizeStr(m2.first_name) &&
-      normalizeStr(m1.middle_names) === normalizeStr(m2.middle_names) &&
-      normalizeStr(m1.baptismal_name) === normalizeStr(m2.baptismal_name) &&
-      normalizeStr(m1.last_name) === normalizeStr(m2.last_name) &&
+      normalizeStr(m1.academicTitle) === normalizeStr(m2.academicTitle) &&
+      normalizeStr(m1.firstName) === normalizeStr(m2.firstName) &&
+      normalizeStr(m1.middleNames) === normalizeStr(m2.middleNames) &&
+      normalizeStr(m1.baptismalName) === normalizeStr(m2.baptismalName) &&
+      normalizeStr(m1.lastName) === normalizeStr(m2.lastName) &&
       m1.gender === m2.gender &&
-      m1.date_of_birth === m2.date_of_birth &&
-      m1.date_of_death === m2.date_of_death &&
+      m1.dateOfBirth === m2.dateOfBirth &&
+      m1.dateOfDeath === m2.dateOfDeath &&
       m1.deceased === m2.deceased
     );
   }
@@ -109,32 +109,32 @@ export class MemberObject {
 export interface MemberDB {
   id: string;
   gender: string;
-  academic_title: string | null;
-  first_name: string;
-  middle_names: string | null;
-  baptismal_name: string | null;
-  last_name: string;
-  maiden_name: string | null;
-  image_data: string | null;
-  date_of_birth: string;
-  date_of_death: string | null;
-  date_of_birth_sort?: string | null;
-  date_of_death_sort?: string | null;
+  academicTitle: string | null;
+  firstName: string;
+  middleNames: string | null;
+  baptismalName: string | null;
+  lastName: string;
+  maidenName: string | null;
+  imageData: string | null;
+  dateOfBirth: string;
+  dateOfDeath: string | null;
+  dateOfBirthSort?: string | null;
+  dateOfDeathSort?: string | null;
   deceased: boolean;
-  additional_data?: string | null;
+  additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
-  places_lived?: string | null;
-  is_collapsed: number;
-  position_x: number;
-  position_y: number;
+  placesLived?: string | null;
+  isCollapsed: number;
+  positionX: number;
+  positionY: number;
   // Only present for members returned by virtual view endpoints.
-  source_tree_id?: string;
-  source_tree_name?: string;
-  source_tree_ids?: string[];
-  source_tree_names?: string[];
-  merged_from_ids?: string[];
-  is_merged?: boolean;
+  sourceTreeId?: string;
+  sourceTreeName?: string;
+  sourceTreeIds?: string[];
+  sourceTreeNames?: string[];
+  mergedFromIds?: string[];
+  isMerged?: boolean;
 }
 
 export interface RelationDB {
@@ -184,32 +184,32 @@ export function mapMemberFromDB(
   return {
     id: row.id,
     gender: (row.gender as Gender) || "o",
-    academicTitle: row.academic_title ?? null,
-    firstName: row.first_name,
-    middleNames: row.middle_names,
-    baptismalName: row.baptismal_name,
-    lastName: row.last_name,
-    maidenName: row.maiden_name,
-    imageData: row.image_data,
+    academicTitle: row.academicTitle ?? null,
+    firstName: row.firstName,
+    middleNames: row.middleNames,
+    baptismalName: row.baptismalName,
+    lastName: row.lastName,
+    maidenName: row.maidenName,
+    imageData: row.imageData,
     deceased: !!row.deceased,
     date: {
-      birth: row.date_of_birth,
-      death: row.date_of_death,
-      birthSort: row.date_of_birth_sort ?? null,
-      deathSort: row.date_of_death_sort ?? null,
+      birth: row.dateOfBirth,
+      death: row.dateOfDeath,
+      birthSort: row.dateOfBirthSort ?? null,
+      deathSort: row.dateOfDeathSort ?? null,
     },
     parents: {
       paternalParent: null,
       maternalParent: null,
     },
-    additionalData: row.additional_data ?? null,
+    additionalData: row.additionalData ?? null,
     birthplace: row.birthplace ?? null,
     hometown: row.hometown ?? null,
-    placesLived: parsePlacesLived(row.places_lived),
-    isCollapsed: !!row.is_collapsed,
+    placesLived: parsePlacesLived(row.placesLived),
+    isCollapsed: !!row.isCollapsed,
     position: {
-      x: row.position_x,
-      y: row.position_y,
+      x: row.positionX,
+      y: row.positionY,
     },
     relations: relations.map((r) => ({
       fromMemberId: r.from_member_id,
@@ -217,12 +217,12 @@ export function mapMemberFromDB(
       relationType: r.relation_type as RelationType,
     })),
     diseases: diseases,
-    sourceTreeId: row.source_tree_id,
-    sourceTreeName: row.source_tree_name,
-    sourceTreeIds: row.source_tree_ids,
-    sourceTreeNames: row.source_tree_names,
-    mergedFromIds: row.merged_from_ids,
-    isMerged: row.is_merged,
+    sourceTreeId: row.sourceTreeId,
+    sourceTreeName: row.sourceTreeName,
+    sourceTreeIds: row.sourceTreeIds,
+    sourceTreeNames: row.sourceTreeNames,
+    mergedFromIds: row.mergedFromIds,
+    isMerged: row.isMerged,
   };
 }
 
@@ -230,59 +230,25 @@ export function mapMemberToDB(member: Member): MemberDB {
   return {
     id: member.id,
     gender: member.gender,
-    academic_title: member.academicTitle ?? null,
-    first_name: member.firstName,
-    middle_names: member.middleNames,
-    baptismal_name: member.baptismalName,
-    last_name: member.lastName,
-    maiden_name: member.maidenName,
-    image_data: member.imageData,
-    date_of_birth: member.date.birth,
-    date_of_death: member.date.death,
+    academicTitle: member.academicTitle ?? null,
+    firstName: member.firstName,
+    middleNames: member.middleNames,
+    baptismalName: member.baptismalName,
+    lastName: member.lastName,
+    maidenName: member.maidenName,
+    imageData: member.imageData,
+    dateOfBirth: member.date.birth,
+    dateOfDeath: member.date.death,
     deceased: member.deceased,
-    position_x: member.position.x,
-    position_y: member.position.y,
-    additional_data: member.additionalData ? member.additionalData : null,
+    positionX: member.position.x,
+    positionY: member.position.y,
+    additionalData: member.additionalData ? member.additionalData : null,
     birthplace: member.birthplace ?? null,
     hometown: member.hometown ?? null,
-    places_lived:
+    placesLived:
       member.placesLived.length > 0 ? JSON.stringify(member.placesLived) : null,
-    is_collapsed: member.isCollapsed ? 1 : 0,
+    isCollapsed: member.isCollapsed ? 1 : 0,
   };
-}
-
-/**
- * Map a partial domain-level member update (camelCase) to the snake_case wire
- * payload accepted by the API. Only the keys present in `changes` are emitted.
- */
-export function mapMemberUpdateToDB(
-  changes: Omit<MemberUpdate, "paternalParentId" | "maternalParentId">,
-): Record<string, unknown> {
-  const keyMap: Record<string, string> = {
-    gender: "gender",
-    academicTitle: "academic_title",
-    firstName: "first_name",
-    middleNames: "middle_names",
-    baptismalName: "baptismal_name",
-    lastName: "last_name",
-    maidenName: "maiden_name",
-    imageData: "image_data",
-    dateOfBirth: "date_of_birth",
-    dateOfDeath: "date_of_death",
-    deceased: "deceased",
-    additionalData: "additional_data",
-    birthplace: "birthplace",
-    hometown: "hometown",
-    placesLived: "places_lived",
-    isCollapsed: "is_collapsed",
-    positionX: "position_x",
-    positionY: "position_y",
-  };
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(changes)) {
-    out[keyMap[key] ?? key] = value;
-  }
-  return out;
 }
 
 export function createMember(position: { x: number; y: number }): Member {

@@ -390,17 +390,17 @@ def _build_composite_members(
             pos_x = primary_m.position_x - min_x_tree + offset
             pos_y = primary_m.position_y
 
-        out = MemberOut.model_validate(primary_m).model_dump()
+        out = MemberOut.model_validate(primary_m).model_dump(by_alias=True)
         out["id"] = node_id
-        out["position_x"] = pos_x
-        out["position_y"] = pos_y
-        out["middle_names"] = coalesced_middle
-        out["baptismal_name"] = coalesced_baptismal
-        out["maiden_name"] = coalesced_maiden
-        out["image_data"] = coalesced_image
-        out["date_of_birth"] = coalesced_dob
-        out["date_of_death"] = coalesced_dod
-        out["additional_data"] = coalesced_add
+        out["positionX"] = pos_x
+        out["positionY"] = pos_y
+        out["middleNames"] = coalesced_middle
+        out["baptismalName"] = coalesced_baptismal
+        out["maidenName"] = coalesced_maiden
+        out["imageData"] = coalesced_image
+        out["dateOfBirth"] = coalesced_dob
+        out["dateOfDeath"] = coalesced_dod
+        out["additionalData"] = coalesced_add
 
         source_tree_ids = [m.tree_id for m, _ in member_rows_sorted]
         source_tree_names = [tn for _, tn in member_rows_sorted]
@@ -409,12 +409,12 @@ def _build_composite_members(
         result.append(
             VirtualMemberOut(
                 **out,
-                source_tree_id=primary_m.tree_id,
-                source_tree_name=primary_tree_name,
-                source_tree_ids=source_tree_ids,
-                source_tree_names=source_tree_names,
-                merged_from_ids=merged_from_ids if is_merged else [],
-                is_merged=is_merged,
+                sourceTreeId=primary_m.tree_id,
+                sourceTreeName=primary_tree_name,
+                sourceTreeIds=source_tree_ids,
+                sourceTreeNames=source_tree_names,
+                mergedFromIds=merged_from_ids if is_merged else [],
+                isMerged=is_merged,
             )
         )
     return result
@@ -562,7 +562,7 @@ def recompute_matches(
             )
         ).fetchall()
     )
-    return {"group_count": group_count, "merged_member_count": merged_count}
+    return {"groupCount": group_count, "mergedMemberCount": merged_count}
 
 
 # ---------------------------------------------------------------------------
@@ -606,11 +606,11 @@ def get_virtual_view_metadata(
     return {
         "id": view.id,
         "name": view.name,
-        "created_at": view.created_at,
-        "last_opened": view.last_opened,
-        "source_trees": source_trees,
-        "overlap_count": overlap_count,
-        "has_layout": has_layout,
+        "createdAt": view.created_at,
+        "lastOpened": view.last_opened,
+        "sourceTrees": source_trees,
+        "overlapCount": overlap_count,
+        "hasLayout": has_layout,
     }
 
 

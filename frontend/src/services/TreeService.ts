@@ -15,7 +15,6 @@ import {
   RelationType,
   RelationTypeDB,
   mapMemberToDB,
-  mapMemberUpdateToDB,
 } from "@/types/member";
 import { MergePreviewResult } from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
@@ -74,10 +73,7 @@ export class TreeService {
     changes: Omit<MemberUpdate, "paternalParentId" | "maternalParentId">,
   ) {
     if (Object.keys(changes).length === 0) return Promise.resolve();
-    return api.patch(
-      `${base(treeId)}/members/${id}`,
-      mapMemberUpdateToDB(changes),
-    );
+    return api.patch(`${base(treeId)}/members/${id}`, changes);
   }
 
   static updateMemberPosition(
@@ -87,8 +83,8 @@ export class TreeService {
     y: number,
   ) {
     return api.patch(`${base(treeId)}/members/${id}`, {
-      position_x: x,
-      position_y: y,
+      positionX: x,
+      positionY: y,
     });
   }
 
@@ -98,14 +94,7 @@ export class TreeService {
     positions: { id: string; positionX: number; positionY: number }[],
   ) {
     if (positions.length === 0) return Promise.resolve();
-    return api.patch(
-      `${base(treeId)}/members/positions`,
-      positions.map((p) => ({
-        id: p.id,
-        position_x: p.positionX,
-        position_y: p.positionY,
-      })),
-    );
+    return api.patch(`${base(treeId)}/members/positions`, positions);
   }
 
   /** Persist collapse/expand state for many members in a single request. */
@@ -114,10 +103,7 @@ export class TreeService {
     updates: { id: string; isCollapsed: boolean }[],
   ) {
     if (updates.length === 0) return Promise.resolve();
-    return api.patch(
-      `${base(treeId)}/members/collapsed`,
-      updates.map((u) => ({ id: u.id, is_collapsed: u.isCollapsed })),
-    );
+    return api.patch(`${base(treeId)}/members/collapsed`, updates);
   }
 
   static addRelation(
@@ -165,11 +151,11 @@ export class TreeService {
   ) {
     return api.post(`${base(treeId)}/gallery/images`, {
       id,
-      image_data: image.imageData,
+      imageData: image.imageData,
       title: image.title,
       description: image.description,
-      created_at: now,
-      uploaded_at: now,
+      createdAt: now,
+      uploadedAt: now,
       member_ids: image.linkedMemberIds ?? [],
     });
   }
@@ -190,7 +176,7 @@ export class TreeService {
     changes: Partial<GalleryImage>,
   ) {
     const body: Record<string, unknown> = {};
-    if (changes.imageData !== undefined) body.image_data = changes.imageData;
+    if (changes.imageData !== undefined) body.imageData = changes.imageData;
     if (changes.title !== undefined) body.title = changes.title;
     if (changes.description !== undefined)
       body.description = changes.description;
@@ -619,7 +605,7 @@ export class TreeService {
   }
 
   static recomputeVirtualViewMatches(id: string) {
-    return api.post<{ group_count: number; merged_member_count: number }>(
+    return api.post<{ groupCount: number; mergedMemberCount: number }>(
       `/virtual-views/${id}/recompute-matches`,
       {},
     );

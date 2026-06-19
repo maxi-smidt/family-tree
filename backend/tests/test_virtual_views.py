@@ -242,16 +242,16 @@ def test_members_returns_union_with_source_tags(client: TestClient, db: Session)
 
     by_id = {m["id"]: m for m in members}
     # Non-merged members keep their original ids and source tags
-    assert by_id["m1"]["source_tree_id"] == tree_a.id
-    assert by_id["m1"]["source_tree_name"] == "Paternal"
-    assert by_id["m2"]["source_tree_id"] == tree_b.id
-    assert by_id["m2"]["source_tree_name"] == "Maternal"
+    assert by_id["m1"]["sourceTreeId"] == tree_a.id
+    assert by_id["m1"]["sourceTreeName"] == "Paternal"
+    assert by_id["m2"]["sourceTreeId"] == tree_b.id
+    assert by_id["m2"]["sourceTreeName"] == "Maternal"
 
-    # The merged node has a vm_ id and is_merged=True
-    merged = [m for m in members if m.get("is_merged")]
+    # The merged node has a vm_ id and isMerged=True
+    merged = [m for m in members if m.get("isMerged")]
     assert len(merged) == 1
     assert merged[0]["id"].startswith("vm_")
-    assert set(merged[0]["source_tree_ids"]) == {tree_a.id, tree_b.id}
+    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id}
 
 
 def test_relations_returns_union(client: TestClient, db: Session):
@@ -294,7 +294,7 @@ def test_merged_node_keeps_parents_from_secondary_tree(
     members = client.get(
         f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
     ).json()
-    merged_id = next(m["id"] for m in members if m["is_merged"])
+    merged_id = next(m["id"] for m in members if m["isMerged"])
 
     rels = client.get(
         f"{API}/virtual-views/{view_id}/relations", headers=auth(alice)
@@ -335,7 +335,7 @@ def test_merged_node_prefers_primary_parents(client: TestClient, db: Session):
     members = client.get(
         f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
     ).json()
-    merged_id = next(m["id"] for m in members if m["is_merged"])
+    merged_id = next(m["id"] for m in members if m["isMerged"])
 
     rels = client.get(
         f"{API}/virtual-views/{view_id}/relations", headers=auth(alice)
@@ -396,9 +396,9 @@ def test_patch_sources_recomputes_matches_against_new_trees(
     members = client.get(
         f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
     ).json()
-    merged = [m for m in members if m["is_merged"]]
+    merged = [m for m in members if m["isMerged"]]
     assert len(merged) == 1
-    assert set(merged[0]["source_tree_ids"]) == {tree_a.id, tree_b.id, tree_c.id}
+    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id, tree_c.id}
 
 
 def test_delete_view_leaves_source_trees_intact(client: TestClient, db: Session):
@@ -474,9 +474,9 @@ def test_virtual_view_can_source_another_virtual_view(
     members = client.get(
         f"{API}/virtual-views/{data['id']}/members", headers=auth(alice)
     ).json()
-    merged = [m for m in members if m["is_merged"]]
+    merged = [m for m in members if m["isMerged"]]
     assert len(merged) == 1
-    assert set(merged[0]["source_tree_ids"]) == {tree_a.id, tree_b.id, tree_c.id}
+    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id, tree_c.id}
 
 
 def test_cycle_rejected_on_update(client: TestClient, db: Session):
@@ -587,7 +587,7 @@ def test_composite_gallery_and_events_remap_member_links(
     members = client.get(
         f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
     ).json()
-    merged_id = next(m["id"] for m in members if m["is_merged"])
+    merged_id = next(m["id"] for m in members if m["isMerged"])
 
     imgs = client.get(
         f"{API}/virtual-views/{view_id}/gallery/images", headers=auth(alice)

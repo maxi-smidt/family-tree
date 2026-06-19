@@ -1,19 +1,20 @@
 """Schemas mirroring the frontend `MemberDB`, `RelationDB`, `DiseaseDB`
 contracts so the React data layer keeps working unchanged.
 
-The API speaks snake_case end to end: the DB columns are snake_case and the
-schemas expose the same field names verbatim (no camelCase aliases).  Output
-schemas use ``from_attributes=True`` so they can be built straight from ORM
-objects.
+DB columns are snake_case; `MemberOut`/`MemberCreate` and related member schemas
+expose camelCase automatically via the ``CamelCaseModel`` /
+``CamelCaseOrmModel`` alias-generator base classes.  Relation, disease, and
+other schemas intentionally stay snake_case because the frontend reads them
+as-is.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.base import CamelCaseModel, CamelCaseOrmModel
+
 
 # --- Members ---------------------------------------------------------------
-class MemberOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class MemberOut(CamelCaseOrmModel):
     id: str
     gender: str | None = None
     academic_title: str | None = None
@@ -37,9 +38,7 @@ class MemberOut(BaseModel):
     position_y: float = 0
 
 
-class MemberSurfaceOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class MemberSurfaceOut(CamelCaseOrmModel):
     id: str
     gender: str | None = None
     academic_title: str | None = None
@@ -59,7 +58,7 @@ class MemberSurfaceOut(BaseModel):
     position_y: float = 0
 
 
-class MemberCreate(BaseModel):
+class MemberCreate(CamelCaseModel):
     id: str
     gender: str | None = None
     academic_title: str | None = None
@@ -81,7 +80,7 @@ class MemberCreate(BaseModel):
     position_y: float = 0
 
 
-class MemberUpdate(BaseModel):
+class MemberUpdate(CamelCaseModel):
     gender: str | None = None
     academic_title: str | None = None
     first_name: str | None = None
@@ -102,7 +101,7 @@ class MemberUpdate(BaseModel):
     position_y: float | None = None
 
 
-class MemberPositionUpdate(BaseModel):
+class MemberPositionUpdate(CamelCaseModel):
     """One entry in a bulk position update (used after a re-layout / drag)."""
 
     id: str
@@ -110,7 +109,7 @@ class MemberPositionUpdate(BaseModel):
     position_y: float
 
 
-class MemberCollapsedUpdate(BaseModel):
+class MemberCollapsedUpdate(CamelCaseModel):
     """One entry in a bulk collapsed-state update (expand-all / collapse-selected)."""
 
     id: str

@@ -198,7 +198,7 @@ def test_invited_viewer_cannot_write(client, db):
 
     r = client.post(
         f"{API}/trees/{tree.id}/members",
-        json={"id": "m-test-1", "first_name": "Test"},
+        json={"id": "m-test-1", "firstName": "Test"},
         headers=auth(bob),
     )
     assert r.status_code == 403
@@ -214,7 +214,7 @@ def test_invited_editor_can_write(client, db):
 
     r = client.post(
         f"{API}/trees/{tree.id}/members",
-        json={"id": "m-test-1", "first_name": "Test"},
+        json={"id": "m-test-1", "firstName": "Test"},
         headers=auth(bob),
     )
     assert r.status_code == 201

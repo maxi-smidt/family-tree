@@ -17,24 +17,24 @@ import {
  * Mirrors the backend's _CONFLICT_FIELDS list.
  */
 export const RESOLVABLE_FIELDS: readonly string[] = [
-  "middle_names",
-  "baptismal_name",
-  "maiden_name",
+  "middleNames",
+  "baptismalName",
+  "maidenName",
   "birthplace",
   "hometown",
-  "places_lived",
-  "additional_data",
-  "image_data",
-  "date_of_birth",
-  "date_of_death",
+  "placesLived",
+  "additionalData",
+  "imageData",
+  "dateOfBirth",
+  "dateOfDeath",
 ];
 
 /**
  * Fields for which the "Combine" option makes sense (free-form text).
  */
 export const COMBINABLE_FIELDS: readonly string[] = [
-  "additional_data",
-  "places_lived",
+  "additionalData",
+  "placesLived",
 ];
 
 /**
@@ -98,7 +98,7 @@ export function buildPairKey(idA: string, idB: string): string {
  * Human-readable display label for a member (first + last name).
  */
 export function memberDisplayName(m: MemberDB): string {
-  return [m.first_name, m.last_name].filter(Boolean).join(" ") || "(unknown)";
+  return [m.firstName, m.lastName].filter(Boolean).join(" ") || "(unknown)";
 }
 
 /**
