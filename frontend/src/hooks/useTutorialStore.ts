@@ -7,7 +7,7 @@ interface TutorialState {
   isRunning: boolean;
   load: () => Promise<void>;
   start: () => void;
-  finish: (opts: { skipped: boolean }) => void;
+  finish: () => void;
 }
 
 export const useTutorialStore = create<TutorialState>((set, get) => ({
@@ -29,10 +29,8 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
     set({ isRunning: true });
   },
 
-  finish({ skipped }) {
-    set({ isRunning: false, completed: !skipped });
-    if (!skipped) {
-      UserPreferencesService.setTutorialCompleted(true).catch(() => undefined);
-    }
+  finish() {
+    set({ isRunning: false, completed: true });
+    UserPreferencesService.setTutorialCompleted(true).catch(() => undefined);
   },
 }));

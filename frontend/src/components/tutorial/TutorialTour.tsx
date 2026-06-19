@@ -21,20 +21,21 @@ export const TutorialTour = () => {
     navigateTo("tree-view");
     setSidebarOpen(false);
 
-    let skipped = false;
+    // Guard against onDestroyed firing during React effect cleanup.
+    let finished = false;
 
     const driverObj = driver({
       showProgress: true,
       animate: true,
+      allowClose: false,
+      showButtons: ["next", "previous"],
       nextBtnText: t("buttons.next"),
       prevBtnText: t("buttons.prev"),
       doneBtnText: t("buttons.done"),
-      onCloseClick: (_, __, { driver: d }) => {
-        skipped = true;
-        d.destroy();
-      },
       onDestroyed: () => {
-        finish({ skipped });
+        if (finished) return;
+        finished = true;
+        finish();
       },
       steps: [
         // 1 — Welcome
@@ -130,6 +131,7 @@ export const TutorialTour = () => {
     driverObj.drive();
 
     return () => {
+      finished = true; // Prevent onDestroyed from marking tour complete on unmount
       driverObj.destroy();
       driverRef.current = null;
     };
