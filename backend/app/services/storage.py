@@ -152,10 +152,11 @@ def delete_media(value: str | None) -> None:
         if settings.media_root.resolve() not in path.parents:
             return
         path.unlink(missing_ok=True)
-        # Remove the original-file sibling produced by "both" mode, if present.
-        stem = path.stem
-        for sibling in path.parent.glob(f"{stem}.orig.*"):
-            sibling.unlink(missing_ok=True)
+        # Remove the original stored in the originals/ subdir by "both" mode.
+        originals_dir = path.parent / "originals"
+        if originals_dir.is_dir():
+            for orig in originals_dir.glob(f"{path.stem}.*"):
+                orig.unlink(missing_ok=True)
     except OSError:
         pass
 
@@ -163,6 +164,18 @@ def delete_media(value: str | None) -> None:
 def _tree_media_dir(tree_id: str):
     path = settings.media_root / tree_id
     path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _originals_dir(tree_id: str):
+    """Return (and create) the ``originals/`` subdirectory for *tree_id*.
+
+    Gallery originals stored in ``"both"`` mode land here as
+    ``<uuid>.<ext>`` so they share the same stem as the display WebP in the
+    parent directory but are kept in their own namespace.
+    """
+    path = _tree_media_dir(tree_id) / "originals"
+    path.mkdir(exist_ok=True)
     return path
 
 
@@ -242,8 +255,7 @@ def store_data_url(
         display_raw, display_ext = _normalize_image(raw, orig_ext, limits)
         display_filename = f"{stem}.{display_ext}"
         (tree_dir / display_filename).write_bytes(display_raw)
-        orig_filename = f"{stem}.orig.{orig_ext}"
-        (tree_dir / orig_filename).write_bytes(raw)
+        (_originals_dir(tree_id) / f"{stem}.{orig_ext}").write_bytes(raw)
         return f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}"
 
     # Default: "compressed"
@@ -353,10 +365,13 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     filename = f"{new_stem}.{ext}"
     dest_dir = _tree_media_dir(new_tree_id)
     shutil.copyfile(src, dest_dir / filename)
-    # Copy the original-file sibling produced by "both" mode, if present.
-    for orig_sibling in src.parent.glob(f"{src.stem}.orig.*"):
-        orig_ext = orig_sibling.suffix.lstrip(".") or "bin"
-        shutil.copyfile(orig_sibling, dest_dir / f"{new_stem}.orig.{orig_ext}")
+    # Copy the original stored in the originals/ subdir by "both" mode.
+    src_originals = src.parent / "originals"
+    if src_originals.is_dir():
+        for orig_src in src_originals.glob(f"{src.stem}.*"):
+            orig_ext = orig_src.suffix.lstrip(".") or "bin"
+            dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
+            shutil.copyfile(orig_src, dest)
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 

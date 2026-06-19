@@ -7,7 +7,6 @@ columns (NULL → fall back to instance default; 0 or None after fallback = unli
 
 from __future__ import annotations
 
-import os
 from typing import Literal
 
 import sqlalchemy as sa
@@ -116,24 +115,23 @@ def _tree_model_bytes(db: Session, tree_id: str) -> int:
 
 
 def _media_bytes(tree_id: str) -> int:
-    """Sum on-disk file sizes directly under ``media_root/<tree_id>/``.
+    """Sum on-disk file sizes under ``media_root/<tree_id>/``.
 
-    All tree media is stored as flat files in this single directory, so a
-    one-level scan is sufficient. Returns 0 when the directory does not exist
-    (e.g. tree has no media).
+    Counts files in the tree directory and in the ``originals/`` subdirectory
+    used by gallery ``"both"`` mode. Returns 0 when the directory does not
+    exist (e.g. tree has no media).
     """
     tree_dir = settings.media_root / tree_id
     if not tree_dir.is_dir():
         return 0
     total = 0
     try:
-        with os.scandir(tree_dir) as it:
-            for entry in it:
-                if entry.is_file(follow_symlinks=False):
-                    try:
-                        total += entry.stat().st_size
-                    except OSError:
-                        pass
+        for entry in tree_dir.rglob("*"):
+            if entry.is_file(follow_symlinks=False):
+                try:
+                    total += entry.stat().st_size
+                except OSError:
+                    pass
     except OSError:
         pass
     return total
