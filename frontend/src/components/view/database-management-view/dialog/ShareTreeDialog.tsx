@@ -91,6 +91,8 @@ export const ShareTreeDialog = ({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [transferTo, setTransferTo] = useState("");
   const [confirmTransferOpen, setConfirmTransferOpen] = useState(false);
+  const [retainAccess, setRetainAccess] = useState(false);
+  const [retainRole, setRetainRole] = useState<ShareRole>("viewer");
 
   // Invitations state
   const [invitations, setInvitations] = useState<TreeInvitation[]>([]);
@@ -136,6 +138,8 @@ export const ShareTreeDialog = ({
     if (isOpen) {
       setStaged([]);
       setTransferTo("");
+      setRetainAccess(false);
+      setRetainRole("viewer");
       setInviteEmail("");
       setInviteRole("editor");
       setInviteExpiry("never");
@@ -218,13 +222,68 @@ export const ShareTreeDialog = ({
     }
   };
 
+  const showUndoToast = (
+    treeId: string,
+    treeName: string,
+    username: string,
+    undoAvailableUntil: string,
+  ) => {
+    const deadline = new Date(undoAvailableUntil).getTime();
+    const toastId = `transfer-undo-${treeId}`;
+
+    const renderToast = () => {
+      const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+      if (remaining <= 0) {
+        toast.dismiss(toastId);
+        return;
+      }
+      toast(t("transfer-undo-title"), {
+        id: toastId,
+        description: t("transfer-undo-description", {
+          name: treeName,
+          username,
+        }),
+        duration: deadline - Date.now() + 500,
+        action: {
+          label: t("transfer-undo-button", { seconds: remaining }),
+          onClick: () => {
+            void TreeSharingService.revertTransfer(treeId)
+              .then(() => {
+                toast.success(t("transfer-reverted"));
+              })
+              .catch(() => {
+                toast.error(t("transfer-revert-error"));
+              });
+          },
+        },
+      });
+      if (remaining > 0) {
+        setTimeout(renderToast, 1000);
+      }
+    };
+    renderToast();
+  };
+
   const handleTransfer = async () => {
     try {
-      await TreeSharingService.transferOwnership(tree.id, transferTo);
+      const result = await TreeSharingService.transferOwnership(
+        tree.id,
+        transferTo,
+        retainAccess ? retainRole : undefined,
+      );
       setConfirmTransferOpen(false);
       setTransferTo("");
-      toast.success(t("transfer-success"));
       onClose();
+      if (result.undo_available_until) {
+        showUndoToast(
+          tree.id,
+          tree.name,
+          transferTo,
+          result.undo_available_until,
+        );
+      } else {
+        toast.success(t("transfer-success"));
+      }
     } catch (err) {
       console.error(err);
       toast.error(t("transfer-error"));
@@ -700,6 +759,37 @@ export const ShareTreeDialog = ({
                 {t("transfer-button")}
               </Button>
             </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm">{t("transfer-retain-toggle")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("transfer-retain-hint")}
+                </p>
+              </div>
+              <Switch
+                checked={retainAccess}
+                onCheckedChange={setRetainAccess}
+              />
+            </div>
+            {retainAccess && (
+              <div className="flex items-center gap-2">
+                <p className="text-sm flex-1">
+                  {t("transfer-retain-role-label")}
+                </p>
+                <Select
+                  value={retainRole}
+                  onValueChange={(v) => setRetainRole(v as ShareRole)}
+                >
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">{t("role-viewer")}</SelectItem>
+                    <SelectItem value="editor">{t("role-editor")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>

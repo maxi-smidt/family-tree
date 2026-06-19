@@ -41,6 +41,14 @@ class TreeTransfer(BaseModel):
     """Hand a tree's ownership to another (active) user."""
 
     username: str
+    retain_role: str | None = None  # "viewer" | "editor" | None
+
+
+class TreeTransferResult(BaseModel):
+    """Result of a successful ownership transfer."""
+
+    access: list[TreeMemberOut]
+    undo_available_until: str | None = None
 
 
 class TreeMerge(BaseModel):
