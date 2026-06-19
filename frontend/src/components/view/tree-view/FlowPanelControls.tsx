@@ -83,7 +83,12 @@ export const FlowPanelControls = ({
       )}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="secondary" size="icon" onClick={() => zoomIn()}>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => zoomIn()}
+            aria-label={t("zoom-in")}
+          >
             <Plus />
           </Button>
         </TooltipTrigger>
@@ -91,7 +96,12 @@ export const FlowPanelControls = ({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="secondary" size="icon" onClick={() => zoomOut()}>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => zoomOut()}
+            aria-label={t("zoom-out")}
+          >
             <Minus />
           </Button>
         </TooltipTrigger>
@@ -99,7 +109,12 @@ export const FlowPanelControls = ({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="secondary" size="icon" onClick={() => fitView()}>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => fitView()}
+            aria-label={t("fit-view")}
+          >
             <Maximize />
           </Button>
         </TooltipTrigger>
@@ -134,6 +149,9 @@ export const FlowPanelControls = ({
               variant={isLockedScreen ? "default" : "secondary"}
               size="icon"
               onClick={() => setIsLockedScreen(!isLockedScreen)}
+              aria-label={
+                isLockedScreen ? t("unlock-canvas") : t("lock-canvas")
+              }
             >
               {isLockedScreen ? <Lock /> : <LockOpen />}
             </Button>
