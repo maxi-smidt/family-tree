@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   KeyRound,
   LogOut,
+  Settings,
   Shield,
   ShieldCheck,
   SlidersHorizontal,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
+import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
 import { DeleteAccountDialog } from "@/components/auth/DeleteAccountDialog";
 import { TabSettingsDialog } from "@/components/auth/TabSettingsDialog";
@@ -30,6 +32,7 @@ export const UserMenu = () => {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
   const openAdmin = useAdminViewStore((s) => s.openAdmin);
+  const openSettings = useUserSettingsViewStore((s) => s.openSettings);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -70,6 +73,10 @@ export const UserMenu = () => {
           <DropdownMenuItem onClick={() => setTabSettingsOpen(true)}>
             <SlidersHorizontal className="h-4 w-4" />
             {t("customize-tabs")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => openSettings()}>
+            <Settings className="h-4 w-4" />
+            {t("settings")}
           </DropdownMenuItem>
           {user.is_admin && (
             <DropdownMenuItem onClick={() => openAdmin()}>

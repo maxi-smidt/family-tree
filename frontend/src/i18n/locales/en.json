@@ -1053,7 +1053,8 @@
       "admin": "Administration",
       "delete-account": "Delete my account",
       "logout": "Log out",
-      "two-factor": "Two-factor authentication"
+      "two-factor": "Two-factor authentication",
+      "settings": "Settings"
     },
     "friends": {
       "title": "Friends",
@@ -1371,5 +1372,19 @@
     "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
     "toast-error-quota-tree": "Tree data quota exceeded."
+  },
+  "user-settings": {
+    "title": "Settings",
+    "save": "Save",
+    "toast-saved": "Settings saved.",
+    "toast-error": "Could not save settings.",
+    "image-storage": {
+      "section": "Gallery image storage",
+      "label": "Storage mode",
+      "hint": "Controls how your gallery images are stored. Available options depend on the instance configuration.",
+      "compressed": "Compressed (WebP)",
+      "original": "Original only",
+      "both": "Both (display + original)"
+    }
   }
 }

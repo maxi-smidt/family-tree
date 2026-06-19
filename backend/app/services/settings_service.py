@@ -51,6 +51,25 @@ DEFAULT_BACKUP_INTERVAL_HOURS = 24
 DEFAULT_BACKUP_RETENTION_COUNT = 7
 
 
+_STORAGE_MODE_ORDER = ["compressed", "both", "original"]
+
+
+def allowed_storage_modes(admin_mode: str) -> list[str]:
+    """Return the modes a user may choose given the admin ceiling."""
+    try:
+        idx = _STORAGE_MODE_ORDER.index(admin_mode)
+    except ValueError:
+        idx = 0
+    return _STORAGE_MODE_ORDER[: idx + 1]
+
+
+def effective_storage_mode(admin_mode: str, user_mode: str | None) -> str:
+    """Return the mode to use for a user, clamped to the admin ceiling."""
+    if user_mode and user_mode in allowed_storage_modes(admin_mode):
+        return user_mode
+    return admin_mode
+
+
 def get_setting(db: Session, key: str, default: str | None = None) -> str | None:
     row = db.get(AppSetting, key)
     return row.value if row is not None else default

@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.schemas.setting import ImageStorageMode
+
 MIN_PASSWORD_LENGTH = 8
 
 
@@ -37,6 +39,14 @@ class CurrentUserOut(UserOut):
 
     features: list[str] = []
     totp_enabled: bool = False
+    # Effective storage mode (user preference clamped to admin ceiling) and
+    # the admin ceiling itself, so the frontend can filter available options.
+    image_storage_mode: ImageStorageMode = "compressed"
+    image_storage_mode_max: ImageStorageMode = "compressed"
+
+
+class UserPreferences(BaseModel):
+    image_storage_mode: ImageStorageMode | None = None
 
 
 class UserCreate(BaseModel):

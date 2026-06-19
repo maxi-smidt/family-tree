@@ -3,9 +3,11 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
+import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
 import { Layout } from "@/components/layout/Layout";
 import { MainPanel } from "@/components/layout/MainPanel";
 import { AdminView } from "@/components/admin/AdminView";
+import { UserSettingsView } from "@/components/settings/UserSettingsView";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { UnsavedChangesGuard } from "@/components/layout/UnsavedChangesGuard";
 import { LoginPage } from "@/components/auth/LoginPage";
@@ -23,6 +25,7 @@ export const App = () => {
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const [treesBootstrapped, setTreesBootstrapped] = useState(false);
   const adminOpen = useAdminViewStore((s) => s.open);
+  const settingsOpen = useUserSettingsViewStore((s) => s.open);
 
   useEffect(() => {
     void init();
@@ -106,6 +109,8 @@ export const App = () => {
           <TooltipProvider delayDuration={500}>
             <AdminView />
           </TooltipProvider>
+        ) : settingsOpen ? (
+          <UserSettingsView />
         ) : (
           <Layout>
             <MainPanel />

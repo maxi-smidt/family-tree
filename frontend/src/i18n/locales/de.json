@@ -1053,7 +1053,8 @@
       "admin": "Verwaltung",
       "delete-account": "Konto löschen",
       "logout": "Abmelden",
-      "two-factor": "Zwei-Faktor-Authentifizierung"
+      "two-factor": "Zwei-Faktor-Authentifizierung",
+      "settings": "Einstellungen"
     },
     "friends": {
       "title": "Freunde",
@@ -1371,5 +1372,19 @@
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
     "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten."
+  },
+  "user-settings": {
+    "title": "Einstellungen",
+    "save": "Speichern",
+    "toast-saved": "Einstellungen gespeichert.",
+    "toast-error": "Einstellungen konnten nicht gespeichert werden.",
+    "image-storage": {
+      "section": "Galeriebilder-Speicherung",
+      "label": "Speichermodus",
+      "hint": "Legt fest, wie deine Galeriebilder gespeichert werden. Die verfügbaren Optionen hängen von der Instanzkonfiguration ab.",
+      "compressed": "Komprimiert (WebP)",
+      "original": "Nur Original",
+      "both": "Beides (Anzeige + Original)"
+    }
   }
 }

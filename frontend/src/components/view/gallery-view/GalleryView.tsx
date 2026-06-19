@@ -75,6 +75,9 @@ export const GalleryView = () => {
 
   useDeferredStoreLoad(initialized, refreshGalleryImages);
   const mediaLimits = useAuthStore((state) => state.config?.media_limits);
+  const userStorageMode = useAuthStore(
+    (state) => state.user?.image_storage_mode,
+  );
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -125,7 +128,7 @@ export const GalleryView = () => {
     e.target.value = ""; // allow re-selecting the same file later
     if (!file) return;
 
-    const storageMode = mediaLimits?.image_storage_mode;
+    const storageMode = userStorageMode ?? mediaLimits?.image_storage_mode;
 
     try {
       const reader = new FileReader();

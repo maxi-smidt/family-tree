@@ -1,3 +1,5 @@
+export type ImageStorageMode = "compressed" | "original" | "both";
+
 export interface User {
   id: string;
   username: string;
@@ -17,6 +19,10 @@ export interface User {
   /** Per-user storage quota overrides (null = use instance default; 0 = unlimited). */
   tree_quota_bytes?: number | null;
   media_quota_bytes?: number | null;
+  /** Effective gallery image storage mode (user pref clamped to admin ceiling). */
+  image_storage_mode?: ImageStorageMode;
+  /** Admin ceiling — the maximum mode the user may select. */
+  image_storage_mode_max?: ImageStorageMode;
 }
 
 export interface AuthConfig {

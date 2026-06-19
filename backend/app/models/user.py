@@ -44,6 +44,7 @@ class User(Base):
     )
 
     tab_preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    preferences: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # TOTP two-factor authentication (local accounts only).
     # totp_secret holds the base32 secret while enrollment is in progress
