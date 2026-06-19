@@ -7,6 +7,7 @@ import {
 } from "@/types/story";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
 
 const NO_OPS: AttachmentOps = { added: [], removedIds: [], renamed: [] };
 
@@ -104,6 +105,8 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     await applyAttachmentOps(treeId, id, attachments);
 
     await get().refreshStories(treeId);
+    if (attachments.added.length > 0)
+      useStorageStore.getState().refreshStorageUsage();
   },
 
   updateStory: async (
@@ -122,6 +125,8 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     await applyAttachmentOps(treeId, id, attachments);
 
     await get().refreshStories(treeId);
+    if (attachments.added.length > 0 || attachments.removedIds.length > 0)
+      useStorageStore.getState().refreshStorageUsage();
   },
 
   removeStory: async (id: string) => {
@@ -130,6 +135,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 
     await TreeService.removeStory(treeId, id);
     await get().refreshStories(treeId);
+    useStorageStore.getState().refreshStorageUsage();
   },
 
   clear: () => set({ stories: [], initialized: false }),

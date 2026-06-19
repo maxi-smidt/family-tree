@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { GalleryImage } from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
 
 interface GalleryState {
   galleryImages: GalleryImage[];
@@ -66,6 +67,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     await TreeService.addGalleryImage(treeId, id, image, now);
 
     await get().refreshGalleryImages(treeId);
+    useStorageStore.getState().refreshStorageUsage();
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
@@ -81,6 +83,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     }
 
     await get().refreshGalleryImages(treeId);
+    if ("imageData" in changes)
+      useStorageStore.getState().refreshStorageUsage();
   },
 
   deleteGalleryImage: async (id: string) => {
@@ -88,6 +92,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     if (!treeId) return;
     await TreeService.removeGalleryImage(treeId, id);
     await get().refreshGalleryImages(treeId);
+    useStorageStore.getState().refreshStorageUsage();
   },
 
   clear: () => set({ galleryImages: [], initialized: false }),
