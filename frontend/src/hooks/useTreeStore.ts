@@ -106,8 +106,13 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     // Drop a stale selection that no longer exists / is no longer accessible.
     const selected = get().selectedTree;
     const allItems = [...trees, ...virtualViews];
-    if (selected && !allItems.some((t) => t.id === selected.id)) {
-      await get().disconnect();
+    if (selected) {
+      const freshSelected = allItems.find((t) => t.id === selected.id);
+      if (freshSelected) {
+        set({ selectedTree: freshSelected });
+      } else {
+        await get().disconnect();
+      }
     }
   },
 

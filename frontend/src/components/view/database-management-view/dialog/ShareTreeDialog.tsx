@@ -284,7 +284,7 @@ export const ShareTreeDialog = ({
       );
       setConfirmTransferOpen(false);
       setTransferTo("");
-      void useTreeStore.getState().loadTrees();
+      await useTreeStore.getState().loadTrees();
       onClose();
       if (result.undo_available_until) {
         showUndoToast(

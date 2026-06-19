@@ -324,6 +324,28 @@ describe("useTreeStore — loadTrees", () => {
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
     expect(useTreeStore.getState().isReady).toBe(true);
   });
+
+  it("refreshes the selected tree role from the returned list", async () => {
+    const retainedTree: Tree = {
+      ...TREE_A,
+      role: "viewer",
+      restrictions: ["gallery"],
+    };
+    useTreeStore.setState({
+      selectedTree: TREE_A,
+      isReady: true,
+      trees: [TREE_A],
+    });
+
+    vi.mocked(api.get).mockResolvedValueOnce([retainedTree, TREE_B]);
+    vi.mocked(TreeService.listVirtualViews).mockResolvedValueOnce([]);
+
+    await useTreeStore.getState().loadTrees();
+
+    expect(useTreeStore.getState().selectedTree).toEqual(retainedTree);
+    expect(useTreeStore.getState().selectedTree?.role).toBe("viewer");
+    expect(useTreeStore.getState().isReady).toBe(true);
+  });
 });
 
 // ---------------------------------------------------------------------------
