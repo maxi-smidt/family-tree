@@ -1375,6 +1375,7 @@
   },
   "user-settings": {
     "title": "Einstellungen",
+    "back": "Zurück",
     "save": "Speichern",
     "toast-saved": "Einstellungen gespeichert.",
     "toast-error": "Einstellungen konnten nicht gespeichert werden.",

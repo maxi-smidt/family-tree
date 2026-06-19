@@ -1375,6 +1375,7 @@
   },
   "user-settings": {
     "title": "Settings",
+    "back": "Back",
     "save": "Save",
     "toast-saved": "Settings saved.",
     "toast-error": "Could not save settings.",

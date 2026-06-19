@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   HardDrive,
@@ -80,21 +81,75 @@ export const UserSettingsView = () => {
 
   return (
     <>
-      <div className="flex flex-col h-screen bg-background">
+      <Tabs
+        defaultValue="gallery"
+        orientation="vertical"
+        className="w-screen h-screen flex flex-col bg-background overflow-hidden"
+      >
         <SessionExpiryBanner />
-        <div className="flex items-center gap-3 px-6 py-4 border-b">
-          <Button variant="ghost" size="icon" onClick={closeSettings}>
+
+        {/* Header bar */}
+        <div className="shrink-0 h-14 border-b flex items-center gap-3 px-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={closeSettings}
+            aria-label={t("back")}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-lg font-semibold">{t("title")}</h1>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-lg space-y-6">
-            {/* Gallery image storage */}
-            <div className="rounded-lg border p-4 space-y-4">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <HardDrive className="h-4 w-4" />
+
+        {/* Body: left nav + scrollable content */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Left nav rail */}
+          <div className="w-52 shrink-0 border-r p-3 flex flex-col gap-1">
+            <TabsList className="flex flex-col h-auto w-full items-stretch gap-1 bg-transparent p-0">
+              <TabsTrigger
+                value="gallery"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                <HardDrive className="h-4 w-4 mr-2" />
                 {t("image-storage.section")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="tabs"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                <LayoutDashboard className="h-4 w-4 mr-2" />
+                {t("tabs.section")}
+              </TabsTrigger>
+              {isLocal && (
+                <TabsTrigger
+                  value="two-factor"
+                  className="justify-start data-[state=active]:bg-muted"
+                >
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                  {t("two-factor.section")}
+                </TabsTrigger>
+              )}
+              <TabsTrigger
+                value="account"
+                className="justify-start data-[state=active]:bg-muted text-destructive data-[state=active]:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {t("delete-account.section")}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Content area */}
+          <div className="flex-1 overflow-auto p-6">
+            {/* Gallery image storage */}
+            <TabsContent value="gallery" className="mt-0 max-w-md space-y-4">
+              <div>
+                <p className="font-medium text-sm">
+                  {t("image-storage.label")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("image-storage.hint")}
+                </p>
               </div>
               <div className="space-y-1.5">
                 <FieldLabel>{t("image-storage.label")}</FieldLabel>
@@ -102,7 +157,7 @@ export const UserSettingsView = () => {
                   value={selectedMode}
                   onValueChange={(v) => setSelectedMode(v as ImageStorageMode)}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="w-64">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -113,77 +168,65 @@ export const UserSettingsView = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  {t("image-storage.hint")}
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleSave}
+                  disabled={saving || selectedMode === effectiveMode}
+                >
+                  {t("save")}
+                </Button>
+              </div>
+            </TabsContent>
+
+            {/* Tab layout */}
+            <TabsContent value="tabs" className="mt-0 max-w-md space-y-4">
+              <div>
+                <p className="font-medium text-sm">{t("tabs.section")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("tabs.hint")}
                 </p>
               </div>
               <Button
-                size="sm"
-                onClick={handleSave}
-                disabled={saving || selectedMode === effectiveMode}
-              >
-                {t("save")}
-              </Button>
-            </div>
-
-            {/* Tab customization */}
-            <div className="rounded-lg border p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium">
-                <LayoutDashboard className="h-4 w-4" />
-                {t("tabs.section")}
-              </div>
-              <p className="text-xs text-muted-foreground">{t("tabs.hint")}</p>
-              <Button
-                size="sm"
                 variant="outline"
                 onClick={() => setTabSettingsOpen(true)}
               >
                 {t("tabs.button")}
               </Button>
-            </div>
+            </TabsContent>
 
-            {/* Two-factor authentication (local accounts only) */}
-            {isLocal && (
-              <div className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <ShieldCheck className="h-4 w-4" />
-                  {t("two-factor.section")}
-                </div>
-                <p className="text-xs text-muted-foreground">
+            {/* Two-factor authentication */}
+            <TabsContent value="two-factor" className="mt-0 max-w-md space-y-4">
+              <div>
+                <p className="font-medium text-sm">{t("two-factor.section")}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {totpEnabled
                     ? t("two-factor.status-enabled")
                     : t("two-factor.status-disabled")}
                 </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setTwoFactorOpen(true)}
-                >
-                  {t("two-factor.button")}
-                </Button>
               </div>
-            )}
+              <Button variant="outline" onClick={() => setTwoFactorOpen(true)}>
+                {t("two-factor.button")}
+              </Button>
+            </TabsContent>
 
             {/* Delete account */}
-            <div className="rounded-lg border border-destructive/40 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-                <Trash2 className="h-4 w-4" />
-                {t("delete-account.section")}
+            <TabsContent value="account" className="mt-0 max-w-md space-y-4">
+              <div>
+                <p className="font-medium text-sm text-destructive">
+                  {t("delete-account.section")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {t("delete-account.hint")}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t("delete-account.hint")}
-              </p>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setDeleteOpen(true)}
-              >
+              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
                 {t("delete-account.button")}
               </Button>
-            </div>
+            </TabsContent>
           </div>
         </div>
-      </div>
+      </Tabs>
 
       <TabSettingsDialog
         isOpen={tabSettingsOpen}
