@@ -92,7 +92,9 @@
       "cancel": "Cancel",
       "remove": "Remove",
       "toast-warning": "You removed the last tree. Create a new one.",
-      "toast-success": "Tree removed successfully"
+      "toast-success": "Tree removed successfully",
+      "toast-error": "Could not remove the tree.",
+      "toast-permission-error": "You no longer have permission to delete this tree."
     },
     "remove-node": {
       "title_one": "Delete Member",

@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useTreeManager } from "@/hooks/useTreeManager";
 import { useTranslation } from "react-i18next";
+import { ApiError } from "@/services/api";
 
 type Props = {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export const RemoveDatabaseDialog = ({
   const trees = useTreeStore((s) => s.trees);
   const selectedTree = useTreeStore((s) => s.selectedTree);
   const selectTree = useTreeStore((s) => s.selectTree);
+  const loadTrees = useTreeStore((s) => s.loadTrees);
   const { removeDatabase } = useTreeManager();
   const [typedName, setTypedName] = useState("");
 
@@ -90,10 +92,25 @@ export const RemoveDatabaseDialog = ({
       toast.warning(t("toast-warning"));
     }
     await selectTree(nextDatabase);
-    await removeDatabase(toRemove);
-    resetState();
-    toast.success(t("toast-success"));
-    onConfirm();
+    try {
+      await removeDatabase(toRemove);
+      resetState();
+      toast.success(t("toast-success"));
+      onConfirm();
+    } catch (err) {
+      console.error(err);
+      if (
+        err instanceof ApiError &&
+        (err.status === 401 || err.status === 403)
+      ) {
+        toast.error(t("toast-permission-error"));
+        await loadTrees();
+        resetState();
+        onConfirm();
+        return;
+      }
+      toast.error(t("toast-error"));
+    }
   }
 
   function resetState() {

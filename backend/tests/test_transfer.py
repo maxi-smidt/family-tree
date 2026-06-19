@@ -181,6 +181,22 @@ def test_revert_removes_retained_membership(client, db):
     assert db.get(TreeMembership, (tree.id, owner.id)) is None
 
 
+def test_revert_revokes_new_owner_access(client, db):
+    owner = make_user(db, "owner")
+    bob = make_user(db, "bob")
+    befriend(db, owner, bob)
+    tree = make_tree(db, owner)
+
+    _transfer(client, owner, tree, "bob")
+    assert _revert(client, owner, tree).status_code == 200
+
+    bob_trees = client.get(f"{API}/trees", headers=auth(bob))
+    assert bob_trees.status_code == 200
+    assert all(t["id"] != tree.id for t in bob_trees.json())
+    assert client.get(f"{API}/trees/{tree.id}", headers=auth(bob)).status_code == 403
+    assert client.delete(f"{API}/trees/{tree.id}", headers=auth(bob)).status_code == 403
+
+
 def test_non_previous_owner_cannot_revert(client, db):
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")

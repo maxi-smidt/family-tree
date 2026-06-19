@@ -92,7 +92,9 @@
       "cancel": "Abbrechen",
       "remove": "Entfernen",
       "toast-warning": "Du hast den letzten Stammbaum entfernt. Erstelle einen neuen.",
-      "toast-success": "Stammbaum erfolgreich entfernt."
+      "toast-success": "Stammbaum erfolgreich entfernt.",
+      "toast-error": "Stammbaum konnte nicht entfernt werden.",
+      "toast-permission-error": "Du hast keine Berechtigung mehr, diesen Stammbaum zu löschen."
     },
     "remove-node": {
       "title_one": "Lösche Person",
