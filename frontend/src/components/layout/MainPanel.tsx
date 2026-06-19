@@ -145,6 +145,7 @@ export const MainPanel = () => {
   const loadTutorial = useTutorialStore((s) => s.load);
   const tutorialLoaded = useTutorialStore((s) => s.loaded);
   const tutorialCompleted = useTutorialStore((s) => s.completed);
+  const tutorialRunning = useTutorialStore((s) => s.isRunning);
   const startTutorial = useTutorialStore((s) => s.start);
   const tutorialEnabled = features.includes("onboarding_tour");
   const [manageOpen, setManageOpen] = useState(false);
@@ -160,12 +161,21 @@ export const MainPanel = () => {
   }, [user, loadTutorial]);
 
   useEffect(() => {
-    if (tutorialLoaded && !tutorialCompleted && tutorialEnabled)
+    if (
+      tutorialLoaded &&
+      !tutorialCompleted &&
+      tutorialEnabled &&
+      !tutorialRunning
+    ) {
       startTutorial();
-    // Only auto-start once after tutorial state loads; tutorialEnabled is stable
-    // after auth resolves so it does not need to be a dep.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tutorialLoaded]);
+    }
+  }, [
+    tutorialLoaded,
+    tutorialCompleted,
+    tutorialEnabled,
+    tutorialRunning,
+    startTutorial,
+  ]);
 
   // Keep the Friends tab badge accurate without opening the tab.
   useEffect(() => {

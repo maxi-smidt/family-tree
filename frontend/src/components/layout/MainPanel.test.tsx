@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -6,7 +6,9 @@ import { useFriendStore } from "@/hooks/useFriendStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
+import { type User } from "@/types/user";
 import { MainPanel } from "./MainPanel";
 
 vi.mock("@/components/view/tree-view/FlowPanel", () => ({
@@ -46,6 +48,17 @@ vi.mock("@/components/layout/MobileManagementSheet", () => ({
   MobileManagementSheet: () => null,
 }));
 
+const USER: User = {
+  id: "user-1",
+  username: "first-user",
+  email: null,
+  full_name: null,
+  is_admin: false,
+  is_active: true,
+  auth_provider: "local",
+  created_at: "2026-01-01T00:00:00Z",
+};
+
 describe("MainPanel", () => {
   beforeEach(async () => {
     localStorage.clear();
@@ -63,6 +76,7 @@ describe("MainPanel", () => {
       order: [],
       hidden: [],
       loaded: true,
+      load: vi.fn().mockResolvedValue(undefined),
     });
     useNavigationStore.setState({ pendingView: null });
     useUnsavedChangesStore.setState({
@@ -79,6 +93,12 @@ describe("MainPanel", () => {
       incoming: [],
       outgoing: [],
       loading: false,
+      loadIncoming: vi.fn().mockResolvedValue(undefined),
+    });
+    useTutorialStore.setState({
+      completed: false,
+      loaded: false,
+      isRunning: false,
     });
   });
 
@@ -95,5 +115,29 @@ describe("MainPanel", () => {
     expect(
       screen.queryByRole("tab", { name: "Gallery" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("starts the tutorial when the onboarding feature arrives after preferences load", async () => {
+    useAuthStore.setState({
+      user: USER,
+      features: [],
+    });
+    useTutorialStore.setState({
+      completed: false,
+      loaded: true,
+      isRunning: false,
+    });
+
+    render(<MainPanel />);
+
+    expect(useTutorialStore.getState().isRunning).toBe(false);
+
+    act(() => {
+      useAuthStore.setState({ features: ["onboarding_tour"] });
+    });
+
+    await waitFor(() => {
+      expect(useTutorialStore.getState().isRunning).toBe(true);
+    });
   });
 });
