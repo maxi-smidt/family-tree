@@ -1459,21 +1459,29 @@
       "title": "Willkommen bei Family Tree",
       "body": "Diese kurze Tour zeigt dir die wichtigsten Funktionen. Du kannst sie jederzeit überspringen und später über das Benutzermenü erneut starten."
     },
+    "create-tree": {
+      "title": "Ersten Stammbaum erstellen",
+      "body": "Klicke hier, um deinen ersten Stammbaum anzulegen. Gib ihm einen Namen – zum Beispiel 'Mein erster Stammbaum' – und klicke auf Erstellen."
+    },
     "add-member": {
-      "title": "Erstes Mitglied hinzufügen",
-      "body": "Klicke hier, um eine Person zum Stammbaum hinzuzufügen. Anschließend kannst du Details bearbeiten und sie mit anderen Mitgliedern als Elternteil, Kind oder Partner verknüpfen."
+      "title": "Erste Person hinzufügen",
+      "body": "Klicke hier, um eine Person zum Stammbaum hinzuzufügen. Anschließend kannst du Details bearbeiten und sie mit Elternteilen, Kindern und Partnern verknüpfen."
+    },
+    "sidebar-panel": {
+      "title": "Deine Seitenleiste",
+      "body": "Hier kannst du zwischen deinen Stammbäumen wechseln, das Aussehen anpassen (Design, Sprache, Kantentyp) und über das Benutzermenü am unteren Rand auf deine Kontoeinstellungen zugreifen."
     },
     "switch-views": {
-      "title": "Verschiedene Ansichten entdecken",
-      "body": "Wechsle zwischen Ansichten, um deine Familiendaten auf verschiedene Arten zu erkunden – als interaktiver Baum, Liste, Zeitstrahl, Karte, Statistiken und mehr."
+      "title": "Zwischen Ansichten wechseln",
+      "body": "Mit diesen Tabs wechselst du zwischen verschiedenen Ansichten deiner Daten – Stammbaum, Liste, Zeitstrahl, Karte, Statistiken und mehr. Als Nächstes geht es zur Baumverwaltung."
     },
-    "manage-trees": {
-      "title": "Stammbäume verwalten und teilen",
-      "body": "Im Tab 'Baumverwaltung' kannst du neue Stammbäume erstellen, sie mit anderen als Betrachter oder Bearbeiter teilen sowie Daten importieren und exportieren."
+    "tree-management": {
+      "title": "Baumverwaltung",
+      "body": "Hier kannst du neue Stammbäume erstellen, einen bestehenden Baum mit Freunden als Betrachter oder Bearbeiter teilen sowie Daten importieren oder exportieren."
     },
-    "new-tree": {
-      "title": "Neuen Stammbaum erstellen",
-      "body": "Klicke hier, um einen neuen Stammbaum anzulegen. Du kannst auch Daten aus einer anderen App per GEDCOM-Datei oder Sicherung importieren."
+    "friends": {
+      "title": "Freunde & Teilen",
+      "body": "Suche andere Benutzer anhand ihres Benutzernamens, sende eine Freundschaftsanfrage und lade sie nach der Annahme zu einem deiner Stammbäume ein."
     },
     "finish": {
       "title": "Alles bereit!",

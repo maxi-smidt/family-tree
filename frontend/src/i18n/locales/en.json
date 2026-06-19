@@ -1457,23 +1457,31 @@
   "tutorial": {
     "welcome": {
       "title": "Welcome to Family Tree",
-      "body": "This quick tour will show you the key features. You can skip it at any time and relaunch it later from the user menu."
+      "body": "This quick tour walks you through the main features. Skip any time and relaunch it from the user menu."
+    },
+    "create-tree": {
+      "title": "Create your first tree",
+      "body": "Click this button to create your first family tree. Give it a name — like 'My first tree' — and hit Create."
     },
     "add-member": {
-      "title": "Add your first member",
-      "body": "Click here to add a person to the tree. Once added, you can edit their details and link them to other members as parents, children, or partners."
+      "title": "Add your first person",
+      "body": "Click here to add a person to the tree. Once added, you can edit their details and link them to parents, children, and partners."
+    },
+    "sidebar-panel": {
+      "title": "Your sidebar",
+      "body": "Here you can switch between your family trees, customise the appearance (theme, language, edge style), and access your account settings via the user menu at the bottom."
     },
     "switch-views": {
-      "title": "Explore different views",
-      "body": "Switch between views to explore your family data in different ways — as an interactive tree, a list, a timeline, a map, statistics, and more."
+      "title": "Navigate between views",
+      "body": "These tabs switch you between different views of your data — tree, list, timeline, map, statistics, and more. Let's head to Tree Management next."
     },
-    "manage-trees": {
-      "title": "Manage and share your trees",
-      "body": "The Tree Management tab is where you create new trees, share them with others as viewers or editors, and import or export data. Head there now to explore."
+    "tree-management": {
+      "title": "Tree Management",
+      "body": "From here you can create new trees, share an existing tree with friends as a viewer or editor, and import or export your data."
     },
-    "new-tree": {
-      "title": "Create a new tree",
-      "body": "Click here to create a new family tree. You can also import data from another app using a GEDCOM file or a backup."
+    "friends": {
+      "title": "Friends & sharing",
+      "body": "Search for other users by username, send a friend request, and once accepted you can invite them to any of your trees."
     },
     "finish": {
       "title": "You're all set!",
