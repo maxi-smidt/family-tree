@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { formatDate } from "@/utils/dateUtils";
 import {
   Dialog,
@@ -249,7 +250,9 @@ export const ShareTreeDialog = ({
           onClick: () => {
             void TreeSharingService.revertTransfer(treeId)
               .then(() => {
+                toast.dismiss(toastId);
                 toast.success(t("transfer-reverted"));
+                void useTreeStore.getState().loadTrees();
               })
               .catch(() => {
                 toast.error(t("transfer-revert-error"));
@@ -273,6 +276,7 @@ export const ShareTreeDialog = ({
       );
       setConfirmTransferOpen(false);
       setTransferTo("");
+      void useTreeStore.getState().loadTrees();
       onClose();
       if (result.undo_available_until) {
         showUndoToast(
