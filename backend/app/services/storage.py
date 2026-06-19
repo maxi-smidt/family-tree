@@ -139,8 +139,9 @@ def store_document(
 def delete_media(value: str | None) -> None:
     """Best-effort removal of the on-disk file backing a media URL.
 
-    No-op for non-media URLs or missing files; never raises, so a failed
-    cleanup can't break a delete request.
+    Also removes any ``<stem>.orig.*`` sibling written by ``store_data_url``
+    in ``"both"`` mode. No-op for non-media URLs or missing files; never
+    raises, so a failed cleanup can't break a delete request.
     """
     if not value or not value.startswith(MEDIA_URL_PREFIX):
         return
@@ -151,6 +152,10 @@ def delete_media(value: str | None) -> None:
         if settings.media_root.resolve() not in path.parents:
             return
         path.unlink(missing_ok=True)
+        # Remove the original-file sibling produced by "both" mode, if present.
+        stem = path.stem
+        for sibling in path.parent.glob(f"{stem}.orig.*"):
+            sibling.unlink(missing_ok=True)
     except OSError:
         pass
 
@@ -184,11 +189,23 @@ def is_data_url(value: str | None) -> bool:
     return isinstance(value, str) and value.startswith("data:")
 
 
-def store_data_url(tree_id: str, data_url: str, limits: MediaLimits) -> str:
+def store_data_url(
+    tree_id: str,
+    data_url: str,
+    limits: MediaLimits,
+    *,
+    mode: str = "compressed",
+) -> str:
     """Persist a base64 data URL to disk and return its relative media URL.
 
     Raises ``UnsupportedImageType`` for unknown or unparseable MIME types and
     ``ImageTooLarge`` when the decoded payload exceeds the configured limit.
+
+    ``mode`` controls how gallery images are stored (gallery router only):
+    - ``"compressed"`` (default): resize and re-encode as WebP.
+    - ``"original"``: store the raw bytes as-is under their original extension.
+    - ``"both"``: store a display WebP *and* keep the original as a sibling
+      ``<uuid>.orig.<ext>`` file in the same tree directory.
     """
     match = _DATA_URL_RE.match(data_url)
     if not match:
@@ -200,7 +217,7 @@ def store_data_url(tree_id: str, data_url: str, limits: MediaLimits) -> str:
             f"Unsupported image type '{mime}'. "
             f"Allowed types: {', '.join(sorted(_MIME_EXT))}."
         )
-    ext = _MIME_EXT[mime]
+    orig_ext = _MIME_EXT[mime]
 
     try:
         raw = base64.b64decode(match.group("data"))
@@ -212,11 +229,52 @@ def store_data_url(tree_id: str, data_url: str, limits: MediaLimits) -> str:
             f"Image exceeds the {limits.max_image_bytes // (1024 * 1024)} MB limit."
         )
 
-    raw, ext = _normalize_image(raw, ext, limits)
+    tree_dir = _tree_media_dir(tree_id)
+    stem = uuid4().hex
 
-    filename = f"{uuid4().hex}.{ext}"
-    (_tree_media_dir(tree_id) / filename).write_bytes(raw)
+    if mode == "original":
+        _validate_image_dimensions(raw, limits)
+        filename = f"{stem}.{orig_ext}"
+        (tree_dir / filename).write_bytes(raw)
+        return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+
+    if mode == "both":
+        display_raw, display_ext = _normalize_image(raw, orig_ext, limits)
+        display_filename = f"{stem}.{display_ext}"
+        (tree_dir / display_filename).write_bytes(display_raw)
+        orig_filename = f"{stem}.orig.{orig_ext}"
+        (tree_dir / orig_filename).write_bytes(raw)
+        return f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}"
+
+    # Default: "compressed"
+    display_raw, display_ext = _normalize_image(raw, orig_ext, limits)
+    filename = f"{stem}.{display_ext}"
+    (tree_dir / filename).write_bytes(display_raw)
     return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+
+
+def _validate_image_dimensions(raw: bytes, limits: MediaLimits) -> None:
+    """Parse image and reject it if either dimension exceeds the configured cap.
+
+    Raises ``UnsupportedImageType`` when Pillow cannot parse the payload or
+    either dimension exceeds ``limits.max_image_dimension``.
+    """
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with Image.open(BytesIO(raw)) as img:
+            w, h = img.size
+            if w > limits.max_image_dimension or h > limits.max_image_dimension:
+                raise UnsupportedImageType(
+                    f"Image dimensions {w}×{h} exceed the "
+                    f"{limits.max_image_dimension}px limit per side."
+                )
+    except UnsupportedImageType:
+        raise
+    except UnidentifiedImageError as exc:
+        raise UnsupportedImageType("Image data could not be parsed.") from exc
+    except Exception as exc:
+        raise UnsupportedImageType("Image data could not be processed.") from exc
 
 
 def _normalize_image(
@@ -279,8 +337,10 @@ def media_url_to_data_url(value: str | None) -> str | None:
 def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     """Copy a stored media file into another tree's directory (used by merge).
 
-    Returns a new media URL, or the input unchanged when it isn't one of our
-    media URLs, or ``None`` if the source file is missing.
+    Also copies any ``<stem>.orig.*`` sibling (written by ``store_data_url``
+    in ``"both"`` mode) under the same new stem. Returns a new media URL, or
+    the input unchanged when it isn't one of our media URLs, or ``None`` if
+    the source file is missing.
     """
     if not value or not value.startswith(MEDIA_URL_PREFIX):
         return value
@@ -289,10 +349,37 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     if not src.is_file():
         return None
     ext = src.suffix.lstrip(".") or "bin"
-    filename = f"{uuid4().hex}.{ext}"
-    dest = _tree_media_dir(new_tree_id) / filename
-    shutil.copyfile(src, dest)
+    new_stem = uuid4().hex
+    filename = f"{new_stem}.{ext}"
+    dest_dir = _tree_media_dir(new_tree_id)
+    shutil.copyfile(src, dest_dir / filename)
+    # Copy the original-file sibling produced by "both" mode, if present.
+    for orig_sibling in src.parent.glob(f"{src.stem}.orig.*"):
+        orig_ext = orig_sibling.suffix.lstrip(".") or "bin"
+        shutil.copyfile(orig_sibling, dest_dir / f"{new_stem}.orig.{orig_ext}")
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
+
+
+def process_gallery_image_field(
+    tree_id: str,
+    value: str | None,
+    limits: MediaLimits,
+) -> str | None:
+    """Like ``process_image_field`` but honours ``limits.image_storage_mode``.
+
+    Used exclusively by the gallery router so that originals are only kept for
+    gallery images; member photos, story attachments, and exports are unaffected.
+    """
+    if value is None:
+        return None
+    if is_data_url(value):
+        return store_data_url(tree_id, value, limits, mode=limits.image_storage_mode)
+    own_prefix = f"{MEDIA_URL_PREFIX}/{tree_id}/"
+    if value.startswith(own_prefix):
+        return value
+    raise InvalidImageURL(
+        "Image field must be null, a data URL, or a media URL owned by this tree"
+    )
 
 
 def process_image_field(

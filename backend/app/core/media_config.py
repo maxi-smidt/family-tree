@@ -23,3 +23,7 @@ STORED_IMAGE_HEIGHT = 1080
 # tree + media, so it has no separate default.
 DEFAULT_TREE_QUOTA_MB = 0
 DEFAULT_MEDIA_QUOTA_MB = 0
+
+# Gallery image storage mode: how uploaded gallery images are persisted.
+DEFAULT_IMAGE_STORAGE_MODE = "compressed"
+IMAGE_STORAGE_MODES = ("compressed", "original", "both")

@@ -30,7 +30,7 @@ from app.services.storage import (
     ImageTooLarge,
     UnsupportedImageType,
     delete_media,
-    process_image_field,
+    process_gallery_image_field,
 )
 from app.services.storage_usage import QuotaExceeded, check_media_quota
 
@@ -90,7 +90,7 @@ def create_image(
     member_ids = data.pop("member_ids")
     new_image_url: str | None = None
     try:
-        new_url = process_image_field(
+        new_url = process_gallery_image_field(
             tree.id,
             data.get("image_data"),
             get_media_limits(db),
@@ -145,7 +145,7 @@ def update_image(
     new_image_url: str | None = None
     if "image_data" in changes:
         try:
-            new_url = process_image_field(
+            new_url = process_gallery_image_field(
                 tree.id,
                 changes["image_data"],
                 get_media_limits(db),
