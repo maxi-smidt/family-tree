@@ -1457,11 +1457,11 @@
   "tutorial": {
     "welcome": {
       "title": "Welcome to Family Tree",
-      "body": "This quick tour walks you through the main features. Skip any time and relaunch it from the user menu."
+      "body": "This quick tour walks you through the main features. You can relaunch it any time from the user menu."
     },
     "create-tree": {
       "title": "Create your first tree",
-      "body": "Click this button to create your first family tree. Give it a name — like 'My first tree' — and hit Create."
+      "body": "Click Weiter (or the button itself) to open the create dialog — we will guide you through naming your tree."
     },
     "add-member": {
       "title": "Add your first person",
@@ -1492,6 +1492,14 @@
       "prev": "Back",
       "done": "Done",
       "skip": "Skip"
+    },
+    "tree-name": {
+      "title": "Name your tree",
+      "body": "Type a name for your family tree — for example \"My first tree\" — then click Weiter."
+    },
+    "tree-confirm": {
+      "title": "Create the tree",
+      "body": "Click Create (or Weiter) to create your family tree. We will continue once it is ready."
     }
   }
 }

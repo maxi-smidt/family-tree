@@ -1457,11 +1457,11 @@
   "tutorial": {
     "welcome": {
       "title": "Willkommen bei Family Tree",
-      "body": "Diese kurze Tour zeigt dir die wichtigsten Funktionen. Du kannst sie jederzeit überspringen und später über das Benutzermenü erneut starten."
+      "body": "Diese kurze Tour fuehrt dich durch die wichtigsten Funktionen. Du kannst sie jederzeit ueber das Benutzermenue neu starten."
     },
     "create-tree": {
       "title": "Ersten Stammbaum erstellen",
-      "body": "Klicke hier, um deinen ersten Stammbaum anzulegen. Gib ihm einen Namen – zum Beispiel 'Mein erster Stammbaum' – und klicke auf Erstellen."
+      "body": "Klicke auf Weiter (oder direkt auf den Button), um den Erstellungsdialog zu oeffnen - wir fuehren dich durch die Benennung deines Stammbaums."
     },
     "add-member": {
       "title": "Erste Person hinzufügen",
@@ -1492,6 +1492,14 @@
       "prev": "Zurück",
       "done": "Fertig",
       "skip": "Überspringen"
+    },
+    "tree-name": {
+      "title": "Stammbaum benennen",
+      "body": "Gib deinem Stammbaum einen Namen - zum Beispiel \"Mein erster Stammbaum\" - und klicke dann auf Weiter."
+    },
+    "tree-confirm": {
+      "title": "Stammbaum erstellen",
+      "body": "Klicke auf Erstellen (oder Weiter), um deinen Stammbaum zu erstellen. Wir machen weiter, sobald er bereit ist."
     }
   }
 }
