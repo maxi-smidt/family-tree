@@ -10,6 +10,7 @@ import {
 } from "@/types/source";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
 const NO_OPS: EvidenceOps = {
   addedFiles: [],
@@ -25,7 +26,10 @@ interface SourceState {
   refreshSources: (treeId?: string) => Promise<void>;
   getCitationsByMember: (memberId: string) => Citation[];
   getSourcesForMember: (memberId: string) => Source[];
-  addSource: (input: SourceInput, evidenceOps?: EvidenceOps) => Promise<Source | null>;
+  addSource: (
+    input: SourceInput,
+    evidenceOps?: EvidenceOps,
+  ) => Promise<Source | null>;
   updateSource: (
     id: string,
     input: SourceInput,
@@ -33,7 +37,10 @@ interface SourceState {
   ) => Promise<void>;
   removeSource: (id: string) => Promise<void>;
   addCitation: (input: CitationInput) => Promise<void>;
-  updateCitation: (id: string, input: Omit<CitationInput, "sourceId" | "memberId">) => Promise<void>;
+  updateCitation: (
+    id: string,
+    input: Omit<CitationInput, "sourceId" | "memberId">,
+  ) => Promise<void>;
   removeCitation: (id: string) => Promise<void>;
   clear: () => void;
 }
@@ -86,8 +93,11 @@ export const useSourceStore = create<SourceState>((set, get) => ({
     const row = await TreeService.addSource(treeId, id, input, now);
     const source = mapSourceFromDB(row);
 
-    await Promise.all(TreeService.applyEvidenceOps(treeId, id, evidenceOps) as Promise<void>[]);
+    await Promise.all(
+      TreeService.applyEvidenceOps(treeId, id, evidenceOps) as Promise<void>[],
+    );
     await get().refreshSources(treeId);
+    invalidateActivityView();
     return source;
   },
 
@@ -100,8 +110,11 @@ export const useSourceStore = create<SourceState>((set, get) => ({
     if (!treeId) return;
 
     await TreeService.updateSource(treeId, id, input);
-    await Promise.all(TreeService.applyEvidenceOps(treeId, id, evidenceOps) as Promise<void>[]);
+    await Promise.all(
+      TreeService.applyEvidenceOps(treeId, id, evidenceOps) as Promise<void>[],
+    );
     await get().refreshSources(treeId);
+    invalidateActivityView();
   },
 
   removeSource: async (id: string) => {
@@ -110,6 +123,7 @@ export const useSourceStore = create<SourceState>((set, get) => ({
 
     await TreeService.removeSource(treeId, id);
     await get().refreshSources(treeId);
+    invalidateActivityView();
   },
 
   addCitation: async (input: CitationInput) => {
@@ -130,6 +144,7 @@ export const useSourceStore = create<SourceState>((set, get) => ({
       now,
     );
     await get().refreshSources(treeId);
+    invalidateActivityView();
   },
 
   updateCitation: async (
@@ -147,6 +162,7 @@ export const useSourceStore = create<SourceState>((set, get) => ({
       input.detail || null,
     );
     await get().refreshSources(treeId);
+    invalidateActivityView();
   },
 
   removeCitation: async (id: string) => {
@@ -155,6 +171,7 @@ export const useSourceStore = create<SourceState>((set, get) => ({
 
     await TreeService.removeCitation(treeId, id);
     await get().refreshSources(treeId);
+    invalidateActivityView();
   },
 
   clear: () => set({ sources: [], citations: [], initialized: false }),
