@@ -127,7 +127,7 @@ def _media_bytes(tree_id: str) -> int:
     total = 0
     try:
         for entry in tree_dir.rglob("*"):
-            if entry.is_file(follow_symlinks=False):
+            if not entry.is_symlink() and entry.is_file():
                 try:
                     total += entry.stat().st_size
                 except OSError:
