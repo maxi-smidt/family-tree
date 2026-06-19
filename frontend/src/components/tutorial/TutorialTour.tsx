@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { driver, type DriveStep } from "driver.js";
 import "driver.js/dist/driver.css";
+import "@/components/tutorial/tutorial-driver.css";
 import { useTranslation } from "react-i18next";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useFeature } from "@/hooks/useAuthStore";
@@ -33,7 +34,7 @@ export const TutorialTour = () => {
           title: t("add-member.title"),
           description: t("add-member.body"),
           side: "left",
-          align: "center",
+          align: "end",
         },
       },
       {
