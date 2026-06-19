@@ -231,8 +231,10 @@ export const ShareTreeDialog = ({
   ) => {
     const deadline = new Date(undoAvailableUntil).getTime();
     const toastId = `transfer-undo-${treeId}`;
+    let cancelled = false;
 
     const renderToast = () => {
+      if (cancelled) return;
       const remaining = Math.max(0, Math.round((deadline - Date.now()) / 1000));
       if (remaining <= 0) {
         toast.dismiss(toastId);
@@ -245,9 +247,16 @@ export const ShareTreeDialog = ({
           username,
         }),
         duration: deadline - Date.now() + 500,
+        onDismiss: () => {
+          cancelled = true;
+        },
+        onAutoClose: () => {
+          cancelled = true;
+        },
         action: {
           label: t("transfer-undo-button", { seconds: remaining }),
           onClick: () => {
+            cancelled = true;
             void TreeSharingService.revertTransfer(treeId)
               .then(() => {
                 toast.dismiss(toastId);
@@ -255,14 +264,13 @@ export const ShareTreeDialog = ({
                 void useTreeStore.getState().loadTrees();
               })
               .catch(() => {
+                cancelled = false;
                 toast.error(t("transfer-revert-error"));
               });
           },
         },
       });
-      if (remaining > 0) {
-        setTimeout(renderToast, 1000);
-      }
+      setTimeout(renderToast, 1000);
     };
     renderToast();
   };
