@@ -13,6 +13,7 @@ import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
 import i18n from "@/i18n/i18n";
 import { toast } from "sonner";
 
@@ -562,6 +563,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers(treeId);
+    if ("imageData" in otherChanges)
+      useStorageStore.getState().refreshStorageUsage();
 
     if ("dateOfBirth" in changes) {
       await syncVitalEvent(
