@@ -466,7 +466,7 @@ export const DatabaseManagementView = () => {
         <div className="flex gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" data-tutorial="new-tree">
                 <Plus className="h-4 w-4" />
                 {t("new-menu-button")}
               </Button>

@@ -4,7 +4,6 @@ import "driver.js/dist/driver.css";
 import "@/components/tutorial/tutorial-driver.css";
 import { useTranslation } from "react-i18next";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 
 export const TutorialTour = () => {
@@ -12,7 +11,6 @@ export const TutorialTour = () => {
   const isRunning = useTutorialStore((s) => s.isRunning);
   const finish = useTutorialStore((s) => s.finish);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
-  const gedcomEnabled = useFeature("gedcom");
   const driverRef = useRef<ReturnType<typeof driver> | null>(null);
 
   useEffect(() => {
@@ -50,25 +48,22 @@ export const TutorialTour = () => {
         popover: {
           title: t("manage-trees.title"),
           description: t("manage-trees.body"),
-          onNextClick: () => {
+          onNextClick: (_, __, { driver: d }) => {
             navigateTo("database-management-view");
-            driverRef.current?.moveNext();
+            // Wait for the lazy-loaded view to mount before advancing
+            setTimeout(() => d.moveNext(), 500);
           },
         },
       },
-      ...(gedcomEnabled
-        ? [
-            {
-              element: '[data-tutorial="import-menu"]',
-              popover: {
-                title: t("import-gedcom.title"),
-                description: t("import-gedcom.body"),
-                side: "bottom" as const,
-                align: "end" as const,
-              },
-            },
-          ]
-        : []),
+      {
+        element: '[data-tutorial="new-tree"]',
+        popover: {
+          title: t("new-tree.title"),
+          description: t("new-tree.body"),
+          side: "bottom",
+          align: "start",
+        },
+      },
       {
         popover: {
           title: t("finish.title"),

@@ -1471,9 +1471,9 @@
       "title": "Manage and share your trees",
       "body": "The Tree Management tab is where you create new trees, share them with others as viewers or editors, and import or export data. Head there now to explore."
     },
-    "import-gedcom": {
-      "title": "Import a GEDCOM file",
-      "body": "Have an existing family tree from another app? Use the Import button to bring in a GEDCOM file and pick up where you left off."
+    "new-tree": {
+      "title": "Create a new tree",
+      "body": "Click here to create a new family tree. You can also import data from another app using a GEDCOM file or a backup."
     },
     "finish": {
       "title": "You're all set!",

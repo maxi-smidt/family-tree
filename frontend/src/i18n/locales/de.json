@@ -1471,9 +1471,9 @@
       "title": "Stammbäume verwalten und teilen",
       "body": "Im Tab 'Baumverwaltung' kannst du neue Stammbäume erstellen, sie mit anderen als Betrachter oder Bearbeiter teilen sowie Daten importieren und exportieren."
     },
-    "import-gedcom": {
-      "title": "GEDCOM-Datei importieren",
-      "body": "Hast du bereits einen Stammbaum in einer anderen App? Nutze die Schaltfläche 'Importieren', um eine GEDCOM-Datei einzulesen und dort weiterzumachen, wo du aufgehört hast."
+    "new-tree": {
+      "title": "Neuen Stammbaum erstellen",
+      "body": "Klicke hier, um einen neuen Stammbaum anzulegen. Du kannst auch Daten aus einer anderen App per GEDCOM-Datei oder Sicherung importieren."
     },
     "finish": {
       "title": "Alles bereit!",
