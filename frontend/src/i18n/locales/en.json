@@ -370,7 +370,13 @@
         "dod": "Death Date",
         "no-members": "No members found.",
         "source-tree": "Source tree",
-        "caption": "Family members"
+        "caption": "Family members",
+        "birthplace": "Birthplace",
+        "hometown": "Hometown",
+        "age": "Age",
+        "children": "Children",
+        "status": "Status",
+        "photo": "Photo"
       },
       "menu": {
         "trigger": "Open menu",
@@ -378,6 +384,31 @@
         "details": "View Details",
         "edit": "Edit Member",
         "delete": "Delete Member"
+      },
+      "status": {
+        "alive": "Alive",
+        "deceased": "Deceased"
+      },
+      "age-at-death": "Age at death",
+      "customize": "Customize",
+      "customize-title": "Columns",
+      "customize-reset": "Reset",
+      "move-up": "Move up",
+      "move-down": "Move down",
+      "filters": "Filters",
+      "filter-gender": "Gender",
+      "filter-status": "Status",
+      "filter-has-photo": "Has photo",
+      "filter-all": "All",
+      "filter-male": "Male",
+      "filter-female": "Female",
+      "filter-other": "Other",
+      "filter-reset": "Reset filters",
+      "export-csv": "Export CSV",
+      "pagination": {
+        "showing": "Showing {{from}}–{{to}} of {{total}}",
+        "prev": "Previous page",
+        "next": "Next page"
       }
     }
   },
