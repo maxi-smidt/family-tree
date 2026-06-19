@@ -9,11 +9,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
-from app.schemas.base import CamelCaseModel, CamelCaseOrmModel
+from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
 
 
 # --- Gallery ---------------------------------------------------------------
-class GalleryImageOut(CamelCaseOrmModel):
+class GalleryImageOut(FamilyTreeOrmBaseModel):
     id: str
     image_data: str | None = None
     title: str | None = None
@@ -22,7 +22,7 @@ class GalleryImageOut(CamelCaseOrmModel):
     uploaded_at: str | None = None
 
 
-class GalleryImageCreate(CamelCaseModel):
+class GalleryImageCreate(FamilyTreeBaseModel):
     id: str
     image_data: str | None = None
     title: str | None = None
@@ -33,7 +33,7 @@ class GalleryImageCreate(CamelCaseModel):
     member_ids: list[str] = []
 
 
-class GalleryImageUpdate(CamelCaseModel):
+class GalleryImageUpdate(FamilyTreeBaseModel):
     image_data: str | None = None
     title: str | None = None
     description: str | None = None

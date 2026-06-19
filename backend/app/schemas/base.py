@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 
 
-class CamelCaseModel(BaseModel):
+class FamilyTreeBaseModel(BaseModel):
     """Base for request/input schemas — accepts and emits camelCase JSON."""
     model_config = ConfigDict(
         alias_generator=to_camel,
@@ -10,7 +10,7 @@ class CamelCaseModel(BaseModel):
     )
 
 
-class CamelCaseOrmModel(BaseModel):
+class FamilyTreeOrmBaseModel(BaseModel):
     """Base for response schemas populated from ORM objects."""
     model_config = ConfigDict(
         alias_generator=to_camel,

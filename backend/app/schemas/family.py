@@ -2,19 +2,19 @@
 contracts so the React data layer keeps working unchanged.
 
 DB columns are snake_case; `MemberOut`/`MemberCreate` and related member schemas
-expose camelCase automatically via the ``CamelCaseModel`` /
-``CamelCaseOrmModel`` alias-generator base classes.  Relation, disease, and
+expose camelCase automatically via the ``FamilyTreeBaseModel`` /
+``FamilyTreeOrmBaseModel`` alias-generator base classes.  Relation, disease, and
 other schemas intentionally stay snake_case because the frontend reads them
 as-is.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.base import CamelCaseModel, CamelCaseOrmModel
+from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
 
 
 # --- Members ---------------------------------------------------------------
-class MemberOut(CamelCaseOrmModel):
+class MemberOut(FamilyTreeOrmBaseModel):
     id: str
     gender: str | None = None
     academic_title: str | None = None
@@ -38,7 +38,7 @@ class MemberOut(CamelCaseOrmModel):
     position_y: float = 0
 
 
-class MemberSurfaceOut(CamelCaseOrmModel):
+class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     id: str
     gender: str | None = None
     academic_title: str | None = None
@@ -58,7 +58,7 @@ class MemberSurfaceOut(CamelCaseOrmModel):
     position_y: float = 0
 
 
-class MemberCreate(CamelCaseModel):
+class MemberCreate(FamilyTreeBaseModel):
     id: str
     gender: str | None = None
     academic_title: str | None = None
@@ -80,7 +80,7 @@ class MemberCreate(CamelCaseModel):
     position_y: float = 0
 
 
-class MemberUpdate(CamelCaseModel):
+class MemberUpdate(FamilyTreeBaseModel):
     gender: str | None = None
     academic_title: str | None = None
     first_name: str | None = None
@@ -101,7 +101,7 @@ class MemberUpdate(CamelCaseModel):
     position_y: float | None = None
 
 
-class MemberPositionUpdate(CamelCaseModel):
+class MemberPositionUpdate(FamilyTreeBaseModel):
     """One entry in a bulk position update (used after a re-layout / drag)."""
 
     id: str
@@ -109,7 +109,7 @@ class MemberPositionUpdate(CamelCaseModel):
     position_y: float
 
 
-class MemberCollapsedUpdate(CamelCaseModel):
+class MemberCollapsedUpdate(FamilyTreeBaseModel):
     """One entry in a bulk collapsed-state update (expand-all / collapse-selected)."""
 
     id: str
