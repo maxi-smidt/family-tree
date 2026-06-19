@@ -17,23 +17,23 @@ import type { MemberDB } from "@/types/member";
 const makeDB = (overrides: Partial<MemberDB> = {}): MemberDB => ({
   id: "test-id",
   gender: "m",
-  academicTitle: null,
-  firstName: "John",
-  lastName: "Doe",
-  middleNames: null,
-  baptismalName: null,
-  maidenName: null,
-  imageData: null,
-  dateOfBirth: "1950",
-  dateOfDeath: null,
+  academic_title: null,
+  first_name: "John",
+  last_name: "Doe",
+  middle_names: null,
+  baptismal_name: null,
+  maiden_name: null,
+  image_data: null,
+  date_of_birth: "1950",
+  date_of_death: null,
   deceased: false,
-  additionalData: null,
+  additional_data: null,
   birthplace: null,
   hometown: null,
-  placesLived: null,
-  isCollapsed: 0,
-  positionX: 0,
-  positionY: 0,
+  places_lived: null,
+  is_collapsed: 0,
+  position_x: 0,
+  position_y: 0,
   ...overrides,
 });
 
@@ -59,10 +59,10 @@ describe("buildInitialResolutionState", () => {
   });
 
   it("defaults each conflict field to 'a'", () => {
-    const pair = makePair({ conflicts: ["birthplace", "additionalData"] });
+    const pair = makePair({ conflicts: ["birthplace", "additional_data"] });
     const state = buildInitialResolutionState(pair);
     expect(state.fields["birthplace"]).toBe("a");
-    expect(state.fields["additionalData"]).toBe("a");
+    expect(state.fields["additional_data"]).toBe("a");
   });
 
   it("produces empty fields object when no conflicts", () => {
@@ -139,12 +139,12 @@ describe("buildResolutionsPayload", () => {
 describe("memberDisplayName", () => {
   it("joins first and last name", () => {
     expect(
-      memberDisplayName(makeDB({ firstName: "Jane", lastName: "Doe" })),
+      memberDisplayName(makeDB({ first_name: "Jane", last_name: "Doe" })),
     ).toBe("Jane Doe");
   });
 
   it("falls back to (unknown) for empty names", () => {
-    expect(memberDisplayName(makeDB({ firstName: "", lastName: "" }))).toBe(
+    expect(memberDisplayName(makeDB({ first_name: "", last_name: "" }))).toBe(
       "(unknown)",
     );
   });
@@ -178,6 +178,6 @@ describe("isFieldConflicting", () => {
 
   it("returns false when field is not in conflicts list", () => {
     const pair = makePair({ conflicts: ["birthplace"] });
-    expect(isFieldConflicting(pair, "additionalData")).toBe(false);
+    expect(isFieldConflicting(pair, "additional_data")).toBe(false);
   });
 });

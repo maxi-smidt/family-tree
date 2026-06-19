@@ -226,8 +226,10 @@ export const DatabaseManagementView = () => {
 
   const handleRecomputeMatches = async (view: Tree) => {
     try {
-      const { mergedMemberCount } = await recomputeMatches(view);
-      toast.success(t("toast-recompute-success", { count: mergedMemberCount }));
+      const { merged_member_count } = await recomputeMatches(view);
+      toast.success(
+        t("toast-recompute-success", { count: merged_member_count }),
+      );
     } catch {
       toast.error(t("toast-recompute-error"));
     }

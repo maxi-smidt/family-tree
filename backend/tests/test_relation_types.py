@@ -93,7 +93,7 @@ def test_delete_blocked_while_in_use(client, db):
         client.post(
             f"{API}/trees/{tree.id}/members",
             headers=auth(admin),
-            json={"id": member_id, "firstName": member_id, "lastName": "Test"},
+            json={"id": member_id, "first_name": member_id, "last_name": "Test"},
         )
     res = client.post(
         f"{API}/trees/{tree.id}/relations",
@@ -127,7 +127,7 @@ def test_relation_with_unknown_type_rejected(client, db):
         client.post(
             f"{API}/trees/{tree.id}/members",
             headers=auth(admin),
-            json={"id": member_id, "firstName": member_id, "lastName": "Test"},
+            json={"id": member_id, "first_name": member_id, "last_name": "Test"},
         )
     res = client.post(
         f"{API}/trees/{tree.id}/relations",

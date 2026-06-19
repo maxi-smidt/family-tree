@@ -20,20 +20,20 @@ const TREE_ID = "tree-abc";
 const MEMBER_DB_ROW: MemberDB = {
   id: "m1",
   gender: "m",
-  academicTitle: null,
-  firstName: "John",
-  lastName: "Doe",
-  middleNames: null,
-  baptismalName: null,
-  maidenName: null,
-  imageData: null,
-  dateOfBirth: "1980-01-01",
-  dateOfDeath: null,
+  academic_title: null,
+  first_name: "John",
+  last_name: "Doe",
+  middle_names: null,
+  baptismal_name: null,
+  maiden_name: null,
+  image_data: null,
+  date_of_birth: "1980-01-01",
+  date_of_death: null,
   deceased: false,
-  additionalData: null,
-  isCollapsed: 0,
-  positionX: 0,
-  positionY: 0,
+  additional_data: null,
+  is_collapsed: 0,
+  position_x: 0,
+  position_y: 0,
 };
 
 function makeTree(role: "owner" | "editor" | "viewer" = "owner"): Tree {
@@ -58,7 +58,12 @@ function mockServiceWithMember() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useMemberStore.setState({ members: [], detailLoadedIds: new Set<string>(), undoStack: [], redoStack: [] });
+  useMemberStore.setState({
+    members: [],
+    detailLoadedIds: new Set<string>(),
+    undoStack: [],
+    redoStack: [],
+  });
   useTreeStore.setState({ selectedTree: undefined });
   // syncVitalEvent calls the event store which uses these service methods
   vi.mocked(TreeService.getEvents).mockResolvedValue([]);

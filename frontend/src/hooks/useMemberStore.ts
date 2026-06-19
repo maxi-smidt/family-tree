@@ -174,7 +174,10 @@ interface MemberState {
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   refreshMembers: (treeId?: string) => Promise<void>;
-  fetchMemberDetail: (id: string, force?: boolean) => Promise<Member | undefined>;
+  fetchMemberDetail: (
+    id: string,
+    force?: boolean,
+  ) => Promise<Member | undefined>;
   clear: () => void;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
@@ -197,7 +200,11 @@ interface MemberState {
     type: RelationType,
   ) => Promise<void>;
   addDisease: (memberId: string, disease: DiseaseInput) => Promise<void>;
-  updateDisease: (memberId: string, diseaseId: string, disease: DiseaseInput) => Promise<void>;
+  updateDisease: (
+    memberId: string,
+    diseaseId: string,
+    disease: DiseaseInput,
+  ) => Promise<void>;
   removeDisease: (memberId: string, diseaseId: string) => Promise<void>;
 }
 
@@ -254,7 +261,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       TreeService.getRelations(treeId),
     ]);
 
-    if (membersResult.status === "rejected" || relationsResult.status === "rejected") {
+    if (
+      membersResult.status === "rejected" ||
+      relationsResult.status === "rejected"
+    ) {
       return;
     }
     const result = membersResult.value;
@@ -323,7 +333,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         return get().members.find((m) => m.id === id);
       }
       detailRow = detailResult.value;
-      diseases = diseasesResult.status === "fulfilled" ? diseasesResult.value : [];
+      diseases =
+        diseasesResult.status === "fulfilled" ? diseasesResult.value : [];
     } catch {
       // On unexpected failure, return the existing surface member from the store
       return get().members.find((m) => m.id === id);
@@ -339,13 +350,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     const merged: Member = {
       ...existing,
-      additionalData: detailRow.additionalData ?? null,
+      additionalData: detailRow.additional_data ?? null,
       birthplace: detailRow.birthplace ?? null,
       hometown: detailRow.hometown ?? null,
-      placesLived: detailRow.placesLived
+      placesLived: detailRow.places_lived
         ? (() => {
             try {
-              const parsed = JSON.parse(detailRow.placesLived);
+              const parsed = JSON.parse(detailRow.places_lived);
               return Array.isArray(parsed) ? parsed : [];
             } catch {
               return [];
@@ -363,7 +374,13 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     return merged;
   },
 
-  clear: () => set({ members: [], detailLoadedIds: new Set<string>(), undoStack: [], redoStack: [] }),
+  clear: () =>
+    set({
+      members: [],
+      detailLoadedIds: new Set<string>(),
+      undoStack: [],
+      redoStack: [],
+    }),
 
   addMember: async (newMember: Member) => {
     const treeId = activeTreeId();
@@ -775,7 +792,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     await get().fetchMemberDetail(memberId, true);
   },
 
-  updateDisease: async (memberId: string, diseaseId: string, disease: DiseaseInput) => {
+  updateDisease: async (
+    memberId: string,
+    diseaseId: string,
+    disease: DiseaseInput,
+  ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.updateDisease(treeId, diseaseId, disease);

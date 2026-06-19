@@ -2,7 +2,7 @@ from tests.conftest import API, auth, make_tree, make_user
 
 
 def _create_member(client, tree, user, member_id, **kw):
-    payload = {"id": member_id, "firstName": "Jo", "lastName": "Doe", "gender": "f"}
+    payload = {"id": member_id, "first_name": "Jo", "last_name": "Doe", "gender": "f"}
     payload.update(kw)
     return client.post(
         f"{API}/trees/{tree.id}/members", headers=auth(user), json=payload
@@ -18,32 +18,32 @@ def test_member_crud_roundtrip(client, db):
         tree,
         user,
         "m1",
-        firstName="Ada",
-        middleNames="Augusta",
-        baptismalName="Augusta Ada",
+        first_name="Ada",
+        middle_names="Augusta",
+        baptismal_name="Augusta Ada",
     )
     assert created.status_code == 201
-    assert created.json()["firstName"] == "Ada"
-    assert created.json()["middleNames"] == "Augusta"
-    assert created.json()["baptismalName"] == "Augusta Ada"
+    assert created.json()["first_name"] == "Ada"
+    assert created.json()["middle_names"] == "Augusta"
+    assert created.json()["baptismal_name"] == "Augusta Ada"
 
     updated = client.patch(
         f"{API}/trees/{tree.id}/members/m1",
         headers=auth(user),
         json={
-            "middleNames": "Augusta Byron",
-            "baptismalName": None,
-            "lastName": "Lovelace",
+            "middle_names": "Augusta Byron",
+            "baptismal_name": None,
+            "last_name": "Lovelace",
         },
     )
     assert updated.status_code == 200
-    assert updated.json()["lastName"] == "Lovelace"
-    assert updated.json()["middleNames"] == "Augusta Byron"
-    assert updated.json()["baptismalName"] is None
+    assert updated.json()["last_name"] == "Lovelace"
+    assert updated.json()["middle_names"] == "Augusta Byron"
+    assert updated.json()["baptismal_name"] is None
 
     listed = client.get(f"{API}/trees/{tree.id}/members", headers=auth(user)).json()
     assert len(listed) == 1
-    assert listed[0]["middleNames"] == "Augusta Byron"
+    assert listed[0]["middle_names"] == "Augusta Byron"
 
     deleted = client.delete(
         f"{API}/trees/{tree.id}/members/m1", headers=auth(user)
@@ -62,7 +62,7 @@ def test_members_are_scoped_to_their_tree(client, db):
     cross = client.patch(
         f"{API}/trees/{tree_b.id}/members/m1",
         headers=auth(user),
-        json={"lastName": "X"},
+        json={"last_name": "X"},
     )
     assert cross.status_code == 404
     assert client.get(f"{API}/trees/{tree_b.id}/members", headers=auth(user)).json() == []
@@ -78,9 +78,9 @@ def test_bulk_position_update(client, db):
         f"{API}/trees/{tree.id}/members/positions",
         headers=auth(user),
         json=[
-            {"id": "m1", "positionX": 100, "positionY": 200},
-            {"id": "m2", "positionX": -50, "positionY": 75},
-            {"id": "ghost", "positionX": 1, "positionY": 1},  # unknown id ignored
+            {"id": "m1", "position_x": 100, "position_y": 200},
+            {"id": "m2", "position_x": -50, "position_y": 75},
+            {"id": "ghost", "position_x": 1, "position_y": 1},  # unknown id ignored
         ],
     )
     assert res.status_code == 204
@@ -91,8 +91,8 @@ def test_bulk_position_update(client, db):
             f"{API}/trees/{tree.id}/members", headers=auth(user)
         ).json()
     }
-    assert (by_id["m1"]["positionX"], by_id["m1"]["positionY"]) == (100, 200)
-    assert (by_id["m2"]["positionX"], by_id["m2"]["positionY"]) == (-50, 75)
+    assert (by_id["m1"]["position_x"], by_id["m1"]["position_y"]) == (100, 200)
+    assert (by_id["m2"]["position_x"], by_id["m2"]["position_y"]) == (-50, 75)
 
 
 def test_relations_are_idempotent(client, db):
@@ -191,7 +191,7 @@ def test_surface_list_omits_detail_fields(client, db):
         tree,
         user,
         "m1",
-        additionalData="some notes",
+        additional_data="some notes",
         birthplace="Berlin",
         hometown="Munich",
     )
@@ -203,12 +203,12 @@ def test_surface_list_omits_detail_fields(client, db):
     assert res.status_code == 200
     data = res.json()
     assert len(data) == 1
-    assert data[0]["additionalData"] is None
+    assert data[0]["additional_data"] is None
     assert data[0]["birthplace"] is None
     assert data[0]["hometown"] is None
     # Surface fields should be present
     assert data[0]["id"] == "m1"
-    assert data[0]["firstName"] == "Jo"
+    assert data[0]["first_name"] == "Jo"
 
     # Without surface param, detail fields should be present
     res2 = client.get(
@@ -217,7 +217,7 @@ def test_surface_list_omits_detail_fields(client, db):
     assert res2.status_code == 200
     data2 = res2.json()
     assert len(data2) == 1
-    assert data2[0]["additionalData"] == "some notes"
+    assert data2[0]["additional_data"] == "some notes"
     assert data2[0]["birthplace"] == "Berlin"
     assert data2[0]["hometown"] == "Munich"
 
@@ -233,13 +233,13 @@ def test_create_member_populates_date_sort_columns(client, db):
 
     res = _create_member(
         client, tree, user, "m-sort-1",
-        dateOfBirth="1950-06-15",
-        dateOfDeath="2020-03",
+        date_of_birth="1950-06-15",
+        date_of_death="2020-03",
     )
     assert res.status_code == 201
     data = res.json()
-    assert data["dateOfBirthSort"] == "1950-06-15"
-    assert data["dateOfDeathSort"] == "2020-03-00"
+    assert data["date_of_birth_sort"] == "1950-06-15"
+    assert data["date_of_death_sort"] == "2020-03-00"
 
 
 def test_create_member_fuzzy_birth_date(client, db):
@@ -249,12 +249,12 @@ def test_create_member_fuzzy_birth_date(client, db):
 
     res = _create_member(
         client, tree, user, "m-sort-2",
-        dateOfBirth="about 1850",
+        date_of_birth="about 1850",
     )
     assert res.status_code == 201
     data = res.json()
-    assert data["dateOfBirthSort"] == "1850-00-00"
-    assert data["dateOfDeathSort"] is None
+    assert data["date_of_birth_sort"] == "1850-00-00"
+    assert data["date_of_death_sort"] is None
 
 
 def test_update_member_refreshes_date_sort_columns(client, db):
@@ -262,17 +262,17 @@ def test_update_member_refreshes_date_sort_columns(client, db):
     user = make_user(db, "carol-ds")
     tree = make_tree(db, user)
 
-    _create_member(client, tree, user, "m-sort-3", dateOfBirth="1900")
+    _create_member(client, tree, user, "m-sort-3", date_of_birth="1900")
 
     updated = client.patch(
         f"{API}/trees/{tree.id}/members/m-sort-3",
         headers=auth(user),
-        json={"dateOfBirth": "1905-04-20", "dateOfDeath": "before 1970"},
+        json={"date_of_birth": "1905-04-20", "date_of_death": "before 1970"},
     )
     assert updated.status_code == 200
     data = updated.json()
-    assert data["dateOfBirthSort"] == "1905-04-20"
-    assert data["dateOfDeathSort"] == "1970-00-00"
+    assert data["date_of_birth_sort"] == "1905-04-20"
+    assert data["date_of_death_sort"] == "1970-00-00"
 
 
 def test_surface_list_includes_date_sort_columns(client, db):
@@ -280,7 +280,7 @@ def test_surface_list_includes_date_sort_columns(client, db):
     user = make_user(db, "dave-ds")
     tree = make_tree(db, user)
 
-    _create_member(client, tree, user, "m-sort-4", dateOfBirth="15 JUN 1930")
+    _create_member(client, tree, user, "m-sort-4", date_of_birth="15 JUN 1930")
 
     res = client.get(
         f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
@@ -288,7 +288,7 @@ def test_surface_list_includes_date_sort_columns(client, db):
     assert res.status_code == 200
     data = res.json()
     assert len(data) == 1
-    assert data[0]["dateOfBirthSort"] == "1930-06-15"
+    assert data[0]["date_of_birth_sort"] == "1930-06-15"
 
 
 def test_member_with_no_dates_has_null_sort_columns(client, db):
@@ -299,8 +299,8 @@ def test_member_with_no_dates_has_null_sort_columns(client, db):
     res = _create_member(client, tree, user, "m-sort-5")
     assert res.status_code == 201
     data = res.json()
-    assert data["dateOfBirthSort"] is None
-    assert data["dateOfDeathSort"] is None
+    assert data["date_of_birth_sort"] is None
+    assert data["date_of_death_sort"] is None
 
 
 def test_member_detail_endpoint(client, db):
@@ -311,7 +311,7 @@ def test_member_detail_endpoint(client, db):
         tree,
         user,
         "m1",
-        additionalData="detailed notes",
+        additional_data="detailed notes",
         birthplace="Hamburg",
     )
 
@@ -321,6 +321,6 @@ def test_member_detail_endpoint(client, db):
     assert res.status_code == 200
     data = res.json()
     assert data["id"] == "m1"
-    assert data["additionalData"] == "detailed notes"
+    assert data["additional_data"] == "detailed notes"
     assert data["birthplace"] == "Hamburg"
-    assert data["firstName"] == "Jo"
+    assert data["first_name"] == "Jo"

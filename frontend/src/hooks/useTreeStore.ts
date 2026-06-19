@@ -2,7 +2,12 @@ import { create } from "zustand";
 import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
-import { Member, MemberDB, RelationTypeDB, mapMemberFromDB } from "@/types/member";
+import {
+  Member,
+  MemberDB,
+  RelationTypeDB,
+  mapMemberFromDB,
+} from "@/types/member";
 import { MergeResolution } from "@/types/merge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -19,10 +24,10 @@ export const isVirtualId = (id: string) => id.startsWith("vv_");
 interface DatabaseMetaData {
   id?: string;
   name?: string;
-  createdAt?: string;
-  lastOpened?: string;
-  hasLayout?: boolean;
-  overlapCount?: number;
+  created_at?: string;
+  last_opened?: string;
+  has_layout?: boolean;
+  overlap_count?: number;
 }
 
 interface DatabaseState {
@@ -61,7 +66,7 @@ interface DatabaseState {
   deleteVirtualView: (view: Tree) => Promise<void>;
   recomputeMatches: (
     view: Tree,
-  ) => Promise<{ groupCount: number; mergedMemberCount: number }>;
+  ) => Promise<{ group_count: number; merged_member_count: number }>;
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
@@ -255,7 +260,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
 
     // Virtual trees are read-only composites: auto-arrange the layout only
     // until the user saves an alignment overlay, then respect it.
-    if (virtual && get().metadata.hasLayout !== true) {
+    if (virtual && get().metadata.has_layout !== true) {
       await useMemberStore.getState().updateLayout();
     }
     set({ isReady: true });

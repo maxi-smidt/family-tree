@@ -17,8 +17,8 @@ def _activity_rows(db, tree_id):
 
 MEMBER_PAYLOAD = {
     "id": "m1",
-    "firstName": "Ada",
-    "lastName": "Doe",
+    "first_name": "Ada",
+    "last_name": "Doe",
     "gender": "f",
 }
 
@@ -57,7 +57,7 @@ def test_update_member_writes_activity(client, db):
     res = client.patch(
         f"{API}/trees/{tree.id}/members/m1",
         headers=auth(owner),
-        json={"firstName": "Ada", "lastName": "Smith"},
+        json={"first_name": "Ada", "last_name": "Smith"},
     )
     assert res.status_code == 200
 
@@ -97,12 +97,12 @@ def test_list_activity_returns_newest_first(client, db):
     client.post(
         f"{API}/trees/{tree.id}/members",
         headers=auth(owner),
-        json={**MEMBER_PAYLOAD, "id": "m1", "firstName": "Ada"},
+        json={**MEMBER_PAYLOAD, "id": "m1", "first_name": "Ada"},
     )
     client.post(
         f"{API}/trees/{tree.id}/members",
         headers=auth(owner),
-        json={**MEMBER_PAYLOAD, "id": "m2", "firstName": "Bob"},
+        json={**MEMBER_PAYLOAD, "id": "m2", "first_name": "Bob"},
     )
 
     res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(owner))

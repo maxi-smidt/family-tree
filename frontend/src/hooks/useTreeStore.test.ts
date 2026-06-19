@@ -220,9 +220,9 @@ describe("useTreeStore — connect / selectTree", () => {
     mockEmptySubStores();
     vi.mocked(api.get).mockImplementation((path: string) => {
       if (path === `/virtual-views/${VV.id}`) return Promise.resolve(VV);
-      // hasLayout: true so connect() respects the saved overlay (no auto-layout).
+      // has_layout: true so connect() respects the saved overlay (no auto-layout).
       if (path.includes("/metadata"))
-        return Promise.resolve({ hasLayout: true });
+        return Promise.resolve({ has_layout: true });
       return Promise.resolve([]);
     });
 

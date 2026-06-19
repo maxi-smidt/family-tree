@@ -15,10 +15,10 @@ def test_native_export_import_preserves_member_name_details(client, db):
         headers=headers,
         json={
             "id": "member-1",
-            "firstName": "Anna",
-            "middleNames": "Maria Theresia",
-            "baptismalName": "Maria",
-            "lastName": "Schmidt",
+            "first_name": "Anna",
+            "middle_names": "Maria Theresia",
+            "baptismal_name": "Maria",
+            "last_name": "Schmidt",
             "gender": "f",
         },
     )
@@ -44,8 +44,8 @@ def test_native_export_import_preserves_member_name_details(client, db):
         f"{API}/trees/{imported.json()['id']}/members", headers=headers
     ).json()
     assert len(members) == 1
-    assert members[0]["middleNames"] == "Maria Theresia"
-    assert members[0]["baptismalName"] == "Maria"
+    assert members[0]["middle_names"] == "Maria Theresia"
+    assert members[0]["baptismal_name"] == "Maria"
 
 
 def test_export_bundle_includes_provenance(client, db):

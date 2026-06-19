@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { GalleryImage } from "@/types/gallery";
+import { GalleryImage, mapGalleryImageFromDB } from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 
@@ -43,13 +43,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       );
     }
 
-    const images = imagesResult.map((row) => {
-      const linkedMemberIds = linksByImage.get(row.id) ?? [];
-      return {
-        ...row,
-        linkedMemberIds,
-      };
-    });
+    const images = imagesResult.map((row) =>
+      mapGalleryImageFromDB(row, linksByImage.get(row.id) ?? []),
+    );
 
     set({ galleryImages: images, initialized: true });
   },

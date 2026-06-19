@@ -1,46 +1,39 @@
 """Schemas for gallery images, events and stories (frontend `*DB` shapes).
 
-The DB columns are now snake_case; camelCase is preserved at the API boundary
-via Pydantic ``Field(alias=...)`` / ``serialization_alias``.
+The API speaks snake_case end to end: schemas expose the snake_case DB column
+names verbatim, with no camelCase aliases.
 """
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 # --- Gallery ---------------------------------------------------------------
 class GalleryImageOut(BaseModel):
-    model_config = ConfigDict(
-        from_attributes=True,
-        populate_by_name=True,
-    )
+    model_config = ConfigDict(from_attributes=True)
 
     id: str
-    image_data: str | None = Field(default=None, serialization_alias="imageData")
+    image_data: str | None = None
     title: str | None = None
     description: str | None = None
-    created_at: str | None = Field(default=None, serialization_alias="createdAt")
-    uploaded_at: str | None = Field(default=None, serialization_alias="uploadedAt")
+    created_at: str | None = None
+    uploaded_at: str | None = None
 
 
 class GalleryImageCreate(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
     id: str
-    image_data: str | None = Field(default=None, alias="imageData")
+    image_data: str | None = None
     title: str | None = None
     description: str | None = None
-    created_at: str | None = Field(default=None, alias="createdAt")
-    uploaded_at: str | None = Field(default=None, alias="uploadedAt")
+    created_at: str | None = None
+    uploaded_at: str | None = None
     # Members to link the new image to, in a single request.
     member_ids: list[str] = []
 
 
 class GalleryImageUpdate(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
-    image_data: str | None = Field(default=None, alias="imageData")
+    image_data: str | None = None
     title: str | None = None
     description: str | None = None
 

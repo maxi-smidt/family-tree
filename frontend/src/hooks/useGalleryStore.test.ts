@@ -12,11 +12,11 @@ const TREE: Tree = { id: TREE_ID, name: "Gal Tree", role: "owner" };
 
 const IMAGE_DB: GalleryImageDB = {
   id: "img1",
-  imageData: "data:image/png;base64,abc",
+  image_data: "data:image/png;base64,abc",
   title: "Test Photo",
   description: null,
-  createdAt: "2024-01-01T00:00:00Z",
-  uploadedAt: "2024-01-01T00:00:00Z",
+  created_at: "2024-01-01T00:00:00Z",
+  uploaded_at: "2024-01-01T00:00:00Z",
 };
 
 beforeEach(() => {

@@ -15,6 +15,7 @@ import {
   RelationType,
   RelationTypeDB,
   mapMemberToDB,
+  mapMemberUpdateToDB,
 } from "@/types/member";
 import { MergePreviewResult } from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
@@ -73,7 +74,10 @@ export class TreeService {
     changes: Omit<MemberUpdate, "paternalParentId" | "maternalParentId">,
   ) {
     if (Object.keys(changes).length === 0) return Promise.resolve();
-    return api.patch(`${base(treeId)}/members/${id}`, changes);
+    return api.patch(
+      `${base(treeId)}/members/${id}`,
+      mapMemberUpdateToDB(changes),
+    );
   }
 
   static updateMemberPosition(
@@ -83,8 +87,8 @@ export class TreeService {
     y: number,
   ) {
     return api.patch(`${base(treeId)}/members/${id}`, {
-      positionX: x,
-      positionY: y,
+      position_x: x,
+      position_y: y,
     });
   }
 
@@ -94,7 +98,14 @@ export class TreeService {
     positions: { id: string; positionX: number; positionY: number }[],
   ) {
     if (positions.length === 0) return Promise.resolve();
-    return api.patch(`${base(treeId)}/members/positions`, positions);
+    return api.patch(
+      `${base(treeId)}/members/positions`,
+      positions.map((p) => ({
+        id: p.id,
+        position_x: p.positionX,
+        position_y: p.positionY,
+      })),
+    );
   }
 
   /** Persist collapse/expand state for many members in a single request. */
@@ -103,7 +114,10 @@ export class TreeService {
     updates: { id: string; isCollapsed: boolean }[],
   ) {
     if (updates.length === 0) return Promise.resolve();
-    return api.patch(`${base(treeId)}/members/collapsed`, updates);
+    return api.patch(
+      `${base(treeId)}/members/collapsed`,
+      updates.map((u) => ({ id: u.id, is_collapsed: u.isCollapsed })),
+    );
   }
 
   static addRelation(
@@ -151,11 +165,11 @@ export class TreeService {
   ) {
     return api.post(`${base(treeId)}/gallery/images`, {
       id,
-      imageData: image.imageData,
+      image_data: image.imageData,
       title: image.title,
       description: image.description,
-      createdAt: now,
-      uploadedAt: now,
+      created_at: now,
+      uploaded_at: now,
       member_ids: image.linkedMemberIds ?? [],
     });
   }
@@ -176,7 +190,7 @@ export class TreeService {
     changes: Partial<GalleryImage>,
   ) {
     const body: Record<string, unknown> = {};
-    if (changes.imageData !== undefined) body.imageData = changes.imageData;
+    if (changes.imageData !== undefined) body.image_data = changes.imageData;
     if (changes.title !== undefined) body.title = changes.title;
     if (changes.description !== undefined)
       body.description = changes.description;
@@ -341,7 +355,12 @@ export class TreeService {
     return api.get<CitationDB[]>(`${base(treeId)}/sources/citations`);
   }
 
-  static addSource(treeId: string, id: string, input: SourceInput, now: string) {
+  static addSource(
+    treeId: string,
+    id: string,
+    input: SourceInput,
+    now: string,
+  ) {
     return api.post<SourceDB>(`${base(treeId)}/sources`, {
       id,
       title: input.title,
@@ -376,10 +395,11 @@ export class TreeService {
     filename: string,
     data: string,
   ) {
-    return api.post(
-      `${base(treeId)}/sources/${sourceId}/evidence`,
-      { kind: "file", filename, data },
-    );
+    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
+      kind: "file",
+      filename,
+      data,
+    });
   }
 
   static addSourceEvidenceLink(
@@ -388,10 +408,11 @@ export class TreeService {
     url: string,
     label: string | null,
   ) {
-    return api.post(
-      `${base(treeId)}/sources/${sourceId}/evidence`,
-      { kind: "link", url, filename: label },
-    );
+    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
+      kind: "link",
+      url,
+      filename: label,
+    });
   }
 
   static renameSourceEvidence(
@@ -465,16 +486,28 @@ export class TreeService {
       tasks.push(TreeService.removeSourceEvidence(treeId, sourceId, id));
     }
     for (const { id, filename } of ops.renamed) {
-      tasks.push(TreeService.renameSourceEvidence(treeId, sourceId, id, filename));
+      tasks.push(
+        TreeService.renameSourceEvidence(treeId, sourceId, id, filename),
+      );
     }
     for (const f of ops.addedFiles) {
       tasks.push(
-        TreeService.addSourceEvidenceFile(treeId, sourceId, f.filename, f.dataUrl),
+        TreeService.addSourceEvidenceFile(
+          treeId,
+          sourceId,
+          f.filename,
+          f.dataUrl,
+        ),
       );
     }
     for (const link of ops.addedLinks) {
       tasks.push(
-        TreeService.addSourceEvidenceLink(treeId, sourceId, link.url, link.label),
+        TreeService.addSourceEvidenceLink(
+          treeId,
+          sourceId,
+          link.url,
+          link.label,
+        ),
       );
     }
     return tasks;
@@ -586,7 +619,7 @@ export class TreeService {
   }
 
   static recomputeVirtualViewMatches(id: string) {
-    return api.post<{ groupCount: number; mergedMemberCount: number }>(
+    return api.post<{ group_count: number; merged_member_count: number }>(
       `/virtual-views/${id}/recompute-matches`,
       {},
     );

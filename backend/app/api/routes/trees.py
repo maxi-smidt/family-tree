@@ -165,8 +165,8 @@ def get_metadata(tree: Tree = Depends(get_readable_tree_public)):
     return {
         "id": tree.id,
         "name": tree.name,
-        "createdAt": tree.created_at,
-        "lastOpened": tree.last_opened,
+        "created_at": tree.created_at,
+        "last_opened": tree.last_opened,
     }
 
 
