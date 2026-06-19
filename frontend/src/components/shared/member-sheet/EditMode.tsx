@@ -28,7 +28,12 @@ import { Gender, Member } from "@/types/member";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
@@ -79,10 +84,14 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
-  const eventsEnabled = useFeature("events") && !restrictions.includes("events");
-  const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
-  const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
-  const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
+  const eventsEnabled =
+    useFeature("events") && !restrictions.includes("events");
+  const storiesEnabled =
+    useFeature("stories") && !restrictions.includes("stories");
+  const sourcesEnabled =
+    useFeature("sources") && !restrictions.includes("sources");
+  const galleryEnabled =
+    useFeature("gallery") && !restrictions.includes("gallery");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
@@ -347,7 +356,9 @@ export const EditMode = ({
                   value={formData.academicTitle || ""}
                   className="h-7 text-xs! shadow-none"
                   placeholder={t("academic-title-placeholder")}
-                  onChange={(e) => handleChange("academicTitle", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("academicTitle", e.target.value)
+                  }
                 />
               </Field>
 
@@ -365,21 +376,21 @@ export const EditMode = ({
                 >
                   <ToggleGroupItem
                     value="m"
-                    aria-label="Male"
+                    aria-label={t("gender-male")}
                     className="h-7 min-w-7 text-xs"
                   >
                     <Mars />
                   </ToggleGroupItem>
                   <ToggleGroupItem
                     value="f"
-                    aria-label="Female"
+                    aria-label={t("gender-female")}
                     className="h-7 min-w-7 text-xs"
                   >
                     <Venus />
                   </ToggleGroupItem>
                   <ToggleGroupItem
                     value="o"
-                    aria-label="Other"
+                    aria-label={t("gender-other")}
                     className="h-7 min-w-7 text-xs"
                   >
                     <VenusAndMars />
@@ -413,7 +424,9 @@ export const EditMode = ({
                         setErrors((p) => ({ ...p, firstName: undefined }));
                     }}
                   />
-                  <FieldError id="firstName-error">{errors.firstName}</FieldError>
+                  <FieldError id="firstName-error">
+                    {errors.firstName}
+                  </FieldError>
                 </Field>
 
                 <Field data-invalid={!!errors.lastName}>
@@ -455,7 +468,9 @@ export const EditMode = ({
                     value={formData.middleNames || ""}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("middle-names-field")}
-                    onChange={(e) => handleChange("middleNames", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("middleNames", e.target.value)
+                    }
                   />
                 </Field>
 
@@ -565,7 +580,9 @@ export const EditMode = ({
                         value={formData.hometown || ""}
                         className="h-7 text-xs! shadow-none"
                         placeholder={t("location-placeholder")}
-                        onChange={(e) => handleChange("hometown", e.target.value)}
+                        onChange={(e) =>
+                          handleChange("hometown", e.target.value)
+                        }
                       />
                     </Field>
                   )}
@@ -633,7 +650,9 @@ export const EditMode = ({
                             onClick={() => {
                               handleChange(
                                 "placesLived",
-                                formData.placesLived.filter((_, i) => i !== idx),
+                                formData.placesLived.filter(
+                                  (_, i) => i !== idx,
+                                ),
                               );
                             }}
                           >
