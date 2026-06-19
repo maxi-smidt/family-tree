@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import User
-from app.schemas.user import TabPreferences, UserPreferences
+from app.schemas.user import TabPreferences, TutorialPreferences, UserPreferences
 from app.services.settings_service import get_media_limits
 
 router = APIRouter(prefix="/users/me/preferences", tags=["preferences"])
@@ -34,6 +34,25 @@ def reset_tab_preferences(
     user.tab_preferences = None
     db.commit()
     return TabPreferences()
+
+
+@router.get("/tutorial", response_model=TutorialPreferences)
+def get_tutorial_preferences(user: User = Depends(get_current_user)):
+    prefs = user.preferences or {}
+    return TutorialPreferences(completed=bool(prefs.get("tutorial_completed", False)))
+
+
+@router.put("/tutorial", response_model=TutorialPreferences)
+def put_tutorial_preferences(
+    payload: TutorialPreferences,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    prefs = dict(user.preferences or {})
+    prefs["tutorial_completed"] = payload.completed
+    user.preferences = prefs
+    db.commit()
+    return TutorialPreferences(completed=payload.completed)
 
 
 @router.get("/settings", response_model=UserPreferences)

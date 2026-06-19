@@ -69,6 +69,7 @@ import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
+import { useTutorialStore } from "@/hooks/useTutorialStore";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
@@ -77,7 +78,10 @@ import {
   isViewId,
   resolveTabs,
 } from "@/lib/tabs";
-import { filterViewsByFeatures, filterViewsByRestrictions } from "@/lib/features";
+import {
+  filterViewsByFeatures,
+  filterViewsByRestrictions,
+} from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
@@ -138,6 +142,10 @@ export const MainPanel = () => {
   const user = useAuthStore((s) => s.user);
   const features = useAuthStore((s) => s.features);
   const { order, hidden, loaded, load } = useTabPreferences();
+  const loadTutorial = useTutorialStore((s) => s.load);
+  const tutorialLoaded = useTutorialStore((s) => s.loaded);
+  const tutorialCompleted = useTutorialStore((s) => s.completed);
+  const startTutorial = useTutorialStore((s) => s.start);
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
   const incomingFriendCount = useIncomingFriendCount();
@@ -145,6 +153,16 @@ export const MainPanel = () => {
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  useEffect(() => {
+    if (user) void loadTutorial();
+  }, [user, loadTutorial]);
+
+  useEffect(() => {
+    if (tutorialLoaded && !tutorialCompleted) startTutorial();
+    // Only auto-start once after the tutorial state loads
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tutorialLoaded]);
 
   // Keep the Friends tab badge accurate without opening the tab.
   useEffect(() => {
@@ -218,7 +236,11 @@ export const MainPanel = () => {
         </Button>
       </div>
 
-      <TabsList variant="line" className="ml-16 mt-3 hidden md:inline-flex">
+      <TabsList
+        variant="line"
+        className="ml-16 mt-3 hidden md:inline-flex"
+        data-tutorial="views-tabs"
+      >
         {visible.map((view) => (
           <span key={view} className="contents">
             {view === DATABASE_MANAGEMENT_VIEW && visible.length > 1 && (

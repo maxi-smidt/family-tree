@@ -10,6 +10,10 @@ export interface UserSettings {
   image_storage_mode: ImageStorageMode | null;
 }
 
+export interface TutorialState {
+  completed: boolean;
+}
+
 const BASE = "/users/me/preferences";
 
 export const UserPreferencesService = {
@@ -31,5 +35,13 @@ export const UserPreferencesService = {
 
   updateUserSettings(settings: UserSettings): Promise<UserSettings> {
     return api.put<UserSettings>(`${BASE}/settings`, settings);
+  },
+
+  getTutorialState(): Promise<TutorialState> {
+    return api.get<TutorialState>(`${BASE}/tutorial`);
+  },
+
+  setTutorialCompleted(completed: boolean): Promise<TutorialState> {
+    return api.put<TutorialState>(`${BASE}/tutorial`, { completed });
   },
 };

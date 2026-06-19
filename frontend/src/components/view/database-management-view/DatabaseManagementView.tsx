@@ -495,7 +495,7 @@ export const DatabaseManagementView = () => {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" data-tutorial="import-menu">
                 <HardDriveDownload className="h-4 w-4" />
                 {t("import-menu-button")}
               </Button>

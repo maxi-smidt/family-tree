@@ -1099,7 +1099,8 @@
       "delete-account": "Konto löschen",
       "logout": "Abmelden",
       "two-factor": "Zwei-Faktor-Authentifizierung",
-      "settings": "Einstellungen"
+      "settings": "Einstellungen",
+      "show-tutorial": "Tutorial anzeigen"
     },
     "friends": {
       "title": "Freunde",
@@ -1451,6 +1452,38 @@
       "section": "Konto löschen",
       "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
       "button": "Mein Konto löschen"
+    }
+  },
+  "tutorial": {
+    "welcome": {
+      "title": "Willkommen bei Family Tree",
+      "body": "Diese kurze Tour zeigt dir die wichtigsten Funktionen. Du kannst sie jederzeit überspringen und später über das Benutzermenü erneut starten."
+    },
+    "add-member": {
+      "title": "Erstes Mitglied hinzufügen",
+      "body": "Klicke hier, um eine Person zum Stammbaum hinzuzufügen. Anschließend kannst du Details bearbeiten und sie mit anderen Mitgliedern als Elternteil, Kind oder Partner verknüpfen."
+    },
+    "switch-views": {
+      "title": "Verschiedene Ansichten entdecken",
+      "body": "Wechsle zwischen Ansichten, um deine Familiendaten auf verschiedene Arten zu erkunden – als interaktiver Baum, Liste, Zeitstrahl, Karte, Statistiken und mehr."
+    },
+    "manage-trees": {
+      "title": "Stammbäume verwalten und teilen",
+      "body": "Im Tab 'Baumverwaltung' kannst du neue Stammbäume erstellen, sie mit anderen als Betrachter oder Bearbeiter teilen sowie Daten importieren und exportieren."
+    },
+    "import-gedcom": {
+      "title": "GEDCOM-Datei importieren",
+      "body": "Hast du bereits einen Stammbaum in einer anderen App? Nutze die Schaltfläche 'Importieren', um eine GEDCOM-Datei einzulesen und dort weiterzumachen, wo du aufgehört hast."
+    },
+    "finish": {
+      "title": "Alles bereit!",
+      "body": "Das war die Tour. Du kannst sie jederzeit über das Benutzermenü in der Seitenleiste erneut starten. Viel Spaß beim Erstellen deines Stammbaums!"
+    },
+    "buttons": {
+      "next": "Weiter",
+      "prev": "Zurück",
+      "done": "Fertig",
+      "skip": "Überspringen"
     }
   }
 }

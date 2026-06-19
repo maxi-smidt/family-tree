@@ -1099,7 +1099,8 @@
       "delete-account": "Delete my account",
       "logout": "Log out",
       "two-factor": "Two-factor authentication",
-      "settings": "Settings"
+      "settings": "Settings",
+      "show-tutorial": "Show tutorial"
     },
     "friends": {
       "title": "Friends",
@@ -1451,6 +1452,38 @@
       "section": "Delete account",
       "hint": "Permanently remove your account and all associated data. This action cannot be undone.",
       "button": "Delete my account"
+    }
+  },
+  "tutorial": {
+    "welcome": {
+      "title": "Welcome to Family Tree",
+      "body": "This quick tour will show you the key features. You can skip it at any time and relaunch it later from the user menu."
+    },
+    "add-member": {
+      "title": "Add your first member",
+      "body": "Click here to add a person to the tree. Once added, you can edit their details and link them to other members as parents, children, or partners."
+    },
+    "switch-views": {
+      "title": "Explore different views",
+      "body": "Switch between views to explore your family data in different ways — as an interactive tree, a list, a timeline, a map, statistics, and more."
+    },
+    "manage-trees": {
+      "title": "Manage and share your trees",
+      "body": "The Tree Management tab is where you create new trees, share them with others as viewers or editors, and import or export data. Head there now to explore."
+    },
+    "import-gedcom": {
+      "title": "Import a GEDCOM file",
+      "body": "Have an existing family tree from another app? Use the Import button to bring in a GEDCOM file and pick up where you left off."
+    },
+    "finish": {
+      "title": "You're all set!",
+      "body": "That's the tour. You can relaunch it any time from the user menu in the sidebar. Enjoy building your family tree!"
+    },
+    "buttons": {
+      "next": "Next",
+      "prev": "Back",
+      "done": "Done",
+      "skip": "Skip"
     }
   }
 }

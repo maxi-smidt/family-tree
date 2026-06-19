@@ -186,6 +186,7 @@ export const MemberControls = ({
                 disabled={isLockedScreen}
                 aria-label={t("add-person")}
                 className="text-green-600 hover:bg-green-50 hover:text-green-700"
+                data-tutorial="add-member"
               >
                 <UserPlus size={20} />
               </Button>
