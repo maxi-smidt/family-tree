@@ -370,7 +370,13 @@
         "dod": "Sterbedatum",
         "no-members": "Keine Personen gefunden.",
         "source-tree": "Quellbaum",
-        "caption": "Familienmitglieder"
+        "caption": "Familienmitglieder",
+        "birthplace": "Geburtsort",
+        "hometown": "Heimatort",
+        "age": "Alter",
+        "children": "Kinder",
+        "status": "Status",
+        "photo": "Foto"
       },
       "menu": {
         "trigger": "Menü öffnen",
@@ -378,6 +384,31 @@
         "details": "Details anzeigen",
         "edit": "Person bearbeiten",
         "delete": "Person löschen"
+      },
+      "status": {
+        "alive": "Lebend",
+        "deceased": "Verstorben"
+      },
+      "age-at-death": "Sterbealter",
+      "customize": "Anpassen",
+      "customize-title": "Spalten",
+      "customize-reset": "Zurücksetzen",
+      "move-up": "Nach oben",
+      "move-down": "Nach unten",
+      "filters": "Filter",
+      "filter-gender": "Geschlecht",
+      "filter-status": "Status",
+      "filter-has-photo": "Hat Foto",
+      "filter-all": "Alle",
+      "filter-male": "Männlich",
+      "filter-female": "Weiblich",
+      "filter-other": "Divers",
+      "filter-reset": "Filter zurücksetzen",
+      "export-csv": "CSV exportieren",
+      "pagination": {
+        "showing": "{{from}}–{{to}} von {{total}}",
+        "prev": "Vorherige Seite",
+        "next": "Nächste Seite"
       }
     }
   },
