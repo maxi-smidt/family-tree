@@ -2,7 +2,12 @@ import { create } from "zustand";
 import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
-import { Member, MemberDB, RelationTypeDB, mapMemberFromDB } from "@/types/member";
+import {
+  Member,
+  MemberDB,
+  RelationTypeDB,
+  mapMemberFromDB,
+} from "@/types/member";
 import { MergeResolution } from "@/types/merge";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";

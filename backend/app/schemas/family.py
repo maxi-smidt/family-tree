@@ -1,145 +1,119 @@
 """Schemas mirroring the frontend `MemberDB`, `RelationDB`, `DiseaseDB`
 contracts so the React data layer keeps working unchanged.
 
-The DB columns are now snake_case; camelCase is preserved at the API boundary
-via Pydantic ``Field(alias=...)`` / ``serialization_alias``.  All schemas that
-are populated from ORM objects use ``from_attributes=True`` and
-``populate_by_name=True`` so both the snake_case attribute name and the
-camelCase alias work as input keys.
+DB columns are snake_case; `MemberOut`/`MemberCreate` and related member schemas
+expose camelCase automatically via the ``FamilyTreeBaseModel`` /
+``FamilyTreeOrmBaseModel`` alias-generator base classes.  Relation, disease, and
+other schemas intentionally stay snake_case because the frontend reads them
+as-is.
 """
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
+
 
 # --- Members ---------------------------------------------------------------
-class MemberOut(BaseModel):
-    model_config = ConfigDict(
-        from_attributes=True,
-        populate_by_name=True,
-    )
-
+class MemberOut(FamilyTreeOrmBaseModel):
     id: str
     gender: str | None = None
-    academic_title: str | None = Field(default=None, serialization_alias="academicTitle")
-    first_name: str | None = Field(default=None, serialization_alias="firstName")
-    middle_names: str | None = Field(default=None, serialization_alias="middleNames")
-    baptismal_name: str | None = Field(default=None, serialization_alias="baptismalName")
-    last_name: str | None = Field(default=None, serialization_alias="lastName")
-    maiden_name: str | None = Field(default=None, serialization_alias="maidenName")
-    image_data: str | None = Field(default=None, serialization_alias="imageData")
-    date_of_birth: str | None = Field(default=None, serialization_alias="dateOfBirth")
-    date_of_death: str | None = Field(default=None, serialization_alias="dateOfDeath")
-    date_of_birth_sort: str | None = Field(
-        default=None, serialization_alias="dateOfBirthSort"
-    )
-    date_of_death_sort: str | None = Field(
-        default=None, serialization_alias="dateOfDeathSort"
-    )
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
+    date_of_birth_sort: str | None = None
+    date_of_death_sort: str | None = None
     deceased: bool = False
-    additional_data: str | None = Field(
-        default=None, serialization_alias="additionalData"
-    )
+    additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
-    places_lived: str | None = Field(default=None, serialization_alias="placesLived")
-    is_collapsed: bool = Field(default=False, serialization_alias="isCollapsed")
-    position_x: float = Field(default=0, serialization_alias="positionX")
-    position_y: float = Field(default=0, serialization_alias="positionY")
+    places_lived: str | None = None
+    is_collapsed: bool = False
+    position_x: float = 0
+    position_y: float = 0
 
 
-class MemberSurfaceOut(BaseModel):
-    model_config = ConfigDict(
-        from_attributes=True,
-        populate_by_name=True,
-    )
-
+class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     id: str
     gender: str | None = None
-    academic_title: str | None = Field(default=None, serialization_alias="academicTitle")
-    first_name: str | None = Field(default=None, serialization_alias="firstName")
-    middle_names: str | None = Field(default=None, serialization_alias="middleNames")
-    baptismal_name: str | None = Field(default=None, serialization_alias="baptismalName")
-    last_name: str | None = Field(default=None, serialization_alias="lastName")
-    maiden_name: str | None = Field(default=None, serialization_alias="maidenName")
-    image_data: str | None = Field(default=None, serialization_alias="imageData")
-    date_of_birth: str | None = Field(default=None, serialization_alias="dateOfBirth")
-    date_of_death: str | None = Field(default=None, serialization_alias="dateOfDeath")
-    date_of_birth_sort: str | None = Field(
-        default=None, serialization_alias="dateOfBirthSort"
-    )
-    date_of_death_sort: str | None = Field(
-        default=None, serialization_alias="dateOfDeathSort"
-    )
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
+    date_of_birth_sort: str | None = None
+    date_of_death_sort: str | None = None
     deceased: bool = False
-    is_collapsed: bool = Field(default=False, serialization_alias="isCollapsed")
-    position_x: float = Field(default=0, serialization_alias="positionX")
-    position_y: float = Field(default=0, serialization_alias="positionY")
+    is_collapsed: bool = False
+    position_x: float = 0
+    position_y: float = 0
 
 
-class MemberCreate(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
+class MemberCreate(FamilyTreeBaseModel):
     id: str
     gender: str | None = None
-    academic_title: str | None = Field(default=None, alias="academicTitle")
-    first_name: str | None = Field(default=None, alias="firstName")
-    middle_names: str | None = Field(default=None, alias="middleNames")
-    baptismal_name: str | None = Field(default=None, alias="baptismalName")
-    last_name: str | None = Field(default=None, alias="lastName")
-    maiden_name: str | None = Field(default=None, alias="maidenName")
-    image_data: str | None = Field(default=None, alias="imageData")
-    date_of_birth: str | None = Field(default=None, alias="dateOfBirth")
-    date_of_death: str | None = Field(default=None, alias="dateOfDeath")
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
     deceased: bool = False
-    additional_data: str | None = Field(default=None, alias="additionalData")
+    additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
-    places_lived: str | None = Field(default=None, alias="placesLived")
-    is_collapsed: bool = Field(default=False, alias="isCollapsed")
-    position_x: float = Field(default=0, alias="positionX")
-    position_y: float = Field(default=0, alias="positionY")
+    places_lived: str | None = None
+    is_collapsed: bool = False
+    position_x: float = 0
+    position_y: float = 0
 
 
-class MemberUpdate(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
-
+class MemberUpdate(FamilyTreeBaseModel):
     gender: str | None = None
-    academic_title: str | None = Field(default=None, alias="academicTitle")
-    first_name: str | None = Field(default=None, alias="firstName")
-    middle_names: str | None = Field(default=None, alias="middleNames")
-    baptismal_name: str | None = Field(default=None, alias="baptismalName")
-    last_name: str | None = Field(default=None, alias="lastName")
-    maiden_name: str | None = Field(default=None, alias="maidenName")
-    image_data: str | None = Field(default=None, alias="imageData")
-    date_of_birth: str | None = Field(default=None, alias="dateOfBirth")
-    date_of_death: str | None = Field(default=None, alias="dateOfDeath")
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
     deceased: bool | None = None
-    additional_data: str | None = Field(default=None, alias="additionalData")
+    additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
-    places_lived: str | None = Field(default=None, alias="placesLived")
-    is_collapsed: bool | None = Field(default=None, alias="isCollapsed")
-    position_x: float | None = Field(default=None, alias="positionX")
-    position_y: float | None = Field(default=None, alias="positionY")
+    places_lived: str | None = None
+    is_collapsed: bool | None = None
+    position_x: float | None = None
+    position_y: float | None = None
 
 
-class MemberPositionUpdate(BaseModel):
+class MemberPositionUpdate(FamilyTreeBaseModel):
     """One entry in a bulk position update (used after a re-layout / drag)."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
     id: str
-    position_x: float = Field(alias="positionX")
-    position_y: float = Field(alias="positionY")
+    position_x: float
+    position_y: float
 
 
-class MemberCollapsedUpdate(BaseModel):
+class MemberCollapsedUpdate(FamilyTreeBaseModel):
     """One entry in a bulk collapsed-state update (expand-all / collapse-selected)."""
 
-    model_config = ConfigDict(populate_by_name=True)
-
     id: str
-    is_collapsed: bool = Field(alias="isCollapsed")
+    is_collapsed: bool
 
 
 # --- Relations -------------------------------------------------------------

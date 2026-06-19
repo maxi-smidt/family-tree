@@ -58,7 +58,12 @@ function mockServiceWithMember() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useMemberStore.setState({ members: [], detailLoadedIds: new Set<string>(), undoStack: [], redoStack: [] });
+  useMemberStore.setState({
+    members: [],
+    detailLoadedIds: new Set<string>(),
+    undoStack: [],
+    redoStack: [],
+  });
   useTreeStore.setState({ selectedTree: undefined });
   // syncVitalEvent calls the event store which uses these service methods
   vi.mocked(TreeService.getEvents).mockResolvedValue([]);

@@ -341,7 +341,12 @@ export class TreeService {
     return api.get<CitationDB[]>(`${base(treeId)}/sources/citations`);
   }
 
-  static addSource(treeId: string, id: string, input: SourceInput, now: string) {
+  static addSource(
+    treeId: string,
+    id: string,
+    input: SourceInput,
+    now: string,
+  ) {
     return api.post<SourceDB>(`${base(treeId)}/sources`, {
       id,
       title: input.title,
@@ -376,10 +381,11 @@ export class TreeService {
     filename: string,
     data: string,
   ) {
-    return api.post(
-      `${base(treeId)}/sources/${sourceId}/evidence`,
-      { kind: "file", filename, data },
-    );
+    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
+      kind: "file",
+      filename,
+      data,
+    });
   }
 
   static addSourceEvidenceLink(
@@ -388,10 +394,11 @@ export class TreeService {
     url: string,
     label: string | null,
   ) {
-    return api.post(
-      `${base(treeId)}/sources/${sourceId}/evidence`,
-      { kind: "link", url, filename: label },
-    );
+    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
+      kind: "link",
+      url,
+      filename: label,
+    });
   }
 
   static renameSourceEvidence(
@@ -465,16 +472,28 @@ export class TreeService {
       tasks.push(TreeService.removeSourceEvidence(treeId, sourceId, id));
     }
     for (const { id, filename } of ops.renamed) {
-      tasks.push(TreeService.renameSourceEvidence(treeId, sourceId, id, filename));
+      tasks.push(
+        TreeService.renameSourceEvidence(treeId, sourceId, id, filename),
+      );
     }
     for (const f of ops.addedFiles) {
       tasks.push(
-        TreeService.addSourceEvidenceFile(treeId, sourceId, f.filename, f.dataUrl),
+        TreeService.addSourceEvidenceFile(
+          treeId,
+          sourceId,
+          f.filename,
+          f.dataUrl,
+        ),
       );
     }
     for (const link of ops.addedLinks) {
       tasks.push(
-        TreeService.addSourceEvidenceLink(treeId, sourceId, link.url, link.label),
+        TreeService.addSourceEvidenceLink(
+          treeId,
+          sourceId,
+          link.url,
+          link.label,
+        ),
       );
     }
     return tasks;
