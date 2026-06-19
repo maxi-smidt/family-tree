@@ -282,7 +282,7 @@ def test_new_owner_cannot_delete_during_undo_window(client, db):
     assert res.status_code == 409
 
 
-def test_admin_can_delete_during_undo_window(client, db):
+def test_delete_blocked_during_undo_window_even_for_admin(client, db):
     admin = make_user(db, "admin", is_admin=True)
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")
@@ -292,4 +292,4 @@ def test_admin_can_delete_during_undo_window(client, db):
     _transfer(client, owner, tree, "bob")
 
     res = client.delete(f"{API}/trees/{tree.id}", headers=auth(admin))
-    assert res.status_code == 204
+    assert res.status_code == 409

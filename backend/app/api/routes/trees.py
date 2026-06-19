@@ -210,7 +210,7 @@ def delete_tree(
 ):
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete a tree")
-    if _within_undo_window(tree) and not user.is_admin:
+    if _within_undo_window(tree):
         raise HTTPException(
             status_code=409,
             detail=(
