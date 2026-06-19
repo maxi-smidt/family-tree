@@ -1385,6 +1385,22 @@
       "compressed": "Compressed (WebP)",
       "original": "Original only",
       "both": "Both (display + original)"
+    },
+    "tabs": {
+      "section": "Tab layout",
+      "hint": "Choose which views are visible and reorder the tabs in the main panel.",
+      "button": "Customize tabs"
+    },
+    "two-factor": {
+      "section": "Two-factor authentication",
+      "status-enabled": "Two-factor authentication is currently enabled on your account.",
+      "status-disabled": "Two-factor authentication is currently disabled.",
+      "button": "Manage 2FA"
+    },
+    "delete-account": {
+      "section": "Delete account",
+      "hint": "Permanently remove your account and all associated data. This action cannot be undone.",
+      "button": "Delete my account"
     }
   }
 }

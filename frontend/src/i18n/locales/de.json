@@ -1385,6 +1385,22 @@
       "compressed": "Komprimiert (WebP)",
       "original": "Nur Original",
       "both": "Beides (Anzeige + Original)"
+    },
+    "tabs": {
+      "section": "Tab-Layout",
+      "hint": "Wähle, welche Ansichten sichtbar sind, und ordne die Tabs im Hauptbereich neu an.",
+      "button": "Tabs anpassen"
+    },
+    "two-factor": {
+      "section": "Zwei-Faktor-Authentifizierung",
+      "status-enabled": "Die Zwei-Faktor-Authentifizierung ist derzeit auf deinem Konto aktiv.",
+      "status-disabled": "Die Zwei-Faktor-Authentifizierung ist derzeit deaktiviert.",
+      "button": "2FA verwalten"
+    },
+    "delete-account": {
+      "section": "Konto löschen",
+      "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "button": "Mein Konto löschen"
     }
   }
 }
