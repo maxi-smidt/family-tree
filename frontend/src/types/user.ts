@@ -29,6 +29,7 @@ export interface AuthConfig {
     max_document_bytes: number;
     stored_image_width: number;
     stored_image_height: number;
+    image_storage_mode: "compressed" | "original" | "both";
   };
 }
 

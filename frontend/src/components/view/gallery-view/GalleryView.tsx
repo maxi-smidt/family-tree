@@ -69,7 +69,8 @@ function GallerySkeleton() {
 
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
-  const { galleryImages, addGalleryImage, refreshGalleryImages, initialized } = useGalleryStore();
+  const { galleryImages, addGalleryImage, refreshGalleryImages, initialized } =
+    useGalleryStore();
   const isReady = useTreeStore((state) => state.isReady);
 
   useDeferredStoreLoad(initialized, refreshGalleryImages);
@@ -93,13 +94,54 @@ export const GalleryView = () => {
     fileInputRef.current?.click();
   };
 
+  const submitImage = (dataUrl: string) => {
+    addGalleryImage({
+      imageData: dataUrl,
+      title: formatDateTime(new Date()),
+      description: null,
+      linkedMemberIds: [],
+    })
+      .then(() => {
+        toast.success(t("toast-success-image-upload"));
+      })
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 413) {
+          const bucket = getQuotaBucket(err.message);
+          if (bucket) {
+            toast.error(t(quotaToastKey(bucket)));
+          } else {
+            toast.error(t("toast-error-image-too-large"));
+          }
+        } else if (err instanceof ApiError && err.status === 400) {
+          toast.error(t("toast-error-image-unsupported"));
+        } else {
+          toast.error(t("toast-error-image-upload"));
+        }
+      });
+  };
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file later
     if (!file) return;
 
+    const storageMode = mediaLimits?.image_storage_mode;
+
     try {
       const reader = new FileReader();
+
+      if (storageMode === "original" || storageMode === "both") {
+        // Send the raw file bytes — the server handles the original.
+        reader.onload = (event) => {
+          const base64String = event.target?.result as string;
+          submitImage(base64String);
+        };
+        reader.onerror = () => toast.error(t("toast-error-read-file"));
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      // Default: downscale and re-encode as JPEG before upload.
       reader.onload = (event) => {
         const base64String = event.target?.result as string;
         const img = new Image();
@@ -127,31 +169,7 @@ export const GalleryView = () => {
             return;
           }
           ctx.drawImage(img, 0, 0, width, height);
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
-
-          addGalleryImage({
-            imageData: compressedBase64,
-            title: formatDateTime(new Date()),
-            description: null,
-            linkedMemberIds: [],
-          })
-            .then(() => {
-              toast.success(t("toast-success-image-upload"));
-            })
-            .catch((err: unknown) => {
-              if (err instanceof ApiError && err.status === 413) {
-                const bucket = getQuotaBucket(err.message);
-                if (bucket) {
-                  toast.error(t(quotaToastKey(bucket)));
-                } else {
-                  toast.error(t("toast-error-image-too-large"));
-                }
-              } else if (err instanceof ApiError && err.status === 400) {
-                toast.error(t("toast-error-image-unsupported"));
-              } else {
-                toast.error(t("toast-error-image-upload"));
-              }
-            });
+          submitImage(canvas.toDataURL("image/jpeg", 0.8));
         };
         img.onerror = () => toast.error(t("toast-error-image-upload"));
         img.src = base64String;
@@ -242,7 +260,9 @@ export const GalleryView = () => {
               size="icon"
               onClick={toggleSortDirection}
               aria-label={
-                sortDirection === "asc" ? t("sort-ascending") : t("sort-descending")
+                sortDirection === "asc"
+                  ? t("sort-ascending")
+                  : t("sort-descending")
               }
             >
               {sortDirection === "asc" ? <ArrowUp /> : <ArrowDown />}
