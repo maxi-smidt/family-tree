@@ -21,6 +21,7 @@ from app.api.routes import (
     relation_types,
     settings,
     sources,
+    sse,
     statistics,
     stories,
     trees,
@@ -54,3 +55,4 @@ api_router.include_router(activity.router)
 api_router.include_router(quality.router)
 api_router.include_router(statistics.router)
 api_router.include_router(media.router)
+api_router.include_router(sse.router)
