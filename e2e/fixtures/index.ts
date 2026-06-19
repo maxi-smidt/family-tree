@@ -46,6 +46,14 @@ export const test = base.extend<E2EFixtures>({
         /* ignore storage errors */
       }
     });
+    // Suppress the onboarding tour so its overlay does not block test interactions.
+    await page.route("**/api/users/me/preferences/tutorial", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: { completed: true } });
+      } else {
+        await route.continue();
+      }
+    });
     await use(page);
   },
 
@@ -64,7 +72,9 @@ export const test = base.extend<E2EFixtures>({
     await page.locator("#password").fill(ADMIN_PASSWORD);
     await page.locator('button[type="submit"]').click();
     // Wait for the login form to disappear (auth store transitions to "authenticated")
-    await expect(page.locator("#username")).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("#username")).not.toBeVisible({
+      timeout: 15_000,
+    });
     await use(page);
   },
 

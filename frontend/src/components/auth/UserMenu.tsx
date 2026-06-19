@@ -29,6 +29,8 @@ export const UserMenu = () => {
   const logout = useAuthStore((s) => s.logout);
   const openAdmin = useAdminViewStore((s) => s.openAdmin);
   const openSettings = useUserSettingsViewStore((s) => s.openSettings);
+  const features = useAuthStore((s) => s.features);
+  const tutorialEnabled = features.includes("onboarding_tour");
   const startTutorial = useTutorialStore((s) => s.start);
   const [passwordOpen, setPasswordOpen] = useState(false);
 
@@ -62,10 +64,12 @@ export const UserMenu = () => {
             <Settings className="h-4 w-4" />
             {t("settings")}
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => startTutorial()}>
-            <GraduationCap className="h-4 w-4" />
-            {t("show-tutorial")}
-          </DropdownMenuItem>
+          {tutorialEnabled && (
+            <DropdownMenuItem onClick={() => startTutorial()}>
+              <GraduationCap className="h-4 w-4" />
+              {t("show-tutorial")}
+            </DropdownMenuItem>
+          )}
           {user.is_admin && (
             <DropdownMenuItem onClick={() => openAdmin()}>
               <Shield className="h-4 w-4" />

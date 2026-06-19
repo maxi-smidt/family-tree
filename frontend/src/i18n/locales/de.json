@@ -1216,7 +1216,8 @@
         "gedcom": "GEDCOM-Import/-Export",
         "sharing_invites": "Einladungen teilen",
         "map": "Kartenansicht",
-        "sources": "Quellen & Zitate"
+        "sources": "Quellen & Zitate",
+        "onboarding_tour": "Onboarding-Tour"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1229,7 +1230,8 @@
         "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
-        "sources": "Quellennachweise und Belege für Personendaten."
+        "sources": "Quellennachweise und Belege für Personendaten.",
+        "onboarding_tour": "Gefuehrte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
       }
     },
     "col-username": "Benutzername",

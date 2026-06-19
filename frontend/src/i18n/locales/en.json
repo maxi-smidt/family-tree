@@ -1216,7 +1216,8 @@
         "gedcom": "GEDCOM import/export",
         "sharing_invites": "Share invitations",
         "map": "Map view",
-        "sources": "Sources & Citations"
+        "sources": "Sources & Citations",
+        "onboarding_tour": "Onboarding tour"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -1229,7 +1230,8 @@
         "gedcom": "Import and export trees as GEDCOM files.",
         "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
         "map": "Interactive map of timeline events by location.",
-        "sources": "Source citations and evidence records for member facts."
+        "sources": "Source citations and evidence records for member facts.",
+        "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features."
       }
     },
     "col-username": "Username",

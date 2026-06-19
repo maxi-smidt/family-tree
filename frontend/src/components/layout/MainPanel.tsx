@@ -146,6 +146,7 @@ export const MainPanel = () => {
   const tutorialLoaded = useTutorialStore((s) => s.loaded);
   const tutorialCompleted = useTutorialStore((s) => s.completed);
   const startTutorial = useTutorialStore((s) => s.start);
+  const tutorialEnabled = features.includes("onboarding_tour");
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
   const incomingFriendCount = useIncomingFriendCount();
@@ -159,8 +160,10 @@ export const MainPanel = () => {
   }, [user, loadTutorial]);
 
   useEffect(() => {
-    if (tutorialLoaded && !tutorialCompleted) startTutorial();
-    // Only auto-start once after the tutorial state loads
+    if (tutorialLoaded && !tutorialCompleted && tutorialEnabled)
+      startTutorial();
+    // Only auto-start once after tutorial state loads; tutorialEnabled is stable
+    // after auth resolves so it does not need to be a dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tutorialLoaded]);
 
