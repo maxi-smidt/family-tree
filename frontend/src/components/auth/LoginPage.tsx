@@ -1,8 +1,7 @@
 import { FormEvent, useRef, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { api, ApiError, setAuthToken } from "@/services/api";
+import { ApiError } from "@/services/api";
 import { authErrorToast } from "@/components/auth/loginError";
-import { TokenResponse } from "@/types/user";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
@@ -22,6 +21,7 @@ export const LoginPage = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.login" });
   const config = useAuthStore((s) => s.config);
   const login = useAuthStore((s) => s.login);
+  const register = useAuthStore((s) => s.register);
   const verifyTotp = useAuthStore((s) => s.verifyTotp);
   const cancelTotp = useAuthStore((s) => s.cancelTotp);
   const totpRequired = useAuthStore((s) => s.totpRequired);
@@ -46,13 +46,7 @@ export const LoginPage = () => {
     setPendingDeletion(false);
     try {
       if (mode === "register") {
-        const res = await api.post<TokenResponse>("/auth/register", {
-          username,
-          password,
-          email: email || null,
-        });
-        setAuthToken(res.access_token);
-        useAuthStore.setState({ user: res.user, status: "authenticated" });
+        await register(username, password, email || null);
       } else {
         await login(username, password);
         // If TOTP is required the store sets totpRequired=true; focus the code input.
