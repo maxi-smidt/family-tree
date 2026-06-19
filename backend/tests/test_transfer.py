@@ -197,6 +197,27 @@ def test_revert_revokes_new_owner_access(client, db):
     assert client.delete(f"{API}/trees/{tree.id}", headers=auth(bob)).status_code == 403
 
 
+def test_previous_owner_does_not_inherit_new_owner_future_trees(client, db):
+    owner = make_user(db, "owner")
+    bob = make_user(db, "bob")
+    befriend(db, owner, bob)
+    transferred = make_tree(db, owner, "Transferred")
+
+    assert (
+        _transfer(client, owner, transferred, "bob", retain_role="viewer").status_code
+        == 200
+    )
+
+    created = client.post(f"{API}/trees", headers=auth(bob), json={"name": "Bob New"})
+    assert created.status_code == 201
+
+    owner_trees = client.get(f"{API}/trees", headers=auth(owner))
+    assert owner_trees.status_code == 200
+    by_id = {t["id"]: t for t in owner_trees.json()}
+    assert by_id[transferred.id]["role"] == "viewer"
+    assert created.json()["id"] not in by_id
+
+
 def test_non_previous_owner_cannot_revert(client, db):
     owner = make_user(db, "owner")
     bob = make_user(db, "bob")

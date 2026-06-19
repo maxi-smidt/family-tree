@@ -306,3 +306,15 @@ export const activeTreeId = (): string | undefined =>
 /** Stale-write guard for async loaders: true if `treeId` is still the active tree. */
 export const isActiveTree = (treeId: string | undefined): boolean =>
   treeId !== undefined && activeTreeId() === treeId;
+
+export const resetTreeStoreForSession = () => {
+  useTreeStore.setState({
+    trees: [],
+    virtualViews: [],
+    selectedTree: undefined,
+    metadata: {},
+    relationTypes: [],
+    isReady: false,
+  });
+  clearDataStores();
+};

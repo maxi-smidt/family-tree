@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useTreeStore } from "./useTreeStore";
+import { resetTreeStoreForSession, useTreeStore } from "./useTreeStore";
 import { useMemberStore } from "./useMemberStore";
 import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
@@ -129,6 +129,40 @@ describe("useTreeStore — disconnect", () => {
     // no HTTP calls needed and no reliance on refreshX seeing no active tree.
     await useTreeStore.getState().disconnect();
 
+    expect(useMemberStore.getState().members).toHaveLength(0);
+    expect(useEventStore.getState().events).toHaveLength(0);
+    expect(useStoryStore.getState().stories).toHaveLength(0);
+    expect(useGalleryStore.getState().galleryImages).toHaveLength(0);
+    expect(useActivityStore.getState().activities).toHaveLength(0);
+  });
+});
+
+describe("useTreeStore — session reset", () => {
+  it("clears tree lists, selection, and loaded tree data", () => {
+    useTreeStore.setState({
+      trees: [TREE_A],
+      virtualViews: [TREE_VIEWER],
+      selectedTree: TREE_A,
+      metadata: { id: TREE_A.id, name: TREE_A.name },
+      relationTypes: [{ id: "parent", description: "Parent" }],
+      isReady: true,
+    });
+    seedMemberStore();
+    seedEventStore();
+    seedStoryStore();
+    seedGalleryStore();
+    seedActivityStore();
+
+    resetTreeStoreForSession();
+
+    expect(useTreeStore.getState()).toMatchObject({
+      trees: [],
+      virtualViews: [],
+      selectedTree: undefined,
+      metadata: {},
+      relationTypes: [],
+      isReady: false,
+    });
     expect(useMemberStore.getState().members).toHaveLength(0);
     expect(useEventStore.getState().events).toHaveLength(0);
     expect(useStoryStore.getState().stories).toHaveLength(0);

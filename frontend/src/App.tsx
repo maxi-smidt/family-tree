@@ -1,7 +1,7 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
 import { Layout } from "@/components/layout/Layout";
@@ -21,6 +21,7 @@ export const App = () => {
   const status = useAuthStore((s) => s.status);
   const init = useAuthStore((s) => s.init);
   const user = useAuthStore((s) => s.user);
+  const userId = user?.id;
   const pendingPublicTreeId = useAuthStore((s) => s.pendingPublicTreeId);
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const [treesBootstrapped, setTreesBootstrapped] = useState(false);
@@ -32,13 +33,15 @@ export const App = () => {
   }, [init]);
 
   useEffect(() => {
-    if (status !== "authenticated") {
+    if (status !== "authenticated" || !userId) {
       setTreesBootstrapped(false);
+      resetTreeStoreForSession();
       return;
     }
 
     let cancelled = false;
     setTreesBootstrapped(false);
+    resetTreeStoreForSession();
 
     void (async () => {
       try {
@@ -66,7 +69,7 @@ export const App = () => {
     return () => {
       cancelled = true;
     };
-  }, [status, loadTrees]);
+  }, [status, userId, loadTrees]);
 
   // The Toaster lives at the root so toasts are visible in every auth state —
   // including the login screen, which renders outside the authenticated Layout.

@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
-    accessible_tree_ids,
+    explicit_tree_ids,
     get_current_user,
     get_current_user_optional,
     get_readable_tree,
@@ -65,7 +65,7 @@ def list_trees(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    ids = accessible_tree_ids(db, user)
+    ids = explicit_tree_ids(db, user)
     trees = list(db.scalars(select(Tree).where(Tree.id.in_(ids))).all()) if ids else []
     trees.sort(key=lambda t: (t.last_opened or "", t.created_at), reverse=True)
     # Bulk-count memberships to avoid one query per tree.
@@ -503,5 +503,4 @@ def revert_transfer(
         access=list_access(tree=tree, db=db),
         undo_available_until=None,
     )
-
 
