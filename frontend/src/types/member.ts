@@ -116,7 +116,7 @@ export interface MemberDB {
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
-  dateOfBirth: string;
+  dateOfBirth: string | null;
   dateOfDeath: string | null;
   dateOfBirthSort?: string | null;
   dateOfDeathSort?: string | null;
@@ -193,7 +193,7 @@ export function mapMemberFromDB(
     imageData: row.imageData,
     deceased: !!row.deceased,
     date: {
-      birth: row.dateOfBirth,
+      birth: row.dateOfBirth ?? "",
       death: row.dateOfDeath,
       birthSort: row.dateOfBirthSort ?? null,
       deathSort: row.dateOfDeathSort ?? null,
@@ -237,7 +237,7 @@ export function mapMemberToDB(member: Member): MemberDB {
     lastName: member.lastName,
     maidenName: member.maidenName,
     imageData: member.imageData,
-    dateOfBirth: member.date.birth,
+    dateOfBirth: member.date.birth || null,
     dateOfDeath: member.date.death,
     deceased: member.deceased,
     positionX: member.position.x,
@@ -252,7 +252,6 @@ export function mapMemberToDB(member: Member): MemberDB {
 }
 
 export function createMember(position: { x: number; y: number }): Member {
-  const currentYear = new Date().getFullYear().toString();
   return {
     id: crypto.randomUUID(),
     gender: "o",
@@ -264,7 +263,7 @@ export function createMember(position: { x: number; y: number }): Member {
     maidenName: null,
     imageData: null,
     deceased: false,
-    date: { birth: currentYear, death: null },
+    date: { birth: "", death: null },
     parents: { paternalParent: null, maternalParent: null },
     additionalData: null,
     birthplace: null,
