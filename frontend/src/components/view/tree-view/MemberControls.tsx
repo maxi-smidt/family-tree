@@ -69,6 +69,9 @@ export const MemberControls = ({
               size="icon"
               onClick={() => setIsFastMode(!isFastMode)}
               disabled={isLockedScreen}
+              aria-label={
+                isFastMode ? t("disable-quick-add") : t("enable-quick-add")
+              }
             >
               <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
             </Button>
@@ -84,6 +87,11 @@ export const MemberControls = ({
               size="icon"
               onClick={() => setIsDiseaseMode(!isDiseaseMode)}
               disabled={isLockedScreen}
+              aria-label={
+                isDiseaseMode
+                  ? t("disable-disease-mode")
+                  : t("enable-disease-mode")
+              }
             >
               <Activity className={isDiseaseMode ? "fill-current" : ""} />
             </Button>
@@ -106,6 +114,7 @@ export const MemberControls = ({
             size="icon"
             onClick={onRearrange}
             disabled={isLockedScreen}
+            aria-label={t("arrange-members")}
           >
             <Network />
           </Button>
