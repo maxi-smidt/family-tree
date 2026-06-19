@@ -14,6 +14,7 @@ import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
+import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
 import i18n from "@/i18n/i18n";
 import { toast } from "sonner";
 
@@ -119,6 +120,7 @@ async function commitPendingMemberDeletion(key: string) {
       useMemberStore.getState().refreshMembers,
       pending.treeId,
     );
+    invalidateDerivedViews();
   }
 }
 
@@ -231,6 +233,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     try {
       await entry.undo();
       set((s) => ({ redoStack: [...s.redoStack, entry] }));
+      invalidateDerivedViews();
     } catch (e) {
       set((s) => ({ undoStack: [...s.undoStack, entry] }));
       throw e;
@@ -245,6 +248,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     try {
       await entry.redo();
       set((s) => ({ undoStack: [...s.undoStack, entry] }));
+      invalidateDerivedViews();
     } catch (e) {
       set((s) => ({ redoStack: [...s.redoStack, entry] }));
       throw e;
@@ -425,6 +429,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
 
     if (newMember.date.birth) {
       await syncVitalEvent(newMember.id, "birth", newMember.date.birth, null);
@@ -563,6 +568,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
     if ("imageData" in otherChanges)
       useStorageStore.getState().refreshStorageUsage();
 
@@ -756,6 +762,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.addRelation(treeId, fromId, toId, type);
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
 
     get()._pushHistory({
       undo: async () => {
@@ -774,6 +781,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.removeRelation(treeId, fromId, toId, type);
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
 
     get()._pushHistory({
       undo: async () => {
@@ -793,6 +801,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const id = crypto.randomUUID();
     await TreeService.addDisease(treeId, id, memberId, disease);
     await get().fetchMemberDetail(memberId, true);
+    invalidateDerivedViews();
   },
 
   updateDisease: async (
@@ -804,6 +813,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.updateDisease(treeId, diseaseId, disease);
     await get().fetchMemberDetail(memberId, true);
+    invalidateDerivedViews();
   },
 
   removeDisease: async (memberId: string, diseaseId: string) => {
@@ -811,5 +821,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.removeDisease(treeId, diseaseId);
     await get().fetchMemberDetail(memberId, true);
+    invalidateDerivedViews();
   },
 }));

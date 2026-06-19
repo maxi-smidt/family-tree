@@ -16,6 +16,7 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
+import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { hasFeature } from "@/hooks/useAuthStore";
 
@@ -82,6 +83,7 @@ const clearDataStores = () => {
   useSourceStore.getState().clear();
   useActivityStore.getState().clear();
   useStatisticsStore.getState().clear();
+  useQualityReportStore.getState().clear();
   useStorageStore.getState().clear();
 };
 
