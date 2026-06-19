@@ -215,7 +215,9 @@ export const FriendsView = () => {
             {t("tab-requests")}
             {tabBadge(incoming.length, "default")}
           </TabsTrigger>
-          <TabsTrigger value="add">{t("tab-add")}</TabsTrigger>
+          <TabsTrigger value="add" data-tutorial="add-friend">
+            {t("tab-add")}
+          </TabsTrigger>
         </TabsList>
 
         {/* Accepted friends */}

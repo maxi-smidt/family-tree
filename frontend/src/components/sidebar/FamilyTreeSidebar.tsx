@@ -43,7 +43,7 @@ export function FamilyTreeSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
+        <SidebarGroup data-tutorial="sidebar">
           <SidebarGroupLabel>{t("dataManagement")}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

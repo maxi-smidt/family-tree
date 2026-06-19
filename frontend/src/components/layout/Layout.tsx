@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ReactNode } from "react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
+import { TutorialTour } from "@/components/tutorial/TutorialTour";
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const { sidebarOpen, setSidebarOpen } = useFamilyTreeSettings();
@@ -22,6 +23,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           </div>
           {children}
         </main>
+        <TutorialTour />
       </SidebarProvider>
     </TooltipProvider>
   );

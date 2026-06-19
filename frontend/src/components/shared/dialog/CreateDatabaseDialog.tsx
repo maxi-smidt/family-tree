@@ -35,7 +35,7 @@ export const CreateDatabaseDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onCancellation()}>
-      <DialogContent>
+      <DialogContent data-tutorial="create-dialog">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
@@ -66,6 +66,7 @@ export const CreateDatabaseDialog = ({
             size="sm"
             onClick={onConfirmation}
             disabled={!databaseName}
+            data-tutorial="tree-create-btn"
           >
             {t("create")}
           </Button>

@@ -1099,7 +1099,8 @@
       "delete-account": "Konto löschen",
       "logout": "Abmelden",
       "two-factor": "Zwei-Faktor-Authentifizierung",
-      "settings": "Einstellungen"
+      "settings": "Einstellungen",
+      "show-tutorial": "Tutorial anzeigen"
     },
     "friends": {
       "title": "Freunde",
@@ -1215,7 +1216,8 @@
         "gedcom": "GEDCOM-Import/-Export",
         "sharing_invites": "Einladungen teilen",
         "map": "Kartenansicht",
-        "sources": "Quellen & Zitate"
+        "sources": "Quellen & Zitate",
+        "onboarding_tour": "Onboarding-Tour"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1228,7 +1230,8 @@
         "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
-        "sources": "Quellennachweise und Belege für Personendaten."
+        "sources": "Quellennachweise und Belege für Personendaten.",
+        "onboarding_tour": "Gefuehrte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
       }
     },
     "col-username": "Benutzername",
@@ -1451,6 +1454,54 @@
       "section": "Konto löschen",
       "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
       "button": "Mein Konto löschen"
+    }
+  },
+  "tutorial": {
+    "welcome": {
+      "title": "Willkommen bei Family Tree",
+      "body": "Diese kurze Tour fuehrt dich durch die wichtigsten Funktionen. Du kannst sie jederzeit ueber das Benutzermenue neu starten."
+    },
+    "create-tree": {
+      "title": "Ersten Stammbaum erstellen",
+      "body": "Klicke auf Weiter (oder direkt auf den Button), um den Erstellungsdialog zu oeffnen - wir fuehren dich durch die Benennung deines Stammbaums."
+    },
+    "add-member": {
+      "title": "Erste Person hinzufügen",
+      "body": "Klicke hier, um eine Person zum Stammbaum hinzuzufügen. Anschließend kannst du Details bearbeiten und sie mit Elternteilen, Kindern und Partnern verknüpfen."
+    },
+    "sidebar-panel": {
+      "title": "Deine Seitenleiste",
+      "body": "Hier kannst du zwischen deinen Stammbäumen wechseln, das Aussehen anpassen (Design, Sprache, Kantentyp) und über das Benutzermenü am unteren Rand auf deine Kontoeinstellungen zugreifen."
+    },
+    "switch-views": {
+      "title": "Zwischen Ansichten wechseln",
+      "body": "Mit diesen Tabs wechselst du zwischen verschiedenen Ansichten deiner Daten – Stammbaum, Liste, Zeitstrahl, Karte, Statistiken und mehr. Als Nächstes geht es zur Baumverwaltung."
+    },
+    "tree-management": {
+      "title": "Baumverwaltung",
+      "body": "Hier kannst du neue Stammbäume erstellen, einen bestehenden Baum mit Freunden als Betrachter oder Bearbeiter teilen sowie Daten importieren oder exportieren."
+    },
+    "friends": {
+      "title": "Freunde & Teilen",
+      "body": "Suche andere Benutzer anhand ihres Benutzernamens, sende eine Freundschaftsanfrage und lade sie nach der Annahme zu einem deiner Stammbäume ein."
+    },
+    "finish": {
+      "title": "Alles bereit!",
+      "body": "Das war die Tour. Du kannst sie jederzeit über das Benutzermenü in der Seitenleiste erneut starten. Viel Spaß beim Erstellen deines Stammbaums!"
+    },
+    "buttons": {
+      "next": "Weiter",
+      "prev": "Zurück",
+      "done": "Fertig",
+      "skip": "Überspringen"
+    },
+    "tree-name": {
+      "title": "Stammbaum benennen",
+      "body": "Gib deinem Stammbaum einen Namen - zum Beispiel \"Mein erster Stammbaum\" - und klicke dann auf Weiter."
+    },
+    "tree-confirm": {
+      "title": "Stammbaum erstellen",
+      "body": "Klicke auf Erstellen (oder Weiter), um deinen Stammbaum zu erstellen. Wir machen weiter, sobald er bereit ist."
     }
   }
 }

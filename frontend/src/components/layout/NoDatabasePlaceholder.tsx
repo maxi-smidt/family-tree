@@ -41,7 +41,12 @@ export const NoDatabasePlaceholder = () => {
         <EmptyDescription>{t("description")}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent className="flex-row justify-center gap-2">
-        <Button onClick={() => setIsCreateDialogOpen(true)}>{t("create")}</Button>
+        <Button
+          onClick={() => setIsCreateDialogOpen(true)}
+          data-tutorial="create-tree"
+        >
+          {t("create")}
+        </Button>
         <Button variant="outline" onClick={() => void handleImportDatabase()}>
           {t("import")}
         </Button>

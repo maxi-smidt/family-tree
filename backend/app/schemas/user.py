@@ -49,6 +49,10 @@ class UserPreferences(BaseModel):
     image_storage_mode: ImageStorageMode | None = None
 
 
+class TutorialPreferences(BaseModel):
+    completed: bool = False
+
+
 class UserCreate(BaseModel):
     username: str
     password: str
