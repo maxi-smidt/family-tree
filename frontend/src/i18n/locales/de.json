@@ -1084,7 +1084,8 @@
       "admin": "Verwaltung",
       "delete-account": "Konto löschen",
       "logout": "Abmelden",
-      "two-factor": "Zwei-Faktor-Authentifizierung"
+      "two-factor": "Zwei-Faktor-Authentifizierung",
+      "settings": "Einstellungen"
     },
     "friends": {
       "title": "Freunde",
@@ -1247,6 +1248,10 @@
     "image-storage-mode-original": "Nur Original",
     "image-storage-mode-both": "Beides (Anzeige + Original)",
     "image-storage-mode-hint": "Legt fest, wie Galeriebilder gespeichert werden. „Original“ und „Beides“ laden die volle Auflösung hoch – erhöhe das Bildgrößenlimit entsprechend.",
+    "image-storage-mode-allowed": "Erlaubte Speichermodi",
+    "image-storage-mode-allowed-hint": "Wähle, welche Speichermodi Benutzer auswählen dürfen.",
+    "image-storage-mode-default": "Standardmodus",
+    "image-storage-mode-default-hint": "Der Modus, der für Benutzer ohne eigene Einstellung gilt. Muss einer der oben erlaubten Modi sein.",
     "storage-quotas": "Standard-Speicherkontingente",
     "storage-quotas-hint": "Setzt das Standard-Kontingent je Bucket pro Nutzer. 0 = unbegrenzt. Nutzer-spezifische Werte haben Vorrang.",
     "default-tree-quota": "Stammbaumdaten (MB)",
@@ -1402,5 +1407,36 @@
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
     "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten."
+  },
+  "user-settings": {
+    "title": "Einstellungen",
+    "back": "Zurück",
+    "save": "Speichern",
+    "toast-saved": "Einstellungen gespeichert.",
+    "toast-error": "Einstellungen konnten nicht gespeichert werden.",
+    "image-storage": {
+      "section": "Galeriebilder-Speicherung",
+      "label": "Speichermodus",
+      "hint": "Legt fest, wie deine Galeriebilder gespeichert werden. Die verfügbaren Optionen hängen von der Instanzkonfiguration ab.",
+      "compressed": "Komprimiert (WebP)",
+      "original": "Nur Original",
+      "both": "Beides (Anzeige + Original)"
+    },
+    "tabs": {
+      "section": "Tab-Layout",
+      "hint": "Wähle, welche Ansichten sichtbar sind, und ordne die Tabs im Hauptbereich neu an.",
+      "button": "Tabs anpassen"
+    },
+    "two-factor": {
+      "section": "Zwei-Faktor-Authentifizierung",
+      "status-enabled": "Die Zwei-Faktor-Authentifizierung ist derzeit auf deinem Konto aktiv.",
+      "status-disabled": "Die Zwei-Faktor-Authentifizierung ist derzeit deaktiviert.",
+      "button": "2FA verwalten"
+    },
+    "delete-account": {
+      "section": "Konto löschen",
+      "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "button": "Mein Konto löschen"
+    }
   }
 }

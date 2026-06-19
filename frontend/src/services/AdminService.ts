@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import { User } from "@/types/user";
+import { User, ImageStorageMode } from "@/types/user";
 import { FeatureName } from "@/lib/features";
 import { RelationTypeDB } from "@/types/member";
 
@@ -16,7 +16,8 @@ export interface AdminSettings {
   max_document_upload_mb: number;
   default_tree_quota_mb: number;
   default_media_quota_mb: number;
-  image_storage_mode: "compressed" | "original" | "both";
+  image_storage_mode: ImageStorageMode;
+  image_storage_allowed_modes: ImageStorageMode[];
 }
 
 export interface BackupRecord {

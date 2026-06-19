@@ -33,6 +33,9 @@ class MediaLimits(BaseModel):
     stored_image_width: int
     stored_image_height: int
     image_storage_mode: ImageStorageMode = "compressed"
+    image_storage_allowed_modes: list[ImageStorageMode] = Field(
+        default_factory=lambda: ["compressed", "original", "both"]
+    )
 
 
 class SettingsOut(BaseModel):
@@ -49,6 +52,9 @@ class SettingsOut(BaseModel):
     default_tree_quota_mb: int = 0
     default_media_quota_mb: int = 0
     image_storage_mode: ImageStorageMode = "compressed"
+    image_storage_allowed_modes: list[ImageStorageMode] = Field(
+        default_factory=lambda: ["compressed", "original", "both"]
+    )
 
 
 class SettingsUpdate(BaseModel):
@@ -77,3 +83,4 @@ class SettingsUpdate(BaseModel):
     default_tree_quota_mb: int | None = Field(default=None, ge=0)
     default_media_quota_mb: int | None = Field(default=None, ge=0)
     image_storage_mode: ImageStorageMode | None = None
+    image_storage_allowed_modes: list[ImageStorageMode] | None = None

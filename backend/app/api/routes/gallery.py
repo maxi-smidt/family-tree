@@ -24,7 +24,7 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
-from app.services.settings_service import get_media_limits
+from app.services.settings_service import effective_storage_mode, get_media_limits
 from app.services.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
@@ -90,10 +90,21 @@ def create_image(
     member_ids = data.pop("member_ids")
     new_image_url: str | None = None
     try:
+        limits = get_media_limits(db)
+        user_mode = (user.preferences or {}).get("image_storage_mode")
+        limits = limits.model_copy(
+            update={
+                "image_storage_mode": effective_storage_mode(
+                    limits.image_storage_mode,
+                    limits.image_storage_allowed_modes,
+                    user_mode,
+                )
+            }
+        )
         new_url = process_gallery_image_field(
             tree.id,
             data.get("image_data"),
-            get_media_limits(db),
+            limits,
         )
         data["image_data"] = new_url
         if new_url and new_url.startswith(MEDIA_URL_PREFIX):
@@ -145,10 +156,19 @@ def update_image(
     new_image_url: str | None = None
     if "image_data" in changes:
         try:
+            limits = get_media_limits(db)
+            user_mode = (user.preferences or {}).get("image_storage_mode")
+            limits = limits.model_copy(
+                update={
+                    "image_storage_mode": effective_storage_mode(
+                        limits.image_storage_mode, user_mode
+                    )
+                }
+            )
             new_url = process_gallery_image_field(
                 tree.id,
                 changes["image_data"],
-                get_media_limits(db),
+                limits,
             )
             changes["image_data"] = new_url
             if new_url and new_url.startswith(MEDIA_URL_PREFIX):

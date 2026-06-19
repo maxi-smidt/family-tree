@@ -41,7 +41,11 @@ from app.schemas.user import (
     UserOut,
 )
 from app.services import feature_service
-from app.services.settings_service import get_bool_setting, get_media_limits
+from app.services.settings_service import (
+    effective_storage_mode,
+    get_bool_setting,
+    get_media_limits,
+)
 from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -50,6 +54,12 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def _current_user_out(db: Session, user: User) -> CurrentUserOut:
     out = CurrentUserOut.model_validate(user)
     out.features = feature_service.enabled_for(db, user)
+    limits = get_media_limits(db)
+    user_mode = (user.preferences or {}).get("image_storage_mode")
+    out.image_storage_allowed_modes = list(limits.image_storage_allowed_modes)  # type: ignore[assignment]
+    out.image_storage_mode = effective_storage_mode(  # type: ignore[assignment]
+        limits.image_storage_mode, limits.image_storage_allowed_modes, user_mode
+    )
     return out
 
 

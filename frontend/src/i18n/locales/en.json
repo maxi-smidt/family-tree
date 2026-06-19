@@ -1084,7 +1084,8 @@
       "admin": "Administration",
       "delete-account": "Delete my account",
       "logout": "Log out",
-      "two-factor": "Two-factor authentication"
+      "two-factor": "Two-factor authentication",
+      "settings": "Settings"
     },
     "friends": {
       "title": "Friends",
@@ -1247,6 +1248,10 @@
     "image-storage-mode-original": "Original only",
     "image-storage-mode-both": "Both (display + original)",
     "image-storage-mode-hint": "Controls how gallery images are stored. \"Original\" and \"Both\" upload the full-resolution file — raise the image size limit accordingly.",
+    "image-storage-mode-allowed": "Allowed storage modes",
+    "image-storage-mode-allowed-hint": "Select which storage modes users may choose from.",
+    "image-storage-mode-default": "Default mode",
+    "image-storage-mode-default-hint": "The mode applied to users who have not set a preference. Must be one of the allowed modes above.",
     "storage-quotas": "Default storage quotas",
     "storage-quotas-hint": "Set the default per-user quota for each bucket. 0 means unlimited. Per-user overrides take precedence.",
     "default-tree-quota": "Tree data (MB)",
@@ -1402,5 +1407,36 @@
     "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
     "toast-error-quota-tree": "Tree data quota exceeded."
+  },
+  "user-settings": {
+    "title": "Settings",
+    "back": "Back",
+    "save": "Save",
+    "toast-saved": "Settings saved.",
+    "toast-error": "Could not save settings.",
+    "image-storage": {
+      "section": "Gallery image storage",
+      "label": "Storage mode",
+      "hint": "Controls how your gallery images are stored. Available options depend on the instance configuration.",
+      "compressed": "Compressed (WebP)",
+      "original": "Original only",
+      "both": "Both (display + original)"
+    },
+    "tabs": {
+      "section": "Tab layout",
+      "hint": "Choose which views are visible and reorder the tabs in the main panel.",
+      "button": "Customize tabs"
+    },
+    "two-factor": {
+      "section": "Two-factor authentication",
+      "status-enabled": "Two-factor authentication is currently enabled on your account.",
+      "status-disabled": "Two-factor authentication is currently disabled.",
+      "button": "Manage 2FA"
+    },
+    "delete-account": {
+      "section": "Delete account",
+      "hint": "Permanently remove your account and all associated data. This action cannot be undone.",
+      "button": "Delete my account"
+    }
   }
 }
