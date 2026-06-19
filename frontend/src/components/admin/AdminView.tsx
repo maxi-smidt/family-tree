@@ -36,6 +36,13 @@ import {
   Undo2,
 } from "lucide-react";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AdminService,
   AdminSettings,
   AdminUserUpdate,
@@ -513,7 +520,9 @@ export const AdminView = () => {
                   </div>
                   <div className="space-y-3 border-t pt-4">
                     <div>
-                      <p className="font-medium text-sm">{t("upload-limits")}</p>
+                      <p className="font-medium text-sm">
+                        {t("upload-limits")}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {t("upload-limits-hint")}
                       </p>
@@ -583,6 +592,41 @@ export const AdminView = () => {
                           }
                         />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="image-storage-mode">
+                        {t("image-storage-mode")}
+                      </FieldLabel>
+                      <Select
+                        value={settings.image_storage_mode}
+                        onValueChange={(v) =>
+                          setSettings({
+                            ...settings,
+                            image_storage_mode: v as
+                              | "compressed"
+                              | "original"
+                              | "both",
+                          })
+                        }
+                      >
+                        <SelectTrigger id="image-storage-mode" className="w-64">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="compressed">
+                            {t("image-storage-mode-compressed")}
+                          </SelectItem>
+                          <SelectItem value="original">
+                            {t("image-storage-mode-original")}
+                          </SelectItem>
+                          <SelectItem value="both">
+                            {t("image-storage-mode-both")}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {t("image-storage-mode-hint")}
+                      </p>
                     </div>
                   </div>
                   <div className="space-y-3 border-t pt-4">
@@ -800,10 +844,7 @@ export const AdminView = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setUserToEditQuota(null)}
-            >
+            <Button variant="outline" onClick={() => setUserToEditQuota(null)}>
               {t("quota-dialog.cancel")}
             </Button>
             <Button onClick={saveUserQuotas}>{t("quota-dialog.save")}</Button>

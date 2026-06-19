@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
-import { useStatisticsSettings, normalizeOrder } from "@/hooks/useStatisticsSettings";
+import {
+  useStatisticsSettings,
+  normalizeOrder,
+} from "@/hooks/useStatisticsSettings";
 import { WIDGET_MAP } from "./widgets";
 import { CustomizePopover } from "./CustomizePopover";
 
@@ -67,21 +69,7 @@ export const StatisticsView = () => {
 
   const visibleIds = normalizeOrder(order).filter((id) => !hidden.includes(id));
 
-  const actions = (
-    <div className="flex items-center gap-2">
-      <CustomizePopover />
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-8 gap-1.5 text-xs"
-        onClick={() => refreshStatistics()}
-        disabled={isLoading}
-      >
-        <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-        {t("refresh")}
-      </Button>
-    </div>
-  );
+  const actions = <CustomizePopover />;
 
   return (
     <ViewLayout title={t("title")} action={actions}>

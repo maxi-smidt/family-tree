@@ -3,6 +3,7 @@ import { GalleryImage } from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
+import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
 interface GalleryState {
   galleryImages: GalleryImage[];
@@ -68,6 +69,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     await get().refreshGalleryImages(treeId);
     useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
@@ -85,6 +87,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     await get().refreshGalleryImages(treeId);
     if ("imageData" in changes)
       useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
   deleteGalleryImage: async (id: string) => {
@@ -93,6 +96,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     await TreeService.removeGalleryImage(treeId, id);
     await get().refreshGalleryImages(treeId);
     useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
   clear: () => set({ galleryImages: [], initialized: false }),
