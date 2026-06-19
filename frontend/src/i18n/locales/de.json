@@ -295,7 +295,23 @@
       "image-alt-fallback": "Galeriebild",
       "empty-title": "Noch keine Fotos",
       "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Stammbaums zu füllen.",
-      "empty-cta": "Foto hochladen"
+      "empty-cta": "Foto hochladen",
+      "upload-queue": {
+        "title": "Uploads",
+        "progress": "{{done}} von {{total}}",
+        "status-queued": "Wartend",
+        "status-uploading": "Wird hochgeladen…",
+        "status-done": "Fertig",
+        "status-failed": "Fehlgeschlagen",
+        "retry": "Erneut versuchen",
+        "cancel": "Abbrechen",
+        "clear-completed": "Abgeschlossene entfernen",
+        "close": "Schließen",
+        "dropzone": "Bilder hier ablegen zum Hochladen",
+        "summary-success_one": "{{count}} Bild erfolgreich hochgeladen.",
+        "summary-success_other": "{{count}} Bilder erfolgreich hochgeladen.",
+        "summary-partial": "{{done}} hochgeladen, {{failed}} fehlgeschlagen."
+      }
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",

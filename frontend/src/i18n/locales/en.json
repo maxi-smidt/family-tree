@@ -295,7 +295,23 @@
       "image-alt-fallback": "Gallery image",
       "empty-title": "No photos yet",
       "empty-description": "Upload your first photo to start building this tree's gallery.",
-      "empty-cta": "Upload photo"
+      "empty-cta": "Upload photo",
+      "upload-queue": {
+        "title": "Uploads",
+        "progress": "{{done}} of {{total}}",
+        "status-queued": "Queued",
+        "status-uploading": "Uploading…",
+        "status-done": "Done",
+        "status-failed": "Failed",
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "clear-completed": "Clear completed",
+        "close": "Close",
+        "dropzone": "Drop images here to upload",
+        "summary-success_one": "{{count}} image uploaded successfully.",
+        "summary-success_other": "{{count}} images uploaded successfully.",
+        "summary-partial": "{{done}} uploaded, {{failed}} failed."
+      }
     },
     "image-sheet": {
       "toast-success": "Image details saved",
