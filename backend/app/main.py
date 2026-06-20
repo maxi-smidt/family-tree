@@ -45,6 +45,9 @@ def _init_db_with_retry(retries: int = 10, delay: float = 3.0) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.services.event_bus import event_bus
+
+    event_bus.set_loop(asyncio.get_running_loop())
     init_oauth()
     _init_db_with_retry()
     sweeper = asyncio.create_task(deletion_sweep_loop())

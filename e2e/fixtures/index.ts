@@ -54,6 +54,11 @@ export const test = base.extend<E2EFixtures>({
         await route.continue();
       }
     });
+    // The realtime SSE stream (/api/sse/events) holds an HTTP connection open for
+    // the life of the page, which prevents Playwright's `networkidle` from ever
+    // settling and hangs every `waitUntil: "networkidle"` navigation. Abort it so
+    // those waits resolve; the realtime client is covered by unit tests, not E2E.
+    await page.route("**/api/sse/events*", (route) => route.abort());
     await use(page);
   },
 
