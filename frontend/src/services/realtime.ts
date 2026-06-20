@@ -7,7 +7,9 @@
  */
 
 import { getAuthToken } from "@/services/api";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { toast } from "sonner";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -41,6 +43,17 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  source.addEventListener("session.invalidate", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { reason: string };
+    const msg =
+      data.reason === "pending_deletion"
+        ? "Your account is pending deletion. You have been signed out."
+        : "Your account has been deactivated. You have been signed out.";
+    stopRealtime();
+    useAuthStore.getState().logout();
+    toast.error(msg);
+  });
 
   source.onerror = () => {
     source?.close();
