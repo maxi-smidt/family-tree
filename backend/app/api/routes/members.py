@@ -29,6 +29,7 @@ from app.schemas.family import (
     RelationOut,
 )
 from app.services.activity import record_activity
+from app.services.event_bus import publish_tree_event
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
     MEDIA_URL_PREFIX,
@@ -168,6 +169,9 @@ def update_member_positions(
             member.position_x = p.position_x
             member.position_y = p.position_y
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.layout_changed", {"tree_id": tree.id}
+    )
 
 
 @router.patch("/members/collapsed", status_code=204)

@@ -7,7 +7,8 @@
  */
 
 import { getAuthToken } from "@/services/api";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -41,6 +42,12 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  source.addEventListener("tree.layout_changed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
+    if (!isActiveTree(data.tree_id)) return;
+    void useMemberStore.getState().refreshMembers(data.tree_id);
+  });
 
   source.onerror = () => {
     source?.close();
