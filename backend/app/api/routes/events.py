@@ -18,6 +18,7 @@ from app.models.user import User
 from app.schemas.content import EventCreate, EventLinkOut, EventOut, EventUpdate, LinksSet
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import QuotaExceeded, check_tree_quota
 
 router = APIRouter(
@@ -93,6 +94,7 @@ def create_event(
         target_type="event", target_id=event.id, target_label=event.event_type,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(event)
     return event
 
@@ -113,6 +115,7 @@ def update_event(
         target_type="event", target_id=event.id, target_label=event.event_type,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(event)
     return event
 
@@ -131,6 +134,7 @@ def delete_event(
     )
     db.delete(event)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
 
 
 @router.put("/{event_id}/links", status_code=204)
