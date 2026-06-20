@@ -6,7 +6,10 @@
  * backoff capped at 30 s.
  */
 
+import { toast } from "sonner";
+import i18n from "@/i18n/i18n";
 import { getAuthToken } from "@/services/api";
+import { useFriendStore } from "@/hooks/useFriendStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -41,6 +44,28 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  source.addEventListener("friend.request_received", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      requester_id: string;
+      requester_username: string;
+    };
+    void useFriendStore.getState().loadIncoming();
+    toast.info(
+      i18n.t("auth.friends.new-request", { name: data.requester_username }),
+    );
+  });
+
+  source.addEventListener("invitation.received", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      tree_name: string;
+    };
+    void useTreeStore.getState().loadTrees();
+    toast.info(
+      i18n.t("dialog.share-tree.invitation-received", { name: data.tree_name }),
+    );
+  });
 
   source.onerror = () => {
     source?.close();

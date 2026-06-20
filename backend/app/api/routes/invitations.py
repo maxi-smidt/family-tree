@@ -21,6 +21,7 @@ from app.schemas.tree import (
     InvitationOut,
     InvitationPreview,
 )
+from app.services.event_bus import event_bus
 from app.services.invitations import (
     accept_invitation,
     invitation_status,
@@ -102,6 +103,20 @@ def create_invitation(
     db.add(inv)
     db.commit()
     db.refresh(inv)
+    if payload.email:
+        invited_user = db.scalar(
+            select(User).where(
+                User.email == payload.email,
+                User.is_active.is_(True),
+                User.deletion_requested_at.is_(None),
+            )
+        )
+        if invited_user is not None:
+            event_bus.publish(
+                [invited_user.id],
+                "invitation.received",
+                {"tree_id": tree.id, "tree_name": tree.name},
+            )
     return _inv_out(inv, include_token=True)
 
 
