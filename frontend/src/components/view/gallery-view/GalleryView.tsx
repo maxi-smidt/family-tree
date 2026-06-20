@@ -1,9 +1,6 @@
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { ApiError } from "@/services/api";
-import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
-import { toast } from "sonner";
 import { ImageCard } from "@/components/view/gallery-view/ImageCard";
-import { ChangeEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 import { GalleryImage } from "@/types/gallery";
 import { UploadImageCard } from "@/components/view/gallery-view/UploadImageCard";
@@ -25,14 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTranslation } from "react-i18next";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
-import { formatDateTime } from "@/utils/dateUtils";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUploadQueue } from "@/hooks/useUploadQueue";
+import { UploadQueuePanel } from "@/components/view/gallery-view/UploadQueuePanel";
 
 type SortKey = "createdAt" | "uploadedAt" | "title";
 type SortDirection = "asc" | "desc";
@@ -69,22 +66,31 @@ function GallerySkeleton() {
 
 export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
-  const { galleryImages, addGalleryImage, refreshGalleryImages, initialized } =
+  const { galleryImages, refreshGalleryImages, initialized } =
     useGalleryStore();
   const isReady = useTreeStore((state) => state.isReady);
 
   useDeferredStoreLoad(initialized, refreshGalleryImages);
-  const mediaLimits = useAuthStore((state) => state.config?.media_limits);
-  const userStorageMode = useAuthStore(
-    (state) => state.user?.image_storage_mode,
-  );
+
   const [selectedImage, setSelectedImage] = useState<GalleryImage | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("uploadedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isDragOver, setIsDragOver] = useState(false);
 
   const parentRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    items,
+    enqueue,
+    retry,
+    cancel,
+    clearCompleted,
+    total,
+    doneCount,
+    isActive,
+  } = useUploadQueue();
 
   const rowVirtualizer = useVirtualizer({
     count: galleryImages.length,
@@ -97,90 +103,34 @@ export const GalleryView = () => {
     fileInputRef.current?.click();
   };
 
-  const submitImage = (dataUrl: string) => {
-    addGalleryImage({
-      imageData: dataUrl,
-      title: formatDateTime(new Date()),
-      description: null,
-      linkedMemberIds: [],
-    })
-      .then(() => {
-        toast.success(t("toast-success-image-upload"));
-      })
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 413) {
-          const bucket = getQuotaBucket(err.message);
-          if (bucket) {
-            toast.error(t(quotaToastKey(bucket)));
-          } else {
-            toast.error(t("toast-error-image-too-large"));
-          }
-        } else if (err instanceof ApiError && err.status === 400) {
-          toast.error(t("toast-error-image-unsupported"));
-        } else {
-          toast.error(t("toast-error-image-upload"));
-        }
-      });
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-selecting the same files later
+    if (files.length === 0) return;
+    enqueue(files);
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ""; // allow re-selecting the same file later
-    if (!file) return;
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
 
-    const storageMode = userStorageMode ?? mediaLimits?.image_storage_mode;
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
 
-    try {
-      const reader = new FileReader();
-
-      if (storageMode === "original" || storageMode === "both") {
-        // Send the raw file bytes — the server handles the original.
-        reader.onload = (event) => {
-          const base64String = event.target?.result as string;
-          submitImage(base64String);
-        };
-        reader.onerror = () => toast.error(t("toast-error-read-file"));
-        reader.readAsDataURL(file);
-        return;
-      }
-
-      // Default: downscale and re-encode as JPEG before upload.
-      reader.onload = (event) => {
-        const base64String = event.target?.result as string;
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          let width = img.width;
-          let height = img.height;
-
-          if (mediaLimits && width > height) {
-            if (width > mediaLimits.stored_image_width) {
-              height *= mediaLimits.stored_image_width / width;
-              width = mediaLimits.stored_image_width;
-            }
-          } else if (mediaLimits) {
-            if (height > mediaLimits.stored_image_height) {
-              width *= mediaLimits.stored_image_height / height;
-              height = mediaLimits.stored_image_height;
-            }
-          }
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            toast.error(t("toast-error-canvas-context"));
-            return;
-          }
-          ctx.drawImage(img, 0, 0, width, height);
-          submitImage(canvas.toDataURL("image/jpeg", 0.8));
-        };
-        img.onerror = () => toast.error(t("toast-error-image-upload"));
-        img.src = base64String;
-      };
-      reader.onerror = () => toast.error(t("toast-error-read-file"));
-      reader.readAsDataURL(file);
-    } catch (e) {
-      toast.error(t("toast-error-read-file"));
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const files = Array.from(e.dataTransfer.files).filter((f) =>
+      f.type.startsWith("image/"),
+    );
+    if (files.length > 0) {
+      enqueue(files);
     }
   };
 
@@ -277,39 +227,68 @@ export const GalleryView = () => {
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        multiple
         onChange={handleFileChange}
         className="hidden"
       />
       {isEmpty ? (
-        <Empty className="flex-1 border">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <ImagePlus />
-            </EmptyMedia>
-            <EmptyTitle>{t("empty-title")}</EmptyTitle>
-            <EmptyDescription>{t("empty-description")}</EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Button onClick={handleUploadImage}>
-              <ImagePlus />
-              {t("empty-cta")}
-            </Button>
-          </EmptyContent>
-        </Empty>
+        <div
+          className="relative flex-1"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {isDragOver && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10">
+              <p className="text-lg font-medium text-primary">
+                {t("upload-queue.dropzone")}
+              </p>
+            </div>
+          )}
+          <Empty className="h-full border">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <ImagePlus />
+              </EmptyMedia>
+              <EmptyTitle>{t("empty-title")}</EmptyTitle>
+              <EmptyDescription>{t("empty-description")}</EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button onClick={handleUploadImage}>
+                <ImagePlus />
+                {t("empty-cta")}
+              </Button>
+            </EmptyContent>
+          </Empty>
+        </div>
       ) : (
-        <div ref={parentRef} className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
-            <UploadImageCard onClick={handleUploadImage} />
-            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
-              const image = filteredAndSortedImages[virtualItem.index];
-              return (
-                <ImageCard
-                  key={image.id}
-                  image={image}
-                  onClick={() => setSelectedImage(image)}
-                />
-              );
-            })}
+        <div
+          className="relative flex-1"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {isDragOver && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/10">
+              <p className="text-lg font-medium text-primary">
+                {t("upload-queue.dropzone")}
+              </p>
+            </div>
+          )}
+          <div ref={parentRef} className="h-full overflow-y-auto">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
+              <UploadImageCard onClick={handleUploadImage} />
+              {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+                const image = filteredAndSortedImages[virtualItem.index];
+                return (
+                  <ImageCard
+                    key={image.id}
+                    image={image}
+                    onClick={() => setSelectedImage(image)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -320,6 +299,15 @@ export const GalleryView = () => {
           image={selectedImage}
         />
       )}
+      <UploadQueuePanel
+        items={items}
+        total={total}
+        doneCount={doneCount}
+        isActive={isActive}
+        onRetry={retry}
+        onCancel={cancel}
+        onClearCompleted={clearCompleted}
+      />
     </ViewLayout>
   );
 };
