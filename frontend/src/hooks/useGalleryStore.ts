@@ -5,12 +5,20 @@ import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
+export interface AddGalleryImageOptions {
+  /** When false, skip the post-add refreshGalleryImages / refreshStorageUsage /
+   * invalidateActivityView. Useful for bulk uploads that batch the refresh at
+   * the end. Default (undefined / true) keeps current single-upload behaviour. */
+  refresh?: boolean;
+}
+
 interface GalleryState {
   galleryImages: GalleryImage[];
   initialized: boolean;
   refreshGalleryImages: (treeId?: string) => Promise<void>;
   addGalleryImage: (
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    opts?: AddGalleryImageOptions,
   ) => Promise<void>;
   updateGalleryImage: (
     id: string,
@@ -58,6 +66,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
   addGalleryImage: async (
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    opts?: AddGalleryImageOptions,
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
@@ -67,9 +76,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     // Member links are created in the same request (image.linkedMemberIds).
     await TreeService.addGalleryImage(treeId, id, image, now);
 
-    await get().refreshGalleryImages(treeId);
-    useStorageStore.getState().refreshStorageUsage();
-    invalidateActivityView();
+    if (opts?.refresh !== false) {
+      await get().refreshGalleryImages(treeId);
+      useStorageStore.getState().refreshStorageUsage();
+      invalidateActivityView();
+    }
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
