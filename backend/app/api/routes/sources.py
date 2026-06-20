@@ -30,6 +30,7 @@ from app.schemas.content import (
     SourceUpdate,
 )
 from app.services.activity import record_activity
+from app.services.event_bus import publish_tree_event
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
     FileTooLarge,
@@ -112,6 +113,10 @@ def create_source(
     )
     db.commit()
     db.refresh(source)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return source
 
 
@@ -138,6 +143,10 @@ def update_source(
     )
     db.commit()
     db.refresh(source)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return source
 
 
@@ -163,6 +172,10 @@ def delete_source(
             delete_media(ev.url)
     db.delete(source)
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
 
 
 # --- Evidence ----------------------------------------------------------------
