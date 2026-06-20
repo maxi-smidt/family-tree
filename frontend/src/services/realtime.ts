@@ -9,6 +9,7 @@
 import { toast } from "sonner";
 import i18n from "@/i18n/i18n";
 import { getAuthToken } from "@/services/api";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 
@@ -44,6 +45,12 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  source.addEventListener("tree.layout_changed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
+    if (!isActiveTree(data.tree_id)) return;
+    void useMemberStore.getState().refreshMembers(data.tree_id);
+  });
 
   source.addEventListener("storage.warning", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
