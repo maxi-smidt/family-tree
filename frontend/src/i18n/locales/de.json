@@ -307,6 +307,8 @@
         "cancel": "Abbrechen",
         "clear-completed": "Abgeschlossene entfernen",
         "close": "Schließen",
+        "minimize": "Minimieren",
+        "expand": "Erweitern",
         "dropzone": "Bilder hier ablegen zum Hochladen",
         "summary-success_one": "{{count}} Bild erfolgreich hochgeladen.",
         "summary-success_other": "{{count}} Bilder erfolgreich hochgeladen.",

@@ -81,8 +81,16 @@ export const GalleryView = () => {
   const parentRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { items, enqueue, retry, cancel, clearCompleted, total, doneCount } =
-    useUploadQueue();
+  const {
+    items,
+    enqueue,
+    retry,
+    cancel,
+    clearCompleted,
+    total,
+    doneCount,
+    isActive,
+  } = useUploadQueue();
 
   const rowVirtualizer = useVirtualizer({
     count: galleryImages.length,
@@ -295,6 +303,7 @@ export const GalleryView = () => {
         items={items}
         total={total}
         doneCount={doneCount}
+        isActive={isActive}
         onRetry={retry}
         onCancel={cancel}
         onClearCompleted={clearCompleted}

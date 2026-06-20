@@ -57,12 +57,23 @@ function mapErrorToKey(err: unknown): string {
 
 export function useUploadQueue(): UploadQueueState {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
-  const [items, setItems] = useState<UploadQueueItem[]>([]);
+  const [items, setItemsState] = useState<UploadQueueItem[]>([]);
+  // Ref is the source of truth for the worker; state is for rendering only.
+  const itemsRef = useRef<UploadQueueItem[]>([]);
 
   // Track object URLs for cleanup
   const objectUrlsRef = useRef<Set<string>>(new Set());
   // Prevent concurrent worker invocations
   const workerRunningRef = useRef(false);
+
+  const setItems = useCallback(
+    (updater: (prev: UploadQueueItem[]) => UploadQueueItem[]) => {
+      const next = updater(itemsRef.current);
+      itemsRef.current = next;
+      setItemsState(next);
+    },
+    [],
+  );
 
   const mediaLimits = useAuthStore((state) => state.config?.media_limits);
   const userStorageMode = useAuthStore(
@@ -91,19 +102,15 @@ export function useUploadQueue(): UploadQueueState {
     if (workerRunningRef.current) return;
     workerRunningRef.current = true;
 
-    const storageMode =
-      userStorageMode ?? mediaLimits?.image_storage_mode;
+    const storageMode = userStorageMode ?? mediaLimits?.image_storage_mode;
 
     try {
       while (true) {
-        // Snapshot current state to find queued items and count in-flight
-        let snapshot: UploadQueueItem[] = [];
-        setItems((prev) => {
-          snapshot = prev;
-          return prev;
-        });
+        const snapshot = itemsRef.current;
 
-        const inFlight = snapshot.filter((i) => i.status === "uploading").length;
+        const inFlight = snapshot.filter(
+          (i) => i.status === "uploading",
+        ).length;
         const queued = snapshot.filter((i) => i.status === "queued");
 
         if (queued.length === 0 && inFlight === 0) {
@@ -118,7 +125,9 @@ export function useUploadQueue(): UploadQueueState {
             invalidateActivityView();
 
             if (hasFailed) {
-              const doneCount = snapshot.filter((i) => i.status === "done").length;
+              const doneCount = snapshot.filter(
+                (i) => i.status === "done",
+              ).length;
               const failedCount = snapshot.filter(
                 (i) => i.status === "failed",
               ).length;
@@ -130,7 +139,9 @@ export function useUploadQueue(): UploadQueueState {
               );
             } else {
               toast.success(
-                t("upload-queue.summary-success", { count: snapshot.filter((i) => i.status === "done").length }),
+                t("upload-queue.summary-success", {
+                  count: snapshot.filter((i) => i.status === "done").length,
+                }),
               );
             }
           }
@@ -194,7 +205,7 @@ export function useUploadQueue(): UploadQueueState {
     } finally {
       workerRunningRef.current = false;
     }
-  }, [mediaLimits, userStorageMode, t]);
+  }, [mediaLimits, userStorageMode, t, setItems]);
 
   const enqueue = useCallback(
     (files: File[]) => {
@@ -218,7 +229,7 @@ export function useUploadQueue(): UploadQueueState {
       // Kick the worker after state update
       setTimeout(() => runWorker(), 0);
     },
-    [runWorker],
+    [runWorker, setItems],
   );
 
   const retry = useCallback(
@@ -232,7 +243,7 @@ export function useUploadQueue(): UploadQueueState {
       );
       setTimeout(() => runWorker(), 0);
     },
-    [runWorker],
+    [runWorker, setItems],
   );
 
   const cancel = useCallback(
@@ -246,7 +257,7 @@ export function useUploadQueue(): UploadQueueState {
         return prev;
       });
     },
-    [revokeUrls],
+    [revokeUrls, setItems],
   );
 
   const clearCompleted = useCallback(() => {
@@ -255,18 +266,17 @@ export function useUploadQueue(): UploadQueueState {
         (i) => i.status === "done" || i.status === "failed",
       );
       revokeUrls(toRemove.map((i) => i.thumbnailUrl));
-      return prev.filter(
-        (i) => i.status !== "done" && i.status !== "failed",
-      );
+      return prev.filter((i) => i.status !== "done" && i.status !== "failed");
     });
-  }, [revokeUrls]);
+  }, [revokeUrls, setItems]);
 
   const total = items.length;
   const doneCount = items.filter(
     (i) => i.status === "done" || i.status === "failed",
   ).length;
-  const isActive =
-    items.some((i) => i.status === "queued" || i.status === "uploading");
+  const isActive = items.some(
+    (i) => i.status === "queued" || i.status === "uploading",
+  );
 
   return {
     items,
