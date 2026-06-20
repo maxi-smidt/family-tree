@@ -7,6 +7,7 @@
  */
 
 import { getAuthToken } from "@/services/api";
+import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -41,6 +42,14 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  source.addEventListener("backup.completed", () => {
+    useAdminViewStore.getState().bumpBackupTick();
+  });
+
+  source.addEventListener("purge.ran", () => {
+    useAdminViewStore.getState().bumpPurgeTick();
+  });
 
   source.onerror = () => {
     source?.close();

@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models import TreeMembership
 from app.models.tree import Tree
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,19 @@ event_bus = EventBus()
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
+
+
+def admin_user_ids(db: Session) -> list[str]:
+    """Return the IDs of all active admin users."""
+    return list(
+        db.scalars(
+            select(User.id).where(
+                User.is_admin.is_(True),
+                User.is_active.is_(True),
+                User.deletion_requested_at.is_(None),
+            )
+        ).all()
+    )
 
 
 def tree_audience(db: Session, tree: Tree) -> set[str]:
