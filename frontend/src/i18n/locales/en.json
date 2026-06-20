@@ -1441,7 +1441,8 @@
     "error": "Could not load storage usage.",
     "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
-    "toast-error-quota-tree": "Tree data quota exceeded."
+    "toast-error-quota-tree": "Tree data quota exceeded.",
+    "quota-warning": "Media storage is almost full for this tree."
   },
   "user-settings": {
     "title": "Settings",
