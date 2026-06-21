@@ -208,7 +208,8 @@
         "confirm-disable-title": "Make tree private?",
         "confirm-disable-description": "The public link will stop working. Existing members keep their access.",
         "error": "Could not update public access."
-      }
+      },
+      "invitation-received": "You've been invited to \"{{name}}\""
     },
     "duplicate-tree": {
       "title": "Duplicate Tree",
@@ -1150,7 +1151,8 @@
       "confirm-remove-title": "Remove friend?",
       "confirm-remove-description": "Remove {{name}} from your friends? Any trees shared between you will no longer be accessible.",
       "confirm-remove-confirm": "Remove",
-      "confirm-remove-cancel": "Cancel"
+      "confirm-remove-cancel": "Cancel",
+      "new-request": "New friend request from {{name}}"
     },
     "delete-account": {
       "title": "Delete my account",
