@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from tests.conftest import API, auth, befriend, make_tree, make_user
 
-
 # ---------------------------------------------------------------------------
 # friend.request_received
 # ---------------------------------------------------------------------------
