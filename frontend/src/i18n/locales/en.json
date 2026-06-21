@@ -582,7 +582,8 @@
         "show-less": "Show less",
         "read-more": "Read more",
         "attachments": {
-          "download": "Download"
+          "download": "Download",
+          "error-open": "Could not open the file."
         },
         "delete-dialog": {
           "title": "Delete Entry",
@@ -615,7 +616,8 @@
             "error-quota-media": "Media storage quota exceeded.",
             "error-quota-tree": "Tree data quota exceeded.",
             "error-quota-total": "Total storage quota exceeded.",
-            "error-save": "Could not save the story."
+            "error-save": "Could not save the story.",
+            "error-open": "Could not open the file."
           },
           "cancel": "Cancel",
           "update": "Update",
