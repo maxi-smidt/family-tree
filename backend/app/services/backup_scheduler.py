@@ -14,6 +14,7 @@ from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models import BackupRecord
 from app.services import backup_service
+from app.services.event_bus import admin_user_ids, event_bus
 from app.services.settings_service import get_settings_out
 
 logger = logging.getLogger("app.backup_scheduler")
@@ -55,5 +56,11 @@ def _run_if_due() -> None:
                 return
 
         logger.info("Scheduled backup is due — starting")
-        backup_service.create_backup(db, trigger="scheduled")
+        record = backup_service.create_backup(db, trigger="scheduled")
         backup_service.prune_backups(db, keep=app_settings.backup_retention_count)
+        if record.status == "success":
+            event_bus.publish(
+                admin_user_ids(db),
+                "backup.completed",
+                {"trigger": "scheduled", "filename": record.filename},
+            )

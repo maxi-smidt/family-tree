@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import i18n from "@/i18n/i18n";
 import { getAuthToken } from "@/services/api";
 import { useActivityStore } from "@/hooks/useActivityStore";
+import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
@@ -52,6 +53,14 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  source.addEventListener("backup.completed", () => {
+    useAdminViewStore.getState().bumpBackupTick();
+  });
+
+  source.addEventListener("purge.ran", () => {
+    useAdminViewStore.getState().bumpPurgeTick();
+  });
 
   source.addEventListener("session.invalidate", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as { reason: string };

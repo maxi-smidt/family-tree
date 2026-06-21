@@ -61,6 +61,7 @@ export const AdminView = () => {
   const currentUser = useAuthStore((s) => s.user);
   const refreshConfig = useAuthStore((s) => s.refreshConfig);
   const closeAdmin = useAdminViewStore((s) => s.closeAdmin);
+  const purgeTick = useAdminViewStore((s) => s.purgeTick);
 
   const [users, setUsers] = useState<User[]>([]);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -91,7 +92,7 @@ export const AdminView = () => {
   useEffect(() => {
     void loadUsers();
     void loadSettings();
-  }, [loadUsers, loadSettings]);
+  }, [loadUsers, loadSettings, purgeTick]);
 
   const handleCreateUser = async () => {
     try {
