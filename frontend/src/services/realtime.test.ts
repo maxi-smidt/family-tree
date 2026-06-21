@@ -56,8 +56,22 @@ vi.mock("@/hooks/useTreeStore", () => {
     useTreeStore: {
       getState: () => ({ loadTrees }),
     },
+    isActiveTree: vi.fn(() => true),
   };
 });
+
+vi.mock("@/hooks/useAuthStore", () => {
+  const logout = vi.fn();
+  return {
+    useAuthStore: {
+      getState: () => ({ logout }),
+    },
+  };
+});
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn() },
+}));
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -140,6 +154,21 @@ describe("realtime", () => {
     stopRealtime();
 
     expect(es.closed).toBe(true);
+  });
+
+  it("dispatching session.invalidate logs out and closes the connection", async () => {
+    const { useAuthStore } = await import("@/hooks/useAuthStore");
+    const logout = useAuthStore.getState().logout;
+
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    startRealtime();
+    const es = FakeEventSource.instance!;
+
+    es.dispatch("session.invalidate", { reason: "deactivated" });
+
+    expect(logout).toHaveBeenCalled();
+    expect(es.closed).toBe(true);
+    stopRealtime();
   });
 
   it("startRealtime is idempotent (does not open a second connection)", async () => {

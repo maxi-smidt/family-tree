@@ -9,6 +9,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import UserCreate, UserOut, UserPasswordReset, UserUpdate
+from app.services.event_bus import event_bus
 from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
@@ -49,6 +50,7 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
         user.full_name = payload.full_name
     if payload.password:
         _reset_local_password(user, payload.password)
+    deactivated = payload.is_active is False
     if payload.is_active is not None:
         user.is_active = payload.is_active
     if payload.is_admin is not None:
@@ -66,6 +68,8 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
 
     db.commit()
     db.refresh(user)
+    if deactivated:
+        event_bus.publish([user.id], "session.invalidate", {"reason": "deactivated"})
     return user
 
 
@@ -106,6 +110,7 @@ def delete_user(
         raise HTTPException(status_code=400, detail="Cannot delete the last admin")
 
     schedule_deletion(db, user, requested_by=current.id)
+    event_bus.publish([user.id], "session.invalidate", {"reason": "pending_deletion"})
     return user
 
 

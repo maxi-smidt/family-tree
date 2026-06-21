@@ -11,6 +11,7 @@ import i18n from "@/i18n/i18n";
 import { getAuthToken } from "@/services/api";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -59,6 +60,17 @@ function connect(): void {
 
   source.addEventListener("purge.ran", () => {
     useAdminViewStore.getState().bumpPurgeTick();
+  });
+
+  source.addEventListener("session.invalidate", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { reason: string };
+    const key =
+      data.reason === "pending_deletion"
+        ? "auth.session.invalidated-pending-deletion"
+        : "auth.session.invalidated-deactivated";
+    stopRealtime();
+    useAuthStore.getState().logout();
+    toast.error(i18n.t(key));
   });
 
   source.addEventListener("activity.entry_added", (e) => {
