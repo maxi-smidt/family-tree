@@ -58,3 +58,45 @@ export function useMediaUrl(
 
   return resolved;
 }
+
+/** Fetch a media URL with the Bearer token and return a fresh object URL.
+ *  Caller owns the returned URL and is responsible for revoking it. */
+async function fetchMediaObjectUrl(src: string): Promise<string> {
+  const token = getAuthToken();
+  const r = await fetch(src, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!r.ok) throw new Error(String(r.status));
+  return URL.createObjectURL(await r.blob());
+}
+
+/**
+ * Download a media file, fetching it with the auth token first so the request
+ * carries the Authorization header an <a download> link cannot. Non-media
+ * sources (data:/blob: URLs) are downloaded directly.
+ */
+export async function downloadMedia(
+  src: string,
+  filename: string,
+): Promise<void> {
+  const isMedia = src.startsWith(MEDIA_PREFIX);
+  const url = isMedia ? await fetchMediaObjectUrl(src) : src;
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  if (isMedia) URL.revokeObjectURL(url);
+}
+
+/**
+ * Open a media file in a new tab, fetching it with the auth token first.
+ * Non-media sources (data:/blob: URLs) are opened directly.
+ */
+export async function openMedia(src: string): Promise<void> {
+  const url = src.startsWith(MEDIA_PREFIX)
+    ? await fetchMediaObjectUrl(src)
+    : src;
+  window.open(url, "_blank", "noopener");
+}

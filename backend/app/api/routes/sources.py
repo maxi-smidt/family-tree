@@ -114,6 +114,10 @@ def create_source(
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(source)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return source
 
 
@@ -141,6 +145,10 @@ def update_source(
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(source)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return source
 
 
@@ -167,6 +175,10 @@ def delete_source(
     db.delete(source)
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
 
 
 # --- Evidence ----------------------------------------------------------------
@@ -243,6 +255,10 @@ def add_evidence(
     db.add(ev)
     db.commit()
     db.refresh(ev)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return ev
 
 
@@ -261,6 +277,10 @@ def rename_evidence(
     ev.filename = payload.filename
     db.commit()
     db.refresh(ev)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return ev
 
 
@@ -277,6 +297,10 @@ def delete_evidence(
         delete_media(ev.url)
     db.delete(ev)
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
 
 
 # --- Citations ----------------------------------------------------------------
@@ -329,6 +353,10 @@ def create_citation(
     db.add(cit)
     db.commit()
     db.refresh(cit)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return cit
 
 
@@ -344,6 +372,10 @@ def update_citation(
         setattr(cit, key, value)
     db.commit()
     db.refresh(cit)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )
     return cit
 
 
@@ -356,3 +388,7 @@ def delete_citation(
     cit = _get_citation(db, tree, citation_id)
     db.delete(cit)
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "source"},
+    )

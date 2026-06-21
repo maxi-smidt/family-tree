@@ -208,7 +208,8 @@
         "confirm-disable-title": "Stammbaum privat machen?",
         "confirm-disable-description": "Der öffentliche Link funktioniert dann nicht mehr. Bestehende Mitglieder behalten ihren Zugang.",
         "error": "Öffentlicher Zugang konnte nicht aktualisiert werden."
-      }
+      },
+      "invitation-received": "Du wurdest zu \"{{name}}\" eingeladen"
     },
     "duplicate-tree": {
       "title": "Stammbaum duplizieren",
@@ -581,7 +582,8 @@
         "show-less": "Weniger anzeigen",
         "read-more": "Mehr lesen",
         "attachments": {
-          "download": "Herunterladen"
+          "download": "Herunterladen",
+          "error-open": "Datei konnte nicht geöffnet werden."
         },
         "delete-dialog": {
           "title": "Eintrag löschen",
@@ -614,7 +616,8 @@
             "error-quota-media": "Medienspeicher-Kontingent überschritten.",
             "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
             "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
-            "error-save": "Geschichte konnte nicht gespeichert werden."
+            "error-save": "Geschichte konnte nicht gespeichert werden.",
+            "error-open": "Datei konnte nicht geöffnet werden."
           },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
@@ -1150,7 +1153,8 @@
       "confirm-remove-title": "Freund entfernen?",
       "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
       "confirm-remove-confirm": "Entfernen",
-      "confirm-remove-cancel": "Abbrechen"
+      "confirm-remove-cancel": "Abbrechen",
+      "new-request": "Neue Freundschaftsanfrage von {{name}}"
     },
     "delete-account": {
       "title": "Konto löschen",
@@ -1441,7 +1445,8 @@
     "error": "Speichernutzung konnte nicht geladen werden.",
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
-    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten."
+    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+    "quota-warning": "Der Medienspeicher für diesen Stammbaum ist fast voll."
   },
   "user-settings": {
     "title": "Einstellungen",

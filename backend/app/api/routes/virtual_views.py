@@ -59,6 +59,7 @@ from app.schemas.virtual_view import (
     VirtualViewSourceOut,
     VirtualViewUpdate,
 )
+from app.services.event_bus import event_bus
 from app.services.geocoding import resolve_batch, resolve_single
 from app.services.quality_checks import run_quality_checks
 from app.services.virtual_view_matching import compute_match_groups, persist_matches
@@ -1070,3 +1071,4 @@ def save_virtual_positions(
                 )
             )
     db.commit()
+    event_bus.publish([view.owner_id], "tree.layout_changed", {"tree_id": view_id})
