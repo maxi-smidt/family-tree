@@ -11,6 +11,7 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 const CREATE_TREE_SELECTOR = '[data-tutorial="create-tree"]';
 const CREATE_DIALOG_SELECTOR = '[data-tutorial="create-dialog"]';
 const TREE_CREATE_BUTTON_SELECTOR = '[data-tutorial="tree-create-btn"]';
+const TREE_NAME_INPUT_SELECTOR = "#databaseName";
 const ADD_MEMBER_SELECTOR = '[data-tutorial="add-member"]';
 const SIDEBAR_SELECTOR = '[data-tutorial="sidebar"]';
 const DESKTOP_TABS_SELECTOR = '[data-tutorial="views-tabs"]';
@@ -20,6 +21,9 @@ const ADD_FRIEND_SELECTOR = '[data-tutorial="add-friend"]';
 
 const ELEMENT_WAIT_MS = 10_000;
 const TREE_CREATE_WAIT_MS = 30_000;
+// Re-measure the spotlight after these delays so highlights settle once dialogs,
+// the sidebar, or a view transition have finished animating.
+const SETTLE_REFRESH_DELAYS_MS = [120, 280, 460];
 
 type TutorialDriver = ReturnType<typeof driver>;
 
@@ -73,6 +77,20 @@ function waitForSelectedTree(timeoutMs = TREE_CREATE_WAIT_MS): Promise<void> {
   });
 }
 
+// Set a controlled <input>'s value so React's onChange fires. The tour drives
+// the create flow itself (interaction with the spotlight is disabled), so we
+// seed a default tree name programmatically rather than asking the user to type.
+function setReactInputValue(selector: string, value: string) {
+  const input = document.querySelector<HTMLInputElement>(selector);
+  if (!input || input.value === value) return;
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "value",
+  )?.set;
+  setter?.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 function currentTabsSelector() {
   return window.matchMedia("(max-width: 767px)").matches
     ? MOBILE_TABS_SELECTOR
@@ -92,24 +110,52 @@ export const TutorialTour = () => {
     const hadTreeOnStart = useTreeStore.getState().selectedTree !== undefined;
     const sidebarOpenOnStart = useFamilyTreeSettings.getState().sidebarOpen;
     const tabsSelector = currentTabsSelector();
+
     let transitionPending = false;
     let restoredSidebar = false;
     let finished = false;
 
-    const restoreSidebar = () => {
-      if (restoredSidebar) return;
-      restoredSidebar = true;
-      setSidebarOpen(sidebarOpenOnStart);
+    // --- Spotlight re-positioning -----------------------------------------
+    // driver.js measures the target once per step, but dialogs, the sidebar
+    // and view transitions animate afterwards, leaving the highlight at a stale
+    // position. Re-measure on the next frame, after the animation settles, and
+    // whenever the active element resizes/moves.
+    let pendingRaf = 0;
+    let activeObserver: ResizeObserver | undefined;
+    const settleTimers: number[] = [];
+
+    const clearSettleTimers = () => {
+      settleTimers.forEach((id) => window.clearTimeout(id));
+      settleTimers.length = 0;
     };
 
-    const moveAfter = (
+    const scheduleReposition = (d: TutorialDriver) => {
+      if (pendingRaf) return;
+      pendingRaf = window.requestAnimationFrame(() => {
+        pendingRaf = 0;
+        if (d.isActive()) d.refresh();
+      });
+    };
+
+    // --- Reversible step transitions --------------------------------------
+    // Runs a side effect (navigate, toggle the sidebar, click a button), waits
+    // until the destination is ready, then advances. The pending guard keeps
+    // double clicks / overlapping transitions from desyncing the tour.
+    const go = (
       d: TutorialDriver,
       direction: "next" | "previous",
-      action: () => Promise<unknown>,
+      prepare: () => void,
+      waitFor: () => Promise<unknown>,
     ) => {
       if (transitionPending) return;
       transitionPending = true;
-      void action()
+      try {
+        prepare();
+      } catch (error) {
+        console.warn("Tutorial step setup failed", error);
+      }
+      void Promise.resolve()
+        .then(waitFor)
         .then(() => {
           if (direction === "next") d.moveNext();
           else d.movePrevious();
@@ -122,14 +168,20 @@ export const TutorialTour = () => {
         });
     };
 
+    const restoreSidebar = () => {
+      if (restoredSidebar) return;
+      restoredSidebar = true;
+      setSidebarOpen(sidebarOpenOnStart);
+    };
+
     navigateTo("tree-view");
     setSidebarOpen(false);
 
+    // Create-tree flow (new users only). Creating a tree is irreversible, so
+    // the dialog step is forward-only; everything after it is fully reversible.
     const createTreeSteps: DriveStep[] = hadTreeOnStart
       ? []
       : [
-          // Create-tree button (NoDatabasePlaceholder). Next opens the dialog
-          // and advances only after the dialog has mounted.
           {
             element: CREATE_TREE_SELECTOR,
             popover: {
@@ -138,22 +190,25 @@ export const TutorialTour = () => {
               side: "top",
               align: "center",
               onNextClick: (_, __, { driver: d }) => {
-                const button =
-                  document.querySelector<HTMLElement>(CREATE_TREE_SELECTOR);
-                if (!button) return;
-                button.click();
-                moveAfter(d, "next", () =>
-                  waitForElement(CREATE_DIALOG_SELECTOR).then(() => {
-                    const nameInput =
-                      document.querySelector<HTMLInputElement>("#databaseName");
-                    nameInput?.focus();
-                  }),
+                go(
+                  d,
+                  "next",
+                  () =>
+                    document
+                      .querySelector<HTMLElement>(CREATE_TREE_SELECTOR)
+                      ?.click(),
+                  async () => {
+                    await waitForElement(CREATE_DIALOG_SELECTOR);
+                    await waitForElement(TREE_NAME_INPUT_SELECTOR);
+                    setReactInputValue(
+                      TREE_NAME_INPUT_SELECTOR,
+                      t("tree-name.default"),
+                    );
+                  },
                 );
               },
             },
           },
-
-          // Tree-name dialog (whole dialog is the spotlight).
           {
             element: CREATE_DIALOG_SELECTOR,
             popover: {
@@ -163,43 +218,34 @@ export const TutorialTour = () => {
               align: "center",
               showButtons: ["next"],
               showProgress: false,
-            },
-          },
-
-          // Create button inside dialog. Next clicks it and waits until the
-          // tree store reports a selected tree, then waits for the tree UI.
-          {
-            element: TREE_CREATE_BUTTON_SELECTOR,
-            popover: {
-              title: t("tree-confirm.title"),
-              description: t("tree-confirm.body"),
-              side: "top",
-              align: "end",
-              showButtons: ["next"],
-              showProgress: false,
               onNextClick: (_, __, { driver: d }) => {
                 const button = document.querySelector<HTMLButtonElement>(
                   TREE_CREATE_BUTTON_SELECTOR,
                 );
-                if (!button || button.disabled) {
-                  document
-                    .querySelector<HTMLInputElement>("#databaseName")
-                    ?.focus();
+                if (!button) return;
+                if (button.disabled) {
+                  setReactInputValue(
+                    TREE_NAME_INPUT_SELECTOR,
+                    t("tree-name.default"),
+                  );
                   return;
                 }
-
-                button.click();
-                moveAfter(d, "next", async () => {
-                  await waitForSelectedTree();
-                  await waitForElement(ADD_MEMBER_SELECTOR);
-                });
+                go(
+                  d,
+                  "next",
+                  () => button.click(),
+                  async () => {
+                    await waitForSelectedTree();
+                    await waitForElement(ADD_MEMBER_SELECTOR);
+                  },
+                );
               },
             },
           },
         ];
 
     const steps: DriveStep[] = [
-      // 0 — Welcome
+      // Welcome
       {
         popover: {
           title: t("welcome.title"),
@@ -209,8 +255,8 @@ export const TutorialTour = () => {
 
       ...createTreeSteps,
 
-      // Add a person (add-member button in MemberControls). Next opens the
-      // sidebar, then advances after it is mounted.
+      // Add a person. Next opens the sidebar. For new users this sits right
+      // after the irreversible tree creation, so Back is hidden here.
       {
         element: ADD_MEMBER_SELECTOR,
         popover: {
@@ -222,15 +268,19 @@ export const TutorialTour = () => {
             : t("add-member.body"),
           side: "left",
           align: "end",
+          showButtons: hadTreeOnStart ? ["previous", "next"] : ["next"],
           onNextClick: (_, __, { driver: d }) => {
-            setSidebarOpen(true);
-            moveAfter(d, "next", () => waitForElement(SIDEBAR_SELECTOR));
+            go(
+              d,
+              "next",
+              () => setSidebarOpen(true),
+              () => waitForElement(SIDEBAR_SELECTOR),
+            );
           },
-          showButtons: hadTreeOnStart ? undefined : ["next"],
         },
       },
 
-      // Sidebar overview
+      // Sidebar overview. Back closes the sidebar again.
       {
         element: SIDEBAR_SELECTOR,
         popover: {
@@ -238,10 +288,18 @@ export const TutorialTour = () => {
           description: t("sidebar-panel.body"),
           side: "right",
           align: "center",
+          onPrevClick: (_, __, { driver: d }) => {
+            go(
+              d,
+              "previous",
+              () => setSidebarOpen(false),
+              () => waitForElement(ADD_MEMBER_SELECTOR),
+            );
+          },
         },
       },
 
-      // Tab bar; Next navigates to database-management.
+      // Tab bar. Next navigates to tree management; Back re-opens the sidebar.
       {
         element: tabsSelector,
         popover: {
@@ -249,14 +307,26 @@ export const TutorialTour = () => {
           description: t("switch-views.body"),
           side: "bottom",
           align: "start",
+          onPrevClick: (_, __, { driver: d }) => {
+            go(
+              d,
+              "previous",
+              () => setSidebarOpen(true),
+              () => waitForElement(SIDEBAR_SELECTOR),
+            );
+          },
           onNextClick: (_, __, { driver: d }) => {
-            navigateTo("database-management-view");
-            moveAfter(d, "next", () => waitForElement(NEW_TREE_SELECTOR));
+            go(
+              d,
+              "next",
+              () => navigateTo("database-management-view"),
+              () => waitForElement(NEW_TREE_SELECTOR),
+            );
           },
         },
       },
 
-      // Tree management; Next navigates to friends, Back returns to tree.
+      // Tree management. Next navigates to friends; Back returns to the tree.
       {
         element: NEW_TREE_SELECTOR,
         popover: {
@@ -264,13 +334,21 @@ export const TutorialTour = () => {
           description: t("tree-management.body"),
           side: "bottom",
           align: "start",
-          onNextClick: (_, __, { driver: d }) => {
-            navigateTo("friends-view");
-            moveAfter(d, "next", () => waitForElement(ADD_FRIEND_SELECTOR));
-          },
           onPrevClick: (_, __, { driver: d }) => {
-            navigateTo("tree-view");
-            moveAfter(d, "previous", () => waitForElement(tabsSelector));
+            go(
+              d,
+              "previous",
+              () => navigateTo("tree-view"),
+              () => waitForElement(tabsSelector),
+            );
+          },
+          onNextClick: (_, __, { driver: d }) => {
+            go(
+              d,
+              "next",
+              () => navigateTo("friends-view"),
+              () => waitForElement(ADD_FRIEND_SELECTOR),
+            );
           },
         },
       },
@@ -284,17 +362,29 @@ export const TutorialTour = () => {
           side: "bottom",
           align: "start",
           onPrevClick: (_, __, { driver: d }) => {
-            navigateTo("database-management-view");
-            moveAfter(d, "previous", () => waitForElement(NEW_TREE_SELECTOR));
+            go(
+              d,
+              "previous",
+              () => navigateTo("database-management-view"),
+              () => waitForElement(NEW_TREE_SELECTOR),
+            );
           },
         },
       },
 
-      // Done
+      // Done. Back returns to the friends tab.
       {
         popover: {
           title: t("finish.title"),
           description: t("finish.body"),
+          onPrevClick: (_, __, { driver: d }) => {
+            go(
+              d,
+              "previous",
+              () => navigateTo("friends-view"),
+              () => waitForElement(ADD_FRIEND_SELECTOR),
+            );
+          },
         },
       },
     ];
@@ -303,13 +393,38 @@ export const TutorialTour = () => {
       showProgress: true,
       animate: true,
       allowClose: false,
+      // The tour drives every action itself; blocking interaction with the
+      // spotlight and the keyboard stops stray clicks/typing from desyncing it.
+      disableActiveInteraction: true,
+      allowKeyboardControl: false,
       showButtons: ["next", "previous"],
       nextBtnText: t("buttons.next"),
       prevBtnText: t("buttons.prev"),
       doneBtnText: t("buttons.done"),
+      onHighlighted: (element, _step, { driver: d }) => {
+        scheduleReposition(d);
+        clearSettleTimers();
+        SETTLE_REFRESH_DELAYS_MS.forEach((delay) => {
+          settleTimers.push(
+            window.setTimeout(() => scheduleReposition(d), delay),
+          );
+        });
+        activeObserver?.disconnect();
+        activeObserver = undefined;
+        if (element instanceof HTMLElement) {
+          activeObserver = new ResizeObserver(() => scheduleReposition(d));
+          activeObserver.observe(element);
+        }
+      },
+      onDeselected: () => {
+        clearSettleTimers();
+        activeObserver?.disconnect();
+        activeObserver = undefined;
+      },
       onDestroyed: () => {
         if (finished) return;
         finished = true;
+        navigateTo("tree-view");
         restoreSidebar();
         finish();
       },
@@ -340,6 +455,9 @@ export const TutorialTour = () => {
 
     return () => {
       finished = true;
+      clearSettleTimers();
+      activeObserver?.disconnect();
+      if (pendingRaf) window.cancelAnimationFrame(pendingRaf);
       restoreSidebar();
       driverObj.destroy();
     };

@@ -1463,7 +1463,7 @@
     },
     "create-tree": {
       "title": "Create your first tree",
-      "body": "Click Next (or the button itself) to open the create dialog. We will guide you through naming your tree."
+      "body": "Click Next to open the dialog where your first family tree gets created."
     },
     "existing-tree": {
       "title": "Continue with this tree",
@@ -1501,11 +1501,8 @@
     },
     "tree-name": {
       "title": "Name your tree",
-      "body": "Type a name for your family tree — for example \"My first tree\" — then click Weiter."
-    },
-    "tree-confirm": {
-      "title": "Create the tree",
-      "body": "Click Create (or Weiter) to create your family tree. We will continue once it is ready."
+      "default": "My first tree",
+      "body": "We've started you off with a name — you can rename your tree any time later. Click Next to create it."
     }
   }
 }
