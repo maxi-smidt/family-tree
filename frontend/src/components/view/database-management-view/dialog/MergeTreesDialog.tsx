@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useJobStore } from "@/hooks/useJobStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { TreeService } from "@/services/TreeService";
 import { DuplicatePair, MergePreviewResult } from "@/types/merge";
@@ -46,6 +47,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
   });
   const trees = useTreeStore((s) => s.trees);
   const mergeTrees = useTreeStore((s) => s.mergeTrees);
+  const mergePct = useJobStore((s) => s.activeJobPct);
 
   const [step, setStep] = useState<Step>("select");
   const [db1Id, setDb1Id] = useState<string>("");
@@ -294,6 +296,14 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
             )}
           </div>
 
+          {isMerging && (
+            <div className="h-2 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full bg-primary transition-[width] duration-300 ease-in-out"
+                style={{ width: `${mergePct}%` }}
+              />
+            </div>
+          )}
           <DialogFooter>
             <DialogClose asChild>
               <Button variant="outline" onClick={handleClose}>
@@ -349,6 +359,14 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
           })}
         </div>
 
+        {isMerging && (
+          <div className="mt-2 h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-[width] duration-300 ease-in-out"
+              style={{ width: `${mergePct}%` }}
+            />
+          </div>
+        )}
         <DialogFooter className="mt-4">
           <Button variant="outline" onClick={handleBack} disabled={isMerging}>
             {tr("back")}

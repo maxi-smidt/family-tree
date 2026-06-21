@@ -19,7 +19,7 @@ from app.services.gedcom import (
     parse_gedcom,
     serialize_to_gedcom,
 )
-from tests.conftest import API, auth, make_tree, make_user
+from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 
 # ---------------------------------------------------------------------------
 # 1. Date helper unit tests
@@ -473,12 +473,11 @@ def test_api_gedcom_round_trip(client, db):
         files={"file": ("test.ged", io.BytesIO(ged_bytes), "text/plain")},
         data={"name": "ImportedGedcomTree"},
     )
-    assert import_resp.status_code == 201, import_resp.text
-    imported = import_resp.json()
+    assert import_resp.status_code == 202, import_resp.text
+    new_tree_id = wait_for_job(client, headers, import_resp.json()["job_id"])
+    imported = client.get(f"{API}/trees/{new_tree_id}", headers=headers).json()
     assert imported["name"] == "ImportedGedcomTree"
     assert imported["role"] == "owner"
-
-    new_tree_id = imported["id"]
 
     # Verify members in imported tree.
     members_resp = client.get(
@@ -557,8 +556,8 @@ def test_api_import_bad_file_returns_400(client, db):
         headers=headers,
         files={"file": ("bad.ged", io.BytesIO(bad_bytes), "text/plain")},
     )
-    # Either succeeds with an empty tree or rejects — must not be 500.
-    assert resp.status_code in (201, 400)
+    # Either succeeds (202 job started) or rejects (400) — must not be 500.
+    assert resp.status_code in (202, 400)
 
 
 def test_api_export_gedcom_content_disposition(client, db):
@@ -592,8 +591,10 @@ def test_api_gedcom_import_uses_filename_stem(client, db):
         files={"file": ("my_family.ged", io.BytesIO(ged), "text/plain")},
         # No 'name' field provided — filename stem takes precedence over HEAD FILE.
     )
-    assert resp.status_code == 201
-    assert resp.json()["name"] == "my_family"
+    assert resp.status_code == 202
+    tree_id = wait_for_job(client, headers, resp.json()["job_id"])
+    tree = client.get(f"{API}/trees/{tree_id}", headers=headers).json()
+    assert tree["name"] == "my_family"
 
 
 
@@ -706,8 +707,8 @@ def test_api_import_gedcom_utf16_be(client, db):
         files={"file": ("sample.ged", io.BytesIO(raw), "application/octet-stream")},
         data={"name": "UTF16Import"},
     )
-    assert resp.status_code == 201, resp.text
-    new_tree_id = resp.json()["id"]
+    assert resp.status_code == 202, resp.text
+    new_tree_id = wait_for_job(client, headers, resp.json()["job_id"])
 
     members_resp = client.get(
         f"{API}/trees/{new_tree_id}/members", headers=headers

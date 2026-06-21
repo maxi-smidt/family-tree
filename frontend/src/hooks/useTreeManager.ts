@@ -4,8 +4,10 @@ import {
   InspectImportResult,
   TreeFileService,
 } from "@/services/TreeFileService";
+import { useJobStore } from "@/hooks/useJobStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { api } from "@/services/api";
 
 /** Opens the browser file picker and resolves with the chosen file (or null). */
 export function pickFile(accept = ".treedb"): Promise<File | null> {
@@ -56,7 +58,13 @@ export const useTreeManager = () => {
 
   const importDatabase = useCallback(
     async (file: File, password?: string, name?: string) => {
-      const tree = await TreeFileService.importDatabase(file, password, name);
+      const { job_id } = await TreeFileService.importDatabase(
+        file,
+        password,
+        name,
+      );
+      const treeId = await useJobStore.getState().trackJob(job_id);
+      const tree = await api.get<Tree>(`/trees/${treeId}`);
       await loadTrees();
       await selectTree(tree);
       return tree;
@@ -71,7 +79,9 @@ export const useTreeManager = () => {
 
   const importGedcom = useCallback(
     async (file: File, name?: string) => {
-      const tree = await TreeFileService.importGedcom(file, name);
+      const { job_id } = await TreeFileService.importGedcom(file, name);
+      const treeId = await useJobStore.getState().trackJob(job_id);
+      const tree = await api.get<Tree>(`/trees/${treeId}`);
       await loadTrees();
       await selectTree(tree);
       // GEDCOM members all start at (0, 0) — auto-layout so they're visible.
