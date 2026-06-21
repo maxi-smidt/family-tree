@@ -120,6 +120,7 @@ def create_story(
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="story", target_id=story.id, target_label=story.title)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(story)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -142,6 +143,7 @@ def update_story(
     record_activity(db, tree_id=tree.id, actor=user, action="update",
                     target_type="story", target_id=story.id, target_label=story.title)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(story)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -165,6 +167,7 @@ def delete_story(
         delete_media(att.url)
     db.delete(story)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "story"},

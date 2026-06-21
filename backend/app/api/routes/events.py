@@ -94,6 +94,7 @@ def create_event(
         target_type="event", target_id=event.id, target_label=event.event_type,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(event)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -118,6 +119,7 @@ def update_event(
         target_type="event", target_id=event.id, target_label=event.event_type,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(event)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -140,6 +142,7 @@ def delete_event(
     )
     db.delete(event)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "event"},
