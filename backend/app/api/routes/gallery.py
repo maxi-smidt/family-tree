@@ -140,6 +140,7 @@ def create_image(
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(image)
     if new_image_url:
         warning = media_warning(db, tree)
@@ -203,6 +204,7 @@ def update_image(
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(image)
     if new_image_url:
         warning = media_warning(db, tree)
@@ -230,6 +232,7 @@ def delete_image(
     )
     db.delete(image)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "gallery"},
