@@ -30,6 +30,7 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.event_bus import publish_tree_event
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
     FileTooLarge,
@@ -119,7 +120,12 @@ def create_story(
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="story", target_id=story.id, target_label=story.title)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(story)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return story
 
 
@@ -137,7 +143,12 @@ def update_story(
     record_activity(db, tree_id=tree.id, actor=user, action="update",
                     target_type="story", target_id=story.id, target_label=story.title)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(story)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return story
 
 
@@ -156,6 +167,11 @@ def delete_story(
         delete_media(att.url)
     db.delete(story)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
 
 
 @router.put("/{story_id}/links", status_code=204)
@@ -222,6 +238,10 @@ def add_attachment(
     db.add(att)
     db.commit()
     db.refresh(att)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return att
 
 
@@ -240,6 +260,10 @@ def rename_attachment(
     att.filename = payload.filename
     db.commit()
     db.refresh(att)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return att
 
 
@@ -255,3 +279,7 @@ def delete_attachment(
     delete_media(att.url)
     db.delete(att)
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )

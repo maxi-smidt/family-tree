@@ -8,11 +8,8 @@ Tests cover:
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from app.services.event_bus import admin_user_ids
 from tests.conftest import make_user
-
 
 # ---------------------------------------------------------------------------
 # admin_user_ids helper
