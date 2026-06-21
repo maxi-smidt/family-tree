@@ -129,7 +129,9 @@ jobs:
           uv run python -c "import app.main; print('app imports OK')"
 
       - name: "Unit tests"
-        run: uv run pytest
+        # -n auto fans the suite across the runner's cores (pytest-xdist).
+        # Tests are isolation-safe: each gets its own SQLite DB via tmp_path.
+        run: uv run pytest -n auto
 
   version-policy:
     name: "Version metadata policy"

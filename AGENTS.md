@@ -127,7 +127,7 @@ npm run check-i18n       # translation parity
 # Backend (from ./backend)
 uv run ruff check
 uv run python -m compileall -q app alembic && uv run python -c "import app.main"
-uv run pytest
+uv run pytest          # add -n auto to match CI's parallel run (pytest-xdist)
 ```
 
 ### End-to-end tests (Playwright)
