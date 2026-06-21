@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import i18n from "@/i18n/i18n";
 import { getAuthToken } from "@/services/api";
 import { useActivityStore } from "@/hooks/useActivityStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -51,6 +52,17 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  source.addEventListener("session.invalidate", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { reason: string };
+    const key =
+      data.reason === "pending_deletion"
+        ? "auth.session.invalidated-pending-deletion"
+        : "auth.session.invalidated-deactivated";
+    stopRealtime();
+    useAuthStore.getState().logout();
+    toast.error(i18n.t(key));
+  });
 
   source.addEventListener("activity.entry_added", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };

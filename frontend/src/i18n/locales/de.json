@@ -1070,7 +1070,9 @@
       "relogin-password": "Passwort",
       "relogin-submit": "Anmelden",
       "relogin-cancel": "Abmelden",
-      "relogin-error": "Anmeldung fehlgeschlagen. Bitte versuche es erneut."
+      "relogin-error": "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
+      "invalidated-deactivated": "Ihr Konto wurde deaktiviert. Sie wurden abgemeldet.",
+      "invalidated-pending-deletion": "Ihr Konto wird gelöscht. Sie wurden abgemeldet."
     },
     "login": {
       "title": "Stammbaum",
