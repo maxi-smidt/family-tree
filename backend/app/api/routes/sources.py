@@ -112,6 +112,7 @@ def create_source(
         target_label=source.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(source)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -142,6 +143,7 @@ def update_source(
         target_label=source.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(source)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -172,6 +174,7 @@ def delete_source(
             delete_media(ev.url)
     db.delete(source)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "source"},
