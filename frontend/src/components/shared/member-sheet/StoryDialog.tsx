@@ -29,6 +29,8 @@ import {
   readFileAsDataUrl,
 } from "@/utils/attachmentUtils";
 import { AttachmentIcon } from "./StoryAttachments";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
+import { downloadMedia } from "@/hooks/useMediaUrl";
 import { Download, Paperclip, Plus, X } from "lucide-react";
 
 interface StoryDialogProps {
@@ -327,14 +329,19 @@ export const StoryDialog = ({
                         className="h-8 flex-1"
                         aria-label={t("attachments.filename")}
                       />
-                      <a
-                        href={a.url}
-                        download={a.filename}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void downloadMedia(a.url, a.filename).catch(() =>
+                            toast.error(t("attachments.error-open")),
+                          )
+                        }
                         className="text-muted-foreground hover:text-foreground"
                         title={t("attachments.download")}
+                        aria-label={t("attachments.download")}
                       >
                         <Download className="w-4 h-4" />
-                      </a>
+                      </button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -444,7 +451,7 @@ const AttachmentPreview = ({
 }) => {
   if (isImageAttachment({ filename, mimeType })) {
     return (
-      <img
+      <AuthenticatedImage
         src={src}
         alt={filename}
         className="w-9 h-9 rounded object-cover border shrink-0"

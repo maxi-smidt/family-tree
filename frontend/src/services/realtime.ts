@@ -9,9 +9,13 @@
 import { toast } from "sonner";
 import i18n from "@/i18n/i18n";
 import { getAuthToken } from "@/services/api";
+import { useEventStore } from "@/hooks/useEventStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
 import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -46,6 +50,22 @@ function connect(): void {
   source.addEventListener("tree.ownership_changed", reload);
   source.addEventListener("tree.access_changed", reload);
   source.addEventListener("tree.deleted", reload);
+
+  const domainRefreshers: Record<string, (treeId: string) => void> = {
+    member: (id) => void useMemberStore.getState().refreshMembers(id),
+    event: (id) => void useEventStore.getState().refreshEvents(id),
+    story: (id) => void useStoryStore.getState().refreshStories(id),
+    source: (id) => void useSourceStore.getState().refreshSources(id),
+    gallery: (id) => void useGalleryStore.getState().refreshGalleryImages(id),
+  };
+  source.addEventListener("tree.content_changed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      domain: string;
+    };
+    if (!isActiveTree(data.tree_id)) return;
+    domainRefreshers[data.domain]?.(data.tree_id);
+  });
 
   source.addEventListener("friend.request_received", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as {
