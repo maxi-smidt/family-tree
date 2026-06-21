@@ -1443,7 +1443,8 @@
     "error": "Speichernutzung konnte nicht geladen werden.",
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
-    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten."
+    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+    "quota-warning": "Der Medienspeicher für diesen Stammbaum ist fast voll."
   },
   "user-settings": {
     "title": "Einstellungen",
