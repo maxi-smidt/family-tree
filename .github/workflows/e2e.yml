@@ -4,6 +4,15 @@ on:
   pull_request:
     branches:
       - main
+    # Skip the (expensive) full-stack run for changes that can't affect it,
+    # e.g. docs-only PRs. Safe to gate at the workflow level because E2E is
+    # not a required check.
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'e2e/**'
+      - 'docker-compose.e2e.yml'
+      - '.github/workflows/e2e.yml'
   workflow_dispatch:
 
 # Not a required check yet — runs independently alongside CI.
@@ -11,6 +20,11 @@ on:
 
 permissions:
   contents: read
+
+# A new push to a PR cancels the previous, still-running E2E build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
