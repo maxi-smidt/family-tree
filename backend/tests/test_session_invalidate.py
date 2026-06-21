@@ -22,7 +22,9 @@ def admin_headers(admin):
     return auth(admin)
 
 
-def test_deactivate_user_emits_session_invalidate(client, db, admin, target, admin_headers):
+def test_deactivate_user_emits_session_invalidate(
+    client, db, admin, target, admin_headers
+):
     with patch("app.api.routes.users.event_bus") as m:
         res = client.patch(
             f"{API}/users/{target.id}",
@@ -35,7 +37,9 @@ def test_deactivate_user_emits_session_invalidate(client, db, admin, target, adm
     )
 
 
-def test_activate_user_does_not_emit_session_invalidate(client, db, admin, target, admin_headers):
+def test_activate_user_does_not_emit_session_invalidate(
+    client, db, admin, target, admin_headers
+):
     with patch("app.api.routes.users.event_bus") as m:
         res = client.patch(
             f"{API}/users/{target.id}",
@@ -46,7 +50,9 @@ def test_activate_user_does_not_emit_session_invalidate(client, db, admin, targe
     m.publish.assert_not_called()
 
 
-def test_schedule_deletion_emits_session_invalidate(client, db, admin, target, admin_headers):
+def test_schedule_deletion_emits_session_invalidate(
+    client, db, admin, target, admin_headers
+):
     with patch("app.api.routes.users.event_bus") as m:
         res = client.delete(
             f"{API}/users/{target.id}",

@@ -6,10 +6,19 @@
  * backoff capped at 30 s.
  */
 
-import { getAuthToken } from "@/services/api";
-import { useAuthStore } from "@/hooks/useAuthStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
 import { toast } from "sonner";
+import i18n from "@/i18n/i18n";
+import { getAuthToken } from "@/services/api";
+import { useActivityStore } from "@/hooks/useActivityStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useFriendStore } from "@/hooks/useFriendStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
+import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -46,13 +55,74 @@ function connect(): void {
 
   source.addEventListener("session.invalidate", (e) => {
     const data = JSON.parse((e as MessageEvent).data) as { reason: string };
-    const msg =
+    const key =
       data.reason === "pending_deletion"
-        ? "Your account is pending deletion. You have been signed out."
-        : "Your account has been deactivated. You have been signed out.";
+        ? "auth.session.invalidated-pending-deletion"
+        : "auth.session.invalidated-deactivated";
     stopRealtime();
     useAuthStore.getState().logout();
-    toast.error(msg);
+    toast.error(i18n.t(key));
+  });
+
+  source.addEventListener("activity.entry_added", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
+    if (!isActiveTree(data.tree_id)) return;
+    void useActivityStore.getState().refreshActivity(data.tree_id);
+  });
+
+  const domainRefreshers: Record<string, (treeId: string) => void> = {
+    member: (id) => void useMemberStore.getState().refreshMembers(id),
+    event: (id) => void useEventStore.getState().refreshEvents(id),
+    story: (id) => void useStoryStore.getState().refreshStories(id),
+    source: (id) => void useSourceStore.getState().refreshSources(id),
+    gallery: (id) => void useGalleryStore.getState().refreshGalleryImages(id),
+  };
+  source.addEventListener("tree.content_changed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      domain: string;
+    };
+    if (!isActiveTree(data.tree_id)) return;
+    domainRefreshers[data.domain]?.(data.tree_id);
+  });
+
+  source.addEventListener("friend.request_received", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      requester_id: string;
+      requester_username: string;
+    };
+    void useFriendStore.getState().loadIncoming();
+    toast.info(
+      i18n.t("auth.friends.new-request", { name: data.requester_username }),
+    );
+  });
+
+  source.addEventListener("invitation.received", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      tree_name: string;
+    };
+    void useTreeStore.getState().loadTrees();
+    toast.info(
+      i18n.t("dialog.share-tree.invitation-received", { name: data.tree_name }),
+    );
+  });
+
+  source.addEventListener("tree.layout_changed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
+    if (!isActiveTree(data.tree_id)) return;
+    void useMemberStore.getState().refreshMembers(data.tree_id);
+  });
+
+  source.addEventListener("storage.warning", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      used_bytes: number;
+      quota_bytes: number;
+    };
+    if (!isActiveTree(data.tree_id)) return;
+    void useStorageStore.getState().refreshStorageUsage(data.tree_id);
+    toast.warning(i18n.t("storage-usage.quota-warning"));
   });
 
   source.onerror = () => {

@@ -13,10 +13,43 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
+
+# Cancel superseded in-progress runs on the same PR. Never cancel push/tag
+# runs — those publish container images and must run to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Detect which areas a PR touched so the irrelevant heavy jobs can be skipped.
+  # On push/tag we always run everything (full validation before publishing).
+  changes:
+    name: "Detect changed areas"
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Filter changed paths"
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/check-build.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/check-build.yml'
+
   frontend:
     name: "Frontend (build + test + i18n)"
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -57,15 +90,19 @@ jobs:
     steps:
       - name: "Require frontend i18n step to pass"
         run: |
-          echo "frontend=${{ needs.frontend.result }}"
-          if [ "${{ needs.frontend.result }}" != "success" ]; then
+          res="${{ needs.frontend.result }}"
+          echo "frontend=$res"
+          # "skipped" means the PR touched no frontend files — nothing to check.
+          if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
             echo "The frontend job runs npm run check-i18n and did not pass."
             exit 1
           fi
-          echo "i18n passed in the frontend job."
+          echo "i18n OK (frontend job: $res)."
 
   backend:
     name: "Backend (deps + checks)"
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -92,7 +129,9 @@ jobs:
           uv run python -c "import app.main; print('app imports OK')"
 
       - name: "Unit tests"
-        run: uv run pytest
+        # -n auto fans the suite across the runner's cores (pytest-xdist).
+        # Tests are isolation-safe: each gets its own SQLite DB via tmp_path.
+        run: uv run pytest -n auto
 
   version-policy:
     name: "Version metadata policy"
@@ -137,18 +176,31 @@ jobs:
   # "Check Application Build" (branch protection) keeps being reported.
   check-build:
     name: "Check Application Build"
-    needs: [frontend, i18n-status, backend, version-policy]
+    needs: [changes, frontend, i18n-status, backend, version-policy]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: "Require all checks to pass"
         run: |
-          echo "frontend=${{ needs.frontend.result }} i18n-status=${{ needs.i18n-status.result }} backend=${{ needs.backend.result }} version-policy=${{ needs.version-policy.result }}"
-          if [ "${{ needs.frontend.result }}" != "success" ] || [ "${{ needs.i18n-status.result }}" != "success" ] || [ "${{ needs.backend.result }}" != "success" ] || [ "${{ needs.version-policy.result }}" != "success" ]; then
-            echo "One or more checks failed."
+          echo "changes=${{ needs.changes.result }} frontend=${{ needs.frontend.result }} i18n-status=${{ needs.i18n-status.result }} backend=${{ needs.backend.result }} version-policy=${{ needs.version-policy.result }}"
+          # Change-detection must succeed, else we'd skip everything and pass blindly.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "Change detection failed."
             exit 1
           fi
-          echo "All checks passed."
+          # frontend/backend may be legitimately "skipped" when their area was untouched.
+          for res in "${{ needs.frontend.result }}" "${{ needs.backend.result }}"; do
+            if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
+              echo "A build/test job failed ($res)."
+              exit 1
+            fi
+          done
+          # The always-on gate jobs must pass outright.
+          if [ "${{ needs.i18n-status.result }}" != "success" ] || [ "${{ needs.version-policy.result }}" != "success" ]; then
+            echo "A required gate job failed."
+            exit 1
+          fi
+          echo "All checks passed (skipped = no changes in that area)."
 
   images:
     name: "Build & push ${{ matrix.service }} image"

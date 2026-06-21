@@ -18,6 +18,13 @@ permissions:
   contents: read
   pull-requests: read
 
+# Cancel superseded scans on the same PR; leave scheduled/dispatch runs alone.
+# No path filtering here: dependency-review may be a required check, and a
+# workflow-level path skip would leave it permanently pending and block merges.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   dependency-review:
     name: "Dependency Review"

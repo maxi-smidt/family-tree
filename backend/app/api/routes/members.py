@@ -29,6 +29,7 @@ from app.schemas.family import (
     RelationOut,
 )
 from app.services.activity import record_activity
+from app.services.event_bus import publish_tree_event
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
     MEDIA_URL_PREFIX,
@@ -138,7 +139,12 @@ def create_member(
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="member", target_id=member.id, target_label=label)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(member)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
     return member
 
 
@@ -168,6 +174,9 @@ def update_member_positions(
             member.position_x = p.position_x
             member.position_y = p.position_y
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.layout_changed", {"tree_id": tree.id}
+    )
 
 
 @router.patch("/members/collapsed", status_code=204)
@@ -262,7 +271,12 @@ def update_member(
                     target_type="member", target_id=member.id, target_label=label,
                     details=diff_details)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(member)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
     return member
 
 
@@ -279,6 +293,11 @@ def delete_member(
                     target_type="member", target_id=member.id, target_label=label)
     db.delete(member)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
 
 
 # --- Relations -------------------------------------------------------------
@@ -344,6 +363,11 @@ def add_relation(
         record_activity(db, tree_id=tree.id, actor=user, action="create",
                         target_type="relation", target_label=label)
         db.commit()
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        publish_tree_event(
+            db, tree, "tree.content_changed",
+            {"tree_id": tree.id, "domain": "member"},
+        )
     return relation
 
 
@@ -365,6 +389,11 @@ def remove_relation(
                         target_type="relation", target_label=label)
         db.delete(relation)
         db.commit()
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        publish_tree_event(
+            db, tree, "tree.content_changed",
+            {"tree_id": tree.id, "domain": "member"},
+        )
 
 
 # --- Diseases --------------------------------------------------------------
@@ -408,7 +437,12 @@ def add_disease(
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="disease", target_label=payload.name)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(disease)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
     return disease
 
 
@@ -434,7 +468,12 @@ def update_disease(
         target_type="disease", target_id=disease_id, target_label=disease.name,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(disease)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
     return disease
 
 
@@ -458,3 +497,8 @@ def delete_disease(
     )
     db.delete(disease)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )

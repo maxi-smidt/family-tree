@@ -208,7 +208,8 @@
         "confirm-disable-title": "Make tree private?",
         "confirm-disable-description": "The public link will stop working. Existing members keep their access.",
         "error": "Could not update public access."
-      }
+      },
+      "invitation-received": "You've been invited to \"{{name}}\""
     },
     "duplicate-tree": {
       "title": "Duplicate Tree",
@@ -581,7 +582,8 @@
         "show-less": "Show less",
         "read-more": "Read more",
         "attachments": {
-          "download": "Download"
+          "download": "Download",
+          "error-open": "Could not open the file."
         },
         "delete-dialog": {
           "title": "Delete Entry",
@@ -614,7 +616,8 @@
             "error-quota-media": "Media storage quota exceeded.",
             "error-quota-tree": "Tree data quota exceeded.",
             "error-quota-total": "Total storage quota exceeded.",
-            "error-save": "Could not save the story."
+            "error-save": "Could not save the story.",
+            "error-open": "Could not open the file."
           },
           "cancel": "Cancel",
           "update": "Update",
@@ -1067,7 +1070,9 @@
       "relogin-password": "Password",
       "relogin-submit": "Sign in",
       "relogin-cancel": "Log out",
-      "relogin-error": "Incorrect password. Please try again."
+      "relogin-error": "Incorrect password. Please try again.",
+      "invalidated-deactivated": "Your account has been deactivated. You have been signed out.",
+      "invalidated-pending-deletion": "Your account is pending deletion. You have been signed out."
     },
     "login": {
       "title": "Family Tree",
@@ -1150,7 +1155,8 @@
       "confirm-remove-title": "Remove friend?",
       "confirm-remove-description": "Remove {{name}} from your friends? Any trees shared between you will no longer be accessible.",
       "confirm-remove-confirm": "Remove",
-      "confirm-remove-cancel": "Cancel"
+      "confirm-remove-cancel": "Cancel",
+      "new-request": "New friend request from {{name}}"
     },
     "delete-account": {
       "title": "Delete my account",
@@ -1441,7 +1447,8 @@
     "error": "Could not load storage usage.",
     "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
-    "toast-error-quota-tree": "Tree data quota exceeded."
+    "toast-error-quota-tree": "Tree data quota exceeded.",
+    "quota-warning": "Media storage is almost full for this tree."
   },
   "user-settings": {
     "title": "Settings",

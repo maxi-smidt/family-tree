@@ -29,6 +29,7 @@ dev = [
     "pytest>=8.3.4",
     "ruff>=0.15.17",
     "httpx2>=2.4.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 # This is an application, not a distributable package — uv installs the

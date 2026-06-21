@@ -24,6 +24,7 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.event_bus import event_bus, publish_tree_event
 from app.services.settings_service import effective_storage_mode, get_media_limits
 from app.services.storage import (
     MEDIA_URL_PREFIX,
@@ -32,7 +33,7 @@ from app.services.storage import (
     delete_media,
     process_gallery_image_field,
 )
-from app.services.storage_usage import QuotaExceeded, check_media_quota
+from app.services.storage_usage import QuotaExceeded, check_media_quota, media_warning
 
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
@@ -139,7 +140,16 @@ def create_image(
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(image)
+    if new_image_url:
+        warning = media_warning(db, tree)
+        if warning:
+            event_bus.publish([tree.owner_id], "storage.warning", warning)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "gallery"},
+    )
     return image
 
 
@@ -194,7 +204,16 @@ def update_image(
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(image)
+    if new_image_url:
+        warning = media_warning(db, tree)
+        if warning:
+            event_bus.publish([tree.owner_id], "storage.warning", warning)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "gallery"},
+    )
     return image
 
 
@@ -213,6 +232,11 @@ def delete_image(
     )
     db.delete(image)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "gallery"},
+    )
     delete_media(image_url)
 
 

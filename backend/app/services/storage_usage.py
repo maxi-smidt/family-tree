@@ -250,6 +250,25 @@ def check_tree_quota(db: Session, tree, incoming_bytes: int) -> None:
     )
 
 
+_WARNING_THRESHOLD = 0.9
+
+
+def media_warning(db: Session, tree) -> dict | None:
+    """Return a warning payload when media usage >= 90 % of quota, else None.
+
+    Returns None when the quota is unlimited or usage is below the threshold.
+    """
+    quotas = owner_quotas(db, tree)
+    quota = quotas["media_quota_bytes"]
+    if quota is None:
+        return None  # unlimited
+    usage = compute_usage(db, tree.id)
+    used = usage["media_bytes"]
+    if used >= quota * _WARNING_THRESHOLD:
+        return {"tree_id": tree.id, "used_bytes": used, "quota_bytes": quota}
+    return None
+
+
 def check_full_usage_quota(db: Session, tree) -> None:
     """Raise QuotaExceeded if the tree's *current* usage already exceeds quota.
 
