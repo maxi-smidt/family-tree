@@ -93,7 +93,10 @@ def test_create_source_emits_content_changed(client, db, tree, headers):
     with patch("app.api.routes.sources.publish_tree_event") as m:
         res = client.post(
             f"{API}/trees/{tree.id}/sources",
-            json={"id": "src1", "title": "Census 1900", "created_at": _TS, "updated_at": _TS},
+            json={
+                "id": "src1", "title": "Census 1900",
+                "created_at": _TS, "updated_at": _TS,
+            },
             headers=headers,
         )
         assert res.status_code == 201, res.text
