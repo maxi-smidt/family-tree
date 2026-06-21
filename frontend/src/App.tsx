@@ -2,6 +2,7 @@ import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
+import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
 import { Layout } from "@/components/layout/Layout";
@@ -36,6 +37,7 @@ export const App = () => {
     if (status !== "authenticated" || !userId) {
       setTreesBootstrapped(false);
       resetTreeStoreForSession();
+      stopRealtime();
       return;
     }
 
@@ -51,6 +53,7 @@ export const App = () => {
         await acceptPendingInvite();
 
         await loadTrees();
+        startRealtime();
         // Re-open the most recently used tree (or virtual view). The API
         // returns both lists sorted by `last_opened`, newest first.
         const { selectedTree, trees, virtualViews, selectTree } =
@@ -68,6 +71,7 @@ export const App = () => {
 
     return () => {
       cancelled = true;
+      stopRealtime();
     };
   }, [status, userId, loadTrees]);
 

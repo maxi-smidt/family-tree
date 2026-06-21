@@ -33,6 +33,7 @@ from app.schemas.tree import (
     TreeUpdate,
 )
 from app.services import friendships
+from app.services.event_bus import event_bus, publish_tree_event, tree_audience
 from app.services.extract import compute_subtree_preview, extract_subtree
 from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.merge import compute_merge_preview, merge_trees
@@ -219,10 +220,12 @@ def delete_tree(
             ),
         )
     tree_id = tree.id
+    audience = tree_audience(db, tree)
     db.delete(tree)
     db.commit()
     # The DB cascade clears the rows; remove the backing media files too.
     delete_tree_media(tree_id)
+    event_bus.publish(audience, "tree.deleted", {"tree_id": tree_id})
 
 
 # --- Public access ---------------------------------------------------------
@@ -338,6 +341,9 @@ def share_tree(
     else:
         membership.role = payload.role
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.access_changed", {"tree_id": tree.id}, extra_user_ids=[target.id]
+    )
     return list_access(tree=tree, db=db)
 
 
@@ -354,6 +360,13 @@ def revoke_access(
     if membership is not None:
         db.delete(membership)
         db.commit()
+        publish_tree_event(
+            db,
+            tree,
+            "tree.access_changed",
+            {"tree_id": tree.id},
+            extra_user_ids=[user_id],
+        )
 
 
 @router.patch(
@@ -379,6 +392,13 @@ def update_member_restrictions(
         raise HTTPException(status_code=404, detail="Membership not found")
     membership.restrictions = payload.restrictions or None
     db.commit()
+    publish_tree_event(
+        db,
+        tree,
+        "tree.access_changed",
+        {"tree_id": tree.id},
+        extra_user_ids=[user_id],
+    )
     return list_access(tree=tree, db=db)
 
 
@@ -470,6 +490,13 @@ def transfer_ownership(
 
     db.commit()
     db.refresh(tree)
+    publish_tree_event(
+        db,
+        tree,
+        "tree.ownership_changed",
+        {"tree_id": tree.id, "new_owner_id": tree.owner_id},
+        extra_user_ids=[old_owner_id],
+    )
     return TreeTransferResult(
         access=list_access(tree=tree, db=db),
         undo_available_until=_undo_deadline(tree.ownership_transferred_at),
@@ -514,12 +541,20 @@ def revert_transfer(
     if old_membership is not None:
         db.delete(old_membership)
 
+    reverted_from_owner_id = tree.owner_id
     tree.owner_id = tree.previous_owner_id
     tree.previous_owner_id = None
     tree.ownership_transferred_at = None
 
     db.commit()
     db.refresh(tree)
+    publish_tree_event(
+        db,
+        tree,
+        "tree.ownership_changed",
+        {"tree_id": tree.id, "new_owner_id": tree.owner_id},
+        extra_user_ids=[reverted_from_owner_id],
+    )
     return TreeTransferResult(
         access=list_access(tree=tree, db=db),
         undo_available_until=None,

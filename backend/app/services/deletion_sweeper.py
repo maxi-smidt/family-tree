@@ -11,6 +11,7 @@ import logging
 
 from app.core.config import settings
 from app.db.session import SessionLocal
+from app.services.event_bus import admin_user_ids, event_bus
 from app.services.user_purge import purge_due_users
 
 logger = logging.getLogger("app.deletion_sweeper")
@@ -18,7 +19,13 @@ logger = logging.getLogger("app.deletion_sweeper")
 
 def _run_sweep_once() -> None:
     with SessionLocal() as db:
-        purge_due_users(db)
+        count = purge_due_users(db)
+        if count > 0:
+            event_bus.publish(
+                admin_user_ids(db),
+                "purge.ran",
+                {"purged_count": count},
+            )
 
 
 async def deletion_sweep_loop() -> None:

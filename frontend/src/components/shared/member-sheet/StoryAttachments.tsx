@@ -6,6 +6,9 @@ import {
   FileText,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
+import { downloadMedia, openMedia } from "@/hooks/useMediaUrl";
 import { StoryAttachment } from "@/types/story";
 import {
   formatFileSize,
@@ -47,19 +50,27 @@ export const StoryAttachments = ({
 
   if (!attachments.length) return null;
 
+  const open = (a: StoryAttachment) => {
+    void openMedia(a.url).catch(() => toast.error(t("error-open")));
+  };
+  const download = (a: StoryAttachment) => {
+    void downloadMedia(a.url, a.filename).catch(() =>
+      toast.error(t("error-open")),
+    );
+  };
+
   return (
     <div className="mt-2 space-y-1.5">
       {attachments.map((a) => (
         <div key={a.id} className="flex items-center gap-2 text-sm">
-          <a
-            href={a.url}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 min-w-0 flex-1 hover:underline"
+          <button
+            type="button"
+            onClick={() => open(a)}
+            className="flex items-center gap-2 min-w-0 flex-1 hover:underline text-left"
             title={a.filename}
           >
             {isImageAttachment(a) ? (
-              <img
+              <AuthenticatedImage
                 src={a.url}
                 alt={a.filename}
                 className="w-9 h-9 rounded object-cover border shrink-0"
@@ -68,21 +79,21 @@ export const StoryAttachments = ({
               <AttachmentIcon filename={a.filename} mimeType={a.mimeType} />
             )}
             <span className="truncate">{a.filename}</span>
-          </a>
+          </button>
           {a.size != null && (
             <span className="text-xs text-muted-foreground shrink-0">
               {formatFileSize(a.size)}
             </span>
           )}
-          <a
-            href={a.url}
-            download={a.filename}
+          <button
+            type="button"
+            onClick={() => download(a)}
             className="text-muted-foreground hover:text-foreground shrink-0"
             title={t("download")}
             aria-label={t("download")}
           >
             <Download className="w-4 h-4" />
-          </a>
+          </button>
         </div>
       ))}
     </div>
