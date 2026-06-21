@@ -6,13 +6,17 @@
  * backoff capped at 30 s.
  */
 
+import { toast } from "sonner";
+import i18n from "@/i18n/i18n";
 import { getAuthToken } from "@/services/api";
-import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
+import { useFriendStore } from "@/hooks/useFriendStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -61,6 +65,45 @@ function connect(): void {
     };
     if (!isActiveTree(data.tree_id)) return;
     domainRefreshers[data.domain]?.(data.tree_id);
+  });
+
+  source.addEventListener("friend.request_received", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      requester_id: string;
+      requester_username: string;
+    };
+    void useFriendStore.getState().loadIncoming();
+    toast.info(
+      i18n.t("auth.friends.new-request", { name: data.requester_username }),
+    );
+  });
+
+  source.addEventListener("invitation.received", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      tree_name: string;
+    };
+    void useTreeStore.getState().loadTrees();
+    toast.info(
+      i18n.t("dialog.share-tree.invitation-received", { name: data.tree_name }),
+    );
+  });
+
+  source.addEventListener("tree.layout_changed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
+    if (!isActiveTree(data.tree_id)) return;
+    void useMemberStore.getState().refreshMembers(data.tree_id);
+  });
+
+  source.addEventListener("storage.warning", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      used_bytes: number;
+      quota_bytes: number;
+    };
+    if (!isActiveTree(data.tree_id)) return;
+    void useStorageStore.getState().refreshStorageUsage(data.tree_id);
+    toast.warning(i18n.t("storage-usage.quota-warning"));
   });
 
   source.onerror = () => {

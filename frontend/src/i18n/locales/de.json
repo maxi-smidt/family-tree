@@ -208,7 +208,8 @@
         "confirm-disable-title": "Stammbaum privat machen?",
         "confirm-disable-description": "Der öffentliche Link funktioniert dann nicht mehr. Bestehende Mitglieder behalten ihren Zugang.",
         "error": "Öffentlicher Zugang konnte nicht aktualisiert werden."
-      }
+      },
+      "invitation-received": "Du wurdest zu \"{{name}}\" eingeladen"
     },
     "duplicate-tree": {
       "title": "Stammbaum duplizieren",
@@ -1150,7 +1151,8 @@
       "confirm-remove-title": "Freund entfernen?",
       "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
       "confirm-remove-confirm": "Entfernen",
-      "confirm-remove-cancel": "Abbrechen"
+      "confirm-remove-cancel": "Abbrechen",
+      "new-request": "Neue Freundschaftsanfrage von {{name}}"
     },
     "delete-account": {
       "title": "Konto löschen",
@@ -1441,7 +1443,8 @@
     "error": "Speichernutzung konnte nicht geladen werden.",
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
-    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten."
+    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+    "quota-warning": "Der Medienspeicher für diesen Stammbaum ist fast voll."
   },
   "user-settings": {
     "title": "Einstellungen",

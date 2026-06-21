@@ -173,6 +173,9 @@ def update_member_positions(
             member.position_x = p.position_x
             member.position_y = p.position_y
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.layout_changed", {"tree_id": tree.id}
+    )
 
 
 @router.patch("/members/collapsed", status_code=204)

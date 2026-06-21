@@ -15,6 +15,7 @@ from app.db.session import get_db
 from app.models import Friendship, User
 from app.schemas.friendship import FriendOut, FriendRequestCreate, UserSearchResult
 from app.services import friendships
+from app.services.event_bus import event_bus
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
@@ -133,6 +134,12 @@ def send_request(
         raise HTTPException(status_code=403, detail="Friend request not allowed")
 
     friendship = friendships.send_request(db, user, target)
+    if friendship.status == "pending" and friendship.addressee_id == target.id:
+        event_bus.publish(
+            [target.id],
+            "friend.request_received",
+            {"requester_id": user.id, "requester_username": user.username},
+        )
     return friendships.to_friend_out(db, friendship, user.id)
 
 
