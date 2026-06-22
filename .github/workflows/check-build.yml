@@ -32,7 +32,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
     steps:
       - name: "Checkout Code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "Filter changed paths"
         uses: dorny/paths-filter@v3
@@ -56,7 +56,7 @@ jobs:
         working-directory: frontend
     steps:
       - name: "Checkout Code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "Set up Node.js"
         uses: actions/setup-node@v4
@@ -109,7 +109,7 @@ jobs:
         working-directory: backend
     steps:
       - name: "Checkout Code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "Set up uv"
         uses: astral-sh/setup-uv@v7
@@ -138,7 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout Code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "Check package metadata"
         run: |
@@ -217,7 +217,7 @@ jobs:
 
     steps:
       - name: "Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "Build & start compose stack"
         run: |
@@ -317,7 +317,7 @@ jobs:
 
     steps:
       - name: "Checkout Code"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: "Resolve build metadata"
         id: build-meta
