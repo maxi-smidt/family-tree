@@ -68,13 +68,6 @@ function edge(page: Page, edgeId: string) {
   return page.locator(`.react-flow__edge[data-id="${edgeId}"]`);
 }
 
-// The canvas culls off-screen nodes from the DOM (onlyRenderVisibleElements), so
-// frame every node before asserting one that may sit outside the default
-// viewport. fitView() works from stored node positions, so it reaches culled nodes.
-async function fitView(page: Page) {
-  await page.getByRole("button", { name: "Fit view" }).click();
-}
-
 function unionId(firstId: string, secondId: string) {
   return `union-${[firstId, secondId].sort().join("-")}`;
 }
@@ -213,13 +206,15 @@ canvasTest(
       lastName: "Person",
       gender: "m",
       positionX: 250,
-      positionY: 450,
+      // Kept within the default viewport: onlyRenderVisibleElements culls
+      // off-screen nodes, and this test asserts the child node is in the DOM.
+      positionY: 300,
     });
     const child = await createMember(secondApi, ownedTree.id, {
       firstName: "Child",
       lastName: "Person",
       positionX: 250,
-      positionY: 700,
+      positionY: 500,
     });
     await createRelation(
       secondApi,
@@ -250,7 +245,6 @@ canvasTest(
     );
     await page.reload();
     await expect(edge(page, `e:${parent.id}:${child.id}`)).toHaveCount(0);
-    await fitView(page);
     await expect(memberNode(page, child.id)).toBeVisible();
 
     await secondApi.delete(
