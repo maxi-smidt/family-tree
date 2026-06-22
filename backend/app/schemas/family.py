@@ -178,3 +178,12 @@ class DiseaseUpdate(BaseModel):
     inheritance_pattern: str
     diagnosis_date: str | None = None
     notes: str | None = None
+
+
+# --- Neighborhood view -----------------------------------------------------
+class NeighborhoodOut(BaseModel):
+    members: list[MemberSurfaceOut]
+    relations: list[RelationOut]
+    root_id: str
+    truncated: bool
+    total_member_count: int

@@ -52,7 +52,16 @@ export const FlowPanel = () => {
     (s) => s.trees.length + s.virtualViews.length,
   );
   const isMobile = useIsMobile();
-  const { members, removeMember, updateLayout } = useMemberStore();
+  const {
+    members,
+    removeMember,
+    updateLayout,
+    windowed,
+    focusRootId,
+    neighborhoodTruncated,
+    totalMemberCount,
+    setFocusRoot,
+  } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
   const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
   const isCanvasReadOnly = isMobile || !canWrite;
@@ -251,6 +260,15 @@ export const FlowPanel = () => {
     initializeFlow();
   }, [members, isReady]);
 
+  // Re-center when the focus root changes in windowed mode.
+  const prevFocusRootRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!windowed || !rfInstance) return;
+    if (focusRootId === prevFocusRootRef.current) return;
+    prevFocusRootRef.current = focusRootId;
+    requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
+  }, [windowed, focusRootId, rfInstance]);
+
   // Virtual views: the viewport is a global setting (not per-tree), so after a
   // virtual view loads we must fit the view regardless of where the camera was.
   // The ref prevents re-fitting on every drag (nodes change) — once per view id.
@@ -385,11 +403,24 @@ export const FlowPanel = () => {
           position={isMobile ? "top-center" : "top-left"}
           className={isMobile ? "w-[calc(100vw-1rem)] pt-2" : "pt-2"}
         >
-          <CanvasSearch
-            members={members}
-            onLocate={locator.locateMember}
-            className={isMobile ? "w-full" : undefined}
-          />
+          <div className="flex flex-col gap-1">
+            <CanvasSearch
+              members={members}
+              onLocate={locator.locateMember}
+              className={isMobile ? "w-full" : undefined}
+              windowed={windowed}
+              treeId={activeTree?.id}
+              onFocusRoot={setFocusRoot}
+            />
+            {windowed && neighborhoodTruncated && (
+              <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">
+                {t("tree-view.windowed.banner", {
+                  count: members.length,
+                  total: totalMemberCount,
+                })}
+              </div>
+            )}
+          </div>
         </Panel>
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
           <FlowPanelControls

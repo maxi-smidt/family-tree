@@ -18,6 +18,8 @@ import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
 import i18n from "@/i18n/i18n";
 import { toast } from "sonner";
 
+const WINDOWED_MODE_THRESHOLD = 2_000;
+
 type CollapseUpdate = { id: string; isCollapsed: boolean };
 type PositionUpdate = { id: string; x: number; y: number };
 
@@ -124,6 +126,38 @@ async function commitPendingMemberDeletion(key: string) {
   }
 }
 
+function buildAppMembers(
+  memberRows: MemberDB[],
+  relations: RelationDB[],
+  treeId: string,
+): Member[] {
+  const memberGenderMap = new Map<string, string>();
+  memberRows.forEach((m) => memberGenderMap.set(m.id, m.gender ?? "o"));
+
+  const relationsByMember = new Map<string, RelationDB[]>();
+  for (const r of relations) {
+    relationsByMember.set(
+      r.from_member_id,
+      (relationsByMember.get(r.from_member_id) ?? []).concat(r),
+    );
+  }
+
+  return memberRows
+    .map((member) => {
+      const memberRelations = relationsByMember.get(member.id) ?? [];
+      const mapped = mapMemberFromDB(member, memberRelations, []);
+      mapped.parents = reconstructParents(
+        memberRelations.filter((r) => r.relation_type === "parent"),
+        memberGenderMap,
+      );
+      return mapped;
+    })
+    .filter(
+      (member) =>
+        !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+    );
+}
+
 function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
   const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
   return members.map((m) => {
@@ -171,12 +205,20 @@ async function refreshAfterOptimisticFailure(
 interface MemberState {
   members: Member[];
   detailLoadedIds: Set<string>;
+  windowed: boolean;
+  focusRootId: string | null;
+  neighborhoodUp: number;
+  neighborhoodDown: number;
+  neighborhoodTruncated: boolean;
+  totalMemberCount: number;
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
   _pushHistory: (entry: HistoryEntry) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   refreshMembers: (treeId?: string) => Promise<void>;
+  setFocusRoot: (rootId: string) => Promise<void>;
+  setNeighborhoodDepth: (up: number, down: number) => Promise<void>;
   fetchMemberDetail: (
     id: string,
     force?: boolean,
@@ -214,6 +256,12 @@ interface MemberState {
 export const useMemberStore = create<MemberState>((set, get) => ({
   members: [],
   detailLoadedIds: new Set<string>(),
+  windowed: false,
+  focusRootId: null,
+  neighborhoodUp: 3,
+  neighborhoodDown: 3,
+  neighborhoodTruncated: false,
+  totalMemberCount: 0,
   undoStack: [],
   redoStack: [],
 
@@ -257,10 +305,40 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   refreshMembers: async (treeId = activeTreeId()) => {
     if (!treeId) {
-      set({ members: [], detailLoadedIds: new Set<string>() });
+      set({
+        members: [],
+        detailLoadedIds: new Set<string>(),
+        windowed: false,
+        focusRootId: null,
+      });
       return;
     }
 
+    const { windowed, focusRootId, neighborhoodUp, neighborhoodDown } = get();
+
+    if (windowed) {
+      try {
+        const nb = await TreeService.getNeighborhood(
+          treeId,
+          focusRootId ?? undefined,
+          neighborhoodUp,
+          neighborhoodDown,
+        );
+        if (!isActiveTree(treeId)) return;
+        set({
+          members: buildAppMembers(nb.members, nb.relations, treeId),
+          detailLoadedIds: new Set<string>(),
+          focusRootId: nb.root_id || null,
+          neighborhoodTruncated: nb.truncated,
+          totalMemberCount: nb.total_member_count,
+        });
+      } catch {
+        // leave existing members unchanged on transient error
+      }
+      return;
+    }
+
+    // Normal mode: full load
     const [membersResult, relationsResult] = await Promise.allSettled([
       TreeService.getMembers(treeId, true),
       TreeService.getRelations(treeId),
@@ -272,42 +350,57 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     ) {
       return;
     }
-    const result = membersResult.value;
+
+    if (!isActiveTree(treeId)) return;
+
+    const memberRows = membersResult.value;
     const relations = relationsResult.value;
 
-    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
-
-    const memberGenderMap = new Map<string, string>();
-    result.forEach((m) => memberGenderMap.set(m.id, m.gender ?? "o"));
-
-    const relationsByMember = new Map<string, RelationDB[]>();
-    for (const r of relations) {
-      relationsByMember.set(
-        r.from_member_id,
-        (relationsByMember.get(r.from_member_id) ?? []).concat(r),
-      );
+    if (memberRows.length > WINDOWED_MODE_THRESHOLD) {
+      // Auto-enter windowed mode: load neighborhood with default root
+      set({ windowed: true, totalMemberCount: memberRows.length });
+      try {
+        const nb = await TreeService.getNeighborhood(
+          treeId,
+          undefined,
+          neighborhoodUp,
+          neighborhoodDown,
+        );
+        if (!isActiveTree(treeId)) return;
+        set({
+          members: buildAppMembers(nb.members, nb.relations, treeId),
+          detailLoadedIds: new Set<string>(),
+          focusRootId: nb.root_id || null,
+          neighborhoodTruncated: nb.truncated,
+          totalMemberCount: nb.total_member_count,
+        });
+      } catch {
+        // Fall back to showing full data without windowed UI
+        set({
+          windowed: false,
+          members: buildAppMembers(memberRows, relations, treeId),
+          detailLoadedIds: new Set<string>(),
+          totalMemberCount: memberRows.length,
+        });
+      }
+      return;
     }
 
-    const appMembers = result
-      .map((member) => {
-        const memberRelations = relationsByMember.get(member.id) ?? [];
+    set({
+      members: buildAppMembers(memberRows, relations, treeId),
+      detailLoadedIds: new Set<string>(),
+      totalMemberCount: memberRows.length,
+    });
+  },
 
-        const mapped = mapMemberFromDB(member, memberRelations, []);
+  setFocusRoot: async (rootId: string) => {
+    set({ windowed: true, focusRootId: rootId });
+    await get().refreshMembers();
+  },
 
-        // Reconstruct parents from relations
-        mapped.parents = reconstructParents(
-          memberRelations.filter((r) => r.relation_type === "parent"),
-          memberGenderMap,
-        );
-
-        return mapped;
-      })
-      .filter(
-        (member) =>
-          !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
-      );
-
-    set({ members: appMembers, detailLoadedIds: new Set<string>() });
+  setNeighborhoodDepth: async (up: number, down: number) => {
+    set({ neighborhoodUp: up, neighborhoodDown: down });
+    await get().refreshMembers();
   },
 
   fetchMemberDetail: async (id: string, force = false) => {
@@ -383,6 +476,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     set({
       members: [],
       detailLoadedIds: new Set<string>(),
+      windowed: false,
+      focusRootId: null,
+      neighborhoodTruncated: false,
+      totalMemberCount: 0,
       undoStack: [],
       redoStack: [],
     }),

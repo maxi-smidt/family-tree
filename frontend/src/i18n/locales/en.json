@@ -766,7 +766,8 @@
       "no-results": "No members found",
       "unnamed": "Unnamed member",
       "nee": "née {{name}}",
-      "clear": "Clear search"
+      "clear": "Clear search",
+      "searching": "Searching…"
     },
     "controls": {
       "undo": "Undo (Ctrl+Z)",
@@ -791,7 +792,10 @@
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",
       "connection-path-partial": "Some selected members are not connected.",
-      "export-image": "Export tree as image"
+      "export-image": "Export tree as image",
+      "focus-here": "Focus neighborhood on this person",
+      "depth-increase": "Expand neighborhood depth",
+      "depth-decrease": "Reduce neighborhood depth"
     },
     "persistence": {
       "collapse-error": "Could not save collapsed members. The tree was restored.",
@@ -801,6 +805,9 @@
       "title": "Start your family tree",
       "description": "Add the first person to get started.",
       "cta": "Add first person"
+    },
+    "windowed": {
+      "banner": "Showing {{count}} of {{total}} members in neighborhood"
     }
   },
   "activity-view": {
