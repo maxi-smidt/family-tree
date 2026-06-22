@@ -1,15 +1,14 @@
 import { create } from "zustand";
 import {
-  mapMemberFromDB,
   Member,
   MemberDB,
   MemberUpdate,
-  RelationDB,
   RelationType,
 } from "@/types/member";
 import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
-import { reconstructParents } from "@/utils/memberUtils";
+import { mapMembersFromRows } from "@/utils/memberMapping";
+import { treeProcessorClient } from "@/workers/treeProcessorClient";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -277,35 +276,26 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
-    const memberGenderMap = new Map<string, string>();
-    result.forEach((m) => memberGenderMap.set(m.id, m.gender ?? "o"));
-
-    const relationsByMember = new Map<string, RelationDB[]>();
-    for (const r of relations) {
-      relationsByMember.set(
-        r.from_member_id,
-        (relationsByMember.get(r.from_member_id) ?? []).concat(r),
+    let appMembers: Member[];
+    try {
+      const parsed = await treeProcessorClient.parseMembers(
+        treeId,
+        result,
+        relations,
       );
+      // Re-check after the async worker round-trip — the active tree may have changed.
+      if (!isActiveTree(treeId)) return;
+      appMembers = parsed;
+    } catch {
+      // Worker unavailable or failed — fall back to synchronous mapping.
+      if (!isActiveTree(treeId)) return;
+      appMembers = mapMembersFromRows(result, relations);
     }
 
-    const appMembers = result
-      .map((member) => {
-        const memberRelations = relationsByMember.get(member.id) ?? [];
-
-        const mapped = mapMemberFromDB(member, memberRelations, []);
-
-        // Reconstruct parents from relations
-        mapped.parents = reconstructParents(
-          memberRelations.filter((r) => r.relation_type === "parent"),
-          memberGenderMap,
-        );
-
-        return mapped;
-      })
-      .filter(
-        (member) =>
-          !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
-      );
+    appMembers = appMembers.filter(
+      (member) =>
+        !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+    );
 
     set({ members: appMembers, detailLoadedIds: new Set<string>() });
   },
