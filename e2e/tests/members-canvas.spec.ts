@@ -259,6 +259,36 @@ canvasTest(
 );
 
 canvasTest(
+  "fit view reveals a node culled outside the viewport",
+  async ({ page, secondUser, secondApi, ownedTree }) => {
+    const near = await createMember(secondApi, ownedTree.id, {
+      firstName: "Near",
+      lastName: "Origin",
+      positionX: 300,
+      positionY: 200,
+    });
+    const far = await createMember(secondApi, ownedTree.id, {
+      firstName: "Far",
+      lastName: "Below",
+      positionX: 300,
+      // Far below the default {x:0,y:0,zoom:1} viewport, so onlyRenderVisibleElements
+      // culls it from the DOM until the view is fitted.
+      positionY: 2000,
+    });
+
+    await login(page, secondUser);
+
+    await expect(memberNode(page, near.id)).toBeVisible();
+    await expect(memberNode(page, far.id)).toHaveCount(0);
+
+    // Fit view must frame the whole tree — including the culled node — not just
+    // the nodes React Flow has already measured on-screen.
+    await page.getByRole("button", { name: "Fit view" }).click();
+    await expect(memberNode(page, far.id)).toBeVisible();
+  },
+);
+
+canvasTest(
   "deleting a member removes its node and dependent edge",
   async ({ page, secondUser, secondApi, ownedTree }) => {
     const parent = await createMember(secondApi, ownedTree.id, {
