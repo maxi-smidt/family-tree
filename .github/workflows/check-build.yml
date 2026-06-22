@@ -268,7 +268,7 @@ jobs:
           E2E_API_URL: ${{ env.E2E_API_URL }}
 
       - name: "Upload test report"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: release-playwright-report
@@ -276,7 +276,7 @@ jobs:
           retention-days: 14
 
       - name: "Upload traces on failure"
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: release-playwright-traces
