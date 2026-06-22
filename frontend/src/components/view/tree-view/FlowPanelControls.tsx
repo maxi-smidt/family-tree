@@ -22,6 +22,7 @@ import { useReactFlow } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeExport } from "@/hooks/useTreeExport";
+import { fitViewToAllNodes } from "@/utils/flowFit";
 
 type Props = {
   navigationOnly?: boolean;
@@ -40,7 +41,7 @@ export const FlowPanelControls = ({
     keyPrefix: "tree-view.controls",
   });
   const { isLockedScreen, setIsLockedScreen } = useFamilyTreeSettings();
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const reactFlow = useReactFlow();
   const undo = useMemberStore((s) => s.undo);
   const redo = useMemberStore((s) => s.redo);
   const undoStack = useMemberStore((s) => s.undoStack);
@@ -86,7 +87,7 @@ export const FlowPanelControls = ({
           <Button
             variant="secondary"
             size="icon"
-            onClick={() => zoomIn()}
+            onClick={() => reactFlow.zoomIn()}
             aria-label={t("zoom-in")}
           >
             <Plus />
@@ -99,7 +100,7 @@ export const FlowPanelControls = ({
           <Button
             variant="secondary"
             size="icon"
-            onClick={() => zoomOut()}
+            onClick={() => reactFlow.zoomOut()}
             aria-label={t("zoom-out")}
           >
             <Minus />
@@ -112,7 +113,7 @@ export const FlowPanelControls = ({
           <Button
             variant="secondary"
             size="icon"
-            onClick={() => fitView()}
+            onClick={() => fitViewToAllNodes(reactFlow)}
             aria-label={t("fit-view")}
           >
             <Maximize />

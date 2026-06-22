@@ -34,6 +34,7 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useFlowUnions } from "@/hooks/useFlowUnions";
 import { useIsMobile } from "@/hooks/useMobile";
 import { memberPairKey } from "@/utils/graphUtils";
+import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
@@ -259,7 +260,7 @@ export const FlowPanel = () => {
     if (nodes.length === 0) return;
     if (fittedViewRef.current === activeTree.id) return;
     fittedViewRef.current = activeTree.id;
-    requestAnimationFrame(() => rfInstance.fitView({ padding: 0.2 }));
+    requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
   }, [isReady, rfInstance, isVirtualView, activeTree, nodes]);
 
   useEffect(() => {
@@ -274,7 +275,9 @@ export const FlowPanel = () => {
   const rearrangeNodes = () => {
     debouncedSave.cancel();
     pendingUpdates.current = {};
-    updateLayout().then(() => rfInstance?.fitView());
+    updateLayout().then(() => {
+      if (rfInstance) fitViewToAllNodes(rfInstance);
+    });
   };
 
   const handleAddFirstMember = () => {
@@ -314,6 +317,7 @@ export const FlowPanel = () => {
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onlyRenderVisibleElements
         onNodesChange={
           (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
             ? undefined
