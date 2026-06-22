@@ -113,6 +113,17 @@ def _seed_admin(db) -> None:
     user_count = db.scalar(select(func.count()).select_from(User))
     if user_count and user_count > 0:
         return
+    if settings.authentik_enabled:
+        # With Authentik linked, admins are provisioned through the configured
+        # admin group on first OIDC login. Skip seeding a local admin from the
+        # FIRST_ADMIN_* env vars so we don't leave behind an unused (and often
+        # default-password) local account.
+        logger.info(
+            "Authentik is configured; skipping local admin seed. Grant admin "
+            "via the '%s' Authentik group.",
+            settings.AUTHENTIK_ADMIN_GROUP,
+        )
+        return
     if settings.FIRST_ADMIN_PASSWORD == "admin":
         logger.warning(
             "Seeding the admin account with the insecure default password "
