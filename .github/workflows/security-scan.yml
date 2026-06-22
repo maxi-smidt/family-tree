@@ -89,6 +89,6 @@ jobs:
             --format requirements-txt -o requirements-audit.txt
           echo '## pip-audit (locked production deps)' >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          uvx pip-audit --requirement requirements-audit.txt --disable-pip \
+          uvx pip-audit --requirement requirements-audit.txt --no-deps --disable-pip \
             | tee -a "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"

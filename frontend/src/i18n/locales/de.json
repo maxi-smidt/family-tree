@@ -547,7 +547,7 @@
         "no-events": "Keine Ereignisse gespeichert",
         "delete-dialog": {
           "title": "Ereignis löschen",
-          "description": "ABist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
           "cancel": "Abbrechen",
           "delete": "Löschen"
         },
@@ -1255,7 +1255,7 @@
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
         "sources": "Quellennachweise und Belege für Personendaten.",
-        "onboarding_tour": "Gefuehrte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
+        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
       }
     },
     "col-username": "Benutzername",
@@ -1484,7 +1484,7 @@
   "tutorial": {
     "welcome": {
       "title": "Willkommen bei Family Tree",
-      "body": "Diese kurze Tour fuehrt dich durch die wichtigsten Funktionen. Du kannst sie jederzeit ueber das Benutzermenue neu starten."
+      "body": "Diese kurze Tour führt dich durch die wichtigsten Funktionen. Du kannst sie jederzeit über das Benutzermenü neu starten."
     },
     "create-tree": {
       "title": "Ersten Stammbaum erstellen",
@@ -1492,7 +1492,7 @@
     },
     "existing-tree": {
       "title": "Mit diesem Stammbaum fortfahren",
-      "body": "Du hast bereits einen Stammbaum ausgewaehlt. Deshalb ueberspringen wir die Einrichtung und zeigen dir direkt die taeglichen Werkzeuge."
+      "body": "Du hast bereits einen Stammbaum ausgewählt. Deshalb überspringen wir die Einrichtung und zeigen dir direkt die täglichen Werkzeuge."
     },
     "add-member": {
       "title": "Erste Person hinzufügen",
