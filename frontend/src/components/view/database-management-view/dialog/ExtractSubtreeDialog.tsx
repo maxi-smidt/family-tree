@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useJobStore } from "@/hooks/useJobStore";
 import {
   Dialog,
   DialogClose,
@@ -38,6 +39,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
   });
   const extractSubtree = useTreeStore((s) => s.extractSubtree);
   const fetchTreeMembers = useTreeStore((s) => s.fetchTreeMembers);
+  const extractPct = useJobStore((s) => s.activeJobPct);
 
   const [name, setName] = useState("");
   const [rootMemberId, setRootMemberId] = useState<string | null>(null);
@@ -108,7 +110,9 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
         </DialogHeader>
         <div className="space-y-4 py-4 px-1">
           <div className="space-y-2">
-            <FieldLabel htmlFor="extract-subtree-name">{t("name-label")}</FieldLabel>
+            <FieldLabel htmlFor="extract-subtree-name">
+              {t("name-label")}
+            </FieldLabel>
             <Input
               id="extract-subtree-name"
               value={name}
@@ -141,15 +145,21 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="descendants">{t("direction-descendants")}</SelectItem>
-                <SelectItem value="ancestors">{t("direction-ancestors")}</SelectItem>
+                <SelectItem value="descendants">
+                  {t("direction-descendants")}
+                </SelectItem>
+                <SelectItem value="ancestors">
+                  {t("direction-ancestors")}
+                </SelectItem>
                 <SelectItem value="both">{t("direction-both")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <FieldLabel htmlFor="extract-subtree-depth">{t("depth-label")}</FieldLabel>
+            <FieldLabel htmlFor="extract-subtree-depth">
+              {t("depth-label")}
+            </FieldLabel>
             <Input
               id="extract-subtree-depth"
               type="number"
@@ -160,6 +170,14 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
             />
           </div>
         </div>
+        {isExtracting && (
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-[width] duration-300 ease-in-out"
+              style={{ width: `${extractPct}%` }}
+            />
+          </div>
+        )}
         <DialogFooter>
           <DialogClose asChild>
             <Button

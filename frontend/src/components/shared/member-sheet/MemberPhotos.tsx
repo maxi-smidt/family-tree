@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { ImagePlus } from "lucide-react";
 import { ApiError } from "@/services/api";
+import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { toast } from "sonner";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTranslation } from "react-i18next";
@@ -67,7 +68,12 @@ export const MemberPhotos = ({ member }: Props) => {
           .then(() => toast.success(t("toast-success-photo-upload")))
           .catch((err: unknown) => {
             if (err instanceof ApiError && err.status === 413) {
-              toast.error(t("toast-error-image-too-large"));
+              const bucket = getQuotaBucket(err.message);
+              if (bucket) {
+                toast.error(t(quotaToastKey(bucket)));
+              } else {
+                toast.error(t("toast-error-image-too-large"));
+              }
             } else if (err instanceof ApiError && err.status === 400) {
               toast.error(t("toast-error-image-unsupported"));
             } else {

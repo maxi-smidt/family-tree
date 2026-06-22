@@ -90,7 +90,7 @@ UI Component → Zustand store action → TreeService (HTTP client)
 
 ## Toolchain
 
-- **Node.js 22** (CI pins `22`; dev floor is v20.19+ / v22.12+) — frontend uses
+- **Node.js 24** (CI pins `24`; dev floor is v20.19+ / v22.12+) — frontend uses
   **npm**.
 - **Python 3.12** + **[uv](https://docs.astral.sh/uv/)** — backend uses **uv**,
   not pip/poetry.
@@ -127,7 +127,7 @@ npm run check-i18n       # translation parity
 # Backend (from ./backend)
 uv run ruff check
 uv run python -m compileall -q app alembic && uv run python -c "import app.main"
-uv run pytest
+uv run pytest          # add -n auto to match CI's parallel run (pytest-xdist)
 ```
 
 ### End-to-end tests (Playwright)

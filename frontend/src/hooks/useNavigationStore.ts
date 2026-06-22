@@ -1,14 +1,5 @@
 import { create } from "zustand";
-
-type ViewId =
-  | "tree-view"
-  | "list-view"
-  | "gallery-view"
-  | "timeline-view"
-  | "activity-view"
-  | "quality-report-view"
-  | "statistics-view"
-  | "database-management-view";
+import { type ViewId } from "@/lib/tabs";
 
 interface NavigationState {
   pendingView: ViewId | null;

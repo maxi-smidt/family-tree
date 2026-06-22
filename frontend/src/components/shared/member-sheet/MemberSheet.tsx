@@ -15,7 +15,13 @@ import { Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
+import { useSourceStore } from "@/hooks/useSourceStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
+import { Spinner } from "@/components/ui/spinner";
 
 type Props = {
   isOpen: boolean;
@@ -41,17 +47,45 @@ export const MemberSheet = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet",
   });
-  const { removeMember } = useMemberStore();
+  const { removeMember, fetchMemberDetail, detailLoadedIds } = useMemberStore();
+  const { refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const { refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
+  const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
+
+  // Fetch full member detail when the sheet opens for an existing member.
+  // Skip the spinner entirely when detail is already cached for this member.
+  useEffect(() => {
+    if (isOpen && member && !isNewMember) {
+      const alreadyLoaded = detailLoadedIds.has(member.id);
+      if (!alreadyLoaded) {
+        setIsLoadingDetail(true);
+      }
+      void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
+    }
+  }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Defer secondary-domain stores until the sheet opens for an existing member.
+  // Passing `|| !isOpen || isNewMember` makes the shared hook a no-op while the
+  // sheet is closed or showing an unsaved new member.
+  useDeferredStoreLoad(eventsInitialized || !isOpen || isNewMember, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized || !isOpen || isNewMember, refreshStories);
+  useDeferredStoreLoad(sourcesInitialized || !isOpen || isNewMember, refreshSources);
+  useDeferredStoreLoad(
+    galleryInitialized || !isOpen || isNewMember,
+    refreshGalleryImages,
+  );
 
   if (!member) return null;
 
@@ -93,6 +127,14 @@ export const MemberSheet = ({
       <SheetContent
         className="w-full max-w-full sm:w-135 sm:max-w-none"
         showCloseButton={false}
+        onOpenAutoFocus={(e) => {
+          if (isViewingEditMode) {
+            e.preventDefault();
+            requestAnimationFrame(() => {
+              document.getElementById("firstName")?.focus();
+            });
+          }
+        }}
       >
         <SheetHeader className="border-b">
           <div className="pr-10">
@@ -120,7 +162,12 @@ export const MemberSheet = ({
 
         <div className="relative flex-1 overflow-hidden flex flex-col">
           <div className="px-4 pb-4 overflow-y-auto flex-1">
-            {isViewingEditMode ? (
+            {isLoadingDetail && !isNewMember ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground gap-2">
+                <Spinner className="size-5" />
+                <span className="text-sm">{t("loading-detail")}</span>
+              </div>
+            ) : isViewingEditMode ? (
               <EditMode
                 member={member}
                 isNew={isNewMember}

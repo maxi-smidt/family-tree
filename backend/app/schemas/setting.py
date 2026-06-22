@@ -12,6 +12,7 @@ from app.core.media_config import (
 )
 
 FeatureState = Literal["on", "off", "beta"]
+ImageStorageMode = Literal["compressed", "original", "both"]
 
 
 class FeatureFlagOut(BaseModel):
@@ -31,6 +32,10 @@ class MediaLimits(BaseModel):
     max_document_bytes: int
     stored_image_width: int
     stored_image_height: int
+    image_storage_mode: ImageStorageMode = "compressed"
+    image_storage_allowed_modes: list[ImageStorageMode] = Field(
+        default_factory=lambda: ["compressed", "original", "both"]
+    )
 
 
 class SettingsOut(BaseModel):
@@ -44,6 +49,12 @@ class SettingsOut(BaseModel):
     max_image_upload_mb: int
     max_image_dimension: int
     max_document_upload_mb: int
+    default_tree_quota_mb: int = 0
+    default_media_quota_mb: int = 0
+    image_storage_mode: ImageStorageMode = "compressed"
+    image_storage_allowed_modes: list[ImageStorageMode] = Field(
+        default_factory=lambda: ["compressed", "original", "both"]
+    )
 
 
 class SettingsUpdate(BaseModel):
@@ -69,3 +80,7 @@ class SettingsUpdate(BaseModel):
         ge=MIN_MAX_DOCUMENT_UPLOAD_MB,
         le=MAX_MAX_DOCUMENT_UPLOAD_MB,
     )
+    default_tree_quota_mb: int | None = Field(default=None, ge=0)
+    default_media_quota_mb: int | None = Field(default=None, ge=0)
+    image_storage_mode: ImageStorageMode | None = None
+    image_storage_allowed_modes: list[ImageStorageMode] | None = None

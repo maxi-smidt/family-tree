@@ -1,5 +1,5 @@
 import { api } from "@/services/api";
-import { User } from "@/types/user";
+import { User, ImageStorageMode } from "@/types/user";
 import { FeatureName } from "@/lib/features";
 import { RelationTypeDB } from "@/types/member";
 
@@ -14,6 +14,10 @@ export interface AdminSettings {
   max_image_upload_mb: number;
   max_image_dimension: number;
   max_document_upload_mb: number;
+  default_tree_quota_mb: number;
+  default_media_quota_mb: number;
+  image_storage_mode: ImageStorageMode;
+  image_storage_allowed_modes: ImageStorageMode[];
 }
 
 export interface BackupRecord {
@@ -47,7 +51,12 @@ export interface CreateAdminUserInput {
   is_admin: boolean;
 }
 
-export type AdminUserUpdate = Partial<Pick<User, "is_admin" | "is_active">>;
+export type AdminUserUpdate = Partial<
+  Pick<
+    User,
+    "is_admin" | "is_active" | "tree_quota_bytes" | "media_quota_bytes"
+  >
+>;
 
 export const AdminService = {
   listUsers(): Promise<User[]> {

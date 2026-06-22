@@ -8,9 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.media_config import (
+    DEFAULT_IMAGE_STORAGE_MODE,
     DEFAULT_MAX_DOCUMENT_UPLOAD_MB,
     DEFAULT_MAX_IMAGE_DIMENSION,
     DEFAULT_MAX_IMAGE_UPLOAD_MB,
+    DEFAULT_MEDIA_QUOTA_MB,
+    DEFAULT_TREE_QUOTA_MB,
+    IMAGE_STORAGE_MODES,
     MAX_MAX_DOCUMENT_UPLOAD_MB,
     MAX_MAX_IMAGE_DIMENSION,
     MAX_MAX_IMAGE_UPLOAD_MB,
@@ -35,6 +39,10 @@ DEFAULTS: dict[str, str] = {
     "max_image_upload_mb": str(DEFAULT_MAX_IMAGE_UPLOAD_MB),
     "max_image_dimension": str(DEFAULT_MAX_IMAGE_DIMENSION),
     "max_document_upload_mb": str(DEFAULT_MAX_DOCUMENT_UPLOAD_MB),
+    "default_tree_quota_mb": str(DEFAULT_TREE_QUOTA_MB),
+    "default_media_quota_mb": str(DEFAULT_MEDIA_QUOTA_MB),
+    "image_storage_mode": DEFAULT_IMAGE_STORAGE_MODE,
+    "image_storage_allowed_modes": ",".join(IMAGE_STORAGE_MODES),
 }
 
 _TRUTHY = {"true", "1", "yes", "on"}
@@ -42,6 +50,15 @@ _TRUTHY = {"true", "1", "yes", "on"}
 DEFAULT_DELETION_GRACE_PERIOD_DAYS = 7
 DEFAULT_BACKUP_INTERVAL_HOURS = 24
 DEFAULT_BACKUP_RETENTION_COUNT = 7
+
+
+def effective_storage_mode(
+    admin_default: str, allowed_modes: list[str], user_mode: str | None
+) -> str:
+    """Return the mode for a user: their preference if allowed, else the admin default."""
+    if user_mode and user_mode in allowed_modes:
+        return user_mode
+    return admin_default
 
 
 def get_setting(db: Session, key: str, default: str | None = None) -> str | None:
@@ -111,6 +128,17 @@ def get_media_limits(db: Session) -> MediaLimits:
         minimum=MIN_MAX_DOCUMENT_UPLOAD_MB,
         maximum=MAX_MAX_DOCUMENT_UPLOAD_MB,
     )
+    raw_mode = get_setting(db, "image_storage_mode", DEFAULT_IMAGE_STORAGE_MODE)
+    image_storage_mode = (
+        raw_mode if raw_mode in IMAGE_STORAGE_MODES else DEFAULT_IMAGE_STORAGE_MODE
+    )
+    all_modes_default = ",".join(IMAGE_STORAGE_MODES)
+    raw_allowed = get_setting(db, "image_storage_allowed_modes", all_modes_default)
+    image_storage_allowed_modes = [
+        m for m in (raw_allowed or "").split(",") if m.strip() in IMAGE_STORAGE_MODES
+    ] or list(IMAGE_STORAGE_MODES)
+    if image_storage_mode not in image_storage_allowed_modes:
+        image_storage_mode = image_storage_allowed_modes[0]
     return MediaLimits(
         max_image_bytes=max_image_upload_mb * MEBIBYTE,
         max_image_dimension=get_bounded_int_setting(
@@ -123,6 +151,8 @@ def get_media_limits(db: Session) -> MediaLimits:
         max_document_bytes=max_document_upload_mb * MEBIBYTE,
         stored_image_width=STORED_IMAGE_WIDTH,
         stored_image_height=STORED_IMAGE_HEIGHT,
+        image_storage_mode=image_storage_mode,  # type: ignore[arg-type]
+        image_storage_allowed_modes=image_storage_allowed_modes,  # type: ignore[arg-type]
     )
 
 
@@ -145,6 +175,14 @@ def get_settings_out(db: Session) -> SettingsOut:
         max_image_upload_mb=media_limits.max_image_bytes // MEBIBYTE,
         max_image_dimension=media_limits.max_image_dimension,
         max_document_upload_mb=media_limits.max_document_bytes // MEBIBYTE,
+        default_tree_quota_mb=get_int_setting(
+            db, "default_tree_quota_mb", DEFAULT_TREE_QUOTA_MB
+        ),
+        default_media_quota_mb=get_int_setting(
+            db, "default_media_quota_mb", DEFAULT_MEDIA_QUOTA_MB
+        ),
+        image_storage_mode=media_limits.image_storage_mode,
+        image_storage_allowed_modes=media_limits.image_storage_allowed_modes,
     )
 
 
@@ -185,5 +223,32 @@ def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
             "max_document_upload_mb",
             str(payload.max_document_upload_mb),
         )
+    if payload.default_tree_quota_mb is not None:
+        set_setting(db, "default_tree_quota_mb", str(payload.default_tree_quota_mb))
+    if payload.default_media_quota_mb is not None:
+        set_setting(db, "default_media_quota_mb", str(payload.default_media_quota_mb))
+    if payload.image_storage_allowed_modes is not None:
+        allowed = [
+            m for m in payload.image_storage_allowed_modes if m in IMAGE_STORAGE_MODES
+        ]
+        if not allowed:
+            allowed = list(IMAGE_STORAGE_MODES)
+        set_setting(db, "image_storage_allowed_modes", ",".join(allowed))
+        raw_default = get_setting(db, "image_storage_mode", DEFAULT_IMAGE_STORAGE_MODE)
+        if raw_default not in allowed:
+            set_setting(db, "image_storage_mode", allowed[0])
+    if payload.image_storage_mode is not None:
+        current_allowed_raw = get_setting(
+            db, "image_storage_allowed_modes", ",".join(IMAGE_STORAGE_MODES)
+        )
+        current_allowed = [
+            m for m in (current_allowed_raw or "").split(",") if m in IMAGE_STORAGE_MODES
+        ] or list(IMAGE_STORAGE_MODES)
+        mode = (
+            payload.image_storage_mode
+            if payload.image_storage_mode in current_allowed
+            else current_allowed[0]
+        )
+        set_setting(db, "image_storage_mode", mode)
     db.commit()
     return get_settings_out(db)

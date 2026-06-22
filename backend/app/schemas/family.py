@@ -1,90 +1,119 @@
 """Schemas mirroring the frontend `MemberDB`, `RelationDB`, `DiseaseDB`
-contracts so the React data layer keeps working unchanged."""
+contracts so the React data layer keeps working unchanged.
+
+DB columns are snake_case; `MemberOut`/`MemberCreate` and related member schemas
+expose camelCase automatically via the ``FamilyTreeBaseModel`` /
+``FamilyTreeOrmBaseModel`` alias-generator base classes.  Relation, disease, and
+other schemas intentionally stay snake_case because the frontend reads them
+as-is.
+"""
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
+
 
 # --- Members ---------------------------------------------------------------
-class MemberOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class MemberOut(FamilyTreeOrmBaseModel):
     id: str
     gender: str | None = None
-    academicTitle: str | None = None
-    firstName: str | None = None
-    middleNames: str | None = None
-    baptismalName: str | None = None
-    lastName: str | None = None
-    maidenName: str | None = None
-    imageData: str | None = None
-    dateOfBirth: str | None = None
-    dateOfDeath: str | None = None
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
+    date_of_birth_sort: str | None = None
+    date_of_death_sort: str | None = None
     deceased: bool = False
-    additionalData: str | None = None
+    additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
-    placesLived: str | None = None
-    isCollapsed: bool = False
-    positionX: float = 0
-    positionY: float = 0
+    places_lived: str | None = None
+    is_collapsed: bool = False
+    position_x: float = 0
+    position_y: float = 0
 
 
-class MemberCreate(BaseModel):
+class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     id: str
     gender: str | None = None
-    academicTitle: str | None = None
-    firstName: str | None = None
-    middleNames: str | None = None
-    baptismalName: str | None = None
-    lastName: str | None = None
-    maidenName: str | None = None
-    imageData: str | None = None
-    dateOfBirth: str | None = None
-    dateOfDeath: str | None = None
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
+    date_of_birth_sort: str | None = None
+    date_of_death_sort: str | None = None
     deceased: bool = False
-    additionalData: str | None = None
+    is_collapsed: bool = False
+    position_x: float = 0
+    position_y: float = 0
+
+
+class MemberCreate(FamilyTreeBaseModel):
+    id: str
+    gender: str | None = None
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
+    deceased: bool = False
+    additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
-    placesLived: str | None = None
-    isCollapsed: bool = False
-    positionX: float = 0
-    positionY: float = 0
+    places_lived: str | None = None
+    is_collapsed: bool = False
+    position_x: float = 0
+    position_y: float = 0
 
 
-class MemberUpdate(BaseModel):
+class MemberUpdate(FamilyTreeBaseModel):
     gender: str | None = None
-    academicTitle: str | None = None
-    firstName: str | None = None
-    middleNames: str | None = None
-    baptismalName: str | None = None
-    lastName: str | None = None
-    maidenName: str | None = None
-    imageData: str | None = None
-    dateOfBirth: str | None = None
-    dateOfDeath: str | None = None
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
     deceased: bool | None = None
-    additionalData: str | None = None
+    additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
-    placesLived: str | None = None
-    isCollapsed: bool | None = None
-    positionX: float | None = None
-    positionY: float | None = None
+    places_lived: str | None = None
+    is_collapsed: bool | None = None
+    position_x: float | None = None
+    position_y: float | None = None
 
 
-class MemberPositionUpdate(BaseModel):
+class MemberPositionUpdate(FamilyTreeBaseModel):
     """One entry in a bulk position update (used after a re-layout / drag)."""
 
     id: str
-    positionX: float
-    positionY: float
+    position_x: float
+    position_y: float
 
 
-class MemberCollapsedUpdate(BaseModel):
+class MemberCollapsedUpdate(FamilyTreeBaseModel):
     """One entry in a bulk collapsed-state update (expand-all / collapse-selected)."""
 
     id: str
-    isCollapsed: bool
+    is_collapsed: bool
 
 
 # --- Relations -------------------------------------------------------------

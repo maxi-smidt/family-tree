@@ -32,6 +32,7 @@ from app.models import (
     User,
 )
 from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
+from app.services.job_service import ProgressCallback
 from app.services.merge import _clone_member
 from app.services.storage import copy_media_to_tree
 
@@ -154,7 +155,12 @@ def extract_subtree(
     db: Session,
     user: User,
     req: SubtreeExtractRequest,
+    progress_cb: ProgressCallback | None = None,
 ) -> Tree:
+    def _progress(pct: int) -> None:
+        if progress_cb is not None:
+            progress_cb(pct)
+
     _require_readable(db, user, req.source_tree_id)
     member_ids = _collect_member_ids(
         db,
@@ -164,6 +170,7 @@ def extract_subtree(
         req.depth,
         req.include_partners,
     )
+    _progress(15)
 
     new_tree = Tree(
         id=str(uuid4()),
@@ -190,6 +197,7 @@ def extract_subtree(
         member_map[m.id] = new_id
         db.add(_clone_member(m, new_tree.id, new_id))
     db.flush()
+    _progress(40)
 
     # --- Relations ---
     seen_relations: set[tuple] = set()
@@ -237,6 +245,8 @@ def extract_subtree(
             )
         )
 
+    _progress(55)
+
     # --- Gallery images + links ---
     # Only include images that have at least one link to an included member.
     all_gallery_links = list(
@@ -265,11 +275,11 @@ def extract_subtree(
             GalleryImage(
                 id=new_id,
                 tree_id=new_tree.id,
-                imageData=copy_media_to_tree(img.imageData, new_tree.id),
+                image_data=copy_media_to_tree(img.image_data, new_tree.id),
                 title=img.title,
                 description=img.description,
-                createdAt=img.createdAt,
-                uploadedAt=img.uploadedAt,
+                created_at=img.created_at,
+                uploaded_at=img.uploaded_at,
             )
         )
     db.flush()
@@ -280,6 +290,8 @@ def extract_subtree(
         if gi and mid and (gi, mid) not in seen_gallery_links:
             seen_gallery_links.add((gi, mid))
             db.add(GalleryMemberLink(gallery_image_id=gi, member_id=mid))
+
+    _progress(65)
 
     # --- Events + links ---
     all_event_links = list(
@@ -320,6 +332,8 @@ def extract_subtree(
         if ev and mid and (ev, mid) not in seen_event_links:
             seen_event_links.add((ev, mid))
             db.add(EventMemberLink(event_id=ev, member_id=mid))
+
+    _progress(75)
 
     # --- Stories + links + attachments ---
     all_story_links = list(
@@ -380,6 +394,7 @@ def extract_subtree(
             )
         )
 
+    _progress(95)
     db.commit()
     db.refresh(new_tree)
     return new_tree

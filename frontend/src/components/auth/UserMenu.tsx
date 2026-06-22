@@ -9,31 +9,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import {
+  GraduationCap,
   KeyRound,
   LogOut,
+  Settings,
   Shield,
-  ShieldCheck,
-  SlidersHorizontal,
-  Trash2,
   UserIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { useAdminViewStore } from "@/hooks/useAdminViewStore";
+import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
+import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
-import { DeleteAccountDialog } from "@/components/auth/DeleteAccountDialog";
-import { TabSettingsDialog } from "@/components/auth/TabSettingsDialog";
-import { TwoFactorDialog } from "@/components/auth/TwoFactorDialog";
-import { AdminDialog } from "@/components/admin/AdminDialog";
 import { useTranslation } from "react-i18next";
 
 export const UserMenu = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.user-menu" });
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const openAdmin = useAdminViewStore((s) => s.openAdmin);
+  const openSettings = useUserSettingsViewStore((s) => s.openSettings);
+  const features = useAuthStore((s) => s.features);
+  const tutorialEnabled = features.includes("onboarding_tour");
+  const startTutorial = useTutorialStore((s) => s.start);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [twoFactorOpen, setTwoFactorOpen] = useState(false);
-  const [adminOpen, setAdminOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [tabSettingsOpen, setTabSettingsOpen] = useState(false);
 
   if (!user) return null;
 
@@ -61,30 +60,22 @@ export const UserMenu = () => {
               {t("change-password")}
             </DropdownMenuItem>
           )}
-          {user.auth_provider === "local" && (
-            <DropdownMenuItem onClick={() => setTwoFactorOpen(true)}>
-              <ShieldCheck className="h-4 w-4" />
-              {t("two-factor")}
+          <DropdownMenuItem onClick={() => openSettings()}>
+            <Settings className="h-4 w-4" />
+            {t("settings")}
+          </DropdownMenuItem>
+          {tutorialEnabled && (
+            <DropdownMenuItem onClick={() => startTutorial()}>
+              <GraduationCap className="h-4 w-4" />
+              {t("show-tutorial")}
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => setTabSettingsOpen(true)}>
-            <SlidersHorizontal className="h-4 w-4" />
-            {t("customize-tabs")}
-          </DropdownMenuItem>
           {user.is_admin && (
-            <DropdownMenuItem onClick={() => setAdminOpen(true)}>
+            <DropdownMenuItem onClick={() => openAdmin()}>
               <Shield className="h-4 w-4" />
               {t("admin")}
             </DropdownMenuItem>
           )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            className="text-destructive focus:text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            {t("delete-account")}
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={logout}>
             <LogOut className="h-4 w-4" />
@@ -96,21 +87,6 @@ export const UserMenu = () => {
       <ChangePasswordDialog
         isOpen={passwordOpen}
         onClose={() => setPasswordOpen(false)}
-      />
-      <TwoFactorDialog
-        isOpen={twoFactorOpen}
-        onClose={() => setTwoFactorOpen(false)}
-      />
-      <TabSettingsDialog
-        isOpen={tabSettingsOpen}
-        onClose={() => setTabSettingsOpen(false)}
-      />
-      {user.is_admin && (
-        <AdminDialog isOpen={adminOpen} onClose={() => setAdminOpen(false)} />
-      )}
-      <DeleteAccountDialog
-        isOpen={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
       />
     </>
   );

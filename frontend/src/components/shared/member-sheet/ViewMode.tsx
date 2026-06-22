@@ -1,4 +1,5 @@
 import { Member, isDeceased } from "@/types/member";
+import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import {
   Item,
   ItemContent,
@@ -6,6 +7,8 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
+import { openMedia } from "@/hooks/useMediaUrl";
+import { toast } from "sonner";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useFeature } from "@/hooks/useAuthStore";
@@ -44,10 +47,14 @@ export const ViewMode = ({ member }: Props) => {
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
-  const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
-  const eventsEnabled = useFeature("events") && !restrictions.includes("events");
-  const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
-  const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
+  const galleryEnabled =
+    useFeature("gallery") && !restrictions.includes("gallery");
+  const eventsEnabled =
+    useFeature("events") && !restrictions.includes("events");
+  const storiesEnabled =
+    useFeature("stories") && !restrictions.includes("stories");
+  const sourcesEnabled =
+    useFeature("sources") && !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
@@ -198,9 +205,9 @@ export const ViewMode = ({ member }: Props) => {
                 <Item variant="muted">
                   <ItemContent>
                     <ItemTitle>{t("notes-item")}</ItemTitle>
-                    <ItemDescription className="whitespace-pre-wrap">
-                      {member.additionalData}
-                    </ItemDescription>
+                    <div className="text-muted-foreground text-sm font-normal">
+                      <MarkdownContent content={member.additionalData} />
+                    </div>
                   </ItemContent>
                 </Item>
               )}
@@ -234,21 +241,25 @@ export const ViewMode = ({ member }: Props) => {
                           </span>
                         </div>
                       )}
-                      {mapEnabled && member.placesLived.map((place, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <span>
-                            {place.location}
-                            {(place.from || place.to) && (
-                              <span className="text-muted-foreground">
-                                {" "}
-                                ({place.from || "?"}
-                                {place.to ? ` – ${place.to}` : ""})
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                      ))}
+                      {mapEnabled &&
+                        member.placesLived.map((place, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-start gap-2 text-sm"
+                          >
+                            <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                            <span>
+                              {place.location}
+                              {(place.from || place.to) && (
+                                <span className="text-muted-foreground">
+                                  {" "}
+                                  ({place.from || "?"}
+                                  {place.to ? ` – ${place.to}` : ""})
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
                     </div>
                   </ItemContent>
                 </Item>
@@ -327,7 +338,10 @@ export const ViewMode = ({ member }: Props) => {
                                   <div className="flex items-center gap-1">
                                     <Calendar className="w-3 h-3" />
                                     <span>
-                                      {formatDateWithFallback(event.date, i18n.t)}
+                                      {formatDateWithFallback(
+                                        event.date,
+                                        i18n.t,
+                                      )}
                                     </span>
                                   </div>
                                   {event.location && (
@@ -338,7 +352,9 @@ export const ViewMode = ({ member }: Props) => {
                                   )}
                                 </div>
                                 {event.description && (
-                                  <p className="text-sm mt-2">{event.description}</p>
+                                  <p className="text-sm mt-2">
+                                    {event.description}
+                                  </p>
                                 )}
                               </div>
                             ))}
@@ -381,7 +397,9 @@ export const ViewMode = ({ member }: Props) => {
                                     {story.content}
                                   </div>
                                 )}
-                                <StoryAttachments attachments={story.attachments} />
+                                <StoryAttachments
+                                  attachments={story.attachments}
+                                />
                               </div>
                             ))}
                         </div>
@@ -449,14 +467,24 @@ export const ViewMode = ({ member }: Props) => {
                                               {ev.filename ?? ev.url}
                                             </a>
                                           ) : (
-                                            <a
+                                            <button
+                                              type="button"
                                               key={ev.id}
-                                              href={ev.url}
+                                              onClick={() =>
+                                                void openMedia(ev.url).catch(
+                                                  () =>
+                                                    toast.error(
+                                                      i18n.t(
+                                                        "sheet.member-sheet.stories.attachments.error-open",
+                                                      ),
+                                                    ),
+                                                )
+                                              }
                                               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
                                             >
                                               <File className="w-2.5 h-2.5" />
                                               {ev.filename ?? ev.url}
-                                            </a>
+                                            </button>
                                           ),
                                         )}
                                       </div>
@@ -473,65 +501,71 @@ export const ViewMode = ({ member }: Props) => {
               </Item>
             )}
 
-            {diseasesEnabled && <Item variant="muted">
-              <ItemContent>
-                <ItemTitle>{t("genetic-conditions")}</ItemTitle>
-                {memberDiseases.length > 0 ? (
-                  <CollapsibleSection
-                    totalCount={memberDiseases.length}
-                    collapsedCount={3}
-                  >
-                    {(showAll) => (
-                      <div className="space-y-3 mt-2">
-                        {memberDiseases
-                          .slice(0, showAll ? memberDiseases.length : 3)
-                          .map((disease) => (
-                            <div
-                              key={disease.id}
-                              className="border rounded-lg p-3 bg-accent/50"
-                            >
-                              <div className="flex items-center gap-2 mb-1">
-                                <Activity className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium">{disease.name}</span>
-                                <Badge
-                                  variant={getStatusBadgeVariant(
-                                    disease.carrierStatus,
-                                  )}
-                                >
-                                  {i18n.t(
-                                    `sheet.member-sheet.diseases.dialog.carrier-status-${disease.carrierStatus}`,
-                                  )}
-                                </Badge>
-                              </div>
-                              <div className="flex flex-col gap-1">
-                                {disease.inheritancePattern !== "unknown" && (
-                                  <p className="text-xs text-muted-foreground">
-                                    {i18n.t(
-                                      `sheet.member-sheet.diseases.dialog.inheritance-pattern-${disease.inheritancePattern.replace(/_/g, "-")}`,
+            {diseasesEnabled && (
+              <Item variant="muted">
+                <ItemContent>
+                  <ItemTitle>{t("genetic-conditions")}</ItemTitle>
+                  {memberDiseases.length > 0 ? (
+                    <CollapsibleSection
+                      totalCount={memberDiseases.length}
+                      collapsedCount={3}
+                    >
+                      {(showAll) => (
+                        <div className="space-y-3 mt-2">
+                          {memberDiseases
+                            .slice(0, showAll ? memberDiseases.length : 3)
+                            .map((disease) => (
+                              <div
+                                key={disease.id}
+                                className="border rounded-lg p-3 bg-accent/50"
+                              >
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Activity className="w-4 h-4 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {disease.name}
+                                  </span>
+                                  <Badge
+                                    variant={getStatusBadgeVariant(
+                                      disease.carrierStatus,
                                     )}
-                                  </p>
-                                )}
-                                {disease.diagnosisDate && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {formatDate(disease.diagnosisDate)}
+                                  >
+                                    {i18n.t(
+                                      `sheet.member-sheet.diseases.dialog.carrier-status-${disease.carrierStatus}`,
+                                    )}
+                                  </Badge>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  {disease.inheritancePattern !== "unknown" && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {i18n.t(
+                                        `sheet.member-sheet.diseases.dialog.inheritance-pattern-${disease.inheritancePattern.replace(/_/g, "-")}`,
+                                      )}
+                                    </p>
+                                  )}
+                                  {disease.diagnosisDate && (
+                                    <p className="text-sm text-muted-foreground">
+                                      {formatDate(disease.diagnosisDate)}
+                                    </p>
+                                  )}
+                                </div>
+                                {disease.notes && (
+                                  <p className="text-sm mt-2">
+                                    {disease.notes}
                                   </p>
                                 )}
                               </div>
-                              {disease.notes && (
-                                <p className="text-sm mt-2">{disease.notes}</p>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </CollapsibleSection>
-                ) : (
-                  <ItemDescription>
-                    <i>{t("no-conditions")}</i>
-                  </ItemDescription>
-                )}
-              </ItemContent>
-            </Item>}
+                            ))}
+                        </div>
+                      )}
+                    </CollapsibleSection>
+                  ) : (
+                    <ItemDescription>
+                      <i>{t("no-conditions")}</i>
+                    </ItemDescription>
+                  )}
+                </ItemContent>
+              </Item>
+            )}
           </div>
         </TabsContent>
       </Tabs>

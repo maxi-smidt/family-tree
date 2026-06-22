@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.schemas.setting import ImageStorageMode
+
 MIN_PASSWORD_LENGTH = 8
 
 
@@ -24,6 +26,8 @@ class UserOut(BaseModel):
     created_at: str
     deletion_scheduled_for: str | None = None
     deletion_requested_by: str | None = None
+    tree_quota_bytes: int | None = None
+    media_quota_bytes: int | None = None
 
 
 class CurrentUserOut(UserOut):
@@ -35,6 +39,18 @@ class CurrentUserOut(UserOut):
 
     features: list[str] = []
     totp_enabled: bool = False
+    # Effective storage mode (user preference or admin default) and the
+    # admin-allowed set so the frontend can filter available options.
+    image_storage_mode: ImageStorageMode = "compressed"
+    image_storage_allowed_modes: list[ImageStorageMode] = ["compressed"]
+
+
+class UserPreferences(BaseModel):
+    image_storage_mode: ImageStorageMode | None = None
+
+
+class TutorialPreferences(BaseModel):
+    completed: bool = False
 
 
 class UserCreate(BaseModel):
@@ -56,6 +72,8 @@ class UserUpdate(BaseModel):
     password: str | None = None
     is_admin: bool | None = None
     is_active: bool | None = None
+    tree_quota_bytes: int | None = Field(default=None, ge=0)
+    media_quota_bytes: int | None = Field(default=None, ge=0)
 
     @field_validator("password")
     @classmethod

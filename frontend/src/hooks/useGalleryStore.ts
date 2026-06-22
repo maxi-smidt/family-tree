@@ -2,12 +2,23 @@ import { create } from "zustand";
 import { GalleryImage } from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
+import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
+
+export interface AddGalleryImageOptions {
+  /** When false, skip the post-add refreshGalleryImages / refreshStorageUsage /
+   * invalidateActivityView. Useful for bulk uploads that batch the refresh at
+   * the end. Default (undefined / true) keeps current single-upload behaviour. */
+  refresh?: boolean;
+}
 
 interface GalleryState {
   galleryImages: GalleryImage[];
+  initialized: boolean;
   refreshGalleryImages: (treeId?: string) => Promise<void>;
   addGalleryImage: (
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    opts?: AddGalleryImageOptions,
   ) => Promise<void>;
   updateGalleryImage: (
     id: string,
@@ -19,6 +30,7 @@ interface GalleryState {
 
 export const useGalleryStore = create<GalleryState>((set, get) => ({
   galleryImages: [],
+  initialized: false,
 
   refreshGalleryImages: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -49,11 +61,12 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       };
     });
 
-    set({ galleryImages: images });
+    set({ galleryImages: images, initialized: true });
   },
 
   addGalleryImage: async (
     image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    opts?: AddGalleryImageOptions,
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
@@ -63,7 +76,11 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     // Member links are created in the same request (image.linkedMemberIds).
     await TreeService.addGalleryImage(treeId, id, image, now);
 
-    await get().refreshGalleryImages(treeId);
+    if (opts?.refresh !== false) {
+      await get().refreshGalleryImages(treeId);
+      useStorageStore.getState().refreshStorageUsage();
+      invalidateActivityView();
+    }
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
@@ -79,6 +96,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     }
 
     await get().refreshGalleryImages(treeId);
+    if ("imageData" in changes)
+      useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
   deleteGalleryImage: async (id: string) => {
@@ -86,7 +106,9 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     if (!treeId) return;
     await TreeService.removeGalleryImage(treeId, id);
     await get().refreshGalleryImages(treeId);
+    useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
-  clear: () => set({ galleryImages: [] }),
+  clear: () => set({ galleryImages: [], initialized: false }),
 }));

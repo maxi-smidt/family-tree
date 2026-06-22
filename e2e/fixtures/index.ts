@@ -46,6 +46,19 @@ export const test = base.extend<E2EFixtures>({
         /* ignore storage errors */
       }
     });
+    // Suppress the onboarding tour so its overlay does not block test interactions.
+    await page.route("**/api/users/me/preferences/tutorial", async (route) => {
+      if (route.request().method() === "GET") {
+        await route.fulfill({ json: { completed: true } });
+      } else {
+        await route.continue();
+      }
+    });
+    // The realtime SSE stream (/api/sse/events) holds an HTTP connection open for
+    // the life of the page, which prevents Playwright's `networkidle` from ever
+    // settling and hangs every `waitUntil: "networkidle"` navigation. Abort it so
+    // those waits resolve; the realtime client is covered by unit tests, not E2E.
+    await page.route("**/api/sse/events*", (route) => route.abort());
     await use(page);
   },
 
@@ -64,7 +77,9 @@ export const test = base.extend<E2EFixtures>({
     await page.locator("#password").fill(ADMIN_PASSWORD);
     await page.locator('button[type="submit"]').click();
     // Wait for the login form to disappear (auth store transitions to "authenticated")
-    await expect(page.locator("#username")).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("#username")).not.toBeVisible({
+      timeout: 15_000,
+    });
     await use(page);
   },
 

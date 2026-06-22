@@ -12,13 +12,18 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
-import { AdminService, AdminSettings, BackupRecord } from "@/services/AdminService";
+import {
+  AdminService,
+  AdminSettings,
+  BackupRecord,
+} from "@/services/AdminService";
 import { api } from "@/services/api";
 import { formatDateTime } from "@/utils/dateUtils";
 import { formatFileSize } from "@/utils/attachmentUtils";
 import { toast } from "sonner";
 import { Download, Loader2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 
 type Props = {
   settings: AdminSettings | null;
@@ -35,6 +40,7 @@ export const BackupPanel = ({
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [triggering, setTriggering] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const backupTick = useAdminViewStore((s) => s.backupTick);
 
   const loadBackups = useCallback(async () => {
     try {
@@ -46,7 +52,7 @@ export const BackupPanel = ({
 
   useEffect(() => {
     void loadBackups();
-  }, [loadBackups]);
+  }, [loadBackups, backupTick]);
 
   const handleBackupNow = async () => {
     setTriggering(true);
@@ -77,9 +83,7 @@ export const BackupPanel = ({
     if (!record.filename) return;
     setDownloadingId(record.id);
     try {
-      const response = await api.getRaw(
-        `/admin/backups/${record.id}/download`,
-      );
+      const response = await api.getRaw(`/admin/backups/${record.id}/download`);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -116,11 +120,7 @@ export const BackupPanel = ({
               })
             : t("last-backup", { date: t("never") })}
         </p>
-        <Button
-          size="sm"
-          onClick={handleBackupNow}
-          disabled={triggering}
-        >
+        <Button size="sm" onClick={handleBackupNow} disabled={triggering}>
           {triggering && <Loader2 className="h-4 w-4 animate-spin" />}
           {t("back-up-now")}
         </Button>
@@ -155,7 +155,10 @@ export const BackupPanel = ({
                   onChange={(e) =>
                     onSettingsChange({
                       ...settings,
-                      backup_interval_hours: Math.max(1, Number(e.target.value)),
+                      backup_interval_hours: Math.max(
+                        1,
+                        Number(e.target.value),
+                      ),
                     })
                   }
                 />
@@ -196,7 +199,7 @@ export const BackupPanel = ({
           {t("no-backups")}
         </p>
       ) : (
-        <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+        <div className="border rounded-lg overflow-hidden">
           <Table>
             <TableHeader>
               <TableRow>

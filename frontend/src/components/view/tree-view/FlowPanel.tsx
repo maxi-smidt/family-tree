@@ -34,11 +34,13 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useFlowUnions } from "@/hooks/useFlowUnions";
 import { useIsMobile } from "@/hooks/useMobile";
 import { memberPairKey } from "@/utils/graphUtils";
+import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
+import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
@@ -46,6 +48,9 @@ const edgeTypes = { relation: RelationEdge };
 export const FlowPanel = () => {
   const { t } = useTranslation();
   const activeTree = useTreeStore((s) => s.selectedTree);
+  const availableTreeCount = useTreeStore(
+    (s) => s.trees.length + s.virtualViews.length,
+  );
   const isMobile = useIsMobile();
   const { members, removeMember, updateLayout } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
@@ -56,6 +61,7 @@ export const FlowPanel = () => {
   const canDragLayout = !isMobile && (canWrite || isVirtualView);
   useUndoRedo(!isCanvasReadOnly);
   const { isReady } = useTreeStore();
+
   const {
     edgeType,
     isLockedScreen,
@@ -254,7 +260,7 @@ export const FlowPanel = () => {
     if (nodes.length === 0) return;
     if (fittedViewRef.current === activeTree.id) return;
     fittedViewRef.current = activeTree.id;
-    requestAnimationFrame(() => rfInstance.fitView({ padding: 0.2 }));
+    requestAnimationFrame(() => fitViewToAllNodes(rfInstance, 0.2));
   }, [isReady, rfInstance, isVirtualView, activeTree, nodes]);
 
   useEffect(() => {
@@ -269,7 +275,9 @@ export const FlowPanel = () => {
   const rearrangeNodes = () => {
     debouncedSave.cancel();
     pendingUpdates.current = {};
-    updateLayout().then(() => rfInstance?.fitView());
+    updateLayout().then(() => {
+      if (rfInstance) fitViewToAllNodes(rfInstance);
+    });
   };
 
   const handleAddFirstMember = () => {
@@ -296,7 +304,11 @@ export const FlowPanel = () => {
     setMembersToDelete([]);
   };
 
-  if (!isReady || !activeTree) return null;
+  if (!activeTree) {
+    return availableTreeCount === 0 ? <NoDatabasePlaceholder /> : null;
+  }
+
+  if (!isReady) return null;
 
   return (
     <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>
@@ -305,6 +317,7 @@ export const FlowPanel = () => {
         edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onlyRenderVisibleElements
         onNodesChange={
           (!canDragLayout && isCanvasReadOnly) || connection.isConnectionMode
             ? undefined

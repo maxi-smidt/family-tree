@@ -7,11 +7,14 @@ import {
 } from "@/types/story";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
+import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
 const NO_OPS: AttachmentOps = { added: [], removedIds: [], renamed: [] };
 
 interface StoryState {
   stories: Story[];
+  initialized: boolean;
   refreshStories: (treeId?: string) => Promise<void>;
   getStoriesByMember: (memberId: string) => Story[];
   addStory: (
@@ -52,6 +55,7 @@ async function applyAttachmentOps(
 
 export const useStoryStore = create<StoryState>((set, get) => ({
   stories: [],
+  initialized: false,
 
   refreshStories: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -79,7 +83,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
       return mapStoryFromDB(row, linkedMemberIds);
     });
 
-    set({ stories });
+    set({ stories, initialized: true });
   },
 
   getStoriesByMember: (memberId: string) => {
@@ -102,6 +106,9 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     await applyAttachmentOps(treeId, id, attachments);
 
     await get().refreshStories(treeId);
+    if (attachments.added.length > 0)
+      useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
   updateStory: async (
@@ -120,6 +127,9 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     await applyAttachmentOps(treeId, id, attachments);
 
     await get().refreshStories(treeId);
+    if (attachments.added.length > 0 || attachments.removedIds.length > 0)
+      useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
   removeStory: async (id: string) => {
@@ -128,7 +138,9 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 
     await TreeService.removeStory(treeId, id);
     await get().refreshStories(treeId);
+    useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
   },
 
-  clear: () => set({ stories: [] }),
+  clear: () => set({ stories: [], initialized: false }),
 }));

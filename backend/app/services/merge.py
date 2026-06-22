@@ -38,6 +38,7 @@ from app.models import (
 )
 from app.schemas.family import MemberOut
 from app.schemas.merge import DuplicatePair, MergeResolution, TreeMergePreview
+from app.services.job_service import ProgressCallback
 from app.services.storage import copy_media_to_tree
 
 if TYPE_CHECKING:
@@ -59,12 +60,15 @@ def _empty(value: str | None) -> bool:
 
 def _member_key(m: Member) -> tuple:
     """Exact-duplicate key: name + gender + both dates (all normalised)."""
-    return (_norm(m.firstName), _norm(m.lastName), m.gender, m.dateOfBirth, m.dateOfDeath)
+    return (
+        _norm(m.first_name), _norm(m.last_name),
+        m.gender, m.date_of_birth, m.date_of_death,
+    )
 
 
 def _member_name_key(m: Member) -> tuple:
     """Name + gender only — used for possible-candidate detection."""
-    return (_norm(m.firstName), _norm(m.lastName), m.gender)
+    return (_norm(m.first_name), _norm(m.last_name), m.gender)
 
 
 # ---------------------------------------------------------------------------
@@ -83,16 +87,16 @@ def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
 # ---------------------------------------------------------------------------
 
 _CONFLICT_FIELDS: list[str] = [
-    "middleNames",
-    "baptismalName",
-    "maidenName",
+    "middle_names",
+    "baptismal_name",
+    "maiden_name",
     "birthplace",
     "hometown",
-    "placesLived",
-    "additionalData",
-    "imageData",
-    "dateOfBirth",
-    "dateOfDeath",
+    "places_lived",
+    "additional_data",
+    "image_data",
+    "date_of_birth",
+    "date_of_death",
 ]
 
 
@@ -102,7 +106,7 @@ def _compute_conflicts(a: Member, b: Member) -> list[str]:
     for field in _CONFLICT_FIELDS:
         va = getattr(a, field, None)
         vb = getattr(b, field, None)
-        if field == "imageData":
+        if field == "image_data":
             # Report conflict only when both are set and differ
             if not _empty(va) and not _empty(vb) and va != vb:
                 conflicts.append(field)
@@ -218,21 +222,21 @@ def _clone_member(m: Member, new_tree_id: str, new_id: str) -> Member:
         id=new_id,
         tree_id=new_tree_id,
         gender=m.gender,
-        firstName=m.firstName,
-        middleNames=m.middleNames,
-        baptismalName=m.baptismalName,
-        lastName=m.lastName,
-        maidenName=m.maidenName,
-        imageData=copy_media_to_tree(m.imageData, new_tree_id),
-        dateOfBirth=m.dateOfBirth,
-        dateOfDeath=m.dateOfDeath,
-        additionalData=m.additionalData,
-        isCollapsed=m.isCollapsed,
-        positionX=m.positionX,
-        positionY=m.positionY,
+        first_name=m.first_name,
+        middle_names=m.middle_names,
+        baptismal_name=m.baptismal_name,
+        last_name=m.last_name,
+        maiden_name=m.maiden_name,
+        image_data=copy_media_to_tree(m.image_data, new_tree_id),
+        date_of_birth=m.date_of_birth,
+        date_of_death=m.date_of_death,
+        additional_data=m.additional_data,
+        is_collapsed=m.is_collapsed,
+        position_x=m.position_x,
+        position_y=m.position_y,
         birthplace=m.birthplace,
         hometown=m.hometown,
-        placesLived=m.placesLived,
+        places_lived=m.places_lived,
     )
 
 
@@ -247,18 +251,18 @@ def _apply_field_choices(
     ``clone`` was already built from ``ma`` (source A); we apply overrides here.
     ``fields`` maps field_name → "a" | "b" | "combine".
     """
-    text_fields = {"additionalData", "placesLived"}
+    text_fields = {"additional_data", "places_lived"}
     choosable = {
-        "middleNames",
-        "baptismalName",
-        "maidenName",
+        "middle_names",
+        "baptismal_name",
+        "maiden_name",
         "birthplace",
         "hometown",
-        "placesLived",
-        "additionalData",
-        "imageData",
-        "dateOfBirth",
-        "dateOfDeath",
+        "places_lived",
+        "additional_data",
+        "image_data",
+        "date_of_birth",
+        "date_of_death",
     }
     for field, choice in fields.items():
         if field not in choosable:
@@ -270,7 +274,7 @@ def _apply_field_choices(
         elif choice == "b":
             setattr(clone, field, vb)
         elif choice == "combine" and field in text_fields:
-            separator = "\n\n" if field == "additionalData" else ", "
+            separator = "\n\n" if field == "additional_data" else ", "
             parts = [p for p in [va, vb] if not _empty(p)]
             # Deduplicate while preserving order
             seen: list[str] = []
@@ -304,7 +308,12 @@ def merge_trees(
     source_a_id: str,
     source_b_id: str | None,
     resolutions: list[MergeResolution] | None = None,
+    progress_cb: ProgressCallback | None = None,
 ) -> Tree:
+    def _progress(pct: int) -> None:
+        if progress_cb is not None:
+            progress_cb(pct)
+
     tree_a = _require_readable(db, user, source_a_id)
     tree_b = _require_readable(db, user, source_b_id) if source_b_id else None
     sources = [t for t in (tree_a, tree_b) if t is not None]
@@ -320,6 +329,7 @@ def merge_trees(
     )
     db.add(new_tree)
     db.flush()
+    _progress(10)
 
     # --- Members (with de-duplication across both sources) -----------------
     # member_map: source member id → new tree member id
@@ -400,15 +410,15 @@ def merge_trees(
                             matched_a_clone, orig_ma, mb, resolution.fields
                         )
                 else:
-                    # Legacy behaviour: combine additionalData
+                    # Legacy behaviour: combine additional_data
                     if (
-                        mb.additionalData
-                        and mb.additionalData != matched_a_clone.additionalData
+                        mb.additional_data
+                        and mb.additional_data != matched_a_clone.additional_data
                     ):
-                        matched_a_clone.additionalData = (
-                            f"{matched_a_clone.additionalData}\n\n{mb.additionalData}"
-                            if matched_a_clone.additionalData
-                            else mb.additionalData
+                        matched_a_clone.additional_data = (
+                            f"{matched_a_clone.additional_data}\n\n{mb.additional_data}"
+                            if matched_a_clone.additional_data
+                            else mb.additional_data
                         )
         else:
             # No match: always clone as new
@@ -419,6 +429,7 @@ def merge_trees(
 
     # Members must exist before relations/diseases/links reference them.
     db.flush()
+    _progress(50)
 
     # --- Relations ---------------------------------------------------------
     seen_relations: set[tuple] = set()
@@ -464,6 +475,8 @@ def merge_trees(
                 )
             )
 
+    _progress(60)
+
     # --- Gallery images + links --------------------------------------------
     image_map: dict[str, str] = {}
     for t in sources:
@@ -474,11 +487,11 @@ def merge_trees(
                 GalleryImage(
                     id=new_id,
                     tree_id=new_tree.id,
-                    imageData=copy_media_to_tree(img.imageData, new_tree.id),
+                    image_data=copy_media_to_tree(img.image_data, new_tree.id),
                     title=img.title,
                     description=img.description,
-                    createdAt=img.createdAt,
-                    uploadedAt=img.uploadedAt,
+                    created_at=img.created_at,
+                    uploaded_at=img.uploaded_at,
                 )
             )
     db.flush()  # gallery images before their links
@@ -495,6 +508,8 @@ def merge_trees(
             if gi and mid and (gi, mid) not in seen_gallery_links:
                 seen_gallery_links.add((gi, mid))
                 db.add(GalleryMemberLink(gallery_image_id=gi, member_id=mid))
+
+    _progress(70)
 
     # --- Events + links ----------------------------------------------------
     event_map: dict[str, str] = {}
@@ -527,6 +542,8 @@ def merge_trees(
             if ev and mid and (ev, mid) not in seen_event_links:
                 seen_event_links.add((ev, mid))
                 db.add(EventMemberLink(event_id=ev, member_id=mid))
+
+    _progress(80)
 
     # --- Stories + links ---------------------------------------------------
     story_map: dict[str, str] = {}
@@ -581,6 +598,7 @@ def merge_trees(
                 )
             )
 
+    _progress(95)
     db.commit()
     db.refresh(new_tree)
     return new_tree

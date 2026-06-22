@@ -92,7 +92,10 @@
       "cancel": "Cancel",
       "remove": "Remove",
       "toast-warning": "You removed the last tree. Create a new one.",
-      "toast-success": "Tree removed successfully"
+      "toast-success": "Tree removed successfully",
+      "toast-error": "Could not remove the tree.",
+      "toast-permission-error": "You no longer have permission to delete this tree.",
+      "toast-undo-window-error": "The previous owner can still undo this transfer. Please wait a moment before deleting."
     },
     "remove-node": {
       "title_one": "Delete Member",
@@ -166,8 +169,16 @@
       "transfer-confirm-description": "Make \"{{username}}\" the owner of \"{{name}}\"? You will no longer be the owner of this tree.",
       "transfer-confirm-cancel": "Cancel",
       "transfer-confirm-action": "Transfer ownership",
+      "transfer-retain-toggle": "Keep my access",
+      "transfer-retain-hint": "You will remain a member of this tree after the transfer.",
+      "transfer-retain-role-label": "My role after transfer",
       "transfer-success": "Ownership transferred.",
       "transfer-error": "Could not transfer ownership.",
+      "transfer-undo-button": "Undo ({{seconds}}s)",
+      "transfer-undo-title": "Ownership transferred",
+      "transfer-undo-description": "\"{{name}}\" is now owned by {{username}}.",
+      "transfer-reverted": "Transfer undone. You are the owner again.",
+      "transfer-revert-error": "Could not undo the transfer.",
       "invites": {
         "title": "Invite by link",
         "description": "Anyone with the link can join — no account required to preview, account needed to accept.",
@@ -197,7 +208,8 @@
         "confirm-disable-title": "Make tree private?",
         "confirm-disable-description": "The public link will stop working. Existing members keep their access.",
         "error": "Could not update public access."
-      }
+      },
+      "invitation-received": "You've been invited to \"{{name}}\""
     },
     "duplicate-tree": {
       "title": "Duplicate Tree",
@@ -271,16 +283,38 @@
       "select-date-taken": "Date Taken",
       "select-title": "Title",
       "sort-placeholder": "Sort by",
+      "sort-ascending": "Sort ascending",
+      "sort-descending": "Sort descending",
       "toast-error-canvas-context": "Failed to get canvas context",
       "toast-error-image-upload": "Failed to load image. Please ensure it's a valid image file.",
       "toast-error-image-too-large": "Image is too large. Maximum size is 10 MB.",
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
+      "toast-error-quota-media": "Media storage quota exceeded.",
+      "toast-error-quota-tree": "Tree data quota exceeded.",
       "toast-success-image-upload": "Image uploaded successfully.",
       "toast-error-read-file": "Failed to read file",
       "image-alt-fallback": "Gallery image",
       "empty-title": "No photos yet",
       "empty-description": "Upload your first photo to start building this tree's gallery.",
-      "empty-cta": "Upload photo"
+      "empty-cta": "Upload photo",
+      "upload-queue": {
+        "title": "Uploads",
+        "progress": "{{done}} of {{total}}",
+        "status-queued": "Queued",
+        "status-uploading": "Uploading…",
+        "status-done": "Done",
+        "status-failed": "Failed",
+        "retry": "Retry",
+        "cancel": "Cancel",
+        "clear-completed": "Clear completed",
+        "close": "Close",
+        "minimize": "Minimize",
+        "expand": "Expand",
+        "dropzone": "Drop images here to upload",
+        "summary-success_one": "{{count}} image uploaded successfully.",
+        "summary-success_other": "{{count}} images uploaded successfully.",
+        "summary-partial": "{{done}} uploaded, {{failed}} failed."
+      }
     },
     "image-sheet": {
       "toast-success": "Image details saved",
@@ -366,7 +400,13 @@
         "dod": "Death Date",
         "no-members": "No members found.",
         "source-tree": "Source tree",
-        "caption": "Family members"
+        "caption": "Family members",
+        "birthplace": "Birthplace",
+        "hometown": "Hometown",
+        "age": "Age",
+        "children": "Children",
+        "status": "Status",
+        "photo": "Photo"
       },
       "menu": {
         "trigger": "Open menu",
@@ -374,6 +414,31 @@
         "details": "View Details",
         "edit": "Edit Member",
         "delete": "Delete Member"
+      },
+      "status": {
+        "alive": "Alive",
+        "deceased": "Deceased"
+      },
+      "age-at-death": "Age at death",
+      "customize": "Customize",
+      "customize-title": "Columns",
+      "customize-reset": "Reset",
+      "move-up": "Move up",
+      "move-down": "Move down",
+      "filters": "Filters",
+      "filter-gender": "Gender",
+      "filter-status": "Status",
+      "filter-has-photo": "Has photo",
+      "filter-all": "All",
+      "filter-male": "Male",
+      "filter-female": "Female",
+      "filter-other": "Other",
+      "filter-reset": "Reset filters",
+      "export-csv": "Export CSV",
+      "pagination": {
+        "showing": "Showing {{from}}–{{to}} of {{total}}",
+        "prev": "Previous page",
+        "next": "Next page"
       }
     }
   },
@@ -383,12 +448,16 @@
       "toast-error-birth": "Death date cannot be before birth date",
       "toast-error-death": "Birth date cannot be after death date",
       "toast-error-duplicate": "A member with the same details already exists.",
-      "toast-error-required": "First name and last name are required.",
       "toast-error-image-too-large": "Photo is too large. Maximum size is 10 MB.",
       "toast-error-image-unsupported": "Unsupported image type. Please use JPEG, PNG, WebP, GIF, or AVIF.",
+      "toast-error-quota-media": "Media storage quota exceeded.",
+      "toast-error-quota-tree": "Tree data quota exceeded.",
       "toast-error-save": "Failed to save member.",
       "toast-success": "Member updated successfully",
       "gender-field": "Gender",
+      "gender-male": "Male",
+      "gender-female": "Female",
+      "gender-other": "Other",
       "firstname-field": "First Name",
       "middle-names-field": "Second / Middle Names",
       "baptismal-name-field": "Baptismal Name",
@@ -412,6 +481,10 @@
       "places-lived-to": "To (year)",
       "places-lived-empty": "No locations added yet.",
       "deceased-field": "Deceased",
+      "error-firstname-required": "First name is required.",
+      "error-lastname-required": "Last name is required.",
+      "firstname-placeholder": "e.g. Jane",
+      "maiden-placeholder": "Maiden name",
       "academic-title-field": "Academic / Honorific Title",
       "academic-title-placeholder": "e.g. Dr., Prof., Dipl.-Ing.",
       "tab-identity": "Identity",
@@ -455,6 +528,7 @@
       "tab-records": "Records"
     },
     "member-sheet": {
+      "loading-detail": "Loading details...",
       "edit-title": "Edit Member",
       "detail-title": "Member Details",
       "edit-description": "Update the member's information.",
@@ -508,7 +582,8 @@
         "show-less": "Show less",
         "read-more": "Read more",
         "attachments": {
-          "download": "Download"
+          "download": "Download",
+          "error-open": "Could not open the file."
         },
         "delete-dialog": {
           "title": "Delete Entry",
@@ -537,7 +612,12 @@
             "hint": "Images, PDF and documents up to {{max}}.",
             "hint-without-limit": "Images, PDF and documents.",
             "error-type": "Unsupported file type",
-            "error-size": "File is too large (max {{max}})"
+            "error-size": "File is too large (max {{max}})",
+            "error-quota-media": "Media storage quota exceeded.",
+            "error-quota-tree": "Tree data quota exceeded.",
+            "error-quota-total": "Total storage quota exceeded.",
+            "error-save": "Could not save the story.",
+            "error-open": "Could not open the file."
           },
           "cancel": "Cancel",
           "update": "Update",
@@ -637,14 +717,35 @@
           "error-update": "Failed to update condition. Please try again."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown formatting toolbar",
+      "bold": "Bold",
+      "bold-default": "bold text",
+      "italic": "Italic",
+      "italic-default": "italic text",
+      "heading": "Heading",
+      "heading-default": "Heading",
+      "bullet": "Bullet list",
+      "bullet-default": "List item",
+      "link": "Link",
+      "link-default": "link text",
+      "link-url-placeholder": "https://",
+      "tab-write": "Write",
+      "tab-preview": "Preview",
+      "preview-empty": "Nothing to preview yet."
     }
   },
   "tree-view": {
     "node": {
-      "life-ongoing": "ongoing",
-      "life-unknown": "unknown",
       "disease-indicator_one": "{{count}} genetic condition",
       "disease-indicator_other": "{{count}} genetic conditions",
+      "disease-severity": {
+        "affected": "Affected",
+        "carrier": "Carrier",
+        "other": "Status unknown"
+      },
+      "union-type": "Relationship: {{type}}",
       "risk-indicator": "Potential genetic risk from parents · Not medical advice",
       "view-details": "View member details",
       "edit-member": "Edit member",
@@ -653,7 +754,7 @@
       "add-child": "Add child",
       "add-left": "Add relative on the left",
       "add-right": "Add relative on the right",
-      "life-deceased-unknown": "deceased"
+      "life-deceased-unknown": "Deceased, date of death unknown"
     },
     "canvas-label": "Family tree canvas",
     "a11y": {
@@ -870,8 +971,15 @@
     "timeline-deaths": "Deaths",
     "lifespan-title": "Lifespan Distribution (years at death)",
     "lifespan-people": "People",
-    "names-title": "Most Common First Names",
-    "names-count": "Count"
+    "first-names-title": "Most Common First Names",
+    "last-names-title": "Most Common Last Names",
+    "names-count": "Count",
+    "customize": "Customize",
+    "customize-title": "Widgets",
+    "customize-reset": "Reset",
+    "move-up": "Move up",
+    "move-down": "Move down",
+    "all-hidden": "All widgets are hidden. Use Customize to show some."
   },
   "database-management-view": {
     "title": "Tree Management",
@@ -888,6 +996,7 @@
     "none-selected": "None",
     "toast-import-success": "Tree imported successfully!",
     "toast-import-error": "Failed to import tree.",
+    "import-provenance": "Exported from v{{version}} on {{date}}",
     "toast-gedcom-import-success": "Tree imported from GEDCOM successfully!",
     "toast-gedcom-import-error": "Failed to import GEDCOM file.",
     "toast-gedcom-export-error": "Could not export the tree as GEDCOM.",
@@ -961,7 +1070,9 @@
       "relogin-password": "Password",
       "relogin-submit": "Sign in",
       "relogin-cancel": "Log out",
-      "relogin-error": "Incorrect password. Please try again."
+      "relogin-error": "Incorrect password. Please try again.",
+      "invalidated-deactivated": "Your account has been deactivated. You have been signed out.",
+      "invalidated-pending-deletion": "Your account is pending deletion. You have been signed out."
     },
     "login": {
       "title": "Family Tree",
@@ -1010,7 +1121,9 @@
       "admin": "Administration",
       "delete-account": "Delete my account",
       "logout": "Log out",
-      "two-factor": "Two-factor authentication"
+      "two-factor": "Two-factor authentication",
+      "settings": "Settings",
+      "show-tutorial": "Show tutorial"
     },
     "friends": {
       "title": "Friends",
@@ -1042,7 +1155,8 @@
       "confirm-remove-title": "Remove friend?",
       "confirm-remove-description": "Remove {{name}} from your friends? Any trees shared between you will no longer be accessible.",
       "confirm-remove-confirm": "Remove",
-      "confirm-remove-cancel": "Cancel"
+      "confirm-remove-cancel": "Cancel",
+      "new-request": "New friend request from {{name}}"
     },
     "delete-account": {
       "title": "Delete my account",
@@ -1101,6 +1215,7 @@
   "admin": {
     "title": "Administration",
     "description": "Manage users and instance settings.",
+    "back": "Back",
     "users-tab": "Users",
     "settings-tab": "Settings",
     "features-tab": "Features",
@@ -1125,7 +1240,8 @@
         "gedcom": "GEDCOM import/export",
         "sharing_invites": "Share invitations",
         "map": "Map view",
-        "sources": "Sources & Citations"
+        "sources": "Sources & Citations",
+        "onboarding_tour": "Onboarding tour"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -1138,7 +1254,8 @@
         "gedcom": "Import and export trees as GEDCOM files.",
         "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
         "map": "Interactive map of timeline events by location.",
-        "sources": "Source citations and evidence records for member facts."
+        "sources": "Source citations and evidence records for member facts.",
+        "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features."
       }
     },
     "col-username": "Username",
@@ -1167,6 +1284,19 @@
     "max-image-upload": "Image size (MB)",
     "max-document-upload": "Attachment size (MB)",
     "max-image-dimension": "Image side (px)",
+    "image-storage-mode": "Gallery image storage",
+    "image-storage-mode-compressed": "Compressed (WebP)",
+    "image-storage-mode-original": "Original only",
+    "image-storage-mode-both": "Both (display + original)",
+    "image-storage-mode-hint": "Controls how gallery images are stored. \"Original\" and \"Both\" upload the full-resolution file — raise the image size limit accordingly.",
+    "image-storage-mode-allowed": "Allowed storage modes",
+    "image-storage-mode-allowed-hint": "Select which storage modes users may choose from.",
+    "image-storage-mode-default": "Default mode",
+    "image-storage-mode-default-hint": "The mode applied to users who have not set a preference. Must be one of the allowed modes above.",
+    "storage-quotas": "Default storage quotas",
+    "storage-quotas-hint": "Set the default per-user quota for each bucket. 0 means unlimited. Per-user overrides take precedence.",
+    "default-tree-quota": "Tree data (MB)",
+    "default-media-quota": "Media files (MB)",
     "save-settings": "Save settings",
     "pending-deletion": "Pending deletion · {{date}}",
     "cancel-deletion": "Cancel deletion",
@@ -1174,6 +1304,17 @@
     "delete-user": "Schedule deletion",
     "reset-password": "Reset password",
     "reset-password-unavailable": "Password reset is only available for local accounts",
+    "edit-quotas": "Storage quotas",
+    "quota-dialog": {
+      "title": "Storage quotas",
+      "description": "Override the storage quotas for \"{{username}}\".",
+      "hint": "Values are in MB. Leave a field empty to use the instance default; enter 0 for unlimited.",
+      "tree": "Tree data (MB)",
+      "media": "Media files (MB)",
+      "default-placeholder": "Default",
+      "cancel": "Cancel",
+      "save": "Save"
+    },
     "reset-dialog": {
       "title": "Reset password",
       "description": "Set a new password for \"{{username}}\".",
@@ -1295,5 +1436,98 @@
     "stay": "Stay",
     "save": "Save",
     "discard": "Discard"
+  },
+  "storage-usage": {
+    "title": "Storage",
+    "tree": "Tree data",
+    "media": "Media files",
+    "total": "Total",
+    "used-of": "{{used}} / {{quota}}",
+    "unlimited": "unlimited",
+    "error": "Could not load storage usage.",
+    "quota-label": "Quota",
+    "toast-error-quota-media": "Media storage quota exceeded.",
+    "toast-error-quota-tree": "Tree data quota exceeded.",
+    "quota-warning": "Media storage is almost full for this tree."
+  },
+  "user-settings": {
+    "title": "Settings",
+    "back": "Back",
+    "save": "Save",
+    "toast-saved": "Settings saved.",
+    "toast-error": "Could not save settings.",
+    "image-storage": {
+      "section": "Gallery image storage",
+      "label": "Storage mode",
+      "hint": "Controls how your gallery images are stored. Available options depend on the instance configuration.",
+      "compressed": "Compressed (WebP)",
+      "original": "Original only",
+      "both": "Both (display + original)"
+    },
+    "tabs": {
+      "section": "Tab layout",
+      "hint": "Choose which views are visible and reorder the tabs in the main panel.",
+      "button": "Customize tabs"
+    },
+    "two-factor": {
+      "section": "Two-factor authentication",
+      "status-enabled": "Two-factor authentication is currently enabled on your account.",
+      "status-disabled": "Two-factor authentication is currently disabled.",
+      "button": "Manage 2FA"
+    },
+    "delete-account": {
+      "section": "Delete account",
+      "hint": "Permanently remove your account and all associated data. This action cannot be undone.",
+      "button": "Delete my account"
+    }
+  },
+  "tutorial": {
+    "welcome": {
+      "title": "Welcome to Family Tree",
+      "body": "This quick tour walks you through the main features. You can relaunch it any time from the user menu."
+    },
+    "create-tree": {
+      "title": "Create your first tree",
+      "body": "Click Next to open the dialog where your first family tree gets created."
+    },
+    "existing-tree": {
+      "title": "Continue with this tree",
+      "body": "You already have a tree selected, so we will skip setup and jump straight into the everyday tools."
+    },
+    "add-member": {
+      "title": "Add your first person",
+      "body": "Click here to add a person to the tree. Once added, you can edit their details and link them to parents, children, and partners."
+    },
+    "sidebar-panel": {
+      "title": "Your sidebar",
+      "body": "Here you can switch between your family trees, customise the appearance (theme, language, edge style), and access your account settings via the user menu at the bottom."
+    },
+    "switch-views": {
+      "title": "Navigate between views",
+      "body": "These tabs switch you between different views of your data — tree, list, timeline, map, statistics, and more. Let's head to Tree Management next."
+    },
+    "tree-management": {
+      "title": "Tree Management",
+      "body": "From here you can create new trees, share an existing tree with friends as a viewer or editor, and import or export your data."
+    },
+    "friends": {
+      "title": "Friends & sharing",
+      "body": "Search for other users by username, send a friend request, and once accepted you can invite them to any of your trees."
+    },
+    "finish": {
+      "title": "You're all set!",
+      "body": "That's the tour. You can relaunch it any time from the user menu in the sidebar. Enjoy building your family tree!"
+    },
+    "buttons": {
+      "next": "Next",
+      "prev": "Back",
+      "done": "Done",
+      "skip": "Skip"
+    },
+    "tree-name": {
+      "title": "Name your tree",
+      "default": "My first tree",
+      "body": "We've started you off with a name — you can rename your tree any time later. Click Next to create it."
+    }
   }
 }

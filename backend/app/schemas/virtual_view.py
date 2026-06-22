@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.base import FamilyTreeBaseModel
 from app.schemas.family import MemberOut
 
 
@@ -38,15 +39,15 @@ class VirtualViewUpdate(BaseModel):
 
 
 class VirtualMemberOut(MemberOut):
-    sourceTreeId: str
-    sourceTreeName: str
-    sourceTreeIds: list[str] = []
-    sourceTreeNames: list[str] = []
-    mergedFromIds: list[str] = []
-    isMerged: bool = False
+    source_tree_id: str
+    source_tree_name: str
+    source_tree_ids: list[str] = []
+    source_tree_names: list[str] = []
+    merged_from_ids: list[str] = []
+    is_merged: bool = False
 
 
-class VirtualPositionItem(BaseModel):
+class VirtualPositionItem(FamilyTreeBaseModel):
     id: str
-    positionX: float
-    positionY: float
+    position_x: float
+    position_y: float

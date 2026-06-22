@@ -40,6 +40,7 @@ import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 
 interface VitalEvent {
   kind: "vital";
@@ -88,8 +89,10 @@ export const TimelineView = () => {
     keyPrefix: "timeline-view.view",
   });
   const { members } = useMemberStore();
-  const { events, removeEvent } = useEventStore();
+  const { events, removeEvent, refreshEvents, initialized: eventsInitialized } = useEventStore();
   const isReady = useTreeStore((state) => state.isReady);
+
+  useDeferredStoreLoad(eventsInitialized, refreshEvents);
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",
   );

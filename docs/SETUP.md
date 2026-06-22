@@ -10,7 +10,7 @@ only the Docker Compose stack and shared tooling (prettier + git hooks).
 ## Prerequisites
 
 - **Docker** + **Docker Compose** — runs production, and the database in dev
-- **Node.js** v20.19+ (or v22.12+) — for the frontend dev server
+- **Node.js** 24 LTS recommended (minimum v20.19+ / v22.12+) — for the frontend dev server
 - **Python** 3.12+ and **[uv](https://docs.astral.sh/uv/)** — for the backend dev server
 
 ## Production

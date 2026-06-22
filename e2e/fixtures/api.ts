@@ -32,6 +32,31 @@ export async function apiLogin(
   return data.access_token;
 }
 
+export async function waitForJob(
+  token: string,
+  jobId: string,
+  maxAttempts = 30,
+  intervalMs = 1000,
+): Promise<string> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const res = await fetch(`${API_URL}/jobs/${jobId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(`GET /jobs/${jobId} → ${res.status}`);
+    const job = (await res.json()) as {
+      status: string;
+      result_tree_id?: string;
+      error?: string;
+    };
+    if (job.status === "done" && job.result_tree_id) return job.result_tree_id;
+    if (job.status === "failed") throw new Error(`Job failed: ${job.error}`);
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  throw new Error(
+    `Job ${jobId} did not complete after ${maxAttempts} attempts`,
+  );
+}
+
 export function makeApiClient(token: string): ApiClient {
   const headers = () => ({
     "Content-Type": "application/json",

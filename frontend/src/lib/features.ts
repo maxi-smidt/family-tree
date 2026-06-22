@@ -1,6 +1,5 @@
 import { TREE_VIEW, ViewId } from "@/lib/tabs";
 
-
 /**
  * Feature-flag catalog — mirrors the backend registry in
  * `backend/app/services/feature_service.py`. When adding a flag there, add
@@ -18,6 +17,7 @@ export const ALL_FEATURES = [
   "virtual_views",
   "gedcom",
   "sharing_invites",
+  "onboarding_tour",
 ] as const;
 
 export type FeatureName = (typeof ALL_FEATURES)[number];

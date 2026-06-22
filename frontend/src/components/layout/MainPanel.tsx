@@ -69,17 +69,28 @@ import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
+import { useTutorialStore } from "@/hooks/useTutorialStore";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  TREE_VIEW,
   ViewId,
   isViewId,
   resolveTabs,
 } from "@/lib/tabs";
-import { filterViewsByFeatures, filterViewsByRestrictions } from "@/lib/features";
+import {
+  filterViewsByFeatures,
+  filterViewsByRestrictions,
+} from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
+
+const NO_TREE_VIEWS: ViewId[] = [
+  TREE_VIEW,
+  DATABASE_MANAGEMENT_VIEW,
+  FRIENDS_VIEW,
+];
 
 const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "tree-view": <FlowPanel />,
@@ -131,6 +142,12 @@ export const MainPanel = () => {
   const user = useAuthStore((s) => s.user);
   const features = useAuthStore((s) => s.features);
   const { order, hidden, loaded, load } = useTabPreferences();
+  const loadTutorial = useTutorialStore((s) => s.load);
+  const tutorialLoaded = useTutorialStore((s) => s.loaded);
+  const tutorialCompleted = useTutorialStore((s) => s.completed);
+  const tutorialRunning = useTutorialStore((s) => s.isRunning);
+  const startTutorial = useTutorialStore((s) => s.start);
+  const tutorialEnabled = features.includes("onboarding_tour");
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
   const incomingFriendCount = useIncomingFriendCount();
@@ -138,6 +155,27 @@ export const MainPanel = () => {
   useEffect(() => {
     if (user) load();
   }, [user, load]);
+
+  useEffect(() => {
+    if (user) void loadTutorial();
+  }, [user, loadTutorial]);
+
+  useEffect(() => {
+    if (
+      tutorialLoaded &&
+      !tutorialCompleted &&
+      tutorialEnabled &&
+      !tutorialRunning
+    ) {
+      startTutorial();
+    }
+  }, [
+    tutorialLoaded,
+    tutorialCompleted,
+    tutorialEnabled,
+    tutorialRunning,
+    startTutorial,
+  ]);
 
   // Keep the Friends tab badge accurate without opening the tab.
   useEffect(() => {
@@ -150,10 +188,14 @@ export const MainPanel = () => {
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
   // A virtual tree exposes the same tabs as a normal tree (read-only,
   // aggregated live from its sources); only feature flags filter the set.
-  const visible = filterViewsByRestrictions(
-    filterViewsByFeatures(allVisible, features),
-    restrictions,
-  );
+  // When no tree is selected, keep the first-run tree placeholder reachable
+  // alongside Friends and Database Management.
+  const visible = selectedTree
+    ? filterViewsByRestrictions(
+        filterViewsByFeatures(allVisible, features),
+        restrictions,
+      )
+    : NO_TREE_VIEWS;
   const mobileViews = visible.filter((v) => !MANAGEMENT_VIEWS.has(v));
 
   // If the active tab is hidden and no pending navigation, move to first visible.
@@ -183,7 +225,10 @@ export const MainPanel = () => {
       onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
-      <div className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2">
+      <div
+        className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2"
+        data-tutorial="views-tabs-mobile"
+      >
         <Select value={activeTab} onValueChange={handleTabChange}>
           <SelectTrigger className="h-10 flex-1 bg-background shadow-xs">
             <SelectValue />
@@ -207,7 +252,11 @@ export const MainPanel = () => {
         </Button>
       </div>
 
-      <TabsList variant="line" className="ml-16 mt-3 hidden md:inline-flex">
+      <TabsList
+        variant="line"
+        className="ml-16 mt-3 hidden md:inline-flex"
+        data-tutorial="views-tabs"
+      >
         {visible.map((view) => (
           <span key={view} className="contents">
             {view === DATABASE_MANAGEMENT_VIEW && visible.length > 1 && (

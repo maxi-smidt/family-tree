@@ -201,11 +201,15 @@ def get_writable_tree(
     return _resolve_tree(db, tree_id, user, write=True)
 
 
-def accessible_tree_ids(db: Session, user: User) -> list[str]:
-    if user.is_admin:
-        return [t.id for t in db.scalars(select(Tree)).all()]
+def explicit_tree_ids(db: Session, user: User) -> list[str]:
     owned = db.scalars(select(Tree.id).where(Tree.owner_id == user.id)).all()
     shared = db.scalars(
         select(TreeMembership.tree_id).where(TreeMembership.user_id == user.id)
     ).all()
     return list({*owned, *shared})
+
+
+def accessible_tree_ids(db: Session, user: User) -> list[str]:
+    if user.is_admin:
+        return [t.id for t in db.scalars(select(Tree)).all()]
+    return explicit_tree_ids(db, user)

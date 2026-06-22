@@ -19,7 +19,7 @@ def test_members_preserve_default_full_list_and_support_limit_offset(client, db)
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     for member_id in ["m0", "m1", "m2"]:
-        add_member(db, tree, member_id, firstName=member_id)
+        add_member(db, tree, member_id, first_name=member_id)
 
     default = client.get(f"{API}/trees/{tree.id}/members", headers=auth(user))
     assert default.status_code == 200
@@ -96,8 +96,8 @@ def test_content_collection_endpoints_support_pagination(client, db):
     add_member(db, tree, "m1")
     db.add_all(
         [
-            GalleryImage(id="g0", tree_id=tree.id, title="A", uploadedAt="2024-01-01"),
-            GalleryImage(id="g1", tree_id=tree.id, title="B", uploadedAt="2024-01-02"),
+            GalleryImage(id="g0", tree_id=tree.id, title="A", uploaded_at="2024-01-01"),
+            GalleryImage(id="g1", tree_id=tree.id, title="B", uploaded_at="2024-01-02"),
             GalleryMemberLink(gallery_image_id="g0", member_id="m0"),
             GalleryMemberLink(gallery_image_id="g1", member_id="m1"),
             Event(

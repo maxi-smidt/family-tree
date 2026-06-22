@@ -69,6 +69,9 @@ export const MemberControls = ({
               size="icon"
               onClick={() => setIsFastMode(!isFastMode)}
               disabled={isLockedScreen}
+              aria-label={
+                isFastMode ? t("disable-quick-add") : t("enable-quick-add")
+              }
             >
               <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
             </Button>
@@ -84,6 +87,11 @@ export const MemberControls = ({
               size="icon"
               onClick={() => setIsDiseaseMode(!isDiseaseMode)}
               disabled={isLockedScreen}
+              aria-label={
+                isDiseaseMode
+                  ? t("disable-disease-mode")
+                  : t("enable-disease-mode")
+              }
             >
               <Activity className={isDiseaseMode ? "fill-current" : ""} />
             </Button>
@@ -106,6 +114,7 @@ export const MemberControls = ({
             size="icon"
             onClick={onRearrange}
             disabled={isLockedScreen}
+            aria-label={t("arrange-members")}
           >
             <Network />
           </Button>
@@ -124,6 +133,7 @@ export const MemberControls = ({
               size="icon"
               onClick={onCollapseMembers}
               disabled={selectedNoExpandedMember()}
+              aria-label={t("collapse-children")}
             >
               <ChevronsDownUp />
             </Button>
@@ -137,6 +147,7 @@ export const MemberControls = ({
               size="icon"
               onClick={onExpandMembers}
               disabled={selectedNoCollapsedMember()}
+              aria-label={t("expand-children")}
             >
               <ChevronsUpDown />
             </Button>
@@ -150,6 +161,7 @@ export const MemberControls = ({
               size="icon"
               onClick={onExpandAllMembers}
               disabled={noCollapsedMember()}
+              aria-label={t("expand-all-children")}
             >
               <ListChevronsUpDown />
             </Button>
@@ -172,7 +184,9 @@ export const MemberControls = ({
                 size="icon"
                 onClick={onAddMember}
                 disabled={isLockedScreen}
+                aria-label={t("add-person")}
                 className="text-green-600 hover:bg-green-50 hover:text-green-700"
+                data-tutorial="add-member"
               >
                 <UserPlus size={20} />
               </Button>
@@ -186,6 +200,7 @@ export const MemberControls = ({
                 size="icon"
                 onClick={onRemoveMembers}
                 disabled={!selectedNodes.length || isLockedScreen}
+                aria-label={t("remove-person")}
                 className="text-red-600 hover:bg-red-50 hover:text-red-700"
               >
                 <UserMinus />

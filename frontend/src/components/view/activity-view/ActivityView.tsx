@@ -4,6 +4,7 @@ import {
 } from "@/hooks/useActivityStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { Activity } from "@/types/activity";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -181,8 +182,9 @@ export const ActivityView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "activity-view" });
   const store = useActivityStore();
   const filteredActivities = selectFilteredActivities(store);
-  const { filterActor, filterAction, filterTargetType, setFilter, activities } =
+  const { filterActor, filterAction, filterTargetType, setFilter, activities, refreshActivity, initialized } =
     store;
+  useDeferredStoreLoad(initialized, refreshActivity);
 
   const uniqueActors = Array.from(
     new Set(activities.map((a) => a.actorUsername).filter(Boolean)),

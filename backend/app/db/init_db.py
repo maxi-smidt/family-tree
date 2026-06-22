@@ -5,7 +5,9 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import func, select
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from sqlalchemy import create_engine, func, select
 
 from app.core.config import settings
 from app.core.security import hash_password
@@ -18,8 +20,13 @@ logger = logging.getLogger("app.init")
 # backend/app/db/init_db.py -> backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
-# Seeded into the instance-wide registry when it is empty (first start, or an
-# admin emptied it). Admins manage the registry afterwards.
+# Revision ID of the squashed baseline migration.  Any database stamped with a
+# pre-squash revision (unknown to the current chain) is stamped here first so
+# that the normal upgrade can apply post-squash migrations on top.
+BASELINE_REVISION = "f8c1d2e3a4b5"
+
+# Seeded into the instance-wide registry on startup. Admins manage the registry
+# afterwards, so startup only tops up built-in defaults that are missing.
 DEFAULT_RELATION_TYPES: list[str] = [
     "parent",
     "sibling",
@@ -33,10 +40,44 @@ DEFAULT_RELATION_TYPES: list[str] = [
 ]
 
 
+def _stored_revision_is_unknown(cfg: Config) -> bool:
+    """Return True if alembic_version points to a revision not in the scripts.
+
+    A fresh database (no alembic_version row) returns False — normal upgrade
+    will build the schema from scratch.  A database at any known revision also
+    returns False.  Only a database stamped with a revision that no longer
+    exists in the migration chain (e.g. a pre-squash revision) returns True.
+    """
+    script = ScriptDirectory.from_config(cfg)
+    known_ids = {rev.revision for rev in script.walk_revisions()}
+
+    engine = create_engine(settings.sqlalchemy_database_uri)
+    try:
+        with engine.connect() as conn:
+            current_heads = MigrationContext.configure(conn).get_current_heads()
+    finally:
+        engine.dispose()
+
+    if not current_heads:
+        return False  # fresh DB; upgrade head will create the schema normally
+
+    return any(head not in known_ids for head in current_heads)
+
+
 def run_migrations() -> None:
     cfg = Config(str(BACKEND_DIR / "alembic.ini"))
     cfg.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     cfg.set_main_option("sqlalchemy.url", settings.sqlalchemy_database_uri)
+
+    if _stored_revision_is_unknown(cfg):
+        logger.warning(
+            "Database is stamped with a revision unknown to the current "
+            "migration scripts (pre-squash database detected). Stamping "
+            "baseline %s and continuing with pending migrations.",
+            BASELINE_REVISION,
+        )
+        command.stamp(cfg, BASELINE_REVISION)
+
     command.upgrade(cfg, "head")
 
 
@@ -54,12 +95,14 @@ def init_db() -> None:
 
 
 def _seed_relation_types(db) -> None:
-    if db.scalar(select(func.count()).select_from(RelationType)):
+    existing = set(db.scalars(select(RelationType.id)).all())
+    missing = [rt for rt in DEFAULT_RELATION_TYPES if rt not in existing]
+    if not missing:
         return
-    for rt in DEFAULT_RELATION_TYPES:
+    for rt in missing:
         db.add(RelationType(id=rt))
     db.commit()
-    logger.info("Seeded %d default relation types", len(DEFAULT_RELATION_TYPES))
+    logger.info("Seeded %d missing default relation types", len(missing))
 
 
 def _seed_admin(db) -> None:

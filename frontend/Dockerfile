@@ -1,6 +1,6 @@
 # Build the React SPA and serve it with nginx, which also proxies /api to the
 # backend so the whole app is reachable on a single origin/port.
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 

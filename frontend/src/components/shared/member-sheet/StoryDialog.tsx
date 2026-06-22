@@ -13,6 +13,9 @@ import { Label } from "@/components/ui/label";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { ApiError } from "@/services/api";
+import { getQuotaBucket } from "@/lib/quotaError";
+import { toast } from "sonner";
 import { AttachmentOps, Story, StoryInput } from "@/types/story";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
@@ -26,6 +29,8 @@ import {
   readFileAsDataUrl,
 } from "@/utils/attachmentUtils";
 import { AttachmentIcon } from "./StoryAttachments";
+import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
+import { downloadMedia } from "@/hooks/useMediaUrl";
 import { Download, Paperclip, Plus, X } from "lucide-react";
 
 interface StoryDialogProps {
@@ -185,7 +190,17 @@ export const StoryDialog = ({
       }
       onOpenChange(false);
       return true;
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 413) {
+        const bucket = getQuotaBucket(err.message);
+        if (bucket) {
+          toast.error(t(`attachments.error-quota-${bucket}`));
+        } else {
+          toast.error(t("attachments.error-size", { max: maxAttachmentSize }));
+        }
+      } else {
+        toast.error(t("attachments.error-save"));
+      }
       return false;
     } finally {
       setSubmitting(false);
@@ -314,14 +329,19 @@ export const StoryDialog = ({
                         className="h-8 flex-1"
                         aria-label={t("attachments.filename")}
                       />
-                      <a
-                        href={a.url}
-                        download={a.filename}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void downloadMedia(a.url, a.filename).catch(() =>
+                            toast.error(t("attachments.error-open")),
+                          )
+                        }
                         className="text-muted-foreground hover:text-foreground"
                         title={t("attachments.download")}
+                        aria-label={t("attachments.download")}
                       >
                         <Download className="w-4 h-4" />
-                      </a>
+                      </button>
                       <Button
                         type="button"
                         variant="ghost"
@@ -431,7 +451,7 @@ const AttachmentPreview = ({
 }) => {
   if (isImageAttachment({ filename, mimeType })) {
     return (
-      <img
+      <AuthenticatedImage
         src={src}
         alt={filename}
         className="w-9 h-9 rounded object-cover border shrink-0"

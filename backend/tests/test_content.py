@@ -4,8 +4,8 @@ from tests.conftest import API, add_member, auth, make_tree, make_user
 def _setup(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
-    add_member(db, tree, "m1", firstName="A")
-    add_member(db, tree, "m2", firstName="B")
+    add_member(db, tree, "m1", first_name="A")
+    add_member(db, tree, "m2", first_name="B")
     return user, tree
 
 

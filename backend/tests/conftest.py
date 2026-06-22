@@ -69,6 +69,18 @@ def db(session_factory) -> Session:
         session.close()
 
 
+@pytest.fixture(autouse=True)
+def patch_background_session(session_factory, monkeypatch):
+    """Background tasks create their own SessionLocal; redirect to the test DB."""
+    import app.api.routes.export_import as _exp_imp
+    import app.api.routes.trees as _trees_routes
+    import app.services.job_service as _job_svc
+
+    monkeypatch.setattr(_job_svc, "SessionLocal", session_factory)
+    monkeypatch.setattr(_exp_imp, "SessionLocal", session_factory)
+    monkeypatch.setattr(_trees_routes, "SessionLocal", session_factory)
+
+
 @pytest.fixture()
 def client(session_factory) -> TestClient:
     app = FastAPI()
@@ -145,3 +157,18 @@ def befriend(db: Session, a: User, b: User, status: str = "accepted") -> Friends
     db.add(friendship)
     db.commit()
     return friendship
+
+
+def wait_for_job(client: TestClient, headers: dict, job_id: str) -> str:
+    """Resolve a background job to its result_tree_id.
+
+    TestClient runs background tasks synchronously, so by the time a 202
+    response is received the job is already complete.
+    """
+    resp = client.get(f"{API}/jobs/{job_id}", headers=headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["status"] == "done", (
+        f"Job {job_id} status={data['status']} error={data.get('error')}"
+    )
+    return data["result_tree_id"]

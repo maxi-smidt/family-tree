@@ -24,13 +24,16 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
-from app.services.settings_service import get_media_limits
+from app.services.event_bus import event_bus, publish_tree_event
+from app.services.settings_service import effective_storage_mode, get_media_limits
 from app.services.storage import (
+    MEDIA_URL_PREFIX,
     ImageTooLarge,
     UnsupportedImageType,
     delete_media,
-    process_image_field,
+    process_gallery_image_field,
 )
+from app.services.storage_usage import QuotaExceeded, check_media_quota, media_warning
 
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
@@ -57,7 +60,7 @@ def list_images(
     statement = (
         select(GalleryImage)
         .where(GalleryImage.tree_id == tree.id)
-        .order_by(GalleryImage.uploadedAt, GalleryImage.id)
+        .order_by(GalleryImage.uploaded_at, GalleryImage.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
 
@@ -86,16 +89,41 @@ def create_image(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
+    new_image_url: str | None = None
     try:
-        data["imageData"] = process_image_field(
-            tree.id,
-            data.get("imageData"),
-            get_media_limits(db),
+        limits = get_media_limits(db)
+        user_mode = (user.preferences or {}).get("image_storage_mode")
+        limits = limits.model_copy(
+            update={
+                "image_storage_mode": effective_storage_mode(
+                    limits.image_storage_mode,
+                    limits.image_storage_allowed_modes,
+                    user_mode,
+                )
+            }
         )
+        new_url = process_gallery_image_field(
+            tree.id,
+            data.get("image_data"),
+            limits,
+        )
+        data["image_data"] = new_url
+        if new_url and new_url.startswith(MEDIA_URL_PREFIX):
+            new_image_url = new_url
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Write-then-verify: the file is already on disk and counted by
+    # compute_usage, so pass 0 to avoid double-counting it.
+    if new_image_url:
+        try:
+            check_media_quota(db, tree, 0)
+        except QuotaExceeded as exc:
+            delete_media(new_image_url)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+
     image = GalleryImage(tree_id=tree.id, **data)
     db.add(image)
     db.flush()  # image row must exist before its links reference it
@@ -112,7 +140,16 @@ def create_image(
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(image)
+    if new_image_url:
+        warning = media_warning(db, tree)
+        if warning:
+            event_bus.publish([tree.owner_id], "storage.warning", warning)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "gallery"},
+    )
     return image
 
 
@@ -126,17 +163,40 @@ def update_image(
 ):
     image = _get_image(db, tree, image_id)
     changes = payload.model_dump(exclude_unset=True)
-    if "imageData" in changes:
+    new_image_url: str | None = None
+    if "image_data" in changes:
         try:
-            changes["imageData"] = process_image_field(
-                tree.id,
-                changes["imageData"],
-                get_media_limits(db),
+            limits = get_media_limits(db)
+            user_mode = (user.preferences or {}).get("image_storage_mode")
+            limits = limits.model_copy(
+                update={
+                    "image_storage_mode": effective_storage_mode(
+                        limits.image_storage_mode, user_mode
+                    )
+                }
             )
+            new_url = process_gallery_image_field(
+                tree.id,
+                changes["image_data"],
+                limits,
+            )
+            changes["image_data"] = new_url
+            if new_url and new_url.startswith(MEDIA_URL_PREFIX):
+                new_image_url = new_url
         except ImageTooLarge as exc:
             raise HTTPException(status_code=413, detail=str(exc)) from exc
         except (UnsupportedImageType, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    # Write-then-verify: the file is already on disk and counted by
+    # compute_usage, so pass 0 to avoid double-counting it.
+    if new_image_url:
+        try:
+            check_media_quota(db, tree, 0)
+        except QuotaExceeded as exc:
+            delete_media(new_image_url)
+            raise HTTPException(status_code=413, detail=str(exc)) from exc
+
     for key, value in changes.items():
         setattr(image, key, value)
     record_activity(
@@ -144,7 +204,16 @@ def update_image(
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(image)
+    if new_image_url:
+        warning = media_warning(db, tree)
+        if warning:
+            event_bus.publish([tree.owner_id], "storage.warning", warning)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "gallery"},
+    )
     return image
 
 
@@ -156,13 +225,18 @@ def delete_image(
     db: Session = Depends(get_db),
 ):
     image = _get_image(db, tree, image_id)
-    image_url = image.imageData
+    image_url = image.image_data
     record_activity(
         db, tree_id=tree.id, actor=user, action="delete",
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.delete(image)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "gallery"},
+    )
     delete_media(image_url)
 
 

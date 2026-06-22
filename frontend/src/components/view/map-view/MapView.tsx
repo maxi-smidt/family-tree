@@ -7,6 +7,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
@@ -132,8 +133,10 @@ export const MapView = () => {
     keyPrefix: "map-view.view",
   });
   const { members } = useMemberStore();
-  const { events } = useEventStore();
+  const { events, refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { coords, resolveLocations } = useGeocodeStore();
+
+  useDeferredStoreLoad(eventsInitialized, refreshEvents);
 
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",

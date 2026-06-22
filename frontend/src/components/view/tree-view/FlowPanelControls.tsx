@@ -22,6 +22,7 @@ import { useReactFlow } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeExport } from "@/hooks/useTreeExport";
+import { fitViewToAllNodes } from "@/utils/flowFit";
 
 type Props = {
   navigationOnly?: boolean;
@@ -40,7 +41,7 @@ export const FlowPanelControls = ({
     keyPrefix: "tree-view.controls",
   });
   const { isLockedScreen, setIsLockedScreen } = useFamilyTreeSettings();
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const reactFlow = useReactFlow();
   const undo = useMemberStore((s) => s.undo);
   const redo = useMemberStore((s) => s.redo);
   const undoStack = useMemberStore((s) => s.undoStack);
@@ -58,6 +59,7 @@ export const FlowPanelControls = ({
                 size="icon"
                 onClick={() => undo()}
                 disabled={undoStack.length === 0}
+                aria-label={t("undo")}
               >
                 <Undo2 />
               </Button>
@@ -71,6 +73,7 @@ export const FlowPanelControls = ({
                 size="icon"
                 onClick={() => redo()}
                 disabled={redoStack.length === 0}
+                aria-label={t("redo")}
               >
                 <Redo2 />
               </Button>
@@ -81,7 +84,12 @@ export const FlowPanelControls = ({
       )}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="secondary" size="icon" onClick={() => zoomIn()}>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => reactFlow.zoomIn()}
+            aria-label={t("zoom-in")}
+          >
             <Plus />
           </Button>
         </TooltipTrigger>
@@ -89,7 +97,12 @@ export const FlowPanelControls = ({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="secondary" size="icon" onClick={() => zoomOut()}>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => reactFlow.zoomOut()}
+            aria-label={t("zoom-out")}
+          >
             <Minus />
           </Button>
         </TooltipTrigger>
@@ -97,7 +110,12 @@ export const FlowPanelControls = ({
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="secondary" size="icon" onClick={() => fitView()}>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => fitViewToAllNodes(reactFlow)}
+            aria-label={t("fit-view")}
+          >
             <Maximize />
           </Button>
         </TooltipTrigger>
@@ -132,6 +150,9 @@ export const FlowPanelControls = ({
               variant={isLockedScreen ? "default" : "secondary"}
               size="icon"
               onClick={() => setIsLockedScreen(!isLockedScreen)}
+              aria-label={
+                isLockedScreen ? t("unlock-canvas") : t("lock-canvas")
+              }
             >
               {isLockedScreen ? <Lock /> : <LockOpen />}
             </Button>
@@ -150,11 +171,7 @@ export const FlowPanelControls = ({
             disabled={isExporting}
             aria-label={t("export-image")}
           >
-            {isExporting ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <ImageDown />
-            )}
+            {isExporting ? <Loader2 className="animate-spin" /> : <ImageDown />}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">{t("export-image")}</TooltipContent>

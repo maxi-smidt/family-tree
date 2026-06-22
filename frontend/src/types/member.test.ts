@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { mapMemberFromDB, MemberDB, MemberObject, RelationDB } from "./member";
+import {
+  createMember,
+  mapMemberFromDB,
+  mapMemberToDB,
+  MemberDB,
+  MemberObject,
+  RelationDB,
+} from "./member";
 
 describe("mapMemberFromDB", () => {
   it("should correctly map a database member to a domain member", () => {
@@ -61,6 +68,20 @@ describe("mapMemberFromDB", () => {
     const result = mapMemberFromDB(dbMember, []);
     expect(result.isCollapsed).toBe(true);
     expect(result.gender).toBe("f");
+  });
+});
+
+describe("createMember", () => {
+  it("does not default the birth date to the current year", () => {
+    const m = createMember({ x: 0, y: 0 });
+    expect(m.date.birth).toBe("");
+    expect(m.date.death).toBeNull();
+  });
+
+  it("serializes to null dateOfBirth on the wire when birth is empty", () => {
+    const m = createMember({ x: 0, y: 0 });
+    const db = mapMemberToDB(m);
+    expect(db.dateOfBirth).toBeNull();
   });
 });
 

@@ -1,7 +1,8 @@
 import { Input } from "@/components/ui/input";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
-import { Textarea } from "@/components/ui/textarea";
 import { ApiError } from "@/services/api";
+import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
+import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -27,7 +28,12 @@ import { Gender, Member } from "@/types/member";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { toast } from "sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
@@ -78,10 +84,14 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
-  const eventsEnabled = useFeature("events") && !restrictions.includes("events");
-  const storiesEnabled = useFeature("stories") && !restrictions.includes("stories");
-  const sourcesEnabled = useFeature("sources") && !restrictions.includes("sources");
-  const galleryEnabled = useFeature("gallery") && !restrictions.includes("gallery");
+  const eventsEnabled =
+    useFeature("events") && !restrictions.includes("events");
+  const storiesEnabled =
+    useFeature("stories") && !restrictions.includes("stories");
+  const sourcesEnabled =
+    useFeature("sources") && !restrictions.includes("sources");
+  const galleryEnabled =
+    useFeature("gallery") && !restrictions.includes("gallery");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
@@ -89,13 +99,20 @@ export const EditMode = ({
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{
+    firstName?: string;
+    lastName?: string;
+  }>({});
   const [recordsMounted, setRecordsMounted] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setFormData(member);
     setInitialData(member);
+    setErrors({});
     setIsDirty(false);
     onDirtyChange?.(false);
   }, [member]);
@@ -191,8 +208,14 @@ export const EditMode = ({
   };
 
   const save = useCallback(async (): Promise<boolean> => {
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      toast.error(t("toast-error-required"));
+    const nextErrors: { firstName?: string; lastName?: string } = {};
+    if (!formData.firstName.trim())
+      nextErrors.firstName = t("error-firstname-required");
+    if (!formData.lastName.trim())
+      nextErrors.lastName = t("error-lastname-required");
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      (nextErrors.firstName ? firstNameRef : lastNameRef).current?.focus();
       return false;
     }
 
@@ -246,7 +269,12 @@ export const EditMode = ({
       return true;
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 413) {
-        toast.error(t("toast-error-image-too-large"));
+        const bucket = getQuotaBucket(err.message);
+        if (bucket) {
+          toast.error(t(quotaToastKey(bucket)));
+        } else {
+          toast.error(t("toast-error-image-too-large"));
+        }
       } else if (err instanceof ApiError && err.status === 400) {
         toast.error(t("toast-error-image-unsupported"));
       } else {
@@ -328,7 +356,9 @@ export const EditMode = ({
                   value={formData.academicTitle || ""}
                   className="h-7 text-xs! shadow-none"
                   placeholder={t("academic-title-placeholder")}
-                  onChange={(e) => handleChange("academicTitle", e.target.value)}
+                  onChange={(e) =>
+                    handleChange("academicTitle", e.target.value)
+                  }
                 />
               </Field>
 
@@ -346,21 +376,21 @@ export const EditMode = ({
                 >
                   <ToggleGroupItem
                     value="m"
-                    aria-label="Male"
+                    aria-label={t("gender-male")}
                     className="h-7 min-w-7 text-xs"
                   >
                     <Mars />
                   </ToggleGroupItem>
                   <ToggleGroupItem
                     value="f"
-                    aria-label="Female"
+                    aria-label={t("gender-female")}
                     className="h-7 min-w-7 text-xs"
                   >
                     <Venus />
                   </ToggleGroupItem>
                   <ToggleGroupItem
                     value="o"
-                    aria-label="Other"
+                    aria-label={t("gender-other")}
                     className="h-7 min-w-7 text-xs"
                   >
                     <VenusAndMars />
@@ -369,31 +399,62 @@ export const EditMode = ({
               </Field>
 
               <div className="grid grid-cols-2 gap-3">
-                <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                <Field data-invalid={!!errors.firstName}>
+                  <FieldLabel
+                    htmlFor="firstName"
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("firstname-field")}
                   </FieldLabel>
                   <Input
-                    autoFocus
+                    ref={firstNameRef}
                     id="firstName"
+                    required
+                    aria-required="true"
+                    aria-invalid={!!errors.firstName}
+                    aria-describedby={
+                      errors.firstName ? "firstName-error" : undefined
+                    }
                     value={formData.firstName}
                     className="h-7 text-xs! shadow-none"
-                    placeholder={t("firstname-field")}
-                    onChange={(e) => handleChange("firstName", e.target.value)}
+                    placeholder={t("firstname-placeholder")}
+                    onChange={(e) => {
+                      handleChange("firstName", e.target.value);
+                      if (errors.firstName)
+                        setErrors((p) => ({ ...p, firstName: undefined }));
+                    }}
                   />
+                  <FieldError id="firstName-error">
+                    {errors.firstName}
+                  </FieldError>
                 </Field>
 
-                <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                <Field data-invalid={!!errors.lastName}>
+                  <FieldLabel
+                    htmlFor="lastName"
+                    className="text-[12px] font-semibold text-muted-foreground uppercase"
+                  >
                     {t("lastname-field")}
                   </FieldLabel>
                   <Input
+                    ref={lastNameRef}
                     id="lastName"
+                    required
+                    aria-required="true"
+                    aria-invalid={!!errors.lastName}
+                    aria-describedby={
+                      errors.lastName ? "lastName-error" : undefined
+                    }
                     value={formData.lastName}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("lastname-field")}
-                    onChange={(e) => handleChange("lastName", e.target.value)}
+                    onChange={(e) => {
+                      handleChange("lastName", e.target.value);
+                      if (errors.lastName)
+                        setErrors((p) => ({ ...p, lastName: undefined }));
+                    }}
                   />
+                  <FieldError id="lastName-error">{errors.lastName}</FieldError>
                 </Field>
               </div>
 
@@ -407,7 +468,9 @@ export const EditMode = ({
                     value={formData.middleNames || ""}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("middle-names-field")}
-                    onChange={(e) => handleChange("middleNames", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("middleNames", e.target.value)
+                    }
                   />
                 </Field>
 
@@ -517,7 +580,9 @@ export const EditMode = ({
                         value={formData.hometown || ""}
                         className="h-7 text-xs! shadow-none"
                         placeholder={t("location-placeholder")}
-                        onChange={(e) => handleChange("hometown", e.target.value)}
+                        onChange={(e) =>
+                          handleChange("hometown", e.target.value)
+                        }
                       />
                     </Field>
                   )}
@@ -585,7 +650,9 @@ export const EditMode = ({
                             onClick={() => {
                               handleChange(
                                 "placesLived",
-                                formData.placesLived.filter((_, i) => i !== idx),
+                                formData.placesLived.filter(
+                                  (_, i) => i !== idx,
+                                ),
                               );
                             }}
                           >
@@ -636,15 +703,11 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("notes-field")}
                   </FieldLabel>
-                  <Textarea
+                  <MarkdownEditor
                     id="additionalData"
                     value={formData.additionalData || ""}
-                    className="text-xs! shadow-none resize-none"
-                    rows={4}
                     placeholder={t("notes-placeholder")}
-                    onChange={(e) =>
-                      handleChange("additionalData", e.target.value)
-                    }
+                    onChange={(value) => handleChange("additionalData", value)}
                   />
                 </Field>
               )}

@@ -2,8 +2,14 @@ import { create } from "zustand";
 import { Tree } from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
-import { Member, MemberDB, RelationTypeDB, mapMemberFromDB } from "@/types/member";
+import {
+  Member,
+  MemberDB,
+  RelationTypeDB,
+  mapMemberFromDB,
+} from "@/types/member";
 import { MergeResolution } from "@/types/merge";
+import { useJobStore } from "@/hooks/useJobStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -11,6 +17,8 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
+import { useQualityReportStore } from "@/hooks/useQualityReportStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
 import { hasFeature } from "@/hooks/useAuthStore";
 
 export const isVirtualId = (id: string) => id.startsWith("vv_");
@@ -76,6 +84,8 @@ const clearDataStores = () => {
   useSourceStore.getState().clear();
   useActivityStore.getState().clear();
   useStatisticsStore.getState().clear();
+  useQualityReportStore.getState().clear();
+  useStorageStore.getState().clear();
 };
 
 export const useTreeStore = create<DatabaseState>((set, get) => ({
@@ -97,8 +107,13 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     // Drop a stale selection that no longer exists / is no longer accessible.
     const selected = get().selectedTree;
     const allItems = [...trees, ...virtualViews];
-    if (selected && !allItems.some((t) => t.id === selected.id)) {
-      await get().disconnect();
+    if (selected) {
+      const freshSelected = allItems.find((t) => t.id === selected.id);
+      if (freshSelected) {
+        set({ selectedTree: freshSelected });
+      } else {
+        await get().disconnect();
+      }
     }
   },
 
@@ -132,19 +147,26 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     sourceB?: string,
     resolutions?: MergeResolution[],
   ) => {
-    const tree = await api.post<Tree>("/trees/merge", {
+    const { job_id } = await api.post<{ job_id: string }>("/trees/merge", {
       name,
       source_a: sourceA,
       source_b: sourceB ?? null,
       resolutions: resolutions ?? null,
     });
+    const treeId = await useJobStore.getState().trackJob(job_id);
+    const tree = await api.get<Tree>(`/trees/${treeId}`);
     await get().loadTrees();
     await get().selectTree(tree);
     return tree;
   },
 
   extractSubtree: async (payload) => {
-    const tree = await TreeService.extractSubtree(payload);
+    const { job_id } = await api.post<{ job_id: string }>(
+      "/trees/extract-subtree",
+      payload,
+    );
+    const treeId = await useJobStore.getState().trackJob(job_id);
+    const tree = await api.get<Tree>(`/trees/${treeId}`);
     await get().loadTrees();
     await get().selectTree(tree);
     return tree;
@@ -244,28 +266,11 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       // non-fatal; continue with what we have
     }
 
-    // A virtual tree behaves like a normal tree: it loads the same feature
-    // stores, aggregated live from its sources (read-only — the viewer role
-    // hides every edit affordance). Stores behind a disabled feature flag stay
-    // empty — their API routes answer 404, so loading them would just be noise.
-    const restrictions = get().selectedTree?.restrictions ?? [];
-    const notRestricted = (domain: string) => !restrictions.includes(domain);
-
     const loads = [
       get().refreshMetadata(tree.id),
       get().refreshRelationTypes(),
       useMemberStore.getState().refreshMembers(tree.id),
     ];
-    if (hasFeature("gallery") && notRestricted("gallery"))
-      loads.push(useGalleryStore.getState().refreshGalleryImages(tree.id));
-    if (hasFeature("events") && notRestricted("events"))
-      loads.push(useEventStore.getState().refreshEvents(tree.id));
-    if (hasFeature("stories") && notRestricted("stories"))
-      loads.push(useStoryStore.getState().refreshStories(tree.id));
-    if (hasFeature("sources") && notRestricted("sources"))
-      loads.push(useSourceStore.getState().refreshSources(tree.id));
-    if (hasFeature("activity_log"))
-      loads.push(useActivityStore.getState().refreshActivity(tree.id));
     await Promise.allSettled(loads);
 
     // Virtual trees are read-only composites: auto-arrange the layout only
@@ -309,3 +314,15 @@ export const activeTreeId = (): string | undefined =>
 /** Stale-write guard for async loaders: true if `treeId` is still the active tree. */
 export const isActiveTree = (treeId: string | undefined): boolean =>
   treeId !== undefined && activeTreeId() === treeId;
+
+export const resetTreeStoreForSession = () => {
+  useTreeStore.setState({
+    trees: [],
+    virtualViews: [],
+    selectedTree: undefined,
+    metadata: {},
+    relationTypes: [],
+    isReady: false,
+  });
+  clearDataStores();
+};

@@ -7,6 +7,7 @@ import {
   Tree,
   TreeAccess,
   TreeInvitation,
+  TreeTransferResult,
 } from "@/types/tree";
 
 export interface TreeSharingData {
@@ -65,8 +66,19 @@ export const TreeSharingService = {
     );
   },
 
-  transferOwnership(treeId: string, username: string): Promise<void> {
-    return api.post<void>(`/trees/${treeId}/transfer`, { username });
+  transferOwnership(
+    treeId: string,
+    username: string,
+    retainRole?: ShareRole,
+  ): Promise<TreeTransferResult> {
+    return api.post<TreeTransferResult>(`/trees/${treeId}/transfer`, {
+      username,
+      retain_role: retainRole ?? null,
+    });
+  },
+
+  revertTransfer(treeId: string): Promise<TreeTransferResult> {
+    return api.post<TreeTransferResult>(`/trees/${treeId}/transfer/revert`, {});
   },
 
   listInvitations(treeId: string): Promise<TreeInvitation[]> {
@@ -96,10 +108,7 @@ export const TreeSharingService = {
     return api.post<InvitationAcceptResult>(`/invites/${token}/accept`, {});
   },
 
-  setPublicAccess(
-    treeId: string,
-    publicRole: "viewer" | null,
-  ): Promise<Tree> {
+  setPublicAccess(treeId: string, publicRole: "viewer" | null): Promise<Tree> {
     return api.patch<Tree>(`/trees/${treeId}/public`, {
       public_role: publicRole,
     });

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   mapMemberFromDB,
   Member,
+  MemberDB,
   MemberUpdate,
   RelationDB,
   RelationType,
@@ -12,6 +13,8 @@ import { reconstructParents } from "@/utils/memberUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
+import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
 import i18n from "@/i18n/i18n";
 import { toast } from "sonner";
 
@@ -117,6 +120,7 @@ async function commitPendingMemberDeletion(key: string) {
       useMemberStore.getState().refreshMembers,
       pending.treeId,
     );
+    invalidateDerivedViews();
   }
 }
 
@@ -166,12 +170,17 @@ async function refreshAfterOptimisticFailure(
 
 interface MemberState {
   members: Member[];
+  detailLoadedIds: Set<string>;
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
   _pushHistory: (entry: HistoryEntry) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   refreshMembers: (treeId?: string) => Promise<void>;
+  fetchMemberDetail: (
+    id: string,
+    force?: boolean,
+  ) => Promise<Member | undefined>;
   clear: () => void;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
@@ -194,12 +203,17 @@ interface MemberState {
     type: RelationType,
   ) => Promise<void>;
   addDisease: (memberId: string, disease: DiseaseInput) => Promise<void>;
-  updateDisease: (diseaseId: string, disease: DiseaseInput) => Promise<void>;
-  removeDisease: (diseaseId: string) => Promise<void>;
+  updateDisease: (
+    memberId: string,
+    diseaseId: string,
+    disease: DiseaseInput,
+  ) => Promise<void>;
+  removeDisease: (memberId: string, diseaseId: string) => Promise<void>;
 }
 
 export const useMemberStore = create<MemberState>((set, get) => ({
   members: [],
+  detailLoadedIds: new Set<string>(),
   undoStack: [],
   redoStack: [],
 
@@ -219,6 +233,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     try {
       await entry.undo();
       set((s) => ({ redoStack: [...s.redoStack, entry] }));
+      invalidateDerivedViews();
     } catch (e) {
       set((s) => ({ undoStack: [...s.undoStack, entry] }));
       throw e;
@@ -233,6 +248,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     try {
       await entry.redo();
       set((s) => ({ undoStack: [...s.undoStack, entry] }));
+      invalidateDerivedViews();
     } catch (e) {
       set((s) => ({ redoStack: [...s.redoStack, entry] }));
       throw e;
@@ -241,27 +257,28 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   refreshMembers: async (treeId = activeTreeId()) => {
     if (!treeId) {
-      set({ members: [] });
+      set({ members: [], detailLoadedIds: new Set<string>() });
       return;
     }
 
-    const [membersResult, relationsResult, diseasesResult] = await Promise.allSettled([
-      TreeService.getMembers(treeId),
+    const [membersResult, relationsResult] = await Promise.allSettled([
+      TreeService.getMembers(treeId, true),
       TreeService.getRelations(treeId),
-      TreeService.getDiseases(treeId),
     ]);
 
-    if (membersResult.status === "rejected" || relationsResult.status === "rejected") {
+    if (
+      membersResult.status === "rejected" ||
+      relationsResult.status === "rejected"
+    ) {
       return;
     }
     const result = membersResult.value;
     const relations = relationsResult.value;
-    const diseases = diseasesResult.status === "fulfilled" ? diseasesResult.value : [];
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const memberGenderMap = new Map<string, string>();
-    result.forEach((m) => memberGenderMap.set(m.id, m.gender));
+    result.forEach((m) => memberGenderMap.set(m.id, m.gender ?? "o"));
 
     const relationsByMember = new Map<string, RelationDB[]>();
     for (const r of relations) {
@@ -271,22 +288,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     }
 
-    const diseasesByMember = new Map<string, DiseaseDB[]>();
-    for (const d of diseases) {
-      diseasesByMember.set(
-        d.member_id,
-        (diseasesByMember.get(d.member_id) ?? []).concat(d),
-      );
-    }
-
     const appMembers = result
       .map((member) => {
         const memberRelations = relationsByMember.get(member.id) ?? [];
-        const memberDiseases = (diseasesByMember.get(member.id) ?? []).map(
-          mapDiseaseFromDB,
-        );
 
-        const mapped = mapMemberFromDB(member, memberRelations, memberDiseases);
+        const mapped = mapMemberFromDB(member, memberRelations, []);
 
         // Reconstruct parents from relations
         mapped.parents = reconstructParents(
@@ -301,10 +307,85 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
       );
 
-    set({ members: appMembers });
+    set({ members: appMembers, detailLoadedIds: new Set<string>() });
   },
 
-  clear: () => set({ members: [], undoStack: [], redoStack: [] }),
+  fetchMemberDetail: async (id: string, force = false) => {
+    const treeId = activeTreeId();
+    if (!treeId) return undefined;
+
+    // Virtual view members: treat as already loaded — return surface data from store
+    if (isVirtualId(treeId)) {
+      return get().members.find((m) => m.id === id);
+    }
+
+    // Cache hit: skip network round-trip when detail is already loaded and not forced
+    if (!force && get().detailLoadedIds.has(id)) {
+      return get().members.find((m) => m.id === id);
+    }
+
+    let detailRow: MemberDB;
+    let diseases: DiseaseDB[];
+
+    try {
+      const [detailResult, diseasesResult] = await Promise.allSettled([
+        TreeService.getMember(treeId, id),
+        TreeService.getDiseases(treeId),
+      ]);
+
+      if (detailResult.status === "rejected") {
+        // If the detail fetch fails, return the existing surface member from the store
+        return get().members.find((m) => m.id === id);
+      }
+      detailRow = detailResult.value;
+      diseases =
+        diseasesResult.status === "fulfilled" ? diseasesResult.value : [];
+    } catch {
+      // On unexpected failure, return the existing surface member from the store
+      return get().members.find((m) => m.id === id);
+    }
+
+    const memberDiseases = diseases
+      .filter((d) => d.member_id === id)
+      .map(mapDiseaseFromDB);
+
+    // Merge detail fields into the existing store member (preserve relations/parents/position)
+    const existing = get().members.find((m) => m.id === id);
+    if (!existing) return undefined;
+
+    const merged: Member = {
+      ...existing,
+      additionalData: detailRow.additionalData ?? null,
+      birthplace: detailRow.birthplace ?? null,
+      hometown: detailRow.hometown ?? null,
+      placesLived: detailRow.placesLived
+        ? (() => {
+            try {
+              const parsed = JSON.parse(detailRow.placesLived);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          })()
+        : [],
+      diseases: memberDiseases,
+    };
+
+    set((state) => ({
+      members: state.members.map((m) => (m.id === id ? merged : m)),
+      detailLoadedIds: new Set([...state.detailLoadedIds, id]),
+    }));
+
+    return merged;
+  },
+
+  clear: () =>
+    set({
+      members: [],
+      detailLoadedIds: new Set<string>(),
+      undoStack: [],
+      redoStack: [],
+    }),
 
   addMember: async (newMember: Member) => {
     const treeId = activeTreeId();
@@ -348,6 +429,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
 
     if (newMember.date.birth) {
       await syncVitalEvent(newMember.id, "birth", newMember.date.birth, null);
@@ -486,6 +568,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     }
 
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
+    if ("imageData" in otherChanges)
+      useStorageStore.getState().refreshStorageUsage();
 
     if ("dateOfBirth" in changes) {
       await syncVitalEvent(
@@ -677,6 +762,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.addRelation(treeId, fromId, toId, type);
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
 
     get()._pushHistory({
       undo: async () => {
@@ -695,6 +781,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     await TreeService.removeRelation(treeId, fromId, toId, type);
     await get().refreshMembers(treeId);
+    invalidateDerivedViews();
 
     get()._pushHistory({
       undo: async () => {
@@ -713,20 +800,27 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     if (!treeId) return;
     const id = crypto.randomUUID();
     await TreeService.addDisease(treeId, id, memberId, disease);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId, true);
+    invalidateDerivedViews();
   },
 
-  updateDisease: async (diseaseId: string, disease: DiseaseInput) => {
+  updateDisease: async (
+    memberId: string,
+    diseaseId: string,
+    disease: DiseaseInput,
+  ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.updateDisease(treeId, diseaseId, disease);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId, true);
+    invalidateDerivedViews();
   },
 
-  removeDisease: async (diseaseId: string) => {
+  removeDisease: async (memberId: string, diseaseId: string) => {
     const treeId = activeTreeId();
     if (!treeId) return;
     await TreeService.removeDisease(treeId, diseaseId);
-    await get().refreshMembers(treeId);
+    await get().fetchMemberDetail(memberId, true);
+    invalidateDerivedViews();
   },
 }));

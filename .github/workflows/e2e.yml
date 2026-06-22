@@ -4,13 +4,29 @@ on:
   pull_request:
     branches:
       - main
+    # Skip the (expensive) full-stack run for changes that can't affect it,
+    # e.g. docs-only PRs. Safe to gate at the workflow level because E2E is
+    # not a required check.
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'e2e/**'
+      - 'docker-compose.e2e.yml'
+      - '.github/workflows/e2e.yml'
+      - '.github/workflows/check-build.yml'
   workflow_dispatch:
 
-# Not a required check yet — runs independently alongside CI.
-# Promote to required once the suite is stable.
+# Day-to-day PRs run E2E alongside CI when app/test-stack files change. Release
+# tags are gated inside check-build.yml so images are not published unless the
+# same Playwright suite passes.
 
 permissions:
   contents: read
+
+# A new push to a PR cancels the previous, still-running E2E build.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
@@ -55,7 +71,7 @@ jobs:
       - name: "Set up Node.js"
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: e2e/package-lock.json
 

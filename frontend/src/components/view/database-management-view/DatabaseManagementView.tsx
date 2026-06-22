@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useJobStore } from "@/hooks/useJobStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useFeature } from "@/hooks/useAuthStore";
 import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
@@ -81,6 +82,8 @@ export const DatabaseManagementView = () => {
   } = useTreeManager();
   const gedcomEnabled = useFeature("gedcom");
   const virtualViewsEnabled = useFeature("virtual_views");
+  const [isImporting, setIsImporting] = useState(false);
+  const importPct = useJobStore((s) => s.activeJobPct);
 
   const [isCreateDatabaseDialogOpen, setIsCreateDatabaseDialogOpen] =
     useState(false);
@@ -127,11 +130,24 @@ export const DatabaseManagementView = () => {
         password = pw;
       }
 
+      setIsImporting(true);
       await importDatabase(file, password);
-      toast.success(t("toast-import-success"));
+      if (info.app_version && info.exported_at) {
+        const date = new Date(info.exported_at).toLocaleDateString();
+        toast.success(t("toast-import-success"), {
+          description: t("import-provenance", {
+            version: info.app_version,
+            date,
+          }),
+        });
+      } else {
+        toast.success(t("toast-import-success"));
+      }
     } catch (err) {
       console.error(err);
       toast.error(t("toast-import-error"));
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -150,11 +166,14 @@ export const DatabaseManagementView = () => {
     const file = await pickFile(".ged,.gedcom");
     if (!file) return;
     try {
+      setIsImporting(true);
       await importGedcom(file);
       toast.success(t("toast-gedcom-import-success"));
     } catch (err) {
       console.error(err);
       toast.error(t("toast-gedcom-import-error"));
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -456,7 +475,7 @@ export const DatabaseManagementView = () => {
         <div className="flex gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" data-tutorial="new-tree">
                 <Plus className="h-4 w-4" />
                 {t("new-menu-button")}
               </Button>
@@ -485,7 +504,7 @@ export const DatabaseManagementView = () => {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" data-tutorial="import-menu">
                 <HardDriveDownload className="h-4 w-4" />
                 {t("import-menu-button")}
               </Button>
@@ -517,6 +536,14 @@ export const DatabaseManagementView = () => {
       }
     >
       <div className="flex-1 flex flex-col gap-6 overflow-auto">
+        {isImporting && (
+          <div className="h-2 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary transition-[width] duration-300 ease-in-out"
+              style={{ width: `${importPct}%` }}
+            />
+          </div>
+        )}
         {renderSection(
           t("owned-section"),
           ownedDatabases,

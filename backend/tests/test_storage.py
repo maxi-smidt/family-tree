@@ -21,6 +21,8 @@ from app.services.storage import (
     ImageTooLarge,
     InvalidImageURL,
     UnsupportedImageType,
+    copy_media_to_tree,
+    delete_media,
     process_image_field,
     store_data_url,
     store_document,
@@ -176,6 +178,70 @@ def test_oversized_dimensions_raises_unsupported_image_type(tmp_path, monkeypatc
     data_url = _data_url("image/png", png)
     with pytest.raises(UnsupportedImageType):
         store_data_url(_TREE_ID, data_url, _LIMITS)
+
+
+# ---------------------------------------------------------------------------
+# image_storage_mode branches
+# ---------------------------------------------------------------------------
+
+
+def test_original_mode_stores_raw_bytes(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    limits = _LIMITS.model_copy(update={"image_storage_mode": "original"})
+    png = _make_png(4, 4)
+    url = store_data_url(_TREE_ID, _data_url("image/png", png), limits, mode="original")
+    assert url.startswith(f"{MEDIA_URL_PREFIX}/{_TREE_ID}/")
+    assert url.endswith(".png")
+    # Raw bytes are unchanged — no re-encode.
+    rel = url[len(MEDIA_URL_PREFIX) + 1:]
+    assert (settings.media_root / rel).read_bytes() == png
+    # No originals/ subdir created in original-only mode.
+    assert not (settings.media_root / _TREE_ID / "originals").exists()
+
+
+def test_both_mode_writes_display_webp_and_original_subdir(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(4, 4)
+    url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS, mode="both")
+    assert url.endswith(".webp"), "display URL must be WebP"
+    stem = url.rsplit("/", 1)[-1].removesuffix(".webp")
+    originals_dir = settings.media_root / _TREE_ID / "originals"
+    orig_file = originals_dir / f"{stem}.png"
+    assert orig_file.is_file(), "original must be in originals/ subdir"
+    assert orig_file.read_bytes() == png, "original bytes must be unchanged"
+
+
+def test_delete_media_removes_both_display_and_original(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(4, 4)
+    url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS, mode="both")
+    stem = url.rsplit("/", 1)[-1].removesuffix(".webp")
+    orig_file = settings.media_root / _TREE_ID / "originals" / f"{stem}.png"
+    assert orig_file.is_file()
+    delete_media(url)
+    rel = url[len(MEDIA_URL_PREFIX) + 1:]
+    assert not (settings.media_root / rel).exists(), "display file must be gone"
+    assert not orig_file.exists(), "original must be gone"
+
+
+def test_copy_media_to_tree_copies_original_subdir(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(4, 4)
+    url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS, mode="both")
+    new_url = copy_media_to_tree(url, _OTHER_TREE_ID)
+    assert new_url is not None
+    new_stem = new_url.rsplit("/", 1)[-1].removesuffix(".webp")
+    dest_orig = settings.media_root / _OTHER_TREE_ID / "originals" / f"{new_stem}.png"
+    assert dest_orig.is_file(), "original must be copied into new tree's originals/"
+    assert dest_orig.read_bytes() == png
 
 
 def test_document_limit_uses_supplied_runtime_value(tmp_path, monkeypatch):

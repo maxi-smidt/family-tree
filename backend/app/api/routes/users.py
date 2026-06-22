@@ -9,6 +9,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import UserCreate, UserOut, UserPasswordReset, UserUpdate
+from app.services.event_bus import event_bus
 from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
@@ -49,15 +50,26 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
         user.full_name = payload.full_name
     if payload.password:
         _reset_local_password(user, payload.password)
+    deactivated = payload.is_active is False
     if payload.is_active is not None:
         user.is_active = payload.is_active
     if payload.is_admin is not None:
         if not payload.is_admin and user.is_admin and _admin_count(db) <= 1:
             raise HTTPException(status_code=400, detail="Cannot demote the last admin")
         user.is_admin = payload.is_admin
+    # Quota fields: 0 is stored as-is (means "unlimited"); None leaves unchanged.
+    # To clear a per-user quota (revert to instance default) pass null in the JSON.
+    # We use a sentinel approach: the field validator allows ge=0, and we only
+    # update when the key is present in the payload.
+    if "tree_quota_bytes" in payload.model_fields_set:
+        user.tree_quota_bytes = payload.tree_quota_bytes
+    if "media_quota_bytes" in payload.model_fields_set:
+        user.media_quota_bytes = payload.media_quota_bytes
 
     db.commit()
     db.refresh(user)
+    if deactivated:
+        event_bus.publish([user.id], "session.invalidate", {"reason": "deactivated"})
     return user
 
 
@@ -98,6 +110,7 @@ def delete_user(
         raise HTTPException(status_code=400, detail="Cannot delete the last admin")
 
     schedule_deletion(db, user, requested_by=current.id)
+    event_bus.publish([user.id], "session.invalidate", {"reason": "pending_deletion"})
     return user
 
 

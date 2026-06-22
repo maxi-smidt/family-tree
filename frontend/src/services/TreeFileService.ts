@@ -1,9 +1,15 @@
 import { api } from "@/services/api";
-import { Tree } from "@/types/tree";
 
 export interface InspectImportResult {
   password_required: boolean;
   name: string | null;
+  app_version: string | null;
+  exported_at: string | null;
+  bundle_version: number | null;
+}
+
+export interface JobStarted {
+  job_id: string;
 }
 
 function importForm(file: File, values: { password?: string; name?: string }) {
@@ -30,8 +36,12 @@ export const TreeFileService = {
     );
   },
 
-  importDatabase(file: File, password?: string, name?: string): Promise<Tree> {
-    return api.postForm<Tree>(
+  importDatabase(
+    file: File,
+    password?: string,
+    name?: string,
+  ): Promise<JobStarted> {
+    return api.postForm<JobStarted>(
       "/trees/import",
       importForm(file, { password, name }),
     );
@@ -42,8 +52,8 @@ export const TreeFileService = {
     return response.blob();
   },
 
-  importGedcom(file: File, name?: string): Promise<Tree> {
-    return api.postForm<Tree>(
+  importGedcom(file: File, name?: string): Promise<JobStarted> {
+    return api.postForm<JobStarted>(
       "/trees/import-gedcom",
       importForm(file, { name }),
     );

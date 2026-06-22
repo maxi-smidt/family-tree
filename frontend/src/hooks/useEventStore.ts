@@ -2,9 +2,11 @@ import { create } from "zustand";
 import { Event, EventInput, mapEventFromDB } from "@/types/event";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
 interface EventState {
   events: Event[];
+  initialized: boolean;
   refreshEvents: (treeId?: string) => Promise<void>;
   getEventsByMember: (memberId: string) => Event[];
   addEvent: (memberIds: string[], event: EventInput) => Promise<void>;
@@ -19,6 +21,7 @@ interface EventState {
 
 export const useEventStore = create<EventState>((set, get) => ({
   events: [],
+  initialized: false,
 
   refreshEvents: async (treeId = activeTreeId()) => {
     if (!treeId) {
@@ -46,7 +49,7 @@ export const useEventStore = create<EventState>((set, get) => ({
       return mapEventFromDB(row, linkedMemberIds);
     });
 
-    set({ events });
+    set({ events, initialized: true });
   },
 
   getEventsByMember: (memberId: string) => {
@@ -63,6 +66,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     await TreeService.addEvent(treeId, id, event, now, memberIds);
 
     await get().refreshEvents(treeId);
+    invalidateActivityView();
   },
 
   updateEvent: async (id: string, event: EventInput, memberIds: string[]) => {
@@ -73,6 +77,7 @@ export const useEventStore = create<EventState>((set, get) => ({
     await TreeService.setEventLinks(treeId, id, memberIds);
 
     await get().refreshEvents(treeId);
+    invalidateActivityView();
   },
 
   removeEvent: async (id: string) => {
@@ -81,7 +86,8 @@ export const useEventStore = create<EventState>((set, get) => ({
 
     await TreeService.removeEvent(treeId, id);
     await get().refreshEvents(treeId);
+    invalidateActivityView();
   },
 
-  clear: () => set({ events: [] }),
+  clear: () => set({ events: [], initialized: false }),
 }));

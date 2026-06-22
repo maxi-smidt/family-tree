@@ -13,6 +13,7 @@ from app.api.routes import (
     gallery,
     geocode,
     invitations,
+    jobs,
     media,
     members,
     oauth,
@@ -21,6 +22,7 @@ from app.api.routes import (
     relation_types,
     settings,
     sources,
+    sse,
     statistics,
     stories,
     trees,
@@ -44,6 +46,7 @@ api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
 api_router.include_router(virtual_views.router)
 api_router.include_router(export_import.router)
+api_router.include_router(jobs.router)
 api_router.include_router(members.router)
 api_router.include_router(gallery.router)
 api_router.include_router(events.router)
@@ -54,3 +57,4 @@ api_router.include_router(activity.router)
 api_router.include_router(quality.router)
 api_router.include_router(statistics.router)
 api_router.include_router(media.router)
+api_router.include_router(sse.router)

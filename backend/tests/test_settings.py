@@ -30,6 +30,8 @@ def test_admin_can_update_media_limits_and_bootstrap_reflects_them(client, db):
         "max_document_bytes": 40 * MEBIBYTE,
         "stored_image_width": STORED_IMAGE_WIDTH,
         "stored_image_height": STORED_IMAGE_HEIGHT,
+        "image_storage_mode": "compressed",
+        "image_storage_allowed_modes": ["compressed", "original", "both"],
     }
 
 

@@ -45,6 +45,7 @@ FEATURES: dict[str, FeatureState] = {
     "virtual_views": "on",
     "gedcom": "on",
     "sharing_invites": "on",
+    "onboarding_tour": "on",
 }
 
 # Domains whose visibility can be restricted per shared member.
@@ -61,17 +62,10 @@ RESTRICTABLE_DOMAINS: set[str] = {
     "biography",
 }
 
-# Domains restricted by default on a new share (everything except the tree
-# view so a freshly shared user sees only the family tree by default).
-DEFAULT_RESTRICTIONS: list[str] = [
-    "gallery",
-    "events",
-    "map",
-    "stories",
-    "sources",
-    "diseases",
-    "biography",
-]
+# Domains restricted by default on a new share.  Empty means a freshly-shared
+# editor or viewer gets access to everything the owner has enabled.  Owners
+# can still restrict individual domains via the Content Access controls.
+DEFAULT_RESTRICTIONS: list[str] = []
 
 _SETTING_PREFIX = "feature."
 

@@ -38,6 +38,11 @@ interface AuthState {
     password: string | null,
     confirmUsername: string | null,
   ) => Promise<User>;
+  register: (
+    username: string,
+    password: string,
+    email: string | null,
+  ) => Promise<void>;
   restoreAccount: (username: string, password: string) => Promise<void>;
   acceptPendingInvite: () => Promise<string | null>;
 }
@@ -196,6 +201,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       password,
       confirm_username: confirmUsername,
     });
+  },
+
+  register: async (
+    username: string,
+    password: string,
+    email: string | null,
+  ) => {
+    const res = await api.post<TokenResponse>("/auth/register", {
+      username,
+      password,
+      email,
+    });
+    applyToken(res);
   },
 
   restoreAccount: async (username: string, password: string) => {

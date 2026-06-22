@@ -92,7 +92,10 @@
       "cancel": "Abbrechen",
       "remove": "Entfernen",
       "toast-warning": "Du hast den letzten Stammbaum entfernt. Erstelle einen neuen.",
-      "toast-success": "Stammbaum erfolgreich entfernt."
+      "toast-success": "Stammbaum erfolgreich entfernt.",
+      "toast-error": "Stammbaum konnte nicht entfernt werden.",
+      "toast-permission-error": "Du hast keine Berechtigung mehr, diesen Stammbaum zu löschen.",
+      "toast-undo-window-error": "Der vorherige Eigentümer kann diese Übertragung noch rückgängig machen. Bitte warte kurz, bevor du löschst."
     },
     "remove-node": {
       "title_one": "Lösche Person",
@@ -168,6 +171,14 @@
       "transfer-confirm-action": "Eigentümerschaft übertragen",
       "transfer-success": "Eigentümerschaft übertragen.",
       "transfer-error": "Eigentümerschaft konnte nicht übertragen werden.",
+      "transfer-retain-toggle": "Meinen Zugriff behalten",
+      "transfer-retain-hint": "Sie bleiben nach der Übertragung Mitglied dieses Stammbaums.",
+      "transfer-retain-role-label": "Meine Rolle nach der Übertragung",
+      "transfer-undo-button": "Rückgängig ({{seconds}}s)",
+      "transfer-undo-title": "Eigentümerschaft übertragen",
+      "transfer-undo-description": "\"{{name}}\" gehört jetzt {{username}}.",
+      "transfer-reverted": "Übertragung rückgängig gemacht. Sie sind wieder Eigentümer.",
+      "transfer-revert-error": "Übertragung konnte nicht rückgängig gemacht werden.",
       "invites": {
         "title": "Per Link einladen",
         "description": "Jeder mit dem Link kann beitreten — kein Konto nötig zur Vorschau, aber zum Akzeptieren.",
@@ -197,7 +208,8 @@
         "confirm-disable-title": "Stammbaum privat machen?",
         "confirm-disable-description": "Der öffentliche Link funktioniert dann nicht mehr. Bestehende Mitglieder behalten ihren Zugang.",
         "error": "Öffentlicher Zugang konnte nicht aktualisiert werden."
-      }
+      },
+      "invitation-received": "Du wurdest zu \"{{name}}\" eingeladen"
     },
     "duplicate-tree": {
       "title": "Stammbaum duplizieren",
@@ -271,16 +283,38 @@
       "select-date-taken": "Datum Aufgenommen",
       "select-title": "Titel",
       "sort-placeholder": "Sortiere nach",
+      "sort-ascending": "Aufsteigend sortieren",
+      "sort-descending": "Absteigend sortieren",
       "toast-error-canvas-context": "Canvas Kontext konnte nicht geladen werden.",
       "toast-error-image-upload": "Das Bild konnte nicht geladen werden. Ist es ein gültiges Dokument?",
       "toast-error-image-too-large": "Das Bild ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
+      "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
+      "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
       "image-alt-fallback": "Galeriebild",
       "empty-title": "Noch keine Fotos",
       "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Stammbaums zu füllen.",
-      "empty-cta": "Foto hochladen"
+      "empty-cta": "Foto hochladen",
+      "upload-queue": {
+        "title": "Uploads",
+        "progress": "{{done}} von {{total}}",
+        "status-queued": "Wartend",
+        "status-uploading": "Wird hochgeladen…",
+        "status-done": "Fertig",
+        "status-failed": "Fehlgeschlagen",
+        "retry": "Erneut versuchen",
+        "cancel": "Abbrechen",
+        "clear-completed": "Abgeschlossene entfernen",
+        "close": "Schließen",
+        "minimize": "Minimieren",
+        "expand": "Erweitern",
+        "dropzone": "Bilder hier ablegen zum Hochladen",
+        "summary-success_one": "{{count}} Bild erfolgreich hochgeladen.",
+        "summary-success_other": "{{count}} Bilder erfolgreich hochgeladen.",
+        "summary-partial": "{{done}} hochgeladen, {{failed}} fehlgeschlagen."
+      }
     },
     "image-sheet": {
       "toast-success": "Details gespeichert",
@@ -366,7 +400,13 @@
         "dod": "Sterbedatum",
         "no-members": "Keine Personen gefunden.",
         "source-tree": "Quellbaum",
-        "caption": "Familienmitglieder"
+        "caption": "Familienmitglieder",
+        "birthplace": "Geburtsort",
+        "hometown": "Heimatort",
+        "age": "Alter",
+        "children": "Kinder",
+        "status": "Status",
+        "photo": "Foto"
       },
       "menu": {
         "trigger": "Menü öffnen",
@@ -374,6 +414,31 @@
         "details": "Details anzeigen",
         "edit": "Person bearbeiten",
         "delete": "Person löschen"
+      },
+      "status": {
+        "alive": "Lebend",
+        "deceased": "Verstorben"
+      },
+      "age-at-death": "Sterbealter",
+      "customize": "Anpassen",
+      "customize-title": "Spalten",
+      "customize-reset": "Zurücksetzen",
+      "move-up": "Nach oben",
+      "move-down": "Nach unten",
+      "filters": "Filter",
+      "filter-gender": "Geschlecht",
+      "filter-status": "Status",
+      "filter-has-photo": "Hat Foto",
+      "filter-all": "Alle",
+      "filter-male": "Männlich",
+      "filter-female": "Weiblich",
+      "filter-other": "Divers",
+      "filter-reset": "Filter zurücksetzen",
+      "export-csv": "CSV exportieren",
+      "pagination": {
+        "showing": "{{from}}–{{to}} von {{total}}",
+        "prev": "Vorherige Seite",
+        "next": "Nächste Seite"
       }
     }
   },
@@ -383,12 +448,16 @@
       "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
       "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",
       "toast-error-duplicate": "Eine Person mit denselben Daten existiert bereits.",
-      "toast-error-required": "Vor- und Nachname sind erforderlich.",
       "toast-error-image-too-large": "Das Foto ist zu groß. Maximale Größe: 10 MB.",
       "toast-error-image-unsupported": "Nicht unterstützter Bildtyp. Bitte JPEG, PNG, WebP, GIF oder AVIF verwenden.",
+      "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
+      "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
       "toast-error-save": "Speichern fehlgeschlagen.",
       "toast-success": "Person aktualisiert.",
       "gender-field": "Geschlecht",
+      "gender-male": "Männlich",
+      "gender-female": "Weiblich",
+      "gender-other": "Divers",
       "firstname-field": "Vorname",
       "middle-names-field": "Weitere Vornamen",
       "baptismal-name-field": "Taufname",
@@ -412,6 +481,10 @@
       "places-lived-to": "Bis (Jahr)",
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
       "deceased-field": "Verstorben",
+      "error-firstname-required": "Vorname ist erforderlich.",
+      "error-lastname-required": "Nachname ist erforderlich.",
+      "firstname-placeholder": "z. B. Jana",
+      "maiden-placeholder": "Mädchenname",
       "academic-title-field": "Akademischer / Ehrentitel",
       "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
       "tab-identity": "Identität",
@@ -455,6 +528,7 @@
       "tab-records": "Einträge"
     },
     "member-sheet": {
+      "loading-detail": "Details werden geladen...",
       "edit-title": "Person bearbeiten",
       "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
@@ -473,7 +547,7 @@
         "no-events": "Keine Ereignisse gespeichert",
         "delete-dialog": {
           "title": "Ereignis löschen",
-          "description": "ABist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
           "cancel": "Abbrechen",
           "delete": "Löschen"
         },
@@ -508,7 +582,8 @@
         "show-less": "Weniger anzeigen",
         "read-more": "Mehr lesen",
         "attachments": {
-          "download": "Herunterladen"
+          "download": "Herunterladen",
+          "error-open": "Datei konnte nicht geöffnet werden."
         },
         "delete-dialog": {
           "title": "Eintrag löschen",
@@ -537,7 +612,12 @@
             "hint": "Bilder, PDF und Dokumente bis {{max}}.",
             "hint-without-limit": "Bilder, PDF und Dokumente.",
             "error-type": "Nicht unterstützter Dateityp",
-            "error-size": "Datei ist zu groß (max. {{max}})"
+            "error-size": "Datei ist zu groß (max. {{max}})",
+            "error-quota-media": "Medienspeicher-Kontingent überschritten.",
+            "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+            "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
+            "error-save": "Geschichte konnte nicht gespeichert werden.",
+            "error-open": "Datei konnte nicht geöffnet werden."
           },
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
@@ -637,14 +717,35 @@
           "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
         }
       }
+    },
+    "markdown-editor": {
+      "toolbar-label": "Markdown-Formatierungsleiste",
+      "bold": "Fett",
+      "bold-default": "fetter Text",
+      "italic": "Kursiv",
+      "italic-default": "kursiver Text",
+      "heading": "Überschrift",
+      "heading-default": "Überschrift",
+      "bullet": "Aufzählungsliste",
+      "bullet-default": "Listeneintrag",
+      "link": "Link",
+      "link-default": "Linktext",
+      "link-url-placeholder": "https://",
+      "tab-write": "Schreiben",
+      "tab-preview": "Vorschau",
+      "preview-empty": "Noch nichts zum Anzeigen."
     }
   },
   "tree-view": {
     "node": {
-      "life-ongoing": "lebt",
-      "life-unknown": "ungewiss",
       "disease-indicator_one": "{{count}} genetische Erkrankung",
       "disease-indicator_other": "{{count}} genetische Erkrankungen",
+      "disease-severity": {
+        "affected": "Betroffen",
+        "carrier": "Träger",
+        "other": "Status unbekannt"
+      },
+      "union-type": "Beziehung: {{type}}",
       "risk-indicator": "Mögliches genetisches Risiko von Eltern · Kein medizinischer Rat",
       "view-details": "Personendetails anzeigen",
       "edit-member": "Person bearbeiten",
@@ -653,7 +754,7 @@
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
       "add-right": "Verwandte Person rechts hinzufügen",
-      "life-deceased-unknown": "verstorben"
+      "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {
@@ -870,8 +971,15 @@
     "timeline-deaths": "Todesfälle",
     "lifespan-title": "Altersverteilung bei Tod (Jahre)",
     "lifespan-people": "Personen",
-    "names-title": "Häufigste Vornamen",
-    "names-count": "Anzahl"
+    "first-names-title": "Häufigste Vornamen",
+    "last-names-title": "Häufigste Nachnamen",
+    "names-count": "Anzahl",
+    "customize": "Anpassen",
+    "customize-title": "Widgets",
+    "customize-reset": "Zurücksetzen",
+    "move-up": "Nach oben",
+    "move-down": "Nach unten",
+    "all-hidden": "Alle Widgets sind ausgeblendet. Über 'Anpassen' wieder einblenden."
   },
   "database-management-view": {
     "title": "Stammbaumverwaltung",
@@ -888,6 +996,7 @@
     "none-selected": "Keine",
     "toast-import-success": "Stammbaum erfolgreich importiert!",
     "toast-import-error": "Stammbaum konnte nicht importiert werden.",
+    "import-provenance": "Exportiert aus v{{version}} am {{date}}",
     "toast-gedcom-import-success": "Stammbaum erfolgreich aus GEDCOM importiert!",
     "toast-gedcom-import-error": "GEDCOM-Datei konnte nicht importiert werden.",
     "toast-gedcom-export-error": "Stammbaum konnte nicht als GEDCOM exportiert werden.",
@@ -961,7 +1070,9 @@
       "relogin-password": "Passwort",
       "relogin-submit": "Anmelden",
       "relogin-cancel": "Abmelden",
-      "relogin-error": "Anmeldung fehlgeschlagen. Bitte versuche es erneut."
+      "relogin-error": "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
+      "invalidated-deactivated": "Ihr Konto wurde deaktiviert. Sie wurden abgemeldet.",
+      "invalidated-pending-deletion": "Ihr Konto wird gelöscht. Sie wurden abgemeldet."
     },
     "login": {
       "title": "Stammbaum",
@@ -1010,7 +1121,9 @@
       "admin": "Verwaltung",
       "delete-account": "Konto löschen",
       "logout": "Abmelden",
-      "two-factor": "Zwei-Faktor-Authentifizierung"
+      "two-factor": "Zwei-Faktor-Authentifizierung",
+      "settings": "Einstellungen",
+      "show-tutorial": "Tutorial anzeigen"
     },
     "friends": {
       "title": "Freunde",
@@ -1042,7 +1155,8 @@
       "confirm-remove-title": "Freund entfernen?",
       "confirm-remove-description": "{{name}} aus deinen Freunden entfernen? Gemeinsam geteilte Stammbäume sind danach nicht mehr zugänglich.",
       "confirm-remove-confirm": "Entfernen",
-      "confirm-remove-cancel": "Abbrechen"
+      "confirm-remove-cancel": "Abbrechen",
+      "new-request": "Neue Freundschaftsanfrage von {{name}}"
     },
     "delete-account": {
       "title": "Konto löschen",
@@ -1101,6 +1215,7 @@
   "admin": {
     "title": "Verwaltung",
     "description": "Benutzer und Instanzeinstellungen verwalten.",
+    "back": "Zurück",
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",
@@ -1125,7 +1240,8 @@
         "gedcom": "GEDCOM-Import/-Export",
         "sharing_invites": "Einladungen teilen",
         "map": "Kartenansicht",
-        "sources": "Quellen & Zitate"
+        "sources": "Quellen & Zitate",
+        "onboarding_tour": "Onboarding-Tour"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1138,7 +1254,8 @@
         "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
-        "sources": "Quellennachweise und Belege für Personendaten."
+        "sources": "Quellennachweise und Belege für Personendaten.",
+        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
       }
     },
     "col-username": "Benutzername",
@@ -1167,6 +1284,19 @@
     "max-image-upload": "Bildgröße (MB)",
     "max-document-upload": "Anhangsgröße (MB)",
     "max-image-dimension": "Bildkante (px)",
+    "image-storage-mode": "Galeriebilder-Speicherung",
+    "image-storage-mode-compressed": "Komprimiert (WebP)",
+    "image-storage-mode-original": "Nur Original",
+    "image-storage-mode-both": "Beides (Anzeige + Original)",
+    "image-storage-mode-hint": "Legt fest, wie Galeriebilder gespeichert werden. „Original“ und „Beides“ laden die volle Auflösung hoch – erhöhe das Bildgrößenlimit entsprechend.",
+    "image-storage-mode-allowed": "Erlaubte Speichermodi",
+    "image-storage-mode-allowed-hint": "Wähle, welche Speichermodi Benutzer auswählen dürfen.",
+    "image-storage-mode-default": "Standardmodus",
+    "image-storage-mode-default-hint": "Der Modus, der für Benutzer ohne eigene Einstellung gilt. Muss einer der oben erlaubten Modi sein.",
+    "storage-quotas": "Standard-Speicherkontingente",
+    "storage-quotas-hint": "Setzt das Standard-Kontingent je Bucket pro Nutzer. 0 = unbegrenzt. Nutzer-spezifische Werte haben Vorrang.",
+    "default-tree-quota": "Stammbaumdaten (MB)",
+    "default-media-quota": "Mediendateien (MB)",
     "save-settings": "Einstellungen speichern",
     "pending-deletion": "Löschung vorgemerkt · {{date}}",
     "cancel-deletion": "Löschung abbrechen",
@@ -1174,6 +1304,17 @@
     "delete-user": "Löschung vormerken",
     "reset-password": "Passwort zurücksetzen",
     "reset-password-unavailable": "Passwort kann nur für lokale Konten zurückgesetzt werden",
+    "edit-quotas": "Speicherkontingente",
+    "quota-dialog": {
+      "title": "Speicherkontingente",
+      "description": "Speicherkontingente für \"{{username}}\" überschreiben.",
+      "hint": "Werte in MB. Leer lassen, um den Instanz-Standard zu verwenden; 0 für unbegrenzt.",
+      "tree": "Stammbaumdaten (MB)",
+      "media": "Mediendateien (MB)",
+      "default-placeholder": "Standard",
+      "cancel": "Abbrechen",
+      "save": "Speichern"
+    },
     "reset-dialog": {
       "title": "Passwort zurücksetzen",
       "description": "Neues Passwort für \"{{username}}\" festlegen.",
@@ -1295,5 +1436,98 @@
     "stay": "Bleiben",
     "save": "Speichern",
     "discard": "Verwerfen"
+  },
+  "storage-usage": {
+    "title": "Speicher",
+    "tree": "Stammbaumdaten",
+    "media": "Mediendateien",
+    "total": "Gesamt",
+    "used-of": "{{used}} / {{quota}}",
+    "unlimited": "unbegrenzt",
+    "error": "Speichernutzung konnte nicht geladen werden.",
+    "quota-label": "Kontingent",
+    "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
+    "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+    "quota-warning": "Der Medienspeicher für diesen Stammbaum ist fast voll."
+  },
+  "user-settings": {
+    "title": "Einstellungen",
+    "back": "Zurück",
+    "save": "Speichern",
+    "toast-saved": "Einstellungen gespeichert.",
+    "toast-error": "Einstellungen konnten nicht gespeichert werden.",
+    "image-storage": {
+      "section": "Galeriebilder-Speicherung",
+      "label": "Speichermodus",
+      "hint": "Legt fest, wie deine Galeriebilder gespeichert werden. Die verfügbaren Optionen hängen von der Instanzkonfiguration ab.",
+      "compressed": "Komprimiert (WebP)",
+      "original": "Nur Original",
+      "both": "Beides (Anzeige + Original)"
+    },
+    "tabs": {
+      "section": "Tab-Layout",
+      "hint": "Wähle, welche Ansichten sichtbar sind, und ordne die Tabs im Hauptbereich neu an.",
+      "button": "Tabs anpassen"
+    },
+    "two-factor": {
+      "section": "Zwei-Faktor-Authentifizierung",
+      "status-enabled": "Die Zwei-Faktor-Authentifizierung ist derzeit auf deinem Konto aktiv.",
+      "status-disabled": "Die Zwei-Faktor-Authentifizierung ist derzeit deaktiviert.",
+      "button": "2FA verwalten"
+    },
+    "delete-account": {
+      "section": "Konto löschen",
+      "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "button": "Mein Konto löschen"
+    }
+  },
+  "tutorial": {
+    "welcome": {
+      "title": "Willkommen bei Family Tree",
+      "body": "Diese kurze Tour führt dich durch die wichtigsten Funktionen. Du kannst sie jederzeit über das Benutzermenü neu starten."
+    },
+    "create-tree": {
+      "title": "Ersten Stammbaum erstellen",
+      "body": "Klicke auf Weiter, um den Dialog zu öffnen, in dem dein erster Stammbaum erstellt wird."
+    },
+    "existing-tree": {
+      "title": "Mit diesem Stammbaum fortfahren",
+      "body": "Du hast bereits einen Stammbaum ausgewählt. Deshalb überspringen wir die Einrichtung und zeigen dir direkt die täglichen Werkzeuge."
+    },
+    "add-member": {
+      "title": "Erste Person hinzufügen",
+      "body": "Klicke hier, um eine Person zum Stammbaum hinzuzufügen. Anschließend kannst du Details bearbeiten und sie mit Elternteilen, Kindern und Partnern verknüpfen."
+    },
+    "sidebar-panel": {
+      "title": "Deine Seitenleiste",
+      "body": "Hier kannst du zwischen deinen Stammbäumen wechseln, das Aussehen anpassen (Design, Sprache, Kantentyp) und über das Benutzermenü am unteren Rand auf deine Kontoeinstellungen zugreifen."
+    },
+    "switch-views": {
+      "title": "Zwischen Ansichten wechseln",
+      "body": "Mit diesen Tabs wechselst du zwischen verschiedenen Ansichten deiner Daten – Stammbaum, Liste, Zeitstrahl, Karte, Statistiken und mehr. Als Nächstes geht es zur Baumverwaltung."
+    },
+    "tree-management": {
+      "title": "Baumverwaltung",
+      "body": "Hier kannst du neue Stammbäume erstellen, einen bestehenden Baum mit Freunden als Betrachter oder Bearbeiter teilen sowie Daten importieren oder exportieren."
+    },
+    "friends": {
+      "title": "Freunde & Teilen",
+      "body": "Suche andere Benutzer anhand ihres Benutzernamens, sende eine Freundschaftsanfrage und lade sie nach der Annahme zu einem deiner Stammbäume ein."
+    },
+    "finish": {
+      "title": "Alles bereit!",
+      "body": "Das war die Tour. Du kannst sie jederzeit über das Benutzermenü in der Seitenleiste erneut starten. Viel Spaß beim Erstellen deines Stammbaums!"
+    },
+    "buttons": {
+      "next": "Weiter",
+      "prev": "Zurück",
+      "done": "Fertig",
+      "skip": "Überspringen"
+    },
+    "tree-name": {
+      "title": "Stammbaum benennen",
+      "default": "Mein erster Stammbaum",
+      "body": "Wir haben deinem Stammbaum schon einen Namen gegeben — du kannst ihn jederzeit später ändern. Klicke auf Weiter, um ihn zu erstellen."
+    }
   }
 }

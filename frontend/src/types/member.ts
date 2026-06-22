@@ -47,6 +47,8 @@ export interface Member {
   date: {
     birth: string;
     death: string | null;
+    birthSort?: string | null;
+    deathSort?: string | null;
   };
   parents: {
     paternalParent: string | null;
@@ -114,10 +116,12 @@ export interface MemberDB {
   lastName: string;
   maidenName: string | null;
   imageData: string | null;
-  dateOfBirth: string;
+  dateOfBirth: string | null;
   dateOfDeath: string | null;
+  dateOfBirthSort?: string | null;
+  dateOfDeathSort?: string | null;
   deceased: boolean;
-  additionalData: string | null;
+  additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
   placesLived?: string | null;
@@ -189,14 +193,16 @@ export function mapMemberFromDB(
     imageData: row.imageData,
     deceased: !!row.deceased,
     date: {
-      birth: row.dateOfBirth,
+      birth: row.dateOfBirth ?? "",
       death: row.dateOfDeath,
+      birthSort: row.dateOfBirthSort ?? null,
+      deathSort: row.dateOfDeathSort ?? null,
     },
     parents: {
       paternalParent: null,
       maternalParent: null,
     },
-    additionalData: row.additionalData,
+    additionalData: row.additionalData ?? null,
     birthplace: row.birthplace ?? null,
     hometown: row.hometown ?? null,
     placesLived: parsePlacesLived(row.placesLived),
@@ -231,7 +237,7 @@ export function mapMemberToDB(member: Member): MemberDB {
     lastName: member.lastName,
     maidenName: member.maidenName,
     imageData: member.imageData,
-    dateOfBirth: member.date.birth,
+    dateOfBirth: member.date.birth || null,
     dateOfDeath: member.date.death,
     deceased: member.deceased,
     positionX: member.position.x,
@@ -246,7 +252,6 @@ export function mapMemberToDB(member: Member): MemberDB {
 }
 
 export function createMember(position: { x: number; y: number }): Member {
-  const currentYear = new Date().getFullYear().toString();
   return {
     id: crypto.randomUUID(),
     gender: "o",
@@ -258,7 +263,7 @@ export function createMember(position: { x: number; y: number }): Member {
     maidenName: null,
     imageData: null,
     deceased: false,
-    date: { birth: currentYear, death: null },
+    date: { birth: "", death: null },
     parents: { paternalParent: null, maternalParent: null },
     additionalData: null,
     birthplace: null,

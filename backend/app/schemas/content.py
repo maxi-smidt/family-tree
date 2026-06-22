@@ -1,35 +1,40 @@
-"""Schemas for gallery images, events and stories (frontend `*DB` shapes)."""
+"""Schemas for gallery images, events and stories (frontend `*DB` shapes).
+
+``GalleryImage*`` schemas use the camelCase alias-generator base classes
+because the frontend reads/writes ``imageData``, ``createdAt``, ``uploadedAt``.
+All other schemas are intentionally snake_case end-to-end.
+"""
 
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
+
 
 # --- Gallery ---------------------------------------------------------------
-class GalleryImageOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
+class GalleryImageOut(FamilyTreeOrmBaseModel):
     id: str
-    imageData: str | None = None
+    image_data: str | None = None
     title: str | None = None
     description: str | None = None
-    createdAt: str | None = None
-    uploadedAt: str | None = None
+    created_at: str | None = None
+    uploaded_at: str | None = None
 
 
-class GalleryImageCreate(BaseModel):
+class GalleryImageCreate(FamilyTreeBaseModel):
     id: str
-    imageData: str | None = None
+    image_data: str | None = None
     title: str | None = None
     description: str | None = None
-    createdAt: str | None = None
-    uploadedAt: str | None = None
+    created_at: str | None = None
+    uploaded_at: str | None = None
     # Members to link the new image to, in a single request.
     member_ids: list[str] = []
 
 
-class GalleryImageUpdate(BaseModel):
-    imageData: str | None = None
+class GalleryImageUpdate(FamilyTreeBaseModel):
+    image_data: str | None = None
     title: str | None = None
     description: str | None = None
 

@@ -26,6 +26,7 @@ import { GeocodeDB } from "@/types/geocode";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { StatisticsReport } from "@/types/statistics";
+import { TreeStorageUsageDB } from "@/types/storage";
 
 const base = (treeId: string) =>
   treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
@@ -43,8 +44,15 @@ export class TreeService {
   }
 
   // --- Members -------------------------------------------------------------
-  static getMembers(treeId: string) {
-    return api.get<MemberDB[]>(`${base(treeId)}/members`);
+  static getMembers(treeId: string, surface = false) {
+    const url = surface
+      ? `${base(treeId)}/members?surface=true`
+      : `${base(treeId)}/members`;
+    return api.get<MemberDB[]>(url);
+  }
+
+  static getMember(treeId: string, id: string) {
+    return api.get<MemberDB>(`${base(treeId)}/members/${id}`);
   }
 
   static getRelations(treeId: string) {
@@ -333,7 +341,12 @@ export class TreeService {
     return api.get<CitationDB[]>(`${base(treeId)}/sources/citations`);
   }
 
-  static addSource(treeId: string, id: string, input: SourceInput, now: string) {
+  static addSource(
+    treeId: string,
+    id: string,
+    input: SourceInput,
+    now: string,
+  ) {
     return api.post<SourceDB>(`${base(treeId)}/sources`, {
       id,
       title: input.title,
@@ -368,10 +381,11 @@ export class TreeService {
     filename: string,
     data: string,
   ) {
-    return api.post(
-      `${base(treeId)}/sources/${sourceId}/evidence`,
-      { kind: "file", filename, data },
-    );
+    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
+      kind: "file",
+      filename,
+      data,
+    });
   }
 
   static addSourceEvidenceLink(
@@ -380,10 +394,11 @@ export class TreeService {
     url: string,
     label: string | null,
   ) {
-    return api.post(
-      `${base(treeId)}/sources/${sourceId}/evidence`,
-      { kind: "link", url, filename: label },
-    );
+    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
+      kind: "link",
+      url,
+      filename: label,
+    });
   }
 
   static renameSourceEvidence(
@@ -457,16 +472,28 @@ export class TreeService {
       tasks.push(TreeService.removeSourceEvidence(treeId, sourceId, id));
     }
     for (const { id, filename } of ops.renamed) {
-      tasks.push(TreeService.renameSourceEvidence(treeId, sourceId, id, filename));
+      tasks.push(
+        TreeService.renameSourceEvidence(treeId, sourceId, id, filename),
+      );
     }
     for (const f of ops.addedFiles) {
       tasks.push(
-        TreeService.addSourceEvidenceFile(treeId, sourceId, f.filename, f.dataUrl),
+        TreeService.addSourceEvidenceFile(
+          treeId,
+          sourceId,
+          f.filename,
+          f.dataUrl,
+        ),
       );
     }
     for (const link of ops.addedLinks) {
       tasks.push(
-        TreeService.addSourceEvidenceLink(treeId, sourceId, link.url, link.label),
+        TreeService.addSourceEvidenceLink(
+          treeId,
+          sourceId,
+          link.url,
+          link.label,
+        ),
       );
     }
     return tasks;
@@ -547,6 +574,11 @@ export class TreeService {
   // --- Statistics -----------------------------------------------------------
   static getStatistics(treeId: string) {
     return api.get<StatisticsReport>(`${base(treeId)}/statistics`);
+  }
+
+  // --- Storage usage -------------------------------------------------------
+  static getStorageUsage(treeId: string) {
+    return api.get<TreeStorageUsageDB>(`${base(treeId)}/storage`);
   }
 
   // --- Virtual views --------------------------------------------------------

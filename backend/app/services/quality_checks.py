@@ -27,8 +27,8 @@ def run_quality_checks(
 
     # --- 1. Birth-after-death ---
     for m in members:
-        birth = _year(m.dateOfBirth)
-        death = _year(m.dateOfDeath)
+        birth = _year(m.date_of_birth)
+        death = _year(m.date_of_death)
         if birth is not None and death is not None and birth > death:
             issues.append(
                 {
@@ -52,8 +52,8 @@ def run_quality_checks(
         child = member_map.get(child_id)
         if parent is None or child is None:
             continue
-        parent_birth = _year(parent.dateOfBirth)
-        child_birth = _year(child.dateOfBirth)
+        parent_birth = _year(parent.date_of_birth)
+        child_birth = _year(child.date_of_birth)
         if parent_birth is None or child_birth is None:
             continue
         age_at_birth = child_birth - parent_birth
@@ -135,8 +135,8 @@ def run_quality_checks(
     # --- 4. Duplicate-name candidates ---
     name_groups: dict[str, list[str]] = defaultdict(list)
     for m in members:
-        first = (m.firstName or "").strip().lower()
-        last = (m.lastName or "").strip().lower()
+        first = (m.first_name or "").strip().lower()
+        last = (m.last_name or "").strip().lower()
         if first or last:
             name_groups[f"{first}|{last}"].append(m.id)
 

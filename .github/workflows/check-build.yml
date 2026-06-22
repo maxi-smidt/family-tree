@@ -13,10 +13,43 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
+
+# Cancel superseded in-progress runs on the same PR. Never cancel push/tag
+# runs — those publish container images and must run to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Detect which areas a PR touched so the irrelevant heavy jobs can be skipped.
+  # On push/tag we always run everything (full validation before publishing).
+  changes:
+    name: "Detect changed areas"
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v4
+
+      - name: "Filter changed paths"
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/check-build.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/check-build.yml'
+
   frontend:
     name: "Frontend (build + test + i18n)"
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -28,7 +61,7 @@ jobs:
       - name: "Set up Node.js"
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -57,15 +90,19 @@ jobs:
     steps:
       - name: "Require frontend i18n step to pass"
         run: |
-          echo "frontend=${{ needs.frontend.result }}"
-          if [ "${{ needs.frontend.result }}" != "success" ]; then
+          res="${{ needs.frontend.result }}"
+          echo "frontend=$res"
+          # "skipped" means the PR touched no frontend files — nothing to check.
+          if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
             echo "The frontend job runs npm run check-i18n and did not pass."
             exit 1
           fi
-          echo "i18n passed in the frontend job."
+          echo "i18n OK (frontend job: $res)."
 
   backend:
     name: "Backend (deps + checks)"
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -75,7 +112,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: "Set up uv"
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
           python-version: "3.12"
@@ -92,7 +129,9 @@ jobs:
           uv run python -c "import app.main; print('app imports OK')"
 
       - name: "Unit tests"
-        run: uv run pytest
+        # -n auto fans the suite across the runner's cores (pytest-xdist).
+        # Tests are isolation-safe: each gets its own SQLite DB via tmp_path.
+        run: uv run pytest -n auto
 
   version-policy:
     name: "Version metadata policy"
@@ -137,23 +176,129 @@ jobs:
   # "Check Application Build" (branch protection) keeps being reported.
   check-build:
     name: "Check Application Build"
-    needs: [frontend, i18n-status, backend, version-policy]
+    needs: [changes, frontend, i18n-status, backend, version-policy]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: "Require all checks to pass"
         run: |
-          echo "frontend=${{ needs.frontend.result }} i18n-status=${{ needs.i18n-status.result }} backend=${{ needs.backend.result }} version-policy=${{ needs.version-policy.result }}"
-          if [ "${{ needs.frontend.result }}" != "success" ] || [ "${{ needs.i18n-status.result }}" != "success" ] || [ "${{ needs.backend.result }}" != "success" ] || [ "${{ needs.version-policy.result }}" != "success" ]; then
-            echo "One or more checks failed."
+          echo "changes=${{ needs.changes.result }} frontend=${{ needs.frontend.result }} i18n-status=${{ needs.i18n-status.result }} backend=${{ needs.backend.result }} version-policy=${{ needs.version-policy.result }}"
+          # Change-detection must succeed, else we'd skip everything and pass blindly.
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "Change detection failed."
             exit 1
           fi
-          echo "All checks passed."
+          # frontend/backend may be legitimately "skipped" when their area was untouched.
+          for res in "${{ needs.frontend.result }}" "${{ needs.backend.result }}"; do
+            if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
+              echo "A build/test job failed ($res)."
+              exit 1
+            fi
+          done
+          # The always-on gate jobs must pass outright.
+          if [ "${{ needs.i18n-status.result }}" != "success" ] || [ "${{ needs.version-policy.result }}" != "success" ]; then
+            echo "A required gate job failed."
+            exit 1
+          fi
+          echo "All checks passed (skipped = no changes in that area)."
+
+  release-e2e:
+    name: "Release Playwright E2E"
+    needs: [check-build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      E2E_ADMIN_USERNAME: e2e-admin
+      E2E_ADMIN_PASSWORD: e2e-admin-password
+      E2E_BASE_URL: http://localhost:8080
+      E2E_API_URL: http://localhost:8080/api
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Build & start compose stack"
+        run: |
+          docker compose -f docker-compose.e2e.yml up --build -d
+        env:
+          E2E_ADMIN_USERNAME: ${{ env.E2E_ADMIN_USERNAME }}
+          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+
+      - name: "Wait for stack to be healthy"
+        run: |
+          echo "Waiting for frontend to be reachable..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080 > /dev/null 2>&1; then
+              echo "Stack is up after ${i} attempts"
+              break
+            fi
+            echo "  attempt $i/30 — waiting 5s"
+            sleep 5
+          done
+          curl -sf http://localhost:8080/api/health/ready || {
+            echo "Backend health check failed"
+            docker compose -f docker-compose.e2e.yml logs
+            exit 1
+          }
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: "Install dependencies"
+        working-directory: e2e
+        run: npm ci
+
+      - name: "Install Playwright browsers"
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: "Run Playwright tests"
+        working-directory: e2e
+        run: npx playwright test
+        env:
+          E2E_ADMIN_USERNAME: ${{ env.E2E_ADMIN_USERNAME }}
+          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+          E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
+          E2E_API_URL: ${{ env.E2E_API_URL }}
+
+      - name: "Upload test report"
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: "Upload traces on failure"
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: release-playwright-traces
+          path: e2e/test-results/
+          retention-days: 7
+
+      - name: "Dump compose logs on failure"
+        if: failure()
+        run: docker compose -f docker-compose.e2e.yml logs
+
+      - name: "Tear down compose stack"
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml down -v
 
   images:
     name: "Build & push ${{ matrix.service }} image"
-    needs: [check-build]
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: [check-build, release-e2e]
+    if: |
+      always() &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      needs.check-build.result == 'success' &&
+      (!startsWith(github.ref, 'refs/tags/v') || needs.release-e2e.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -200,7 +345,7 @@ jobs:
 
       - name: "Docker metadata"
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}-${{ matrix.service }}
           flavor: latest=false
@@ -211,12 +356,12 @@ jobs:
             type=sha,format=short
 
       - name: "Set up Docker Buildx"
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Build into the local Docker daemon first so Trivy can scan the image
       # before anything is pushed. The push step below is a pure cache hit.
       - name: "Build for scanning"
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           load: true
@@ -249,7 +394,7 @@ jobs:
           skip-setup-trivy: true
 
       - name: "Build and push"
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           push: true

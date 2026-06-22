@@ -30,6 +30,7 @@ from app.schemas.content import (
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.event_bus import publish_tree_event
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
     FileTooLarge,
@@ -37,6 +38,7 @@ from app.services.storage import (
     delete_media,
     store_document,
 )
+from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/stories",
@@ -100,6 +102,10 @@ def create_story(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
+    try:
+        check_tree_quota(db, tree, len(str(data).encode()))
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     story = Story(tree_id=tree.id, **data)
     db.add(story)
     db.flush()  # story row must exist before its links reference it
@@ -114,7 +120,12 @@ def create_story(
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="story", target_id=story.id, target_label=story.title)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(story)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return story
 
 
@@ -132,7 +143,12 @@ def update_story(
     record_activity(db, tree_id=tree.id, actor=user, action="update",
                     target_type="story", target_id=story.id, target_label=story.title)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(story)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return story
 
 
@@ -151,6 +167,11 @@ def delete_story(
         delete_media(att.url)
     db.delete(story)
     db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
 
 
 @router.put("/{story_id}/links", status_code=204)
@@ -196,6 +217,14 @@ def add_attachment(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # Write-then-verify: the file is already on disk and counted by
+    # compute_usage, so pass 0 to avoid double-counting it.
+    try:
+        check_media_quota(db, tree, 0)
+    except QuotaExceeded as exc:
+        delete_media(url)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+
     att = StoryAttachment(
         id=str(uuid4()),
         tree_id=tree.id,
@@ -209,6 +238,10 @@ def add_attachment(
     db.add(att)
     db.commit()
     db.refresh(att)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return att
 
 
@@ -227,6 +260,10 @@ def rename_attachment(
     att.filename = payload.filename
     db.commit()
     db.refresh(att)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
     return att
 
 
@@ -242,3 +279,7 @@ def delete_attachment(
     delete_media(att.url)
     db.delete(att)
     db.commit()
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "story"},
+    )
