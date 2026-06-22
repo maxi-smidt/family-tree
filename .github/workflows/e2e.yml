@@ -13,10 +13,12 @@ on:
       - 'e2e/**'
       - 'docker-compose.e2e.yml'
       - '.github/workflows/e2e.yml'
+      - '.github/workflows/check-build.yml'
   workflow_dispatch:
 
-# Not a required check yet — runs independently alongside CI.
-# Promote to required once the suite is stable.
+# Day-to-day PRs run E2E alongside CI when app/test-stack files change. Release
+# tags are gated inside check-build.yml so images are not published unless the
+# same Playwright suite passes.
 
 permissions:
   contents: read
