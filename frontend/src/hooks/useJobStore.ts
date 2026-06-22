@@ -5,8 +5,15 @@ interface PendingJob {
   reject: (err: Error) => void;
 }
 
-// Module-level map so mutations don't trigger spurious re-renders.
+interface EarlyResult {
+  treeId?: string;
+  error?: string;
+}
+
+// Module-level maps so mutations don't trigger spurious re-renders.
 const _pending = new Map<string, PendingJob>();
+// Stash job.done / job.failed events that arrived before trackJob was called.
+const _early = new Map<string, EarlyResult>();
 
 interface JobStoreState {
   activeJobId: string | null;
@@ -25,6 +32,18 @@ export const useJobStore = create<JobStoreState>((set, get) => ({
 
   trackJob: (jobId: string) =>
     new Promise<string>((resolve, reject) => {
+      // The SSE job.done/job.failed event may have arrived before trackJob was
+      // called (race condition for very fast jobs). Check the stash first.
+      const early = _early.get(jobId);
+      if (early) {
+        _early.delete(jobId);
+        if (early.treeId !== undefined) {
+          resolve(early.treeId);
+        } else {
+          reject(new Error(early.error ?? "Job failed"));
+        }
+        return;
+      }
       _pending.set(jobId, { resolve, reject });
       set({ activeJobId: jobId, activeJobPct: 0 });
     }),
@@ -41,6 +60,9 @@ export const useJobStore = create<JobStoreState>((set, get) => ({
       _pending.delete(jobId);
       set({ activeJobId: null, activeJobPct: 0 });
       pending.resolve(treeId);
+    } else {
+      // trackJob hasn't been called yet — stash the result.
+      _early.set(jobId, { treeId });
     }
   },
 
@@ -50,6 +72,9 @@ export const useJobStore = create<JobStoreState>((set, get) => ({
       _pending.delete(jobId);
       set({ activeJobId: null, activeJobPct: 0 });
       pending.reject(new Error(error));
+    } else {
+      // trackJob hasn't been called yet — stash the error.
+      _early.set(jobId, { error });
     }
   },
 }));
