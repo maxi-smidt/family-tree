@@ -6,6 +6,7 @@
 
 import { test, expect } from "../fixtures";
 import { seedMinimalFamily, deleteTree } from "../fixtures/seed";
+import { waitForJob } from "../fixtures/api";
 import { API_URL } from "../playwright.config";
 
 // ---------------------------------------------------------------------------
@@ -48,8 +49,14 @@ async function importBundle(
     headers: { Authorization: `Bearer ${token}` },
     body: form,
   });
-  expect(importRes.status).toBe(201);
-  return (await importRes.json()) as { id: string; name: string };
+  expect(importRes.status).toBe(202);
+  const { job_id } = (await importRes.json()) as { job_id: string };
+  const treeId = await waitForJob(token, job_id);
+  const treeRes = await fetch(`${API_URL}/trees/${treeId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  expect(treeRes.ok).toBe(true);
+  return (await treeRes.json()) as { id: string; name: string };
 }
 
 async function expectFamilyMembers(
@@ -220,14 +227,20 @@ test("GEDCOM import — members are created from .ged file", async ({
       headers: { Authorization: `Bearer ${adminApi.token}` },
       body: form,
     });
-    expect(importRes.status).toBe(201);
-    const imported = (await importRes.json()) as { id: string; name: string };
-    importedId = imported.id;
+    expect(importRes.status).toBe(202);
+    const { job_id } = (await importRes.json()) as { job_id: string };
+    importedId = await waitForJob(adminApi.token, job_id);
+
+    const treeRes = await fetch(`${API_URL}/trees/${importedId}`, {
+      headers: { Authorization: `Bearer ${adminApi.token}` },
+    });
+    expect(treeRes.ok).toBe(true);
+    const imported = (await treeRes.json()) as { id: string; name: string };
     expect(imported.name).toBe("E2E-GEDCOM-Imported");
 
     const members = await adminApi.get<
       Array<{ firstName?: string; lastName?: string }>
-    >(`/trees/${imported.id}/members`);
+    >(`/trees/${importedId}/members`);
     expect(members).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ firstName: "Gedcom", lastName: "Doe" }),
