@@ -23,7 +23,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 # Revision ID of the squashed baseline migration.  Any database stamped with a
 # pre-squash revision (unknown to the current chain) is stamped here first so
 # that the normal upgrade can apply post-squash migrations on top.
-BASELINE_REVISION = "f8c1d2e3a4b5"
+BASELINE_REVISION = "v1_0_0_baseline"
 
 # Seeded into the instance-wide registry on startup. Admins manage the registry
 # afterwards, so startup only tops up built-in defaults that are missing.
@@ -76,7 +76,11 @@ def run_migrations() -> None:
             "baseline %s and continuing with pending migrations.",
             BASELINE_REVISION,
         )
-        command.stamp(cfg, BASELINE_REVISION)
+        # purge=True clears alembic_version and writes the baseline directly.
+        # A plain stamp would fail here because Alembic tries to resolve the
+        # current (now-removed) revision to compute the path, raising
+        # "Can't locate revision ...".
+        command.stamp(cfg, BASELINE_REVISION, purge=True)
 
     command.upgrade(cfg, "head")
 
@@ -108,6 +112,17 @@ def _seed_relation_types(db) -> None:
 def _seed_admin(db) -> None:
     user_count = db.scalar(select(func.count()).select_from(User))
     if user_count and user_count > 0:
+        return
+    if settings.authentik_enabled:
+        # With Authentik linked, admins are provisioned through the configured
+        # admin group on first OIDC login. Skip seeding a local admin from the
+        # FIRST_ADMIN_* env vars so we don't leave behind an unused (and often
+        # default-password) local account.
+        logger.info(
+            "Authentik is configured; skipping local admin seed. Grant admin "
+            "via the '%s' Authentik group.",
+            settings.AUTHENTIK_ADMIN_GROUP,
+        )
         return
     if settings.FIRST_ADMIN_PASSWORD == "admin":
         logger.warning(
