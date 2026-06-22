@@ -38,6 +38,7 @@ from app.models import (
 )
 from app.schemas.family import MemberOut
 from app.schemas.merge import DuplicatePair, MergeResolution, TreeMergePreview
+from app.services.job_service import ProgressCallback
 from app.services.storage import copy_media_to_tree
 
 if TYPE_CHECKING:
@@ -307,7 +308,12 @@ def merge_trees(
     source_a_id: str,
     source_b_id: str | None,
     resolutions: list[MergeResolution] | None = None,
+    progress_cb: ProgressCallback | None = None,
 ) -> Tree:
+    def _progress(pct: int) -> None:
+        if progress_cb is not None:
+            progress_cb(pct)
+
     tree_a = _require_readable(db, user, source_a_id)
     tree_b = _require_readable(db, user, source_b_id) if source_b_id else None
     sources = [t for t in (tree_a, tree_b) if t is not None]
@@ -323,6 +329,7 @@ def merge_trees(
     )
     db.add(new_tree)
     db.flush()
+    _progress(10)
 
     # --- Members (with de-duplication across both sources) -----------------
     # member_map: source member id → new tree member id
@@ -422,6 +429,7 @@ def merge_trees(
 
     # Members must exist before relations/diseases/links reference them.
     db.flush()
+    _progress(50)
 
     # --- Relations ---------------------------------------------------------
     seen_relations: set[tuple] = set()
@@ -467,6 +475,8 @@ def merge_trees(
                 )
             )
 
+    _progress(60)
+
     # --- Gallery images + links --------------------------------------------
     image_map: dict[str, str] = {}
     for t in sources:
@@ -499,6 +509,8 @@ def merge_trees(
                 seen_gallery_links.add((gi, mid))
                 db.add(GalleryMemberLink(gallery_image_id=gi, member_id=mid))
 
+    _progress(70)
+
     # --- Events + links ----------------------------------------------------
     event_map: dict[str, str] = {}
     for t in sources:
@@ -530,6 +542,8 @@ def merge_trees(
             if ev and mid and (ev, mid) not in seen_event_links:
                 seen_event_links.add((ev, mid))
                 db.add(EventMemberLink(event_id=ev, member_id=mid))
+
+    _progress(80)
 
     # --- Stories + links ---------------------------------------------------
     story_map: dict[str, str] = {}
@@ -584,6 +598,7 @@ def merge_trees(
                 )
             )
 
+    _progress(95)
     db.commit()
     db.refresh(new_tree)
     return new_tree

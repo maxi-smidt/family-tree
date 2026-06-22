@@ -12,6 +12,7 @@ import { getAuthToken } from "@/services/api";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { useJobStore } from "@/hooks/useJobStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -121,6 +122,30 @@ function connect(): void {
     const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
     if (!isActiveTree(data.tree_id)) return;
     void useMemberStore.getState().refreshMembers(data.tree_id);
+  });
+
+  source.addEventListener("job.progress", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      job_id: string;
+      pct: number;
+    };
+    useJobStore.getState().onProgress(data.job_id, data.pct);
+  });
+
+  source.addEventListener("job.done", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      job_id: string;
+      tree_id: string;
+    };
+    useJobStore.getState().onDone(data.job_id, data.tree_id);
+  });
+
+  source.addEventListener("job.failed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      job_id: string;
+      error: string;
+    };
+    useJobStore.getState().onFailed(data.job_id, data.error);
   });
 
   source.addEventListener("storage.warning", (e) => {

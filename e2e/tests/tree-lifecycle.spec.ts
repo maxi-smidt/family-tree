@@ -9,7 +9,7 @@
 
 import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures";
-import { apiLogin, makeApiClient } from "../fixtures/api";
+import { apiLogin, makeApiClient, waitForJob } from "../fixtures/api";
 import type { ApiClient } from "../fixtures/api";
 import { createMember, createTree, deleteTree } from "../fixtures/seed";
 import type { TreeRecord } from "../fixtures/seed";
@@ -380,8 +380,10 @@ test("merge: the wizard previews and creates the union of both trees", async ({
     await dialog.getByRole("button", { name: "Merge", exact: true }).click();
 
     const mergeResponse = await mergeResponsePromise;
-    expect(mergeResponse.status()).toBe(201);
-    merged = (await mergeResponse.json()) as TreeRecord;
+    expect(mergeResponse.status()).toBe(202);
+    const { job_id } = (await mergeResponse.json()) as { job_id: string };
+    const mergedTreeId = await waitForJob(secondApi.token, job_id);
+    merged = { id: mergedTreeId } as TreeRecord;
 
     await expect(page.locator('[data-testid="tree-selector"]')).toContainText(
       mergedName,

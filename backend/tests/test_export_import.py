@@ -2,7 +2,7 @@ import io
 
 from app.api.routes.export_import import BUNDLE_VERSION
 from app.services import crypto_export
-from tests.conftest import API, auth, make_tree, make_user
+from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 
 
 def test_native_export_import_preserves_member_name_details(client, db):
@@ -38,10 +38,11 @@ def test_native_export_import_preserves_member_name_details(client, db):
             )
         },
     )
-    assert imported.status_code == 201, imported.text
+    assert imported.status_code == 202, imported.text
+    tree_id = wait_for_job(client, headers, imported.json()["job_id"])
 
     members = client.get(
-        f"{API}/trees/{imported.json()['id']}/members", headers=headers
+        f"{API}/trees/{tree_id}/members", headers=headers
     ).json()
     assert len(members) == 1
     assert members[0]["middleNames"] == "Maria Theresia"

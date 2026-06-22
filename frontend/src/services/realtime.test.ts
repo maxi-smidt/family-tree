@@ -60,6 +60,17 @@ vi.mock("@/hooks/useTreeStore", () => {
   };
 });
 
+vi.mock("@/hooks/useJobStore", () => {
+  const onProgress = vi.fn();
+  const onDone = vi.fn();
+  const onFailed = vi.fn();
+  return {
+    useJobStore: {
+      getState: () => ({ onProgress, onDone, onFailed }),
+    },
+  };
+});
+
 vi.mock("@/hooks/useAuthStore", () => {
   const logout = vi.fn();
   return {
@@ -184,5 +195,53 @@ describe("realtime", () => {
     stopRealtime();
     // Clean up first instance.
     first?.close();
+  });
+
+  it("dispatching job.progress calls onProgress with job_id and pct", async () => {
+    const { useJobStore } = await import("@/hooks/useJobStore");
+    const { onProgress } = useJobStore.getState();
+
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    startRealtime();
+
+    FakeEventSource.instance!.dispatch("job.progress", {
+      job_id: "job-1",
+      pct: 42,
+    });
+
+    expect(onProgress).toHaveBeenCalledWith("job-1", 42);
+    stopRealtime();
+  });
+
+  it("dispatching job.done calls onDone with job_id and tree_id", async () => {
+    const { useJobStore } = await import("@/hooks/useJobStore");
+    const { onDone } = useJobStore.getState();
+
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    startRealtime();
+
+    FakeEventSource.instance!.dispatch("job.done", {
+      job_id: "job-1",
+      tree_id: "tree-42",
+    });
+
+    expect(onDone).toHaveBeenCalledWith("job-1", "tree-42");
+    stopRealtime();
+  });
+
+  it("dispatching job.failed calls onFailed with job_id and error", async () => {
+    const { useJobStore } = await import("@/hooks/useJobStore");
+    const { onFailed } = useJobStore.getState();
+
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    startRealtime();
+
+    FakeEventSource.instance!.dispatch("job.failed", {
+      job_id: "job-1",
+      error: "quota exceeded",
+    });
+
+    expect(onFailed).toHaveBeenCalledWith("job-1", "quota exceeded");
+    stopRealtime();
   });
 });

@@ -9,6 +9,7 @@ import {
   mapMemberFromDB,
 } from "@/types/member";
 import { MergeResolution } from "@/types/merge";
+import { useJobStore } from "@/hooks/useJobStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -146,19 +147,26 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     sourceB?: string,
     resolutions?: MergeResolution[],
   ) => {
-    const tree = await api.post<Tree>("/trees/merge", {
+    const { job_id } = await api.post<{ job_id: string }>("/trees/merge", {
       name,
       source_a: sourceA,
       source_b: sourceB ?? null,
       resolutions: resolutions ?? null,
     });
+    const treeId = await useJobStore.getState().trackJob(job_id);
+    const tree = await api.get<Tree>(`/trees/${treeId}`);
     await get().loadTrees();
     await get().selectTree(tree);
     return tree;
   },
 
   extractSubtree: async (payload) => {
-    const tree = await TreeService.extractSubtree(payload);
+    const { job_id } = await api.post<{ job_id: string }>(
+      "/trees/extract-subtree",
+      payload,
+    );
+    const treeId = await useJobStore.getState().trackJob(job_id);
+    const tree = await api.get<Tree>(`/trees/${treeId}`);
     await get().loadTrees();
     await get().selectTree(tree);
     return tree;
