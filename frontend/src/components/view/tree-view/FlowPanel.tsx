@@ -31,7 +31,7 @@ import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
-import { useFlowUnions } from "@/hooks/useFlowUnions";
+import { useDerivedFlowView } from "@/hooks/useDerivedFlowView";
 import { useIsMobile } from "@/hooks/useMobile";
 import { memberPairKey } from "@/utils/graphUtils";
 import { fitViewToAllNodes } from "@/utils/flowFit";
@@ -86,8 +86,12 @@ export const FlowPanel = () => {
     onHorizontalRelationReady: relation.startHorizontalRelation,
   });
 
-  // --- Unions & node positions ---
-  const unions = useFlowUnions(members);
+  // --- Unions, edges & visibility — computed off the main thread ---
+  const {
+    unions,
+    baseEdges,
+    hiddenNodeIds,
+  } = useDerivedFlowView(members, visibleRelationTypes, edgeType);
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
@@ -216,14 +220,9 @@ export const FlowPanel = () => {
     connection.connectionPath.nodeIds,
     connection.isConnectionMode,
     connection.hasConnectionPath,
+    hiddenNodeIds,
   );
-  const viewEdges = useFlowEdges(
-    members,
-    unions,
-    visibleRelationTypes,
-    edgeType,
-    connection.connectionPath.edgeKeys,
-  );
+  const viewEdges = useFlowEdges(baseEdges, connection.connectionPath.edgeKeys);
 
   const {
     onNodesChange,
