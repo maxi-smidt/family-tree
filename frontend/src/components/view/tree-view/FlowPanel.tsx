@@ -309,9 +309,6 @@ export const FlowPanel = () => {
 
   return (
     <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>
-      {/* onlyRenderVisibleElements culls off-screen nodes/edges from the DOM so
-          large trees keep a responsive canvas — only what's in the viewport is
-          mounted. */}
       <ReactFlow
         nodes={[...viewNodes, ...unionNodes]}
         edges={edges}
