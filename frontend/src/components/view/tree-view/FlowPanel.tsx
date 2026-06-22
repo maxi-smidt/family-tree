@@ -75,9 +75,11 @@ export const FlowPanel = () => {
     edgeType,
     isLockedScreen,
     visibleRelationTypes,
-    viewport,
+    viewports,
     setViewport,
   } = useFamilyTreeSettings();
+  const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
+  const viewport = (activeTree && viewports[activeTree.id]) ?? DEFAULT_VIEWPORT;
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -383,7 +385,7 @@ export const FlowPanel = () => {
         connectionMode={ConnectionMode.Loose}
         onInit={setRfInstance}
         defaultViewport={viewport}
-        onMoveEnd={(_, viewport) => setViewport(viewport)}
+        onMoveEnd={(_, vp) => activeTree && setViewport(activeTree.id, vp)}
         ariaLabelConfig={{
           "controls.zoomIn.ariaLabel": t("tree-view.controls.zoom-in"),
           "controls.zoomOut.ariaLabel": t("tree-view.controls.zoom-out"),

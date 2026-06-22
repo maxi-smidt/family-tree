@@ -22,8 +22,8 @@ interface FamilyTreeSettingsState {
   setIsDiseaseMode: (val: boolean) => void;
   visibleRelationTypes: string[];
   toggleRelationType: (type: string) => void;
-  viewport: Viewport;
-  setViewport: (viewport: Viewport) => void;
+  viewports: Record<string, Viewport>;
+  setViewport: (treeId: string, viewport: Viewport) => void;
 }
 
 export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
@@ -35,7 +35,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       isDiseaseMode: false,
       sidebarOpen: true,
       visibleRelationTypes: ["parent"],
-      viewport: { x: 0, y: 0, zoom: 1 },
+      viewports: {},
       setEdgeType: (type) => set({ edgeType: type }),
       setSidebarOpen: (val: boolean) => set({ sidebarOpen: val }),
       setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
@@ -51,7 +51,8 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
               : [...state.visibleRelationTypes, type],
           };
         }),
-      setViewport: (viewport) => set({ viewport }),
+      setViewport: (treeId, viewport) =>
+        set((s) => ({ viewports: { ...s.viewports, [treeId]: viewport } })),
     }),
     {
       name: "app-ui-settings",
