@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { api } from "@/services/api";
 
 interface PendingJob {
   resolve: (treeId: string) => void;
@@ -26,7 +27,7 @@ interface JobStoreState {
   onFailed: (jobId: string, error: string) => void;
 }
 
-export const useJobStore = create<JobStoreState>((set, get) => ({
+export const useJobStore = create<JobStoreState>((set) => ({
   activeJobId: null,
   activeJobPct: 0,
 
@@ -44,14 +45,55 @@ export const useJobStore = create<JobStoreState>((set, get) => ({
         }
         return;
       }
-      _pending.set(jobId, { resolve, reject });
+
+      // Guard against double-resolution from simultaneous SSE + poll paths.
+      let settled = false;
+      const settle = (fn: () => void) => {
+        if (settled) return;
+        settled = true;
+        fn();
+      };
+
+      _pending.set(jobId, {
+        resolve: (treeId: string) => settle(() => resolve(treeId)),
+        reject: (err: Error) => settle(() => reject(err)),
+      });
       set({ activeJobId: jobId, activeJobPct: 0 });
+
+      // Polling fallback — resolves the promise when SSE is unavailable
+      // (e.g. aborted in E2E tests or dropped by a proxy).
+      void (async () => {
+        for (;;) {
+          await new Promise<void>((r) => setTimeout(r, 2000));
+          if (settled) break;
+          try {
+            const job = await api.get<{
+              status: string;
+              result_tree_id?: string;
+              error?: string;
+            }>(`/jobs/${jobId}`);
+            if (job.status === "done" && job.result_tree_id) {
+              settle(() => {
+                _pending.delete(jobId);
+                set({ activeJobId: null, activeJobPct: 0 });
+                resolve(job.result_tree_id!);
+              });
+            } else if (job.status === "failed") {
+              settle(() => {
+                _pending.delete(jobId);
+                set({ activeJobId: null, activeJobPct: 0 });
+                reject(new Error(job.error ?? "Job failed"));
+              });
+            }
+          } catch {
+            // ignore transient errors, keep polling
+          }
+        }
+      })();
     }),
 
   onProgress: (jobId: string, pct: number) => {
-    if (get().activeJobId === jobId) {
-      set({ activeJobPct: pct });
-    }
+    set((s) => (s.activeJobId === jobId ? { activeJobPct: pct } : {}));
   },
 
   onDone: (jobId: string, treeId: string) => {
