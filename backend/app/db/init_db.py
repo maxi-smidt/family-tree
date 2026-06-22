@@ -23,7 +23,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 # Revision ID of the squashed baseline migration.  Any database stamped with a
 # pre-squash revision (unknown to the current chain) is stamped here first so
 # that the normal upgrade can apply post-squash migrations on top.
-BASELINE_REVISION = "f8c1d2e3a4b5"
+BASELINE_REVISION = "v1_0_0_baseline"
 
 # Seeded into the instance-wide registry on startup. Admins manage the registry
 # afterwards, so startup only tops up built-in defaults that are missing.
@@ -76,7 +76,11 @@ def run_migrations() -> None:
             "baseline %s and continuing with pending migrations.",
             BASELINE_REVISION,
         )
-        command.stamp(cfg, BASELINE_REVISION)
+        # purge=True clears alembic_version and writes the baseline directly.
+        # A plain stamp would fail here because Alembic tries to resolve the
+        # current (now-removed) revision to compute the path, raising
+        # "Can't locate revision ...".
+        command.stamp(cfg, BASELINE_REVISION, purge=True)
 
     command.upgrade(cfg, "head")
 
