@@ -207,6 +207,7 @@ interface MemberState {
   detailLoadedIds: Set<string>;
   windowed: boolean;
   focusRootId: string | null;
+  windowedForTreeId: string | null;
   neighborhoodUp: number;
   neighborhoodDown: number;
   neighborhoodTruncated: boolean;
@@ -258,6 +259,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   detailLoadedIds: new Set<string>(),
   windowed: false,
   focusRootId: null,
+  windowedForTreeId: null,
   neighborhoodUp: 3,
   neighborhoodDown: 3,
   neighborhoodTruncated: false,
@@ -314,9 +316,20 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       return;
     }
 
-    const { windowed, focusRootId, neighborhoodUp, neighborhoodDown } = get();
+    const {
+      windowed,
+      focusRootId,
+      windowedForTreeId,
+      neighborhoodUp,
+      neighborhoodDown,
+    } = get();
 
-    if (windowed) {
+    // Windowed state is scoped to the tree it was created for. When switching
+    // to a different tree, fall through to the full-load path so stale
+    // focusRootIds from the previous tree don't poison the new load.
+    const isWindowed = windowed && windowedForTreeId === treeId;
+
+    if (isWindowed) {
       try {
         const nb = await TreeService.getNeighborhood(
           treeId,
@@ -333,9 +346,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           totalMemberCount: nb.total_member_count,
         });
       } catch {
-        // leave existing members unchanged on transient error
+        // Transient error: leave existing members unchanged.
       }
       return;
+    }
+
+    // Clear any stale windowed state from a different tree before the full load.
+    if (windowed && windowedForTreeId !== treeId) {
+      set({ windowed: false, focusRootId: null, windowedForTreeId: null });
     }
 
     // Normal mode: full load
@@ -358,7 +376,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     if (memberRows.length > WINDOWED_MODE_THRESHOLD) {
       // Auto-enter windowed mode: load neighborhood with default root
-      set({ windowed: true, totalMemberCount: memberRows.length });
+      set({
+        windowed: true,
+        windowedForTreeId: treeId,
+        totalMemberCount: memberRows.length,
+      });
       try {
         const nb = await TreeService.getNeighborhood(
           treeId,
@@ -378,6 +400,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         // Fall back to showing full data without windowed UI
         set({
           windowed: false,
+          windowedForTreeId: null,
           members: buildAppMembers(memberRows, relations, treeId),
           detailLoadedIds: new Set<string>(),
           totalMemberCount: memberRows.length,
@@ -394,7 +417,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   },
 
   setFocusRoot: async (rootId: string) => {
-    set({ windowed: true, focusRootId: rootId });
+    const treeId = activeTreeId();
+    set({
+      windowed: true,
+      focusRootId: rootId,
+      windowedForTreeId: treeId ?? null,
+    });
     await get().refreshMembers();
   },
 
@@ -478,6 +506,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       detailLoadedIds: new Set<string>(),
       windowed: false,
       focusRootId: null,
+      windowedForTreeId: null,
       neighborhoodTruncated: false,
       totalMemberCount: 0,
       undoStack: [],
