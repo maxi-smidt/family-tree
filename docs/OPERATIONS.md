@@ -182,7 +182,7 @@ docker compose logs backend --tail 100   # the Alembic error is at the top of th
 2. **Pin back to the previous image** to get the app running again while you
    investigate, e.g. set `APP_IMAGE_TAG` in `.env` to the last working version
    tag, then `docker compose up -d`.
-3. **Check the release notes / open an issue** with the logged error. Typical
+3. **Check the [release notes](../CHANGELOG.md) / open an issue** with the logged error. Typical
    causes are environment-specific (out of disk, custom schema changes made
    directly in the database).
 4. After a fix is released (or the cause is removed), set `APP_IMAGE_TAG` to the
