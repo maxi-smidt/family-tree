@@ -1344,6 +1344,8 @@
       "save-row": "Speichern",
       "save-description": "Beschreibung speichern",
       "clear-color": "Zurücksetzen",
+      "clear-pattern": "Zurücksetzen",
+      "clear-width": "Zurücksetzen",
       "pattern-solid": "Durchgezogen",
       "pattern-dashed": "Gestrichelt",
       "pattern-dotted": "Gepunktet",

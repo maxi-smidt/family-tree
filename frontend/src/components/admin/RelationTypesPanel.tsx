@@ -20,6 +20,12 @@ import {
 import { AdminService } from "@/services/AdminService";
 import { PARENT_RELATION_TYPE, RelationTypeDB } from "@/types/member";
 import { resolveRelationLabel } from "@/utils/relationLabelUtils";
+import {
+  RELATION_DASH_OPTIONS,
+  relationStyleOverrideFromType,
+  resolveRelationStyle,
+  toColorInputValue,
+} from "@/utils/relationStyleUtils";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,59 +34,17 @@ import { useTranslation } from "react-i18next";
 // Mirrors the backend id rule (RelationTypeCreate): ids double as i18n keys.
 const ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/;
 
-// Dash pattern options (value → CSS stroke-dasharray)
-const DASH_OPTIONS = [
-  { value: "0", labelKey: "pattern-solid" },
-  { value: "5,5", labelKey: "pattern-dashed" },
-  { value: "2,4", labelKey: "pattern-dotted" },
-] as const;
-
-// Hardcoded fallback colours/dash used in the worker per relation type id.
-// Used only by the inline preview swatch.
-function workerFallbackStyle(
-  typeId: string,
-  saved: RelationTypeDB,
-): { stroke: string; strokeDasharray: string; strokeWidth: number } {
-  const stroke = saved.color ?? workerDefaultColor(typeId);
-  const strokeDasharray = saved.stroke_dasharray ?? workerDefaultDash(typeId);
-  const strokeWidth = saved.stroke_width ?? 2;
-  return { stroke, strokeDasharray, strokeWidth };
-}
-
-function workerDefaultColor(typeId: string): string {
-  switch (typeId) {
-    case "married":
-      return "hsl(142 76% 36%)";
-    case "divorced":
-      return "var(--destructive)";
-    case "partner":
-      return "hsl(217 91% 60%)";
-    case "sibling":
-      return "hsl(45 93% 47%)";
-    default:
-      return "var(--muted-foreground)";
-  }
-}
-
-function workerDefaultDash(typeId: string): string {
-  switch (typeId) {
-    case "married":
-    case "sibling":
-      return "0";
-    case "divorced":
-    case "partner":
-    default:
-      return "5,5";
-  }
-}
-
 interface StylePreviewProps {
   stroke: string;
   strokeDasharray: string;
   strokeWidth: number;
 }
 
-function StylePreview({ stroke, strokeDasharray, strokeWidth }: StylePreviewProps) {
+function StylePreview({
+  stroke,
+  strokeDasharray,
+  strokeWidth,
+}: StylePreviewProps) {
   return (
     <svg
       width="48"
@@ -103,13 +67,17 @@ function StylePreview({ stroke, strokeDasharray, strokeWidth }: StylePreviewProp
 }
 
 export const RelationTypesPanel = () => {
-  const { t } = useTranslation(undefined, { keyPrefix: "admin.relation-types" });
+  const { t } = useTranslation(undefined, {
+    keyPrefix: "admin.relation-types",
+  });
   const { t: tRelation } = useTranslation(undefined, {
     keyPrefix: "common.relation-types",
   });
   const [types, setTypes] = useState<RelationTypeDB[]>([]);
   // Per-row dirty field tracking
-  const [drafts, setDrafts] = useState<Record<string, Partial<RelationTypeDB>>>({});
+  const [drafts, setDrafts] = useState<Record<string, Partial<RelationTypeDB>>>(
+    {},
+  );
   const [newType, setNewType] = useState({
     id: "",
     description: "",
@@ -145,7 +113,8 @@ export const RelationTypesPanel = () => {
     if ("label" in d) result.label = d.label ?? null;
     if ("color" in d) result.color = d.color ?? null;
     if ("stroke_width" in d) result.stroke_width = d.stroke_width ?? null;
-    if ("stroke_dasharray" in d) result.stroke_dasharray = d.stroke_dasharray ?? null;
+    if ("stroke_dasharray" in d)
+      result.stroke_dasharray = d.stroke_dasharray ?? null;
     return result;
   };
 
@@ -169,6 +138,31 @@ export const RelationTypesPanel = () => {
       ...prev,
       [typeId]: { ...prev[typeId], [field]: value },
     }));
+  };
+
+  const getEffectiveType = (type: RelationTypeDB): RelationTypeDB => {
+    const d = drafts[type.id] ?? {};
+    return {
+      ...type,
+      description:
+        "description" in d ? (d.description ?? null) : type.description,
+      label: "label" in d ? (d.label ?? null) : type.label,
+      color: "color" in d ? (d.color ?? null) : type.color,
+      stroke_dasharray:
+        "stroke_dasharray" in d
+          ? (d.stroke_dasharray ?? null)
+          : type.stroke_dasharray,
+      stroke_width:
+        "stroke_width" in d ? (d.stroke_width ?? null) : type.stroke_width,
+    };
+  };
+
+  const hasStyleOverride = (
+    type: RelationTypeDB,
+    field: "color" | "stroke_dasharray" | "stroke_width",
+  ): boolean => {
+    const d = drafts[type.id] ?? {};
+    return (field in d ? d[field] : type[field]) != null;
   };
 
   const handleSave = async (type: RelationTypeDB) => {
@@ -249,42 +243,22 @@ export const RelationTypesPanel = () => {
           </TableHeader>
           <TableBody>
             {types.map((type) => {
-              const d = drafts[type.id] ?? {};
-              const descVal =
-                "description" in d
-                  ? (d.description ?? "")
-                  : (type.description ?? "");
-              const labelVal =
-                "label" in d ? (d.label ?? "") : (type.label ?? "");
-              const colorVal =
-                "color" in d ? (d.color ?? "") : (type.color ?? "");
-              const dashVal =
-                "stroke_dasharray" in d
-                  ? (d.stroke_dasharray ?? "")
-                  : (type.stroke_dasharray ?? "");
-              const widthVal =
-                "stroke_width" in d
-                  ? d.stroke_width != null
-                    ? String(d.stroke_width)
-                    : ""
-                  : type.stroke_width != null
-                    ? String(type.stroke_width)
-                    : "";
-
-              // Effective saved type (for preview)
-              const previewType: RelationTypeDB = {
-                ...type,
-                color: "color" in d ? (d.color ?? null) : type.color,
-                stroke_dasharray:
-                  "stroke_dasharray" in d
-                    ? (d.stroke_dasharray ?? null)
-                    : type.stroke_dasharray,
-                stroke_width:
-                  "stroke_width" in d
-                    ? (d.stroke_width ?? null)
-                    : type.stroke_width,
-              };
-              const preview = workerFallbackStyle(type.id, previewType);
+              const effectiveType = getEffectiveType(type);
+              const style = resolveRelationStyle(
+                type.id,
+                relationStyleOverrideFromType(effectiveType),
+              );
+              const descVal = effectiveType.description ?? "";
+              const labelVal = effectiveType.label ?? "";
+              const colorVal = toColorInputValue(
+                effectiveType.color,
+                style.colorInput,
+              );
+              const dashVal = style.strokeDasharray;
+              const widthVal = String(style.strokeWidth);
+              const hasKnownDashOption = RELATION_DASH_OPTIONS.some(
+                (opt) => opt.value === dashVal,
+              );
 
               return (
                 <TableRow key={type.id}>
@@ -294,11 +268,7 @@ export const RelationTypesPanel = () => {
                       value={labelVal}
                       placeholder={resolveRelationLabel(type, tRelation)}
                       onChange={(e) =>
-                        setDraftField(
-                          type.id,
-                          "label",
-                          e.target.value || null,
-                        )
+                        setDraftField(type.id, "label", e.target.value || null)
                       }
                     />
                   </TableCell>
@@ -318,15 +288,16 @@ export const RelationTypesPanel = () => {
                     <div className="flex items-center gap-1">
                       <input
                         type="color"
-                        value={colorVal || "#888888"}
+                        value={colorVal}
                         aria-label={t("col-color")}
                         className="h-8 w-8 cursor-pointer rounded border p-0.5"
                         onChange={(e) =>
                           setDraftField(type.id, "color", e.target.value)
                         }
                       />
-                      {colorVal && (
+                      {hasStyleOverride(type, "color") && (
                         <button
+                          type="button"
                           className="text-xs text-muted-foreground hover:text-foreground"
                           title={t("clear-color")}
                           aria-label={t("clear-color")}
@@ -338,55 +309,80 @@ export const RelationTypesPanel = () => {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Select
-                      value={dashVal || "__none__"}
-                      onValueChange={(v) =>
-                        setDraftField(
-                          type.id,
-                          "stroke_dasharray",
-                          v === "__none__" ? null : v,
-                        )
-                      }
-                    >
-                      <SelectTrigger className="w-[110px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">
-                          —
-                        </SelectItem>
-                        {DASH_OPTIONS.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            {t(opt.labelKey)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-1">
+                      <Select
+                        value={dashVal}
+                        onValueChange={(v) =>
+                          setDraftField(type.id, "stroke_dasharray", v)
+                        }
+                      >
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {!hasKnownDashOption && (
+                            <SelectItem value={dashVal}>{dashVal}</SelectItem>
+                          )}
+                          {RELATION_DASH_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {t(opt.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {hasStyleOverride(type, "stroke_dasharray") && (
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                          title={t("clear-pattern")}
+                          aria-label={t("clear-pattern")}
+                          onClick={() =>
+                            setDraftField(type.id, "stroke_dasharray", null)
+                          }
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      className="w-[70px]"
-                      value={widthVal}
-                      min={0.5}
-                      max={12}
-                      step={0.5}
-                      placeholder="—"
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setDraftField(
-                          type.id,
-                          "stroke_width",
-                          v === "" ? null : parseFloat(v),
-                        );
-                      }}
-                    />
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        className="w-[70px]"
+                        value={widthVal}
+                        min={0.5}
+                        max={12}
+                        step={0.5}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setDraftField(
+                            type.id,
+                            "stroke_width",
+                            v === "" ? null : parseFloat(v),
+                          );
+                        }}
+                      />
+                      {hasStyleOverride(type, "stroke_width") && (
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                          title={t("clear-width")}
+                          aria-label={t("clear-width")}
+                          onClick={() =>
+                            setDraftField(type.id, "stroke_width", null)
+                          }
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <StylePreview
-                      stroke={preview.stroke}
-                      strokeDasharray={preview.strokeDasharray}
-                      strokeWidth={preview.strokeWidth}
+                      stroke={style.stroke}
+                      strokeDasharray={style.strokeDasharray}
+                      strokeWidth={style.strokeWidth}
                     />
                   </TableCell>
                   <TableCell className="text-right">
@@ -447,7 +443,9 @@ export const RelationTypesPanel = () => {
           />
         </div>
         <div className="space-y-1">
-          <FieldLabel htmlFor="nrt-description">{t("col-description")}</FieldLabel>
+          <FieldLabel htmlFor="nrt-description">
+            {t("col-description")}
+          </FieldLabel>
           <Input
             id="nrt-description"
             value={newType.description}
