@@ -1,13 +1,15 @@
 import {
-  ChevronDownIcon,
+  CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
+  PopoverAnchor,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
@@ -15,8 +17,9 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import {
   DatePrecision,
-  formatDate,
+  formatPartialDateForInput,
   getDatePrecision,
+  parsePartialDateInput,
   resolveDateLocale,
 } from "@/utils/dateUtils";
 import { useTranslation } from "react-i18next";
@@ -60,9 +63,47 @@ export const PartialDatePicker = ({
   placeholder,
 }: Props) => {
   const { t, i18n } = useTranslation();
-  const locale = resolveDateLocale(i18n.resolvedLanguage);
+  const language = i18n.resolvedLanguage;
+  const locale = resolveDateLocale(language);
   const monthNames = getMonthNames(locale);
   const today = new Date();
+
+  // Editable text representation of the value, kept in sync while not focused.
+  const inputText = formatPartialDateForInput(value, language);
+  const [text, setText] = useState(inputText);
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(inputText);
+  }, [inputText, focused]);
+
+  const textIsInvalid =
+    focused &&
+    text.trim() !== "" &&
+    !parsePartialDateInput(text, language).valid;
+
+  const handleTextChange = (next: string) => {
+    setText(next);
+    if (next.trim() === "") {
+      onChange?.(null);
+      return;
+    }
+    const parsed = parsePartialDateInput(next, language);
+    if (parsed.valid && parsed.value) onChange?.(parsed.value);
+  };
+
+  const handleTextBlur = () => {
+    setFocused(false);
+    if (text.trim() === "") {
+      setText("");
+      return;
+    }
+    const parsed = parsePartialDateInput(text, language);
+    setText(
+      parsed.valid && parsed.value
+        ? formatPartialDateForInput(parsed.value, language)
+        : inputText,
+    );
+  };
 
   const inferredPrecision: DatePrecision =
     getDatePrecision(value ?? null) ?? "day";
@@ -138,8 +179,6 @@ export const PartialDatePicker = ({
       ? new Date(parsedYear, parsedMonth - 1, parseParts(value).day!)
       : undefined;
 
-  const displayValue = value ? formatDate(value) : undefined;
-
   const PRECISION_LABELS: Record<NonNullable<DatePrecision>, string> = {
     year: "Y",
     month: "M",
@@ -148,46 +187,41 @@ export const PartialDatePicker = ({
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          className={cn(
-            "w-full justify-between px-2 py-0 font-normal text-left",
-            !value && "text-muted-foreground",
-            className,
-          )}
-        >
-          <span className="truncate">{displayValue ?? placeholder}</span>
-          <span className="flex items-center gap-1 ml-2 shrink-0">
+      <PopoverAnchor asChild>
+        <div className="relative">
+          <Input
+            value={text}
+            onChange={(e) => handleTextChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={handleTextBlur}
+            placeholder={t("common.date-input-hint")}
+            aria-label={placeholder ?? t("common.date-input-hint")}
+            aria-invalid={textIsInvalid}
+            className={cn("pr-12", className)}
+          />
+          <div className="absolute inset-y-0 right-1 flex items-center gap-0.5">
             {value && (
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 aria-label={t("common.clear-date")}
-                className="flex size-5 items-center justify-center rounded-sm opacity-50 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                onPointerDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  clearValue();
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    clearValue();
-                  }
-                }}
+                className="flex size-5 items-center justify-center rounded-sm text-muted-foreground opacity-60 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={clearValue}
               >
                 <XIcon className="h-3 w-3" aria-hidden="true" />
-              </span>
+              </button>
             )}
-            <ChevronDownIcon className="h-4 w-4 opacity-50" />
-          </span>
-        </Button>
-      </PopoverTrigger>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("common.open-date-picker")}
+                className="flex size-5 items-center justify-center rounded-sm text-muted-foreground opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <CalendarIcon className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </PopoverTrigger>
+          </div>
+        </div>
+      </PopoverAnchor>
       <PopoverContent className="w-auto p-0" align="start">
         {/* Precision tabs */}
         <div className="flex border-b">

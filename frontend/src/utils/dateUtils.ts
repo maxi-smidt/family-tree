@@ -45,6 +45,136 @@ export function getYear(value: string | null | undefined): number | null {
   return m ? Number(m[1]) : null;
 }
 
+type DateField = "day" | "month" | "year";
+
+/** Order in which day / month / year appear for the given locale. */
+function getLocaleDateOrder(locale: string): DateField[] {
+  const parts = new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(new Date(2000, 0, 2));
+  const order: DateField[] = [];
+  for (const part of parts) {
+    if (part.type === "day") order.push("day");
+    else if (part.type === "month") order.push("month");
+    else if (part.type === "year") order.push("year");
+  }
+  return order.length === 3 ? order : ["day", "month", "year"];
+}
+
+/** Separator a locale uses between date fields (e.g. "." for de, "/" for en). */
+function getLocaleDateSeparator(locale: string): string {
+  const parts = new Intl.DateTimeFormat(locale, {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(new Date(2000, 0, 2));
+  const literal = parts.find((p) => p.type === "literal");
+  const trimmed = literal?.value.trim();
+  return trimmed && trimmed.length > 0 ? trimmed[0] : ".";
+}
+
+/**
+ * Render a partial date as a numeric, re-typeable string in the locale's field
+ * order (e.g. "23.06.2026" for de, "06/23/2026" for en, "2026" for year-only).
+ * Unlike {@link formatDate} this never uses long month names, so the result can
+ * be fed straight back into {@link parsePartialDateInput}.
+ */
+export function formatPartialDateForInput(
+  value: string | null | undefined,
+  language?: string,
+): string {
+  const precision = getDatePrecision(value);
+  if (!value || !precision) return "";
+
+  const [year, month, day] = value.split("-");
+  if (precision === "year") return year;
+
+  const locale = resolveDateLocale(language);
+  const separator = getLocaleDateSeparator(locale);
+  const fieldValues: Record<DateField, string | undefined> = {
+    year,
+    month,
+    day: precision === "day" ? day : undefined,
+  };
+  return getLocaleDateOrder(locale)
+    .map((field) => fieldValues[field])
+    .filter((part): part is string => part !== undefined)
+    .join(separator);
+}
+
+/**
+ * Parse a user-typed date into the internal partial-date format
+ * (`YYYY`, `YYYY-MM`, or `YYYY-MM-DD`). Accepts `.`, `/`, `-` or whitespace as
+ * separators, ISO order (year first) as well as the locale's field order, and
+ * partial precision (year only, or month + year). The year must be four digits.
+ *
+ * Returns `{ value: null, valid: true }` for empty input (a deliberate clear)
+ * and `{ value: null, valid: false }` for anything unparseable.
+ */
+export function parsePartialDateInput(
+  text: string,
+  language?: string,
+): { value: string | null; valid: boolean } {
+  const trimmed = text.trim();
+  if (!trimmed) return { value: null, valid: true };
+
+  const invalid = { value: null, valid: false } as const;
+
+  const tokens = trimmed.split(/[\s./-]+/).filter(Boolean);
+  if (tokens.length === 0 || tokens.length > 3) return invalid;
+  if (!tokens.every((token) => /^\d+$/.test(token))) return invalid;
+
+  let year: number | null = null;
+  let month: number | null = null;
+  let day: number | null = null;
+
+  if (tokens.length === 1) {
+    if (tokens[0].length !== 4) return invalid;
+    year = Number(tokens[0]);
+  } else if (tokens[0].length === 4) {
+    // ISO-style: year first.
+    year = Number(tokens[0]);
+    month = Number(tokens[1]);
+    if (tokens[2] !== undefined) day = Number(tokens[2]);
+  } else {
+    // Locale field order; the four-digit token is the year.
+    const yearIndex = tokens.findIndex((token) => token.length === 4);
+    if (yearIndex === -1) return invalid;
+    year = Number(tokens[yearIndex]);
+    const rest = tokens.filter((_, i) => i !== yearIndex);
+    if (rest.length === 1) {
+      // A single non-year token is always the month (e.g. "06.2026").
+      month = Number(rest[0]);
+    } else {
+      const order = getLocaleDateOrder(resolveDateLocale(language)).filter(
+        (field) => field !== "year",
+      );
+      rest.forEach((token, i) => {
+        if (order[i] === "day") day = Number(token);
+        else month = Number(token);
+      });
+    }
+  }
+
+  const currentYear = new Date().getFullYear();
+  if (year === null || year < 1 || year > currentYear) return invalid;
+  if (month !== null && (month < 1 || month > 12)) return invalid;
+  if (day !== null) {
+    if (month === null) return invalid;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    if (day < 1 || day > daysInMonth) return invalid;
+  }
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (day !== null && month !== null) {
+    return { value: `${year}-${pad(month)}-${pad(day)}`, valid: true };
+  }
+  if (month !== null) return { value: `${year}-${pad(month)}`, valid: true };
+  return { value: `${year}`, valid: true };
+}
+
 export function formatDateWithFallback(
   dateString: DateInput,
   t: (key: string) => string,
