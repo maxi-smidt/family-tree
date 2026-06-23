@@ -8,6 +8,7 @@ import type {
   DeriveResponse,
   WorkerUnionInfo,
   WorkerEdge,
+  RelationStyleMap,
 } from "@/workers/treeProcessor.types";
 
 // Trees with fewer members than this are mapped synchronously on the main
@@ -94,6 +95,7 @@ class TreeProcessorClient {
     members: Member[],
     visibleRelationTypes: string[],
     edgeType: string,
+    relationStyles: RelationStyleMap = {},
   ): { reqId: number; promise: Promise<DeriveResult> } {
     const reqId = ++this.reqId;
 
@@ -126,6 +128,7 @@ class TreeProcessorClient {
       members,
       visibleRelationTypes,
       edgeType,
+      relationStyles,
     };
     worker.postMessage(req);
 

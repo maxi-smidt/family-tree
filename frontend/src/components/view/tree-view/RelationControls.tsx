@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useTranslation } from "react-i18next";
 import { PARENT_RELATION_TYPE } from "@/types/member";
+import { resolveRelationLabel } from "@/utils/relationLabelUtils";
 
 export const RelationControls = () => {
   const { t } = useTranslation(undefined, {
@@ -57,7 +58,7 @@ export const RelationControls = () => {
             onSelect={(e) => e.preventDefault()}
             disabled={type.id === PARENT_RELATION_TYPE}
           >
-            {tRelation(type.id, { defaultValue: type.description ?? type.id })}
+            {resolveRelationLabel(type, tRelation)}
           </DropdownMenuCheckboxItem>
         ))}
       </DropdownMenuContent>

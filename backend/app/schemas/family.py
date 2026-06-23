@@ -137,16 +137,36 @@ class RelationTypeOut(BaseModel):
 
     id: str
     description: str | None = None
+    label: str | None = None
+    color: str | None = None
+    stroke_width: float | None = None
+    stroke_dasharray: str | None = None
 
 
 class RelationTypeCreate(BaseModel):
     # Ids double as i18n key segments, so keep them URL- and i18next-safe.
     id: str = Field(min_length=1, max_length=50, pattern=r"^[a-z0-9][a-z0-9_-]*$")
     description: str | None = Field(default=None, max_length=255)
+    label: str | None = Field(default=None, max_length=255)
+    color: str | None = Field(default=None, max_length=64)
+    stroke_width: float | None = Field(default=None, ge=0.5, le=12)
+    stroke_dasharray: str | None = Field(
+        default=None,
+        max_length=32,
+        pattern=r"^[0-9]+(\s*,\s*[0-9]+)*$",
+    )
 
 
 class RelationTypeUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=255)
+    label: str | None = Field(default=None, max_length=255)
+    color: str | None = Field(default=None, max_length=64)
+    stroke_width: float | None = Field(default=None, ge=0.5, le=12)
+    stroke_dasharray: str | None = Field(
+        default=None,
+        max_length=32,
+        pattern=r"^[0-9]+(\s*,\s*[0-9]+)*$",
+    )
 
 
 # --- Diseases --------------------------------------------------------------

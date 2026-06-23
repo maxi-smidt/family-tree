@@ -8,6 +8,8 @@ import type {
   WorkerUnionInfo,
   WorkerEdge,
   WorkerEdgeStyle,
+  RelationStyleOverride,
+  RelationStyleMap,
 } from "@/workers/treeProcessor.types";
 
 // ---------------------------------------------------------------------------
@@ -88,11 +90,29 @@ const coupleBaseStyle = (relationType: string): WorkerEdgeStyle => {
   }
 };
 
-function buildEdges(
+/**
+ * Apply per-type style overrides on top of a hardcoded base style.
+ * Null/absent override fields leave the base value unchanged.
+ */
+export const applyOverride = (
+  base: WorkerEdgeStyle,
+  ov?: RelationStyleOverride,
+): WorkerEdgeStyle => {
+  if (!ov) return base;
+  return {
+    stroke: ov.color != null ? ov.color : base.stroke,
+    strokeDasharray:
+      ov.strokeDasharray != null ? ov.strokeDasharray : base.strokeDasharray,
+    strokeWidth: ov.strokeWidth != null ? ov.strokeWidth : base.strokeWidth,
+  };
+};
+
+export function buildEdges(
   members: Member[],
   unions: WorkerUnionInfo[],
   visibleRelationTypes: string[],
   edgeType: string,
+  relationStyles: RelationStyleMap = {},
 ): WorkerEdge[] {
   const edges: WorkerEdge[] = [];
   const visibleTypesSet = new Set(visibleRelationTypes);
@@ -115,7 +135,10 @@ function buildEdges(
       (relType !== "" && visibleTypesSet.has(relType));
 
     if (coupleVisible) {
-      const baseStyle = { ...coupleBaseStyle(relType), strokeWidth: 2 };
+      const baseStyle = applyOverride(
+        { ...coupleBaseStyle(relType), strokeWidth: 2 },
+        relationStyles[relType],
+      );
       const p1X = memberPositionX.get(u.partner1Id) ?? 0;
       const p2X = memberPositionX.get(u.partner2Id) ?? 0;
       const leftId = p1X <= p2X ? u.partner1Id : u.partner2Id;
@@ -165,7 +188,10 @@ function buildEdges(
           sourceHandle: "bottom",
           targetHandle: "top",
           type: edgeType,
-          baseStyle: { strokeWidth: 1.5 },
+          baseStyle: applyOverride(
+            { strokeWidth: 1.5 },
+            relationStyles["parent"],
+          ),
           _highlightPairs: highlightPairs,
         });
       }
@@ -182,7 +208,7 @@ function buildEdges(
           type: edgeType,
           sourceHandle: "bottom",
           targetHandle: "top",
-          baseStyle: {},
+          baseStyle: applyOverride({}, relationStyles["parent"]),
           _highlightPairs: [memberPairKey(m.parents.maternalParent, m.id)],
         });
       }
@@ -194,7 +220,7 @@ function buildEdges(
           type: edgeType,
           sourceHandle: "bottom",
           targetHandle: "top",
-          baseStyle: {},
+          baseStyle: applyOverride({}, relationStyles["parent"]),
           _highlightPairs: [memberPairKey(m.parents.paternalParent, m.id)],
         });
       }
@@ -226,7 +252,10 @@ function buildEdges(
         sourceHandle: "right",
         targetHandle: "left",
         type: "relation",
-        baseStyle: { stroke, strokeDasharray, strokeWidth: 2 },
+        baseStyle: applyOverride(
+          { stroke, strokeDasharray, strokeWidth: 2 },
+          relationStyles[rel.relationType],
+        ),
         _highlightPairs: [memberPairKey(m.id, rel.toMemberId)],
       });
     }
@@ -312,6 +341,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         unions,
         req.visibleRelationTypes,
         req.edgeType,
+        req.relationStyles,
       );
       const hiddenNodeIds = computeHiddenNodeIds(members);
 

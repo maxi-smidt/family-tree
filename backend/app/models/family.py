@@ -80,6 +80,10 @@ class RelationType(Base):
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    color: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    stroke_width: Mapped[float | None] = mapped_column(Float, nullable=True)
+    stroke_dasharray: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
 
 class MemberDisease(Base):

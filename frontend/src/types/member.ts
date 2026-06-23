@@ -15,6 +15,10 @@ export const PARENT_RELATION_TYPE: RelationType = "parent";
 export interface RelationTypeDB {
   id: RelationType;
   description: string | null;
+  label: string | null;
+  color: string | null;
+  stroke_width: number | null;
+  stroke_dasharray: string | null;
 }
 
 export interface Relation {
