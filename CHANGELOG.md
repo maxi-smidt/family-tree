@@ -7,6 +7,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [1.1.0] - 2026-06-23
+
+Feature and polish release on top of `1.0.0`: in-place list editing,
+admin-configurable relation types, faster large-tree rendering, and friendlier
+date entry.
+
+### Added
+
+- **Inline cell editing in the List view** — edit names, gender, birthplace,
+  hometown, and dates directly in the desktop table via an opt-in **Quick edit**
+  toggle. Accident-proof by design: off by default, Enter or blur commits,
+  Escape cancels, unchanged cells never write, and it is disabled for viewers
+  and virtual trees. Every edit is reversible with undo.
+- **Admin-configurable relation types** — set a custom label and per-type edge
+  styling (color, stroke width, dash pattern) for each relation type, rendered
+  live on the tree canvas.
+- **Release announcement popup** — returning users see a one-time dialog after
+  an update; admins can configure its content.
+
+### Changed
+
+- **Typeable dates and friendlier member entry** — the date picker now accepts
+  typed input alongside the calendar, parent pickers show birth dates to
+  disambiguate people, and the duplicate-name guard was relaxed so namesakes
+  without a birth date are allowed.
+- **Faster large trees** — heavy graph and layout processing moved off the main
+  thread into a web worker, keeping the UI responsive on large trees.
+- Birthplace and hometown now load with the member list, so those List-view
+  columns populate immediately instead of only after opening a member.
+
+### Fixed
+
+- Deleting a relation or parent edge on the tree canvas now persists instead of
+  reappearing after a reload.
+
 ## [1.0.0] - 2026-06-22
 
 First stable release of Family Tree — a self-hostable web app for building and
@@ -74,4 +109,5 @@ exploring family history through an interactive visual tree.
 - Object-level permission enforcement on shared trees.
 - Encrypted tree export bundles.
 
+[1.1.0]: https://github.com/maxi-smidt/family-tree/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/maxi-smidt/family-tree/releases/tag/v1.0.0
