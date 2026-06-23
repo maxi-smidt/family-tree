@@ -2,13 +2,15 @@
 
 import { mapMembersFromRows } from "@/utils/memberMapping";
 import type { Member } from "@/types/member";
+import {
+  applyRelationStyleOverride,
+  getDefaultRelationEdgeStyle,
+} from "@/utils/relationStyleUtils";
 import type {
   WorkerRequest,
   WorkerResponse,
   WorkerUnionInfo,
   WorkerEdge,
-  WorkerEdgeStyle,
-  RelationStyleOverride,
   RelationStyleMap,
 } from "@/workers/treeProcessor.types";
 
@@ -21,8 +23,7 @@ const memberPairKey = (a: string, b: string): string =>
 
 const COUPLE_RELATIONS = new Set(["married", "partner", "divorced"]);
 
-const unionKey = (a: string, b: string) =>
-  `union-${[a, b].sort().join("-")}`;
+const unionKey = (a: string, b: string) => `union-${[a, b].sort().join("-")}`;
 
 function buildUnions(members: Member[]): WorkerUnionInfo[] {
   const memberIds = new Set(members.map((m) => m.id));
@@ -77,36 +78,6 @@ function buildUnions(members: Member[]): WorkerUnionInfo[] {
   return Array.from(unions.values());
 }
 
-const coupleBaseStyle = (relationType: string): WorkerEdgeStyle => {
-  switch (relationType) {
-    case "married":
-      return { stroke: "hsl(142 76% 36%)", strokeDasharray: "0" };
-    case "divorced":
-      return { stroke: "var(--destructive)", strokeDasharray: "5,5" };
-    case "partner":
-      return { stroke: "hsl(217 91% 60%)", strokeDasharray: "2,4" };
-    default:
-      return { stroke: "var(--muted-foreground)", strokeDasharray: "5,5" };
-  }
-};
-
-/**
- * Apply per-type style overrides on top of a hardcoded base style.
- * Null/absent override fields leave the base value unchanged.
- */
-export const applyOverride = (
-  base: WorkerEdgeStyle,
-  ov?: RelationStyleOverride,
-): WorkerEdgeStyle => {
-  if (!ov) return base;
-  return {
-    stroke: ov.color != null ? ov.color : base.stroke,
-    strokeDasharray:
-      ov.strokeDasharray != null ? ov.strokeDasharray : base.strokeDasharray,
-    strokeWidth: ov.strokeWidth != null ? ov.strokeWidth : base.strokeWidth,
-  };
-};
-
 export function buildEdges(
   members: Member[],
   unions: WorkerUnionInfo[],
@@ -135,8 +106,8 @@ export function buildEdges(
       (relType !== "" && visibleTypesSet.has(relType));
 
     if (coupleVisible) {
-      const baseStyle = applyOverride(
-        { ...coupleBaseStyle(relType), strokeWidth: 2 },
+      const baseStyle = applyRelationStyleOverride(
+        getDefaultRelationEdgeStyle(relType),
         relationStyles[relType],
       );
       const p1X = memberPositionX.get(u.partner1Id) ?? 0;
@@ -188,8 +159,8 @@ export function buildEdges(
           sourceHandle: "bottom",
           targetHandle: "top",
           type: edgeType,
-          baseStyle: applyOverride(
-            { strokeWidth: 1.5 },
+          baseStyle: applyRelationStyleOverride(
+            getDefaultRelationEdgeStyle("parent"),
             relationStyles["parent"],
           ),
           _highlightPairs: highlightPairs,
@@ -208,7 +179,10 @@ export function buildEdges(
           type: edgeType,
           sourceHandle: "bottom",
           targetHandle: "top",
-          baseStyle: applyOverride({}, relationStyles["parent"]),
+          baseStyle: applyRelationStyleOverride(
+            getDefaultRelationEdgeStyle("parent"),
+            relationStyles["parent"],
+          ),
           _highlightPairs: [memberPairKey(m.parents.maternalParent, m.id)],
         });
       }
@@ -220,7 +194,10 @@ export function buildEdges(
           type: edgeType,
           sourceHandle: "bottom",
           targetHandle: "top",
-          baseStyle: applyOverride({}, relationStyles["parent"]),
+          baseStyle: applyRelationStyleOverride(
+            getDefaultRelationEdgeStyle("parent"),
+            relationStyles["parent"],
+          ),
           _highlightPairs: [memberPairKey(m.parents.paternalParent, m.id)],
         });
       }
@@ -238,13 +215,6 @@ export function buildEdges(
       if (edgeIds.has(edgeId)) continue;
       edgeIds.add(edgeId);
 
-      let stroke = "var(--muted-foreground)";
-      let strokeDasharray = "5,5";
-      if (rel.relationType === "sibling") {
-        stroke = "hsl(45 93% 47%)";
-        strokeDasharray = "0";
-      }
-
       edges.push({
         id: edgeId,
         source: m.id,
@@ -252,8 +222,8 @@ export function buildEdges(
         sourceHandle: "right",
         targetHandle: "left",
         type: "relation",
-        baseStyle: applyOverride(
-          { stroke, strokeDasharray, strokeWidth: 2 },
+        baseStyle: applyRelationStyleOverride(
+          getDefaultRelationEdgeStyle(rel.relationType),
           relationStyles[rel.relationType],
         ),
         _highlightPairs: [memberPairKey(m.id, rel.toMemberId)],
