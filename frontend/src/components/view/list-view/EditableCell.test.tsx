@@ -200,6 +200,55 @@ describe("EditableCell — nullable text field (maidenName)", () => {
   });
 });
 
+describe("EditableCell — detail-only field (birthplace)", () => {
+  const updateMemberPartial = vi.fn().mockResolvedValue(undefined);
+  const fetchMemberDetail = vi.fn().mockResolvedValue(member);
+
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+    updateMemberPartial.mockClear();
+    fetchMemberDetail.mockClear();
+    useMemberStore.setState({
+      members: [member],
+      updateMemberPartial,
+      fetchMemberDetail,
+      // Detail already loaded → editing starts from the real value, no pre-fetch.
+      detailLoadedIds: new Set(["member-1"]),
+    });
+  });
+
+  it("commits the change and force-reloads detail so the value persists", async () => {
+    render(<EditableCell member={member} columnId="birthplace" />);
+
+    fireEvent.click(screen.getByRole("button"));
+    const input = screen.getByRole("textbox");
+    fireEvent.change(input, { target: { value: "Berlin" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(updateMemberPartial).toHaveBeenCalledWith("member-1", {
+        birthplace: "Berlin",
+      });
+    });
+    // Without this reload the surface refresh would wipe birthplace and the
+    // just-typed value would vanish — this is the regression we are guarding.
+    await waitFor(() => {
+      expect(fetchMemberDetail).toHaveBeenCalledWith("member-1", true);
+    });
+  });
+
+  it("loads detail before editing when it is not yet loaded (no clobber)", async () => {
+    useMemberStore.setState({ detailLoadedIds: new Set<string>() });
+    render(<EditableCell member={member} columnId="birthplace" />);
+
+    fireEvent.click(screen.getByRole("button"));
+
+    await waitFor(() => {
+      expect(fetchMemberDetail).toHaveBeenCalledWith("member-1");
+    });
+  });
+});
+
 describe("ListView — Quick edit toggle gating", () => {
   const updateMemberPartial = vi.fn().mockResolvedValue(undefined);
 
