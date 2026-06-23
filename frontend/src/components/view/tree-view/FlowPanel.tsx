@@ -234,6 +234,7 @@ export const FlowPanel = () => {
   } = useFlowInteractions(
     members,
     edges,
+    unions,
     setNodes,
     setEdges,
     setMembersToDelete,

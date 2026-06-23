@@ -19,6 +19,7 @@ import {
 } from "@xyflow/react";
 import { Member, RelationType } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import type { WorkerUnionInfo } from "@/workers/treeProcessor.types";
 import debounce from "lodash.debounce";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -26,6 +27,7 @@ import { useTranslation } from "react-i18next";
 export const useFlowInteractions = (
   members: Member[],
   edges: Edge[],
+  unions: WorkerUnionInfo[],
   setNodes: Dispatch<SetStateAction<Node[]>>,
   setEdges: Dispatch<SetStateAction<Edge[]>>,
   setMembersToDelete: Dispatch<SetStateAction<Member[]>>,
@@ -101,57 +103,73 @@ export const useFlowInteractions = (
 
   const removeMemberEdge = useCallback(
     (change: EdgeRemoveChange) => {
-      if (change.id.startsWith("rel:")) {
+      // Couple relations and two-parent child links are drawn through a union
+      // node, so their edge ids are "ue:<unionId>:left|right" (the couple) or
+      // "ue:<unionId>:child:<childId>" (a shared child). The union/member ids
+      // can't be split out of the id reliably (UUIDs contain "-"), so resolve
+      // the couple via the union list and read the child id directly.
+      if (change.id.startsWith("ue:")) {
         const parts = change.id.split(":");
-        if (parts.length >= 4) {
-          const sourceId = parts[1];
-          const targetId = parts[2];
-          const type = parts[3] as RelationType;
-          void removeRelation(sourceId, targetId, type);
-          void removeRelation(targetId, sourceId, type);
-        }
-        return;
-      }
-
-      if (change.id.startsWith("e:")) {
-        const parts = change.id.split(":");
-        if (parts.length >= 3) {
-          const source = parts[1];
-          const target = parts[2];
-
-          const childMember = memberMap.get(target);
-          if (childMember) {
-            if (childMember.parents.maternalParent === source) {
-              void updateMemberPartial(target, {
-                maternalParentId: null,
-              });
-            } else if (childMember.parents.paternalParent === source) {
-              void updateMemberPartial(target, {
-                paternalParentId: null,
-              });
-            }
+        if (parts[2] === "child") {
+          const childId = parts[3];
+          if (childId) {
+            // The child's parents are exactly this couple, so detaching from
+            // the union clears both parent slots.
+            void updateMemberPartial(childId, {
+              paternalParentId: null,
+              maternalParentId: null,
+            });
           }
+          return;
+        }
+
+        const union = unions.find((u) => u.id === parts[1]);
+        if (union?.relationType) {
+          void removeRelation(
+            union.partner1Id,
+            union.partner2Id,
+            union.relationType,
+          );
+          void removeRelation(
+            union.partner2Id,
+            union.partner1Id,
+            union.relationType,
+          );
         }
         return;
       }
 
-      const edge = edges.find((e) => e.id === change.id);
-      if (!edge) return;
+      // Non-couple relations (e.g. sibling): "rel:<idA-idB>:<type>". The member
+      // ids aren't recoverable from the id, so read them off the edge; the type
+      // is everything after the pair key's trailing ":".
+      if (change.id.startsWith("rel:")) {
+        const edge = edges.find((e) => e.id === change.id);
+        if (!edge) return;
+        const rest = change.id.slice("rel:".length);
+        const sep = rest.indexOf(":");
+        if (sep === -1) return;
+        const type = rest.slice(sep + 1) as RelationType;
+        void removeRelation(edge.source, edge.target, type);
+        void removeRelation(edge.target, edge.source, type);
+        return;
+      }
 
-      const childMember = memberMap.get(edge.target);
+      // Single-parent link: "e:<parentId>:<childId>" (UUIDs have no ":").
+      const parts = change.id.split(":");
+      const source = parts[1];
+      const target = parts[2];
+      if (!source || !target) return;
+
+      const childMember = memberMap.get(target);
       if (!childMember) return;
 
-      if (childMember.parents.maternalParent === edge.source) {
-        void updateMemberPartial(edge.target, {
-          maternalParentId: null,
-        });
-      } else if (childMember.parents.paternalParent === edge.source) {
-        void updateMemberPartial(edge.target, {
-          paternalParentId: null,
-        });
+      if (childMember.parents.maternalParent === source) {
+        void updateMemberPartial(target, { maternalParentId: null });
+      } else if (childMember.parents.paternalParent === source) {
+        void updateMemberPartial(target, { paternalParentId: null });
       }
     },
-    [memberMap, edges, removeRelation, updateMemberPartial],
+    [memberMap, edges, unions, removeRelation, updateMemberPartial],
   );
 
   const onEdgesChange = useCallback(
