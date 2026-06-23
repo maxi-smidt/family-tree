@@ -130,23 +130,22 @@ export const AdminService = {
     return api.get<RelationTypeDB[]>("/relation-types");
   },
 
-  createRelationType(
-    id: string,
-    description: string | null,
-  ): Promise<RelationTypeDB> {
-    return api.post<RelationTypeDB>("/admin/relation-types", {
-      id,
-      description,
-    });
+  createRelationType(payload: {
+    id: string;
+    description: string | null;
+    label: string | null;
+    color: string | null;
+    stroke_width: number | null;
+    stroke_dasharray: string | null;
+  }): Promise<RelationTypeDB> {
+    return api.post<RelationTypeDB>("/admin/relation-types", payload);
   },
 
   updateRelationType(
     id: string,
-    description: string | null,
+    changes: Partial<Omit<RelationTypeDB, "id">>,
   ): Promise<RelationTypeDB> {
-    return api.patch<RelationTypeDB>(`/admin/relation-types/${id}`, {
-      description,
-    });
+    return api.patch<RelationTypeDB>(`/admin/relation-types/${id}`, changes);
   },
 
   deleteRelationType(id: string): Promise<void> {

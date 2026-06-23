@@ -2,12 +2,16 @@
 
 import { mapMembersFromRows } from "@/utils/memberMapping";
 import type { Member } from "@/types/member";
+import {
+  applyRelationStyleOverride,
+  getDefaultRelationEdgeStyle,
+} from "@/utils/relationStyleUtils";
 import type {
   WorkerRequest,
   WorkerResponse,
   WorkerUnionInfo,
   WorkerEdge,
-  WorkerEdgeStyle,
+  RelationStyleMap,
 } from "@/workers/treeProcessor.types";
 
 // ---------------------------------------------------------------------------
@@ -19,8 +23,7 @@ const memberPairKey = (a: string, b: string): string =>
 
 const COUPLE_RELATIONS = new Set(["married", "partner", "divorced"]);
 
-const unionKey = (a: string, b: string) =>
-  `union-${[a, b].sort().join("-")}`;
+const unionKey = (a: string, b: string) => `union-${[a, b].sort().join("-")}`;
 
 function buildUnions(members: Member[]): WorkerUnionInfo[] {
   const memberIds = new Set(members.map((m) => m.id));
@@ -75,24 +78,12 @@ function buildUnions(members: Member[]): WorkerUnionInfo[] {
   return Array.from(unions.values());
 }
 
-const coupleBaseStyle = (relationType: string): WorkerEdgeStyle => {
-  switch (relationType) {
-    case "married":
-      return { stroke: "hsl(142 76% 36%)", strokeDasharray: "0" };
-    case "divorced":
-      return { stroke: "var(--destructive)", strokeDasharray: "5,5" };
-    case "partner":
-      return { stroke: "hsl(217 91% 60%)", strokeDasharray: "2,4" };
-    default:
-      return { stroke: "var(--muted-foreground)", strokeDasharray: "5,5" };
-  }
-};
-
-function buildEdges(
+export function buildEdges(
   members: Member[],
   unions: WorkerUnionInfo[],
   visibleRelationTypes: string[],
   edgeType: string,
+  relationStyles: RelationStyleMap = {},
 ): WorkerEdge[] {
   const edges: WorkerEdge[] = [];
   const visibleTypesSet = new Set(visibleRelationTypes);
@@ -110,12 +101,19 @@ function buildEdges(
     if (!memberIds.has(u.partner1Id) || !memberIds.has(u.partner2Id)) continue;
 
     const relType = u.relationType ?? "";
+    // Style of the couple line feeding this union dot. Children hang off the
+    // dot, so their connectors inherit this exact style (the line they
+    // originate from) rather than the generic "parent" style.
+    const baseStyle = applyRelationStyleOverride(
+      getDefaultRelationEdgeStyle(relType),
+      relationStyles[relType],
+    );
+
     const coupleVisible =
       visibleTypesSet.has("parent") ||
       (relType !== "" && visibleTypesSet.has(relType));
 
     if (coupleVisible) {
-      const baseStyle = { ...coupleBaseStyle(relType), strokeWidth: 2 };
       const p1X = memberPositionX.get(u.partner1Id) ?? 0;
       const p2X = memberPositionX.get(u.partner2Id) ?? 0;
       const leftId = p1X <= p2X ? u.partner1Id : u.partner2Id;
@@ -165,7 +163,7 @@ function buildEdges(
           sourceHandle: "bottom",
           targetHandle: "top",
           type: edgeType,
-          baseStyle: { strokeWidth: 1.5 },
+          baseStyle,
           _highlightPairs: highlightPairs,
         });
       }
@@ -182,7 +180,10 @@ function buildEdges(
           type: edgeType,
           sourceHandle: "bottom",
           targetHandle: "top",
-          baseStyle: {},
+          baseStyle: applyRelationStyleOverride(
+            getDefaultRelationEdgeStyle("parent"),
+            relationStyles["parent"],
+          ),
           _highlightPairs: [memberPairKey(m.parents.maternalParent, m.id)],
         });
       }
@@ -194,7 +195,10 @@ function buildEdges(
           type: edgeType,
           sourceHandle: "bottom",
           targetHandle: "top",
-          baseStyle: {},
+          baseStyle: applyRelationStyleOverride(
+            getDefaultRelationEdgeStyle("parent"),
+            relationStyles["parent"],
+          ),
           _highlightPairs: [memberPairKey(m.parents.paternalParent, m.id)],
         });
       }
@@ -212,13 +216,6 @@ function buildEdges(
       if (edgeIds.has(edgeId)) continue;
       edgeIds.add(edgeId);
 
-      let stroke = "var(--muted-foreground)";
-      let strokeDasharray = "5,5";
-      if (rel.relationType === "sibling") {
-        stroke = "hsl(45 93% 47%)";
-        strokeDasharray = "0";
-      }
-
       edges.push({
         id: edgeId,
         source: m.id,
@@ -226,7 +223,10 @@ function buildEdges(
         sourceHandle: "right",
         targetHandle: "left",
         type: "relation",
-        baseStyle: { stroke, strokeDasharray, strokeWidth: 2 },
+        baseStyle: applyRelationStyleOverride(
+          getDefaultRelationEdgeStyle(rel.relationType),
+          relationStyles[rel.relationType],
+        ),
         _highlightPairs: [memberPairKey(m.id, rel.toMemberId)],
       });
     }
@@ -312,6 +312,7 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         unions,
         req.visibleRelationTypes,
         req.edgeType,
+        req.relationStyles,
       );
       const hiddenNodeIds = computeHiddenNodeIds(members);
 

@@ -126,6 +126,10 @@ function mockSubStoresForGedcomTree() {
     ["parent", "married", "partner", "divorced", "sibling"].map((id) => ({
       id,
       description: null,
+      label: null,
+      color: null,
+      stroke_width: null,
+      stroke_dasharray: null,
     })),
   );
   // persistPositions calls updateMemberPositions

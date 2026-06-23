@@ -34,6 +34,10 @@ import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { useDerivedFlowView } from "@/hooks/useDerivedFlowView";
 import { useIsMobile } from "@/hooks/useMobile";
 import { memberPairKey } from "@/utils/graphUtils";
+import {
+  resolveRelationStyle,
+  relationStyleOverrideFromType,
+} from "@/utils/relationStyleUtils";
 import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
@@ -94,11 +98,26 @@ export const FlowPanel = () => {
   });
 
   // --- Unions, edges & visibility — computed off the main thread ---
-  const {
-    unions,
-    baseEdges,
-    hiddenNodeIds,
-  } = useDerivedFlowView(members, visibleRelationTypes, edgeType);
+  const { unions, baseEdges, hiddenNodeIds } = useDerivedFlowView(
+    members,
+    visibleRelationTypes,
+    edgeType,
+  );
+
+  // Resolve each union dot's colour the same way edges are styled: the
+  // relation-type default merged with the admin override. Without this the
+  // dot ignores configured colours (the edges are styled in the worker).
+  const relationTypes = useTreeStore((s) => s.relationTypes);
+  const resolveUnionColor = useMemo(() => {
+    const byId = new Map(relationTypes.map((rt) => [rt.id, rt]));
+    return (relationType?: string): string => {
+      const rt = relationType ? byId.get(relationType) : undefined;
+      return resolveRelationStyle(
+        relationType ?? "",
+        rt ? relationStyleOverrideFromType(rt) : undefined,
+      ).stroke;
+    };
+  }, [relationTypes]);
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
@@ -157,6 +176,7 @@ export const FlowPanel = () => {
             },
             data: {
               ...u,
+              color: resolveUnionColor(u.relationType),
               isConnectionPath: isUnionConnectionPath,
               isConnectionDimmed:
                 connection.isConnectionMode &&
@@ -207,6 +227,7 @@ export const FlowPanel = () => {
     [
       unions,
       nodePositions,
+      resolveUnionColor,
       connection.connectionPath.edgeKeys,
       connection.hasConnectionPath,
       connection.isConnectionMode,

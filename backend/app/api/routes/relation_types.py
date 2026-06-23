@@ -41,7 +41,14 @@ def list_relation_types(db: Session = Depends(get_db)):
 def create_relation_type(payload: RelationTypeCreate, db: Session = Depends(get_db)):
     if db.get(RelationType, payload.id) is not None:
         raise HTTPException(status_code=409, detail="Relation type already exists")
-    rt = RelationType(id=payload.id, description=payload.description)
+    rt = RelationType(
+        id=payload.id,
+        description=payload.description,
+        label=payload.label,
+        color=payload.color,
+        stroke_width=payload.stroke_width,
+        stroke_dasharray=payload.stroke_dasharray,
+    )
     db.add(rt)
     db.commit()
     return rt
@@ -54,7 +61,10 @@ def update_relation_type(
     rt = db.get(RelationType, rt_id)
     if rt is None:
         raise HTTPException(status_code=404, detail="Relation type not found")
-    rt.description = payload.description
+    data = payload.model_dump(exclude_unset=True)
+    for field in ("description", "label", "color", "stroke_width", "stroke_dasharray"):
+        if field in data:
+            setattr(rt, field, data[field])
     db.commit()
     return rt
 

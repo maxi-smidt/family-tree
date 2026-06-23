@@ -1,5 +1,13 @@
 import type { MemberDB, RelationDB, Member } from "@/types/member";
 
+export interface RelationStyleOverride {
+  color?: string | null;
+  strokeWidth?: number | null;
+  strokeDasharray?: string | null;
+}
+
+export type RelationStyleMap = Record<string, RelationStyleOverride>;
+
 export interface WorkerUnionInfo {
   id: string;
   partner1Id: string;
@@ -49,6 +57,7 @@ export interface DeriveRequest {
   members: Member[];
   visibleRelationTypes: string[];
   edgeType: string;
+  relationStyles: RelationStyleMap;
 }
 
 export interface DeriveResponse {
