@@ -1058,7 +1058,9 @@
       "o": "anderes"
     },
     "date-unknown": "unknown",
-    "clear-date": "Datum löschen"
+    "clear-date": "Datum löschen",
+    "date-input-hint": "TT.MM.JJJJ",
+    "open-date-picker": "Datumsauswahl öffnen"
   },
   "auth": {
     "session": {
@@ -1392,7 +1394,16 @@
       "description": "Damit wird TOTP 2FA vom Konto von \"{{username}}\" entfernt. Sie können sich dann wieder nur mit ihrem Passwort anmelden.",
       "cancel": "Abbrechen",
       "confirm": "2FA entfernen"
-    }
+    },
+    "announcement-section-title": "Versionsankündigung",
+    "announcement-hint": "Wird wiederkehrenden Nutzern nach einer neuen Version einmalig angezeigt. Titel und Nachricht leer lassen, um sie zu deaktivieren. Version leer lassen, um die aktuelle App-Version zu verwenden.",
+    "announcement-title-label": "Titel",
+    "announcement-body-label": "Nachricht (Markdown)",
+    "announcement-version-label": "Version"
+  },
+  "announcement": {
+    "default-title": "Neuigkeiten",
+    "dismiss": "Verstanden"
   },
   "event-types": {
     "birth": "Geburt",

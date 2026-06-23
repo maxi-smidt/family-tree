@@ -18,6 +18,9 @@ export interface AdminSettings {
   default_media_quota_mb: number;
   image_storage_mode: ImageStorageMode;
   image_storage_allowed_modes: ImageStorageMode[];
+  announcement_title: string;
+  announcement_body: string;
+  announcement_version: string;
 }
 
 export interface BackupRecord {

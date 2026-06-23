@@ -34,3 +34,11 @@ export const useTutorialStore = create<TutorialState>((set, get) => ({
     UserPreferencesService.setTutorialCompleted(true).catch(() => undefined);
   },
 }));
+
+export const resetTutorialStoreForSession = () => {
+  useTutorialStore.setState({
+    completed: false,
+    loaded: false,
+    isRunning: false,
+  });
+};

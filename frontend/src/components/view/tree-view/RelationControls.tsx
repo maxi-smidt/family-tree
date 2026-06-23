@@ -34,7 +34,7 @@ export const RelationControls = () => {
       <Tooltip>
         <TooltipTrigger asChild>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="icon">
+            <Button variant="secondary" size="icon" aria-label={t("select-relation")}>
               <Settings2 className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

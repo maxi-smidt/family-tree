@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
+import { useAnnouncementStore } from "@/hooks/useAnnouncementStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -100,6 +101,12 @@ describe("MainPanel", () => {
       loaded: false,
       isRunning: false,
     });
+    useAnnouncementStore.setState({
+      announcement: null,
+      loaded: false,
+      dismissed: false,
+      load: vi.fn().mockResolvedValue(undefined),
+    });
   });
 
   it("keeps Tree, Tree Management, and Friends visible for a fresh account", () => {
@@ -138,6 +145,51 @@ describe("MainPanel", () => {
 
     await waitFor(() => {
       expect(useTutorialStore.getState().isRunning).toBe(true);
+    });
+  });
+
+  it("does not load release announcements before onboarding is complete", async () => {
+    const loadIncomingFriends = vi.fn().mockResolvedValue(undefined);
+    useAuthStore.setState({
+      user: USER,
+      features: [],
+    });
+    useFriendStore.setState({
+      loadIncoming: loadIncomingFriends,
+    });
+    useTutorialStore.setState({
+      completed: false,
+      loaded: true,
+      isRunning: false,
+    });
+    const loadAnnouncement = vi.fn().mockResolvedValue(undefined);
+    useAnnouncementStore.setState({ load: loadAnnouncement });
+
+    render(<MainPanel />);
+
+    await waitFor(() => {
+      expect(loadIncomingFriends).toHaveBeenCalled();
+    });
+    expect(loadAnnouncement).not.toHaveBeenCalled();
+  });
+
+  it("loads release announcements after onboarding is complete", async () => {
+    useAuthStore.setState({
+      user: USER,
+      features: [],
+    });
+    useTutorialStore.setState({
+      completed: true,
+      loaded: true,
+      isRunning: false,
+    });
+    const loadAnnouncement = vi.fn().mockResolvedValue(undefined);
+    useAnnouncementStore.setState({ load: loadAnnouncement });
+
+    render(<MainPanel />);
+
+    await waitFor(() => {
+      expect(loadAnnouncement).toHaveBeenCalledTimes(1);
     });
   });
 });

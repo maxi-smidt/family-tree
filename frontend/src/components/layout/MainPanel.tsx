@@ -70,6 +70,7 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
+import { useAnnouncementStore } from "@/hooks/useAnnouncementStore";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
@@ -148,6 +149,7 @@ export const MainPanel = () => {
   const tutorialRunning = useTutorialStore((s) => s.isRunning);
   const startTutorial = useTutorialStore((s) => s.start);
   const tutorialEnabled = features.includes("onboarding_tour");
+  const loadAnnouncement = useAnnouncementStore((s) => s.load);
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
   const incomingFriendCount = useIncomingFriendCount();
@@ -159,6 +161,14 @@ export const MainPanel = () => {
   useEffect(() => {
     if (user) void loadTutorial();
   }, [user, loadTutorial]);
+
+  // Only fetch the release announcement once onboarding is complete, so
+  // brand-new users mid-tutorial never trigger or flash the popup.
+  useEffect(() => {
+    if (user && tutorialLoaded && tutorialCompleted) {
+      void loadAnnouncement();
+    }
+  }, [user, tutorialLoaded, tutorialCompleted, loadAnnouncement]);
 
   useEffect(() => {
     if (

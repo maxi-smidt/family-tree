@@ -201,6 +201,11 @@ interface MemberState {
     toId: string,
     type: RelationType,
   ) => Promise<void>;
+  removeRelationBidirectional: (
+    idA: string,
+    idB: string,
+    type: RelationType,
+  ) => Promise<void>;
   addDisease: (memberId: string, disease: DiseaseInput) => Promise<void>;
   updateDisease: (
     memberId: string,
@@ -780,6 +785,66 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       },
       redo: async () => {
         await TreeService.removeRelation(treeId, fromId, toId, type);
+        await get().refreshMembers(treeId);
+      },
+    });
+  },
+
+  // Remove a couple/sibling link, which is stored as up to two directional
+  // rows. Deleting them as two separate removeRelation calls would each run a
+  // full refresh, and the worker re-derives the edge from the surviving row
+  // between them — so the edge flashes back for one frame before vanishing.
+  // Delete both directions together, then refresh exactly once.
+  removeRelationBidirectional: async (
+    idA: string,
+    idB: string,
+    type: RelationType,
+  ) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    // Capture which directions actually exist so we delete (and undo) exactly
+    // those — a link may be stored in one or both directions.
+    const members = get().members;
+    const hasForward = !!members
+      .find((m) => m.id === idA)
+      ?.relations?.some((r) => r.toMemberId === idB && r.relationType === type);
+    const hasBackward = !!members
+      .find((m) => m.id === idB)
+      ?.relations?.some((r) => r.toMemberId === idA && r.relationType === type);
+
+    if (!hasForward && !hasBackward) return;
+
+    const removeBoth = () =>
+      Promise.all([
+        hasForward
+          ? TreeService.removeRelation(treeId, idA, idB, type)
+          : Promise.resolve(),
+        hasBackward
+          ? TreeService.removeRelation(treeId, idB, idA, type)
+          : Promise.resolve(),
+      ]);
+    const addBoth = () =>
+      Promise.all([
+        hasForward
+          ? TreeService.addRelation(treeId, idA, idB, type)
+          : Promise.resolve(),
+        hasBackward
+          ? TreeService.addRelation(treeId, idB, idA, type)
+          : Promise.resolve(),
+      ]);
+
+    await removeBoth();
+    await get().refreshMembers(treeId);
+    invalidateDerivedViews();
+
+    get()._pushHistory({
+      undo: async () => {
+        await addBoth();
+        await get().refreshMembers(treeId);
+      },
+      redo: async () => {
+        await removeBoth();
         await get().refreshMembers(treeId);
       },
     });
