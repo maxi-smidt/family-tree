@@ -46,3 +46,11 @@ export const useAnnouncementStore = create<AnnouncementState>((set, get) => ({
     }
   },
 }));
+
+export const resetAnnouncementStoreForSession = () => {
+  useAnnouncementStore.setState({
+    announcement: null,
+    loaded: false,
+    dismissed: false,
+  });
+};
