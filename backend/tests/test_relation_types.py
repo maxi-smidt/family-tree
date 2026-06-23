@@ -49,7 +49,14 @@ def test_admin_create_update_delete(client, db):
         json={"id": "godparent", "description": "Godparent"},
     )
     assert res.status_code == 201
-    assert res.json() == {"id": "godparent", "description": "Godparent"}
+    assert res.json() == {
+        "id": "godparent",
+        "description": "Godparent",
+        "label": None,
+        "color": None,
+        "stroke_width": None,
+        "stroke_dasharray": None,
+    }
 
     # Duplicate id is rejected.
     res = client.post(

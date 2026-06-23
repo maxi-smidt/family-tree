@@ -328,7 +328,8 @@ export const RelationTypesPanel = () => {
                       {colorVal && (
                         <button
                           className="text-xs text-muted-foreground hover:text-foreground"
-                          title="Clear"
+                          title={t("clear-color")}
+                          aria-label={t("clear-color")}
                           onClick={() => setDraftField(type.id, "color", null)}
                         >
                           ×

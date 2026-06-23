@@ -144,7 +144,16 @@ describe("useTreeStore — session reset", () => {
       virtualViews: [TREE_VIEWER],
       selectedTree: TREE_A,
       metadata: { id: TREE_A.id, name: TREE_A.name },
-      relationTypes: [{ id: "parent", description: "Parent" }],
+      relationTypes: [
+        {
+          id: "parent",
+          description: "Parent",
+          label: null,
+          color: null,
+          stroke_width: null,
+          stroke_dasharray: null,
+        },
+      ],
       isReady: true,
     });
     seedMemberStore();
