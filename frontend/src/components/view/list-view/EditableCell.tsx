@@ -91,20 +91,12 @@ function formatDate(dateString: string | null | undefined): string {
 export function EditableCell({ member, columnId }: EditableCellProps) {
   const { t } = useTranslation(undefined, { keyPrefix: "list-view.view" });
   const { t: tCommon } = useTranslation(undefined, { keyPrefix: "common" });
-  const { updateMemberPartial, fetchMemberDetail, detailLoadedIds } =
-    useMemberStore();
+  const { updateMemberPartial } = useMemberStore();
 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const category = getCellCategory(columnId);
-
-  // birthplace/hometown live only in the lazily-loaded member *detail*, not in
-  // the surface list that updateMemberPartial's refresh refetches. They need
-  // special handling so an edit never reads a stale (empty) value or vanishes
-  // after saving.
-  const isDetailColumn = columnId === "birthplace" || columnId === "hometown";
 
   // ── TEXT state ──────────────────────────────────────────────────────────────
   const textOriginal =
@@ -136,12 +128,6 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
     setSaving(true);
     try {
       await updateMemberPartial(member.id, changes);
-      // updateMemberPartial's surface refresh drops detail-only fields
-      // (birthplace/hometown), so reload this member's detail to keep the
-      // just-saved value visible instead of reverting to empty.
-      if (isDetailColumn) {
-        await fetchMemberDetail(member.id, true);
-      }
       setEditing(false);
     } catch {
       // Revert drafts to original values
@@ -156,18 +142,8 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
   };
 
   // ── TEXT handlers ────────────────────────────────────────────────────────────
-  const enterTextEdit = async () => {
-    // For detail-only fields, make sure the real current value is loaded before
-    // editing — the surface list omits it, so the cell can look empty even when
-    // a value exists, and editing from a stale empty would clobber real data.
-    if (isDetailColumn && !detailLoadedIds.has(member.id)) {
-      setLoadingDetail(true);
-      const fresh = await fetchMemberDetail(member.id);
-      setLoadingDetail(false);
-      setTextDraft(fresh ? (getTextValue(fresh, columnId) ?? "") : "");
-    } else {
-      setTextDraft(textOriginal ?? "");
-    }
+  const enterTextEdit = () => {
+    setTextDraft(textOriginal ?? "");
     setEditing(true);
   };
 
@@ -268,11 +244,11 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
   };
 
   // ── Saving spinner ───────────────────────────────────────────────────────────
-  if (saving || loadingDetail) {
+  if (saving) {
     return (
       <span className="inline-flex items-center gap-1 text-muted-foreground text-xs">
         <Loader2 className="h-3 w-3 animate-spin" />
-        {saving ? t("inline-edit.saving") : null}
+        {t("inline-edit.saving")}
       </span>
     );
   }
@@ -285,7 +261,7 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
         <button
           type="button"
           className="w-full text-left px-1 py-0.5 rounded border border-dashed border-transparent hover:border-border hover:bg-muted/40 transition-colors text-sm"
-          onClick={() => void enterTextEdit()}
+          onClick={enterTextEdit}
         >
           {columnId === "firstName" ? (
             <span className="font-medium">{displayVal}</span>

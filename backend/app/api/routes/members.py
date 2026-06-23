@@ -75,6 +75,8 @@ def list_members(
                 Member.date_of_birth_sort,
                 Member.date_of_death_sort,
                 Member.deceased,
+                Member.birthplace,
+                Member.hometown,
                 Member.is_collapsed,
                 Member.position_x,
                 Member.position_y,

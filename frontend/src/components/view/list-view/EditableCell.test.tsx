@@ -200,27 +200,24 @@ describe("EditableCell — nullable text field (maidenName)", () => {
   });
 });
 
-describe("EditableCell — detail-only field (birthplace)", () => {
+describe("EditableCell — location field (birthplace)", () => {
   const updateMemberPartial = vi.fn().mockResolvedValue(undefined);
-  const fetchMemberDetail = vi.fn().mockResolvedValue(member);
 
   beforeEach(async () => {
     await i18n.changeLanguage("en");
     updateMemberPartial.mockClear();
-    fetchMemberDetail.mockClear();
-    useMemberStore.setState({
-      members: [member],
-      updateMemberPartial,
-      fetchMemberDetail,
-      // Detail already loaded → editing starts from the real value, no pre-fetch.
-      detailLoadedIds: new Set(["member-1"]),
-    });
+    useMemberStore.setState({ members: [member], updateMemberPartial });
   });
 
-  it("commits the change and force-reloads detail so the value persists", async () => {
+  it("shows the current value and commits an edit", async () => {
     render(<EditableCell member={member} columnId="birthplace" />);
 
-    fireEvent.click(screen.getByRole("button"));
+    // birthplace now rides in the surface payload, so it renders without a
+    // detail fetch — the idle cell shows the real value straight away.
+    const idleBtn = screen.getByRole("button");
+    expect(idleBtn).toHaveTextContent("Vienna");
+
+    fireEvent.click(idleBtn);
     const input = screen.getByRole("textbox");
     fireEvent.change(input, { target: { value: "Berlin" } });
     fireEvent.keyDown(input, { key: "Enter" });
@@ -229,22 +226,6 @@ describe("EditableCell — detail-only field (birthplace)", () => {
       expect(updateMemberPartial).toHaveBeenCalledWith("member-1", {
         birthplace: "Berlin",
       });
-    });
-    // Without this reload the surface refresh would wipe birthplace and the
-    // just-typed value would vanish — this is the regression we are guarding.
-    await waitFor(() => {
-      expect(fetchMemberDetail).toHaveBeenCalledWith("member-1", true);
-    });
-  });
-
-  it("loads detail before editing when it is not yet loaded (no clobber)", async () => {
-    useMemberStore.setState({ detailLoadedIds: new Set<string>() });
-    render(<EditableCell member={member} columnId="birthplace" />);
-
-    fireEvent.click(screen.getByRole("button"));
-
-    await waitFor(() => {
-      expect(fetchMemberDetail).toHaveBeenCalledWith("member-1");
     });
   });
 });
