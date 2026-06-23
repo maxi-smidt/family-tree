@@ -9,14 +9,9 @@ export const UnionNode = ({ data }: NodeProps<Node<UnionInfo>>) => {
   const { t: tRoot } = useTranslation();
   const isConnectionPath = data.isConnectionPath === true;
   const isConnectionDimmed = data.isConnectionDimmed === true;
-  const color =
-    data.relationType === "married"
-      ? "hsl(142 76% 36%)"
-      : data.relationType === "divorced"
-        ? "var(--destructive)"
-        : data.relationType === "partner"
-          ? "hsl(217 91% 60%)"
-          : "var(--muted-foreground)";
+  // Colour is resolved upstream (relation-type default merged with the admin
+  // override) and threaded through node data; fall back to the neutral default.
+  const color = data.color ?? "var(--muted-foreground)";
 
   const unionLabel = data.relationType
     ? t("union-type", {

@@ -7,6 +7,7 @@ function member(
   id: string,
   x: number,
   relations: Member["relations"] = [],
+  parents: Member["parents"] = { paternalParent: null, maternalParent: null },
 ): Member {
   return {
     id,
@@ -20,7 +21,7 @@ function member(
     imageData: null,
     deceased: false,
     date: { birth: "", death: null },
-    parents: { paternalParent: null, maternalParent: null },
+    parents,
     additionalData: null,
     birthplace: null,
     hometown: null,
@@ -63,6 +64,41 @@ describe("treeProcessor worker edge styles", () => {
       { stroke: "#123456", strokeDasharray: "2,4", strokeWidth: 5 },
       { stroke: "#123456", strokeDasharray: "2,4", strokeWidth: 5 },
     ]);
+  });
+
+  it("styles union→child connectors the same as the couple line they originate from", () => {
+    const members = [
+      member("a", 0),
+      member("b", 300),
+      member("kid", 150, [], { paternalParent: "a", maternalParent: "b" }),
+    ];
+    const unions: WorkerUnionInfo[] = [
+      {
+        id: "union-a-b",
+        partner1Id: "a",
+        partner2Id: "b",
+        childIds: ["kid"],
+        relationType: "married",
+      },
+    ];
+
+    const coupleStyle = {
+      color: "#af0c91",
+      strokeDasharray: "5,5",
+      strokeWidth: 11,
+    };
+    const edges = buildEdges(members, unions, ["parent", "married"], "step", {
+      married: coupleStyle,
+      // A distinct "parent" override that must NOT win for union children.
+      parent: { color: "#91005c", strokeDasharray: "0", strokeWidth: 4 },
+    });
+
+    const childEdge = edges.find((edge) => edge.id.includes(":child:"));
+    expect(childEdge?.baseStyle).toEqual({
+      stroke: "#af0c91",
+      strokeDasharray: "5,5",
+      strokeWidth: 11,
+    });
   });
 
   it("applies relation type style overrides to ordinary relation edges", () => {

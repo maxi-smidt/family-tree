@@ -101,15 +101,19 @@ export function buildEdges(
     if (!memberIds.has(u.partner1Id) || !memberIds.has(u.partner2Id)) continue;
 
     const relType = u.relationType ?? "";
+    // Style of the couple line feeding this union dot. Children hang off the
+    // dot, so their connectors inherit this exact style (the line they
+    // originate from) rather than the generic "parent" style.
+    const baseStyle = applyRelationStyleOverride(
+      getDefaultRelationEdgeStyle(relType),
+      relationStyles[relType],
+    );
+
     const coupleVisible =
       visibleTypesSet.has("parent") ||
       (relType !== "" && visibleTypesSet.has(relType));
 
     if (coupleVisible) {
-      const baseStyle = applyRelationStyleOverride(
-        getDefaultRelationEdgeStyle(relType),
-        relationStyles[relType],
-      );
       const p1X = memberPositionX.get(u.partner1Id) ?? 0;
       const p2X = memberPositionX.get(u.partner2Id) ?? 0;
       const leftId = p1X <= p2X ? u.partner1Id : u.partner2Id;
@@ -159,10 +163,7 @@ export function buildEdges(
           sourceHandle: "bottom",
           targetHandle: "top",
           type: edgeType,
-          baseStyle: applyRelationStyleOverride(
-            getDefaultRelationEdgeStyle("parent"),
-            relationStyles["parent"],
-          ),
+          baseStyle,
           _highlightPairs: highlightPairs,
         });
       }
