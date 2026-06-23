@@ -351,7 +351,13 @@ canvasTest(
       "sibling",
     );
 
+    // Use a large viewport so none of the spread-out nodes are culled by
+    // React Flow's onlyRenderVisibleElements (edges only render when both
+    // endpoints are mounted).
+    await page.setViewportSize({ width: 1600, height: 1000 });
     await login(page, secondUser);
+    // Frame the whole tree so every node (and therefore every edge) is mounted.
+    await page.getByRole("button", { name: "Fit view" }).click();
 
     // Sibling edges are hidden by default — enable them through the controls.
     await page.getByRole("button", { name: "Visible Relations" }).click();
@@ -379,6 +385,7 @@ canvasTest(
     // Reload to force a fresh derive from the backend: under the original bug
     // the relations survived server-side and the edges would reappear here.
     await page.reload();
+    await page.getByRole("button", { name: "Fit view" }).click();
     // Wait for the tree to actually render before asserting edge absence.
     await expect(memberNode(page, parent.id)).toBeVisible();
     await expect(memberNode(page, child.id)).toBeVisible();
