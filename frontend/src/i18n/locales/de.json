@@ -435,6 +435,13 @@
       "filter-other": "Divers",
       "filter-reset": "Filter zurücksetzen",
       "export-csv": "CSV exportieren",
+      "inline-edit": {
+        "toggle": "Schnellbearbeitung",
+        "toggle-on-hint": "Zelle anklicken zum Bearbeiten. Enter speichert, Esc bricht ab.",
+        "save-error": "Änderung konnte nicht gespeichert werden. Bitte erneut versuchen.",
+        "saving": "Wird gespeichert",
+        "gender-aria": "Geschlecht auswählen"
+      },
       "pagination": {
         "showing": "{{from}}–{{to}} von {{total}}",
         "prev": "Vorherige Seite",

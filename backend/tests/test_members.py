@@ -196,7 +196,8 @@ def test_surface_list_omits_detail_fields(client, db):
         hometown="Munich",
     )
 
-    # With surface=true, detail fields should be absent/None
+    # With surface=true, the heavy detail field (additionalData) is omitted,
+    # but birthplace/hometown ride along so the List view can render them.
     res = client.get(
         f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
     )
@@ -204,8 +205,8 @@ def test_surface_list_omits_detail_fields(client, db):
     data = res.json()
     assert len(data) == 1
     assert data[0]["additionalData"] is None
-    assert data[0]["birthplace"] is None
-    assert data[0]["hometown"] is None
+    assert data[0]["birthplace"] == "Berlin"
+    assert data[0]["hometown"] == "Munich"
     # Surface fields should be present
     assert data[0]["id"] == "m1"
     assert data[0]["firstName"] == "Jo"

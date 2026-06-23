@@ -53,6 +53,11 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     date_of_birth_sort: str | None = None
     date_of_death_sort: str | None = None
     deceased: bool = False
+    # birthplace/hometown are small, default-visible List-view columns, so they
+    # ride along in the surface payload (unlike the heavier additional_data /
+    # places_lived detail fields, which stay deferred to the per-member fetch).
+    birthplace: str | None = None
+    hometown: str | None = None
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0

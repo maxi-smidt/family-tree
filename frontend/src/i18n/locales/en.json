@@ -435,6 +435,13 @@
       "filter-other": "Other",
       "filter-reset": "Reset filters",
       "export-csv": "Export CSV",
+      "inline-edit": {
+        "toggle": "Quick edit",
+        "toggle-on-hint": "Click a cell to edit. Enter saves, Esc cancels.",
+        "save-error": "Could not save the change. Please try again.",
+        "saving": "Saving",
+        "gender-aria": "Select gender"
+      },
       "pagination": {
         "showing": "Showing {{from}}–{{to}} of {{total}}",
         "prev": "Previous page",

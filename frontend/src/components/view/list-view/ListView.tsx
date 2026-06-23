@@ -32,6 +32,7 @@ import {
   Venus,
   VenusAndMars,
 } from "lucide-react";
+import { EditableCell } from "./EditableCell";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { MemberDetailDialog } from "@/components/shared/dialog/MemberDetailDialog";
@@ -94,6 +95,26 @@ export const ListView = () => {
   const [viewingMember, setViewingMember] = useState<Member | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [inlineEdit, setInlineEdit] = useState(false);
+
+  const canInlineEdit = canWrite && !isVirtual;
+  const inlineEditActive = inlineEdit && canInlineEdit;
+
+  const EDITABLE_COLUMNS = new Set<ListColumnId>([
+    "firstName",
+    "lastName",
+    "maidenName",
+    "gender",
+    "birthplace",
+    "hometown",
+    "birth",
+    "death",
+  ]);
+
+  // Reset inline edit when the user loses write access (e.g. switches to a viewer/virtual tree).
+  useEffect(() => {
+    if (!canInlineEdit) setInlineEdit(false);
+  }, [canInlineEdit]);
 
   // Reset to first page whenever filters, search, or sort change.
   useEffect(() => {
@@ -372,6 +393,18 @@ export const ListView = () => {
         <div className="flex items-center gap-2">
           <ListFilters filters={filters} onChange={setFilters} />
           <ListCustomizePopover isVirtual={isVirtual} />
+          {canInlineEdit && (
+            <Button
+              variant={inlineEdit ? "default" : "outline"}
+              size="sm"
+              className="h-8 gap-1.5 text-xs"
+              aria-pressed={inlineEdit}
+              onClick={() => setInlineEdit((v) => !v)}
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {t("inline-edit.toggle")}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -384,6 +417,13 @@ export const ListView = () => {
           </Button>
         </div>
       </div>
+
+      {/* Inline edit hint */}
+      {inlineEditActive && (
+        <p className="text-xs text-muted-foreground mb-2 px-1">
+          {t("inline-edit.toggle-on-hint")}
+        </p>
+      )}
 
       {/* Mobile card layout (unchanged) */}
       <div className="flex flex-col gap-2 md:hidden">
@@ -537,7 +577,20 @@ export const ListView = () => {
                 pagedMembers.map((member) => (
                   <TableRow key={member.id}>
                     {visibleColumns.map((id) => (
-                      <TableCell key={id}>{renderCell(id, member)}</TableCell>
+                      <TableCell
+                        key={id}
+                        className={
+                          inlineEditActive && EDITABLE_COLUMNS.has(id)
+                            ? "p-1"
+                            : undefined
+                        }
+                      >
+                        {inlineEditActive && EDITABLE_COLUMNS.has(id) ? (
+                          <EditableCell member={member} columnId={id} />
+                        ) : (
+                          renderCell(id, member)
+                        )}
+                      </TableCell>
                     ))}
                     <TableCell>
                       <DropdownMenu>
