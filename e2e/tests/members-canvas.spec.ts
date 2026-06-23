@@ -356,7 +356,7 @@ canvasTest(
     // Sibling edges are hidden by default — enable them through the controls.
     await page.getByRole("button", { name: "Visible Relations" }).click();
     await page
-      .getByRole("menuitemcheckbox", { name: "Sibling" })
+      .getByRole("menuitemcheckbox", { name: "Sibling", exact: true })
       .click();
     await page.keyboard.press("Escape");
 
