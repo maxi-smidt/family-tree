@@ -14,6 +14,13 @@ export interface TutorialState {
   completed: boolean;
 }
 
+export interface Announcement {
+  title: string;
+  body: string;
+  version: string;
+  acknowledged_version: string | null;
+}
+
 const BASE = "/users/me/preferences";
 
 export const UserPreferencesService = {
@@ -43,5 +50,18 @@ export const UserPreferencesService = {
 
   setTutorialCompleted(completed: boolean): Promise<TutorialState> {
     return api.put<TutorialState>(`${BASE}/tutorial`, { completed });
+  },
+
+  getAnnouncement(): Promise<Announcement> {
+    return api.get<Announcement>(`${BASE}/announcement/current`);
+  },
+
+  acknowledgeAnnouncement(
+    version: string,
+  ): Promise<{ acknowledged_version: string | null }> {
+    return api.put<{ acknowledged_version: string | null }>(
+      `${BASE}/announcement`,
+      { acknowledged_version: version },
+    );
   },
 };
