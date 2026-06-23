@@ -37,7 +37,7 @@ export const useFlowInteractions = (
   const { t } = useTranslation(undefined, {
     keyPrefix: "hooks.flow-interactions",
   });
-  const { removeRelation, updateMemberPartial, persistPositions } =
+  const { removeRelationBidirectional, updateMemberPartial, persistPositions } =
     useMemberStore();
   const pendingUpdates = useRef<Record<string, { x: number; y: number }>>({});
 
@@ -125,14 +125,9 @@ export const useFlowInteractions = (
 
         const union = unions.find((u) => u.id === parts[1]);
         if (union?.relationType) {
-          void removeRelation(
+          void removeRelationBidirectional(
             union.partner1Id,
             union.partner2Id,
-            union.relationType,
-          );
-          void removeRelation(
-            union.partner2Id,
-            union.partner1Id,
             union.relationType,
           );
         }
@@ -149,8 +144,7 @@ export const useFlowInteractions = (
         const sep = rest.indexOf(":");
         if (sep === -1) return;
         const type = rest.slice(sep + 1) as RelationType;
-        void removeRelation(edge.source, edge.target, type);
-        void removeRelation(edge.target, edge.source, type);
+        void removeRelationBidirectional(edge.source, edge.target, type);
         return;
       }
 
@@ -169,7 +163,7 @@ export const useFlowInteractions = (
         void updateMemberPartial(target, { paternalParentId: null });
       }
     },
-    [memberMap, edges, unions, removeRelation, updateMemberPartial],
+    [memberMap, edges, unions, removeRelationBidirectional, updateMemberPartial],
   );
 
   const onEdgesChange = useCallback(

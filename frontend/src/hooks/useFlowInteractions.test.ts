@@ -5,13 +5,13 @@ import { useFlowInteractions } from "./useFlowInteractions";
 import { Member } from "@/types/member";
 import type { WorkerUnionInfo } from "@/workers/treeProcessor.types";
 
-const removeRelation = vi.fn();
+const removeRelationBidirectional = vi.fn();
 const updateMemberPartial = vi.fn();
 const persistPositions = vi.fn();
 
 vi.mock("@/hooks/useMemberStore", () => ({
   useMemberStore: () => ({
-    removeRelation,
+    removeRelationBidirectional,
     updateMemberPartial,
     persistPositions,
   }),
@@ -83,8 +83,12 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     const { result } = setup([a, b], edges, []);
     act(() => result.current.onEdgesChange([remove(edgeId)]));
 
-    expect(removeRelation).toHaveBeenCalledWith("aaaa-1111", "bbbb-2222", "sibling");
-    expect(removeRelation).toHaveBeenCalledWith("bbbb-2222", "aaaa-1111", "sibling");
+    expect(removeRelationBidirectional).toHaveBeenCalledWith(
+      "aaaa-1111",
+      "bbbb-2222",
+      "sibling",
+    );
+    expect(removeRelationBidirectional).toHaveBeenCalledTimes(1);
   });
 
   it("removes the couple relation behind a union edge", () => {
@@ -102,8 +106,8 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     const { result } = setup([], edges, [union]);
     act(() => result.current.onEdgesChange([remove("ue:union-p1-p2:left")]));
 
-    expect(removeRelation).toHaveBeenCalledWith("p1", "p2", "married");
-    expect(removeRelation).toHaveBeenCalledWith("p2", "p1", "married");
+    expect(removeRelationBidirectional).toHaveBeenCalledWith("p1", "p2", "married");
+    expect(removeRelationBidirectional).toHaveBeenCalledTimes(1);
   });
 
   it("detaches a shared child when its union edge is removed", () => {
