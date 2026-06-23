@@ -1058,7 +1058,9 @@
       "o": "anderes"
     },
     "date-unknown": "unknown",
-    "clear-date": "Datum löschen"
+    "clear-date": "Datum löschen",
+    "date-input-hint": "TT.MM.JJJJ",
+    "open-date-picker": "Datumsauswahl öffnen"
   },
   "auth": {
     "session": {

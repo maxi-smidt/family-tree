@@ -3,6 +3,8 @@ import {
   formatDate,
   formatDateTime,
   formatDateWithFallback,
+  formatPartialDateForInput,
+  parsePartialDateInput,
   resolveDateLocale,
 } from "@/utils/dateUtils";
 
@@ -34,5 +36,72 @@ describe("dateUtils", () => {
     expect(resolveDateLocale("de-AT")).toBe("de-DE");
     expect(resolveDateLocale("en-US")).toBe("en-US");
     expect(resolveDateLocale("fr")).toBe("en-US");
+  });
+
+  describe("formatPartialDateForInput", () => {
+    it("renders numeric, re-typeable strings in the locale field order", () => {
+      expect(formatPartialDateForInput("2026-06-07", "de")).toBe("07.06.2026");
+      expect(formatPartialDateForInput("2026-06-07", "en")).toBe("06/07/2026");
+      expect(formatPartialDateForInput("2026-06", "de")).toBe("06.2026");
+      expect(formatPartialDateForInput("2026-06", "en")).toBe("06/2026");
+      expect(formatPartialDateForInput("2026", "de")).toBe("2026");
+    });
+
+    it("returns an empty string for missing or invalid values", () => {
+      expect(formatPartialDateForInput(null)).toBe("");
+      expect(formatPartialDateForInput("")).toBe("");
+      expect(formatPartialDateForInput("not-a-date")).toBe("");
+    });
+  });
+
+  describe("parsePartialDateInput", () => {
+    it("treats empty input as a valid clear", () => {
+      expect(parsePartialDateInput("")).toEqual({ value: null, valid: true });
+      expect(parsePartialDateInput("   ")).toEqual({
+        value: null,
+        valid: true,
+      });
+    });
+
+    it("parses full dates in the locale field order", () => {
+      expect(parsePartialDateInput("07.06.2026", "de")).toEqual({
+        value: "2026-06-07",
+        valid: true,
+      });
+      expect(parsePartialDateInput("06/07/2026", "en")).toEqual({
+        value: "2026-06-07",
+        valid: true,
+      });
+    });
+
+    it("parses ISO order regardless of locale", () => {
+      expect(parsePartialDateInput("2026-06-07", "de")).toEqual({
+        value: "2026-06-07",
+        valid: true,
+      });
+    });
+
+    it("parses partial precision (year, month + year)", () => {
+      expect(parsePartialDateInput("2026", "en")).toEqual({
+        value: "2026",
+        valid: true,
+      });
+      expect(parsePartialDateInput("06.2026", "de")).toEqual({
+        value: "2026-06",
+        valid: true,
+      });
+      expect(parsePartialDateInput("06/2026", "en")).toEqual({
+        value: "2026-06",
+        valid: true,
+      });
+    });
+
+    it("rejects malformed or out-of-range input", () => {
+      expect(parsePartialDateInput("99").valid).toBe(false);
+      expect(parsePartialDateInput("13/40/2026", "en").valid).toBe(false);
+      expect(parsePartialDateInput("32.01.2026", "de").valid).toBe(false);
+      expect(parsePartialDateInput("not a date").valid).toBe(false);
+      expect(parsePartialDateInput("2026-13", "de").valid).toBe(false);
+    });
   });
 });
