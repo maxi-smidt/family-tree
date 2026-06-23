@@ -45,6 +45,13 @@ import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
+// Stable reference for "no connection-path highlight". findConnectionPathHighlight
+// returns a fresh (often empty) Set on every members change; passing that straight
+// into useFlowEdges would re-derive viewEdges from a still-stale baseEdges during the
+// async worker round-trip, briefly re-adding a just-deleted edge (a one-frame flicker).
+// An empty highlight set has no visual effect, so we collapse it to one shared instance.
+const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
+
 export const FlowPanel = () => {
   const { t } = useTranslation();
   const activeTree = useTreeStore((s) => s.selectedTree);
@@ -222,7 +229,12 @@ export const FlowPanel = () => {
     connection.hasConnectionPath,
     hiddenNodeIds,
   );
-  const viewEdges = useFlowEdges(baseEdges, connection.connectionPath.edgeKeys);
+  const viewEdges = useFlowEdges(
+    baseEdges,
+    connection.connectionPath.edgeKeys.size > 0
+      ? connection.connectionPath.edgeKeys
+      : EMPTY_EDGE_KEYS,
+  );
 
   const {
     onNodesChange,
@@ -234,6 +246,7 @@ export const FlowPanel = () => {
   } = useFlowInteractions(
     members,
     edges,
+    unions,
     setNodes,
     setEdges,
     setMembersToDelete,
