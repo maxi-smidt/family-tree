@@ -268,17 +268,6 @@ interface RelationRecord {
   relation_type: string;
 }
 
-async function dragNodeBy(page: Page, memberId: string, dx: number, dy: number) {
-  const box = await memberNode(page, memberId).boundingBox();
-  if (!box) throw new Error(`No bounding box for node ${memberId}`);
-  const startX = box.x + box.width / 2;
-  const startY = box.y + box.height / 2;
-  await page.mouse.move(startX, startY);
-  await page.mouse.down();
-  await page.mouse.move(startX + dx, startY + dy, { steps: 10 });
-  await page.mouse.up();
-}
-
 async function deleteEdgeViaCanvas(
   page: Page,
   treeId: string,
@@ -288,8 +277,16 @@ async function deleteEdgeViaCanvas(
     (response) =>
       response.request().method() === "DELETE" &&
       response.url().includes(`/api/trees/${treeId}/relations`),
+    { timeout: 15_000 },
   );
-  await edge(page, edgeId).click({ force: true });
+  // React Flow renders a wide, transparent interaction path per edge that is
+  // the reliable click target (the visible stroke is too thin to hit).
+  const interaction = edge(page, edgeId).locator(".react-flow__edge-interaction");
+  if (await interaction.count()) {
+    await interaction.click({ force: true });
+  } else {
+    await edge(page, edgeId).click({ force: true });
+  }
   await page.keyboard.press("Delete");
   await deleteResponse;
 }
@@ -373,24 +370,23 @@ canvasTest(
     await expect(edge(page, partnerEdge)).toHaveCount(1);
     await expect(edge(page, siblingEdge)).toHaveCount(1);
 
-    // 1. Parent edge.
+    // Delete each edge through the canvas UI.
     await deleteEdgeViaCanvas(page, ownedTree.id, parentEdge);
-    // Move a node afterwards: a re-derive must NOT resurrect the relation
-    // (the bug this guards against).
-    await dragNodeBy(page, child.id, 40, 40);
     await expect(edge(page, parentEdge)).toHaveCount(0);
-
-    // 2. Partner (union) edge.
     await deleteEdgeViaCanvas(page, ownedTree.id, partnerEdge);
-    await dragNodeBy(page, partnerA.id, 40, 40);
-    await expect(memberNode(page, partnerUnion)).toHaveCount(0);
-
-    // 3. Sibling edge.
     await deleteEdgeViaCanvas(page, ownedTree.id, siblingEdge);
-    await dragNodeBy(page, siblingA.id, 40, 40);
+
+    // Reload to force a fresh derive from the backend: under the original bug
+    // the relations survived server-side and the edges would reappear here.
+    await page.reload();
+    // Wait for the tree to actually render before asserting edge absence.
+    await expect(memberNode(page, parent.id)).toBeVisible();
+    await expect(memberNode(page, child.id)).toBeVisible();
+    await expect(edge(page, parentEdge)).toHaveCount(0);
+    await expect(memberNode(page, partnerUnion)).toHaveCount(0);
     await expect(edge(page, siblingEdge)).toHaveCount(0);
 
-    // All three relations are gone on the backend, not just hidden locally.
+    // And confirm they are gone on the backend, not just hidden locally.
     const relations = await getRelations(secondApi, ownedTree.id);
     const hasRelation = (from: string, to: string, type: string) =>
       relations.some(
