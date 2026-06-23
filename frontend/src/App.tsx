@@ -1,7 +1,9 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { resetAnnouncementStoreForSession } from "@/hooks/useAnnouncementStore";
 import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
+import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
 import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -36,14 +38,18 @@ export const App = () => {
   useEffect(() => {
     if (status !== "authenticated" || !userId) {
       setTreesBootstrapped(false);
+      resetAnnouncementStoreForSession();
       resetTreeStoreForSession();
+      resetTutorialStoreForSession();
       stopRealtime();
       return;
     }
 
     let cancelled = false;
     setTreesBootstrapped(false);
+    resetAnnouncementStoreForSession();
     resetTreeStoreForSession();
+    resetTutorialStoreForSession();
 
     void (async () => {
       try {
