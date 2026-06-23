@@ -1380,7 +1380,16 @@
       "description": "This will remove TOTP 2FA from \"{{username}}\"'s account. They will be able to log in with only their password.",
       "cancel": "Cancel",
       "confirm": "Remove 2FA"
-    }
+    },
+    "announcement-section-title": "Release announcement",
+    "announcement-hint": "Shown once to returning users after a new version is released. Leave the title and message empty to disable it. Leave the version blank to use the current app version.",
+    "announcement-title-label": "Title",
+    "announcement-body-label": "Message (Markdown)",
+    "announcement-version-label": "Version"
+  },
+  "announcement": {
+    "default-title": "What's new",
+    "dismiss": "Got it"
   },
   "event-types": {
     "birth": "Birth",
