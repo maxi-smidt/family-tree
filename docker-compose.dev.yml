@@ -29,6 +29,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # Throwaway Redis for exercising the optional Redis paths (SSE pub/sub,
+  # caching) locally. Production runs an EXTERNAL Redis via REDIS_URL — this
+  # service is a dev convenience only, like the db above.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build: ./backend
     command:
@@ -44,12 +57,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       SECRET_KEY: dev-secret-change-me
       POSTGRES_HOST: db
       POSTGRES_USER: familytree
       POSTGRES_PASSWORD: familytree
       POSTGRES_DB: familytree
+      REDIS_URL: redis://redis:6379/0
       DATA_PATH: /data
       APP_DATA_PATH: /appdata
       FRONTEND_URL: http://localhost:1420
