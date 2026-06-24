@@ -9,20 +9,6 @@ tool-specific files ([`CLAUDE.md`](CLAUDE.md) and
 > Deep architecture & conventions live in **[docs/AGENTS.md](docs/AGENTS.md)**.
 > This file is the operational quick-start plus the rules CI enforces.
 
-## Changelog
-
-Notable changes to **these agent guidelines** (not the app — app releases are
-cut from Git tags). Newest first.
-
-### Unreleased
-
-#### 2026-06-24
-
-- Added a recommended [branch-naming convention](#branching) —
-  `type/number-short-description`.
-- Added guidance for [deciding whether a new feature should be
-  always-on or admin-toggleable](#new-features--always-on-or-admin-toggleable).
-
 ## What this is
 
 Family Tree — a self-hostable web app for building and exploring family history
@@ -130,6 +116,20 @@ description. The instance already has a feature-flag system:
 **If it is unclear which way a feature should go, ask the requester** rather than
 guessing — the decision is hard to reverse cleanly once the UI and data model
 assume one or the other.
+
+## Changelog entries
+
+User-facing changes — new features, bug fixes, and notable behaviour or security
+changes — **must add an entry to [`CHANGELOG.md`](CHANGELOG.md)** as part of the
+same PR. Add it under a top `## [Unreleased]` heading (create the section if it
+is missing), grouped with the [Keep a
+Changelog](https://keepachangelog.com/) headings the file already uses —
+`Added` / `Changed` / `Fixed` / `Security`. The release bump promotes
+`Unreleased` to the new `vX.Y.Z` section.
+
+Internal-only work that users never observe — refactors, test-only changes,
+tooling, CI, and docs (including edits to these guidelines) — does **not** need
+an entry.
 
 ## Golden rules — CI enforces these; a PR fails without them
 
@@ -249,3 +249,4 @@ cd frontend && npm run bump:patch        # or bump:minor / bump:major
 - [ ] `uv run ruff check` + `uv run pytest` pass (backend)
 - [ ] `npm run check-i18n` passes; new strings translated in **all** locales
 - [ ] Schema changes have an Alembic migration
+- [ ] User-facing changes have a `CHANGELOG.md` entry under `## [Unreleased]`
