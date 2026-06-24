@@ -435,6 +435,13 @@
       "filter-other": "Other",
       "filter-reset": "Reset filters",
       "export-csv": "Export CSV",
+      "inline-edit": {
+        "toggle": "Quick edit",
+        "toggle-on-hint": "Click a cell to edit. Enter saves, Esc cancels.",
+        "save-error": "Could not save the change. Please try again.",
+        "saving": "Saving",
+        "gender-aria": "Select gender"
+      },
       "pagination": {
         "showing": "Showing {{from}}–{{to}} of {{total}}",
         "prev": "Previous page",
@@ -1065,7 +1072,9 @@
       "o": "other"
     },
     "date-unknown": "unknown",
-    "clear-date": "Clear date"
+    "clear-date": "Clear date",
+    "date-input-hint": "MM/DD/YYYY",
+    "open-date-picker": "Open date picker"
   },
   "auth": {
     "session": {
@@ -1364,13 +1373,25 @@
       "settings-saved": "Save schedule"
     },
     "relation-types": {
-      "hint": "Relation types are shared by every tree on this instance. The description is shown as a fallback when no translation exists for a type.",
+      "hint": "Relation types are shared by every tree on this instance. The label overrides the display name; the description is shown as a fallback when no translation exists.",
       "col-id": "ID",
       "col-label": "Label",
       "col-description": "Description",
+      "col-style": "Preview",
+      "col-color": "Color",
+      "col-pattern": "Pattern",
+      "col-width": "Width",
       "id-placeholder": "e.g. godparent",
+      "label-placeholder": "Custom display name",
       "add": "Add type",
+      "save-row": "Save",
       "save-description": "Save description",
+      "clear-color": "Clear",
+      "clear-pattern": "Clear",
+      "clear-width": "Clear",
+      "pattern-solid": "Solid",
+      "pattern-dashed": "Dashed",
+      "pattern-dotted": "Dotted",
       "delete": "Delete type",
       "delete-parent-unavailable": "The parent type is required for the tree structure and cannot be deleted",
       "created": "Relation type created.",
@@ -1387,7 +1408,16 @@
       "description": "This will remove TOTP 2FA from \"{{username}}\"'s account. They will be able to log in with only their password.",
       "cancel": "Cancel",
       "confirm": "Remove 2FA"
-    }
+    },
+    "announcement-section-title": "Release announcement",
+    "announcement-hint": "Shown once to returning users after a new version is released. Leave the title and message empty to disable it. Leave the version blank to use the current app version.",
+    "announcement-title-label": "Title",
+    "announcement-body-label": "Message (Markdown)",
+    "announcement-version-label": "Version"
+  },
+  "announcement": {
+    "default-title": "What's new",
+    "dismiss": "Got it"
   },
   "event-types": {
     "birth": "Birth",

@@ -9,6 +9,8 @@ export interface UnionInfo extends Record<string, unknown> {
   childIds: string[];
   /** Relation type driving this union (undefined = parent-derived only). */
   relationType?: string;
+  /** Resolved dot colour (relation-type default merged with admin override). */
+  color?: string;
 }
 
 const COUPLE_RELATIONS = new Set(["married", "partner", "divorced"]);

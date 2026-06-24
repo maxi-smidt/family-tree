@@ -31,9 +31,13 @@ import { useFlowNodes } from "@/hooks/useFlowNodes";
 import { useFlowEdges } from "@/hooks/useFlowEdges";
 import { useFlowInteractions } from "@/hooks/useFlowInteractions";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
-import { useFlowUnions } from "@/hooks/useFlowUnions";
+import { useDerivedFlowView } from "@/hooks/useDerivedFlowView";
 import { useIsMobile } from "@/hooks/useMobile";
 import { memberPairKey } from "@/utils/graphUtils";
+import {
+  resolveRelationStyle,
+  relationStyleOverrideFromType,
+} from "@/utils/relationStyleUtils";
 import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
@@ -44,6 +48,13 @@ import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
+
+// Stable reference for "no connection-path highlight". findConnectionPathHighlight
+// returns a fresh (often empty) Set on every members change; passing that straight
+// into useFlowEdges would re-derive viewEdges from a still-stale baseEdges during the
+// async worker round-trip, briefly re-adding a just-deleted edge (a one-frame flicker).
+// An empty highlight set has no visual effect, so we collapse it to one shared instance.
+const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = () => {
   const { t } = useTranslation();
@@ -97,8 +108,27 @@ export const FlowPanel = () => {
     onHorizontalRelationReady: relation.startHorizontalRelation,
   });
 
-  // --- Unions & node positions ---
-  const unions = useFlowUnions(members);
+  // --- Unions, edges & visibility — computed off the main thread ---
+  const { unions, baseEdges, hiddenNodeIds } = useDerivedFlowView(
+    members,
+    visibleRelationTypes,
+    edgeType,
+  );
+
+  // Resolve each union dot's colour the same way edges are styled: the
+  // relation-type default merged with the admin override. Without this the
+  // dot ignores configured colours (the edges are styled in the worker).
+  const relationTypes = useTreeStore((s) => s.relationTypes);
+  const resolveUnionColor = useMemo(() => {
+    const byId = new Map(relationTypes.map((rt) => [rt.id, rt]));
+    return (relationType?: string): string => {
+      const rt = relationType ? byId.get(relationType) : undefined;
+      return resolveRelationStyle(
+        relationType ?? "",
+        rt ? relationStyleOverrideFromType(rt) : undefined,
+      ).stroke;
+    };
+  }, [relationTypes]);
 
   // Use `nodes` (local state, updates on every drag frame) rather than `members`
   // (store, lags by the debounce) so union dots track their parents in real-time.
@@ -157,6 +187,7 @@ export const FlowPanel = () => {
             },
             data: {
               ...u,
+              color: resolveUnionColor(u.relationType),
               isConnectionPath: isUnionConnectionPath,
               isConnectionDimmed:
                 connection.isConnectionMode &&
@@ -207,6 +238,7 @@ export const FlowPanel = () => {
     [
       unions,
       nodePositions,
+      resolveUnionColor,
       connection.connectionPath.edgeKeys,
       connection.hasConnectionPath,
       connection.isConnectionMode,
@@ -227,13 +259,13 @@ export const FlowPanel = () => {
     connection.connectionPath.nodeIds,
     connection.isConnectionMode,
     connection.hasConnectionPath,
+    hiddenNodeIds,
   );
   const viewEdges = useFlowEdges(
-    members,
-    unions,
-    visibleRelationTypes,
-    edgeType,
-    connection.connectionPath.edgeKeys,
+    baseEdges,
+    connection.connectionPath.edgeKeys.size > 0
+      ? connection.connectionPath.edgeKeys
+      : EMPTY_EDGE_KEYS,
   );
 
   const {
@@ -246,6 +278,7 @@ export const FlowPanel = () => {
   } = useFlowInteractions(
     members,
     edges,
+    unions,
     setNodes,
     setEdges,
     setMembersToDelete,

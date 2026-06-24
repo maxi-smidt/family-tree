@@ -16,6 +16,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Member } from "@/types/member";
+import { formatDate } from "@/utils/dateUtils";
 
 type Props = {
   members: Member[];
@@ -23,6 +24,8 @@ type Props = {
   onChange: (id: string | null) => void;
   placeholder: string;
   noResultsText: string;
+  /** Show each member's birth date next to their name for easier identification. */
+  showBirthDate?: boolean;
 };
 
 export const MemberPicker = ({
@@ -31,6 +34,7 @@ export const MemberPicker = ({
   onChange,
   placeholder,
   noResultsText,
+  showBirthDate = false,
 }: Props) => {
   const [open, setOpen] = useState(false);
   const [portalContainer, setPortalContainer] = useState<HTMLElement>();
@@ -95,25 +99,37 @@ export const MemberPicker = ({
                 {noResultsText}
               </CommandEmpty>
               <CommandGroup>
-                {members.map((m) => (
-                  <CommandItem
-                    key={m.id}
-                    value={`${m.firstName} ${m.lastName} ${m.id}`}
-                    onSelect={() => {
-                      onChange(m.id === value ? null : m.id);
-                      setOpen(false);
-                    }}
-                    className="text-xs"
-                  >
-                    <Check
-                      className={cn(
-                        "size-3 shrink-0",
-                        value === m.id ? "opacity-100" : "opacity-0",
+                {members.map((m) => {
+                  const birthDate = showBirthDate
+                    ? formatDate(m.date.birth)
+                    : "";
+                  return (
+                    <CommandItem
+                      key={m.id}
+                      value={`${m.firstName} ${m.lastName} ${m.date.birth} ${m.id}`}
+                      onSelect={() => {
+                        onChange(m.id === value ? null : m.id);
+                        setOpen(false);
+                      }}
+                      className="text-xs"
+                    >
+                      <Check
+                        className={cn(
+                          "size-3 shrink-0",
+                          value === m.id ? "opacity-100" : "opacity-0",
+                        )}
+                      />
+                      <span className="truncate">
+                        {m.firstName} {m.lastName}
+                      </span>
+                      {birthDate && (
+                        <span className="ml-auto pl-2 shrink-0 text-muted-foreground tabular-nums">
+                          {birthDate}
+                        </span>
                       )}
-                    />
-                    {m.firstName} {m.lastName}
-                  </CommandItem>
-                ))}
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             </CommandList>
           </Command>

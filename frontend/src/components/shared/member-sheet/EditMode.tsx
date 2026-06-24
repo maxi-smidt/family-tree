@@ -219,17 +219,21 @@ export const EditMode = ({
       return false;
     }
 
-    const duplicate = members.find(
-      (m) =>
-        m.id !== member.id &&
-        m.firstName === formData.firstName &&
-        (m.middleNames || "") === (formData.middleNames || "") &&
-        (m.baptismalName || "") === (formData.baptismalName || "") &&
-        m.lastName === formData.lastName &&
-        m.gender === formData.gender &&
-        m.date.birth === formData.date.birth &&
-        m.date.death === formData.date.death,
-    );
+    // Same-named people are only treated as duplicates once a birth date has
+    // been entered; without one we allow namesakes to be created freely.
+    const duplicate = formData.date.birth
+      ? members.find(
+          (m) =>
+            m.id !== member.id &&
+            m.firstName === formData.firstName &&
+            (m.middleNames || "") === (formData.middleNames || "") &&
+            (m.baptismalName || "") === (formData.baptismalName || "") &&
+            m.lastName === formData.lastName &&
+            m.gender === formData.gender &&
+            m.date.birth === formData.date.birth &&
+            m.date.death === formData.date.death,
+        )
+      : undefined;
 
     if (duplicate) {
       toast.error(t("toast-error-duplicate"));
@@ -733,6 +737,7 @@ export const EditMode = ({
                     }
                     placeholder={t("parent-placeholder")}
                     noResultsText={t("parent-no-results")}
+                    showBirthDate
                   />
                 </Field>
 
@@ -751,6 +756,7 @@ export const EditMode = ({
                     }
                     placeholder={t("parent-placeholder")}
                     noResultsText={t("parent-no-results")}
+                    showBirthDate
                   />
                 </Field>
               </FieldGroup>

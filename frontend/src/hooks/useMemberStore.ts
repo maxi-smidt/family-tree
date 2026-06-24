@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import {
-  mapMemberFromDB,
   Member,
   MemberDB,
   MemberUpdate,
@@ -9,7 +8,8 @@ import {
 } from "@/types/member";
 import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
 import { getLayoutedElements } from "@/utils/layoutUtils";
-import { reconstructParents } from "@/utils/memberUtils";
+import { mapMembersFromRows } from "@/utils/memberMapping";
+import { treeProcessorClient } from "@/workers/treeProcessorClient";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -126,36 +126,45 @@ async function commitPendingMemberDeletion(key: string) {
   }
 }
 
+// Synchronously map raw rows into Member[], dropping any member with a pending
+// optimistic deletion. Used for bounded datasets (windowed neighborhood loads),
+// where the synchronous map is cheap. For potentially large full loads use
+// buildAppMembersOffThread instead.
 function buildAppMembers(
   memberRows: MemberDB[],
   relations: RelationDB[],
   treeId: string,
 ): Member[] {
-  const memberGenderMap = new Map<string, string>();
-  memberRows.forEach((m) => memberGenderMap.set(m.id, m.gender ?? "o"));
+  return mapMembersFromRows(memberRows, relations).filter(
+    (member) =>
+      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+  );
+}
 
-  const relationsByMember = new Map<string, RelationDB[]>();
-  for (const r of relations) {
-    relationsByMember.set(
-      r.from_member_id,
-      (relationsByMember.get(r.from_member_id) ?? []).concat(r),
+// Like buildAppMembers, but maps potentially large row sets off the main thread
+// via the tree-processor worker (falling back to synchronous mapping if it is
+// unavailable). Used by the non-windowed full-load paths where the row count can
+// be sizeable. Because it awaits the worker, callers MUST re-check isActiveTree
+// after it resolves before committing the result to the store.
+async function buildAppMembersOffThread(
+  memberRows: MemberDB[],
+  relations: RelationDB[],
+  treeId: string,
+): Promise<Member[]> {
+  let mapped: Member[];
+  try {
+    mapped = await treeProcessorClient.parseMembers(
+      treeId,
+      memberRows,
+      relations,
     );
+  } catch {
+    mapped = mapMembersFromRows(memberRows, relations);
   }
-
-  return memberRows
-    .map((member) => {
-      const memberRelations = relationsByMember.get(member.id) ?? [];
-      const mapped = mapMemberFromDB(member, memberRelations, []);
-      mapped.parents = reconstructParents(
-        memberRelations.filter((r) => r.relation_type === "parent"),
-        memberGenderMap,
-      );
-      return mapped;
-    })
-    .filter(
-      (member) =>
-        !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
-    );
+  return mapped.filter(
+    (member) =>
+      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+  );
 }
 
 function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
@@ -243,6 +252,11 @@ interface MemberState {
   removeRelation: (
     fromId: string,
     toId: string,
+    type: RelationType,
+  ) => Promise<void>;
+  removeRelationBidirectional: (
+    idA: string,
+    idB: string,
     type: RelationType,
   ) => Promise<void>;
   addDisease: (memberId: string, disease: DiseaseInput) => Promise<void>;
@@ -397,11 +411,18 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           totalMemberCount: nb.total_member_count,
         });
       } catch {
-        // Fall back to showing full data without windowed UI
+        // Neighborhood load failed — fall back to the full dataset without
+        // windowed UI, mapped off the main thread since it can be large.
+        const appMembers = await buildAppMembersOffThread(
+          memberRows,
+          relations,
+          treeId,
+        );
+        if (!isActiveTree(treeId)) return;
         set({
           windowed: false,
           windowedForTreeId: null,
-          members: buildAppMembers(memberRows, relations, treeId),
+          members: appMembers,
           detailLoadedIds: new Set<string>(),
           totalMemberCount: memberRows.length,
         });
@@ -409,8 +430,16 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       return;
     }
 
+    // Normal mode: full load. Map off the main thread (worker) for large
+    // datasets so the UI never blocks; falls back to synchronous mapping.
+    const appMembers = await buildAppMembersOffThread(
+      memberRows,
+      relations,
+      treeId,
+    );
+    if (!isActiveTree(treeId)) return;
     set({
-      members: buildAppMembers(memberRows, relations, treeId),
+      members: appMembers,
       detailLoadedIds: new Set<string>(),
       totalMemberCount: memberRows.length,
     });
@@ -916,6 +945,66 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       },
       redo: async () => {
         await TreeService.removeRelation(treeId, fromId, toId, type);
+        await get().refreshMembers(treeId);
+      },
+    });
+  },
+
+  // Remove a couple/sibling link, which is stored as up to two directional
+  // rows. Deleting them as two separate removeRelation calls would each run a
+  // full refresh, and the worker re-derives the edge from the surviving row
+  // between them — so the edge flashes back for one frame before vanishing.
+  // Delete both directions together, then refresh exactly once.
+  removeRelationBidirectional: async (
+    idA: string,
+    idB: string,
+    type: RelationType,
+  ) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    // Capture which directions actually exist so we delete (and undo) exactly
+    // those — a link may be stored in one or both directions.
+    const members = get().members;
+    const hasForward = !!members
+      .find((m) => m.id === idA)
+      ?.relations?.some((r) => r.toMemberId === idB && r.relationType === type);
+    const hasBackward = !!members
+      .find((m) => m.id === idB)
+      ?.relations?.some((r) => r.toMemberId === idA && r.relationType === type);
+
+    if (!hasForward && !hasBackward) return;
+
+    const removeBoth = () =>
+      Promise.all([
+        hasForward
+          ? TreeService.removeRelation(treeId, idA, idB, type)
+          : Promise.resolve(),
+        hasBackward
+          ? TreeService.removeRelation(treeId, idB, idA, type)
+          : Promise.resolve(),
+      ]);
+    const addBoth = () =>
+      Promise.all([
+        hasForward
+          ? TreeService.addRelation(treeId, idA, idB, type)
+          : Promise.resolve(),
+        hasBackward
+          ? TreeService.addRelation(treeId, idB, idA, type)
+          : Promise.resolve(),
+      ]);
+
+    await removeBoth();
+    await get().refreshMembers(treeId);
+    invalidateDerivedViews();
+
+    get()._pushHistory({
+      undo: async () => {
+        await addBoth();
+        await get().refreshMembers(treeId);
+      },
+      redo: async () => {
+        await removeBoth();
         await get().refreshMembers(treeId);
       },
     });

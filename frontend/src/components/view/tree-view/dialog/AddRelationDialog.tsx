@@ -17,6 +17,7 @@ import {
 import { useState } from "react";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { PARENT_RELATION_TYPE, RelationType } from "@/types/member";
+import { resolveRelationLabel } from "@/utils/relationLabelUtils";
 import { useTranslation } from "react-i18next";
 
 interface AddRelationDialogProps {
@@ -62,9 +63,7 @@ export const AddRelationDialog = ({
                 .filter((t) => t.id !== PARENT_RELATION_TYPE)
                 .map((type) => (
                   <SelectItem key={type.id} value={type.id}>
-                    {tRelation(type.id, {
-                      defaultValue: type.description ?? type.id,
-                    })}
+                    {resolveRelationLabel(type, tRelation)}
                   </SelectItem>
                 ))}
             </SelectContent>

@@ -30,6 +30,7 @@ from app.schemas.family import (
     RelationOut,
 )
 from app.services.activity import record_activity
+from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.settings_service import get_media_limits
@@ -77,6 +78,8 @@ def list_members(
                 Member.date_of_birth_sort,
                 Member.date_of_death_sort,
                 Member.deceased,
+                Member.birthplace,
+                Member.hometown,
                 Member.is_collapsed,
                 Member.position_x,
                 Member.position_y,
@@ -147,6 +150,7 @@ def create_member(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
+    invalidate_stats(tree.id)
     return member
 
 
@@ -409,6 +413,7 @@ def update_member(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
+    invalidate_stats(tree.id)
     return member
 
 
@@ -430,6 +435,7 @@ def delete_member(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
+    invalidate_stats(tree.id)
 
 
 # --- Relations -------------------------------------------------------------
@@ -500,6 +506,7 @@ def add_relation(
             db, tree, "tree.content_changed",
             {"tree_id": tree.id, "domain": "member"},
         )
+        invalidate_stats(tree.id)
     return relation
 
 
@@ -526,6 +533,7 @@ def remove_relation(
             db, tree, "tree.content_changed",
             {"tree_id": tree.id, "domain": "member"},
         )
+        invalidate_stats(tree.id)
 
 
 # --- Diseases --------------------------------------------------------------
@@ -575,6 +583,7 @@ def add_disease(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
+    invalidate_stats(tree.id)
     return disease
 
 
@@ -606,6 +615,7 @@ def update_disease(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
+    invalidate_stats(tree.id)
     return disease
 
 
@@ -634,3 +644,4 @@ def delete_disease(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
+    invalidate_stats(tree.id)

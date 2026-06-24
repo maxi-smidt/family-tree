@@ -55,6 +55,9 @@ class SettingsOut(BaseModel):
     image_storage_allowed_modes: list[ImageStorageMode] = Field(
         default_factory=lambda: ["compressed", "original", "both"]
     )
+    announcement_title: str = ""
+    announcement_body: str = ""
+    announcement_version: str = ""
 
 
 class SettingsUpdate(BaseModel):
@@ -84,3 +87,6 @@ class SettingsUpdate(BaseModel):
     default_media_quota_mb: int | None = Field(default=None, ge=0)
     image_storage_mode: ImageStorageMode | None = None
     image_storage_allowed_modes: list[ImageStorageMode] | None = None
+    announcement_title: str | None = Field(default=None, max_length=200)
+    announcement_body: str | None = Field(default=None, max_length=20000)
+    announcement_version: str | None = Field(default=None, max_length=50)

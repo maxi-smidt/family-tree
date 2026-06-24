@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
@@ -53,6 +54,7 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { APP_VERSION } from "@/lib/buildInfo";
 
 const MEBIBYTE = 1024 * 1024;
 
@@ -747,6 +749,64 @@ export const AdminView = () => {
                         setSettings({ ...settings, allow_self_registration: v })
                       }
                     />
+                  </div>
+                  <div className="space-y-3 border-t pt-4">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {t("announcement-section-title")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("announcement-hint")}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="announcement-title">
+                        {t("announcement-title-label")}
+                      </FieldLabel>
+                      <Input
+                        id="announcement-title"
+                        value={settings.announcement_title}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            announcement_title: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="announcement-body">
+                        {t("announcement-body-label")}
+                      </FieldLabel>
+                      <Textarea
+                        id="announcement-body"
+                        rows={5}
+                        value={settings.announcement_body}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            announcement_body: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <FieldLabel htmlFor="announcement-version">
+                        {t("announcement-version-label")}
+                      </FieldLabel>
+                      <Input
+                        id="announcement-version"
+                        className="w-64"
+                        placeholder={APP_VERSION}
+                        value={settings.announcement_version}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            announcement_version: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-end">
                     <Button onClick={saveSettings}>{t("save-settings")}</Button>

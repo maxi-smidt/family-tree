@@ -7,6 +7,93 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Added
+
+- **Focused (windowed) tree view for very large trees** — trees with more than
+  2,000 members now open in a focused mode that renders only a bounded
+  neighborhood around a root person instead of loading the entire graph, keeping
+  large trees (tested up to 200k members) responsive. A new
+  `GET /api/trees/{id}/members/neighborhood` endpoint returns a bounded BFS
+  subgraph (configurable ancestor/descendant depth, optional partner expansion,
+  capped node count) and a new `GET /api/trees/{id}/members/search` endpoint
+  powers server-side name search in this mode. On the canvas, depth +/- controls
+  expand or shrink the neighborhood, "Focus here" re-roots on the selected
+  person, search re-roots on the chosen result, and a banner shows how many of
+  the total members are currently in view. Trees of 2,000 members or fewer are
+  unaffected (#431).
+- **Per-tree canvas viewport** — each tree now remembers its own last camera
+  position and zoom (persisted locally) instead of sharing a single global
+  viewport across all trees.
+- **Optional external Redis support** — the backend now accepts a `REDIS_URL`
+  environment variable pointing at an external Redis instance (plain, TLS, or
+  password-authenticated). When unset the app behaves exactly as before — no
+  Redis is required. When configured, the `/api/health/ready` endpoint reports
+  Redis reachability (`redis: ok / unavailable`). This is the shared plumbing
+  for the Redis pub/sub multi-worker SSE epic (#464).
+
+### Changed
+
+- **Redis caching for statistics** — when `REDIS_URL` is configured, the
+  `GET /api/trees/{id}/statistics` response is cached in Redis for up to 5
+  minutes (`cache:stats:{tree_id}`). Member, relation, and disease writes
+  invalidate the cache on a best-effort basis, with the 5-minute TTL as a
+  backstop, so statistics are eventually consistent. Without Redis the endpoint
+  computes statistics on every request exactly as before — no behaviour change
+  (#467).
+- **SSE event bus backed by Redis pub/sub for multi-worker deployments** — when
+  `REDIS_URL` is configured, real-time SSE events are published to per-user
+  Redis channels (`events:{user_id}`) and each worker's background listener
+  delivers them to locally-connected clients. This enables running the backend
+  with `WORKERS > 1` (set via the `WORKERS` env var on the Docker image) without
+  losing events across workers. When `REDIS_URL` is unset the original
+  in-process single-worker fan-out is unchanged — no Redis dependency is
+  introduced (#466).
+
+### Fixed
+
+- **Map view now loads in production** — the Content-Security-Policy served by
+  nginx did not allow the OpenStreetMap tile hosts, so the Map view rendered as
+  a blank gray area (tiles blocked by `img-src`). `https://*.tile.openstreetmap.org`
+  is now permitted in `img-src`. Development was unaffected because the Vite dev
+  server sends no CSP (#471).
+
+## [1.1.0] - 2026-06-23
+
+Feature and polish release on top of `1.0.0`: in-place list editing,
+admin-configurable relation types, faster large-tree rendering, and friendlier
+date entry.
+
+### Added
+
+- **Inline cell editing in the List view** — edit names, gender, birthplace,
+  hometown, and dates directly in the desktop table via an opt-in **Quick edit**
+  toggle. Accident-proof by design: off by default, Enter or blur commits,
+  Escape cancels, unchanged cells never write, and it is disabled for viewers
+  and virtual trees. Every edit is reversible with undo.
+- **Admin-configurable relation types** — set a custom label and per-type edge
+  styling (color, stroke width, dash pattern) for each relation type, rendered
+  live on the tree canvas.
+- **Release announcement popup** — returning users see a one-time dialog after
+  an update; admins can configure its content.
+
+### Changed
+
+- **Typeable dates and friendlier member entry** — the date picker now accepts
+  typed input alongside the calendar, parent pickers show birth dates to
+  disambiguate people, and the duplicate-name guard was relaxed so namesakes
+  without a birth date are allowed.
+- **Faster large trees** — heavy graph and layout processing moved off the main
+  thread into a web worker, keeping the UI responsive on large trees.
+- Birthplace and hometown now load with the member list, so those List-view
+  columns populate immediately instead of only after opening a member.
+
+### Fixed
+
+- Deleting a relation or parent edge on the tree canvas now persists instead of
+  reappearing after a reload.
+
 ## [1.0.0] - 2026-06-22
 
 First stable release of Family Tree — a self-hostable web app for building and
@@ -74,4 +161,5 @@ exploring family history through an interactive visual tree.
 - Object-level permission enforcement on shared trees.
 - Encrypted tree export bundles.
 
+[1.1.0]: https://github.com/maxi-smidt/family-tree/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/maxi-smidt/family-tree/releases/tag/v1.0.0

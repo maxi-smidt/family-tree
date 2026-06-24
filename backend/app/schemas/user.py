@@ -53,6 +53,17 @@ class TutorialPreferences(BaseModel):
     completed: bool = False
 
 
+class AnnouncementAck(BaseModel):
+    acknowledged_version: str | None = None
+
+
+class AnnouncementOut(BaseModel):
+    title: str
+    body: str
+    version: str
+    acknowledged_version: str | None = None
+
+
 class UserCreate(BaseModel):
     username: str
     password: str

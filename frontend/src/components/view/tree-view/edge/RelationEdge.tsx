@@ -17,9 +17,11 @@ export const RelationEdge = ({
     targetY,
   });
 
+  const baseWidth =
+    typeof style?.strokeWidth === "number" ? style.strokeWidth : 2;
   const edgeStyle = {
     ...style,
-    strokeWidth: selected ? 3 : 2,
+    strokeWidth: selected ? 3 : baseWidth,
     filter: selected ? "brightness(0.5)" : "none",
   };
 
