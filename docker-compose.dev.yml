@@ -29,9 +29,6 @@ services:
       timeout: 5s
       retries: 10
 
-  # Throwaway Redis for exercising the optional Redis paths (SSE pub/sub,
-  # caching) locally. Production runs an EXTERNAL Redis via REDIS_URL — this
-  # service is a dev convenience only, like the db above.
   redis:
     image: redis:7-alpine
     ports:
