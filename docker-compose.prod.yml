@@ -3,6 +3,7 @@
 # PostgreSQL is NOT part of this stack (as is common for Unraid apps): run
 # your own Postgres and point the backend at it via the .env file (POSTGRES_*
 # values or a full DATABASE_URL).
+# Redis is also external — set REDIS_URL in your .env to enable it (optional).
 #
 # Configure via a .env file next to this one (see .env.example). The headline
 # settings:
@@ -11,6 +12,7 @@
 #   DATA_PATH      host path for the "real" data (member photos, gallery media)
 #   APP_IMAGE_TAG  app image tag for both frontend and backend
 #   POSTGRES_*     where to reach your PostgreSQL instance
+#   REDIS_URL      optional external Redis (leave unset to run without Redis)
 
 services:
   backend:
@@ -35,6 +37,7 @@ services:
       AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET:-}
       AUTHENTIK_DISCOVERY_URL: ${AUTHENTIK_DISCOVERY_URL:-}
       AUTHENTIK_ADMIN_GROUP: ${AUTHENTIK_ADMIN_GROUP:-family-tree-admins}
+      REDIS_URL: ${REDIS_URL:-}  # optional external Redis; leave unset to disable
     volumes:
       - ${DATA_PATH:-./data}:/data
       - ${APP_DATA_PATH:-./appdata}/backend:/appdata

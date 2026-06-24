@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     # db published by `docker compose up -d db` with no extra config; in
     # production docker-compose sets POSTGRES_HOST=db (the service name).
     DATABASE_URL: str | None = None
+
+    # --- Redis (optional) --------------------------------------------------
+    # External Redis instance — not bundled in the compose stack.
+    # Leave unset to disable Redis entirely (graceful degradation).
+    # Supported schemes: redis://, rediss:// (TLS), redis://:password@host/db
+    REDIS_URL: str | None = None
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "familytree"
@@ -115,6 +121,10 @@ class Settings(BaseSettings):
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+
+    @property
+    def redis_enabled(self) -> bool:
+        return bool(self.REDIS_URL)
 
     @property
     def authentik_enabled(self) -> bool:

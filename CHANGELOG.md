@@ -7,6 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Added
+
+- **Optional external Redis support** — the backend now accepts a `REDIS_URL`
+  environment variable pointing at an external Redis instance (plain, TLS, or
+  password-authenticated). When unset the app behaves exactly as before — no
+  Redis is required. When configured, the `/api/health/ready` endpoint reports
+  Redis reachability (`redis: ok / unavailable`). This is the shared plumbing
+  for the Redis pub/sub multi-worker SSE epic (#464).
+
 ## [1.1.0] - 2026-06-23
 
 Feature and polish release on top of `1.0.0`: in-place list editing,
