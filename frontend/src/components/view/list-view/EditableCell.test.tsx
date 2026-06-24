@@ -39,8 +39,9 @@ vi.mock("@/components/view/list-view/ListPagination", () => ({
   ListPagination: () => null,
 }));
 
+const mockUseIsMobile = vi.fn(() => false);
 vi.mock("@/hooks/useMobile", () => ({
-  useIsMobile: () => false,
+  useIsMobile: () => mockUseIsMobile(),
 }));
 
 const member: Member = {
@@ -237,6 +238,7 @@ describe("ListView — Quick edit toggle gating", () => {
     await i18n.changeLanguage("en");
     updateMemberPartial.mockClear();
     useMemberStore.setState({ members: [member], updateMemberPartial });
+    mockUseIsMobile.mockReturnValue(false);
   });
 
   it("4a. Quick edit toggle is NOT rendered for a viewer-role tree", () => {
@@ -276,5 +278,15 @@ describe("ListView — Quick edit toggle gating", () => {
     fireEvent.click(toggleBtn);
 
     expect(toggleBtn).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("4e. Quick edit toggle is NOT rendered on mobile (owner tree, non-virtual)", () => {
+    mockUseIsMobile.mockReturnValue(true);
+    useTreeStore.setState({ selectedTree: ownerTree, isReady: true });
+    render(<ListView />);
+
+    expect(
+      screen.queryByRole("button", { name: /quick edit/i }),
+    ).not.toBeInTheDocument();
   });
 });
