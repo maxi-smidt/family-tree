@@ -17,6 +17,7 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
+from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
 from app.services.authentik import init_oauth
 from app.services.backup_scheduler import backup_schedule_loop
@@ -61,6 +62,7 @@ async def lifespan(app: FastAPI):
             await sweeper
         with contextlib.suppress(asyncio.CancelledError):
             await backup_scheduler
+        await close_redis()
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
@@ -103,13 +105,27 @@ def health():
 
 
 @app.get(f"{settings.API_PREFIX}/health/ready", tags=["health"])
-def health_ready():
+async def health_ready():
+    # --- database check -------------------------------------------------------
+    db_ok = True
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "ok"}
     except Exception:
-        return JSONResponse(
-            status_code=503,
-            content={"status": "error", "db": "unavailable"},
-        )
+        db_ok = False
+
+    body: dict = {
+        "status": "ok" if db_ok else "error",
+        "db": "ok" if db_ok else "unavailable",
+    }
+
+    # --- redis check (only when configured) -----------------------------------
+    if settings.redis_enabled:
+        redis_ok = await ping_redis()
+        body["redis"] = "ok" if redis_ok else "unavailable"
+        if not redis_ok:
+            body["status"] = "error"
+
+    if body["status"] == "error":
+        return JSONResponse(status_code=503, content=body)
+    return body
