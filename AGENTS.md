@@ -108,9 +108,11 @@ exempt.
 ## Golden rules — CI enforces these; a PR fails without them
 
 1. **Do not bump the app version on ordinary PRs.** Release preparation is the
-   exception: run `npm run bump:patch` (or `bump:minor` / `bump:major`) in
-   `frontend/`, merge that release commit, then create a matching `vX.Y.Z` tag.
-   CI verifies that release tags match `frontend/package.json` and the lockfile.
+   exception: from `frontend/` run `npm run bump:patch` (or `bump:minor` /
+   `bump:major`; `release:*` also commits + tags) — it updates
+   `frontend/package.json` + lockfile + `backend/pyproject.toml` + `uv.lock`.
+   Merge that release commit, then create a matching `vX.Y.Z` tag; CI verifies
+   the tag matches `frontend/package.json` and the lockfile.
 2. **All user-facing text goes through i18next** and must exist in every locale
    under `frontend/src/i18n/locales/`. Run `npm run check-i18n` (from
    `frontend/`); the [CI](.github/workflows/check-build.yml) workflow gates it.
@@ -123,30 +125,22 @@ exempt.
 
 ## Toolchain
 
-- **Node.js 24** (CI pins `24`; dev floor is v20.19+ / v22.12+) — frontend uses
-  **npm**.
-- **Python 3.12** + **[uv](https://docs.astral.sh/uv/)** — backend uses **uv**,
-  not pip/poetry.
-- Don't rely on system defaults; they are usually too old.
+**Node.js 24** (frontend, npm; dev floor v20.19+/v22.12+) and **Python 3.12 +
+[uv](https://docs.astral.sh/uv/)** (backend — not pip/poetry). Don't rely on
+system defaults; they are usually too old.
 
 ## Commands
 
-### Setup (development)
+### Setup & run (development)
+
+Config lives in a single repo-root `.env` (copy from `.env.example`), read by
+both docker-compose and a host-run dev backend. Full walkthrough:
+[docs/SETUP.md](docs/SETUP.md).
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d db   # dev Postgres on localhost:5432
-cd backend  && uv sync                              # creates .venv from uv.lock
-cd frontend && npm install
-```
-
-> Configuration lives in a single repo-root `.env` (copy from `.env.example`);
-> both docker-compose and a host-run dev backend read it.
-
-### Run (hot reload)
-
-```bash
-cd backend  && uv run uvicorn app.main:app --reload --port 8000   # API docs at /api/docs
-cd frontend && npm run dev                                        # http://localhost:1420 (proxies /api → :8000)
+docker compose -f docker-compose.dev.yml up -d db                            # dev Postgres on :5432
+cd backend  && uv sync && uv run uvicorn app.main:app --reload --port 8000   # API docs at /api/docs
+cd frontend && npm install && npm run dev                                    # :1420 (proxies /api → :8000)
 ```
 
 ### Match CI before pushing
@@ -166,43 +160,22 @@ uv run pytest          # add -n auto to match CI's parallel run (pytest-xdist)
 ### End-to-end tests (Playwright)
 
 ```bash
-# 1. Start the full test stack (Postgres + backend + frontend, built from source)
-docker compose -f docker-compose.e2e.yml up --build -d
-
-# 2. Install Playwright and its browser
-cd e2e && npm install
-npx playwright install --with-deps chromium
-
-# 3. Run the suite
+docker compose -f docker-compose.e2e.yml up --build -d   # full stack on :8080
+cd e2e && npm install && npx playwright install --with-deps chromium
 E2E_ADMIN_USERNAME=e2e-admin E2E_ADMIN_PASSWORD=e2e-admin-password npx playwright test
-
-# 4. Tear down
 docker compose -f docker-compose.e2e.yml down -v
 ```
 
-- `E2E_BASE_URL` defaults to `http://localhost:8080`; override for remote stacks.
-- `E2E_API_URL` defaults to `${E2E_BASE_URL}/api`.
-- `E2E_ADMIN_USERNAME` / `E2E_ADMIN_PASSWORD` must match the compose stack's
-  `FIRST_ADMIN_*` env vars — defaults in the compose file are `e2e-admin` / `e2e-admin-password`.
-- Reports land in `e2e/playwright-report/`; run `npm run report` to open them.
-- The `e2e.yml` CI workflow runs on every PR to `main` but is **not** a required
-  check yet (keep PR latency acceptable until the suite stabilises).
+`E2E_ADMIN_*` must match the stack's `FIRST_ADMIN_*` (defaults `e2e-admin` /
+`e2e-admin-password`); override `E2E_BASE_URL` for remote stacks. Reports land in
+`e2e/playwright-report/`. The `e2e.yml` workflow runs on PRs to `main` but is not
+a required check yet.
 
 ### Database migration (after editing `backend/app/models/`)
 
 ```bash
-cd backend
-uv run alembic revision --autogenerate -m "describe change"   # review the generated file
+cd backend && uv run alembic revision --autogenerate -m "describe change"   # review it
 uv run alembic upgrade head
-```
-
-### Release version bump (release preparation only)
-
-```bash
-cd frontend && npm run bump:patch        # or bump:minor / bump:major
-# updates frontend/package.json + package-lock.json + backend/pyproject.toml + uv.lock
-# after merge: create and push tag vX.Y.Z matching frontend/package.json
-# — or use npm run release:patch|minor|major to bump, commit and tag in one go
 ```
 
 ## Conventions (short form)
