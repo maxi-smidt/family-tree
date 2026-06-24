@@ -74,62 +74,36 @@ UI Component → Zustand store action → TreeService (HTTP client)
 
 ## Branching
 
-Branch names **should** follow `type/number-short-description` (this is a
-recommended convention, not a CI-enforced gate):
-
-- `type` — the change category, reusing the [Conventional
-  Commits](https://www.conventionalcommits.org/) types this repo already uses
-  for commits: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`.
-- `number` — the related issue number (omit the leading `#`). If there is no
-  issue, drop this segment: `type/short-description`.
-- `short-description` — a few kebab-case words summarising the change.
-
-Examples:
-
-```
-perf/123-faster-tree-layout
-feat/456-gedcom-import
-fix/789-share-permission-leak
-docs/update-branching-guidelines        # no issue number
-```
+Branch names **should** follow `type/number-short-description` (recommended, not
+CI-enforced): `type` is the [Conventional
+Commits](https://www.conventionalcommits.org/) category (`feat`, `fix`, `perf`,
+`refactor`, `docs`, `test`, `chore`), `number` is the issue number (drop it and
+its slash when there's no issue), and `short-description` is a few kebab-case
+words — e.g. `perf/123-faster-tree-layout` or `docs/update-branching` (no issue).
 
 ## New features — always-on or admin-toggleable?
 
 Before building a user-facing feature, **decide whether it should be gated by an
-admin-managed feature flag or simply always on**, and say which in the PR
-description. The instance already has a feature-flag system:
-
-- Flags live in the registry in
-  [`backend/app/services/feature_service.py`](backend/app/services/feature_service.py)
-  (`FEATURES`), mirrored 1:1 in
-  [`frontend/src/lib/features.ts`](frontend/src/lib/features.ts). Each flag has a
-  global state — `on` (everyone), `off` (kill switch), or `beta` (per-user
-  allowlist) — that admins control.
-- Reach for a flag when a feature is a self-contained domain admins might want
-  to disable, roll out to beta testers first, or run as a kill switch (see the
-  existing `gallery`, `stories`, `events`, `map`, `gedcom`, … flags). Core
-  member/tree CRUD is intentionally **not** flaggable.
-- Adding a flag is the four-step recipe documented at the top of
-  `feature_service.py` (registry entry → `require_feature` on the routers →
-  `useFeature` in the UI → `admin.features.names.<name>` in **every** locale).
-
-**If it is unclear which way a feature should go, ask the requester** rather than
-guessing — the decision is hard to reverse cleanly once the UI and data model
-assume one or the other.
+admin-managed feature flag or always on**, and say which in the PR description.
+Flags live in the `FEATURES` registry in
+[`feature_service.py`](backend/app/services/feature_service.py), mirrored 1:1 in
+[`features.ts`](frontend/src/lib/features.ts); each has a global state admins
+control — `on`, `off` (kill switch), or `beta` (per-user allowlist). Reach for a
+flag when a feature is a self-contained domain admins might disable, beta-test,
+or kill (`gallery`, `stories`, `gedcom`, …); core member/tree CRUD is
+intentionally not flaggable. The four-step recipe is at the top of
+`feature_service.py`. **If it's unclear which way to go, ask the requester** — it
+is hard to reverse once the UI and data model assume one.
 
 ## Changelog entries
 
-User-facing changes — new features, bug fixes, and notable behaviour or security
-changes — **must add an entry to [`CHANGELOG.md`](CHANGELOG.md)** as part of the
-same PR. Add it under a top `## [Unreleased]` heading (create the section if it
-is missing), grouped with the [Keep a
-Changelog](https://keepachangelog.com/) headings the file already uses —
-`Added` / `Changed` / `Fixed` / `Security`. The release bump promotes
-`Unreleased` to the new `vX.Y.Z` section.
-
-Internal-only work that users never observe — refactors, test-only changes,
-tooling, CI, and docs (including edits to these guidelines) — does **not** need
-an entry.
+User-facing changes — features, bug fixes, notable behaviour/security changes —
+**must add a [`CHANGELOG.md`](CHANGELOG.md) entry** in the same PR, under a top
+`## [Unreleased]` heading (create it if missing), using the file's existing
+[Keep a Changelog](https://keepachangelog.com/) groups (`Added` / `Changed` /
+`Fixed` / `Security`); the release bump promotes it to the new `vX.Y.Z` section.
+Internal-only work users never see — refactors, tests, tooling, CI, docs — is
+exempt.
 
 ## Golden rules — CI enforces these; a PR fails without them
 
