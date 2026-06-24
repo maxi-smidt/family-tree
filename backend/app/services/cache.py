@@ -125,9 +125,9 @@ def invalidate_stats(tree_id: str) -> None:
     tests that never start a loop), the call is silently skipped.  Errors are
     always swallowed so a cache miss never propagates into the request path.
     """
-    from app.services.event_bus import event_bus  # local import to avoid circular
+    from app.core.runtime import get_loop  # local import to avoid circular
 
-    loop = event_bus._loop
+    loop = get_loop()
     if loop is None or loop.is_closed():
         return
     try:

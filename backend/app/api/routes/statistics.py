@@ -6,6 +6,7 @@ import re
 from collections import Counter, defaultdict
 
 from fastapi import APIRouter, Depends
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -159,6 +160,18 @@ def compute_statistics(members: list[Member], tree_id: str) -> StatisticsReport:
     )
 
 
+def _load_and_compute(db: Session, tree_id: str) -> StatisticsReport:
+    """Query the tree's members and build the report (blocking, sync).
+
+    Kept separate so the route can run it in the threadpool — the DB query
+    and the O(n) aggregation must not block the event loop.
+    """
+    members = list(
+        db.scalars(select(Member).where(Member.tree_id == tree_id)).all()
+    )
+    return compute_statistics(members, tree_id)
+
+
 @router.get("/statistics", response_model=StatisticsReport)
 async def get_statistics(
     tree: Tree = Depends(get_readable_tree),
@@ -183,10 +196,9 @@ async def get_statistics(
             pass
 
     # --- cache miss: query DB and compute ------------------------------------
-    members = list(
-        db.scalars(select(Member).where(Member.tree_id == tree.id)).all()
-    )
-    report = compute_statistics(members, tree.id)
+    # Run the blocking DB query + aggregation in the threadpool so the event
+    # loop stays free (this is the hot path when Redis is not configured).
+    report = await run_in_threadpool(_load_and_compute, db, tree.id)
 
     # Store the result; failures are silently swallowed inside cache_set_json.
     await cache_set_json(key, report.model_dump(mode="json"), STATS_TTL_SECONDS)

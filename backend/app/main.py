@@ -46,9 +46,12 @@ def _init_db_with_retry(retries: int = 10, delay: float = 3.0) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from app.core import runtime
     from app.services.event_bus import event_bus
 
-    event_bus.set_loop(asyncio.get_running_loop())
+    loop = asyncio.get_running_loop()
+    event_bus.set_loop(loop)
+    runtime.set_loop(loop)
     init_oauth()
     _init_db_with_retry()
     sweeper = asyncio.create_task(deletion_sweep_loop())
@@ -73,6 +76,7 @@ async def lifespan(app: FastAPI):
         if settings.redis_enabled:
             await event_bus.stop_redis_listener()
         await close_redis()
+        runtime.set_loop(None)
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)

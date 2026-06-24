@@ -128,12 +128,13 @@ def test_member_create_busts_stats_cache(client, db, monkeypatch):
     monkeypatch.setattr(redis_module, "_client", None)
     monkeypatch.setattr(redis_module, "get_redis", lambda: fake_redis)
 
-    # Patch event_bus._loop so invalidate_stats can schedule the async delete.
-    from app.services.event_bus import event_bus
+    # Register a loop in the runtime holder so invalidate_stats can schedule
+    # the async delete.
+    from app.core import runtime
 
     loop = asyncio.new_event_loop()
-    original_loop = event_bus._loop
-    event_bus._loop = loop
+    original_loop = runtime.get_loop()
+    runtime.set_loop(loop)
     try:
         # First stats request — populates cache.
         user = make_user(db)
@@ -167,7 +168,7 @@ def test_member_create_busts_stats_cache(client, db, monkeypatch):
         assert resp2.status_code == 200
         assert resp2.json()["total_members"] == 1
     finally:
-        event_bus._loop = original_loop
+        runtime.set_loop(original_loop)
         loop.close()
 
 
@@ -262,11 +263,11 @@ def test_member_delete_busts_stats_cache(client, db, monkeypatch):
     monkeypatch.setattr(redis_module, "_client", None)
     monkeypatch.setattr(redis_module, "get_redis", lambda: fake_redis)
 
-    from app.services.event_bus import event_bus
+    from app.core import runtime
 
     loop = asyncio.new_event_loop()
-    original_loop = event_bus._loop
-    event_bus._loop = loop
+    original_loop = runtime.get_loop()
+    runtime.set_loop(loop)
     try:
         user = make_user(db)
         tree = make_tree(db, user)
@@ -288,5 +289,5 @@ def test_member_delete_busts_stats_cache(client, db, monkeypatch):
         deleted_keys = {k for args in fake_redis.del_calls for k in args}
         assert stats_key in deleted_keys
     finally:
-        event_bus._loop = original_loop
+        runtime.set_loop(original_loop)
         loop.close()
