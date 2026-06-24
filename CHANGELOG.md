@@ -18,6 +18,17 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   Redis reachability (`redis: ok / unavailable`). This is the shared plumbing
   for the Redis pub/sub multi-worker SSE epic (#464).
 
+### Changed
+
+- **SSE event bus backed by Redis pub/sub for multi-worker deployments** — when
+  `REDIS_URL` is configured, real-time SSE events are published to per-user
+  Redis channels (`events:{user_id}`) and each worker's background listener
+  delivers them to locally-connected clients. This enables running the backend
+  with `WORKERS > 1` (set via the `WORKERS` env var on the Docker image) without
+  losing events across workers. When `REDIS_URL` is unset the original
+  in-process single-worker fan-out is unchanged — no Redis dependency is
+  introduced (#466).
+
 ## [1.1.0] - 2026-06-23
 
 Feature and polish release on top of `1.0.0`: in-place list editing,
