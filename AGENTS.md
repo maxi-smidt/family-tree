@@ -9,6 +9,18 @@ tool-specific files ([`CLAUDE.md`](CLAUDE.md) and
 > Deep architecture & conventions live in **[docs/AGENTS.md](docs/AGENTS.md)**.
 > This file is the operational quick-start plus the rules CI enforces.
 
+## Changelog
+
+Notable changes to **these agent guidelines** (not the app — app releases are
+cut from Git tags). Newest first.
+
+### Unreleased
+
+- Added a recommended [branch-naming convention](#branching) —
+  `type/number-short-description`.
+- Added guidance for [deciding whether a new feature should be
+  always-on or admin-toggleable](#new-features--always-on-or-admin-toggleable).
+
 ## What this is
 
 Family Tree — a self-hostable web app for building and exploring family history
@@ -71,6 +83,51 @@ UI Component → Zustand store action → TreeService (HTTP client)
   SQLAlchemy models in `backend/app/models/`.
 - Schema is versioned with **Alembic**; `alembic upgrade head` runs automatically
   on backend startup, then the admin user + default settings are seeded.
+
+## Branching
+
+Branch names **should** follow `type/number-short-description` (this is a
+recommended convention, not a CI-enforced gate):
+
+- `type` — the change category, reusing the [Conventional
+  Commits](https://www.conventionalcommits.org/) types this repo already uses
+  for commits: `feat`, `fix`, `perf`, `refactor`, `docs`, `test`, `chore`.
+- `number` — the related issue number (omit the leading `#`). If there is no
+  issue, drop this segment: `type/short-description`.
+- `short-description` — a few kebab-case words summarising the change.
+
+Examples:
+
+```
+perf/123-faster-tree-layout
+feat/456-gedcom-import
+fix/789-share-permission-leak
+docs/update-branching-guidelines        # no issue number
+```
+
+## New features — always-on or admin-toggleable?
+
+Before building a user-facing feature, **decide whether it should be gated by an
+admin-managed feature flag or simply always on**, and say which in the PR
+description. The instance already has a feature-flag system:
+
+- Flags live in the registry in
+  [`backend/app/services/feature_service.py`](backend/app/services/feature_service.py)
+  (`FEATURES`), mirrored 1:1 in
+  [`frontend/src/lib/features.ts`](frontend/src/lib/features.ts). Each flag has a
+  global state — `on` (everyone), `off` (kill switch), or `beta` (per-user
+  allowlist) — that admins control.
+- Reach for a flag when a feature is a self-contained domain admins might want
+  to disable, roll out to beta testers first, or run as a kill switch (see the
+  existing `gallery`, `stories`, `events`, `map`, `gedcom`, … flags). Core
+  member/tree CRUD is intentionally **not** flaggable.
+- Adding a flag is the four-step recipe documented at the top of
+  `feature_service.py` (registry entry → `require_feature` on the routers →
+  `useFeature` in the UI → `admin.features.names.<name>` in **every** locale).
+
+**If it is unclear which way a feature should go, ask the requester** rather than
+guessing — the decision is hard to reverse cleanly once the UI and data model
+assume one or the other.
 
 ## Golden rules — CI enforces these; a PR fails without them
 
