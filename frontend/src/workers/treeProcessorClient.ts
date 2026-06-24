@@ -1,11 +1,14 @@
 import { Member, MemberDB, RelationDB } from "@/types/member";
 import { mapMembersFromRows } from "@/utils/memberMapping";
+import { getLayoutedElements } from "@/utils/layoutUtils";
 import type {
   WorkerResponse,
   ParseRequest,
   ParseResponse,
   DeriveRequest,
   DeriveResponse,
+  LayoutRequest,
+  LayoutResponse,
   WorkerUnionInfo,
   WorkerEdge,
   RelationStyleMap,
@@ -14,6 +17,11 @@ import type {
 // Trees with fewer members than this are mapped synchronously on the main
 // thread so the postMessage round-trip doesn't add latency for small datasets.
 const SYNC_PARSE_THRESHOLD = 2_000;
+
+// Dagre layout is superlinear and more expensive per node than parsing, so we
+// offload to the worker sooner. Small trees stay on the main thread to avoid
+// the postMessage round-trip flicker.
+const SYNC_LAYOUT_THRESHOLD = 400;
 
 export interface DeriveResult {
   unions: WorkerUnionInfo[];
@@ -86,6 +94,25 @@ class TreeProcessorClient {
         members,
         relations,
       };
+      worker.postMessage(req);
+    });
+  }
+
+  async computeLayout(
+    treeId: string,
+    members: Member[],
+  ): Promise<Record<string, { x: number; y: number }>> {
+    if (members.length < SYNC_LAYOUT_THRESHOLD) {
+      return getLayoutedElements(members);
+    }
+    const worker = this.getWorker();
+    const reqId = ++this.reqId;
+    return new Promise((resolve, reject) => {
+      this.pending.set(reqId, {
+        resolve: (r) => resolve((r as LayoutResponse).positions),
+        reject,
+      });
+      const req: LayoutRequest = { kind: "layout", reqId, treeId, members };
       worker.postMessage(req);
     });
   }
