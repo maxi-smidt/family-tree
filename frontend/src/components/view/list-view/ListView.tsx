@@ -97,7 +97,7 @@ export const ListView = () => {
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [inlineEdit, setInlineEdit] = useState(false);
 
-  const canInlineEdit = canWrite && !isVirtual;
+  const canInlineEdit = canWrite && !isVirtual && !isMobile;
   const inlineEditActive = inlineEdit && canInlineEdit;
 
   const EDITABLE_COLUMNS = new Set<ListColumnId>([
