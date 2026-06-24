@@ -36,6 +36,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   in-process single-worker fan-out is unchanged — no Redis dependency is
   introduced (#466).
 
+### Fixed
+
+- **Map view now loads in production** — the Content-Security-Policy served by
+  nginx did not allow the OpenStreetMap tile hosts, so the Map view rendered as
+  a blank gray area (tiles blocked by `img-src`). `https://*.tile.openstreetmap.org`
+  is now permitted in `img-src`. Development was unaffected because the Vite dev
+  server sends no CSP (#471).
+
 ## [1.1.0] - 2026-06-23
 
 Feature and polish release on top of `1.0.0`: in-place list editing,
