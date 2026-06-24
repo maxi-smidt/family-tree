@@ -31,6 +31,14 @@ import { TreeStorageUsageDB } from "@/types/storage";
 const base = (treeId: string) =>
   treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
 
+export interface NeighborhoodDB {
+  members: MemberDB[];
+  relations: RelationDB[];
+  root_id: string;
+  truncated: boolean;
+  total_member_count: number;
+}
+
 export type VirtualViewInput = {
   name: string;
   source_tree_ids: string[];
@@ -53,6 +61,29 @@ export class TreeService {
 
   static getMember(treeId: string, id: string) {
     return api.get<MemberDB>(`${base(treeId)}/members/${id}`);
+  }
+
+  static getNeighborhood(
+    treeId: string,
+    root?: string,
+    up = 3,
+    down = 3,
+    partners = true,
+  ) {
+    const params = new URLSearchParams({
+      up: String(up),
+      down: String(down),
+      partners: String(partners),
+    });
+    if (root) params.set("root", root);
+    return api.get<NeighborhoodDB>(
+      `${base(treeId)}/members/neighborhood?${params}`,
+    );
+  }
+
+  static searchMembers(treeId: string, q: string, limit = 20) {
+    const params = new URLSearchParams({ q, limit: String(limit) });
+    return api.get<MemberDB[]>(`${base(treeId)}/members/search?${params}`);
   }
 
   static getRelations(treeId: string) {

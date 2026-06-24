@@ -1,7 +1,7 @@
 """Members, relations and diseases — all scoped to a tree."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -25,12 +25,14 @@ from app.schemas.family import (
     MemberPositionUpdate,
     MemberSurfaceOut,
     MemberUpdate,
+    NeighborhoodOut,
     RelationCreate,
     RelationOut,
 )
 from app.services.activity import record_activity
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
+from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
     MEDIA_URL_PREFIX,
@@ -208,6 +210,136 @@ def update_member_collapsed(
         if member is not None:
             member.is_collapsed = p.is_collapsed
     db.commit()
+
+
+@router.get("/members/search", response_model=list[MemberSurfaceOut])
+def search_members(
+    q: str = Query(..., min_length=1, max_length=200),
+    limit: int = Query(20, ge=1, le=50),
+    tree: Tree = Depends(get_readable_tree_public),
+    db: Session = Depends(get_db),
+):
+    """Full-text name search scoped to the tree.  Declared before
+    ``/members/{member_id}`` so the literal ``search`` path is not captured
+    as a member id."""
+    pattern = f"%{q}%"
+    stmt = (
+        select(
+            Member.id,
+            Member.gender,
+            Member.academic_title,
+            Member.first_name,
+            Member.middle_names,
+            Member.baptismal_name,
+            Member.last_name,
+            Member.maiden_name,
+            Member.image_data,
+            Member.date_of_birth,
+            Member.date_of_death,
+            Member.date_of_birth_sort,
+            Member.date_of_death_sort,
+            Member.deceased,
+            Member.is_collapsed,
+            Member.position_x,
+            Member.position_y,
+        )
+        .where(
+            Member.tree_id == tree.id,
+            or_(
+                Member.first_name.ilike(pattern),
+                Member.last_name.ilike(pattern),
+                Member.maiden_name.ilike(pattern),
+            ),
+        )
+        .order_by(Member.last_name, Member.first_name)
+        .limit(limit)
+    )
+    return [MemberSurfaceOut(**row._mapping) for row in db.execute(stmt).all()]
+
+
+@router.get("/members/neighborhood", response_model=NeighborhoodOut)
+def get_neighborhood(
+    root: str | None = Query(None),
+    up: int = Query(3, ge=0, le=20),
+    down: int = Query(3, ge=0, le=20),
+    partners: bool = Query(True),
+    tree: Tree = Depends(get_readable_tree_public),
+    db: Session = Depends(get_db),
+):
+    """Return a bounded BFS neighborhood around *root*.  Declared before
+    ``/members/{member_id}`` so the literal ``neighborhood`` path is not
+    captured as a member id.
+
+    When *root* is omitted the most-connected member is chosen automatically.
+    """
+    total_count: int = db.scalar(
+        select(func.count(Member.id)).where(Member.tree_id == tree.id)
+    ) or 0
+
+    if total_count == 0:
+        return NeighborhoodOut(
+            members=[], relations=[], root_id="", truncated=False, total_member_count=0
+        )
+
+    root_id = root
+    if root_id is None:
+        root_id = pick_default_root(db, tree.id)
+    if root_id is None:
+        return NeighborhoodOut(
+            members=[], relations=[], root_id="", truncated=False, total_member_count=0
+        )
+
+    if db.scalar(
+        select(Member.id).where(Member.id == root_id, Member.tree_id == tree.id)
+    ) is None:
+        raise HTTPException(status_code=404, detail="Root member not found")
+
+    member_ids, truncated = collect_neighborhood_ids(
+        db, tree.id, root_id, up, down, partners
+    )
+
+    surface_stmt = (
+        select(
+            Member.id,
+            Member.gender,
+            Member.academic_title,
+            Member.first_name,
+            Member.middle_names,
+            Member.baptismal_name,
+            Member.last_name,
+            Member.maiden_name,
+            Member.image_data,
+            Member.date_of_birth,
+            Member.date_of_death,
+            Member.date_of_birth_sort,
+            Member.date_of_death_sort,
+            Member.deceased,
+            Member.is_collapsed,
+            Member.position_x,
+            Member.position_y,
+        )
+        .where(Member.tree_id == tree.id, Member.id.in_(member_ids))
+        .order_by(Member.id)
+    )
+    members = [MemberSurfaceOut(**row._mapping) for row in db.execute(surface_stmt).all()]
+
+    relations = list(
+        db.scalars(
+            select(Relation).where(
+                Relation.tree_id == tree.id,
+                Relation.from_member_id.in_(member_ids),
+                Relation.to_member_id.in_(member_ids),
+            )
+        )
+    )
+
+    return NeighborhoodOut(
+        members=members,
+        relations=[RelationOut.model_validate(r) for r in relations],
+        root_id=root_id,
+        truncated=truncated,
+        total_member_count=total_count,
+    )
 
 
 @router.get("/members/{member_id}", response_model=MemberOut)

@@ -3,6 +3,7 @@ import {
   Member,
   MemberDB,
   MemberUpdate,
+  RelationDB,
   RelationType,
 } from "@/types/member";
 import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
@@ -16,6 +17,8 @@ import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
 import i18n from "@/i18n/i18n";
 import { toast } from "sonner";
+
+const WINDOWED_MODE_THRESHOLD = 2_000;
 
 type CollapseUpdate = { id: string; isCollapsed: boolean };
 type PositionUpdate = { id: string; x: number; y: number };
@@ -123,6 +126,47 @@ async function commitPendingMemberDeletion(key: string) {
   }
 }
 
+// Synchronously map raw rows into Member[], dropping any member with a pending
+// optimistic deletion. Used for bounded datasets (windowed neighborhood loads),
+// where the synchronous map is cheap. For potentially large full loads use
+// buildAppMembersOffThread instead.
+function buildAppMembers(
+  memberRows: MemberDB[],
+  relations: RelationDB[],
+  treeId: string,
+): Member[] {
+  return mapMembersFromRows(memberRows, relations).filter(
+    (member) =>
+      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+  );
+}
+
+// Like buildAppMembers, but maps potentially large row sets off the main thread
+// via the tree-processor worker (falling back to synchronous mapping if it is
+// unavailable). Used by the non-windowed full-load paths where the row count can
+// be sizeable. Because it awaits the worker, callers MUST re-check isActiveTree
+// after it resolves before committing the result to the store.
+async function buildAppMembersOffThread(
+  memberRows: MemberDB[],
+  relations: RelationDB[],
+  treeId: string,
+): Promise<Member[]> {
+  let mapped: Member[];
+  try {
+    mapped = await treeProcessorClient.parseMembers(
+      treeId,
+      memberRows,
+      relations,
+    );
+  } catch {
+    mapped = mapMembersFromRows(memberRows, relations);
+  }
+  return mapped.filter(
+    (member) =>
+      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+  );
+}
+
 function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
   const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
   return members.map((m) => {
@@ -170,12 +214,21 @@ async function refreshAfterOptimisticFailure(
 interface MemberState {
   members: Member[];
   detailLoadedIds: Set<string>;
+  windowed: boolean;
+  focusRootId: string | null;
+  windowedForTreeId: string | null;
+  neighborhoodUp: number;
+  neighborhoodDown: number;
+  neighborhoodTruncated: boolean;
+  totalMemberCount: number;
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
   _pushHistory: (entry: HistoryEntry) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
   refreshMembers: (treeId?: string) => Promise<void>;
+  setFocusRoot: (rootId: string) => Promise<void>;
+  setNeighborhoodDepth: (up: number, down: number) => Promise<void>;
   fetchMemberDetail: (
     id: string,
     force?: boolean,
@@ -218,6 +271,13 @@ interface MemberState {
 export const useMemberStore = create<MemberState>((set, get) => ({
   members: [],
   detailLoadedIds: new Set<string>(),
+  windowed: false,
+  focusRootId: null,
+  windowedForTreeId: null,
+  neighborhoodUp: 3,
+  neighborhoodDown: 3,
+  neighborhoodTruncated: false,
+  totalMemberCount: 0,
   undoStack: [],
   redoStack: [],
 
@@ -261,10 +321,56 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
   refreshMembers: async (treeId = activeTreeId()) => {
     if (!treeId) {
-      set({ members: [], detailLoadedIds: new Set<string>() });
+      set({
+        members: [],
+        detailLoadedIds: new Set<string>(),
+        windowed: false,
+        focusRootId: null,
+      });
       return;
     }
 
+    const {
+      windowed,
+      focusRootId,
+      windowedForTreeId,
+      neighborhoodUp,
+      neighborhoodDown,
+    } = get();
+
+    // Windowed state is scoped to the tree it was created for. When switching
+    // to a different tree, fall through to the full-load path so stale
+    // focusRootIds from the previous tree don't poison the new load.
+    const isWindowed = windowed && windowedForTreeId === treeId;
+
+    if (isWindowed) {
+      try {
+        const nb = await TreeService.getNeighborhood(
+          treeId,
+          focusRootId ?? undefined,
+          neighborhoodUp,
+          neighborhoodDown,
+        );
+        if (!isActiveTree(treeId)) return;
+        set({
+          members: buildAppMembers(nb.members, nb.relations, treeId),
+          detailLoadedIds: new Set<string>(),
+          focusRootId: nb.root_id || null,
+          neighborhoodTruncated: nb.truncated,
+          totalMemberCount: nb.total_member_count,
+        });
+      } catch {
+        // Transient error: leave existing members unchanged.
+      }
+      return;
+    }
+
+    // Clear any stale windowed state from a different tree before the full load.
+    if (windowed && windowedForTreeId !== treeId) {
+      set({ windowed: false, focusRootId: null, windowedForTreeId: null });
+    }
+
+    // Normal mode: full load
     const [membersResult, relationsResult] = await Promise.allSettled([
       TreeService.getMembers(treeId, true),
       TreeService.getRelations(treeId),
@@ -276,33 +382,82 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     ) {
       return;
     }
-    const result = membersResult.value;
+
+    if (!isActiveTree(treeId)) return;
+
+    const memberRows = membersResult.value;
     const relations = relationsResult.value;
 
-    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
-
-    let appMembers: Member[];
-    try {
-      const parsed = await treeProcessorClient.parseMembers(
-        treeId,
-        result,
-        relations,
-      );
-      // Re-check after the async worker round-trip — the active tree may have changed.
-      if (!isActiveTree(treeId)) return;
-      appMembers = parsed;
-    } catch {
-      // Worker unavailable or failed — fall back to synchronous mapping.
-      if (!isActiveTree(treeId)) return;
-      appMembers = mapMembersFromRows(result, relations);
+    if (memberRows.length > WINDOWED_MODE_THRESHOLD) {
+      // Auto-enter windowed mode: load neighborhood with default root
+      set({
+        windowed: true,
+        windowedForTreeId: treeId,
+        totalMemberCount: memberRows.length,
+      });
+      try {
+        const nb = await TreeService.getNeighborhood(
+          treeId,
+          undefined,
+          neighborhoodUp,
+          neighborhoodDown,
+        );
+        if (!isActiveTree(treeId)) return;
+        set({
+          members: buildAppMembers(nb.members, nb.relations, treeId),
+          detailLoadedIds: new Set<string>(),
+          focusRootId: nb.root_id || null,
+          neighborhoodTruncated: nb.truncated,
+          totalMemberCount: nb.total_member_count,
+        });
+      } catch {
+        // Neighborhood load failed — fall back to the full dataset without
+        // windowed UI, mapped off the main thread since it can be large.
+        const appMembers = await buildAppMembersOffThread(
+          memberRows,
+          relations,
+          treeId,
+        );
+        if (!isActiveTree(treeId)) return;
+        set({
+          windowed: false,
+          windowedForTreeId: null,
+          members: appMembers,
+          detailLoadedIds: new Set<string>(),
+          totalMemberCount: memberRows.length,
+        });
+      }
+      return;
     }
 
-    appMembers = appMembers.filter(
-      (member) =>
-        !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+    // Normal mode: full load. Map off the main thread (worker) for large
+    // datasets so the UI never blocks; falls back to synchronous mapping.
+    const appMembers = await buildAppMembersOffThread(
+      memberRows,
+      relations,
+      treeId,
     );
+    if (!isActiveTree(treeId)) return;
+    set({
+      members: appMembers,
+      detailLoadedIds: new Set<string>(),
+      totalMemberCount: memberRows.length,
+    });
+  },
 
-    set({ members: appMembers, detailLoadedIds: new Set<string>() });
+  setFocusRoot: async (rootId: string) => {
+    const treeId = activeTreeId();
+    set({
+      windowed: true,
+      focusRootId: rootId,
+      windowedForTreeId: treeId ?? null,
+    });
+    await get().refreshMembers();
+  },
+
+  setNeighborhoodDepth: async (up: number, down: number) => {
+    set({ neighborhoodUp: up, neighborhoodDown: down });
+    await get().refreshMembers();
   },
 
   fetchMemberDetail: async (id: string, force = false) => {
@@ -378,6 +533,11 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     set({
       members: [],
       detailLoadedIds: new Set<string>(),
+      windowed: false,
+      focusRootId: null,
+      windowedForTreeId: null,
+      neighborhoodTruncated: false,
+      totalMemberCount: 0,
       undoStack: [],
       redoStack: [],
     }),

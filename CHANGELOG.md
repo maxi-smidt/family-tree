@@ -11,6 +11,21 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- **Focused (windowed) tree view for very large trees** — trees with more than
+  2,000 members now open in a focused mode that renders only a bounded
+  neighborhood around a root person instead of loading the entire graph, keeping
+  large trees (tested up to 200k members) responsive. A new
+  `GET /api/trees/{id}/members/neighborhood` endpoint returns a bounded BFS
+  subgraph (configurable ancestor/descendant depth, optional partner expansion,
+  capped node count) and a new `GET /api/trees/{id}/members/search` endpoint
+  powers server-side name search in this mode. On the canvas, depth +/- controls
+  expand or shrink the neighborhood, "Focus here" re-roots on the selected
+  person, search re-roots on the chosen result, and a banner shows how many of
+  the total members are currently in view. Trees of 2,000 members or fewer are
+  unaffected (#431).
+- **Per-tree canvas viewport** — each tree now remembers its own last camera
+  position and zoom (persisted locally) instead of sharing a single global
+  viewport across all trees.
 - **Optional external Redis support** — the backend now accepts a `REDIS_URL`
   environment variable pointing at an external Redis instance (plain, TLS, or
   password-authenticated). When unset the app behaves exactly as before — no

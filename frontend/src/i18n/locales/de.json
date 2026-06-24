@@ -773,7 +773,8 @@
       "no-results": "Keine Mitglieder gefunden",
       "unnamed": "Unbenanntes Mitglied",
       "nee": "geb. {{name}}",
-      "clear": "Suche löschen"
+      "clear": "Suche löschen",
+      "searching": "Suche läuft…"
     },
     "controls": {
       "undo": "Rückgängig (Strg+Z)",
@@ -798,7 +799,10 @@
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",
       "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden.",
-      "export-image": "Stammbaum als Bild exportieren"
+      "export-image": "Stammbaum als Bild exportieren",
+      "focus-here": "Nachbarschaft auf diese Person fokussieren",
+      "depth-increase": "Nachbarschaftstiefe erhöhen",
+      "depth-decrease": "Nachbarschaftstiefe verringern"
     },
     "persistence": {
       "collapse-error": "Einklappstatus konnte nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt.",
@@ -808,6 +812,9 @@
       "title": "Stammbaum starten",
       "description": "Füge die erste Person hinzu, um loszulegen.",
       "cta": "Erste Person hinzufügen"
+    },
+    "windowed": {
+      "banner": "{{count}} von {{total}} Mitgliedern in der Nachbarschaft"
     }
   },
   "activity-view": {

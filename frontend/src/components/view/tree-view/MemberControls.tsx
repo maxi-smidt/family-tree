@@ -15,6 +15,9 @@ import {
   UserPlus,
   UserRoundPlus,
   Activity,
+  Crosshair,
+  Minus,
+  Plus,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -50,7 +53,14 @@ export const MemberControls = ({
     isDiseaseMode,
     setIsDiseaseMode,
   } = useFamilyTreeSettings();
-  const { batchSetCollapsed } = useMemberStore();
+  const {
+    batchSetCollapsed,
+    windowed,
+    neighborhoodUp,
+    neighborhoodDown,
+    setFocusRoot,
+    setNeighborhoodDepth,
+  } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
 
   return (
@@ -121,6 +131,70 @@ export const MemberControls = ({
         </TooltipTrigger>
         <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
       </Tooltip>
+
+      {windowed && (
+        <>
+          <Separator className="my-1" />
+          {/* Neighborhood depth controls */}
+          <ButtonGroup orientation="vertical">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() =>
+                    void setNeighborhoodDepth(
+                      Math.min(neighborhoodUp + 1, 10),
+                      Math.min(neighborhoodDown + 1, 10),
+                    )
+                  }
+                  aria-label={t("depth-increase")}
+                >
+                  <Plus />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">{t("depth-increase")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  onClick={() =>
+                    void setNeighborhoodDepth(
+                      Math.max(neighborhoodUp - 1, 1),
+                      Math.max(neighborhoodDown - 1, 1),
+                    )
+                  }
+                  disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
+                  aria-label={t("depth-decrease")}
+                >
+                  <Minus />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">{t("depth-decrease")}</TooltipContent>
+            </Tooltip>
+          </ButtonGroup>
+          {selectedNodes.length === 1 && (
+            <>
+              <Separator className="my-1" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    onClick={() => void setFocusRoot(selectedNodes[0].id)}
+                    aria-label={t("focus-here")}
+                  >
+                    <Crosshair />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left">{t("focus-here")}</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </>
+      )}
 
       <Separator className="my-1" />
 
