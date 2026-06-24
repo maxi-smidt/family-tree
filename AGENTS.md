@@ -16,6 +16,8 @@ cut from Git tags). Newest first.
 
 ### Unreleased
 
+#### 2026-06-24
+
 - Added a recommended [branch-naming convention](#branching) —
   `type/number-short-description`.
 - Added guidance for [deciding whether a new feature should be
