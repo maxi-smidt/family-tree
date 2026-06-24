@@ -59,6 +59,15 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "familytree"
     POSTGRES_DB: str = "familytree"
 
+    # Connection pool sizing. SQLAlchemy's QueuePool defaults (5 + 10 overflow)
+    # are too small given the ~40-thread sync request threadpool. Keep
+    # (DB_POOL_SIZE + DB_MAX_OVERFLOW) * WORKERS below Postgres max_connections
+    # (default 100). DB_POOL_RECYCLE drops connections older than N seconds to
+    # avoid stale ones behind an idle-timeout proxy/Postgres.
+    DB_POOL_SIZE: int = 20
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_RECYCLE: int = 1800  # seconds (30 min)
+
     # --- Filesystem paths --------------------------------------------------
     # DATA_PATH      -> the "real" user data (member photos, gallery media).
     # APP_DATA_PATH  -> application working data (exports, temp files, ...).

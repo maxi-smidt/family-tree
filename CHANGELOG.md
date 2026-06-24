@@ -55,6 +55,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   losing events across workers. When `REDIS_URL` is unset the original
   in-process single-worker fan-out is unchanged — no Redis dependency is
   introduced (#466).
+- **Explicit, configurable database connection pool** — the SQLAlchemy engine
+  now sets `pool_size` (default 20), `max_overflow` (default 10) and
+  `pool_recycle` (1800 s) explicitly instead of relying on the small QueuePool
+  defaults (5 + 10), so concurrent requests no longer starve for connections
+  before the request threadpool saturates. Tunable via the new `DB_POOL_SIZE` /
+  `DB_MAX_OVERFLOW` / `DB_POOL_RECYCLE` env vars; keep
+  `(DB_POOL_SIZE + DB_MAX_OVERFLOW) × WORKERS` below your Postgres
+  `max_connections` (#462).
 
 ### Fixed
 
