@@ -20,6 +20,12 @@ from app.schemas.statistics import (
     NameCount,
     StatisticsReport,
 )
+from app.services.cache import (
+    STATS_TTL_SECONDS,
+    cache_get_json,
+    cache_set_json,
+    stats_key,
+)
 
 router = APIRouter(
     prefix="/trees/{tree_id}",
@@ -154,12 +160,35 @@ def compute_statistics(members: list[Member], tree_id: str) -> StatisticsReport:
 
 
 @router.get("/statistics", response_model=StatisticsReport)
-def get_statistics(
+async def get_statistics(
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
 ) -> StatisticsReport:
-    """Return aggregate statistics for the tree. Read-only, scoped by tree_id."""
+    """Return aggregate statistics for the tree. Read-only, scoped by tree_id.
+
+    When Redis is configured the result is cached per tree for
+    ``STATS_TTL_SECONDS`` seconds and invalidated on member/relation writes.
+    When Redis is not configured the statistics are always recomputed — the
+    original behaviour is preserved exactly.
+    """
+    key = stats_key(tree.id)
+
+    # --- cache hit -----------------------------------------------------------
+    cached = await cache_get_json(key)
+    if cached is not None:
+        try:
+            return StatisticsReport.model_validate(cached)
+        except Exception:
+            # Corrupt cached value — fall through and recompute.
+            pass
+
+    # --- cache miss: query DB and compute ------------------------------------
     members = list(
         db.scalars(select(Member).where(Member.tree_id == tree.id)).all()
     )
-    return compute_statistics(members, tree.id)
+    report = compute_statistics(members, tree.id)
+
+    # Store the result; failures are silently swallowed inside cache_set_json.
+    await cache_set_json(key, report.model_dump(mode="json"), STATS_TTL_SECONDS)
+
+    return report

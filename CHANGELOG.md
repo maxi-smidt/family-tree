@@ -20,6 +20,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- **Redis caching for statistics** — when `REDIS_URL` is configured, the
+  `GET /api/trees/{id}/statistics` response is cached in Redis for 5 minutes
+  (`cache:stats:{tree_id}`) and immediately invalidated on any member, relation,
+  or disease write. Without Redis the endpoint computes statistics on every
+  request exactly as before — no behaviour change (#467).
 - **SSE event bus backed by Redis pub/sub for multi-worker deployments** — when
   `REDIS_URL` is configured, real-time SSE events are published to per-user
   Redis channels (`events:{user_id}`) and each worker's background listener
