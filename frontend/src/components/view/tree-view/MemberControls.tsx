@@ -10,6 +10,7 @@ import {
   ChevronsDownUp,
   ChevronsUpDown,
   ListChevronsUpDown,
+  Loader2,
   Network,
   UserMinus,
   UserPlus,
@@ -56,6 +57,7 @@ export const MemberControls = ({
   const {
     batchSetCollapsed,
     windowed,
+    isLayouting,
     neighborhoodUp,
     neighborhoodDown,
     setFocusRoot,
@@ -123,10 +125,14 @@ export const MemberControls = ({
             variant="secondary"
             size="icon"
             onClick={onRearrange}
-            disabled={isLockedScreen}
+            disabled={isLockedScreen || isLayouting}
             aria-label={t("arrange-members")}
           >
-            <Network />
+            {isLayouting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Network />
+            )}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">{t("arrange-members")}</TooltipContent>

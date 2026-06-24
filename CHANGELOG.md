@@ -35,6 +35,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- **Tree layout runs off the main thread** — arranging the tree (manual
+  re-arrange, and the automatic arrange after a GEDCOM import) now computes the
+  dagre layout in a Web Worker instead of blocking the UI thread, so large trees
+  no longer freeze the tab while laying out. The arrange button shows a spinner
+  while a layout is in progress (#432).
 - **Redis caching for statistics** — when `REDIS_URL` is configured, the
   `GET /api/trees/{id}/statistics` response is cached in Redis for up to 5
   minutes (`cache:stats:{tree_id}`). Member, relation, and disease writes

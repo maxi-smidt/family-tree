@@ -69,14 +69,29 @@ export interface DeriveResponse {
   hiddenNodeIds: string[];
 }
 
+export interface LayoutRequest {
+  kind: "layout";
+  reqId: number;
+  treeId: string;
+  members: Member[];
+}
+
+export interface LayoutResponse {
+  kind: "layout:done";
+  reqId: number;
+  treeId: string;
+  positions: Record<string, { x: number; y: number }>;
+}
+
 export interface WorkerErrorResponse {
   kind: "error";
   reqId: number;
   message: string;
 }
 
-export type WorkerRequest = ParseRequest | DeriveRequest;
+export type WorkerRequest = ParseRequest | DeriveRequest | LayoutRequest;
 export type WorkerResponse =
   | ParseResponse
   | DeriveResponse
+  | LayoutResponse
   | WorkerErrorResponse;

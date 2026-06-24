@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 
 import { mapMembersFromRows } from "@/utils/memberMapping";
+import { getLayoutedElements } from "@/utils/layoutUtils";
 import type { Member } from "@/types/member";
 import {
   applyRelationStyleOverride,
@@ -323,6 +324,16 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
         unions,
         edges,
         hiddenNodeIds,
+      };
+      self.postMessage(response);
+    } else if (req.kind === "layout") {
+      const positions = getLayoutedElements(req.members);
+
+      const response: WorkerResponse = {
+        kind: "layout:done",
+        reqId: req.reqId,
+        treeId: req.treeId,
+        positions,
       };
       self.postMessage(response);
     }

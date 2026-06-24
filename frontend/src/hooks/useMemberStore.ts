@@ -7,7 +7,6 @@ import {
   RelationType,
 } from "@/types/member";
 import { mapDiseaseFromDB, DiseaseDB, DiseaseInput } from "@/types/disease";
-import { getLayoutedElements } from "@/utils/layoutUtils";
 import { mapMembersFromRows } from "@/utils/memberMapping";
 import { treeProcessorClient } from "@/workers/treeProcessorClient";
 import { TreeService } from "@/services/TreeService";
@@ -240,6 +239,7 @@ interface MemberState {
   batchSetCollapsed: (
     updates: { id: string; isCollapsed: boolean }[],
   ) => Promise<void>;
+  isLayouting: boolean;
   persistPositions: (
     positions: { id: string; x: number; y: number }[],
   ) => Promise<void>;
@@ -278,6 +278,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   neighborhoodDown: 3,
   neighborhoodTruncated: false,
   totalMemberCount: 0,
+  isLayouting: false,
   undoStack: [],
   redoStack: [],
 
@@ -896,8 +897,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const { members, refreshMembers, persistPositions } = get();
     if (!treeId) return;
 
+    set({ isLayouting: true });
     try {
-      const newPositions = getLayoutedElements(members);
+      const newPositions = await treeProcessorClient.computeLayout(
+        treeId,
+        members,
+      );
       await persistPositions(
         Object.entries(newPositions).map(([id, pos]) => ({
           id,
@@ -909,6 +914,8 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       console.error("Failed to update layout:", error);
       toast.error(i18n.t("hooks.member-store.layout-error"));
       await refreshMembers(treeId);
+    } finally {
+      set({ isLayouting: false });
     }
   },
 
