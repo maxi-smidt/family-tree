@@ -3,9 +3,20 @@
 Routes that run in the threadpool (sync FastAPI handlers) call
 ``event_bus.publish(...)`` which is thread-safe.  The SSE endpoint
 (async) subscribes via ``await event_bus.subscribe(user_id)``.
+
+When ``REDIS_URL`` is configured, published events are written to per-user
+Redis pub/sub channels (``events:{user_id}``) so any worker in the pool
+receives them.  A background listener task (started by the lifespan)
+subscribes to channels for locally-connected users and feeds the events
+into the local asyncio queues — exactly as the in-process path does today.
+
+When ``REDIS_URL`` is *not* configured the behaviour is identical to the
+original single-worker implementation: no Redis connection is attempted,
+events are dispatched in-process via ``call_soon_threadsafe``.
 """
 
 import asyncio
+import json
 import logging
 from collections import defaultdict
 from collections.abc import Iterable
@@ -20,6 +31,13 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
+# Channel name template for per-user Redis pub/sub channels.
+_CHANNEL = "events:{user_id}"
+
+
+def _channel(user_id: str) -> str:
+    return f"events:{user_id}"
+
 
 class EventBus:
     def __init__(self) -> None:
@@ -28,14 +46,44 @@ class EventBus:
         )
         self._loop: asyncio.AbstractEventLoop | None = None
 
+        # Ref-count of local subscribers per user — used to manage Redis
+        # SUBSCRIBE / UNSUBSCRIBE lifecycle.
+        self._redis_sub_count: dict[str, int] = defaultdict(int)
+
+        # The single shared pubsub object used by the listener task.
+        self._pubsub: Any = None  # redis.asyncio.client.PubSub | None
+
+        # Background listener task handle.
+        self._listener_task: asyncio.Task[None] | None = None
+
     def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         """Store the running event loop (called from lifespan startup)."""
         self._loop = loop
 
+    # ------------------------------------------------------------------
+    # Subscribe / unsubscribe (async, runs on the event loop thread)
+    # ------------------------------------------------------------------
+
     async def subscribe(self, user_id: str) -> "asyncio.Queue[dict[str, Any]]":
         """Create a queue for *user_id* and register it.  Returns the queue."""
+        from app.db.redis import get_redis  # local import to avoid circular
+
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=100)
         self._subscribers[user_id].add(queue)
+
+        # Redis ref-count: on the first local subscriber for this user,
+        # tell the shared pubsub to SUBSCRIBE to the per-user channel.
+        redis = get_redis()
+        if redis is not None and self._pubsub is not None:
+            self._redis_sub_count[user_id] += 1
+            if self._redis_sub_count[user_id] == 1:
+                try:
+                    await self._pubsub.subscribe(_channel(user_id))
+                except Exception:
+                    logger.exception(
+                        "Redis SUBSCRIBE failed for user %s", user_id
+                    )
+
         return queue
 
     def unsubscribe(
@@ -49,18 +97,83 @@ class EventBus:
         if not queues:
             del self._subscribers[user_id]
 
+        # Redis ref-count: when the last local subscriber disconnects,
+        # UNSUBSCRIBE from the per-user channel so the listener stops
+        # receiving messages for that user.
+        from app.db.redis import get_redis  # local import
+
+        redis = get_redis()
+        if redis is not None and self._pubsub is not None:
+            count = self._redis_sub_count.get(user_id, 0)
+            if count > 0:
+                self._redis_sub_count[user_id] = count - 1
+                if self._redis_sub_count[user_id] == 0:
+                    del self._redis_sub_count[user_id]
+                    # Fire-and-forget on the event loop; unsubscribe is best-effort.
+                    if self._loop is not None and not self._loop.is_closed():
+                        asyncio.run_coroutine_threadsafe(
+                            self._redis_unsubscribe(user_id), self._loop
+                        )
+
+    async def _redis_unsubscribe(self, user_id: str) -> None:
+        """Async helper — unsubscribe from the Redis channel for *user_id*."""
+        if self._pubsub is None:
+            return
+        try:
+            await self._pubsub.unsubscribe(_channel(user_id))
+        except Exception:
+            logger.exception("Redis UNSUBSCRIBE failed for user %s", user_id)
+
+    # ------------------------------------------------------------------
+    # Publish (sync, called from threadpool)
+    # ------------------------------------------------------------------
+
     def publish(
         self, user_ids: Iterable[str], event_type: str, data: dict[str, Any]
     ) -> None:
         """Thread-safe entry point for sync route handlers.
 
-        Schedules ``_dispatch`` on the event loop.  Safe to call from
-        the threadpool that FastAPI uses for synchronous endpoints.
+        When Redis is configured, PUBLISH the event to each per-user channel.
+        The background listener task will pick it up (on this worker and any
+        other workers in the pool) and call ``_dispatch`` to feed local queues.
+
+        When Redis is *not* configured, schedule ``_dispatch`` directly on the
+        event loop (original single-worker behaviour).
         """
         if self._loop is None:
             return
+
+        from app.db.redis import get_redis  # local import
+
         event: dict[str, Any] = {"type": event_type, "data": data}
-        self._loop.call_soon_threadsafe(self._dispatch, list(user_ids), event)
+        user_id_list = list(user_ids)
+
+        redis = get_redis()
+        if redis is not None:
+            # Dispatch async PUBLISH calls without blocking the threadpool.
+            async def _publish_all() -> None:
+                payload = json.dumps(event)
+                for uid in user_id_list:
+                    try:
+                        await redis.publish(_channel(uid), payload)
+                    except Exception:
+                        logger.exception(
+                            "Redis PUBLISH failed for user %s (event_type=%s)",
+                            uid,
+                            event_type,
+                        )
+
+            asyncio.run_coroutine_threadsafe(_publish_all(), self._loop)
+            # Do NOT also call _dispatch locally — the listener task is what
+            # feeds the local queues when Redis is configured.  Double-calling
+            # would deliver every event twice to subscribers on this worker.
+        else:
+            # In-process path (single-worker / no Redis).
+            self._loop.call_soon_threadsafe(self._dispatch, user_id_list, event)
+
+    # ------------------------------------------------------------------
+    # Internal dispatch (always runs on the event-loop thread)
+    # ------------------------------------------------------------------
 
     def _dispatch(
         self, user_ids: list[str], event: dict[str, Any]
@@ -76,6 +189,128 @@ class EventBus:
                 except asyncio.QueueFull:
                     # Drop the event rather than blocking or raising.
                     pass
+
+    # ------------------------------------------------------------------
+    # Redis listener lifecycle
+    # ------------------------------------------------------------------
+
+    async def start_redis_listener(self) -> None:
+        """Start the background pub/sub listener task.
+
+        Should be called from lifespan startup when Redis is configured.
+        Creates a dedicated pubsub object and subscribes to channels for
+        any users that are already locally subscribed (covers the edge case
+        of a race at startup — in practice there are none yet).
+        """
+        from app.db.redis import get_redis  # local import
+
+        redis = get_redis()
+        if redis is None:
+            return
+
+        try:
+            self._pubsub = redis.pubsub()
+        except Exception:
+            logger.exception("Failed to create Redis pubsub object")
+            return
+
+        # Re-subscribe to channels for any users already present (normally
+        # none at this point, but be safe).
+        for user_id in list(self._subscribers):
+            try:
+                await self._pubsub.subscribe(_channel(user_id))
+                self._redis_sub_count[user_id] = len(
+                    self._subscribers.get(user_id, set())
+                )
+            except Exception:
+                logger.exception(
+                    "Redis initial SUBSCRIBE failed for user %s", user_id
+                )
+
+        self._listener_task = asyncio.create_task(
+            self._listener_loop(), name="redis-sse-listener"
+        )
+        logger.info("Redis SSE listener task started")
+
+    async def stop_redis_listener(self) -> None:
+        """Cancel and await the background listener task.
+
+        Should be called from lifespan shutdown before ``close_redis()``.
+        """
+        if self._listener_task is not None:
+            self._listener_task.cancel()
+            try:
+                await self._listener_task
+            except asyncio.CancelledError:
+                pass
+            self._listener_task = None
+
+        if self._pubsub is not None:
+            try:
+                await self._pubsub.close()
+            except Exception:
+                logger.exception("Error closing Redis pubsub")
+            self._pubsub = None
+
+        logger.info("Redis SSE listener task stopped")
+
+    async def _listener_loop(self) -> None:
+        """Receive messages from Redis and dispatch them to local queues.
+
+        Runs indefinitely until cancelled.  On Redis errors it logs and
+        retries with exponential back-off so a transient Redis restart does
+        not crash the app.
+        """
+        backoff = 1.0
+        while True:
+            try:
+                await self._run_listener()
+            except asyncio.CancelledError:
+                raise  # propagate cancellation — do not retry
+            except Exception:
+                logger.exception(
+                    "Redis SSE listener error — retrying in %.1fs", backoff
+                )
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 30.0)
+            else:
+                # _run_listener returned normally (shouldn't happen); retry.
+                await asyncio.sleep(backoff)
+
+    async def _run_listener(self) -> None:
+        """Inner loop: iterate over messages from the pubsub object."""
+        if self._pubsub is None:
+            return
+
+        async for raw in self._pubsub.listen():
+            # raw is a dict: {"type": ..., "channel": ..., "data": ...}
+            if raw is None:
+                continue
+            msg_type = raw.get("type")
+            if msg_type != "message":
+                # "subscribe" / "unsubscribe" confirmations — skip.
+                continue
+
+            channel: str = raw.get("channel", "")
+            payload: str = raw.get("data", "")
+
+            # Derive the user_id from the channel name "events:{user_id}".
+            if not channel.startswith("events:"):
+                continue
+            user_id = channel[len("events:"):]
+
+            try:
+                event: dict[str, Any] = json.loads(payload)
+            except (json.JSONDecodeError, TypeError):
+                logger.warning(
+                    "Redis listener: could not parse payload on %s: %r",
+                    channel,
+                    payload,
+                )
+                continue
+
+            # Feed local queues (same as the in-process _dispatch path).
+            self._dispatch([user_id], event)
 
 
 # Module-level singleton

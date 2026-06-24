@@ -43,4 +43,12 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# WORKERS controls the number of uvicorn worker processes (default: 1).
+# IMPORTANT: WORKERS > 1 REQUIRES REDIS_URL to be set — each worker maintains
+# its own in-memory SSE subscriber registry and without Redis pub/sub, events
+# published by one worker will not reach SSE clients connected to another.
+ENV WORKERS=1
+
+# Shell-form CMD so the shell can expand ${WORKERS} at container start.
+# shellcheck disable=SC2086
+CMD uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS}
