@@ -6,9 +6,14 @@ Routes that run in the threadpool (sync FastAPI handlers) call
 
 When ``REDIS_URL`` is configured, published events are written to per-user
 Redis pub/sub channels (``events:{user_id}``) so any worker in the pool
-receives them.  A background listener task (started by the lifespan)
-subscribes to channels for locally-connected users and feeds the events
-into the local asyncio queues — exactly as the in-process path does today.
+receives them.  A background listener task (started by the lifespan) holds a
+single pattern subscription (``PSUBSCRIBE events:*``) and feeds each message
+into the local asyncio queues for the user it targets — exactly as the
+in-process path does today.  A worker only keeps queues for its own connected
+clients, so events for users it isn't serving are received and dropped cheaply
+in ``_dispatch``.  One static pattern subscription means the listener never
+mutates its subscription set at runtime, so there is no concurrent access to
+the pub/sub connection (which ``.listen()`` blocks on).
 
 When ``REDIS_URL`` is *not* configured the behaviour is identical to the
 original single-worker implementation: no Redis connection is attempted,
@@ -34,6 +39,9 @@ logger = logging.getLogger(__name__)
 # Prefix for per-user Redis pub/sub channels (channel == prefix + user_id).
 _CHANNEL_PREFIX = "events:"
 
+# Glob pattern the listener PSUBSCRIBEs to — matches every per-user channel.
+_CHANNEL_PATTERN = f"{_CHANNEL_PREFIX}*"
+
 
 def _channel(user_id: str) -> str:
     return f"{_CHANNEL_PREFIX}{user_id}"
@@ -46,11 +54,9 @@ class EventBus:
         )
         self._loop: asyncio.AbstractEventLoop | None = None
 
-        # Ref-count of local subscribers per user — used to manage Redis
-        # SUBSCRIBE / UNSUBSCRIBE lifecycle.
-        self._redis_sub_count: dict[str, int] = defaultdict(int)
-
-        # The single shared pubsub object used by the listener task.
+        # The single shared pubsub object used by the listener task. It holds
+        # one static pattern subscription, so it is only ever touched by the
+        # listener — never mutated per-user at runtime.
         self._pubsub: Any = None  # redis.asyncio.client.PubSub | None
 
         # Background listener task handle.
@@ -65,64 +71,28 @@ class EventBus:
     # ------------------------------------------------------------------
 
     async def subscribe(self, user_id: str) -> "asyncio.Queue[dict[str, Any]]":
-        """Create a queue for *user_id* and register it.  Returns the queue."""
-        from app.db.redis import get_redis  # local import to avoid circular
+        """Create a queue for *user_id* and register it.  Returns the queue.
 
+        No Redis interaction here: the listener holds a single static pattern
+        subscription, so a new local subscriber just needs a local queue.
+        """
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=100)
         self._subscribers[user_id].add(queue)
-
-        # Redis ref-count: on the first local subscriber for this user,
-        # tell the shared pubsub to SUBSCRIBE to the per-user channel.
-        redis = get_redis()
-        if redis is not None and self._pubsub is not None:
-            self._redis_sub_count[user_id] += 1
-            if self._redis_sub_count[user_id] == 1:
-                try:
-                    await self._pubsub.subscribe(_channel(user_id))
-                except Exception:
-                    logger.exception(
-                        "Redis SUBSCRIBE failed for user %s", user_id
-                    )
-
         return queue
 
     def unsubscribe(
         self, user_id: str, queue: "asyncio.Queue[dict[str, Any]]"
     ) -> None:
-        """Remove *queue* from the user's subscriber set."""
+        """Remove *queue* from the user's subscriber set.
+
+        Purely local — the listener's pattern subscription is never mutated.
+        """
         queues = self._subscribers.get(user_id)
         if queues is None:
             return
         queues.discard(queue)
         if not queues:
             del self._subscribers[user_id]
-
-        # Redis ref-count: when the last local subscriber disconnects,
-        # UNSUBSCRIBE from the per-user channel so the listener stops
-        # receiving messages for that user.
-        from app.db.redis import get_redis  # local import
-
-        redis = get_redis()
-        if redis is not None and self._pubsub is not None:
-            count = self._redis_sub_count.get(user_id, 0)
-            if count > 0:
-                self._redis_sub_count[user_id] = count - 1
-                if self._redis_sub_count[user_id] == 0:
-                    del self._redis_sub_count[user_id]
-                    # Fire-and-forget on the event loop; unsubscribe is best-effort.
-                    if self._loop is not None and not self._loop.is_closed():
-                        asyncio.run_coroutine_threadsafe(
-                            self._redis_unsubscribe(user_id), self._loop
-                        )
-
-    async def _redis_unsubscribe(self, user_id: str) -> None:
-        """Async helper — unsubscribe from the Redis channel for *user_id*."""
-        if self._pubsub is None:
-            return
-        try:
-            await self._pubsub.unsubscribe(_channel(user_id))
-        except Exception:
-            logger.exception("Redis UNSUBSCRIBE failed for user %s", user_id)
 
     # ------------------------------------------------------------------
     # Publish (sync, called from threadpool)
@@ -198,9 +168,9 @@ class EventBus:
         """Start the background pub/sub listener task.
 
         Should be called from lifespan startup when Redis is configured.
-        Creates a dedicated pubsub object and subscribes to channels for
-        any users that are already locally subscribed (covers the edge case
-        of a race at startup — in practice there are none yet).
+        Creates a dedicated pubsub object and PSUBSCRIBEs once to the
+        ``events:*`` pattern — covering every per-user channel without any
+        per-user subscription bookkeeping.
         """
         from app.db.redis import get_redis  # local import
 
@@ -210,22 +180,11 @@ class EventBus:
 
         try:
             self._pubsub = redis.pubsub()
+            await self._pubsub.psubscribe(_CHANNEL_PATTERN)
         except Exception:
-            logger.exception("Failed to create Redis pubsub object")
+            logger.exception("Failed to start Redis pattern subscription")
+            self._pubsub = None
             return
-
-        # Re-subscribe to channels for any users already present (normally
-        # none at this point, but be safe).
-        for user_id in list(self._subscribers):
-            try:
-                await self._pubsub.subscribe(_channel(user_id))
-                self._redis_sub_count[user_id] = len(
-                    self._subscribers.get(user_id, set())
-                )
-            except Exception:
-                logger.exception(
-                    "Redis initial SUBSCRIBE failed for user %s", user_id
-                )
 
         self._listener_task = asyncio.create_task(
             self._listener_loop(), name="redis-sse-listener"
@@ -287,8 +246,8 @@ class EventBus:
             if raw is None:
                 continue
             msg_type = raw.get("type")
-            if msg_type != "message":
-                # "subscribe" / "unsubscribe" confirmations — skip.
+            if msg_type != "pmessage":
+                # "psubscribe" / "punsubscribe" confirmations — skip.
                 continue
 
             channel: str = raw.get("channel", "")
