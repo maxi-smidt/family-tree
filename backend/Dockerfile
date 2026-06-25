@@ -49,6 +49,10 @@ EXPOSE 8000
 # published by one worker will not reach SSE clients connected to another.
 ENV WORKERS=1
 
-# Shell-form CMD so the shell can expand ${WORKERS} at container start.
+# Shell-form CMD so the shell can expand ${WORKERS} at container start. The
+# leading `exec` replaces the shell with uvicorn so it runs as PID 1 and
+# receives SIGTERM directly on `docker stop` — without it the shell would
+# swallow the signal and the lifespan shutdown (cancel sweepers, stop the
+# Redis listener, close the Redis client) would never run before SIGKILL.
 # shellcheck disable=SC2086
-CMD uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS}
+CMD exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${WORKERS}

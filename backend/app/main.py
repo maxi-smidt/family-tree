@@ -52,6 +52,18 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     event_bus.set_loop(loop)
     runtime.set_loop(loop)
+
+    # Multi-worker deployments need Redis pub/sub to fan SSE events across
+    # workers; without it, events published by one worker never reach clients
+    # connected to another. Warn loudly rather than failing — the app still
+    # serves requests, only cross-worker real-time updates are affected.
+    if settings.WORKERS > 1 and not settings.redis_enabled:
+        logger.warning(
+            "WORKERS=%s but REDIS_URL is not set — SSE events will not be "
+            "delivered across workers. Set REDIS_URL or run with WORKERS=1.",
+            settings.WORKERS,
+        )
+
     init_oauth()
     _init_db_with_retry()
     sweeper = asyncio.create_task(deletion_sweep_loop())
