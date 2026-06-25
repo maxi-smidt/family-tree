@@ -74,6 +74,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   drops the merged-node re-centering pass from O(n²) to O(n), measurably
   speeding up layout for trees with thousands of members. Computed positions are
   unchanged (#463).
+- **Background sweepers elect a single leader under multiple workers** — the
+  deletion-purge sweep and the scheduled-backup check now acquire a Postgres
+  advisory lock before each run, so a backend running with `WORKERS > 1` no
+  longer executes them once per worker (which could create duplicate concurrent
+  backups). With a single worker the lock is always free, so behaviour is
+  unchanged; no Redis is required (#346).
 
 ### Fixed
 
@@ -82,6 +88,15 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   a blank gray area (tiles blocked by `img-src`). `https://*.tile.openstreetmap.org`
   is now permitted in `img-src`. Development was unaffected because the Vite dev
   server sends no CSP (#471).
+
+### Security
+
+- **Login rate-limiter memory is now bounded** — the in-memory sliding-window
+  limiter previously kept a per-key entry indefinitely, so a spray of distinct
+  usernames/IPs against the login endpoint could grow process memory without
+  limit. Fully-expired keys are now swept opportunistically and a hard cap
+  evicts least-recently-used keys as a backstop, so memory stays bounded by
+  recent activity. Limiting behaviour for legitimate users is unchanged (#346).
 
 ## [1.1.0] - 2026-06-23
 
