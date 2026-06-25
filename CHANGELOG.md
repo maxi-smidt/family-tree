@@ -35,6 +35,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- **Faster tree & GEDCOM import** — member and relation rows are now written with bulk inserts instead of one ORM object per row, substantially speeding up large imports (200k+ members). Date sort keys are precomputed so layout ordering is unchanged (#433).
 - **Tree layout runs off the main thread** — arranging the tree (manual
   re-arrange, and the automatic arrange after a GEDCOM import) now computes the
   dagre layout in a Web Worker instead of blocking the UI thread, so large trees

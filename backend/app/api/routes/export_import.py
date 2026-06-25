@@ -45,6 +45,7 @@ from app.models import (
 )
 from app.schemas.job import JobStarted
 from app.services import crypto_export, gedcom
+from app.services.genealogy_date import sort_key as _sort_key
 from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
@@ -58,6 +59,9 @@ from app.services.storage_usage import QuotaExceeded, check_full_usage_quota
 router = APIRouter(prefix="/trees", tags=["export"])
 
 BUNDLE_VERSION = 2
+
+# Number of rows to write per bulk-insert batch.
+_BULK_CHUNK = 1000
 
 
 def migrate_bundle(bundle: dict) -> dict:
@@ -243,16 +247,32 @@ def _do_import(
         members = bundle.get("members", [])
         member_map = _remap(members)
         total_members = max(len(members), 1)
+
+        # Build per-row member dicts (image processing must stay per-row), then
+        # bulk-insert in chunks for performance on large imports.
+        member_dicts: list[dict] = []
         for i, row in enumerate(members):
             data = dict(row)
             data.pop("tree_id", None)
             data["id"] = member_map[row["id"]]
+            data["tree_id"] = tree.id
             data["image_data"] = process_image_field(
                 tree.id, data.get("image_data"), media_limits
             )
-            db.add(Member(tree_id=tree.id, **data))
-            if i % 20 == 0:
+            # Older bundles may not include the sort columns; compute if missing.
+            if data.get("date_of_birth_sort") is None:
+                data["date_of_birth_sort"] = _sort_key(data.get("date_of_birth"))
+            if data.get("date_of_death_sort") is None:
+                data["date_of_death_sort"] = _sort_key(data.get("date_of_death"))
+            member_dicts.append(data)
+
+            if i % _BULK_CHUNK == 0:
                 progress_cb(15 + int(40 * i / total_members))
+
+        for chunk_start in range(0, max(len(member_dicts), 1), _BULK_CHUNK):
+            chunk = member_dicts[chunk_start:chunk_start + _BULK_CHUNK]
+            if chunk:
+                db.bulk_insert_mappings(Member, chunk)
         db.flush()
         progress_cb(55)
 
@@ -262,16 +282,20 @@ def _do_import(
                 known_types.add(row["id"])
                 db.add(RelationType(id=row["id"], description=row.get("description")))
 
-        for row in bundle.get("relations", []):
-            if row["from_member_id"] in member_map and row["to_member_id"] in member_map:
-                db.add(
-                    Relation(
-                        tree_id=tree.id,
-                        from_member_id=member_map[row["from_member_id"]],
-                        to_member_id=member_map[row["to_member_id"]],
-                        relation_type=row["relation_type"],
-                    )
-                )
+        relation_dicts: list[dict] = [
+            {
+                "tree_id": tree.id,
+                "from_member_id": member_map[row["from_member_id"]],
+                "to_member_id": member_map[row["to_member_id"]],
+                "relation_type": row["relation_type"],
+            }
+            for row in bundle.get("relations", [])
+            if row["from_member_id"] in member_map and row["to_member_id"] in member_map
+        ]
+        for chunk_start in range(0, max(len(relation_dicts), 1), _BULK_CHUNK):
+            chunk = relation_dicts[chunk_start:chunk_start + _BULK_CHUNK]
+            if chunk:
+                db.bulk_insert_mappings(Relation, chunk)
 
         for row in bundle.get("diseases", []):
             data = dict(row)
@@ -542,29 +566,42 @@ def _do_import_gedcom(
         members = parsed.get("members", [])
         total_members = max(len(members), 1)
         inserted_member_ids: set[str] = set()
+
+        # Build mapping dicts for bulk insert; collect ids for relation filter.
+        member_dicts: list[dict] = []
         for i, m in enumerate(members):
             data = dict(m)
             data.pop("tree_id", None)
-            db.add(Member(tree_id=tree.id, **data))
+            data["tree_id"] = tree.id
+            member_dicts.append(data)
             inserted_member_ids.add(m["id"])
-            if i % 20 == 0:
+            if i % _BULK_CHUNK == 0:
                 progress_cb(15 + int(55 * i / total_members))
+
+        for chunk_start in range(0, max(len(member_dicts), 1), _BULK_CHUNK):
+            chunk = member_dicts[chunk_start:chunk_start + _BULK_CHUNK]
+            if chunk:
+                db.bulk_insert_mappings(Member, chunk)
         db.flush()
         progress_cb(70)
 
-        for rel in parsed.get("relations", []):
+        relation_dicts: list[dict] = [
+            {
+                "tree_id": tree.id,
+                "from_member_id": rel["from_member_id"],
+                "to_member_id": rel["to_member_id"],
+                "relation_type": rel["relation_type"],
+            }
+            for rel in parsed.get("relations", [])
             if (
                 rel["from_member_id"] in inserted_member_ids
                 and rel["to_member_id"] in inserted_member_ids
-            ):
-                db.add(
-                    Relation(
-                        tree_id=tree.id,
-                        from_member_id=rel["from_member_id"],
-                        to_member_id=rel["to_member_id"],
-                        relation_type=rel["relation_type"],
-                    )
-                )
+            )
+        ]
+        for chunk_start in range(0, max(len(relation_dicts), 1), _BULK_CHUNK):
+            chunk = relation_dicts[chunk_start:chunk_start + _BULK_CHUNK]
+            if chunk:
+                db.bulk_insert_mappings(Relation, chunk)
         progress_cb(90)
 
         _enforce_import_quota(db, tree)
