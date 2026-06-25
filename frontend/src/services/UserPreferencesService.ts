@@ -8,6 +8,7 @@ export interface TabPreferences {
 
 export interface UserSettings {
   image_storage_mode: ImageStorageMode | null;
+  error_monitoring?: boolean | null;
 }
 
 export interface TutorialState {

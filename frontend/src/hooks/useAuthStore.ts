@@ -9,6 +9,7 @@ import { TreeSharingService } from "@/services/TreeSharingService";
 import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
 import { FeatureName } from "@/lib/features";
 import { decodeJwtExp } from "@/lib/utils";
+import { syncMonitoring } from "@/lib/monitoring";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
@@ -86,6 +87,8 @@ function applyToken(res: TokenResponse) {
     totpSessionToken: null,
   });
   startExpiryCheck();
+  const { config } = useAuthStore.getState();
+  syncMonitoring(config, res.user);
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -139,6 +142,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         sessionExpiringSoon: false,
       });
       startExpiryCheck();
+      syncMonitoring(useAuthStore.getState().config, user);
     } catch {
       setAuthToken(null);
       set({ user: null, features: [], status: "unauthenticated" });
@@ -191,6 +195,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshMe: async () => {
     const user = await api.get<User>("/auth/me");
     set({ user, features: user.features ?? [] });
+    syncMonitoring(useAuthStore.getState().config, user);
   },
 
   deleteAccount: async (

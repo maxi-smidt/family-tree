@@ -23,6 +23,8 @@ export interface User {
   image_storage_mode?: ImageStorageMode;
   /** Modes the admin has explicitly allowed; user may only pick from these. */
   image_storage_allowed_modes?: ImageStorageMode[];
+  /** Whether the user has opted in to error monitoring (default false). */
+  error_monitoring?: boolean;
 }
 
 export interface AuthConfig {
@@ -38,6 +40,9 @@ export interface AuthConfig {
     image_storage_mode: ImageStorageMode;
     image_storage_allowed_modes: ImageStorageMode[];
   };
+  /** Sentry/GlitchTip DSN; null when error monitoring is not configured. */
+  sentry_dsn: string | null;
+  sentry_traces_sample_rate: number;
 }
 
 export interface TokenResponse {

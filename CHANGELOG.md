@@ -11,6 +11,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- **Optional opt-in error monitoring (Sentry / GlitchTip)** — admins can point
+  `SENTRY_DSN` at a Sentry-compatible ingest (self-hosted GlitchTip or
+  sentry.io) to enable error reporting. The feature is off by default and
+  requires each user to also opt in via a new **Privacy** tab in user settings.
+  PII (auth headers, cookies, request bodies, e-mail addresses, media URLs) is
+  scrubbed before any event is transmitted. Unsetting `SENTRY_DSN` is a total
+  no-op — no data is sent and the Privacy tab is hidden (#442).
+
 - **Focused (windowed) tree view for very large trees** — trees with more than
   2,000 members now open in a focused mode that renders only a bounded
   neighborhood around a root person instead of loading the entire graph, keeping

@@ -16,6 +16,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.logging_config import setup_logging
+from app.core.monitoring import init_sentry
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
@@ -25,6 +26,7 @@ from app.services.deletion_sweeper import deletion_sweep_loop
 from app.services.storage import InvalidImageURL
 
 setup_logging()
+init_sentry()
 logger = logging.getLogger("app")
 
 

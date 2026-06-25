@@ -43,10 +43,13 @@ class CurrentUserOut(UserOut):
     # admin-allowed set so the frontend can filter available options.
     image_storage_mode: ImageStorageMode = "compressed"
     image_storage_allowed_modes: list[ImageStorageMode] = ["compressed"]
+    # Whether this user has opted in to error monitoring (default off).
+    error_monitoring: bool = False
 
 
 class UserPreferences(BaseModel):
     image_storage_mode: ImageStorageMode | None = None
+    error_monitoring: bool | None = None
 
 
 class TutorialPreferences(BaseModel):

@@ -1512,6 +1512,12 @@
       "status-disabled": "Die Zwei-Faktor-Authentifizierung ist derzeit deaktiviert.",
       "button": "2FA verwalten"
     },
+    "privacy": {
+      "section": "Datenschutz",
+      "label": "Fehlerberichte senden",
+      "hint": "Wenn aktiviert, werden anonyme Absturz- und Fehlerberichte an den Fehlerüberwachungsdienst der Instanz gesendet. Persönliche Daten, Passwörter und Medien-URLs werden niemals übermittelt. Diese Option wird nur angezeigt, wenn der Administrator eine Fehlerüberwachung eingerichtet hat.",
+      "toast-saved": "Datenschutzeinstellungen gespeichert."
+    },
     "delete-account": {
       "section": "Konto löschen",
       "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",

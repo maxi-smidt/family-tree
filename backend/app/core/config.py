@@ -115,6 +115,12 @@ class Settings(BaseSettings):
     # Username/group that should be granted admin when provisioned via Authentik.
     AUTHENTIK_ADMIN_GROUP: str = "family-tree-admins"
 
+    # --- Error monitoring (optional) -------------------------------------------
+    # Point at a Sentry-compatible DSN (self-hosted GlitchTip or sentry.io) to
+    # enable server-side error reporting.  Unset or empty = total no-op.
+    SENTRY_DSN: str | None = None
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _split_origins(cls, value: object) -> object:
@@ -130,6 +136,10 @@ class Settings(BaseSettings):
             f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+
+    @property
+    def sentry_enabled(self) -> bool:
+        return bool(self.SENTRY_DSN)
 
     @property
     def redis_enabled(self) -> bool:

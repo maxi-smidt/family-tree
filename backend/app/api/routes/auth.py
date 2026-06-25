@@ -60,6 +60,9 @@ def _current_user_out(db: Session, user: User) -> CurrentUserOut:
     out.image_storage_mode = effective_storage_mode(  # type: ignore[assignment]
         limits.image_storage_mode, limits.image_storage_allowed_modes, user_mode
     )
+    out.error_monitoring = bool(
+        (user.preferences or {}).get("error_monitoring", False)
+    )
     return out
 
 
@@ -75,6 +78,8 @@ def auth_config(db: Session = Depends(get_db)):
         allow_self_registration=get_bool_setting(db, "allow_self_registration", False),
         authentik_login_url=login_url,
         media_limits=get_media_limits(db),
+        sentry_dsn=settings.SENTRY_DSN if settings.sentry_enabled else None,
+        sentry_traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
     )
 
 

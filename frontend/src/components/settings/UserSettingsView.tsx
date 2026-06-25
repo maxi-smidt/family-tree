@@ -4,11 +4,13 @@ import {
   ArrowLeft,
   HardDrive,
   LayoutDashboard,
+  ShieldAlert,
   ShieldCheck,
   Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -31,6 +33,7 @@ export const UserSettingsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "user-settings" });
   const closeSettings = useUserSettingsViewStore((s) => s.closeSettings);
   const user = useAuthStore((s) => s.user);
+  const config = useAuthStore((s) => s.config);
   const refreshMe = useAuthStore((s) => s.refreshMe);
 
   const effectiveMode: ImageStorageMode =
@@ -42,6 +45,7 @@ export const UserSettingsView = () => {
   const [selectedMode, setSelectedMode] =
     useState<ImageStorageMode>(effectiveMode);
   const [saving, setSaving] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
 
   useEffect(() => {
     setSelectedMode(effectiveMode);
@@ -62,7 +66,25 @@ export const UserSettingsView = () => {
     }
   };
 
+  const handleToggleMonitoring = async (checked: boolean) => {
+    setSavingPrivacy(true);
+    try {
+      await UserPreferencesService.updateUserSettings({
+        // Preserve the existing storage mode; only change error_monitoring.
+        image_storage_mode: user?.image_storage_mode ?? null,
+        error_monitoring: checked,
+      });
+      await refreshMe();
+      toast.success(t("privacy.toast-saved"));
+    } catch {
+      toast.error(t("toast-error"));
+    } finally {
+      setSavingPrivacy(false);
+    }
+  };
+
   const isLocal = user?.auth_provider === "local";
+  const monitoringEnabled = config?.sentry_dsn != null;
 
   return (
     <Tabs
@@ -111,6 +133,15 @@ export const UserSettingsView = () => {
               >
                 <ShieldCheck className="h-4 w-4 mr-2" />
                 {t("two-factor.section")}
+              </TabsTrigger>
+            )}
+            {monitoringEnabled && (
+              <TabsTrigger
+                value="privacy"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                <ShieldAlert className="h-4 w-4 mr-2" />
+                {t("privacy.section")}
               </TabsTrigger>
             )}
             <TabsTrigger
@@ -166,6 +197,29 @@ export const UserSettingsView = () => {
 
           <TabsContent value="two-factor" className="mt-0">
             <TwoFactorPanel />
+          </TabsContent>
+
+          <TabsContent value="privacy" className="mt-0 max-w-md space-y-4">
+            <div>
+              <p className="font-medium text-sm">{t("privacy.section")}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {t("privacy.hint")}
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="error-monitoring-toggle"
+                checked={user?.error_monitoring ?? false}
+                onCheckedChange={handleToggleMonitoring}
+                disabled={savingPrivacy}
+              />
+              <label
+                htmlFor="error-monitoring-toggle"
+                className="text-sm cursor-pointer"
+              >
+                {t("privacy.label")}
+              </label>
+            </div>
           </TabsContent>
 
           <TabsContent value="account" className="mt-0">

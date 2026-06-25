@@ -65,7 +65,10 @@ def put_tutorial_preferences(
 @router.get("/settings", response_model=UserPreferences)
 def get_user_preferences(user: User = Depends(get_current_user)):
     prefs = user.preferences or {}
-    return UserPreferences(image_storage_mode=prefs.get("image_storage_mode"))
+    return UserPreferences(
+        image_storage_mode=prefs.get("image_storage_mode"),
+        error_monitoring=prefs.get("error_monitoring"),
+    )
 
 
 @router.put("/settings", response_model=UserPreferences)
@@ -87,9 +90,16 @@ def put_user_preferences(
         prefs.pop("image_storage_mode", None)
     else:
         prefs["image_storage_mode"] = payload.image_storage_mode
+    if payload.error_monitoring is None:
+        prefs.pop("error_monitoring", None)
+    else:
+        prefs["error_monitoring"] = payload.error_monitoring
     user.preferences = prefs
     db.commit()
-    return UserPreferences(image_storage_mode=prefs.get("image_storage_mode"))
+    return UserPreferences(
+        image_storage_mode=prefs.get("image_storage_mode"),
+        error_monitoring=prefs.get("error_monitoring"),
+    )
 
 
 @router.get("/announcement", response_model=AnnouncementAck)

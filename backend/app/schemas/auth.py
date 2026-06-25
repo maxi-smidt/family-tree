@@ -61,3 +61,5 @@ class AuthConfig(BaseModel):
     allow_self_registration: bool
     authentik_login_url: str | None = None
     media_limits: MediaLimits
+    sentry_dsn: str | None = None
+    sentry_traces_sample_rate: float = 0.0

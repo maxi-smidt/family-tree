@@ -12,6 +12,7 @@ Covered here:
 2. [Upgrades](#upgrades)
 3. [HTTPS / reverse proxy](#https--reverse-proxy)
 4. [Authentik (OIDC) walkthrough](#authentik-oidc-walkthrough)
+5. [Error monitoring (optional)](#error-monitoring-optional)
 
 Throughout, `backend` / `frontend` are the Compose service names and the
 examples assume you run commands from the directory containing your compose
@@ -373,3 +374,51 @@ Further knobs (defaults shown):
 - Button missing: one of the three required variables
   (`AUTHENTIK_CLIENT_ID`, `AUTHENTIK_CLIENT_SECRET`,
   `AUTHENTIK_DISCOVERY_URL`) is unset — all three are needed.
+
+---
+
+## Error monitoring (optional)
+
+Family Tree supports optional error reporting via any Sentry-compatible service
+(self-hosted [GlitchTip](https://glitchtip.com/) or [sentry.io](https://sentry.io)).
+The feature is a **two-layer opt-in**: the admin enables it at the instance level
+and each user independently opts in via their Privacy settings.
+
+### How it works
+
+| Layer | Where | What |
+|---|---|---|
+| **Admin gate** | `SENTRY_DSN` env var | unset = total no-op for every user |
+| **User consent** | Privacy tab → "Send error reports" | off by default; each user opts in individually |
+
+When both conditions are met, anonymous crash reports are sent to your Sentry
+ingest. **PII is scrubbed before transmission**: auth headers, cookies, request
+bodies, query strings, e-mail addresses, and media URLs are removed.
+
+### Configuration
+
+Add to `.env`:
+
+```env
+# Self-hosted GlitchTip or sentry.io ingest DSN:
+SENTRY_DSN=https://<key>@<host>/<project-id>
+
+# Optional: fraction of transactions to trace for performance monitoring
+# (0.0 = disabled, 1.0 = 100 %). Leave at 0.0 unless you need tracing.
+SENTRY_TRACES_SAMPLE_RATE=0.0
+```
+
+Restart the backend container after changing these variables. The frontend
+receives the DSN through the `/api/auth/config` endpoint at page load, so no
+frontend rebuild is needed.
+
+### Disabling
+
+Unset `SENTRY_DSN` (or leave it empty) and restart. No events will be sent and
+the Privacy tab will disappear from user settings.
+
+### GlitchTip vs sentry.io
+
+GlitchTip is a self-hostable, open-source Sentry-compatible service —
+recommended for privacy-conscious self-hosters. The backend uses the
+`sentry-sdk[fastapi]` package, which works with both.
