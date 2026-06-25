@@ -3,6 +3,11 @@
 Started from the FastAPI ``lifespan`` (app.main). Mirrors the pattern of
 ``deletion_sweeper.py``: runs in a worker thread via asyncio.to_thread, checks
 every hour whether a scheduled backup is due, and never raises into the loop.
+
+Under multiple uvicorn workers each process runs this loop, so a Postgres
+advisory lock ([advisory_lock.single_leader]) elects a single leader per round
+to avoid duplicate concurrent backups; non-leaders skip. With one worker the
+lock is always free, so it's a no-op.
 """
 
 import asyncio
@@ -11,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
+from app.db.advisory_lock import single_leader
 from app.db.session import SessionLocal
 from app.models import BackupRecord
 from app.services import backup_service
@@ -22,12 +28,24 @@ logger = logging.getLogger("app.backup_scheduler")
 # How often the loop wakes up to check whether a backup is due.
 BACKUP_CHECK_INTERVAL_SECONDS = 3600  # 1 hour
 
+# Stable advisory-lock key for the backup scheduler (distinct from the sweep one).
+_BACKUP_LOCK_KEY = 0x46540002
+
+
+def _check_if_leader() -> None:
+    """Run the due-check only if this process wins the leader election."""
+    with single_leader(_BACKUP_LOCK_KEY) as is_leader:
+        if not is_leader:
+            logger.debug("Another worker holds the backup lock; skipping")
+            return
+        _run_if_due()
+
 
 async def backup_schedule_loop() -> None:
     """Run the scheduled-backup check on a fixed interval forever."""
     while True:
         try:
-            await asyncio.to_thread(_run_if_due)
+            await asyncio.to_thread(_check_if_leader)
         except Exception:  # noqa: BLE001 - a failed check must not kill the loop
             logger.exception("Scheduled backup check failed")
         await asyncio.sleep(BACKUP_CHECK_INTERVAL_SECONDS)
