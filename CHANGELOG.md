@@ -7,7 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
-## [Unreleased]
+## [1.2.0] - 2026-06-25
+
+Performance and scalability release focused on very large trees and multi-worker
+deployments: a windowed focused view for huge trees, off-the-main-thread layout
+and imports, optional Redis-backed statistics caching and cross-worker SSE
+fan-out, an explicit/configurable database connection pool, single-leader
+background sweepers, and graceful shutdown on `docker stop`.
 
 ### Added
 
@@ -218,5 +224,6 @@ exploring family history through an interactive visual tree.
 - Object-level permission enforcement on shared trees.
 - Encrypted tree export bundles.
 
+[1.2.0]: https://github.com/maxi-smidt/family-tree/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/maxi-smidt/family-tree/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/maxi-smidt/family-tree/releases/tag/v1.0.0
