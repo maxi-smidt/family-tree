@@ -7,6 +7,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -130,15 +131,24 @@ def health():
     }
 
 
-@app.get(f"{settings.API_PREFIX}/health/ready", tags=["health"])
-async def health_ready():
-    # --- database check -------------------------------------------------------
-    db_ok = True
+def _check_db() -> bool:
+    """Blocking DB liveness probe. Run in a threadpool — never on the loop."""
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
+        return True
     except Exception:
-        db_ok = False
+        return False
+
+
+@app.get(f"{settings.API_PREFIX}/health/ready", tags=["health"])
+async def health_ready():
+    # --- database check -------------------------------------------------------
+    # engine.connect() is blocking and can stall for the pool-checkout/connect
+    # timeout when Postgres is slow or down — exactly when readiness probes
+    # fire most. Offload to the threadpool so it never blocks the event loop
+    # (which would stall every in-flight request and SSE stream on this worker).
+    db_ok = await run_in_threadpool(_check_db)
 
     body: dict = {
         "status": "ok" if db_ok else "error",

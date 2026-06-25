@@ -9,8 +9,8 @@ the EventBus behaviour:
  - With a mocked Redis client, a message arriving on ``events:{user_id}``
    (simulating a publish from another worker) is delivered to the local
    subscriber's queue via the listener task.
- - Ref-count: subscribing twice for a user → one SUBSCRIBE call;
-   unsubscribing the last → UNSUBSCRIBE.
+ - The listener PSUBSCRIBEs once to ``events:*`` at startup, and per-user
+   subscribe()/unsubscribe() never touch Redis.
  - publish() with Redis configured issues PUBLISH to the right channels and
    does NOT double-dispatch locally.
 """
@@ -36,26 +36,31 @@ def run(coro):  # type: ignore[no-untyped-def]
 
 
 class FakePubSub:
-    """Minimal async pubsub fake that records subscribe/unsubscribe calls and
-    lets tests inject messages via ``push_message``."""
+    """Minimal async pubsub fake that records pattern subscriptions and lets
+    tests inject messages via ``push_message``."""
 
     def __init__(self) -> None:
-        self.subscribed: set[str] = set()
-        self.unsubscribed: set[str] = set()
+        self.psubscribed: list[str] = []
+        self.punsubscribed: list[str] = []
         self._queue: asyncio.Queue[dict] = asyncio.Queue()
         self._closed = False
 
-    async def subscribe(self, *channels: str) -> None:
-        for ch in channels:
-            self.subscribed.add(ch)
+    async def psubscribe(self, *patterns: str) -> None:
+        self.psubscribed.extend(patterns)
 
-    async def unsubscribe(self, *channels: str) -> None:
-        for ch in channels:
-            self.unsubscribed.add(ch)
+    async def punsubscribe(self, *patterns: str) -> None:
+        self.punsubscribed.extend(patterns)
 
     def push_message(self, channel: str, data: str) -> None:
-        """Inject a message as if it arrived from Redis."""
-        self._queue.put_nowait({"type": "message", "channel": channel, "data": data})
+        """Inject a pattern message as if it arrived from Redis pub/sub."""
+        self._queue.put_nowait(
+            {
+                "type": "pmessage",
+                "pattern": "events:*",
+                "channel": channel,
+                "data": data,
+            }
+        )
 
     async def listen(self) -> AsyncGenerator[dict, None]:
         while not self._closed:
@@ -203,26 +208,14 @@ def test_redis_listener_ignores_unknown_channels(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# Ref-counting: subscribe / unsubscribe Redis channels
+# Pattern subscription: one static PSUBSCRIBE, no per-user Redis churn
 # ---------------------------------------------------------------------------
 
 
-def test_ref_count_first_subscriber_subscribes(monkeypatch):
-    """The first local subscriber for a user triggers one SUBSCRIBE call.
-
-    Subscribing twice for the same user must not call Redis SUBSCRIBE twice.
-    """
+def test_listener_psubscribes_once_to_pattern(monkeypatch):
+    """The listener PSUBSCRIBEs exactly once to events:* — never per user."""
     fake_redis = FakeRedis()
     fake_pubsub = fake_redis._pubsub
-    subscribe_calls: list[str] = []
-
-    original_subscribe = fake_pubsub.subscribe
-
-    async def counting_subscribe(*channels: str) -> None:
-        subscribe_calls.extend(channels)
-        await original_subscribe(*channels)
-
-    fake_pubsub.subscribe = counting_subscribe  # type: ignore[method-assign]
 
     monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
     monkeypatch.setattr(redis_module, "_client", None)
@@ -234,19 +227,20 @@ def test_ref_count_first_subscriber_subscribes(monkeypatch):
 
         await bus.start_redis_listener()
 
+        # Many subscribers across several users must add no extra PSUBSCRIBEs.
         await bus.subscribe("user-1")
-        await bus.subscribe("user-1")  # second subscriber for same user
+        await bus.subscribe("user-1")
+        await bus.subscribe("user-2")
 
         await bus.stop_redis_listener()
 
     run(_run())
 
-    # SUBSCRIBE for user-1's channel should have been called exactly once.
-    assert subscribe_calls.count(_channel("user-1")) == 1
+    assert fake_pubsub.psubscribed == ["events:*"]
 
 
-def test_ref_count_last_unsubscribe_unsubscribes(monkeypatch):
-    """Unsubscribing the last local subscriber triggers UNSUBSCRIBE."""
+def test_subscribe_unsubscribe_dont_touch_redis(monkeypatch):
+    """Per-user subscribe()/unsubscribe() never mutate the Redis subscription."""
     fake_redis = FakeRedis()
     fake_pubsub = fake_redis._pubsub
 
@@ -256,24 +250,18 @@ def test_ref_count_last_unsubscribe_unsubscribes(monkeypatch):
 
     async def _run():
         bus = EventBus()
-        loop = asyncio.get_running_loop()
-        bus.set_loop(loop)
+        bus.set_loop(asyncio.get_running_loop())
 
         await bus.start_redis_listener()
 
         q1 = await bus.subscribe("user-1")
         q2 = await bus.subscribe("user-1")
-
-        # Unsubscribe one — still has q2, no Redis UNSUBSCRIBE yet.
         bus.unsubscribe("user-1", q1)
-        # Give the loop a tick for any scheduled coroutines.
+        bus.unsubscribe("user-1", q2)  # last subscriber gone
         await asyncio.sleep(0.05)
-        assert _channel("user-1") not in fake_pubsub.unsubscribed
 
-        # Unsubscribe the last — Redis UNSUBSCRIBE should fire.
-        bus.unsubscribe("user-1", q2)
-        await asyncio.sleep(0.1)
-        assert _channel("user-1") in fake_pubsub.unsubscribed
+        # No per-user (P)UNSUBSCRIBE — the static pattern stays put.
+        assert fake_pubsub.punsubscribed == []
 
         await bus.stop_redis_listener()
 

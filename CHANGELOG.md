@@ -89,6 +89,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- **Readiness probe no longer blocks the event loop** — `/api/health/ready`
+  was made `async` to add the Redis check, but still ran the blocking
+  `SELECT 1` database probe directly on the event loop. A slow or unreachable
+  Postgres could therefore stall every in-flight request and SSE stream on the
+  worker for the connection timeout — exactly when probes fire most. The
+  database check now runs in the threadpool, so the event loop stays free.
 - **Backend now shuts down gracefully on `docker stop`** — the container command
   ran uvicorn under a shell without `exec`, so the shell (PID 1) swallowed
   `SIGTERM` and uvicorn never ran its lifespan shutdown (cancelling the
