@@ -64,6 +64,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   `DB_MAX_OVERFLOW` / `DB_POOL_RECYCLE` env vars; keep
   `(DB_POOL_SIZE + DB_MAX_OVERFLOW) × WORKERS` below your Postgres
   `max_connections` (#462).
+- **Faster tree layout for large trees** — the tree layout's post-processing no
+  longer re-scans every member inside a per-member loop; a one-time lookup map
+  drops the merged-node re-centering pass from O(n²) to O(n), measurably
+  speeding up layout for trees with thousands of members. Computed positions are
+  unchanged (#463).
 
 ### Fixed
 

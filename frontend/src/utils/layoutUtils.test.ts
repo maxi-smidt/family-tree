@@ -488,6 +488,149 @@ describe("getLayoutedElements", () => {
     expect(positions["has-sort"]).toBeDefined();
   });
 
+  it("vm_ merged-node re-centering: exact positions are byte-for-byte identical after O(n) refactor", () => {
+    // This test locks the byte-for-byte position guarantee introduced by the
+    // O(n²) → O(n) refactor of the vm_ post-processing pass (issue #463).
+    // The fixture mirrors "orders a married sibling next to a partner outside
+    // the group" which includes vm_homer, multiple shared children, and sibling
+    // groups.  Expected values were captured from the pre-refactor implementation.
+    const base = {
+      academicTitle: null as null,
+      middleNames: null as null,
+      baptismalName: null as null,
+      maidenName: null as null,
+      imageData: null as null,
+      additionalData: null as null,
+      birthplace: null as null,
+      hometown: null as null,
+      placesLived: [] as [],
+      isCollapsed: false,
+      position: { x: 0, y: 0 },
+    };
+    const parents = (p: string | null, m: string | null) => ({
+      paternalParent: p,
+      maternalParent: m,
+    });
+    const members: Member[] = [
+      // Homer's parents.
+      {
+        ...base,
+        id: "abe",
+        firstName: "Abraham",
+        lastName: "Simpson",
+        gender: "m",
+        date: { birth: "1920-01-01", death: null },
+        deceased: false,
+        parents: parents(null, null),
+      },
+      {
+        ...base,
+        id: "mona",
+        firstName: "Mona",
+        lastName: "Simpson",
+        gender: "f",
+        date: { birth: "1925-01-01", death: null },
+        deceased: false,
+        parents: parents(null, null),
+      },
+      // The Bouvier sisters' parents.
+      {
+        ...base,
+        id: "clancy",
+        firstName: "Clancy",
+        lastName: "Bouvier",
+        gender: "m",
+        date: { birth: "1930-01-01", death: null },
+        deceased: false,
+        parents: parents(null, null),
+      },
+      {
+        ...base,
+        id: "jackie",
+        firstName: "Jacqueline",
+        lastName: "Bouvier",
+        gender: "f",
+        date: { birth: "1932-01-01", death: null },
+        deceased: false,
+        parents: parents(null, null),
+      },
+      // Merged node — only child of Abe & Mona — married to Marge.
+      {
+        ...base,
+        id: "vm_homer",
+        firstName: "Homer",
+        lastName: "Simpson",
+        gender: "m",
+        date: { birth: "1956-05-12", death: null },
+        deceased: false,
+        parents: parents("abe", "mona"),
+        relations: [
+          {
+            fromMemberId: "vm_homer",
+            toMemberId: "marge",
+            relationType: "married",
+          },
+        ],
+      },
+      // The three Bouvier sisters (share parents → one sibling group).
+      {
+        ...base,
+        id: "marge",
+        firstName: "Marge",
+        lastName: "Bouvier",
+        gender: "f",
+        date: { birth: "1959-03-19", death: null },
+        deceased: false,
+        parents: parents("clancy", "jackie"),
+      },
+      {
+        ...base,
+        id: "selma",
+        firstName: "Selma",
+        lastName: "Bouvier",
+        gender: "f",
+        date: { birth: "1957-01-01", death: null },
+        deceased: false,
+        parents: parents("clancy", "jackie"),
+      },
+      {
+        ...base,
+        id: "patty",
+        firstName: "Patty",
+        lastName: "Bouvier",
+        gender: "f",
+        date: { birth: "1957-01-02", death: null },
+        deceased: false,
+        parents: parents("clancy", "jackie"),
+      },
+      // A shared child so Homer & Marge form a parent union.
+      {
+        ...base,
+        id: "bart",
+        firstName: "Bart",
+        lastName: "Simpson",
+        gender: "m",
+        date: { birth: "1985-04-01", death: null },
+        deceased: false,
+        parents: parents("vm_homer", "marge"),
+      },
+    ];
+
+    const positions = getLayoutedElements(members);
+
+    expect(positions).toEqual({
+      abe: { x: 400, y: 0 },
+      mona: { x: 0, y: 0 },
+      clancy: { x: 1400, y: 0 },
+      jackie: { x: 800, y: 0 },
+      vm_homer: { x: 200, y: 350 },
+      marge: { x: 600, y: 350 },
+      selma: { x: 1400, y: 350 },
+      patty: { x: 1000, y: 350 },
+      bart: { x: 400, y: 650 },
+    });
+  });
+
   it("falls back to Date comparison when both birthSort keys are absent", () => {
     /**
      * Legacy data without birthSort should still be processed correctly via
