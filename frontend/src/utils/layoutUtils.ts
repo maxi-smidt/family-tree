@@ -330,6 +330,18 @@ export const getLayoutedElements = (members: Member[]) => {
   // "sees" the unmerged siblings when computing their horizontal position.
   const parentXOverride = new Map<string, number>();
 
+  // Precompute a lookup map from (paternalParent, maternalParent) pair →
+  // children, so the vm_ loop below is O(n) overall instead of O(n²).
+  const childrenByParentPair = new Map<string, Member[]>();
+  members.forEach((s) => {
+    const { paternalParent, maternalParent } = s.parents;
+    if (!paternalParent || !maternalParent) return;
+    const pairKey = `${paternalParent} ${maternalParent}`;
+    if (!childrenByParentPair.has(pairKey))
+      childrenByParentPair.set(pairKey, []);
+    childrenByParentPair.get(pairKey)!.push(s);
+  });
+
   members.forEach((m) => {
     if (!m.id.startsWith("vm_")) return;
     const { paternalParent, maternalParent } = m.parents;
@@ -338,11 +350,8 @@ export const getLayoutedElements = (members: Member[]) => {
       return;
 
     // All members that share exactly these two parents.
-    const sharedChildren = members.filter(
-      (s) =>
-        s.parents.paternalParent === paternalParent &&
-        s.parents.maternalParent === maternalParent,
-    );
+    const sharedChildren =
+      childrenByParentPair.get(`${paternalParent} ${maternalParent}`) ?? [];
     if (sharedChildren.length < 2) return;
 
     const xs = sharedChildren

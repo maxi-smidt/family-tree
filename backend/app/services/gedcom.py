@@ -14,6 +14,8 @@ import re
 from datetime import date
 from uuid import uuid4
 
+from app.services.genealogy_date import sort_key
+
 __all__ = ["serialize_to_gedcom", "parse_gedcom", "decode_gedcom_bytes"]
 
 
@@ -669,6 +671,8 @@ def parse_gedcom(text: str) -> dict:
             "gender": None,
             "date_of_birth": None,
             "date_of_death": None,
+            "date_of_birth_sort": None,
+            "date_of_death_sort": None,
             "deceased": False,
             "birthplace": None,
             "hometown": None,
@@ -782,6 +786,8 @@ def parse_gedcom(text: str) -> dict:
                         parts[-1] = parts[-1] + (cont["value"] or "")
                 member["additional_data"] = "\n".join(parts).strip() or None
 
+        member["date_of_birth_sort"] = sort_key(member["date_of_birth"])
+        member["date_of_death_sort"] = sort_key(member["date_of_death"])
         members.append(member)
 
     # --- Pass 2: FAM records ------------------------------------------------
