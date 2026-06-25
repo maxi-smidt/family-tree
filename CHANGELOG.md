@@ -64,6 +64,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   `DB_MAX_OVERFLOW` / `DB_POOL_RECYCLE` env vars; keep
   `(DB_POOL_SIZE + DB_MAX_OVERFLOW) × WORKERS` below your Postgres
   `max_connections` (#462).
+- **Large imports no longer stall the server** — GEDCOM parsing and
+  encrypted-bundle decryption for uploaded import files now run in a worker
+  thread instead of on the backend event loop, so importing a large file no
+  longer freezes unrelated requests or SSE streams. Malformed or unsupported
+  files still return an immediate error as before (#435).
 - **Faster tree layout for large trees** — the tree layout's post-processing no
   longer re-scans every member inside a per-member loop; a one-time lookup map
   drops the merged-node re-centering pass from O(n²) to O(n), measurably
