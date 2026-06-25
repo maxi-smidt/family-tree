@@ -65,6 +65,19 @@ BUNDLE_VERSION = 2
 _BULK_CHUNK = 1000
 
 
+def _bulk_insert_chunked(db: Session, model: type, mappings: list[dict]) -> None:
+    """Bulk-insert ``mappings`` for ``model`` in ``_BULK_CHUNK``-sized batches.
+
+    ``bulk_insert_mappings`` bypasses the ORM ``__init__``/validators, so
+    callers must precompute any values those would normally derive (e.g. the
+    ``*_sort`` columns on Member).
+    """
+    for start in range(0, len(mappings), _BULK_CHUNK):
+        chunk = mappings[start:start + _BULK_CHUNK]
+        if chunk:
+            db.bulk_insert_mappings(model, chunk)
+
+
 def migrate_bundle(bundle: dict) -> dict:
     """Bring an older bundle up to BUNDLE_VERSION.
 
@@ -272,10 +285,7 @@ def _do_import(
             if i % _BULK_CHUNK == 0:
                 progress_cb(15 + int(40 * i / total_members))
 
-        for chunk_start in range(0, max(len(member_dicts), 1), _BULK_CHUNK):
-            chunk = member_dicts[chunk_start:chunk_start + _BULK_CHUNK]
-            if chunk:
-                db.bulk_insert_mappings(Member, chunk)
+        _bulk_insert_chunked(db, Member, member_dicts)
         db.flush()
         progress_cb(55)
 
@@ -295,10 +305,7 @@ def _do_import(
             for row in bundle.get("relations", [])
             if row["from_member_id"] in member_map and row["to_member_id"] in member_map
         ]
-        for chunk_start in range(0, max(len(relation_dicts), 1), _BULK_CHUNK):
-            chunk = relation_dicts[chunk_start:chunk_start + _BULK_CHUNK]
-            if chunk:
-                db.bulk_insert_mappings(Relation, chunk)
+        _bulk_insert_chunked(db, Relation, relation_dicts)
 
         for row in bundle.get("diseases", []):
             data = dict(row)
@@ -581,10 +588,7 @@ def _do_import_gedcom(
             if i % _BULK_CHUNK == 0:
                 progress_cb(15 + int(55 * i / total_members))
 
-        for chunk_start in range(0, max(len(member_dicts), 1), _BULK_CHUNK):
-            chunk = member_dicts[chunk_start:chunk_start + _BULK_CHUNK]
-            if chunk:
-                db.bulk_insert_mappings(Member, chunk)
+        _bulk_insert_chunked(db, Member, member_dicts)
         db.flush()
         progress_cb(70)
 
@@ -601,10 +605,7 @@ def _do_import_gedcom(
                 and rel["to_member_id"] in inserted_member_ids
             )
         ]
-        for chunk_start in range(0, max(len(relation_dicts), 1), _BULK_CHUNK):
-            chunk = relation_dicts[chunk_start:chunk_start + _BULK_CHUNK]
-            if chunk:
-                db.bulk_insert_mappings(Relation, chunk)
+        _bulk_insert_chunked(db, Relation, relation_dicts)
         progress_cb(90)
 
         _enforce_import_quota(db, tree)

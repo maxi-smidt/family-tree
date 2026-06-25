@@ -125,6 +125,14 @@ async function commitPendingMemberDeletion(key: string) {
   }
 }
 
+// Drop any member with a pending optimistic deletion for this tree.
+function filterPendingDeletions(members: Member[], treeId: string): Member[] {
+  return members.filter(
+    (member) =>
+      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+  );
+}
+
 // Synchronously map raw rows into Member[], dropping any member with a pending
 // optimistic deletion. Used for bounded datasets (windowed neighborhood loads),
 // where the synchronous map is cheap. For potentially large full loads use
@@ -134,9 +142,9 @@ function buildAppMembers(
   relations: RelationDB[],
   treeId: string,
 ): Member[] {
-  return mapMembersFromRows(memberRows, relations).filter(
-    (member) =>
-      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
+  return filterPendingDeletions(
+    mapMembersFromRows(memberRows, relations),
+    treeId,
   );
 }
 
@@ -160,10 +168,7 @@ async function buildAppMembersOffThread(
   } catch {
     mapped = mapMembersFromRows(memberRows, relations);
   }
-  return mapped.filter(
-    (member) =>
-      !pendingMemberDeletions.has(pendingDeletionKey(treeId, member.id)),
-  );
+  return filterPendingDeletions(mapped, treeId);
 }
 
 function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
@@ -389,7 +394,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     const memberRows = membersResult.value;
     const relations = relationsResult.value;
 
-    if (memberRows.length > WINDOWED_MODE_THRESHOLD) {
+    // Virtual views don't expose the neighborhood/search endpoints, so never
+    // auto-enter windowed mode for them — it would 404 and fall back to a full
+    // load anyway. Real trees over the threshold switch to the windowed view.
+    if (memberRows.length > WINDOWED_MODE_THRESHOLD && !isVirtualId(treeId)) {
       // Auto-enter windowed mode: load neighborhood with default root
       set({
         windowed: true,

@@ -80,9 +80,21 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   longer executes them once per worker (which could create duplicate concurrent
   backups). With a single worker the lock is always free, so behaviour is
   unchanged; no Redis is required (#346).
+- **`WORKERS` is now configurable from the compose stack** — the backend
+  service accepts a `WORKERS` env var (default 1) wired through
+  `docker-compose.yml` / `docker-compose.prod.yml`, and the app logs a startup
+  warning when `WORKERS > 1` without `REDIS_URL` (a config that silently drops
+  SSE events across workers). Previously multi-worker mode required hand-editing
+  the image command.
 
 ### Fixed
 
+- **Backend now shuts down gracefully on `docker stop`** — the container command
+  ran uvicorn under a shell without `exec`, so the shell (PID 1) swallowed
+  `SIGTERM` and uvicorn never ran its lifespan shutdown (cancelling the
+  background sweepers, stopping the Redis SSE listener, closing the Redis
+  client) before the kill-timeout `SIGKILL`. The command now `exec`s uvicorn so
+  it receives the signal directly and shuts down cleanly.
 - **Map view now loads in production** — the Content-Security-Policy served by
   nginx did not allow the OpenStreetMap tile hosts, so the Map view rendered as
   a blank gray area (tiles blocked by `img-src`). `https://*.tile.openstreetmap.org`

@@ -31,12 +31,12 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-# Channel name template for per-user Redis pub/sub channels.
-_CHANNEL = "events:{user_id}"
+# Prefix for per-user Redis pub/sub channels (channel == prefix + user_id).
+_CHANNEL_PREFIX = "events:"
 
 
 def _channel(user_id: str) -> str:
-    return f"events:{user_id}"
+    return f"{_CHANNEL_PREFIX}{user_id}"
 
 
 class EventBus:
@@ -295,9 +295,9 @@ class EventBus:
             payload: str = raw.get("data", "")
 
             # Derive the user_id from the channel name "events:{user_id}".
-            if not channel.startswith("events:"):
+            if not channel.startswith(_CHANNEL_PREFIX):
                 continue
-            user_id = channel[len("events:"):]
+            user_id = channel[len(_CHANNEL_PREFIX):]
 
             try:
                 event: dict[str, Any] = json.loads(payload)

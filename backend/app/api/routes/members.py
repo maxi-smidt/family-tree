@@ -45,6 +45,32 @@ from app.services.storage_usage import QuotaExceeded, check_media_quota, check_t
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
+# Columns selected for the lightweight "surface" projection (everything in
+# MemberSurfaceOut). Shared by the member list, search and neighborhood
+# endpoints so the three stay in lockstep. The heavier detail fields
+# (additional_data, places_lived) stay deferred to the per-member fetch.
+_MEMBER_SURFACE_COLUMNS = (
+    Member.id,
+    Member.gender,
+    Member.academic_title,
+    Member.first_name,
+    Member.middle_names,
+    Member.baptismal_name,
+    Member.last_name,
+    Member.maiden_name,
+    Member.image_data,
+    Member.date_of_birth,
+    Member.date_of_death,
+    Member.date_of_birth_sort,
+    Member.date_of_death_sort,
+    Member.deceased,
+    Member.birthplace,
+    Member.hometown,
+    Member.is_collapsed,
+    Member.position_x,
+    Member.position_y,
+)
+
 
 def _get_member(db: Session, tree: Tree, member_id: str) -> Member:
     member = db.get(Member, member_id)
@@ -63,27 +89,7 @@ def list_members(
 ):
     if surface:
         stmt = (
-            select(
-                Member.id,
-                Member.gender,
-                Member.academic_title,
-                Member.first_name,
-                Member.middle_names,
-                Member.baptismal_name,
-                Member.last_name,
-                Member.maiden_name,
-                Member.image_data,
-                Member.date_of_birth,
-                Member.date_of_death,
-                Member.date_of_birth_sort,
-                Member.date_of_death_sort,
-                Member.deceased,
-                Member.birthplace,
-                Member.hometown,
-                Member.is_collapsed,
-                Member.position_x,
-                Member.position_y,
-            )
+            select(*_MEMBER_SURFACE_COLUMNS)
             .where(Member.tree_id == tree.id)
             .order_by(Member.id)
         )
@@ -224,25 +230,7 @@ def search_members(
     as a member id."""
     pattern = f"%{q}%"
     stmt = (
-        select(
-            Member.id,
-            Member.gender,
-            Member.academic_title,
-            Member.first_name,
-            Member.middle_names,
-            Member.baptismal_name,
-            Member.last_name,
-            Member.maiden_name,
-            Member.image_data,
-            Member.date_of_birth,
-            Member.date_of_death,
-            Member.date_of_birth_sort,
-            Member.date_of_death_sort,
-            Member.deceased,
-            Member.is_collapsed,
-            Member.position_x,
-            Member.position_y,
-        )
+        select(*_MEMBER_SURFACE_COLUMNS)
         .where(
             Member.tree_id == tree.id,
             or_(
@@ -299,25 +287,7 @@ def get_neighborhood(
     )
 
     surface_stmt = (
-        select(
-            Member.id,
-            Member.gender,
-            Member.academic_title,
-            Member.first_name,
-            Member.middle_names,
-            Member.baptismal_name,
-            Member.last_name,
-            Member.maiden_name,
-            Member.image_data,
-            Member.date_of_birth,
-            Member.date_of_death,
-            Member.date_of_birth_sort,
-            Member.date_of_death_sort,
-            Member.deceased,
-            Member.is_collapsed,
-            Member.position_x,
-            Member.position_y,
-        )
+        select(*_MEMBER_SURFACE_COLUMNS)
         .where(Member.tree_id == tree.id, Member.id.in_(member_ids))
         .order_by(Member.id)
     )

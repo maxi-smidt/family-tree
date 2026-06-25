@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 1800  # seconds (30 min)
 
+    # Number of uvicorn worker processes (mirrors the WORKERS env the Docker
+    # CMD passes to `uvicorn --workers`). Read here purely so the app can warn
+    # at startup when WORKERS > 1 without REDIS_URL — a config that silently
+    # drops SSE events across workers.
+    WORKERS: int = 1
+
     # --- Filesystem paths --------------------------------------------------
     # DATA_PATH      -> the "real" user data (member photos, gallery media).
     # APP_DATA_PATH  -> application working data (exports, temp files, ...).
