@@ -18,6 +18,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -174,7 +175,7 @@ async def inspect_import(file: UploadFile, db: Session = Depends(get_db)):
                 "exported_at": None,
                 "bundle_version": None,
             }
-        bundle = crypto_export.decrypt_bundle(blob, None)
+        bundle = await run_in_threadpool(crypto_export.decrypt_bundle, blob, None)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     bundle = _validate_and_migrate(bundle)
@@ -199,7 +200,9 @@ async def import_tree(
     blob = await file.read()
     # Validate synchronously so bad/future files get an immediate error response.
     try:
-        bundle = crypto_export.decrypt_bundle(blob, password or None)
+        bundle = await run_in_threadpool(
+            crypto_export.decrypt_bundle, blob, password or None
+        )
     except PermissionError as exc:
         raise HTTPException(status_code=401, detail="Password required") from exc
     except Exception as exc:  # noqa: BLE001
@@ -494,10 +497,10 @@ async def import_tree_gedcom(
 ) -> JobStarted:
     """Import a GEDCOM 5.5.1 file into a new tree owned by the current user."""
     raw = await file.read()
-    text = gedcom.decode_gedcom_bytes(raw)
+    text = await run_in_threadpool(gedcom.decode_gedcom_bytes, raw)
 
     try:
-        parsed = gedcom.parse_gedcom(text)
+        parsed = await run_in_threadpool(gedcom.parse_gedcom, text)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail="Could not read GEDCOM file") from exc
 
