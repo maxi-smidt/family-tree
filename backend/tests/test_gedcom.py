@@ -871,3 +871,66 @@ class TestFuzzyDateRoundTrip:
     def test_exact_iso_date_still_converts(self):
         """An exact ISO date must still convert to GEDCOM and back correctly."""
         assert self._round_trip("1975-08-20") == "1975-08-20"
+
+
+# ---------------------------------------------------------------------------
+# 8. parse_gedcom sort key derivation (#433)
+# ---------------------------------------------------------------------------
+
+class TestParseGedcomSortKeys:
+    """parse_gedcom output members must include precomputed date sort keys.
+
+    These are required for bulk inserts which bypass the ORM @validates hook.
+    """
+
+    def _parse_member_with_dates(
+        self, birt_date: str | None = None, deat_date: str | None = None
+    ) -> dict:
+        """Build a minimal GEDCOM INDI with optional BIRT/DEAT dates."""
+        lines = ["0 HEAD", "0 @I1@ INDI", "1 NAME Test /Person/"]
+        if birt_date:
+            lines += ["1 BIRT", f"2 DATE {birt_date}"]
+        if deat_date:
+            lines += ["1 DEAT", f"2 DATE {deat_date}"]
+        lines.append("0 TRLR")
+        ged = "\n".join(lines) + "\n"
+        members = parse_gedcom(ged)["members"]
+        assert len(members) == 1
+        return members[0]
+
+    def test_full_birth_date_sort_key(self):
+        """15 JUN 1950 (GEDCOM) should yield sort key 1950-06-15."""
+        member = self._parse_member_with_dates(birt_date="15 JUN 1950")
+        assert member["date_of_birth_sort"] == "1950-06-15"
+
+    def test_fuzzy_birth_date_sort_key(self):
+        """ABT 1850 should yield sort key 1850-00-00."""
+        member = self._parse_member_with_dates(birt_date="ABT 1850")
+        assert member["date_of_birth_sort"] == "1850-00-00"
+
+    def test_absent_birth_date_sort_key_is_none(self):
+        """No BIRT DATE → date_of_birth_sort must be None."""
+        member = self._parse_member_with_dates()
+        assert member["date_of_birth_sort"] is None
+
+    def test_death_date_sort_key(self):
+        """15 JUN 1950 death date should yield correct sort key."""
+        member = self._parse_member_with_dates(deat_date="15 JUN 1950")
+        assert member["date_of_death_sort"] == "1950-06-15"
+
+    def test_absent_death_date_sort_key_is_none(self):
+        """No DEAT DATE → date_of_death_sort must be None."""
+        member = self._parse_member_with_dates()
+        assert member["date_of_death_sort"] is None
+
+    def test_sort_keys_present_as_keys(self):
+        """Both sort key fields must always be present in the member dict."""
+        member = self._parse_member_with_dates()
+        assert "date_of_birth_sort" in member
+        assert "date_of_death_sort" in member
+
+    def test_year_only_birth_sort_key(self):
+        """Year-only GEDCOM date 1975 should yield sort key 1975-00-00."""
+        # GEDCOM year-only: stored as "1975" by _from_gedcom_date
+        member = self._parse_member_with_dates(birt_date="1975")
+        assert member["date_of_birth_sort"] == "1975-00-00"
