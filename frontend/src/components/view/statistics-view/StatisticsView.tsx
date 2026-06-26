@@ -10,6 +10,7 @@ import {
 } from "@/hooks/useStatisticsSettings";
 import { WIDGET_MAP } from "./widgets";
 import { CustomizePopover } from "./CustomizePopover";
+import { CustomWidgetRenderer } from "./CustomWidgetRenderer";
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -59,7 +60,7 @@ function EmptyState({ t }: { t: (k: string) => string }) {
 export const StatisticsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
   const { report, isLoading, refreshStatistics } = useStatisticsStore();
-  const { order, hidden } = useStatisticsSettings();
+  const { order, hidden, customWidgets } = useStatisticsSettings();
 
   useEffect(() => {
     if (!report) {
@@ -67,7 +68,9 @@ export const StatisticsView = () => {
     }
   }, [report, refreshStatistics]);
 
-  const visibleIds = normalizeOrder(order).filter((id) => !hidden.includes(id));
+  const customById = Object.fromEntries(customWidgets.map((w) => [w.id, w]));
+  const customIds = customWidgets.map((w) => w.id);
+  const visibleIds = normalizeOrder(order, customIds).filter((id) => !hidden.includes(id));
 
   const actions = <CustomizePopover />;
 
@@ -117,7 +120,12 @@ export const StatisticsView = () => {
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {visibleIds.map((id) => {
-                const Widget = WIDGET_MAP[id].Component;
+                const customWidget = customById[id];
+                if (customWidget) {
+                  return <CustomWidgetRenderer key={id} widget={customWidget} report={report} />;
+                }
+                const Widget = WIDGET_MAP[id as keyof typeof WIDGET_MAP]?.Component;
+                if (!Widget) return null;
                 return <Widget key={id} report={report} t={t} />;
               })}
             </div>

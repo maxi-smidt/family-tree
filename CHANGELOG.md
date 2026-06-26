@@ -11,6 +11,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- **Custom statistics widgets** — users can now create their own chart widgets in the Statistics view, choosing chart type (bar, pie, line, area), data series, color, title, and axis labels. Custom widgets live alongside built-in widgets and can be reordered, hidden, edited, or deleted.
 - **Connection mode kinship display** — when a path is found between two selected members in connection mode, a banner now shows the human-readable relationship (e.g. "Anna is the grandmother of Carl"), gendered by the member's gender setting.
 - **Extended connection mode kinship** — connection mode now also recognizes partner (husband/wife/spouse/ex-), in-law (parent-in-law, child-in-law, sibling-in-law), and step relationships (step-parent, step-child, step-sibling) on top of blood relations.
 - **Connection mode relative fallback** — connected members who share no precise kinship term (blood, partner, in-law, or step) now appear in the banner as "relative" or "distant relative", so connection mode always explains a found connection.
