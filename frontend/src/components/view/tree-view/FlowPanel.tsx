@@ -466,6 +466,10 @@ export const FlowPanel = () => {
                   <ConnectionRelationCard
                     key={`${rel.aId}|${rel.bId}`}
                     relation={rel}
+                    onLocate={(id) => {
+                      const target = members.find((m) => m.id === id);
+                      if (target) locator.locateMember(target);
+                    }}
                   />
                 ))}
               </div>
