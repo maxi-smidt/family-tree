@@ -27,6 +27,8 @@ export type KinshipRelation =
   | { kind: "partner"; relationType: string }
   | { kind: "parent-in-law" | "child-in-law" | "sibling-in-law" }
   | { kind: "step-parent" | "step-child" | "step-sibling" }
+  // --- Tier 3: graceful fallback for connected-but-unlabeled pairs ---
+  | { kind: "relative"; distant: boolean }
   | { kind: "none" };
 
 /**

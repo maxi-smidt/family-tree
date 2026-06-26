@@ -44,10 +44,8 @@ function removalLabel(removal: number, t: TFunction): string {
 
 /**
  * Returns a localised kinship noun for `relation` as seen from a person with
- * `gender`, or `null` for `self` / `none`.
- *
- * The "from is the <noun> of to" sentence is assembled by the caller via the
- * `tree-view.connection.summary` key.
+ * `gender`, or `null` for `self` / `none`. The caller places the noun on the
+ * connection-relation card's direction arrows.
  */
 export function formatKinship(
   relation: KinshipRelation,
@@ -146,5 +144,12 @@ export function formatKinship(
 
     case "step-sibling":
       return t(`${ns}.step-sibling-${g}`);
+
+    // --- Tier 3: graceful fallback ---
+    case "relative":
+      // Gender-neutral — "relative" reads the same regardless of gender.
+      return relation.distant
+        ? t(`${ns}.distant-relative`)
+        : t(`${ns}.relative`);
   }
 }
