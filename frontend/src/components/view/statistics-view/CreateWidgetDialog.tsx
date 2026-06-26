@@ -5,6 +5,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,16 +18,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { useStatisticsSettings } from "@/hooks/useStatisticsSettings";
 import {
-  DATA_SERIES_REGISTRY,
+  DIMENSION_REGISTRY,
+  MEASURE_REGISTRY,
   DEFAULT_WIDGET_COLOR,
+  aggregate,
   type CustomChartType,
   type CustomWidget,
   type CustomWidgetConfig,
-  type DataSeriesId,
+  type DimensionId,
+  type MeasureId,
 } from "./customWidgets";
+import { CustomWidgetRenderer } from "./CustomWidgetRenderer";
 
 interface Props {
   open: boolean;
@@ -35,100 +40,85 @@ interface Props {
 }
 
 const CHART_TYPES: CustomChartType[] = ["bar", "pie", "line", "area"];
+const NONE = "__none__";
 
 export function CreateWidgetDialog({ open, onClose, editing }: Props) {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
   const { addCustomWidget, updateCustomWidget } = useStatisticsSettings();
+  const members = useMemberStore((s) => s.members);
 
   const [title, setTitle] = useState("");
   const [chartType, setChartType] = useState<CustomChartType>("bar");
-  const [series, setSeries] = useState<DataSeriesId[]>([]);
+  const [dimensionId, setDimensionId] = useState<DimensionId>("birth-decade");
+  const [measureId, setMeasureId] = useState<MeasureId>("count");
+  const [breakdownId, setBreakdownId] = useState<string>(NONE);
   const [xLabel, setXLabel] = useState("");
   const [yLabel, setYLabel] = useState("");
   const [color, setColor] = useState(DEFAULT_WIDGET_COLOR);
 
   useEffect(() => {
-    if (open) {
-      setTitle(editing?.title ?? "");
-      setChartType(editing?.chartType ?? "bar");
-      setSeries(editing?.series ?? []);
-      setXLabel(editing?.xLabel ?? "");
-      setYLabel(editing?.yLabel ?? "");
-      setColor(editing?.color ?? DEFAULT_WIDGET_COLOR);
-    }
+    if (!open) return;
+    setTitle(editing?.title ?? "");
+    setChartType(editing?.chartType ?? "bar");
+    setDimensionId(editing?.dimensionId ?? "birth-decade");
+    setMeasureId(editing?.measureId ?? "count");
+    setBreakdownId(editing?.breakdownId ?? NONE);
+    setXLabel(editing?.xLabel ?? "");
+    setYLabel(editing?.yLabel ?? "");
+    setColor(editing?.color ?? DEFAULT_WIDGET_COLOR);
   }, [open, editing]);
 
-  // Determine which series are compatible with the first selected one.
-  const firstSeries = series[0] ? DATA_SERIES_REGISTRY.find((d) => d.id === series[0]) : null;
-  const seriesOptions = DATA_SERIES_REGISTRY.filter(
-    (d) => !firstSeries || d.domain === firstSeries.domain,
-  ).map((d) => ({
-    label: t(d.labelKey),
-    value: d.id,
-  }));
+  const isPie = chartType === "pie";
+  const isValid = title.trim().length > 0;
 
-  const handleSeriesChange = (values: string[]) => {
-    const newSeries = values as DataSeriesId[];
-    // If the first item changes to a different domain, clear incompatible selections.
-    const first = DATA_SERIES_REGISTRY.find((d) => d.id === newSeries[0]);
-    const filtered = first
-      ? newSeries.filter((id) => {
-          const def = DATA_SERIES_REGISTRY.find((d) => d.id === id);
-          return def?.domain === first.domain;
-        })
-      : newSeries;
-    setSeries(filtered);
+  // Suggest a title from the current selection when the user hasn't typed one.
+  const suggestedTitle = `${t(
+    MEASURE_REGISTRY.find((m) => m.id === measureId)!.labelKey,
+  )} · ${t(DIMENSION_REGISTRY.find((d) => d.id === dimensionId)!.labelKey)}`;
+
+  const config: CustomWidgetConfig = {
+    chartType,
+    dimensionId,
+    measureId,
+    breakdownId: isPie || breakdownId === NONE ? null : (breakdownId as DimensionId),
+    title: title.trim() || suggestedTitle,
+    xLabel: xLabel.trim() || undefined,
+    yLabel: yLabel.trim() || undefined,
+    color,
   };
 
-  const isValid = title.trim().length > 0 && series.length > 0;
-  const isPie = chartType === "pie";
+  // Live preview using the real tree members.
+  const previewWidget: CustomWidget = { ...config, id: "preview", kind: "custom" };
+  const hasPreviewData = aggregate(members, config, t).data.length > 0;
 
   const handleSave = () => {
-    if (!isValid) return;
-    const config: CustomWidgetConfig = {
-      chartType,
-      series,
-      title: title.trim(),
-      xLabel: xLabel.trim() || undefined,
-      yLabel: yLabel.trim() || undefined,
-      color,
-    };
+    // Title falls back to the suggested label so a widget is never untitled.
+    const final: CustomWidgetConfig = isValid
+      ? config
+      : { ...config, title: suggestedTitle };
     if (editing) {
-      updateCustomWidget(editing.id, config);
+      updateCustomWidget(editing.id, final);
     } else {
-      addCustomWidget(config);
+      addCustomWidget(final);
     }
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {editing ? t("custom-dialog-title-edit") : t("custom-dialog-title-create")}
           </DialogTitle>
+          <DialogDescription>{t("custom-dialog-description")}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Title */}
-          <div className="space-y-1.5">
-            <Label htmlFor="widget-title">{t("field-widget-title")}</Label>
-            <Input
-              id="widget-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={t("field-widget-title")}
-            />
-          </div>
-
+        <div className="space-y-4 py-1">
           {/* Chart type */}
           <div className="space-y-1.5">
             <Label>{t("field-chart-type")}</Label>
-            <Select
-              value={chartType}
-              onValueChange={(v) => setChartType(v as CustomChartType)}
-            >
+            <Select value={chartType} onValueChange={(v) => setChartType(v as CustomChartType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -142,39 +132,87 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
             </Select>
           </div>
 
-          {/* Data series */}
+          {/* X axis: group by */}
           <div className="space-y-1.5">
-            <Label>{t("field-data-series")}</Label>
-            <MultiSelect
-              options={seriesOptions}
-              defaultValue={series}
-              onValueChange={handleSeriesChange}
-              placeholder={t("field-data-series")}
-              maxCount={3}
-            />
-            {isPie && series.length > 1 && (
-              <p className="text-xs text-muted-foreground">
-                {t("custom-pie-single-series-note")}
-              </p>
-            )}
+            <Label>{t("field-group-by")}</Label>
+            <Select value={dimensionId} onValueChange={(v) => setDimensionId(v as DimensionId)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIMENSION_REGISTRY.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {t(d.labelKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">{t("field-group-by-hint")}</p>
           </div>
 
-          {/* Color */}
+          {/* Y axis: measure */}
           <div className="space-y-1.5">
-            <Label htmlFor="widget-color">{t("field-color")}</Label>
-            <div className="flex items-center gap-2">
+            <Label>{t("field-measure")}</Label>
+            <Select value={measureId} onValueChange={(v) => setMeasureId(v as MeasureId)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MEASURE_REGISTRY.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {t(m.labelKey)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">{t("field-measure-hint")}</p>
+          </div>
+
+          {/* Optional breakdown — not available for pie charts */}
+          {!isPie && (
+            <div className="space-y-1.5">
+              <Label>{t("field-breakdown")}</Label>
+              <Select value={breakdownId} onValueChange={setBreakdownId}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>{t("breakdown-none")}</SelectItem>
+                  {DIMENSION_REGISTRY.filter((d) => d.id !== dimensionId).map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {t(d.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">{t("field-breakdown-hint")}</p>
+            </div>
+          )}
+
+          {/* Title + color */}
+          <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+            <div className="space-y-1.5">
+              <Label htmlFor="widget-title">{t("field-widget-title")}</Label>
+              <Input
+                id="widget-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={suggestedTitle}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="widget-color">{t("field-color")}</Label>
               <input
                 id="widget-color"
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="h-9 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
+                className="h-9 w-12 cursor-pointer rounded-md border border-input bg-background p-1"
               />
-              <span className="text-xs text-muted-foreground font-mono">{color}</span>
             </div>
           </div>
 
-          {/* Axis labels (hidden for pie) */}
+          {/* Axis label overrides (hidden for pie) */}
           {!isPie && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
@@ -183,7 +221,7 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
                   id="widget-xlabel"
                   value={xLabel}
                   onChange={(e) => setXLabel(e.target.value)}
-                  placeholder={t("field-x-label-placeholder")}
+                  placeholder={t(DIMENSION_REGISTRY.find((d) => d.id === dimensionId)!.labelKey)}
                 />
               </div>
               <div className="space-y-1.5">
@@ -192,20 +230,36 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
                   id="widget-ylabel"
                   value={yLabel}
                   onChange={(e) => setYLabel(e.target.value)}
-                  placeholder={t("field-y-label-placeholder")}
+                  placeholder={t(MEASURE_REGISTRY.find((m) => m.id === measureId)!.labelKey)}
                 />
               </div>
             </div>
           )}
+
+          {/* Live preview */}
+          <div className="space-y-1.5">
+            <Label>{t("custom-preview")}</Label>
+            {hasPreviewData ? (
+              <div className="rounded-md border border-border p-2">
+                <CustomWidgetRenderer
+                  widget={{ ...previewWidget, title: title.trim() || suggestedTitle }}
+                  members={members}
+                  t={t}
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground rounded-md border border-dashed border-border p-4 text-center">
+                {t("custom-preview-empty")}
+              </p>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {t("custom-cancel")}
           </Button>
-          <Button onClick={handleSave} disabled={!isValid}>
-            {t("custom-save")}
-          </Button>
+          <Button onClick={handleSave}>{t("custom-save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

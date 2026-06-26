@@ -4,6 +4,7 @@ import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import {
   useStatisticsSettings,
   normalizeOrder,
@@ -61,6 +62,7 @@ export const StatisticsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
   const { report, isLoading, refreshStatistics } = useStatisticsStore();
   const { order, hidden, customWidgets } = useStatisticsSettings();
+  const members = useMemberStore((s) => s.members);
 
   useEffect(() => {
     if (!report) {
@@ -122,7 +124,14 @@ export const StatisticsView = () => {
               {visibleIds.map((id) => {
                 const customWidget = customById[id];
                 if (customWidget) {
-                  return <CustomWidgetRenderer key={id} widget={customWidget} report={report} />;
+                  return (
+                    <CustomWidgetRenderer
+                      key={id}
+                      widget={customWidget}
+                      members={members}
+                      t={t}
+                    />
+                  );
                 }
                 const Widget = WIDGET_MAP[id as keyof typeof WIDGET_MAP]?.Component;
                 if (!Widget) return null;

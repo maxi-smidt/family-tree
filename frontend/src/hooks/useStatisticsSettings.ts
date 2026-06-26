@@ -95,12 +95,26 @@ export const useStatisticsSettings = create<StatisticsSettingsState>()(
     }),
     {
       name: "app-statistics-settings",
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
-        // v1 → v2: add customWidgets field
         const state = persisted as Partial<StatisticsSettingsState>;
-        if (version < 2) {
+        // v1 → v2 introduced customWidgets.
+        if (version < 2 || !Array.isArray(state.customWidgets)) {
           state.customWidgets = [];
+        }
+        // v2 → v3 reshaped custom widgets from a series[] model to a
+        // dimension/measure pivot. Drop any widget lacking the new fields.
+        if (version < 3) {
+          state.customWidgets = (state.customWidgets ?? []).filter(
+            (w) => "dimensionId" in w && "measureId" in w,
+          );
+          const customIds = new Set(state.customWidgets.map((w) => w.id));
+          state.order = (state.order ?? []).filter(
+            (id) => !id.startsWith("custom:") || customIds.has(id),
+          );
+          state.hidden = (state.hidden ?? []).filter(
+            (id) => !id.startsWith("custom:") || customIds.has(id),
+          );
         }
         return state as StatisticsSettingsState;
       },
