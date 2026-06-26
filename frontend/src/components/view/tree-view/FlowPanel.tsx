@@ -457,6 +457,22 @@ export const FlowPanel = () => {
             )}
           </div>
         </Panel>
+        {connection.isConnectionMode &&
+          connection.connectionRelations.length > 0 && (
+            <Panel position="top-center" className="!top-2 pointer-events-none">
+              <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-md flex flex-col gap-0.5">
+                {connection.connectionRelations.map((rel) => (
+                  <span key={`${rel.fromId}|${rel.toId}`}>
+                    {t("tree-view.connection.summary", {
+                      from: rel.fromName,
+                      relation: rel.label,
+                      to: rel.toName,
+                    })}
+                  </span>
+                ))}
+              </div>
+            </Panel>
+          )}
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
           <FlowPanelControls
             navigationOnly={isCanvasReadOnly}
