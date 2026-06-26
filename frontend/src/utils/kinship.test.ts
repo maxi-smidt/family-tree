@@ -70,4 +70,117 @@ describe("formatKinship", () => {
     expect(removed).toContain("cousin-removed");
     expect(removed).toContain("degree=2");
   });
+
+  // ---------------------------------------------------------------------------
+  // Tier 2: partner, in-law, step relations
+  // ---------------------------------------------------------------------------
+
+  it("partner/married picks the married key by gender", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(
+      formatKinship({ kind: "partner", relationType: "married" }, "m", t),
+    ).toBe(`${ns}.partner-married-m`);
+    expect(
+      formatKinship({ kind: "partner", relationType: "married" }, "f", t),
+    ).toBe(`${ns}.partner-married-f`);
+    expect(
+      formatKinship({ kind: "partner", relationType: "married" }, "o", t),
+    ).toBe(`${ns}.partner-married-n`);
+  });
+
+  it("partner/divorced picks the divorced key", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(
+      formatKinship({ kind: "partner", relationType: "divorced" }, "m", t),
+    ).toBe(`${ns}.partner-divorced-m`);
+    expect(
+      formatKinship({ kind: "partner", relationType: "divorced" }, "f", t),
+    ).toBe(`${ns}.partner-divorced-f`);
+  });
+
+  it("partner/partner picks the partner key", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(
+      formatKinship({ kind: "partner", relationType: "partner" }, "o", t),
+    ).toBe(`${ns}.partner-partner-n`);
+  });
+
+  it("partner/unknown relationType falls back to partner key", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(
+      formatKinship({ kind: "partner", relationType: "other" }, "m", t),
+    ).toBe(`${ns}.partner-partner-m`);
+  });
+
+  it("parent-in-law picks gendered keys", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "parent-in-law" }, "m", t)).toBe(
+      `${ns}.parent-in-law-m`,
+    );
+    expect(formatKinship({ kind: "parent-in-law" }, "f", t)).toBe(
+      `${ns}.parent-in-law-f`,
+    );
+    expect(formatKinship({ kind: "parent-in-law" }, "o", t)).toBe(
+      `${ns}.parent-in-law-n`,
+    );
+  });
+
+  it("child-in-law picks gendered keys", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "child-in-law" }, "m", t)).toBe(
+      `${ns}.child-in-law-m`,
+    );
+    expect(formatKinship({ kind: "child-in-law" }, "f", t)).toBe(
+      `${ns}.child-in-law-f`,
+    );
+  });
+
+  it("sibling-in-law picks gendered keys", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "sibling-in-law" }, "m", t)).toBe(
+      `${ns}.sibling-in-law-m`,
+    );
+    expect(formatKinship({ kind: "sibling-in-law" }, "f", t)).toBe(
+      `${ns}.sibling-in-law-f`,
+    );
+    expect(formatKinship({ kind: "sibling-in-law" }, "o", t)).toBe(
+      `${ns}.sibling-in-law-n`,
+    );
+  });
+
+  it("step-parent picks gendered keys", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "step-parent" }, "m", t)).toBe(
+      `${ns}.step-parent-m`,
+    );
+    expect(formatKinship({ kind: "step-parent" }, "f", t)).toBe(
+      `${ns}.step-parent-f`,
+    );
+    expect(formatKinship({ kind: "step-parent" }, "o", t)).toBe(
+      `${ns}.step-parent-n`,
+    );
+  });
+
+  it("step-child picks gendered keys", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "step-child" }, "m", t)).toBe(
+      `${ns}.step-child-m`,
+    );
+    expect(formatKinship({ kind: "step-child" }, "f", t)).toBe(
+      `${ns}.step-child-f`,
+    );
+  });
+
+  it("step-sibling picks gendered keys", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "step-sibling" }, "m", t)).toBe(
+      `${ns}.step-sibling-m`,
+    );
+    expect(formatKinship({ kind: "step-sibling" }, "f", t)).toBe(
+      `${ns}.step-sibling-f`,
+    );
+    expect(formatKinship({ kind: "step-sibling" }, "o", t)).toBe(
+      `${ns}.step-sibling-n`,
+    );
+  });
 });

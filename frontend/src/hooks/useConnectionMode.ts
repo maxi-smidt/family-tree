@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NodeMouseHandler } from "@xyflow/react";
 import { Member } from "@/types/member";
 import {
-  classifyKinship,
+  classifyRelationship,
   findConnectionPathHighlight,
   pruneConnectionMemberIds,
 } from "@/utils/graphUtils";
@@ -156,8 +156,8 @@ export const useConnectionMode = (
         const bMember = memberMap.get(bId);
         if (!aMember || !bMember) continue;
 
-        const aToB = classifyKinship(members, aId, bId);
-        const bToA = classifyKinship(members, bId, aId);
+        const aToB = classifyRelationship(members, aId, bId);
+        const bToA = classifyRelationship(members, bId, aId);
         const aToBLabel = formatKinship(aToB, aMember.gender, tKinship);
         const bToALabel = formatKinship(bToA, bMember.gender, tKinship);
 

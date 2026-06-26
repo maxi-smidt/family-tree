@@ -1,4 +1,9 @@
 import { Member } from "@/types/member";
+import {
+  COUPLE_RELATION_TYPES,
+  STEP_PARENT_RELATION_TYPE,
+  STEP_SIBLING_RELATION_TYPE,
+} from "@/utils/relationKinds";
 
 // ---------------------------------------------------------------------------
 // Kinship classification — directed, typed, pure (no React, no i18n)
@@ -18,6 +23,10 @@ export type KinshipRelation =
       greats: number;
     }
   | { kind: "cousin"; degree: number; removal: number }
+  // --- Tier 2: partner-derived, in-law, and step relations ---
+  | { kind: "partner"; relationType: string }
+  | { kind: "parent-in-law" | "child-in-law" | "sibling-in-law" }
+  | { kind: "step-parent" | "step-child" | "step-sibling" }
   | { kind: "none" };
 
 /**
@@ -241,6 +250,223 @@ export function findShortestMemberPath(
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Tier 2: relation-based (partner / in-law / step) classification helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Preference order for partner relationType when a pair has multiple relations.
+ * Lower index = higher priority.
+ */
+const COUPLE_PRIORITY: Record<string, number> = {
+  married: 0,
+  partner: 1,
+  divorced: 2,
+};
+
+interface PartnerInfo {
+  /** Best (highest-priority) relationType for this pair. */
+  relationType: string;
+}
+
+interface RelationAdjacency {
+  /** id → Map<partnerId, PartnerInfo> */
+  partnersOf: Map<string, Map<string, PartnerInfo>>;
+  /** Set of "childId|stepParentId" explicit step-parent edges (undirected by pair key). */
+  stepParentPairs: Set<string>;
+  /** Set of memberPairKey(a, b) explicit step-sibling edges. */
+  stepSiblingPairs: Set<string>;
+}
+
+/**
+ * Scan all members' `relations` arrays and build adjacency sets for couple,
+ * step-parent, and step-sibling edges. O(n) over all relation entries.
+ */
+function buildRelationAdjacency(members: Member[]): RelationAdjacency {
+  const partnersOf = new Map<string, Map<string, PartnerInfo>>();
+  const stepParentPairs = new Set<string>();
+  const stepSiblingPairs = new Set<string>();
+
+  const ensurePartnerMap = (id: string) => {
+    if (!partnersOf.has(id)) partnersOf.set(id, new Map());
+    return partnersOf.get(id)!;
+  };
+
+  const addCouple = (a: string, b: string, relationType: string) => {
+    const priority = COUPLE_PRIORITY[relationType] ?? 99;
+
+    for (const [self, other] of [
+      [a, b],
+      [b, a],
+    ] as [string, string][]) {
+      const map = ensurePartnerMap(self);
+      const existing = map.get(other);
+      if (
+        !existing ||
+        (COUPLE_PRIORITY[existing.relationType] ?? 99) > priority
+      ) {
+        map.set(other, { relationType });
+      }
+    }
+  };
+
+  for (const m of members) {
+    for (const rel of m.relations ?? []) {
+      const { fromMemberId: from, toMemberId: to, relationType } = rel;
+      if (COUPLE_RELATION_TYPES.has(relationType)) {
+        addCouple(from, to, relationType);
+      } else if (relationType === STEP_PARENT_RELATION_TYPE) {
+        // Store as an undirected pair key; disambiguation happens in classify.
+        stepParentPairs.add(memberPairKey(from, to));
+      } else if (relationType === STEP_SIBLING_RELATION_TYPE) {
+        stepSiblingPairs.add(memberPairKey(from, to));
+      }
+    }
+  }
+
+  return { partnersOf, stepParentPairs, stepSiblingPairs };
+}
+
+/**
+ * Classify the relationship of `fromId` relative to `toId`, including
+ * partner-derived, in-law, and step relations (Tier 2).
+ *
+ * Blood relations (from classifyKinship) always take precedence.
+ * Returns `{kind:"none"}` when no relation of any kind is found.
+ *
+ * Priority order (first match wins):
+ *   1. Blood (classifyKinship)
+ *   2. partner
+ *   3. parent-in-law
+ *   4. child-in-law
+ *   5. sibling-in-law
+ *   6. step-parent
+ *   7. step-child
+ *   8. step-sibling
+ */
+export function classifyRelationship(
+  members: Member[],
+  fromId: string,
+  toId: string,
+): KinshipRelation {
+  // --- Step 1: blood always wins ---
+  const blood = classifyKinship(members, fromId, toId);
+  if (blood.kind !== "none") return blood;
+
+  const adj = buildRelationAdjacency(members);
+  const { partnersOf, stepParentPairs, stepSiblingPairs } = adj;
+
+  const fromPartners = partnersOf.get(fromId) ?? new Map<string, PartnerInfo>();
+  const toPartners = partnersOf.get(toId) ?? new Map<string, PartnerInfo>();
+
+  // --- Step 2: direct partner ---
+  const partnerInfo = fromPartners.get(toId);
+  if (partnerInfo) {
+    return { kind: "partner", relationType: partnerInfo.relationType };
+  }
+
+  // --- Step 3: parent-in-law (from is a parent of to's partner) ---
+  for (const [partnerId] of toPartners) {
+    if (classifyKinship(members, fromId, partnerId).kind === "parent") {
+      return { kind: "parent-in-law" };
+    }
+  }
+
+  // --- Step 4: child-in-law (from's partner is a child of to) ---
+  for (const [partnerId] of fromPartners) {
+    if (classifyKinship(members, partnerId, toId).kind === "child") {
+      return { kind: "child-in-law" };
+    }
+  }
+
+  // --- Step 5: sibling-in-law ---
+  // 5a: from is a sibling (or half-sibling) of to's partner
+  for (const [partnerId] of toPartners) {
+    const k = classifyKinship(members, fromId, partnerId).kind;
+    if (k === "sibling" || k === "half-sibling") {
+      return { kind: "sibling-in-law" };
+    }
+  }
+  // 5b: from is the partner of a sibling (or half-sibling) of to
+  for (const [partnerId] of fromPartners) {
+    const k = classifyKinship(members, partnerId, toId).kind;
+    if (k === "sibling" || k === "half-sibling") {
+      return { kind: "sibling-in-law" };
+    }
+  }
+
+  // --- Step 6: step-parent ---
+  // Derived: from is the partner of a blood-parent of to
+  const memberMap = new Map<string, Member>(members.map((m) => [m.id, m]));
+  const toMember = memberMap.get(toId);
+  if (toMember) {
+    const toBloodParents = [
+      toMember.parents.paternalParent,
+      toMember.parents.maternalParent,
+    ].filter((p): p is string => !!p);
+    for (const parentId of toBloodParents) {
+      const parentPartners = partnersOf.get(parentId) ?? new Map();
+      if (parentPartners.has(fromId)) {
+        return { kind: "step-parent" };
+      }
+    }
+  }
+  // Explicit step-parent relation (either direction)
+  if (stepParentPairs.has(memberPairKey(fromId, toId))) {
+    // Which one is the step-parent? The one who is NOT a blood-parent of the other.
+    // classifyKinship already excluded blood, so if the pair exists at all and
+    // blood was none, treat from as step-parent (direction: from→to).
+    return { kind: "step-parent" };
+  }
+
+  // --- Step 7: step-child ---
+  // Derived: to is the partner of a blood-parent of from
+  const fromMember = memberMap.get(fromId);
+  if (fromMember) {
+    const fromBloodParents = [
+      fromMember.parents.paternalParent,
+      fromMember.parents.maternalParent,
+    ].filter((p): p is string => !!p);
+    for (const parentId of fromBloodParents) {
+      const parentPartners = partnersOf.get(parentId) ?? new Map();
+      if (parentPartners.has(toId)) {
+        return { kind: "step-child" };
+      }
+    }
+  }
+
+  // --- Step 8: step-sibling ---
+  // Explicit
+  if (stepSiblingPairs.has(memberPairKey(fromId, toId))) {
+    return { kind: "step-sibling" };
+  }
+  // Derived: from and to share a step-parent bond via their respective blood
+  // parents being partners (and they are NOT blood siblings — already checked above).
+  if (fromMember && toMember) {
+    const fromBloodParents = new Set(
+      [
+        fromMember.parents.paternalParent,
+        fromMember.parents.maternalParent,
+      ].filter((p): p is string => !!p),
+    );
+    const toBloodParents = [
+      toMember.parents.paternalParent,
+      toMember.parents.maternalParent,
+    ].filter((p): p is string => !!p);
+
+    for (const pFrom of fromBloodParents) {
+      const pFromPartners = partnersOf.get(pFrom) ?? new Map();
+      for (const pTo of toBloodParents) {
+        if (pFrom !== pTo && pFromPartners.has(pTo)) {
+          return { kind: "step-sibling" };
+        }
+      }
+    }
+  }
+
+  return { kind: "none" };
 }
 
 export function findConnectionPathHighlight(
