@@ -19,6 +19,7 @@ import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
+import { ConnectionRelationCard } from "@/components/view/tree-view/ConnectionRelationCard";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
 import {
@@ -460,15 +461,12 @@ export const FlowPanel = () => {
         {connection.isConnectionMode &&
           connection.connectionRelations.length > 0 && (
             <Panel position="top-center" className="!top-2 pointer-events-none">
-              <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-md flex flex-col gap-0.5">
+              <div className="flex flex-col gap-2">
                 {connection.connectionRelations.map((rel) => (
-                  <span key={`${rel.fromId}|${rel.toId}`}>
-                    {t("tree-view.connection.summary", {
-                      from: rel.fromName,
-                      relation: rel.label,
-                      to: rel.toName,
-                    })}
-                  </span>
+                  <ConnectionRelationCard
+                    key={`${rel.aId}|${rel.bId}`}
+                    relation={rel}
+                  />
                 ))}
               </div>
             </Panel>
