@@ -461,7 +461,9 @@ export const FlowPanel = () => {
         {connection.isConnectionMode &&
           connection.connectionRelations.length > 0 && (
             <Panel position="top-center" className="!top-2 pointer-events-none">
-              <div className="flex flex-col gap-2">
+              {/* Cap the stack at ~3 cards; scroll the rest so many selected
+                  members don't overflow the canvas. */}
+              <div className="pointer-events-auto flex max-h-[15rem] flex-col gap-2 overflow-y-auto px-1 py-1">
                 {connection.connectionRelations.map((rel) => (
                   <ConnectionRelationCard
                     key={`${rel.aId}|${rel.bId}`}
