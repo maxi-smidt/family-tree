@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Member, Relation } from "@/types/member";
 import {
   classifyKinship,
+  classifyRelationship,
   findConnectionPathHighlight,
   findShortestMemberPath,
   buildMemberConnectionGraph,
@@ -510,5 +511,249 @@ describe("classifyKinship", () => {
       degree: 1,
       removal: 2,
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// classifyRelationship tests (Tier 2)
+// ---------------------------------------------------------------------------
+
+/** Member factory with optional parents, gender, and relations array. */
+const rm = (
+  id: string,
+  opts: {
+    paternalParent?: string | null;
+    maternalParent?: string | null;
+    gender?: "m" | "f" | "o";
+    relations?: Relation[];
+  } = {},
+): Member => ({
+  id,
+  firstName: id,
+  lastName: "Test",
+  gender: opts.gender ?? "o",
+  academicTitle: null,
+  middleNames: null,
+  baptismalName: null,
+  maidenName: null,
+  imageData: null,
+  deceased: false,
+  date: { birth: "1990-01-01", death: null },
+  parents: {
+    paternalParent: opts.paternalParent ?? null,
+    maternalParent: opts.maternalParent ?? null,
+  },
+  additionalData: null,
+  birthplace: null,
+  hometown: null,
+  placesLived: [],
+  isCollapsed: false,
+  position: { x: 0, y: 0 },
+  relations: opts.relations ?? [],
+});
+
+const rel = (
+  fromMemberId: string,
+  toMemberId: string,
+  relationType: string,
+): Relation => ({ fromMemberId, toMemberId, relationType });
+
+describe("classifyRelationship", () => {
+  // -------------------------------------------------------------------------
+  // Blood wins
+  // -------------------------------------------------------------------------
+  it("blood relation takes precedence over a partner edge", () => {
+    // alice is both the parent of bob AND listed as a partner (unusual but
+    // tests priority).
+    const alice = rm("alice", {
+      relations: [rel("alice", "bob", "married")],
+    });
+    const bob = rm("bob", { paternalParent: "alice" });
+    expect(classifyRelationship([alice, bob], "alice", "bob")).toEqual({
+      kind: "parent",
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Partner
+  // -------------------------------------------------------------------------
+  it("partner: married relationType is reported", () => {
+    const alice = rm("alice", {
+      relations: [rel("alice", "bob", "married")],
+    });
+    const bob = rm("bob");
+    expect(classifyRelationship([alice, bob], "alice", "bob")).toEqual({
+      kind: "partner",
+      relationType: "married",
+    });
+    // Symmetric — bob has no relations array entry, but alice does.
+    expect(classifyRelationship([alice, bob], "bob", "alice")).toEqual({
+      kind: "partner",
+      relationType: "married",
+    });
+  });
+
+  it("partner: partner relationType", () => {
+    const a = rm("a", { relations: [rel("a", "b", "partner")] });
+    const b = rm("b");
+    expect(classifyRelationship([a, b], "a", "b")).toEqual({
+      kind: "partner",
+      relationType: "partner",
+    });
+  });
+
+  it("partner: divorced relationType", () => {
+    const a = rm("a", { relations: [rel("a", "b", "divorced")] });
+    const b = rm("b");
+    expect(classifyRelationship([a, b], "a", "b")).toEqual({
+      kind: "partner",
+      relationType: "divorced",
+    });
+  });
+
+  it("partner: prefers married over divorced when both relations exist", () => {
+    // Two relation entries for the same pair — married should win.
+    const a = rm("a", {
+      relations: [rel("a", "b", "divorced"), rel("a", "b", "married")],
+    });
+    const b = rm("b");
+    expect(classifyRelationship([a, b], "a", "b")).toEqual({
+      kind: "partner",
+      relationType: "married",
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Parent-in-law / child-in-law
+  // -------------------------------------------------------------------------
+  it("parent-in-law: alice is a parent of carol's partner bob", () => {
+    // alice → bob (parent); bob married carol
+    const alice = rm("alice");
+    const bob = rm("bob", {
+      paternalParent: "alice",
+      relations: [rel("bob", "carol", "married")],
+    });
+    const carol = rm("carol");
+    // alice is the parent-in-law of carol
+    expect(classifyRelationship([alice, bob, carol], "alice", "carol")).toEqual(
+      { kind: "parent-in-law" },
+    );
+  });
+
+  it("child-in-law: carol's partner bob is a child of alice", () => {
+    // Same fixture — carol is the child-in-law of alice
+    const alice = rm("alice");
+    const bob = rm("bob", {
+      paternalParent: "alice",
+      relations: [rel("bob", "carol", "married")],
+    });
+    const carol = rm("carol");
+    expect(classifyRelationship([alice, bob, carol], "carol", "alice")).toEqual(
+      { kind: "child-in-law" },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // Sibling-in-law (two forms)
+  // -------------------------------------------------------------------------
+  it("sibling-in-law form A: alice is a sibling of carol's partner bob", () => {
+    // alice and bob share parent gp; bob married carol
+    const gp = rm("gp");
+    const alice = rm("alice", { paternalParent: "gp" });
+    const bob = rm("bob", {
+      paternalParent: "gp",
+      relations: [rel("bob", "carol", "married")],
+    });
+    const carol = rm("carol");
+    expect(
+      classifyRelationship([gp, alice, bob, carol], "alice", "carol"),
+    ).toEqual({ kind: "sibling-in-law" });
+  });
+
+  it("sibling-in-law form B: from is the partner of to's sibling", () => {
+    // dan2 is partner of alice2; alice2 is a sibling of carol2 (both share gp2)
+    // → dan2 is the sibling-in-law of carol2
+    const gp2 = rm("gp2");
+    const alice2 = rm("alice2", {
+      paternalParent: "gp2",
+      relations: [rel("alice2", "dan2", "married")],
+    });
+    const carol2 = rm("carol2", { paternalParent: "gp2" });
+    const dan2 = rm("dan2");
+    expect(
+      classifyRelationship([gp2, alice2, carol2, dan2], "dan2", "carol2"),
+    ).toEqual({ kind: "sibling-in-law" });
+  });
+
+  // -------------------------------------------------------------------------
+  // Step-parent / step-child
+  // -------------------------------------------------------------------------
+  it("step-parent: alice is partner of bob (parent of carol) → alice is carol's step-parent", () => {
+    const bob = rm("bob", { relations: [rel("bob", "alice", "married")] });
+    const alice = rm("alice");
+    const carol = rm("carol", { paternalParent: "bob" });
+    expect(classifyRelationship([bob, alice, carol], "alice", "carol")).toEqual(
+      { kind: "step-parent" },
+    );
+  });
+
+  it("step-child: carol is child of bob; alice is bob's partner → carol is alice's step-child", () => {
+    const bob = rm("bob", { relations: [rel("bob", "alice", "married")] });
+    const alice = rm("alice");
+    const carol = rm("carol", { paternalParent: "bob" });
+    expect(classifyRelationship([bob, alice, carol], "carol", "alice")).toEqual(
+      { kind: "step-child" },
+    );
+  });
+
+  it("explicit step-parent relation (from→to direction)", () => {
+    const alice = rm("alice", {
+      relations: [rel("alice", "carol", "step-parent")],
+    });
+    const carol = rm("carol");
+    expect(classifyRelationship([alice, carol], "alice", "carol")).toEqual({
+      kind: "step-parent",
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Step-sibling
+  // -------------------------------------------------------------------------
+  it("step-sibling: alice and carol have parents who are partners", () => {
+    // alice's parent = bob; carol's parent = dan; bob and dan are partners
+    const bob = rm("bob", { relations: [rel("bob", "dan", "married")] });
+    const dan = rm("dan");
+    const alice = rm("alice", { paternalParent: "bob" });
+    const carol = rm("carol", { paternalParent: "dan" });
+    expect(
+      classifyRelationship([bob, dan, alice, carol], "alice", "carol"),
+    ).toEqual({ kind: "step-sibling" });
+    // symmetric
+    expect(
+      classifyRelationship([bob, dan, alice, carol], "carol", "alice"),
+    ).toEqual({ kind: "step-sibling" });
+  });
+
+  it("explicit step-sibling relation", () => {
+    const alice = rm("alice", {
+      relations: [rel("alice", "carol", "step-sibling")],
+    });
+    const carol = rm("carol");
+    expect(classifyRelationship([alice, carol], "alice", "carol")).toEqual({
+      kind: "step-sibling",
+    });
+    // symmetric
+    expect(classifyRelationship([alice, carol], "carol", "alice")).toEqual({
+      kind: "step-sibling",
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Falls through to none
+  // -------------------------------------------------------------------------
+  it("returns none for completely unrelated members", () => {
+    const a = rm("a");
+    const b = rm("b");
+    expect(classifyRelationship([a, b], "a", "b")).toEqual({ kind: "none" });
   });
 });

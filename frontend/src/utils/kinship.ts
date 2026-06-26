@@ -118,5 +118,33 @@ export function formatKinship(
         removal: removalWord,
       });
     }
+
+    // --- Tier 2: partner-derived, in-law, and step relations ---
+
+    case "partner": {
+      const rt = relation.relationType;
+      if (rt === "married") return t(`${ns}.partner-married-${g}`);
+      if (rt === "divorced") return t(`${ns}.partner-divorced-${g}`);
+      // "partner" and any other couple type
+      return t(`${ns}.partner-partner-${g}`);
+    }
+
+    case "parent-in-law":
+      return t(`${ns}.parent-in-law-${g}`);
+
+    case "child-in-law":
+      return t(`${ns}.child-in-law-${g}`);
+
+    case "sibling-in-law":
+      return t(`${ns}.sibling-in-law-${g}`);
+
+    case "step-parent":
+      return t(`${ns}.step-parent-${g}`);
+
+    case "step-child":
+      return t(`${ns}.step-child-${g}`);
+
+    case "step-sibling":
+      return t(`${ns}.step-sibling-${g}`);
   }
 }
