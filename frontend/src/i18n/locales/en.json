@@ -817,7 +817,6 @@
       "banner": "Showing {{count}} of {{total}} members in neighborhood"
     },
     "connection": {
-      "summary": "{{from}} is the {{relation}} of {{to}}",
       "kinship": {
         "parent-m": "father",
         "parent-f": "mother",
@@ -913,7 +912,9 @@
         "step-child-n": "step-child",
         "step-sibling-m": "stepbrother",
         "step-sibling-f": "stepsister",
-        "step-sibling-n": "step-sibling"
+        "step-sibling-n": "step-sibling",
+        "relative": "relative",
+        "distant-relative": "distant relative"
       }
     }
   },

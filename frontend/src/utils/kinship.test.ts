@@ -183,4 +183,34 @@ describe("formatKinship", () => {
       `${ns}.step-sibling-n`,
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Tier 3: relative fallback
+  // ---------------------------------------------------------------------------
+
+  it("relative (not distant) returns the relative key, gender-neutral", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "relative", distant: false }, "m", t)).toBe(
+      `${ns}.relative`,
+    );
+    expect(formatKinship({ kind: "relative", distant: false }, "f", t)).toBe(
+      `${ns}.relative`,
+    );
+    expect(formatKinship({ kind: "relative", distant: false }, "o", t)).toBe(
+      `${ns}.relative`,
+    );
+  });
+
+  it("relative (distant) returns the distant-relative key, gender-neutral", () => {
+    const ns = "tree-view.connection.kinship";
+    expect(formatKinship({ kind: "relative", distant: true }, "m", t)).toBe(
+      `${ns}.distant-relative`,
+    );
+    expect(formatKinship({ kind: "relative", distant: true }, "f", t)).toBe(
+      `${ns}.distant-relative`,
+    );
+    expect(formatKinship({ kind: "relative", distant: true }, "o", t)).toBe(
+      `${ns}.distant-relative`,
+    );
+  });
 });

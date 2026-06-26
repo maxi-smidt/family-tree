@@ -817,7 +817,6 @@
       "banner": "{{count}} von {{total}} Mitgliedern in der Nachbarschaft"
     },
     "connection": {
-      "summary": "{{from}} ist der/die {{relation}} von {{to}}",
       "kinship": {
         "parent-m": "Vater",
         "parent-f": "Mutter",
@@ -913,7 +912,9 @@
         "step-child-n": "Stiefkind",
         "step-sibling-m": "Stiefbruder",
         "step-sibling-f": "Stiefschwester",
-        "step-sibling-n": "Stiefgeschwister"
+        "step-sibling-n": "Stiefgeschwister",
+        "relative": "Verwandte/r",
+        "distant-relative": "entfernte/r Verwandte/r"
       }
     }
   },
