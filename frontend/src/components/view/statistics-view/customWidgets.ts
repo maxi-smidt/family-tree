@@ -284,6 +284,8 @@ export interface CustomWidget {
   measureId: MeasureId;
   /** Optional second dimension that splits each X group into multiple series. */
   breakdownId?: DimensionId | null;
+  /** Stack breakdown series on top of each other (bar/area only). */
+  stacked?: boolean;
   title: string;
   xLabel?: string;
   yLabel?: string;
@@ -295,6 +297,57 @@ export type CustomWidgetConfig = Omit<CustomWidget, "id" | "kind">;
 export const DEFAULT_WIDGET_COLOR = "#6366f1";
 
 export const CHART_TYPES: CustomChartType[] = ["bar", "pie", "line", "area"];
+
+/**
+ * Per-chart-type presentation rules. The underlying data model is always
+ * (dimension, measure, optional breakdown), but how those controls are framed —
+ * and which apply — depends on the chart type, so the builder stays intuitive:
+ * a pie has slices, not axes; only bar/area can stack series; etc.
+ */
+export interface ChartTypeMeta {
+  /** i18n keys for the grouping (dimension) control. */
+  dimensionLabelKey: string;
+  dimensionHintKey: string;
+  /** i18n keys for the measure control. */
+  measureLabelKey: string;
+  measureHintKey: string;
+  /** Whether multiple series (a breakdown dimension) are supported. */
+  supportsBreakdown: boolean;
+  /** Whether breakdown series can be stacked (vs grouped/overlaid). */
+  supportsStacking: boolean;
+  /** Whether the chart has cartesian axes (so axis labels apply). */
+  hasAxes: boolean;
+}
+
+const CARTESIAN_META: Omit<ChartTypeMeta, "supportsStacking"> = {
+  dimensionLabelKey: "field-x-axis",
+  dimensionHintKey: "field-x-axis-hint",
+  measureLabelKey: "field-y-axis",
+  measureHintKey: "field-y-axis-hint",
+  supportsBreakdown: true,
+  hasAxes: true,
+};
+
+export function chartTypeMeta(type: CustomChartType): ChartTypeMeta {
+  switch (type) {
+    case "pie":
+      return {
+        dimensionLabelKey: "field-slice-by",
+        dimensionHintKey: "field-slice-by-hint",
+        measureLabelKey: "field-slice-size",
+        measureHintKey: "field-slice-size-hint",
+        supportsBreakdown: false,
+        supportsStacking: false,
+        hasAxes: false,
+      };
+    case "line":
+      return { ...CARTESIAN_META, supportsStacking: false };
+    case "bar":
+    case "area":
+    default:
+      return { ...CARTESIAN_META, supportsStacking: true };
+  }
+}
 
 // ── Import / export (portable, shareable widget configs) ──────────────────────
 //
@@ -334,6 +387,7 @@ function isValidWidgetConfig(value: unknown): value is CustomWidgetConfig {
   if (typeof v.color !== "string") return false;
   if (v.xLabel !== undefined && typeof v.xLabel !== "string") return false;
   if (v.yLabel !== undefined && typeof v.yLabel !== "string") return false;
+  if (v.stacked !== undefined && typeof v.stacked !== "boolean") return false;
   return true;
 }
 
@@ -344,6 +398,7 @@ export function toWidgetConfig(w: CustomWidget): CustomWidgetConfig {
     dimensionId: w.dimensionId,
     measureId: w.measureId,
     breakdownId: w.breakdownId ?? null,
+    stacked: w.stacked,
     title: w.title,
     xLabel: w.xLabel,
     yLabel: w.yLabel,
@@ -398,6 +453,7 @@ export function parseWidgetsExport(raw: string | unknown): CustomWidgetConfig[] 
     dimensionId: c.dimensionId,
     measureId: c.measureId,
     breakdownId: c.breakdownId ?? null,
+    stacked: c.stacked,
     title: c.title,
     xLabel: c.xLabel,
     yLabel: c.yLabel,

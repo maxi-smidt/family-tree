@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ import {
   MEASURE_REGISTRY,
   DEFAULT_WIDGET_COLOR,
   CHART_TYPES,
+  chartTypeMeta,
   aggregate,
   type CustomChartType,
   type CustomWidget,
@@ -52,6 +54,7 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
   const [dimensionId, setDimensionId] = useState<DimensionId>("birth-decade");
   const [measureId, setMeasureId] = useState<MeasureId>("count");
   const [breakdownId, setBreakdownId] = useState<string>(NONE);
+  const [stacked, setStacked] = useState(true);
   const [xLabel, setXLabel] = useState("");
   const [yLabel, setYLabel] = useState("");
   const [color, setColor] = useState(DEFAULT_WIDGET_COLOR);
@@ -63,12 +66,14 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
     setDimensionId(editing?.dimensionId ?? "birth-decade");
     setMeasureId(editing?.measureId ?? "count");
     setBreakdownId(editing?.breakdownId ?? NONE);
+    setStacked(editing?.stacked ?? true);
     setXLabel(editing?.xLabel ?? "");
     setYLabel(editing?.yLabel ?? "");
     setColor(editing?.color ?? DEFAULT_WIDGET_COLOR);
   }, [open, editing]);
 
-  const isPie = chartType === "pie";
+  const meta = chartTypeMeta(chartType);
+  const hasBreakdown = meta.supportsBreakdown && breakdownId !== NONE;
   const isValid = title.trim().length > 0;
 
   // Suggest a title from the current selection when the user hasn't typed one.
@@ -80,10 +85,11 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
     chartType,
     dimensionId,
     measureId,
-    breakdownId: isPie || breakdownId === NONE ? null : (breakdownId as DimensionId),
+    breakdownId: hasBreakdown ? (breakdownId as DimensionId) : null,
+    stacked: meta.supportsStacking ? stacked : undefined,
     title: title.trim() || suggestedTitle,
-    xLabel: xLabel.trim() || undefined,
-    yLabel: yLabel.trim() || undefined,
+    xLabel: meta.hasAxes ? xLabel.trim() || undefined : undefined,
+    yLabel: meta.hasAxes ? yLabel.trim() || undefined : undefined,
     color,
   };
 
@@ -132,9 +138,9 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
             </Select>
           </div>
 
-          {/* X axis: group by */}
+          {/* Grouping dimension — framed per chart type (X-axis / slice by) */}
           <div className="space-y-1.5">
-            <Label>{t("field-group-by")}</Label>
+            <Label>{t(meta.dimensionLabelKey)}</Label>
             <Select value={dimensionId} onValueChange={(v) => setDimensionId(v as DimensionId)}>
               <SelectTrigger>
                 <SelectValue />
@@ -147,12 +153,12 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">{t("field-group-by-hint")}</p>
+            <p className="text-xs text-muted-foreground">{t(meta.dimensionHintKey)}</p>
           </div>
 
-          {/* Y axis: measure */}
+          {/* Measure — framed per chart type (Y-axis / slice size) */}
           <div className="space-y-1.5">
-            <Label>{t("field-measure")}</Label>
+            <Label>{t(meta.measureLabelKey)}</Label>
             <Select value={measureId} onValueChange={(v) => setMeasureId(v as MeasureId)}>
               <SelectTrigger>
                 <SelectValue />
@@ -165,11 +171,11 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">{t("field-measure-hint")}</p>
+            <p className="text-xs text-muted-foreground">{t(meta.measureHintKey)}</p>
           </div>
 
-          {/* Optional breakdown — not available for pie charts */}
-          {!isPie && (
+          {/* Optional breakdown — only for chart types that support series */}
+          {meta.supportsBreakdown && (
             <div className="space-y-1.5">
               <Label>{t("field-breakdown")}</Label>
               <Select value={breakdownId} onValueChange={setBreakdownId}>
@@ -186,6 +192,23 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">{t("field-breakdown-hint")}</p>
+            </div>
+          )}
+
+          {/* Stacking — only for bar/area charts with an active breakdown */}
+          {meta.supportsStacking && hasBreakdown && (
+            <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+              <div className="space-y-0.5 pr-3">
+                <Label htmlFor="widget-stacked" className="cursor-pointer">
+                  {t("field-stacked")}
+                </Label>
+                <p className="text-xs text-muted-foreground">{t("field-stacked-hint")}</p>
+              </div>
+              <Switch
+                id="widget-stacked"
+                checked={stacked}
+                onCheckedChange={setStacked}
+              />
             </div>
           )}
 
@@ -212,8 +235,8 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
             </div>
           </div>
 
-          {/* Axis label overrides (hidden for pie) */}
-          {!isPie && (
+          {/* Axis label overrides — only for charts with axes */}
+          {meta.hasAxes && (
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="widget-xlabel">{t("field-x-label")}</Label>

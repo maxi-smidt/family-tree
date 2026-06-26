@@ -3,6 +3,7 @@ import {
   aggregate,
   serializeWidgets,
   parseWidgetsExport,
+  chartTypeMeta,
   WIDGET_EXPORT_TYPE,
   type CustomWidget,
 } from "./customWidgets";
@@ -164,5 +165,27 @@ describe("widget import/export", () => {
 
   it("throws on an unrecognized object payload", () => {
     expect(() => parseWidgetsExport({ foo: "bar" })).toThrow();
+  });
+
+  it("preserves the stacked flag through a round-trip", () => {
+    const stacked = parseWidgetsExport(serializeWidgets([{ ...widget, stacked: false }]));
+    expect(stacked[0].stacked).toBe(false);
+  });
+});
+
+describe("chartTypeMeta", () => {
+  it("frames pie charts as slices without axes, breakdown, or stacking", () => {
+    const meta = chartTypeMeta("pie");
+    expect(meta.hasAxes).toBe(false);
+    expect(meta.supportsBreakdown).toBe(false);
+    expect(meta.supportsStacking).toBe(false);
+    expect(meta.dimensionLabelKey).toBe("field-slice-by");
+  });
+
+  it("frames bar/area as cartesian with stacking, line without stacking", () => {
+    expect(chartTypeMeta("bar")).toMatchObject({ hasAxes: true, supportsBreakdown: true, supportsStacking: true });
+    expect(chartTypeMeta("area").supportsStacking).toBe(true);
+    expect(chartTypeMeta("line").supportsStacking).toBe(false);
+    expect(chartTypeMeta("bar").dimensionLabelKey).toBe("field-x-axis");
   });
 });

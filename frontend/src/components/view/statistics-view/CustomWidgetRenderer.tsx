@@ -44,6 +44,8 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
   if (data.length === 0 || series.length === 0) return null;
 
   const multi = series.length > 1;
+  // Stacking applies only to multi-series bar/area charts; default on.
+  const stack = multi && (widget.stacked ?? true);
   const seriesLabel = (key: string) =>
     series.find((s) => s.key === key)?.label ?? key;
 
@@ -156,7 +158,7 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
                 name={s.key}
                 stroke={seriesColor(widget.color, i)}
                 fill={`${seriesColor(widget.color, i)}33`}
-                stackId={multi ? "1" : undefined}
+                stackId={stack ? "1" : undefined}
               />
             ))}
             {legend}
@@ -178,7 +180,7 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
                 name={s.key}
                 fill={seriesColor(widget.color, i)}
                 radius={[3, 3, 0, 0]}
-                stackId={multi ? "1" : undefined}
+                stackId={stack ? "1" : undefined}
               />
             ))}
             {legend}
