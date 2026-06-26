@@ -294,6 +294,117 @@ export type CustomWidgetConfig = Omit<CustomWidget, "id" | "kind">;
 
 export const DEFAULT_WIDGET_COLOR = "#6366f1";
 
+export const CHART_TYPES: CustomChartType[] = ["bar", "pie", "line", "area"];
+
+// ── Import / export (portable, shareable widget configs) ──────────────────────
+//
+// Widgets serialize to a small, stable JSON envelope so they can be downloaded,
+// shared, and re-imported — the building block for a future widget marketplace.
+// Only the config travels (no instance id), and validation is strict: anything
+// that references an unknown dimension/measure/chart type is rejected so a bad
+// or hand-edited file can never produce a broken widget.
+
+export const WIDGET_EXPORT_TYPE = "family-tree-statistics-widgets";
+export const WIDGET_EXPORT_VERSION = 1;
+
+export interface WidgetExportEnvelope {
+  type: typeof WIDGET_EXPORT_TYPE;
+  version: number;
+  widgets: CustomWidgetConfig[];
+}
+
+function isValidWidgetConfig(value: unknown): value is CustomWidgetConfig {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (!CHART_TYPES.includes(v.chartType as CustomChartType)) return false;
+  if (typeof v.dimensionId !== "string" || !(v.dimensionId in DIMENSION_MAP)) {
+    return false;
+  }
+  if (typeof v.measureId !== "string" || !(v.measureId in MEASURE_MAP)) {
+    return false;
+  }
+  if (
+    v.breakdownId !== undefined &&
+    v.breakdownId !== null &&
+    (typeof v.breakdownId !== "string" || !(v.breakdownId in DIMENSION_MAP))
+  ) {
+    return false;
+  }
+  if (typeof v.title !== "string") return false;
+  if (typeof v.color !== "string") return false;
+  if (v.xLabel !== undefined && typeof v.xLabel !== "string") return false;
+  if (v.yLabel !== undefined && typeof v.yLabel !== "string") return false;
+  return true;
+}
+
+/** Strip a widget down to its portable config (drops id/kind). */
+export function toWidgetConfig(w: CustomWidget): CustomWidgetConfig {
+  return {
+    chartType: w.chartType,
+    dimensionId: w.dimensionId,
+    measureId: w.measureId,
+    breakdownId: w.breakdownId ?? null,
+    title: w.title,
+    xLabel: w.xLabel,
+    yLabel: w.yLabel,
+    color: w.color,
+  };
+}
+
+/** Serialize widgets to the export envelope JSON string. */
+export function serializeWidgets(widgets: CustomWidget[]): string {
+  const envelope: WidgetExportEnvelope = {
+    type: WIDGET_EXPORT_TYPE,
+    version: WIDGET_EXPORT_VERSION,
+    widgets: widgets.map(toWidgetConfig),
+  };
+  return JSON.stringify(envelope, null, 2);
+}
+
+/**
+ * Parse and validate an exported widgets file (string or pre-parsed object).
+ * Returns only the valid widget configs. Throws if the payload is not a
+ * recognizable widget export at all.
+ */
+export function parseWidgetsExport(raw: string | unknown): CustomWidgetConfig[] {
+  let parsed: unknown;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("invalid-json");
+    }
+  } else {
+    parsed = raw;
+  }
+
+  // Accept either the full envelope or a bare array of configs.
+  let candidates: unknown[];
+  if (Array.isArray(parsed)) {
+    candidates = parsed;
+  } else if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    (parsed as Record<string, unknown>).type === WIDGET_EXPORT_TYPE &&
+    Array.isArray((parsed as Record<string, unknown>).widgets)
+  ) {
+    candidates = (parsed as WidgetExportEnvelope).widgets;
+  } else {
+    throw new Error("unrecognized-format");
+  }
+
+  return candidates.filter(isValidWidgetConfig).map((c) => ({
+    chartType: c.chartType,
+    dimensionId: c.dimensionId,
+    measureId: c.measureId,
+    breakdownId: c.breakdownId ?? null,
+    title: c.title,
+    xLabel: c.xLabel,
+    yLabel: c.yLabel,
+    color: c.color,
+  }));
+}
+
 /** Limit on breakdown series so high-cardinality splits stay readable. */
 const MAX_BREAKDOWN_SERIES = 6;
 

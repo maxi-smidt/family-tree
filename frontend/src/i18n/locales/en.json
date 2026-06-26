@@ -1138,7 +1138,17 @@
     "status-living": "Living",
     "status-deceased": "Deceased",
     "title-with": "With title",
-    "title-without": "Without title"
+    "title-without": "Without title",
+    "more-options": "More options",
+    "widget-actions": "Widget actions",
+    "duplicate-widget": "Duplicate",
+    "export-widget": "Export",
+    "export-all": "Export all widgets",
+    "export-empty": "No custom widgets to export.",
+    "import-widgets": "Import widgets…",
+    "import-success": "Imported {{count}} widget(s).",
+    "import-empty": "No valid widgets found in that file.",
+    "import-error": "Could not read that file. Make sure it is a widgets export."
   },
   "database-management-view": {
     "title": "Tree Management",

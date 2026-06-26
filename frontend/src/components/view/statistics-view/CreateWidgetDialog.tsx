@@ -24,6 +24,7 @@ import {
   DIMENSION_REGISTRY,
   MEASURE_REGISTRY,
   DEFAULT_WIDGET_COLOR,
+  CHART_TYPES,
   aggregate,
   type CustomChartType,
   type CustomWidget,
@@ -39,7 +40,6 @@ interface Props {
   editing?: CustomWidget;
 }
 
-const CHART_TYPES: CustomChartType[] = ["bar", "pie", "line", "area"];
 const NONE = "__none__";
 
 export function CreateWidgetDialog({ open, onClose, editing }: Props) {

@@ -1138,7 +1138,17 @@
     "status-living": "Lebend",
     "status-deceased": "Verstorben",
     "title-with": "Mit Titel",
-    "title-without": "Ohne Titel"
+    "title-without": "Ohne Titel",
+    "more-options": "Weitere Optionen",
+    "widget-actions": "Widget-Aktionen",
+    "duplicate-widget": "Duplizieren",
+    "export-widget": "Exportieren",
+    "export-all": "Alle Widgets exportieren",
+    "export-empty": "Keine eigenen Widgets zum Exportieren.",
+    "import-widgets": "Widgets importieren…",
+    "import-success": "{{count}} Widget(s) importiert.",
+    "import-empty": "Keine gültigen Widgets in dieser Datei gefunden.",
+    "import-error": "Datei konnte nicht gelesen werden. Stelle sicher, dass es ein Widget-Export ist."
   },
   "database-management-view": {
     "title": "Stammbaumverwaltung",

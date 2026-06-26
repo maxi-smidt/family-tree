@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { aggregate, type CustomWidget } from "./customWidgets";
+import {
+  aggregate,
+  serializeWidgets,
+  parseWidgetsExport,
+  WIDGET_EXPORT_TYPE,
+  type CustomWidget,
+} from "./customWidgets";
 import { createMember, type Member } from "@/types/member";
 
 const t = (k: string) => k;
@@ -99,5 +105,64 @@ describe("aggregate", () => {
       t,
     );
     expect(data.length).toBeLessThanOrEqual(12);
+  });
+});
+
+describe("widget import/export", () => {
+  const widget: CustomWidget = {
+    id: "custom:abc",
+    kind: "custom",
+    chartType: "bar",
+    dimensionId: "birth-decade",
+    measureId: "count",
+    breakdownId: "gender",
+    title: "Births by decade",
+    xLabel: "Decade",
+    yLabel: "People",
+    color: "#6366f1",
+  };
+
+  it("round-trips through serialize → parse, dropping id/kind", () => {
+    const json = serializeWidgets([widget]);
+    const envelope = JSON.parse(json);
+    expect(envelope.type).toBe(WIDGET_EXPORT_TYPE);
+    expect(envelope.widgets[0]).not.toHaveProperty("id");
+    expect(envelope.widgets[0]).not.toHaveProperty("kind");
+
+    const parsed = parseWidgetsExport(json);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({
+      chartType: "bar",
+      dimensionId: "birth-decade",
+      measureId: "count",
+      breakdownId: "gender",
+      title: "Births by decade",
+    });
+  });
+
+  it("accepts a bare array of configs", () => {
+    const parsed = parseWidgetsExport([
+      { chartType: "pie", dimensionId: "gender", measureId: "count", title: "G", color: "#abcdef" },
+    ]);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].breakdownId).toBeNull();
+  });
+
+  it("drops entries that reference unknown dimensions/measures/types", () => {
+    const parsed = parseWidgetsExport([
+      { chartType: "bar", dimensionId: "nope", measureId: "count", title: "x", color: "#000000" },
+      { chartType: "scatter", dimensionId: "gender", measureId: "count", title: "y", color: "#000000" },
+      { chartType: "bar", dimensionId: "gender", measureId: "count", title: "ok", color: "#000000" },
+    ]);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].title).toBe("ok");
+  });
+
+  it("throws on invalid JSON", () => {
+    expect(() => parseWidgetsExport("{not json")).toThrow();
+  });
+
+  it("throws on an unrecognized object payload", () => {
+    expect(() => parseWidgetsExport({ foo: "bar" })).toThrow();
   });
 });

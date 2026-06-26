@@ -30,8 +30,14 @@ interface StatisticsSettingsState {
   moveWidget: (id: string, direction: "up" | "down") => void;
   addCustomWidget: (config: CustomWidgetConfig) => void;
   updateCustomWidget: (id: string, config: CustomWidgetConfig) => void;
+  duplicateCustomWidget: (id: string) => void;
+  importCustomWidgets: (configs: CustomWidgetConfig[]) => number;
   removeCustomWidget: (id: string) => void;
   reset: () => void;
+}
+
+function newCustomId(): string {
+  return `custom:${crypto.randomUUID()}`;
 }
 
 export const useStatisticsSettings = create<StatisticsSettingsState>()(
@@ -62,7 +68,7 @@ export const useStatisticsSettings = create<StatisticsSettingsState>()(
 
       addCustomWidget: (config) =>
         set((s) => {
-          const id = `custom:${crypto.randomUUID()}`;
+          const id = newCustomId();
           const widget: CustomWidget = { ...config, id, kind: "custom" };
           return {
             customWidgets: [...s.customWidgets, widget],
@@ -76,6 +82,42 @@ export const useStatisticsSettings = create<StatisticsSettingsState>()(
             w.id === id ? { ...config, id, kind: "custom" } : w,
           ),
         })),
+
+      duplicateCustomWidget: (id) =>
+        set((s) => {
+          const source = s.customWidgets.find((w) => w.id === id);
+          if (!source) return s;
+          const copy: CustomWidget = {
+            ...source,
+            id: newCustomId(),
+          };
+          // Insert the copy right after the source in the order.
+          const customIds = s.customWidgets.map((w) => w.id);
+          const order = normalizeOrder(s.order, customIds);
+          const at = order.indexOf(id);
+          const next =
+            at < 0
+              ? [...order, copy.id]
+              : [...order.slice(0, at + 1), copy.id, ...order.slice(at + 1)];
+          return {
+            customWidgets: [...s.customWidgets, copy],
+            order: next,
+          };
+        }),
+
+      importCustomWidgets: (configs) => {
+        if (configs.length === 0) return 0;
+        const widgets: CustomWidget[] = configs.map((config) => ({
+          ...config,
+          id: newCustomId(),
+          kind: "custom",
+        }));
+        set((s) => ({
+          customWidgets: [...s.customWidgets, ...widgets],
+          order: [...s.order, ...widgets.map((w) => w.id)],
+        }));
+        return widgets.length;
+      },
 
       removeCustomWidget: (id) =>
         set((s) => ({
