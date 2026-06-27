@@ -27,6 +27,18 @@ import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
 
 type Props = {
   nodes: Node[];
@@ -47,6 +59,7 @@ export const MemberControls = ({
   readOnly = false,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
+  const [isArrangeDialogOpen, setIsArrangeDialogOpen] = useState(false);
   const {
     isLockedScreen,
     isFastMode,
@@ -119,24 +132,50 @@ export const MemberControls = ({
       <Separator className="my-1" />
 
       {/* Layout */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={onRearrange}
-            disabled={isLockedScreen || isLayouting}
-            aria-label={t("arrange-members")}
-          >
-            {isLayouting ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <Network />
-            )}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
-      </Tooltip>
+      <AlertDialog open={isArrangeDialogOpen} onOpenChange={setIsArrangeDialogOpen}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                disabled={isLockedScreen || isLayouting}
+                aria-label={t("arrange-members")}
+              >
+                {isLayouting ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Network />
+                )}
+              </Button>
+            </AlertDialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
+        </Tooltip>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("arrange-members-confirm-title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("arrange-members-confirm-description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {t("arrange-members-confirm-cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                onRearrange();
+                setIsArrangeDialogOpen(false);
+              }}
+            >
+              {t("arrange-members-confirm-confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {windowed && (
         <>
