@@ -7,12 +7,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
-## [Unreleased]
-
-### Fixed
-
-- **GEDCOM import preserves the adopted flag** — members imported from a GEDCOM file are now marked as adopted when their child-to-family link uses `PEDI adopted` or carries an `ADOP` event, and export emits this so the flag survives an export/import round-trip.
-
 ## [1.3.0] - 2026-06-27
 
 ### Added
@@ -31,6 +25,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Removed
 
 - **Sibling / half-sibling / step-sibling stored connection types** — these horizontal relation types are now derived from the family tree's parent graph (as they always were for display) and can no longer be created as explicit connections. Existing stored rows of these types are deleted by the migration; they remain fully visible as computed relationships.
+
+### Fixed
+
+- **GEDCOM import preserves the adopted flag** — members imported from a GEDCOM file are now marked as adopted when their child-to-family link uses `PEDI adopted` or carries an `ADOP` event, and export emits this so the flag survives an export/import round-trip.
 
 ## [1.2.0] - 2026-06-25
 
