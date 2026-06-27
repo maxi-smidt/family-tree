@@ -38,6 +38,7 @@ export const useFlowNodes = (
   isConnectionMode = false,
   hasConnectionPath = false,
   hiddenNodeIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
+  purelyVisual = false,
 ) => {
   const { t } = useTranslation();
 
@@ -72,10 +73,13 @@ export const useFlowNodes = (
                 setEditingMemberId(node.id);
                 setIsEditMode(true);
               },
-          onView: () => {
-            setEditingMemberId(node.id);
-            setIsEditMode(false);
-          },
+          // Purely-visual nodes (public view) expose no detail sheet.
+          onView: purelyVisual
+            ? undefined
+            : () => {
+                setEditingMemberId(node.id);
+                setIsEditMode(false);
+              },
           onAddChild: isReadOnly
             ? undefined
             : () => {
@@ -114,6 +118,7 @@ export const useFlowNodes = (
     isConnectionMode,
     hasConnectionPath,
     hiddenNodeIds,
+    purelyVisual,
     t,
   ]);
 };

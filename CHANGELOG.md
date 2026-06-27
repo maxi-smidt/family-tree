@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Changed
+
+- **Public shared trees now show the interactive tree** — opening a tree shared with public read-only access renders the real, pannable/zoomable family tree (nodes and connections) instead of a flat list of member cards. The public view is purely visual: no tabs, sidebar, editing, or member detail pop-ups.
+
 ### Fixed
 
 - **Collapsed nodes no longer leave dangling lines** — when a member is collapsed, the relationship lines and union markers connecting to its now-hidden descendants are hidden too, instead of floating disconnected on the canvas.

@@ -252,17 +252,23 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         data-export-hide="true"
       />
       <div className="absolute top-2 flex justify-between w-full px-2" data-export-hide="true">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label={t("view-details")}
-          className="nodrag nopan"
-          onPointerDown={stopCanvasGesture}
-          onClick={onViewClick}
-        >
-          <EyeIcon />
-        </Button>
+        {/* In the purely-visual public view onView is undefined, so the detail
+            button disappears and the node becomes non-interactive. */}
+        {typeof data.onView === "function" ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={t("view-details")}
+            className="nodrag nopan"
+            onPointerDown={stopCanvasGesture}
+            onClick={onViewClick}
+          >
+            <EyeIcon />
+          </Button>
+        ) : (
+          <span />
+        )}
         {!data.isReadOnly && (
           <Button
             type="button"
