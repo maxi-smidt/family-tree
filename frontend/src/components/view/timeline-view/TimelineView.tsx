@@ -37,7 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
-import { formatDateWithFallback } from "@/utils/dateUtils";
+import { comparePartialDates, formatDateWithFallback } from "@/utils/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
@@ -128,11 +128,7 @@ export const TimelineView = () => {
       );
     }
 
-    return filtered.sort((a, b) => {
-      const dateA = new Date(a.date).getTime();
-      const dateB = new Date(b.date).getTime();
-      return dateB - dateA;
-    });
+    return filtered.sort((a, b) => comparePartialDates(b.date, a.date));
   }, [events, selectedMemberId, searchQuery, showVitalEvents]);
 
   const filteredVitalEvents = useMemo(() => {
@@ -200,11 +196,9 @@ export const TimelineView = () => {
           data: v,
         }))
       : [];
-    return [...eventItems, ...vitalItems].sort((a, b) => {
-      const dateA = new Date(a.data.date).getTime();
-      const dateB = new Date(b.data.date).getTime();
-      return dateB - dateA;
-    });
+    return [...eventItems, ...vitalItems].sort((a, b) =>
+      comparePartialDates(b.data.date, a.data.date),
+    );
   }, [filteredEvents, filteredVitalEvents, showVitalEvents]);
 
   const getMemberName = (memberId: string) => {

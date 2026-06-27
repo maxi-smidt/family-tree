@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Changed
+
+- **Event partial-date picker** — event dates now support imprecise/partial dates (year, month+year, or full date) via the same picker used for member birth/death dates; the timeline sort is also updated to handle partial-date strings correctly (year-only, month+year, and full-date events now sort into the right chronological order).
+
 ### Added
 
 - **Adopted member flag** — members can now be marked as adopted when adding or editing them via a new "Adopted" toggle in the member form (Life tab).
