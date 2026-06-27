@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Changed
+
+- **Event partial-date picker** — event dates now support imprecise/partial dates (year, month+year, or full date) via the same picker used for member birth/death dates; the timeline sort is also updated to handle partial-date strings correctly (year-only, month+year, and full-date events now sort into the right chronological order).
+
 ### Added
 
 - **Custom statistics widgets** — users can now build their own chart widgets in the Statistics view with a simple pivot builder: pick a chart type (bar, pie, line, area) and the controls adapt to it — cartesian charts ask for an X-axis dimension to group by (gender, birth/death decade, birth year, age at death, birthplace, hometown, name, living/deceased, academic title) and a Y-axis measure (member count, average lifespan, average age), while pie charts ask what to "slice by" and the slice size. Cartesian charts also support an optional breakdown for multi-series charts, with a stacked/grouped toggle for bar and area charts. Includes color, title, axis labels, and a live preview. Custom widgets live alongside built-in widgets and can be reordered, hidden, edited, duplicated, or deleted.

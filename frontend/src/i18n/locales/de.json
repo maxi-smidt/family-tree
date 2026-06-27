@@ -568,6 +568,7 @@
           "event-type-placeholder": "Art des Ereignisses wählen",
           "date": "Datum",
           "date-placeholder": "Wähle ein Datum",
+          "date-invalid": "Bitte gib ein gültiges Datum ein (Jahr, Monat/Jahr oder vollständiges Datum).",
           "location": "Standort",
           "location-placeholder": "z.B. New York, USA",
           "description": "Beschreibung",
