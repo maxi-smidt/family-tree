@@ -31,10 +31,15 @@ const connectionStyle = (
  * the tree-processor worker. The structural edge list (source, target, type,
  * base colour) comes from the worker; only the fast-changing connection-path
  * overlay runs on the main thread.
+ *
+ * `hiddenElementIds` carries the ids of nodes (and union dots) that are hidden
+ * because an ancestor is collapsed. Edges touching a hidden endpoint are marked
+ * `hidden` so React Flow stops drawing the otherwise-dangling line.
  */
 export const useFlowEdges = (
   baseEdges: WorkerEdge[],
   highlightedConnectionEdgeKeys: ReadonlySet<string> = EMPTY_EDGE_KEYS,
+  hiddenElementIds: ReadonlySet<string> = EMPTY_EDGE_KEYS,
 ): Edge[] => {
   return useMemo(() => {
     const hasConnectionPath = highlightedConnectionEdgeKeys.size > 0;
@@ -47,7 +52,9 @@ export const useFlowEdges = (
         ...rest,
         style: connectionStyle(baseStyle, isHighlighted, hasConnectionPath),
         animated: isHighlighted,
+        hidden:
+          hiddenElementIds.has(rest.source) || hiddenElementIds.has(rest.target),
       } as Edge;
     });
-  }, [baseEdges, highlightedConnectionEdgeKeys]);
+  }, [baseEdges, highlightedConnectionEdgeKeys, hiddenElementIds]);
 };
