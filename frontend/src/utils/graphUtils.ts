@@ -2,7 +2,6 @@ import { Member } from "@/types/member";
 import {
   COUPLE_RELATION_TYPES,
   STEP_PARENT_RELATION_TYPE,
-  STEP_SIBLING_RELATION_TYPE,
 } from "@/utils/relationKinds";
 
 // ---------------------------------------------------------------------------
@@ -278,18 +277,15 @@ interface RelationAdjacency {
   partnersOf: Map<string, Map<string, PartnerInfo>>;
   /** Set of "childId|stepParentId" explicit step-parent edges (undirected by pair key). */
   stepParentPairs: Set<string>;
-  /** Set of memberPairKey(a, b) explicit step-sibling edges. */
-  stepSiblingPairs: Set<string>;
 }
 
 /**
- * Scan all members' `relations` arrays and build adjacency sets for couple,
- * step-parent, and step-sibling edges. O(n) over all relation entries.
+ * Scan all members' `relations` arrays and build adjacency sets for couple
+ * and step-parent edges. O(n) over all relation entries.
  */
 function buildRelationAdjacency(members: Member[]): RelationAdjacency {
   const partnersOf = new Map<string, Map<string, PartnerInfo>>();
   const stepParentPairs = new Set<string>();
-  const stepSiblingPairs = new Set<string>();
 
   const ensurePartnerMap = (id: string) => {
     if (!partnersOf.has(id)) partnersOf.set(id, new Map());
@@ -322,13 +318,11 @@ function buildRelationAdjacency(members: Member[]): RelationAdjacency {
       } else if (relationType === STEP_PARENT_RELATION_TYPE) {
         // Store as an undirected pair key; disambiguation happens in classify.
         stepParentPairs.add(memberPairKey(from, to));
-      } else if (relationType === STEP_SIBLING_RELATION_TYPE) {
-        stepSiblingPairs.add(memberPairKey(from, to));
       }
     }
   }
 
-  return { partnersOf, stepParentPairs, stepSiblingPairs };
+  return { partnersOf, stepParentPairs };
 }
 
 /**
@@ -358,7 +352,7 @@ export function classifyRelationship(
   if (blood.kind !== "none") return blood;
 
   const adj = buildRelationAdjacency(members);
-  const { partnersOf, stepParentPairs, stepSiblingPairs } = adj;
+  const { partnersOf, stepParentPairs } = adj;
 
   const fromPartners = partnersOf.get(fromId) ?? new Map<string, PartnerInfo>();
   const toPartners = partnersOf.get(toId) ?? new Map<string, PartnerInfo>();
@@ -440,10 +434,6 @@ export function classifyRelationship(
   }
 
   // --- Step 8: step-sibling ---
-  // Explicit
-  if (stepSiblingPairs.has(memberPairKey(fromId, toId))) {
-    return { kind: "step-sibling" };
-  }
   // Derived: from and to share a step-parent bond via their respective blood
   // parents being partners (and they are NOT blood siblings — already checked above).
   if (fromMember && toMember) {

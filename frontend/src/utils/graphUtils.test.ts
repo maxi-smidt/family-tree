@@ -28,6 +28,7 @@ const member = (
   maidenName: null,
   imageData: null,
   deceased: false,
+  adopted: false,
   date: { birth: "1990-01-01", death: null },
   parents: {
     paternalParent: options.paternalParent ?? null,
@@ -196,6 +197,7 @@ const km = (
   maidenName: null,
   imageData: null,
   deceased: false,
+  adopted: false,
   date: { birth: "1990-01-01", death: null },
   parents: {
     paternalParent: opts.paternalParent ?? null,
@@ -538,6 +540,7 @@ const rm = (
   maidenName: null,
   imageData: null,
   deceased: false,
+  adopted: false,
   date: { birth: "1990-01-01", death: null },
   parents: {
     paternalParent: opts.paternalParent ?? null,
@@ -732,20 +735,6 @@ describe("classifyRelationship", () => {
     expect(
       classifyRelationship([bob, dan, alice, carol], "carol", "alice"),
     ).toEqual({ kind: "step-sibling" });
-  });
-
-  it("explicit step-sibling relation", () => {
-    const alice = rm("alice", {
-      relations: [rel("alice", "carol", "step-sibling")],
-    });
-    const carol = rm("carol");
-    expect(classifyRelationship([alice, carol], "alice", "carol")).toEqual({
-      kind: "step-sibling",
-    });
-    // symmetric
-    expect(classifyRelationship([alice, carol], "carol", "alice")).toEqual({
-      kind: "step-sibling",
-    });
   });
 
   // -------------------------------------------------------------------------

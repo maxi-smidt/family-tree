@@ -865,6 +865,12 @@ def parse_gedcom(text: str) -> dict:
 
         if not from_xref or not to_xref or not rel_type:
             continue
+
+        # Skip horizontal relation types that are now derived from the parent
+        # graph rather than stored as explicit rows.
+        if rel_type.strip() in ("sibling", "half-sibling", "step-sibling"):
+            continue
+
         from_id = xref_to_member_id.get(from_xref)
         to_id = xref_to_member_id.get(to_xref)
         if not from_id or not to_id:

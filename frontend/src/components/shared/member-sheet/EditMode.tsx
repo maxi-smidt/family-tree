@@ -130,6 +130,7 @@ export const EditMode = ({
       formData.date.birth !== initialData.date.birth ||
       (formData.date.death || "") !== (initialData.date.death || "") ||
       formData.deceased !== initialData.deceased ||
+      formData.adopted !== initialData.adopted ||
       (formData.additionalData || "") !== (initialData.additionalData || "") ||
       (formData.birthplace || "") !== (initialData.birthplace || "") ||
       (formData.hometown || "") !== (initialData.hometown || "") ||
@@ -258,6 +259,7 @@ export const EditMode = ({
         dateOfBirth: formData.date.birth,
         dateOfDeath: formData.date.death || null,
         deceased: formData.deceased,
+        adopted: formData.adopted,
         additionalData: formData.additionalData || null,
         birthplace: formData.birthplace || null,
         hometown: formData.hometown || null,
@@ -556,6 +558,20 @@ export const EditMode = ({
                         },
                       }));
                     }}
+                  />
+                </div>
+              </Field>
+
+              <Field>
+                <div className="flex items-center justify-between">
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("adopted-field")}
+                  </FieldLabel>
+                  <Switch
+                    checked={formData.adopted}
+                    onCheckedChange={(checked) =>
+                      handleChange("adopted", checked)
+                    }
                   />
                 </div>
               </Field>

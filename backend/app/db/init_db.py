@@ -29,13 +29,10 @@ BASELINE_REVISION = "v1_0_0_baseline"
 # afterwards, so startup only tops up built-in defaults that are missing.
 DEFAULT_RELATION_TYPES: list[str] = [
     "parent",
-    "sibling",
     "partner",
     "married",
     "divorced",
     "step-parent",
-    "step-sibling",
-    "half-sibling",
     "other",
 ]
 

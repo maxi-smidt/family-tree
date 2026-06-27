@@ -50,6 +50,7 @@ const member: Member = {
   maidenName: null,
   imageData: null,
   deceased: false,
+  adopted: false,
   date: { birth: "1990", death: null },
   parents: { paternalParent: null, maternalParent: null },
   additionalData: null,
