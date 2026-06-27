@@ -1,4 +1,5 @@
 import { Node, useReactFlow } from "@xyflow/react";
+import { useState } from "react";
 import { ButtonGroup } from "@/components/ui/button-group";
 import {
   Tooltip,
@@ -6,6 +7,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
@@ -47,6 +58,7 @@ export const MemberControls = ({
   readOnly = false,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.controls" });
+  const [isArrangeDialogOpen, setIsArrangeDialogOpen] = useState(false);
   const {
     isLockedScreen,
     isFastMode,
@@ -124,19 +136,37 @@ export const MemberControls = ({
           <Button
             variant="secondary"
             size="icon"
-            onClick={onRearrange}
+            onClick={() => setIsArrangeDialogOpen(true)}
             disabled={isLockedScreen || isLayouting}
             aria-label={t("arrange-members")}
           >
-            {isLayouting ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <Network />
-            )}
+            {isLayouting ? <Loader2 className="animate-spin" /> : <Network />}
           </Button>
         </TooltipTrigger>
         <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
       </Tooltip>
+      <AlertDialog
+        open={isArrangeDialogOpen}
+        onOpenChange={setIsArrangeDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("arrange-confirm-title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("arrange-confirm-description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("arrange-confirm-cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onRearrange}
+              disabled={isLockedScreen || isLayouting}
+            >
+              {t("arrange-confirm-confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {windowed && (
         <>
