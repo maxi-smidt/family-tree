@@ -259,19 +259,24 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         className={horizontalHandleClassName}
         data-export-hide="true"
       />
-      <div className="absolute top-2 flex justify-between w-full px-2" data-export-hide="true">
+      <div
+        className="absolute top-2 flex justify-between w-full px-2"
+        data-export-hide="true"
+      >
         <div className="flex gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label={t("view-details")}
-            className="nodrag nopan"
-            onPointerDown={stopCanvasGesture}
-            onClick={onViewClick}
-          >
-            <EyeIcon />
-          </Button>
+          {typeof data.onView === "function" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={t("view-details")}
+              className="nodrag nopan"
+              onPointerDown={stopCanvasGesture}
+              onClick={onViewClick}
+            >
+              <EyeIcon />
+            </Button>
+          )}
           {typeof data.onOpenLinkedTree === "function" && (
             <Button
               type="button"

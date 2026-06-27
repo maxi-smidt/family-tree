@@ -52,6 +52,12 @@ import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
+interface FlowPanelProps {
+  // Chromeless, purely-visual rendering for the public read-only tree view:
+  // no member sheet, no edit dialogs, no node action buttons.
+  publicView?: boolean;
+}
+
 // Stable reference for "no connection-path highlight". findConnectionPathHighlight
 // returns a fresh (often empty) Set on every members change; passing that straight
 // into useFlowEdges would re-derive viewEdges from a still-stale baseEdges during the
@@ -59,7 +65,7 @@ const edgeTypes = { relation: RelationEdge };
 // An empty highlight set has no visual effect, so we collapse it to one shared instance.
 const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
-export const FlowPanel = () => {
+export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
   const treeLinksEnabled = useFeature("tree_links");
   const activeTree = useTreeStore((s) => s.selectedTree);
@@ -298,6 +304,7 @@ export const FlowPanel = () => {
     connection.hasConnectionPath,
     hiddenNodeIds,
     handleOpenLinkedTree,
+    publicView,
   );
   const viewEdges = useFlowEdges(
     baseEdges,
@@ -537,27 +544,33 @@ export const FlowPanel = () => {
           </Panel>
         )}
       </ReactFlow>
-      <RemoveMemberDialog
-        isOpen={!!membersToDelete.length}
-        members={membersToDelete}
-        onConfirm={confirmDelete}
-        onCancel={() => setMembersToDelete([])}
-      />
-      <MemberSheet
-        isOpen={!!pending.editingMember}
-        onClose={pending.closeSheet}
-        member={pending.editingMember}
-        initialEditMode={pending.isEditMode}
-        canEdit={!isMobile && canWrite}
-        isNewMember={pending.isNewMemberSession}
-        onDiscardNewMember={pending.discardNewMember}
-        onSaveNewMember={pending.saveNewMember}
-      />
-      <AddRelationDialog
-        isOpen={relation.isDialogOpen}
-        onClose={relation.closeDialog}
-        onConfirm={relation.confirmRelation}
-      />
+      {/* The public read-only view is purely visual: no detail sheet or edit
+          dialogs are mounted. */}
+      {!publicView && (
+        <>
+          <RemoveMemberDialog
+            isOpen={!!membersToDelete.length}
+            members={membersToDelete}
+            onConfirm={confirmDelete}
+            onCancel={() => setMembersToDelete([])}
+          />
+          <MemberSheet
+            isOpen={!!pending.editingMember}
+            onClose={pending.closeSheet}
+            member={pending.editingMember}
+            initialEditMode={pending.isEditMode}
+            canEdit={!isMobile && canWrite}
+            isNewMember={pending.isNewMemberSession}
+            onDiscardNewMember={pending.discardNewMember}
+            onSaveNewMember={pending.saveNewMember}
+          />
+          <AddRelationDialog
+            isOpen={relation.isDialogOpen}
+            onClose={relation.closeDialog}
+            onConfirm={relation.confirmRelation}
+          />
+        </>
+      )}
     </div>
   );
 

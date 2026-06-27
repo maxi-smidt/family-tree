@@ -1,19 +1,20 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "@/services/api";
 import { Tree } from "@/types/tree";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { useTranslation } from "react-i18next";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 
-interface PublicMember {
-  id: string;
-  firstName?: string | null;
-  lastName?: string | null;
-  maidenName?: string | null;
-  gender?: string | null;
-  dateOfBirth?: string | null;
-  dateOfDeath?: string | null;
-}
+// Lazy so the tree-view bundle stays code-split (shared with the authenticated
+// app's lazy import) rather than being pulled into the main entry chunk.
+const FlowPanel = lazy(() =>
+  import("@/components/view/tree-view/FlowPanel").then((m) => ({
+    default: m.FlowPanel,
+  })),
+);
 
 type ViewState = "loading" | "loaded" | "not-public" | "error";
 
@@ -21,39 +22,49 @@ interface Props {
   treeId: string;
 }
 
+/**
+ * Anonymous, read-only view of a tree shared with `public_role = "viewer"`.
+ * Boots the normal tree stores with the public tree (the backend reports
+ * `role: "viewer"` for anonymous requests, so the canvas renders read-only)
+ * and shows the real interactive React Flow tree in a chromeless shell — no
+ * tabs, no sidebar, no editing. Member nodes are purely visual.
+ */
 export const PublicTreeViewer = ({ treeId }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "public-tree" });
   const [state, setState] = useState<ViewState>("loading");
-  const [tree, setTree] = useState<Tree | null>(null);
-  const [members, setMembers] = useState<PublicMember[]>([]);
+  const [treeName, setTreeName] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
-        const [treeData, membersData] = await Promise.all([
-          api.get<Tree>(`/trees/${treeId}`),
-          api.get<PublicMember[]>(`/trees/${treeId}/members`),
-        ]);
-        setTree(treeData);
-        setMembers(membersData);
+        // Probe access (anonymous succeeds only for public trees) and grab the
+        // name before booting the canvas stores.
+        const tree = await api.get<Tree>(`/trees/${treeId}`);
+        if (cancelled) return;
+        setTreeName(tree.name);
+        await useTreeStore
+          .getState()
+          .selectTree({ id: tree.id, name: tree.name });
+        if (cancelled) return;
         setState("loaded");
       } catch (err: unknown) {
+        if (cancelled) return;
         const status = (err as { status?: number })?.status;
-        if (status === 401 || status === 403) {
-          setState("not-public");
-        } else {
-          setState("error");
-        }
+        setState(status === 401 || status === 403 ? "not-public" : "error");
       }
     })();
+    return () => {
+      cancelled = true;
+      // Tear the loaded tree back down so a subsequent login starts clean.
+      void useTreeStore.getState().disconnect();
+    };
   }, [treeId]);
 
   const handleLogin = () => {
-    // Clear the pendingPublicTreeId so the login page renders, then the user
-    // can log in and navigate to the tree normally.
-    import("@/hooks/useAuthStore").then(({ useAuthStore }) => {
-      useAuthStore.setState({ pendingPublicTreeId: null });
-    });
+    // Clearing pendingPublicTreeId lets the login page render; the user can
+    // then sign in and open the tree normally.
+    useAuthStore.setState({ pendingPublicTreeId: null });
   };
 
   if (state === "loading") {
@@ -75,54 +86,30 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
     );
   }
 
-  const fullName = (m: PublicMember) =>
-    [m.firstName, m.maidenName ? `(${m.maidenName})` : null, m.lastName]
-      .filter(Boolean)
-      .join(" ") || t("unnamed");
-
-  const genderLabel = (g: string | null | undefined) => {
-    if (g === "m") return t("gender-male");
-    if (g === "f") return t("gender-female");
-    return null;
-  };
-
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b px-6 py-4 flex items-center justify-between">
+    <div className="w-screen h-screen flex flex-col bg-background">
+      <header className="flex-none border-b px-6 py-3 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">{tree?.name}</h1>
-          <p className="text-sm text-muted-foreground">{t("read-only-hint")}</p>
+          <h1 className="text-lg font-bold">{treeName}</h1>
+          <p className="text-xs text-muted-foreground">{t("read-only-hint")}</p>
         </div>
-        <Button variant="outline" onClick={handleLogin}>
-          {t("login-button")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button variant="outline" onClick={handleLogin}>
+            {t("login-button")}
+          </Button>
+        </div>
       </header>
-
-      <main className="p-6">
-        <p className="text-sm text-muted-foreground mb-4">
-          {t("member-count", { count: members.length })}
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {members.map((m) => (
-            <div
-              key={m.id}
-              className="rounded-md border p-3 space-y-1 bg-card"
-            >
-              <p className="font-medium text-sm leading-tight">{fullName(m)}</p>
-              {genderLabel(m.gender) && (
-                <p className="text-xs text-muted-foreground">
-                  {genderLabel(m.gender)}
-                </p>
-              )}
-              {m.dateOfBirth && (
-                <p className="text-xs text-muted-foreground">
-                  ✦ {m.dateOfBirth}
-                  {m.dateOfDeath ? ` – ${m.dateOfDeath}` : ""}
-                </p>
-              )}
+      <main className="flex-1 min-h-0">
+        <Suspense
+          fallback={
+            <div className="w-full h-full flex items-center justify-center">
+              <Spinner className="size-8" />
             </div>
-          ))}
-        </div>
+          }
+        >
+          <FlowPanel publicView />
+        </Suspense>
       </main>
     </div>
   );

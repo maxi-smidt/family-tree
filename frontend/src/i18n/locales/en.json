@@ -1242,6 +1242,10 @@
   "common": {
     "english": "English",
     "german": "German",
+    "theme-toggle": {
+      "to-dark": "Switch to dark mode",
+      "to-light": "Switch to light mode"
+    },
     "relation-types": {
       "parent": "Parent",
       "partner": "Partner",
