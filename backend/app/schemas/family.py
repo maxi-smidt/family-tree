@@ -29,6 +29,7 @@ class MemberOut(FamilyTreeOrmBaseModel):
     date_of_birth_sort: str | None = None
     date_of_death_sort: str | None = None
     deceased: bool = False
+    adopted: bool = False
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
@@ -76,6 +77,7 @@ class MemberCreate(FamilyTreeBaseModel):
     date_of_birth: str | None = None
     date_of_death: str | None = None
     deceased: bool = False
+    adopted: bool = False
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
@@ -97,6 +99,7 @@ class MemberUpdate(FamilyTreeBaseModel):
     date_of_birth: str | None = None
     date_of_death: str | None = None
     deceased: bool | None = None
+    adopted: bool | None = None
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None

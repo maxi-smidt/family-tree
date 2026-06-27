@@ -19,6 +19,7 @@ import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
+import { ConnectionRelationCard } from "@/components/view/tree-view/ConnectionRelationCard";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
 import {
@@ -457,6 +458,25 @@ export const FlowPanel = () => {
             )}
           </div>
         </Panel>
+        {connection.isConnectionMode &&
+          connection.connectionRelations.length > 0 && (
+            <Panel position="top-center" className="!top-2 pointer-events-none">
+              {/* Cap the stack at ~3 cards; scroll the rest so many selected
+                  members don't overflow the canvas. */}
+              <div className="pointer-events-auto flex max-h-[15rem] flex-col gap-2 overflow-y-auto px-1 py-1">
+                {connection.connectionRelations.map((rel) => (
+                  <ConnectionRelationCard
+                    key={`${rel.aId}|${rel.bId}`}
+                    relation={rel}
+                    onLocate={(id) => {
+                      const target = members.find((m) => m.id === id);
+                      if (target) locator.locateMember(target);
+                    }}
+                  />
+                ))}
+              </div>
+            </Panel>
+          )}
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
           <FlowPanelControls
             navigationOnly={isCanvasReadOnly}

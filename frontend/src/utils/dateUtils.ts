@@ -26,7 +26,24 @@ export function getDatePrecision(value: string | null | undefined): DatePrecisio
 }
 
 export function isValidPartialDate(value: string): boolean {
-  return getDatePrecision(value) !== null;
+  const precision = getDatePrecision(value);
+  if (precision === null) return false;
+
+  const parts = value.split("-");
+  const year = Number(parts[0]);
+
+  if (precision === "month" || precision === "day") {
+    const month = Number(parts[1]);
+    if (month < 1 || month > 12) return false;
+
+    if (precision === "day") {
+      const day = Number(parts[2]);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      if (day < 1 || day > daysInMonth) return false;
+    }
+  }
+
+  return true;
 }
 
 /** Compare two partial date strings. Returns negative, zero, or positive. */

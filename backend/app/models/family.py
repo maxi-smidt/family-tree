@@ -36,6 +36,7 @@ class Member(Base):
     hometown: Mapped[str | None] = mapped_column(String(255), nullable=True)
     places_lived: Mapped[str | None] = mapped_column(Text, nullable=True)
     deceased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    adopted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_collapsed: Mapped[bool] = mapped_column(Boolean, default=False)
     position_x: Mapped[float] = mapped_column(Float, default=0)
     position_y: Mapped[float] = mapped_column(Float, default=0)

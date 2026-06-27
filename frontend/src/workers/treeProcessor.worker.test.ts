@@ -20,6 +20,7 @@ function member(
     maidenName: null,
     imageData: null,
     deceased: false,
+    adopted: false,
     date: { birth: "", death: null },
     parents,
     additionalData: null,

@@ -360,16 +360,15 @@ class TestServiceRoundTrip:
         ]
         assert len(parent_rels) == 1
 
-    def test_sibling_relation_preserved(self):
-        tom_id = self._get_id("Tom", "Smith")
-        sara_id = self._get_id("Sara", "Smith")
+    def test_sibling_relation_not_imported(self):
+        """Sibling relations are derived from shared parents, not stored as
+        explicit rows.  The GEDCOM exporter may emit a _REL record for them, but
+        the importer must skip it so the DB stays clean."""
         sibling_rels = [
             r for r in self.parsed["relations"]
             if r["relation_type"] == "sibling"
-            and r["from_member_id"] == tom_id
-            and r["to_member_id"] == sara_id
         ]
-        assert len(sibling_rels) == 1
+        assert len(sibling_rels) == 0
 
     def test_child1_parents_are_correct(self):
         tom_id = self._get_id("Tom", "Smith")
@@ -934,3 +933,150 @@ class TestParseGedcomSortKeys:
         # GEDCOM year-only: stored as "1975" by _from_gedcom_date
         member = self._parse_member_with_dates(birt_date="1975")
         assert member["date_of_birth_sort"] == "1975-00-00"
+
+
+# ---------------------------------------------------------------------------
+# 9. Adoption import / export (#502)
+# ---------------------------------------------------------------------------
+
+
+class TestAdoptionImport:
+    """parse_gedcom must set adopted=True for PEDI adopted and ADOP event."""
+
+    def _parse_single(self, ged: str) -> dict:
+        members = parse_gedcom(ged)["members"]
+        assert len(members) == 1
+        return members[0]
+
+    def test_famc_pedi_adopted_sets_flag(self):
+        """INDI with FAMC + PEDI adopted → adopted is True."""
+        ged = (
+            "0 HEAD\n"
+            "0 @I1@ INDI\n"
+            "1 NAME Child /One/\n"
+            "1 FAMC @F1@\n"
+            "2 PEDI adopted\n"
+            "0 TRLR\n"
+        )
+        member = self._parse_single(ged)
+        assert member["adopted"] is True
+
+    def test_top_level_adop_event_sets_flag(self):
+        """INDI with a top-level 1 ADOP event → adopted is True."""
+        ged = (
+            "0 HEAD\n"
+            "0 @I1@ INDI\n"
+            "1 NAME Child /Two/\n"
+            "1 ADOP\n"
+            "0 TRLR\n"
+        )
+        member = self._parse_single(ged)
+        assert member["adopted"] is True
+
+    def test_famc_without_pedi_not_adopted(self):
+        """INDI with FAMC but no PEDI → adopted is False."""
+        ged = (
+            "0 HEAD\n"
+            "0 @I1@ INDI\n"
+            "1 NAME Child /Three/\n"
+            "1 FAMC @F1@\n"
+            "0 TRLR\n"
+        )
+        member = self._parse_single(ged)
+        assert member["adopted"] is False
+
+    def test_pedi_birth_not_adopted(self):
+        """Explicit PEDI birth must not set adopted (only 'adopted' pedigree does)."""
+        ged = (
+            "0 HEAD\n"
+            "0 @I1@ INDI\n"
+            "1 NAME Child /Four/\n"
+            "1 FAMC @F1@\n"
+            "2 PEDI birth\n"
+            "0 TRLR\n"
+        )
+        member = self._parse_single(ged)
+        assert member["adopted"] is False
+
+    def test_default_member_not_adopted(self):
+        """INDI with no adoption indicators → adopted defaults to False."""
+        ged = (
+            "0 HEAD\n"
+            "0 @I1@ INDI\n"
+            "1 NAME Plain /Person/\n"
+            "0 TRLR\n"
+        )
+        member = self._parse_single(ged)
+        assert member["adopted"] is False
+
+
+class TestAdoptionExportRoundTrip:
+    """Export → re-import must preserve the adopted flag."""
+
+    def _make_member(self, first: str, adopted: bool = False) -> dict:
+        return {
+            "id": str(uuid4()),
+            "first_name": first,
+            "last_name": "Test",
+            "gender": "m",
+            "date_of_birth": None,
+            "date_of_death": None,
+            "birthplace": None,
+            "hometown": None,
+            "additional_data": None,
+            "places_lived": None,
+            "image_data": None,
+            "adopted": adopted,
+        }
+
+    def _rel(self, f: str, t: str, rt: str) -> dict:
+        return {"from_member_id": f, "to_member_id": t, "relation_type": rt}
+
+    def test_adopted_flag_survives_round_trip_with_parents(self):
+        """An adopted child with two parents: PEDI adopted is emitted and re-imported."""
+        parent1 = self._make_member("Parent1")
+        parent2 = self._make_member("Parent2")
+        child = self._make_member("AdoptedChild", adopted=True)
+        non_adopted = self._make_member("BioChild", adopted=False)
+
+        members = [parent1, parent2, child, non_adopted]
+        relations = [
+            self._rel(child["id"], parent1["id"], "parent"),
+            self._rel(child["id"], parent2["id"], "parent"),
+            self._rel(non_adopted["id"], parent1["id"], "parent"),
+            self._rel(non_adopted["id"], parent2["id"], "parent"),
+        ]
+
+        ged_text = serialize_to_gedcom("RoundTripAdoption", members, relations)
+
+        # The exported text must contain the adoption markers.
+        assert "1 ADOP" in ged_text
+        assert "2 PEDI adopted" in ged_text
+
+        parsed = parse_gedcom(ged_text)
+        by_first = {m["first_name"]: m for m in parsed["members"]}
+
+        assert by_first["AdoptedChild"]["adopted"] is True
+        assert by_first["BioChild"]["adopted"] is False
+
+    def test_adopted_flag_survives_round_trip_no_parents(self):
+        """An adopted member with no parents: 1 ADOP event is emitted and re-imported."""
+        child = self._make_member("OrphanAdopted", adopted=True)
+
+        ged_text = serialize_to_gedcom("RoundTripAdoptionNoParents", [child], [])
+
+        assert "1 ADOP" in ged_text
+        # No FAMC → no PEDI line expected.
+        assert "2 PEDI adopted" not in ged_text
+
+        parsed = parse_gedcom(ged_text)
+        assert len(parsed["members"]) == 1
+        assert parsed["members"][0]["adopted"] is True
+
+    def test_non_adopted_member_no_adop_in_gedcom(self):
+        """A non-adopted member must not have ADOP or PEDI adopted in the export."""
+        member = self._make_member("NormalPerson", adopted=False)
+        ged_text = serialize_to_gedcom("NormalTree", [member], [])
+
+        assert "1 ADOP" not in ged_text
+        assert "2 PEDI adopted" not in ged_text
