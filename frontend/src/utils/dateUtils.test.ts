@@ -4,6 +4,7 @@ import {
   formatDateTime,
   formatDateWithFallback,
   formatPartialDateForInput,
+  isValidPartialDate,
   parsePartialDateInput,
   resolveDateLocale,
 } from "@/utils/dateUtils";
@@ -102,6 +103,25 @@ describe("dateUtils", () => {
       expect(parsePartialDateInput("32.01.2026", "de").valid).toBe(false);
       expect(parsePartialDateInput("not a date").valid).toBe(false);
       expect(parsePartialDateInput("2026-13", "de").valid).toBe(false);
+    });
+  });
+
+  describe("isValidPartialDate", () => {
+    it("accepts valid partial dates", () => {
+      expect(isValidPartialDate("2020")).toBe(true);
+      expect(isValidPartialDate("2020-02")).toBe(true);
+      expect(isValidPartialDate("2020-02-29")).toBe(true); // 2020 is a leap year
+      expect(isValidPartialDate("2024-02-29")).toBe(true); // 2024 is a leap year
+    });
+
+    it("rejects impossible month or day values", () => {
+      expect(isValidPartialDate("2020-13")).toBe(false); // month 13
+      expect(isValidPartialDate("2020-00")).toBe(false); // month 0
+      expect(isValidPartialDate("2020-02-30")).toBe(false); // Feb 30 doesn't exist
+      expect(isValidPartialDate("2021-02-29")).toBe(false); // 2021 is not a leap year
+      expect(isValidPartialDate("2020-04-31")).toBe(false); // April has 30 days
+      expect(isValidPartialDate("not-a-date")).toBe(false);
+      expect(isValidPartialDate("2020-00-00")).toBe(false); // month 0
     });
   });
 });

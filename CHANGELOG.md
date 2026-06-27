@@ -29,6 +29,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Fixed
 
 - **GEDCOM import preserves the adopted flag** — members imported from a GEDCOM file are now marked as adopted when their child-to-family link uses `PEDI adopted` or carries an `ADOP` event, and export emits this so the flag survives an export/import round-trip.
+- **Partial-date validation** — event and member dates with impossible month or day values (e.g. month 13, February 30, or February 29 in a non-leap year) are now rejected instead of accepted as valid.
 
 ## [1.2.0] - 2026-06-25
 
