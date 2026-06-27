@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Changed
+
+- **Public shared trees now show the interactive tree** — opening a tree shared with public read-only access renders the real, pannable/zoomable family tree (nodes and connections) instead of a flat list of member cards. The public view is purely visual: no tabs, sidebar, editing, or member detail pop-ups.
+
 ## [1.3.0] - 2026-06-27
 
 ### Added
