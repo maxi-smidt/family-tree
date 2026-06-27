@@ -488,6 +488,7 @@
       "places-lived-to": "To (year)",
       "places-lived-empty": "No locations added yet.",
       "deceased-field": "Deceased",
+      "adopted-field": "Adopted",
       "error-firstname-required": "First name is required.",
       "error-lastname-required": "Last name is required.",
       "firstname-placeholder": "e.g. Jane",
@@ -1218,13 +1219,10 @@
     "german": "German",
     "relation-types": {
       "parent": "Parent",
-      "sibling": "Sibling",
       "partner": "Partner",
       "married": "Married",
       "divorced": "Divorced",
       "step-parent": "Step Parent",
-      "step-sibling": "Step Sibling",
-      "half-sibling": "Half Sibling",
       "other": "Other"
     },
     "gender": {

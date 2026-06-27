@@ -488,6 +488,7 @@
       "places-lived-to": "Bis (Jahr)",
       "places-lived-empty": "Noch keine Orte hinzugefügt.",
       "deceased-field": "Verstorben",
+      "adopted-field": "Adoptiert",
       "error-firstname-required": "Vorname ist erforderlich.",
       "error-lastname-required": "Nachname ist erforderlich.",
       "firstname-placeholder": "z. B. Jana",
@@ -1218,13 +1219,10 @@
     "german": "Deutsch",
     "relation-types": {
       "parent": "Eltern",
-      "sibling": "Geschwister",
       "partner": "Partner",
       "married": "Verheiratet",
       "divorced": "Geschieden",
       "step-parent": "Stiefelternteil",
-      "step-sibling": "Stiefgeschwister",
-      "half-sibling": "Halbgeschwister",
       "other": "Andere"
     },
     "gender": {

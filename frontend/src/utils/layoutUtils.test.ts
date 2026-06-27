@@ -17,6 +17,7 @@ describe("getLayoutedElements", () => {
         imageData: null,
         date: { birth: "1990-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: null, maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -52,6 +53,7 @@ describe("getLayoutedElements", () => {
         imageData: null,
         date: { birth: "1960-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: null, maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -72,6 +74,7 @@ describe("getLayoutedElements", () => {
         imageData: null,
         date: { birth: "1990-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: "1", maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -79,9 +82,6 @@ describe("getLayoutedElements", () => {
         placesLived: [],
         isCollapsed: false,
         position: { x: 0, y: 0 },
-        relations: [
-          { fromMemberId: "2", toMemberId: "3", relationType: "sibling" },
-        ],
       },
       {
         id: "3",
@@ -95,6 +95,7 @@ describe("getLayoutedElements", () => {
         imageData: null,
         date: { birth: "1992-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: "1", maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -102,9 +103,6 @@ describe("getLayoutedElements", () => {
         placesLived: [],
         isCollapsed: false,
         position: { x: 0, y: 0 },
-        relations: [
-          { fromMemberId: "3", toMemberId: "2", relationType: "sibling" },
-        ],
       },
     ];
 
@@ -140,6 +138,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1920-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: null, maternalParent: null },
       },
       {
@@ -150,6 +149,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1925-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: null, maternalParent: null },
         relations: [
           { fromMemberId: "mona", toMemberId: "abe", relationType: "married" },
@@ -164,6 +164,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1956-05-12", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: "abe", maternalParent: "mona" },
         relations: [
           {
@@ -182,6 +183,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1953-07-30", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: "abe", maternalParent: "mona" },
       },
       // The spouse.
@@ -193,6 +195,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1959-03-19", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: null, maternalParent: null },
       },
       // A shared child so the couple forms a parent union.
@@ -204,6 +207,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1985-04-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: "vm_homer", maternalParent: "marge" },
       },
     ];
@@ -250,6 +254,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1920-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       {
@@ -260,6 +265,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1925-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       // The Bouvier sisters' parents.
@@ -271,6 +277,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1930-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       {
@@ -281,6 +288,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1932-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       // Merged node — only child of Abe & Mona — married to Marge.
@@ -292,6 +300,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1956-05-12", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("abe", "mona"),
         relations: [
           {
@@ -310,6 +319,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1959-03-19", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("clancy", "jackie"),
       },
       {
@@ -320,6 +330,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1957-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("clancy", "jackie"),
       },
       {
@@ -330,6 +341,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1957-01-02", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("clancy", "jackie"),
       },
       // A shared child so Homer & Marge form a parent union.
@@ -341,6 +353,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1985-04-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("vm_homer", "marge"),
       },
     ];
@@ -372,6 +385,7 @@ describe("getLayoutedElements", () => {
         imageData: null,
         date: { birth: "1990-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: { paternalParent: null, maternalParent: null },
         additionalData: null,
         birthplace: null,
@@ -417,6 +431,7 @@ describe("getLayoutedElements", () => {
       isCollapsed: false,
       position: { x: 0, y: 0 },
       deceased: false,
+      adopted: false,
       parents: { paternalParent: null, maternalParent: null },
     };
 
@@ -460,6 +475,7 @@ describe("getLayoutedElements", () => {
       isCollapsed: false,
       position: { x: 0, y: 0 },
       deceased: false,
+      adopted: false,
       parents: { paternalParent: null, maternalParent: null },
     };
 
@@ -521,6 +537,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1920-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       {
@@ -531,6 +548,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1925-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       // The Bouvier sisters' parents.
@@ -542,6 +560,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1930-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       {
@@ -552,6 +571,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1932-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents(null, null),
       },
       // Merged node — only child of Abe & Mona — married to Marge.
@@ -563,6 +583,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1956-05-12", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("abe", "mona"),
         relations: [
           {
@@ -581,6 +602,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1959-03-19", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("clancy", "jackie"),
       },
       {
@@ -591,6 +613,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1957-01-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("clancy", "jackie"),
       },
       {
@@ -601,6 +624,7 @@ describe("getLayoutedElements", () => {
         gender: "f",
         date: { birth: "1957-01-02", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("clancy", "jackie"),
       },
       // A shared child so Homer & Marge form a parent union.
@@ -612,6 +636,7 @@ describe("getLayoutedElements", () => {
         gender: "m",
         date: { birth: "1985-04-01", death: null },
         deceased: false,
+        adopted: false,
         parents: parents("vm_homer", "marge"),
       },
     ];
@@ -649,6 +674,7 @@ describe("getLayoutedElements", () => {
       isCollapsed: false,
       position: { x: 0, y: 0 },
       deceased: false,
+      adopted: false,
       parents: { paternalParent: null, maternalParent: null },
     };
 

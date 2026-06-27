@@ -175,12 +175,12 @@ def test_relation_valid_path(client, db):
     res = client.post(
         f"{API}/trees/{tree.id}/relations",
         headers=auth(user),
-        json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "sibling"},
+        json={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "other"},
     )
     assert res.status_code == 201
     assert res.json()["from_member_id"] == "m1"
     assert res.json()["to_member_id"] == "m2"
-    assert res.json()["relation_type"] == "sibling"
+    assert res.json()["relation_type"] == "other"
 
 
 def test_surface_list_omits_detail_fields(client, db):

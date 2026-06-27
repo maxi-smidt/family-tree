@@ -48,6 +48,7 @@ export interface Member {
   maidenName: string | null;
   imageData: string | null;
   deceased: boolean;
+  adopted: boolean;
   date: {
     birth: string;
     death: string | null;
@@ -125,6 +126,7 @@ export interface MemberDB {
   dateOfBirthSort?: string | null;
   dateOfDeathSort?: string | null;
   deceased: boolean;
+  adopted: boolean;
   additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
@@ -159,6 +161,7 @@ export interface MemberUpdate {
   dateOfBirth?: string;
   dateOfDeath?: string | null;
   deceased?: boolean;
+  adopted?: boolean;
   paternalParentId?: string | null;
   maternalParentId?: string | null;
   additionalData?: string | null;
@@ -196,6 +199,7 @@ export function mapMemberFromDB(
     maidenName: row.maidenName,
     imageData: row.imageData,
     deceased: !!row.deceased,
+    adopted: !!row.adopted,
     date: {
       birth: row.dateOfBirth ?? "",
       death: row.dateOfDeath,
@@ -244,6 +248,7 @@ export function mapMemberToDB(member: Member): MemberDB {
     dateOfBirth: member.date.birth || null,
     dateOfDeath: member.date.death,
     deceased: member.deceased,
+    adopted: member.adopted,
     positionX: member.position.x,
     positionY: member.position.y,
     additionalData: member.additionalData ? member.additionalData : null,
@@ -267,6 +272,7 @@ export function createMember(position: { x: number; y: number }): Member {
     maidenName: null,
     imageData: null,
     deceased: false,
+    adopted: false,
     date: { birth: "", death: null },
     parents: { paternalParent: null, maternalParent: null },
     additionalData: null,

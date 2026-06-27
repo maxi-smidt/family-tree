@@ -11,6 +11,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- **Adopted member flag** — members can now be marked as adopted when adding or editing them via a new "Adopted" toggle in the member form (Life tab).
+
+### Removed
+
+- **Sibling / half-sibling / step-sibling stored connection types** — these horizontal relation types are now derived from the family tree's parent graph (as they always were for display) and can no longer be created as explicit connections. Existing stored rows of these types are deleted by the migration; they remain fully visible as computed relationships.
+
+### Added
+
 - **Custom statistics widgets** — users can now build their own chart widgets in the Statistics view with a simple pivot builder: pick a chart type (bar, pie, line, area) and the controls adapt to it — cartesian charts ask for an X-axis dimension to group by (gender, birth/death decade, birth year, age at death, birthplace, hometown, name, living/deceased, academic title) and a Y-axis measure (member count, average lifespan, average age), while pie charts ask what to "slice by" and the slice size. Cartesian charts also support an optional breakdown for multi-series charts, with a stacked/grouped toggle for bar and area charts. Includes color, title, axis labels, and a live preview. Custom widgets live alongside built-in widgets and can be reordered, hidden, edited, duplicated, or deleted.
 - **Shareable statistics widgets** — custom widgets can be exported to a JSON file (individually or all at once) and imported back, so widget designs can be backed up or shared between trees and users. Imported files are validated, and any entry referencing an unknown chart type, dimension, or measure is safely skipped.
 - **Connection mode kinship display** — when a path is found between two selected members in connection mode, a banner now shows the human-readable relationship (e.g. "Anna is the grandmother of Carl"), gendered by the member's gender setting.

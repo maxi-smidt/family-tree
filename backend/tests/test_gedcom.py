@@ -360,16 +360,15 @@ class TestServiceRoundTrip:
         ]
         assert len(parent_rels) == 1
 
-    def test_sibling_relation_preserved(self):
-        tom_id = self._get_id("Tom", "Smith")
-        sara_id = self._get_id("Sara", "Smith")
+    def test_sibling_relation_not_imported(self):
+        """Sibling relations are derived from shared parents, not stored as
+        explicit rows.  The GEDCOM exporter may emit a _REL record for them, but
+        the importer must skip it so the DB stays clean."""
         sibling_rels = [
             r for r in self.parsed["relations"]
             if r["relation_type"] == "sibling"
-            and r["from_member_id"] == tom_id
-            and r["to_member_id"] == sara_id
         ]
-        assert len(sibling_rels) == 1
+        assert len(sibling_rels) == 0
 
     def test_child1_parents_are_correct(self):
         tom_id = self._get_id("Tom", "Smith")
