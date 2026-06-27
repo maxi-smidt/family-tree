@@ -19,6 +19,7 @@ import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
+import { ConnectionRelationCard } from "@/components/view/tree-view/ConnectionRelationCard";
 import { MemberSheet } from "@/components/shared/member-sheet/MemberSheet";
 import { FamilyNode } from "@/components/view/tree-view/node/FamilyNode";
 import {
@@ -49,6 +50,12 @@ import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
 
+interface FlowPanelProps {
+  // Chromeless, purely-visual rendering for the public read-only tree view:
+  // no member sheet, no edit dialogs, no node action buttons.
+  publicView?: boolean;
+}
+
 // Stable reference for "no connection-path highlight". findConnectionPathHighlight
 // returns a fresh (often empty) Set on every members change; passing that straight
 // into useFlowEdges would re-derive viewEdges from a still-stale baseEdges during the
@@ -56,7 +63,7 @@ const edgeTypes = { relation: RelationEdge };
 // An empty highlight set has no visual effect, so we collapse it to one shared instance.
 const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
-export const FlowPanel = () => {
+export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
   const activeTree = useTreeStore((s) => s.selectedTree);
   const availableTreeCount = useTreeStore(
@@ -177,6 +184,11 @@ export const FlowPanel = () => {
           return {
             id: u.id,
             type: "unionNode",
+            // Hide the union dot when a partner is collapsed away, so it does
+            // not linger with dangling connector edges.
+            hidden:
+              hiddenNodeIds.has(u.partner1Id) ||
+              hiddenNodeIds.has(u.partner2Id),
             position: {
               x: (p1.x + p2.x) / 2 + NODE_WIDTH / 2 - UNION_NODE_SIZE / 2,
               // Center the dot at the average mid-height of the partner cards
@@ -242,8 +254,23 @@ export const FlowPanel = () => {
       connection.connectionPath.edgeKeys,
       connection.hasConnectionPath,
       connection.isConnectionMode,
+      hiddenNodeIds,
     ],
   );
+
+  // Collapsed ancestors hide their descendant member nodes (handled in
+  // useFlowNodes) and the union dots between them (above). Edges touching any
+  // hidden member/union must also be hidden, otherwise React Flow keeps drawing
+  // floating lines. Union ids are hidden when either partner is hidden.
+  const hiddenElementIds = useMemo(() => {
+    const ids = new Set<string>(hiddenNodeIds);
+    for (const u of unions) {
+      if (hiddenNodeIds.has(u.partner1Id) || hiddenNodeIds.has(u.partner2Id)) {
+        ids.add(u.id);
+      }
+    }
+    return ids;
+  }, [hiddenNodeIds, unions]);
 
   const viewNodes = useFlowNodes(
     nodes,
@@ -260,12 +287,14 @@ export const FlowPanel = () => {
     connection.isConnectionMode,
     connection.hasConnectionPath,
     hiddenNodeIds,
+    publicView,
   );
   const viewEdges = useFlowEdges(
     baseEdges,
     connection.connectionPath.edgeKeys.size > 0
       ? connection.connectionPath.edgeKeys
       : EMPTY_EDGE_KEYS,
+    hiddenElementIds,
   );
 
   const {
@@ -457,6 +486,25 @@ export const FlowPanel = () => {
             )}
           </div>
         </Panel>
+        {connection.isConnectionMode &&
+          connection.connectionRelations.length > 0 && (
+            <Panel position="top-center" className="!top-2 pointer-events-none">
+              {/* Cap the stack at ~3 cards; scroll the rest so many selected
+                  members don't overflow the canvas. */}
+              <div className="pointer-events-auto flex max-h-[15rem] flex-col gap-2 overflow-y-auto px-1 py-1">
+                {connection.connectionRelations.map((rel) => (
+                  <ConnectionRelationCard
+                    key={`${rel.aId}|${rel.bId}`}
+                    relation={rel}
+                    onLocate={(id) => {
+                      const target = members.find((m) => m.id === id);
+                      if (target) locator.locateMember(target);
+                    }}
+                  />
+                ))}
+              </div>
+            </Panel>
+          )}
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
           <FlowPanelControls
             navigationOnly={isCanvasReadOnly}
@@ -479,27 +527,33 @@ export const FlowPanel = () => {
           </Panel>
         )}
       </ReactFlow>
-      <RemoveMemberDialog
-        isOpen={!!membersToDelete.length}
-        members={membersToDelete}
-        onConfirm={confirmDelete}
-        onCancel={() => setMembersToDelete([])}
-      />
-      <MemberSheet
-        isOpen={!!pending.editingMember}
-        onClose={pending.closeSheet}
-        member={pending.editingMember}
-        initialEditMode={pending.isEditMode}
-        canEdit={!isMobile && canWrite}
-        isNewMember={pending.isNewMemberSession}
-        onDiscardNewMember={pending.discardNewMember}
-        onSaveNewMember={pending.saveNewMember}
-      />
-      <AddRelationDialog
-        isOpen={relation.isDialogOpen}
-        onClose={relation.closeDialog}
-        onConfirm={relation.confirmRelation}
-      />
+      {/* The public read-only view is purely visual: no detail sheet or edit
+          dialogs are mounted. */}
+      {!publicView && (
+        <>
+          <RemoveMemberDialog
+            isOpen={!!membersToDelete.length}
+            members={membersToDelete}
+            onConfirm={confirmDelete}
+            onCancel={() => setMembersToDelete([])}
+          />
+          <MemberSheet
+            isOpen={!!pending.editingMember}
+            onClose={pending.closeSheet}
+            member={pending.editingMember}
+            initialEditMode={pending.isEditMode}
+            canEdit={!isMobile && canWrite}
+            isNewMember={pending.isNewMemberSession}
+            onDiscardNewMember={pending.discardNewMember}
+            onSaveNewMember={pending.saveNewMember}
+          />
+          <AddRelationDialog
+            isOpen={relation.isDialogOpen}
+            onClose={relation.closeDialog}
+            onConfirm={relation.confirmRelation}
+          />
+        </>
+      )}
     </div>
   );
 

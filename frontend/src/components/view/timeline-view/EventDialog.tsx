@@ -26,10 +26,11 @@ import {
   CUSTOM_EVENT_TYPE,
   getEventTypeInfo,
 } from "@/types/eventTypes";
-import { DatePicker } from "@/components/ui/date-picker";
+import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
 import { getMemberOptions } from "@/utils/memberUtils";
+import { isValidPartialDate } from "@/utils/dateUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId } from "@/hooks/useTreeStore";
 
@@ -59,6 +60,7 @@ export const EventDialog = ({
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [customLabel, setCustomLabel] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [dateError, setDateError] = useState<string | null>(null);
   const [geocodeStatus, setGeocodeStatus] = useState<
     "idle" | "checking" | "found" | "not-found"
   >("idle");
@@ -94,6 +96,7 @@ export const EventDialog = ({
       setSelectedCategory("");
       setCustomLabel("");
       setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
+      setDateError(null);
       setGeocodeStatus("idle");
       setGeocodeDisplayName(null);
     }
@@ -129,6 +132,13 @@ export const EventDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isValidPartialDate(formData.date)) {
+      setDateError(tDialog("date-invalid"));
+      return;
+    }
+    setDateError(null);
+
     const eventInput: EventInput = {
       ...formData,
       eventType: effectiveEventType,
@@ -141,12 +151,6 @@ export const EventDialog = ({
     }
 
     onOpenChange(false);
-  };
-
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      setFormData({ ...formData, date: date.toISOString().split("T")[0] });
-    }
   };
 
   const isSubmitDisabled =
@@ -222,11 +226,16 @@ export const EventDialog = ({
 
             <div className="space-y-2">
               <Label htmlFor="date">{tDialog("date")} *</Label>
-              <DatePicker
+              <PartialDatePicker
                 placeholder={tDialog("date-placeholder")}
-                value={new Date(formData.date)}
-                onChange={handleDateChange}
+                value={formData.date || null}
+                onChange={(value) =>
+                  setFormData({ ...formData, date: value ?? "" })
+                }
               />
+              {dateError && (
+                <p className="text-sm text-destructive">{dateError}</p>
+              )}
             </div>
 
             <div className="space-y-2">

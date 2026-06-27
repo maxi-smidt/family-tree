@@ -7,6 +7,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [1.3.1] - 2026-06-27
+
+### Changed
+
+- **Public shared trees now show the interactive tree** — opening a tree shared with public read-only access renders the real, pannable/zoomable family tree (nodes and connections) instead of a flat list of member cards. The public view is purely visual: no tabs, sidebar, editing, or member detail pop-ups.
+
+### Fixed
+
+- **Collapsed nodes no longer leave dangling lines** — when a member is collapsed, the relationship lines and union markers connecting to its now-hidden descendants are hidden too, instead of floating disconnected on the canvas.
+
+## [1.3.0] - 2026-06-27
+
+### Added
+
+- **Adopted member flag** — members can now be marked as adopted when adding or editing them via a new "Adopted" toggle in the member form (Life tab).
+- **Custom statistics widgets** — users can now build their own chart widgets in the Statistics view with a simple pivot builder: pick a chart type (bar, pie, line, area) and the controls adapt to it — cartesian charts ask for an X-axis dimension to group by (gender, birth/death decade, birth year, age at death, birthplace, hometown, name, living/deceased, academic title) and a Y-axis measure (member count, average lifespan, average age), while pie charts ask what to "slice by" and the slice size. Cartesian charts also support an optional breakdown for multi-series charts, with a stacked/grouped toggle for bar and area charts. Includes color, title, axis labels, and a live preview. Custom widgets live alongside built-in widgets and can be reordered, hidden, edited, duplicated, or deleted.
+- **Shareable statistics widgets** — custom widgets can be exported to a JSON file (individually or all at once) and imported back, so widget designs can be backed up or shared between trees and users. Imported files are validated, and any entry referencing an unknown chart type, dimension, or measure is safely skipped.
+- **Connection mode kinship display** — when a path is found between two selected members in connection mode, a banner now shows the human-readable relationship (e.g. "Anna is the grandmother of Carl"), gendered by the member's gender setting.
+- **Extended connection mode kinship** — connection mode now also recognizes partner (husband/wife/spouse/ex-), in-law (parent-in-law, child-in-law, sibling-in-law), and step relationships (step-parent, step-child, step-sibling) on top of blood relations.
+- **Connection mode relative fallback** — connected members who share no precise kinship term (blood, partner, in-law, or step) now appear in the banner as "relative" or "distant relative", so connection mode always explains a found connection.
+
+### Changed
+
+- **Event partial-date picker** — event dates now support imprecise/partial dates (year, month+year, or full date) via the same picker used for member birth/death dates; the timeline sort is also updated to handle partial-date strings correctly (year-only, month+year, and full-date events now sort into the right chronological order).
+
+### Removed
+
+- **Sibling / half-sibling / step-sibling stored connection types** — these horizontal relation types are now derived from the family tree's parent graph (as they always were for display) and can no longer be created as explicit connections. Existing stored rows of these types are deleted by the migration; they remain fully visible as computed relationships.
+
+### Fixed
+
+- **Tree auto layout confirmation** — the Arrange members action now asks for confirmation before moving member cards, preventing accidental layout changes.
+- **GEDCOM import preserves the adopted flag** — members imported from a GEDCOM file are now marked as adopted when their child-to-family link uses `PEDI adopted` or carries an `ADOP` event, and export emits this so the flag survives an export/import round-trip.
+- **Partial-date validation** — event and member dates with impossible month or day values (e.g. month 13, February 30, or February 29 in a non-leap year) are now rejected instead of accepted as valid.
+
 ## [1.2.0] - 2026-06-25
 
 Performance and scalability release focused on very large trees and multi-worker
@@ -224,6 +259,7 @@ exploring family history through an interactive visual tree.
 - Object-level permission enforcement on shared trees.
 - Encrypted tree export bundles.
 
+[1.3.0]: https://github.com/maxi-smidt/family-tree/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/maxi-smidt/family-tree/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/maxi-smidt/family-tree/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/maxi-smidt/family-tree/releases/tag/v1.0.0

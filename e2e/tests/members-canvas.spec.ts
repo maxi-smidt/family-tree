@@ -145,7 +145,11 @@ canvasTest(
     await popover.getByRole("button", { name: "Y", exact: true }).click();
     await popover.getByRole("button", { name: "2020", exact: true }).click();
 
-    await sheet.getByRole("switch").click();
+    await sheet
+      .locator('[data-slot="field"]')
+      .filter({ hasText: "Deceased" })
+      .getByRole("switch")
+      .click();
     const deathField = sheet
       .locator('[data-slot="field"]')
       .filter({ hasText: "Date of Death" });
@@ -268,11 +272,7 @@ interface RelationRecord {
   relation_type: string;
 }
 
-async function deleteEdgeViaCanvas(
-  page: Page,
-  treeId: string,
-  edgeId: string,
-) {
+async function deleteEdgeViaCanvas(page: Page, treeId: string, edgeId: string) {
   const deleteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&
@@ -281,7 +281,9 @@ async function deleteEdgeViaCanvas(
   );
   // React Flow renders a wide, transparent interaction path per edge that is
   // the reliable click target (the visible stroke is too thin to hit).
-  const interaction = edge(page, edgeId).locator(".react-flow__edge-interaction");
+  const interaction = edge(page, edgeId).locator(
+    ".react-flow__edge-interaction",
+  );
   if (await interaction.count()) {
     await interaction.click({ force: true });
   } else {
@@ -330,21 +332,27 @@ canvasTest.fixme(
       positionX: 850,
       positionY: 150,
     });
-    // Sibling (rel:) — non-couple relation rendered as a direct edge.
-    const siblingA = await createMember(secondApi, ownedTree.id, {
-      firstName: "Sibling",
+    // Other (rel:) — non-couple relation rendered as a direct edge.
+    const otherA = await createMember(secondApi, ownedTree.id, {
+      firstName: "Other",
       lastName: "One",
       positionX: 550,
       positionY: 450,
     });
-    const siblingB = await createMember(secondApi, ownedTree.id, {
-      firstName: "Sibling",
+    const otherB = await createMember(secondApi, ownedTree.id, {
+      firstName: "Other",
       lastName: "Two",
       positionX: 850,
       positionY: 450,
     });
 
-    await createRelation(secondApi, ownedTree.id, child.id, parent.id, "parent");
+    await createRelation(
+      secondApi,
+      ownedTree.id,
+      child.id,
+      parent.id,
+      "parent",
+    );
     await createRelation(
       secondApi,
       ownedTree.id,
@@ -355,9 +363,9 @@ canvasTest.fixme(
     await createRelation(
       secondApi,
       ownedTree.id,
-      siblingA.id,
-      siblingB.id,
-      "sibling",
+      otherA.id,
+      otherB.id,
+      "other",
     );
 
     // Use a large viewport so none of the spread-out nodes are culled by
@@ -368,28 +376,28 @@ canvasTest.fixme(
     // Frame the whole tree so every node (and therefore every edge) is mounted.
     await page.getByRole("button", { name: "Fit view" }).click();
 
-    // Sibling edges are hidden by default — enable them through the controls.
+    // Other edges are hidden by default — enable them through the controls.
     await page.getByRole("button", { name: "Visible Relations" }).click();
     await page
-      .getByRole("menuitemcheckbox", { name: "Sibling", exact: true })
+      .getByRole("menuitemcheckbox", { name: "Other", exact: true })
       .click();
     await page.keyboard.press("Escape");
 
     const parentEdge = `e:${parent.id}:${child.id}`;
     const partnerUnion = unionId(partnerA.id, partnerB.id);
     const partnerEdge = `ue:${partnerUnion}:left`;
-    const siblingPair = [siblingA.id, siblingB.id].sort().join("-");
-    const siblingEdge = `rel:${siblingPair}:sibling`;
+    const otherPair = [otherA.id, otherB.id].sort().join("-");
+    const otherEdge = `rel:${otherPair}:other`;
 
     await expect(edge(page, parentEdge)).toHaveCount(1);
     await expect(edge(page, partnerEdge)).toHaveCount(1);
-    await expect(edge(page, siblingEdge)).toHaveCount(1);
+    await expect(edge(page, otherEdge)).toHaveCount(1);
 
     // Delete each edge through the canvas UI.
     await deleteEdgeViaCanvas(page, ownedTree.id, parentEdge);
     await expect(edge(page, parentEdge)).toHaveCount(0);
     await deleteEdgeViaCanvas(page, ownedTree.id, partnerEdge);
-    await deleteEdgeViaCanvas(page, ownedTree.id, siblingEdge);
+    await deleteEdgeViaCanvas(page, ownedTree.id, otherEdge);
 
     // Reload to force a fresh derive from the backend: under the original bug
     // the relations survived server-side and the edges would reappear here.
@@ -400,7 +408,7 @@ canvasTest.fixme(
     await expect(memberNode(page, child.id)).toBeVisible();
     await expect(edge(page, parentEdge)).toHaveCount(0);
     await expect(memberNode(page, partnerUnion)).toHaveCount(0);
-    await expect(edge(page, siblingEdge)).toHaveCount(0);
+    await expect(edge(page, otherEdge)).toHaveCount(0);
 
     // And confirm they are gone on the backend, not just hidden locally.
     const relations = await getRelations(secondApi, ownedTree.id);
@@ -413,7 +421,7 @@ canvasTest.fixme(
       );
     expect(hasRelation(child.id, parent.id, "parent")).toBe(false);
     expect(hasRelation(partnerA.id, partnerB.id, "partner")).toBe(false);
-    expect(hasRelation(siblingA.id, siblingB.id, "sibling")).toBe(false);
+    expect(hasRelation(otherA.id, otherB.id, "other")).toBe(false);
   },
 );
 
