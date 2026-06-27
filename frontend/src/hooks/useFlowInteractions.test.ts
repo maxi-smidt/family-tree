@@ -29,6 +29,7 @@ function makeMember(id: string, overrides: Partial<Member> = {}): Member {
     maidenName: null,
     imageData: null,
     deceased: false,
+    adopted: false,
     date: { birth: "", death: null },
     parents: { paternalParent: null, maternalParent: null },
     additionalData: null,

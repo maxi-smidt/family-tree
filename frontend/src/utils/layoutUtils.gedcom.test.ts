@@ -29,6 +29,7 @@ const ROBERT: Member = {
   hometown: null,
   placesLived: [],
   deceased: false,
+  adopted: false,
   isCollapsed: false,
   position: { x: 0, y: 0 },
   relations: [
@@ -53,6 +54,7 @@ const MARY: Member = {
   hometown: null,
   placesLived: [],
   deceased: false,
+  adopted: false,
   isCollapsed: false,
   position: { x: 0, y: 0 },
   relations: [],
@@ -75,6 +77,7 @@ const JOE: Member = {
   hometown: null,
   placesLived: [],
   deceased: false,
+  adopted: false,
   isCollapsed: false,
   position: { x: 0, y: 0 },
   relations: [
