@@ -13,6 +13,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - **Tree-in-tree links** — a member can now be linked to another tree that details their own family (e.g. a spouse who married in, whose ancestry is a separate tree). Link an existing tree you can access or create and link a brand-new one from the member's Relations tab; linked members show a badge on their node, and clicking it navigates into the linked tree with a breadcrumb to jump back. Gated by the admin-managed `tree_links` feature flag.
 
+### Fixed
+
+- **Collapsed nodes no longer leave dangling lines** — when a member is collapsed, the relationship lines and union markers connecting to its now-hidden descendants are hidden too, instead of floating disconnected on the canvas.
+
 ## [1.3.0] - 2026-06-27
 
 ### Added
