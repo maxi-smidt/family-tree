@@ -38,6 +38,7 @@ export const useFlowNodes = (
   isConnectionMode = false,
   hasConnectionPath = false,
   hiddenNodeIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
+  onOpenLinkedTree?: (treeId: string) => void,
 ) => {
   const { t } = useTranslation();
 
@@ -51,6 +52,8 @@ export const useFlowNodes = (
           }
         : {};
 
+      const linkedTreeId = (node.data as Member).linkedTreeId ?? null;
+
       return {
         ...node,
         ...memberA11yProps,
@@ -59,6 +62,12 @@ export const useFlowNodes = (
         data: {
           ...node.data,
           isHighlighted: node.id === highlightedNodeId,
+          // The tree-in-tree badge is interactive even for viewers (navigation
+          // is a read action).
+          onOpenLinkedTree:
+            linkedTreeId && onOpenLinkedTree
+              ? () => onOpenLinkedTree(linkedTreeId)
+              : undefined,
           isConnectionSelected: connectionSelectedIds.has(node.id),
           isConnectionPath: connectionPathNodeIds.has(node.id),
           isConnectionDimmed:
@@ -114,6 +123,7 @@ export const useFlowNodes = (
     isConnectionMode,
     hasConnectionPath,
     hiddenNodeIds,
+    onOpenLinkedTree,
     t,
   ]);
 };

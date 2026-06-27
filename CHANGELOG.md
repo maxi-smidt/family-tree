@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Added
+
+- **Tree-in-tree links** — a member can now be linked to another tree that details their own family (e.g. a spouse who married in, whose ancestry is a separate tree). Link an existing tree you can access or create and link a brand-new one from the member's Relations tab; linked members show a badge on their node, and clicking it navigates into the linked tree with a breadcrumb to jump back. Gated by the admin-managed `tree_links` feature flag.
+
 ## [1.3.0] - 2026-06-27
 
 ### Added

@@ -64,6 +64,10 @@ export interface Member {
   hometown: string | null;
   placesLived: PlaceLived[];
   isCollapsed: boolean;
+  // Tree-in-tree: optional pointer to another tree detailing this person's
+  // own family. null when unlinked. Optional so existing object literals (e.g.
+  // in tests) need not specify it; the DB mapping always populates it.
+  linkedTreeId?: string | null;
   position: {
     x: number;
     y: number;
@@ -83,6 +87,7 @@ export interface Member {
   onAddParent?: () => void;
   onAddLeft?: () => void;
   onAddRight?: () => void;
+  onOpenLinkedTree?: () => void;
   [key: string]: unknown;
 }
 
@@ -134,6 +139,7 @@ export interface MemberDB {
   isCollapsed: number;
   positionX: number;
   positionY: number;
+  linkedTreeId?: string | null;
   // Only present for members returned by virtual view endpoints.
   sourceTreeId?: string;
   sourceTreeName?: string;
@@ -171,6 +177,7 @@ export interface MemberUpdate {
   isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
+  linkedTreeId?: string | null;
 }
 
 function parsePlacesLived(raw: string | null | undefined): PlaceLived[] {
@@ -215,6 +222,7 @@ export function mapMemberFromDB(
     hometown: row.hometown ?? null,
     placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
+    linkedTreeId: row.linkedTreeId ?? null,
     position: {
       x: row.positionX,
       y: row.positionY,
@@ -257,6 +265,7 @@ export function mapMemberToDB(member: Member): MemberDB {
     placesLived:
       member.placesLived.length > 0 ? JSON.stringify(member.placesLived) : null,
     isCollapsed: member.isCollapsed ? 1 : 0,
+    linkedTreeId: member.linkedTreeId ?? null,
   };
 }
 
@@ -280,6 +289,7 @@ export function createMember(position: { x: number; y: number }): Member {
     hometown: null,
     placesLived: [],
     isCollapsed: false,
+    linkedTreeId: null,
     position: position,
   };
 }

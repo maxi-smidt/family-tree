@@ -45,6 +45,8 @@ import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { useFeature } from "@/hooks/useAuthStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
@@ -59,6 +61,7 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = () => {
   const { t } = useTranslation();
+  const treeLinksEnabled = useFeature("tree_links");
   const activeTree = useTreeStore((s) => s.selectedTree);
   const availableTreeCount = useTreeStore(
     (s) => s.trees.length + s.virtualViews.length,
@@ -246,6 +249,19 @@ export const FlowPanel = () => {
     ],
   );
 
+  const openLinkedTree = useTreeStore((s) => s.openLinkedTree);
+  const handleOpenLinkedTree = useMemo(
+    () =>
+      treeLinksEnabled
+        ? (treeId: string) => {
+            void openLinkedTree(treeId).catch(() => {
+              toast.error(t("tree-view.linked-tree.open-error"));
+            });
+          }
+        : undefined,
+    [treeLinksEnabled, openLinkedTree, t],
+  );
+
   const viewNodes = useFlowNodes(
     nodes,
     pending.setEditingMemberId,
@@ -261,6 +277,7 @@ export const FlowPanel = () => {
     connection.isConnectionMode,
     connection.hasConnectionPath,
     hiddenNodeIds,
+    handleOpenLinkedTree,
   );
   const viewEdges = useFlowEdges(
     baseEdges,

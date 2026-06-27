@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ShieldAlert,
   Dna,
+  Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
@@ -117,6 +118,13 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     stopCanvasGesture(event);
     if (data.onView && typeof data.onView === "function") {
       data.onView();
+    }
+  };
+
+  const onOpenLinkedTreeClick = (event: MouseEvent<HTMLButtonElement>) => {
+    stopCanvasGesture(event);
+    if (data.onOpenLinkedTree && typeof data.onOpenLinkedTree === "function") {
+      data.onOpenLinkedTree();
     }
   };
 
@@ -252,17 +260,33 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         data-export-hide="true"
       />
       <div className="absolute top-2 flex justify-between w-full px-2" data-export-hide="true">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          aria-label={t("view-details")}
-          className="nodrag nopan"
-          onPointerDown={stopCanvasGesture}
-          onClick={onViewClick}
-        >
-          <EyeIcon />
-        </Button>
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            aria-label={t("view-details")}
+            className="nodrag nopan"
+            onPointerDown={stopCanvasGesture}
+            onClick={onViewClick}
+          >
+            <EyeIcon />
+          </Button>
+          {typeof data.onOpenLinkedTree === "function" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={t("open-linked-tree")}
+              title={t("open-linked-tree")}
+              className="nodrag nopan"
+              onPointerDown={stopCanvasGesture}
+              onClick={onOpenLinkedTreeClick}
+            >
+              <Network />
+            </Button>
+          )}
+        </div>
         {!data.isReadOnly && (
           <Button
             type="button"

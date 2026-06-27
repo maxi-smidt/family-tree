@@ -10,6 +10,7 @@ from app.api.deps import (
     get_readable_tree_public,
     get_writable_tree,
     require_domain,
+    role_for,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
@@ -79,6 +80,36 @@ def _get_member(db: Session, tree: Tree, member_id: str) -> Member:
     return member
 
 
+def _validate_linked_tree(
+    db: Session, tree: Tree, user: User, linked_tree_id: str | None
+) -> None:
+    """Validate a tree-in-tree link target before it is persisted.
+
+    A null id (clearing the link) is always allowed. Otherwise the ``tree_links``
+    feature must be enabled, the target must exist and be readable by the user,
+    and a member may not link to its own tree.
+    """
+    if linked_tree_id is None:
+        return
+    from app.services import feature_service  # noqa: PLC0415
+
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    if linked_tree_id == tree.id:
+        raise HTTPException(
+            status_code=400, detail="A member cannot link to its own tree"
+        )
+    target = db.get(Tree, linked_tree_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Linked tree not found")
+    if (
+        not user.is_admin
+        and role_for(db, target, user) is None
+        and target.public_role != "viewer"
+    ):
+        raise HTTPException(status_code=403, detail="No access to linked tree")
+
+
 # --- Members ---------------------------------------------------------------
 @router.get("/members", response_model=list[MemberOut])
 def list_members(
@@ -109,6 +140,7 @@ def create_member(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
+    _validate_linked_tree(db, tree, user, data.get("linked_tree_id"))
     new_image_url: str | None = None
     try:
         new_image_url_candidate = process_image_field(
@@ -331,6 +363,8 @@ def update_member(
 ):
     member = _get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
+    if "linked_tree_id" in changes:
+        _validate_linked_tree(db, tree, user, changes["linked_tree_id"])
     new_image_url: str | None = None
     if "image_data" in changes:
         try:
