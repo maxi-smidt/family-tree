@@ -325,3 +325,55 @@ def test_member_detail_endpoint(client, db):
     assert data["additionalData"] == "detailed notes"
     assert data["birthplace"] == "Hamburg"
     assert data["firstName"] == "Jo"
+
+
+def test_link_member_to_accessible_tree(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1")
+
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedTreeId": other.id},
+    )
+    assert res.status_code == 200
+    assert res.json()["linkedTreeId"] == other.id
+
+    # Clearing the link is allowed.
+    cleared = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedTreeId": None},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["linkedTreeId"] is None
+
+
+def test_cannot_link_member_to_own_tree(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedTreeId": main.id},
+    )
+    assert res.status_code == 400
+
+
+def test_cannot_link_member_to_inaccessible_tree(client, db):
+    owner = make_user(db, "alice")
+    stranger = make_user(db, "bob")
+    main = make_tree(db, owner, "Main")
+    private_other = make_tree(db, stranger, "Strangers")
+    _create_member(client, main, owner, "m1")
+
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(owner),
+        json={"linkedTreeId": private_other.id},
+    )
+    assert res.status_code == 403

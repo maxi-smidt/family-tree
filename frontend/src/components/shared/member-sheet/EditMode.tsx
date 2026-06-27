@@ -44,6 +44,7 @@ import { MemberDiseases } from "./MemberDiseases";
 import { MemberSources } from "./MemberSources";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
+import { LinkedTreeField } from "./LinkedTreeField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
@@ -84,6 +85,8 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
+  const currentTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const treeLinksEnabled = useFeature("tree_links");
   const eventsEnabled =
     useFeature("events") && !restrictions.includes("events");
   const storiesEnabled =
@@ -269,6 +272,7 @@ export const EditMode = ({
             : null,
         paternalParentId: formData.parents.paternalParent,
         maternalParentId: formData.parents.maternalParent,
+        linkedTreeId: formData.linkedTreeId ?? null,
       });
       toast.success(t("toast-success"));
       onSaved?.(formData);
@@ -775,6 +779,17 @@ export const EditMode = ({
                     showBirthDate
                   />
                 </Field>
+
+                {treeLinksEnabled && (
+                  <LinkedTreeField
+                    currentTreeId={currentTreeId}
+                    value={formData.linkedTreeId ?? null}
+                    memberName={`${formData.firstName} ${formData.lastName}`}
+                    onChange={(treeId) =>
+                      handleChange("linkedTreeId", treeId)
+                    }
+                  />
+                )}
               </FieldGroup>
             </TabsContent>
           )}

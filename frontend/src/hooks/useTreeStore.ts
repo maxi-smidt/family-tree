@@ -32,6 +32,12 @@ interface DatabaseMetaData {
   overlapCount?: number;
 }
 
+/** One hop in the tree-in-tree breadcrumb: a tree the user navigated *from*. */
+interface TreeNavEntry {
+  id: string;
+  name: string;
+}
+
 interface DatabaseState {
   trees: Tree[];
   virtualViews: Tree[];
@@ -39,9 +45,18 @@ interface DatabaseState {
   metadata: DatabaseMetaData;
   relationTypes: RelationTypeDB[];
   isReady: boolean;
+  // Ancestor chain for the tree-in-tree feature: the trees the user came from
+  // when following member→tree links. Empty when viewing a top-level tree.
+  treeNavStack: TreeNavEntry[];
 
   loadTrees: () => Promise<void>;
-  createTree: (name: string, id?: string) => Promise<Tree>;
+  createTree: (
+    name: string,
+    id?: string,
+    options?: { select?: boolean },
+  ) => Promise<Tree>;
+  openLinkedTree: (treeId: string) => Promise<void>;
+  navigateToTreeStack: (index: number) => Promise<void>;
   renameTree: (tree: Tree, name: string) => Promise<void>;
   deleteTree: (tree: Tree) => Promise<void>;
   mergeTrees: (
@@ -95,6 +110,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
   metadata: {},
   relationTypes: [],
   isReady: false,
+  treeNavStack: [],
 
   loadTrees: async () => {
     const [trees, virtualViews] = await Promise.all([
@@ -117,11 +133,37 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     }
   },
 
-  createTree: async (name: string, id?: string) => {
+  createTree: async (name: string, id?: string, options?: { select?: boolean }) => {
     const tree = await api.post<Tree>("/trees", { name, id });
     set((s) => ({ trees: [tree, ...s.trees] }));
-    await get().selectTree(tree);
+    // `select: false` lets callers create a tree without switching to it — used
+    // by the tree-in-tree "create & link" action so the current edit context is
+    // preserved.
+    if (options?.select !== false) {
+      await get().selectTree(tree);
+    }
     return tree;
+  },
+
+  // Follow a member→tree link: remember where we came from (breadcrumb), verify
+  // the target is accessible, then switch to it. Throws if the linked tree is
+  // missing or the user has no access, so callers can surface a message.
+  openLinkedTree: async (treeId: string) => {
+    const current = get().selectedTree;
+    if (!current || current.id === treeId) return;
+    const target = await api.get<Tree>(`/trees/${treeId}`);
+    set((s) => ({
+      treeNavStack: [...s.treeNavStack, { id: current.id, name: current.name }],
+    }));
+    await get().connect(target);
+  },
+
+  // Jump back to an ancestor in the breadcrumb, dropping everything below it.
+  navigateToTreeStack: async (index: number) => {
+    const entry = get().treeNavStack[index];
+    if (!entry) return;
+    set((s) => ({ treeNavStack: s.treeNavStack.slice(0, index) }));
+    await get().connect({ id: entry.id, name: entry.name });
   },
 
   renameTree: async (tree: Tree, name: string) => {
@@ -229,6 +271,9 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
   },
 
   selectTree: async (tree: Tree | undefined) => {
+    // Picking a tree directly (e.g. from the database selector) resets the
+    // tree-in-tree breadcrumb; only link-following keeps the ancestor chain.
+    set({ treeNavStack: [] });
     if (!tree) {
       await get().disconnect();
       return;
@@ -323,6 +368,7 @@ export const resetTreeStoreForSession = () => {
     metadata: {},
     relationTypes: [],
     isReady: false,
+    treeNavStack: [],
   });
   clearDataStores();
 };

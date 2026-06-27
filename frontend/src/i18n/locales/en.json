@@ -339,6 +339,10 @@
     "upload-image-card": "Upload Image"
   },
   "layout": {
+    "tree-breadcrumb": {
+      "aria-label": "Linked tree navigation",
+      "untitled": "Untitled tree"
+    },
     "main-panel": {
       "tree": "Tree",
       "list": "List",
@@ -479,6 +483,18 @@
       "maternal-parent-field": "Maternal Parent",
       "parent-placeholder": "Search members…",
       "parent-no-results": "No members found",
+      "linked-tree": {
+        "field-label": "Linked tree",
+        "field-hint": "Link this person to another tree that details their own family.",
+        "placeholder": "Choose a tree…",
+        "none": "Not linked",
+        "external-tree": "Currently linked tree",
+        "unlink": "Remove link",
+        "create-and-link": "Create & link new tree",
+        "new-tree-fallback-name": "New tree",
+        "toast-created": "Created and linked “{{name}}”.",
+        "toast-create-error": "Could not create the linked tree."
+      },
       "birthplace-field": "Birthplace",
       "hometown-field": "Hometown / Where They Grew Up",
       "location-placeholder": "City, region, country…",
@@ -763,7 +779,11 @@
       "add-child": "Add child",
       "add-left": "Add relative on the left",
       "add-right": "Add relative on the right",
+      "open-linked-tree": "Open linked tree",
       "life-deceased-unknown": "Deceased, date of death unknown"
+    },
+    "linked-tree": {
+      "open-error": "That tree could not be opened — it may be private or no longer exist."
     },
     "canvas-label": "Family tree canvas",
     "a11y": {
@@ -1421,7 +1441,8 @@
         "sharing_invites": "Share invitations",
         "map": "Map view",
         "sources": "Sources & Citations",
-        "onboarding_tour": "Onboarding tour"
+        "onboarding_tour": "Onboarding tour",
+        "tree_links": "Tree-in-tree links"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -1435,7 +1456,8 @@
         "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
         "map": "Interactive map of timeline events by location.",
         "sources": "Source citations and evidence records for member facts.",
-        "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features."
+        "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features.",
+        "tree_links": "Link a member to another tree that details their own family, and navigate between them."
       }
     },
     "col-username": "Username",

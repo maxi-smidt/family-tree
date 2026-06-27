@@ -339,6 +339,10 @@
     "upload-image-card": "Bild hochladen"
   },
   "layout": {
+    "tree-breadcrumb": {
+      "aria-label": "Navigation verknüpfter Stammbäume",
+      "untitled": "Unbenannter Stammbaum"
+    },
     "main-panel": {
       "tree": "Stammbaum",
       "list": "Liste",
@@ -479,6 +483,18 @@
       "maternal-parent-field": "Mütterlicherseits",
       "parent-placeholder": "Personen suchen…",
       "parent-no-results": "Keine Personen gefunden",
+      "linked-tree": {
+        "field-label": "Verknüpfter Stammbaum",
+        "field-hint": "Verknüpfe diese Person mit einem anderen Stammbaum, der ihre eigene Familie zeigt.",
+        "placeholder": "Stammbaum auswählen…",
+        "none": "Nicht verknüpft",
+        "external-tree": "Aktuell verknüpfter Stammbaum",
+        "unlink": "Verknüpfung entfernen",
+        "create-and-link": "Neuen Stammbaum erstellen & verknüpfen",
+        "new-tree-fallback-name": "Neuer Stammbaum",
+        "toast-created": "„{{name}}“ erstellt und verknüpft.",
+        "toast-create-error": "Der verknüpfte Stammbaum konnte nicht erstellt werden."
+      },
       "birthplace-field": "Geburtsort",
       "hometown-field": "Heimatort / Aufgewachsen in",
       "location-placeholder": "Stadt, Region, Land…",
@@ -763,7 +779,11 @@
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
       "add-right": "Verwandte Person rechts hinzufügen",
+      "open-linked-tree": "Verknüpften Stammbaum öffnen",
       "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
+    },
+    "linked-tree": {
+      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise privat oder existiert nicht mehr."
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {
@@ -1421,7 +1441,8 @@
         "sharing_invites": "Einladungen teilen",
         "map": "Kartenansicht",
         "sources": "Quellen & Zitate",
-        "onboarding_tour": "Onboarding-Tour"
+        "onboarding_tour": "Onboarding-Tour",
+        "tree_links": "Baum-im-Baum-Verknüpfungen"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1435,7 +1456,8 @@
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
         "sources": "Quellennachweise und Belege für Personendaten.",
-        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
+        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt.",
+        "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen."
       }
     },
     "col-username": "Benutzername",

@@ -37,6 +37,7 @@ class MemberOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
 
 
 class MemberSurfaceOut(FamilyTreeOrmBaseModel):
@@ -85,6 +86,7 @@ class MemberCreate(FamilyTreeBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
 
 
 class MemberUpdate(FamilyTreeBaseModel):
@@ -107,6 +109,7 @@ class MemberUpdate(FamilyTreeBaseModel):
     is_collapsed: bool | None = None
     position_x: float | None = None
     position_y: float | None = None
+    linked_tree_id: str | None = None
 
 
 class MemberPositionUpdate(FamilyTreeBaseModel):

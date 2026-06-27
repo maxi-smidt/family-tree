@@ -38,6 +38,8 @@ export const useFlowNodes = (
   isConnectionMode = false,
   hasConnectionPath = false,
   hiddenNodeIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
+  onOpenLinkedTree?: (treeId: string) => void,
+  purelyVisual = false,
 ) => {
   const { t } = useTranslation();
 
@@ -50,6 +52,8 @@ export const useFlowNodes = (
             ariaRole: "button" as const,
           }
         : {};
+
+      const linkedTreeId = (node.data as Member).linkedTreeId ?? null;
 
       return {
         ...node,
@@ -66,16 +70,25 @@ export const useFlowNodes = (
             hasConnectionPath &&
             !connectionPathNodeIds.has(node.id),
           isReadOnly,
+          // The tree-in-tree badge is interactive even for viewers (navigation
+          // is a read action) but suppressed in the purely-visual public view.
+          onOpenLinkedTree:
+            !purelyVisual && linkedTreeId && onOpenLinkedTree
+              ? () => onOpenLinkedTree(linkedTreeId)
+              : undefined,
           onEdit: isReadOnly
             ? undefined
             : () => {
                 setEditingMemberId(node.id);
                 setIsEditMode(true);
               },
-          onView: () => {
-            setEditingMemberId(node.id);
-            setIsEditMode(false);
-          },
+          // Purely-visual nodes (public view) expose no detail sheet.
+          onView: purelyVisual
+            ? undefined
+            : () => {
+                setEditingMemberId(node.id);
+                setIsEditMode(false);
+              },
           onAddChild: isReadOnly
             ? undefined
             : () => {
@@ -114,6 +127,8 @@ export const useFlowNodes = (
     isConnectionMode,
     hasConnectionPath,
     hiddenNodeIds,
+    onOpenLinkedTree,
+    purelyVisual,
     t,
   ]);
 };
