@@ -26,6 +26,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - **Sibling / half-sibling / step-sibling stored connection types** — these horizontal relation types are now derived from the family tree's parent graph (as they always were for display) and can no longer be created as explicit connections. Existing stored rows of these types are deleted by the migration; they remain fully visible as computed relationships.
 
+### Fixed
+
+- **Partial-date validation** — event and member dates with impossible month or day values (e.g. month 13, February 30, or February 29 in a non-leap year) are now rejected instead of accepted as valid.
+
 ## [1.2.0] - 2026-06-25
 
 Performance and scalability release focused on very large trees and multi-worker
