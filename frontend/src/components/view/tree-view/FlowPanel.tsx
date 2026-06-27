@@ -184,6 +184,11 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           return {
             id: u.id,
             type: "unionNode",
+            // Hide the union dot when a partner is collapsed away, so it does
+            // not linger with dangling connector edges.
+            hidden:
+              hiddenNodeIds.has(u.partner1Id) ||
+              hiddenNodeIds.has(u.partner2Id),
             position: {
               x: (p1.x + p2.x) / 2 + NODE_WIDTH / 2 - UNION_NODE_SIZE / 2,
               // Center the dot at the average mid-height of the partner cards
@@ -249,8 +254,23 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       connection.connectionPath.edgeKeys,
       connection.hasConnectionPath,
       connection.isConnectionMode,
+      hiddenNodeIds,
     ],
   );
+
+  // Collapsed ancestors hide their descendant member nodes (handled in
+  // useFlowNodes) and the union dots between them (above). Edges touching any
+  // hidden member/union must also be hidden, otherwise React Flow keeps drawing
+  // floating lines. Union ids are hidden when either partner is hidden.
+  const hiddenElementIds = useMemo(() => {
+    const ids = new Set<string>(hiddenNodeIds);
+    for (const u of unions) {
+      if (hiddenNodeIds.has(u.partner1Id) || hiddenNodeIds.has(u.partner2Id)) {
+        ids.add(u.id);
+      }
+    }
+    return ids;
+  }, [hiddenNodeIds, unions]);
 
   const viewNodes = useFlowNodes(
     nodes,
@@ -274,6 +294,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     connection.connectionPath.edgeKeys.size > 0
       ? connection.connectionPath.edgeKeys
       : EMPTY_EDGE_KEYS,
+    hiddenElementIds,
   );
 
   const {
