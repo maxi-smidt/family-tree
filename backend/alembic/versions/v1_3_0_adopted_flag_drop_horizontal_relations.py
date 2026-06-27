@@ -1,6 +1,6 @@
-"""add_adopted_column_drop_horizontal_relations
+"""v1.3.0 — add adopted flag, drop stored horizontal relations
 
-Revision ID: 7af05f044f4b
+Revision ID: v1_3_0_adopted_drop_horizontal
 Revises: v1_1_0_relation_type_style
 Create Date: 2026-06-27 08:29:39.170986
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '7af05f044f4b'
+revision: str = 'v1_3_0_adopted_drop_horizontal'
 down_revision: Union[str, None] = 'v1_1_0_relation_type_style'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
