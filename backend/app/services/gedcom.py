@@ -409,9 +409,16 @@ def serialize_to_gedcom(
                                  "birthplace", "hometown", "residence"):
                 L(f"2 _FACT {fact_type}")
 
+        # Adoption event — emitted before FAMC so readers see ADOP in the
+        # individual record regardless of whether a family link exists.
+        if member.get("adopted"):
+            L("1 ADOP")
+
         # FAMC / FAMS pointers
         for fx in child_in_fams.get(mid, []):
             L(f"1 FAMC {fx}")
+            if member.get("adopted"):
+                L("2 PEDI adopted")
         for fx in spouse_in_fams.get(mid, []):
             L(f"1 FAMS {fx}")
 
@@ -682,6 +689,7 @@ def parse_gedcom(text: str) -> dict:
             "is_collapsed": False,
             "position_x": 0.0,
             "position_y": 0.0,
+            "adopted": False,
         }
 
         primary_name_done = False
@@ -785,6 +793,14 @@ def parse_gedcom(text: str) -> dict:
                     elif cont["tag"] == "CONC":
                         parts[-1] = parts[-1] + (cont["value"] or "")
                 member["additional_data"] = "\n".join(parts).strip() or None
+
+            elif tag == "ADOP":
+                member["adopted"] = True
+
+            elif tag == "FAMC":
+                pedi = _child_value(child, "PEDI")
+                if pedi and pedi.strip().lower() == "adopted":
+                    member["adopted"] = True
 
         member["date_of_birth_sort"] = sort_key(member["date_of_birth"])
         member["date_of_death_sort"] = sort_key(member["date_of_death"])
