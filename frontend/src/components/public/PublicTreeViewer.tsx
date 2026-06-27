@@ -4,6 +4,7 @@ import { api } from "@/services/api";
 import { Tree } from "@/types/tree";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 
@@ -90,9 +91,12 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
           <h1 className="text-lg font-bold">{treeName}</h1>
           <p className="text-xs text-muted-foreground">{t("read-only-hint")}</p>
         </div>
-        <Button variant="outline" onClick={handleLogin}>
-          {t("login-button")}
-        </Button>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Button variant="outline" onClick={handleLogin}>
+            {t("login-button")}
+          </Button>
+        </div>
       </header>
       <main className="flex-1 min-h-0">
         <Suspense
