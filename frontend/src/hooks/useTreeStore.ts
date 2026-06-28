@@ -43,6 +43,7 @@ interface DatabaseState {
   loadTrees: () => Promise<void>;
   createTree: (name: string, id?: string) => Promise<Tree>;
   renameTree: (tree: Tree, name: string) => Promise<void>;
+  updateTree: (tree: Tree) => void;
   deleteTree: (tree: Tree) => Promise<void>;
   mergeTrees: (
     name: string,
@@ -129,6 +130,13 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     set((s) => ({
       trees: s.trees.map((t) => (t.id === tree.id ? updated : t)),
       selectedTree: s.selectedTree?.id === tree.id ? updated : s.selectedTree,
+    }));
+  },
+
+  updateTree: (tree: Tree) => {
+    set((s) => ({
+      trees: s.trees.map((t) => (t.id === tree.id ? tree : t)),
+      selectedTree: s.selectedTree?.id === tree.id ? tree : s.selectedTree,
     }));
   },
 
