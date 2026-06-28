@@ -46,7 +46,7 @@ export const FamilyNodeContent = ({
       case "m":
         return <User size={iconSize} className="text-blue-500" />;
       default:
-        return <User size={iconSize} className="text-muted-foreground" />;
+        return <User size={iconSize} />;
     }
   };
 
