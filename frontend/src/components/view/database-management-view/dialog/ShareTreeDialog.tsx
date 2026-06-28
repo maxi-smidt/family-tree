@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { formatDate } from "@/utils/dateUtils";
 import {
@@ -110,6 +110,7 @@ export const ShareTreeDialog = ({
   const [pendingPublicRole, setPendingPublicRole] = useState<"viewer" | null>(
     null,
   );
+  const publicConfirmationActiveRef = useRef(false);
 
   // Any active user other than the current owner is an eligible new owner:
   // existing members plus the share candidates (users without access yet).
@@ -341,8 +342,23 @@ export const ShareTreeDialog = ({
   };
 
   const handlePublicToggle = (checked: boolean) => {
+    publicConfirmationActiveRef.current = true;
     setPendingPublicRole(checked ? "viewer" : null);
     setConfirmPublicOpen(true);
+  };
+
+  const handleShareDialogOpenChange = (open: boolean) => {
+    if (open) return;
+    if (publicConfirmationActiveRef.current) return;
+    onClose();
+  };
+
+  const handlePublicConfirmOpenChange = (open: boolean) => {
+    setConfirmPublicOpen(open);
+    if (!open) {
+      publicConfirmationActiveRef.current = false;
+      setPendingPublicRole(null);
+    }
   };
 
   const handlePublicConfirm = async () => {
@@ -353,11 +369,11 @@ export const ShareTreeDialog = ({
       );
       setPublicRole(updated.public_role ?? null);
       onTreeUpdated?.(updated);
-      setConfirmPublicOpen(false);
+      handlePublicConfirmOpenChange(false);
     } catch (err) {
       console.error(err);
       toast.error(t("public.error"));
-      setConfirmPublicOpen(false);
+      handlePublicConfirmOpenChange(false);
     }
   };
 
@@ -380,7 +396,7 @@ export const ShareTreeDialog = ({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={isOpen} onOpenChange={handleShareDialogOpenChange}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("title", { name: tree.name })}</DialogTitle>
@@ -833,7 +849,10 @@ export const ShareTreeDialog = ({
       </AlertDialog>
 
       {/* Public access confirmation */}
-      <AlertDialog open={confirmPublicOpen} onOpenChange={setConfirmPublicOpen}>
+      <AlertDialog
+        open={confirmPublicOpen}
+        onOpenChange={handlePublicConfirmOpenChange}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
