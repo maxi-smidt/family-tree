@@ -52,6 +52,7 @@ const OTHER_USER = {
 describe("ShareTreeDialog", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
+    Element.prototype.scrollIntoView = vi.fn();
     await i18n.changeLanguage("en");
     useAuthStore.setState({ features: ["sharing_invites"] });
     vi.mocked(TreeSharingService.getSharingData).mockResolvedValue({
@@ -63,8 +64,8 @@ describe("ShareTreeDialog", () => {
           restrictions: [],
         },
         {
-          user_id: "user-2",
-          username: "other-user",
+          user_id: OTHER_USER.user_id,
+          username: OTHER_USER.username,
           role: "editor",
           restrictions: [],
         },
@@ -74,7 +75,7 @@ describe("ShareTreeDialog", () => {
     vi.mocked(TreeSharingService.listInvitations).mockResolvedValue([]);
   });
 
-  it("keeps the share dialog open after confirming public access", async () => {
+  it("keeps the share dialog open and shows the link after enabling public access", async () => {
     const onClose = vi.fn();
     const onTreeUpdated = vi.fn();
     vi.mocked(TreeSharingService.setPublicAccess).mockResolvedValue({
@@ -91,9 +92,13 @@ describe("ShareTreeDialog", () => {
       />,
     );
 
-    await screen.findByText("Public read-only access");
+    await screen.findByRole("dialog");
 
-    fireEvent.click(screen.getAllByRole("switch")[0]);
+    // Toggle the public access switch (first switch in the dialog).
+    const [publicSwitch] = screen.getAllByRole("switch");
+    fireEvent.click(publicSwitch);
+
+    // Confirm in the nested alert dialog.
     fireEvent.click(await screen.findByRole("button", { name: "Make public" }));
 
     await waitFor(() => {
@@ -111,11 +116,8 @@ describe("ShareTreeDialog", () => {
     expect(screen.getByText(/#public=tree-1$/)).toBeInTheDocument();
   });
 
-  it("keeps the share dialog open when transfer confirmation is open", async () => {
+  it("keeps the share dialog open when public access confirmation is canceled", async () => {
     const onClose = vi.fn();
-    vi.mocked(TreeSharingService.transferOwnership).mockResolvedValue({
-      undo_available_until: null,
-    });
 
     render(
       <ShareTreeDialog
@@ -126,33 +128,51 @@ describe("ShareTreeDialog", () => {
       />,
     );
 
-    await screen.findByText("Transfer Ownership");
+    await screen.findByRole("dialog");
 
-    // Open the transfer select dropdown
-    const selectTrigger = screen.getByRole("combobox");
-    fireEvent.click(selectTrigger);
+    const [publicSwitch] = screen.getAllByRole("switch");
+    fireEvent.click(publicSwitch);
 
-    // Select a user to transfer to
-    await waitFor(() => {
-      const selectItem = screen.getByRole("option", { name: "other-user" });
-      fireEvent.click(selectItem);
-    });
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
 
-    // Click the transfer button
-    fireEvent.click(screen.getByRole("button", { name: /Transfer/i }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 
-    // The transfer confirmation dialog should be open
-    await screen.findByText("Are you sure you want to transfer ownership");
+  it("keeps the share dialog open when the transfer confirmation is open", async () => {
+    const onClose = vi.fn();
 
-    // Try to close the main dialog by clicking outside (simulated by calling onOpenChange)
-    // The dialog should stay open because the confirmation is active
+    render(
+      <ShareTreeDialog
+        tree={TREE}
+        isOpen
+        onClose={onClose}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
+
+    await screen.findByText("Transfer ownership");
+
+    // Open the transfer select dropdown and pick a target.
+    fireEvent.click(
+      screen.getByRole("combobox", { name: /Select a new owner/ }),
+    );
+    fireEvent.click(await screen.findByRole("option", { name: "other-user" }));
+
+    // Open the transfer confirmation.
+    fireEvent.click(screen.getByRole("button", { name: /^Transfer$/ }));
+
+    await screen.findByText("Transfer ownership?");
+
+    // While the confirmation is open, the main dialog should still be rendered.
+    expect(screen.getByText('Share "Family Tree"')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it("closes the share dialog when no confirmation dialog is open", async () => {
+  it("closes the share dialog when no nested dialog is open", async () => {
     const onClose = vi.fn();
 
-    render(
+    const { rerender } = render(
       <ShareTreeDialog
         tree={TREE}
         isOpen
@@ -161,18 +181,20 @@ describe("ShareTreeDialog", () => {
       />,
     );
 
-    await screen.findByText("Share");
+    await screen.findByRole("dialog");
 
-    // Simulate clicking outside the dialog
-    // This should close the dialog since no confirmation is active
-    const dialog = screen.getByRole("dialog");
-    fireEvent.click(document.body);
+    // Simulate Radix calling onOpenChange(false) by closing the dialog via props.
+    rerender(
+      <ShareTreeDialog
+        tree={TREE}
+        isOpen={false}
+        onClose={onClose}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
 
-    // Note: In a real scenario, clicking outside would trigger onOpenChange(false)
-    // For this test, we verify the handler logic works
     await waitFor(() => {
-      // The onClose should be callable when no confirmation is active
-      expect(onClose).toBeDefined();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
   });
 });
