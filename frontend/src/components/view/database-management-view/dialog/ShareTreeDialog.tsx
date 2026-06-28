@@ -381,7 +381,7 @@ export const ShareTreeDialog = ({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] min-w-[600px] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("title", { name: tree.name })}</DialogTitle>
             <DialogDescription>{t("description")}</DialogDescription>
@@ -714,8 +714,8 @@ export const ShareTreeDialog = ({
                 {t("public.hint")}
               </p>
               {publicRole === "viewer" && (
-                <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-2">
-                  <span className="flex-1 truncate text-xs text-muted-foreground">
+                <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
+                  <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
                     {publicLink}
                   </span>
                   <Button
