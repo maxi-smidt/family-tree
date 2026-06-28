@@ -714,8 +714,8 @@ export const ShareTreeDialog = ({
                 {t("public.hint")}
               </p>
               {publicRole === "viewer" && (
-                <div className="flex items-center gap-2 rounded-md border bg-muted/50 p-2">
-                  <span className="flex-1 truncate text-xs text-muted-foreground">
+                <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
+                  <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
                     {publicLink}
                   </span>
                   <Button

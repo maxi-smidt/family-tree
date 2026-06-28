@@ -13,6 +13,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - **Gender-specific fallback icon colors** — members without profile pictures now display a User icon colored by gender (pink for female, blue for male) to improve visual scanning of the tree.
 
+### Fixed
+
+- **Sharing popup horizontal scroll** — the public sharing link in the share tree dialog no longer causes horizontal scrolling; added `w-full` and `min-w-0` classes to properly constrain and truncate the link.
+
 ## [1.3.1] - 2026-06-27
 
 ### Changed
