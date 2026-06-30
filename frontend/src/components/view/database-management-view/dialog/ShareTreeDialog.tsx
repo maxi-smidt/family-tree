@@ -400,19 +400,23 @@ export const ShareTreeDialog = ({
   const publicLink = `${window.location.origin}/#public=${tree.id}`;
 
   return (
-    <Dialog
-      open={isOpen}
-      onOpenChange={(open) => {
-        // While a nested confirmation (public access / transfer) is open, its
-        // dismiss and focus-return events bubble up to this Dialog and would
-        // otherwise close it on cancel, or trigger a close→reopen animation on
-        // confirm. Ignore close requests until the confirmation is gone (#517).
-        if (!open && !confirmTransferOpen && !confirmPublicOpen) {
-          onClose();
-        }
-      }}
-    >
-      <DialogContent className="max-h-[90vh] min-w-[600px] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-h-[90vh] min-w-[600px] overflow-y-auto"
+        onInteractOutside={(e) => {
+          // The public-access / transfer confirmations render as sibling
+          // AlertDialog portals. Radix treats a pointer-down or focus change
+          // inside them as an interaction "outside" this dialog and would
+          // dismiss it — closing the share dialog on cancel, or setting the
+          // tree to null then back on confirm (replaying the open animation).
+          // Keep the share dialog open for any interaction originating from a
+          // nested alert dialog. (#517)
+          const target = e.target as Element | null;
+          if (target?.closest?.('[data-slot^="alert-dialog"]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{t("title", { name: tree.name })}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
