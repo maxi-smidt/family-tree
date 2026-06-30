@@ -16,6 +16,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Fixed
 
 - **Sharing popup horizontal scroll** — the share tree dialog now has a minimum width to prevent layout shift and horizontal scrolling when public sharing is enabled.
+- **Sharing popup stays open when toggling public access** — toggling public sharing in the share tree dialog no longer closes the dialog; the confirmation stays nested so users can see and copy the public link immediately.
 
 ## [1.3.1] - 2026-06-27
 

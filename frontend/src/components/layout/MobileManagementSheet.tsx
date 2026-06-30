@@ -5,7 +5,12 @@ import { useAuthStore, useFeature } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShareTreeDialog } from "@/components/view/database-management-view/dialog/ShareTreeDialog";
@@ -38,6 +43,7 @@ export const MobileManagementSheet = ({
   });
 
   const selectedTree = useTreeStore((s) => s.selectedTree);
+  const updateTree = useTreeStore((s) => s.updateTree);
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const user = useAuthStore((s) => s.user);
   const gedcomEnabled = useFeature("gedcom");
@@ -265,6 +271,7 @@ export const MobileManagementSheet = ({
             setShareOpen(false);
             void loadTrees();
           }}
+          onTreeUpdated={updateTree}
         />
       )}
 
