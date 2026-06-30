@@ -400,7 +400,18 @@ export const ShareTreeDialog = ({
   const publicLink = `${window.location.origin}/#public=${tree.id}`;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        // While a nested confirmation (public access / transfer) is open, its
+        // dismiss and focus-return events bubble up to this Dialog and would
+        // otherwise close it on cancel, or trigger a close→reopen animation on
+        // confirm. Ignore close requests until the confirmation is gone (#517).
+        if (!open && !confirmTransferOpen && !confirmPublicOpen) {
+          onClose();
+        }
+      }}
+    >
       <DialogContent className="max-h-[90vh] min-w-[600px] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t("title", { name: tree.name })}</DialogTitle>
