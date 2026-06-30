@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { formatDate } from "@/utils/dateUtils";
 import {
@@ -86,6 +86,13 @@ export const ShareTreeDialog = ({
   const sharingInvitesEnabled = useFeature("sharing_invites");
   const isOwner = tree.role === "owner";
 
+  // Hold the latest tree props so the open-time effect can initialize from them
+  // without re-running (and re-fetching) when the tree object changes while the
+  // dialog is already open — e.g. after toggling public access, which otherwise
+  // flickers the dialog as the confirmation closes (#517).
+  const treeRef = useRef(tree);
+  treeRef.current = tree;
+
   const [access, setAccess] = useState<TreeAccess[]>([]);
   const [candidates, setCandidates] = useState<ShareCandidate[]>([]);
   const [staged, setStaged] = useState<StagedUser[]>([]);
@@ -144,10 +151,10 @@ export const ShareTreeDialog = ({
       setInviteEmail("");
       setInviteRole("editor");
       setInviteExpiry("never");
-      setPublicRole(tree.public_role ?? null);
+      setPublicRole(treeRef.current.public_role ?? null);
       void reload();
     }
-  }, [isOpen, reload, tree.public_role]);
+  }, [isOpen, reload]);
 
   const toggleStaged = (candidate: ShareCandidate) => {
     setStaged((prev) =>

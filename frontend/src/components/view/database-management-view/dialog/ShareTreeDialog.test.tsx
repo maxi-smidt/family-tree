@@ -116,6 +116,35 @@ describe("ShareTreeDialog", () => {
     expect(screen.getByText(/#public=tree-1$/)).toBeInTheDocument();
   });
 
+  it("does not reload sharing data when the tree's public role changes while open", async () => {
+    const { rerender } = render(
+      <ShareTreeDialog
+        tree={TREE}
+        isOpen
+        onClose={vi.fn()}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(TreeSharingService.getSharingData).toHaveBeenCalledTimes(1),
+    );
+
+    // Simulate the parent re-rendering with an updated tree after the public
+    // toggle is confirmed. This must NOT trigger another data fetch (#517).
+    rerender(
+      <ShareTreeDialog
+        tree={{ ...TREE, public_role: "viewer" }}
+        isOpen
+        onClose={vi.fn()}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
+
+    expect(TreeSharingService.getSharingData).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the share dialog open when public access confirmation is canceled", async () => {
     const onClose = vi.fn();
 
