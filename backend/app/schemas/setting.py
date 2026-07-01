@@ -58,6 +58,14 @@ class SettingsOut(BaseModel):
     announcement_title: str = ""
     announcement_body: str = ""
     announcement_version: str = ""
+    legal_acceptance_required: bool = True
+    legal_version: str = "1"
+    legal_terms_body_de: str = ""
+    legal_terms_body_en: str = ""
+    legal_privacy_body_de: str = ""
+    legal_privacy_body_en: str = ""
+    legal_imprint_body_de: str = ""
+    legal_imprint_body_en: str = ""
 
 
 class SettingsUpdate(BaseModel):
@@ -90,3 +98,12 @@ class SettingsUpdate(BaseModel):
     announcement_title: str | None = Field(default=None, max_length=200)
     announcement_body: str | None = Field(default=None, max_length=20000)
     announcement_version: str | None = Field(default=None, max_length=50)
+    legal_acceptance_required: bool | None = None
+    # legal_version is intentionally not settable here — it is bumped
+    # automatically whenever a legal document body changes (see update_settings).
+    legal_terms_body_de: str | None = Field(default=None, max_length=50000)
+    legal_terms_body_en: str | None = Field(default=None, max_length=50000)
+    legal_privacy_body_de: str | None = Field(default=None, max_length=50000)
+    legal_privacy_body_en: str | None = Field(default=None, max_length=50000)
+    legal_imprint_body_de: str | None = Field(default=None, max_length=50000)
+    legal_imprint_body_en: str | None = Field(default=None, max_length=50000)

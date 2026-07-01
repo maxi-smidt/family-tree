@@ -23,6 +23,10 @@ export interface User {
   image_storage_mode?: ImageStorageMode;
   /** Modes the admin has explicitly allowed; user may only pick from these. */
   image_storage_allowed_modes?: ImageStorageMode[];
+  /** Whether the instance requires Legal Terms/Privacy acceptance (admin setting). */
+  legal_acceptance_required?: boolean;
+  /** Whether this user has accepted the currently published legal version. */
+  legal_accepted?: boolean;
 }
 
 export interface AuthConfig {

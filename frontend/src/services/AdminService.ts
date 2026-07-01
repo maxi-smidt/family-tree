@@ -21,6 +21,14 @@ export interface AdminSettings {
   announcement_title: string;
   announcement_body: string;
   announcement_version: string;
+  legal_acceptance_required: boolean;
+  legal_version: string;
+  legal_terms_body_de: string;
+  legal_terms_body_en: string;
+  legal_privacy_body_de: string;
+  legal_privacy_body_en: string;
+  legal_imprint_body_de: string;
+  legal_imprint_body_en: string;
 }
 
 export interface BackupRecord {
