@@ -1069,7 +1069,11 @@
     "issue-parent-too-old": "Parent too old",
     "issue-relationship-cycle": "Relationship cycle",
     "issue-duplicate-candidate": "Possible duplicate",
-    "issue-disconnected-member": "No relationships"
+    "issue-disconnected-member": "No relationships",
+    "dismiss": "Dismiss",
+    "restore": "Restore",
+    "dismissed-badge": "Dismissed",
+    "show-dismissed": "Show dismissed ({{count}})"
   },
   "statistics-view": {
     "title": "Statistics",

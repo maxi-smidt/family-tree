@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- **Dismiss data-quality notes** — each issue in the Data Quality report can now be dismissed so it stops cluttering the view; a "Show dismissed" toggle brings dismissed notes back and lets you restore them. Dismissals are shared by every editor of the tree and persist across reloads.
+
 ### Changed
 
 - **Gender-specific fallback icon colors** — members without profile pictures now display a User icon colored by gender (pink for female, blue for male) to improve visual scanning of the tree.
