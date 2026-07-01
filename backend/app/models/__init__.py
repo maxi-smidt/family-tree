@@ -22,8 +22,8 @@ from app.models.content import (
 from app.models.family import Member, MemberDisease, Relation, RelationType
 from app.models.friendship import Friendship
 from app.models.job import BackgroundJob
-from app.models.quality import QualityIssueDismissal
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
+from app.models.quality import QualityIssueDismissal
 from app.models.setting import AppSetting, FeatureFlagOverride
 from app.models.tree import Tree, TreeInvitation, TreeMembership
 from app.models.user import User
@@ -64,7 +64,7 @@ __all__ = [
     "AppSetting",
     "FeatureFlagOverride",
     "BackupRecord",
-    "QualityIssueDismissal",
     "LegalAcceptance",
     "LegalDocumentVersion",
+    "QualityIssueDismissal",
 ]
