@@ -5,6 +5,7 @@ const API_URL = process.env.E2E_API_URL ?? `${BASE_URL}/api`;
 
 export default defineConfig({
   testDir: "./tests",
+  globalSetup: "./fixtures/global-setup.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
