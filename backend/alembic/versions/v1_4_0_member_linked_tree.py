@@ -1,7 +1,7 @@
 """v1.4.0 — add members.linked_tree_id (tree-in-tree link)
 
 Revision ID: v1_4_0_member_linked_tree
-Revises: v1_3_0_adopted_drop_horizontal
+Revises: v1_4_0_legal_quality_cemetery
 Create Date: 2026-06-27 12:40:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'v1_4_0_member_linked_tree'
-down_revision: Union[str, None] = 'v1_3_0_adopted_drop_horizontal'
+down_revision: Union[str, None] = 'v1_4_0_legal_quality_cemetery'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
