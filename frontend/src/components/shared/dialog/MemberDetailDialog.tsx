@@ -46,9 +46,21 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "dialog.member-detail",
   });
-  const { galleryImages, refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
-  const { getEventsByMember, refreshEvents, initialized: eventsInitialized } = useEventStore();
-  const { getStoriesByMember, refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const {
+    galleryImages,
+    refreshGalleryImages,
+    initialized: galleryInitialized,
+  } = useGalleryStore();
+  const {
+    getEventsByMember,
+    refreshEvents,
+    initialized: eventsInitialized,
+  } = useEventStore();
+  const {
+    getStoriesByMember,
+    refreshStories,
+    initialized: storiesInitialized,
+  } = useStoryStore();
   const { members, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [startIndex, setStartIndex] = useState(0);
@@ -60,7 +72,9 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
       if (!alreadyLoaded) {
         setIsLoadingDetail(true);
       }
-      void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
+      void fetchMemberDetail(member.id).finally(() =>
+        setIsLoadingDetail(false),
+      );
     }
   }, [open, member?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -122,6 +136,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
   const hasLocations = !!(
     currentMember.birthplace ||
     currentMember.hometown ||
+    currentMember.cemetery ||
     currentMember.placesLived.length > 0
   );
 
@@ -247,6 +262,17 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                             {t("hometown")}:{" "}
                           </span>
                           {currentMember.hometown}
+                        </span>
+                      </div>
+                    )}
+                    {currentMember.cemetery && (
+                      <div className="flex items-start gap-2 text-sm">
+                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                        <span>
+                          <span className="text-muted-foreground">
+                            {t("cemetery")}:{" "}
+                          </span>
+                          {currentMember.cemetery}
                         </span>
                       </div>
                     )}

@@ -56,6 +56,7 @@ const member: Member = {
   additionalData: null,
   birthplace: "Vienna",
   hometown: "Graz",
+  cemetery: null,
   placesLived: [{ location: "Berlin", from: "2010", to: "2015" }],
   isCollapsed: false,
   position: { x: 0, y: 0 },
@@ -115,7 +116,13 @@ describe("MapView location type filters", () => {
   it("shows a filter-specific empty state when all types are hidden", () => {
     render(<MapView />);
 
-    for (const name of ["Event", "Birthplace", "Hometown", "Place lived"]) {
+    for (const name of [
+      "Event",
+      "Birthplace",
+      "Hometown",
+      "Cemetery",
+      "Place lived",
+    ]) {
       fireEvent.click(screen.getByRole("button", { name }));
     }
 

@@ -100,6 +100,7 @@ export const ViewMode = ({ member }: Props) => {
     member.additionalData ||
     member.birthplace ||
     member.hometown ||
+    member.cemetery ||
     member.placesLived.length > 0;
 
   return (
@@ -214,6 +215,7 @@ export const ViewMode = ({ member }: Props) => {
 
               {(member.birthplace ||
                 (mapEnabled && member.hometown) ||
+                (mapEnabled && member.cemetery) ||
                 (mapEnabled && member.placesLived.length > 0)) && (
                 <Item variant="muted">
                   <ItemContent>
@@ -238,6 +240,17 @@ export const ViewMode = ({ member }: Props) => {
                               {t("hometown-label")}:{" "}
                             </span>
                             {member.hometown}
+                          </span>
+                        </div>
+                      )}
+                      {mapEnabled && member.cemetery && (
+                        <div className="flex items-start gap-2 text-sm">
+                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
+                          <span>
+                            <span className="text-muted-foreground">
+                              {t("cemetery-label")}:{" "}
+                            </span>
+                            {member.cemetery}
                           </span>
                         </div>
                       )}

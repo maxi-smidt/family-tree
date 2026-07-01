@@ -107,6 +107,7 @@ export const ListView = () => {
     "gender",
     "birthplace",
     "hometown",
+    "cemetery",
     "birth",
     "death",
   ]);
@@ -252,6 +253,8 @@ export const ListView = () => {
             return m.birthplace ?? "";
           case "hometown":
             return m.hometown ?? "";
+          case "cemetery":
+            return m.cemetery ?? "";
           case "age":
             return ageResult.age !== null ? String(ageResult.age) : "";
           case "childrenCount":
@@ -326,6 +329,8 @@ export const ListView = () => {
         return member.birthplace || "-";
       case "hometown":
         return member.hometown || "-";
+      case "cemetery":
+        return member.cemetery || "-";
       case "age":
         if (ageResult.age === null) return "-";
         return (

@@ -29,6 +29,7 @@ const member = (
   additionalData: null,
   birthplace: null,
   hometown: null,
+  cemetery: null,
   placesLived: [],
   isCollapsed: options.isCollapsed ?? false,
   position: { x: 0, y: 0 },

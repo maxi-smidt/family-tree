@@ -92,6 +92,7 @@ _CONFLICT_FIELDS: list[str] = [
     "maiden_name",
     "birthplace",
     "hometown",
+    "cemetery",
     "places_lived",
     "additional_data",
     "image_data",
@@ -236,6 +237,7 @@ def _clone_member(m: Member, new_tree_id: str, new_id: str) -> Member:
         position_y=m.position_y,
         birthplace=m.birthplace,
         hometown=m.hometown,
+        cemetery=m.cemetery,
         places_lived=m.places_lived,
     )
 
@@ -258,6 +260,7 @@ def _apply_field_choices(
         "maiden_name",
         "birthplace",
         "hometown",
+        "cemetery",
         "places_lived",
         "additional_data",
         "image_data",

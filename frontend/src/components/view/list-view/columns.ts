@@ -8,6 +8,7 @@ export type ListColumnId =
   | "death"
   | "birthplace"
   | "hometown"
+  | "cemetery"
   | "age"
   | "childrenCount"
   | "status"
@@ -23,6 +24,7 @@ export const ALL_COLUMN_IDS: ListColumnId[] = [
   "death",
   "birthplace",
   "hometown",
+  "cemetery",
   "age",
   "childrenCount",
   "status",
@@ -32,6 +34,7 @@ export const ALL_COLUMN_IDS: ListColumnId[] = [
 export const DEFAULT_HIDDEN_COLUMNS: ListColumnId[] = [
   "photo",
   "hometown",
+  "cemetery",
   "age",
   "childrenCount",
   "status",
@@ -61,6 +64,7 @@ export const COLUMN_MAP: Record<ListColumnId, ColumnDef> = {
   death: { titleKey: "table.dod", sortable: true, sortKey: "date.death" },
   birthplace: { titleKey: "table.birthplace" },
   hometown: { titleKey: "table.hometown" },
+  cemetery: { titleKey: "table.cemetery" },
   age: { titleKey: "table.age", sortable: true, sortKey: "age" },
   childrenCount: {
     titleKey: "table.children",

@@ -34,6 +34,7 @@ class Member(Base):
     additional_data: Mapped[str | None] = mapped_column(Text, nullable=True)
     birthplace: Mapped[str | None] = mapped_column(String(255), nullable=True)
     hometown: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cemetery: Mapped[str | None] = mapped_column(String(255), nullable=True)
     places_lived: Mapped[str | None] = mapped_column(Text, nullable=True)
     deceased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     adopted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
