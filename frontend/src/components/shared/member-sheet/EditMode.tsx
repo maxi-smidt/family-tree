@@ -137,6 +137,7 @@ export const EditMode = ({
       (formData.additionalData || "") !== (initialData.additionalData || "") ||
       (formData.birthplace || "") !== (initialData.birthplace || "") ||
       (formData.hometown || "") !== (initialData.hometown || "") ||
+      (formData.cemetery || "") !== (initialData.cemetery || "") ||
       JSON.stringify(formData.placesLived) !==
         JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
@@ -266,6 +267,7 @@ export const EditMode = ({
         additionalData: formData.additionalData || null,
         birthplace: formData.birthplace || null,
         hometown: formData.hometown || null,
+        cemetery: formData.cemetery || null,
         placesLived:
           formData.placesLived.length > 0
             ? JSON.stringify(formData.placesLived)
@@ -611,6 +613,21 @@ export const EditMode = ({
                     </Field>
                   )}
                 </div>
+              )}
+
+              {formData.deceased && mapEnabled && (
+                <Field>
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("cemetery-field")}
+                  </FieldLabel>
+                  <Input
+                    id="cemetery"
+                    value={formData.cemetery || ""}
+                    className="h-7 text-xs! shadow-none"
+                    placeholder={t("location-placeholder")}
+                    onChange={(e) => handleChange("cemetery", e.target.value)}
+                  />
+                </Field>
               )}
 
               {!formData.deceased && mapEnabled && (

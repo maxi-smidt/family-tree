@@ -7,6 +7,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+## [1.4.0] - 2026-07-01
+
+### Added
+
+- **Dismiss data-quality notes** — each issue in the Data Quality report can now be dismissed so it stops cluttering the view; a "Show dismissed" toggle brings dismissed notes back and lets you restore them. Dismissals are shared by every editor of the tree and persist across reloads.
+- **Toggle timeline detail visibility** — the timeline view now has a "Show details" switch to hide event location and description for a more compact overview. The preference is remembered locally.
+- **Legal terms acceptance gate** — admins can require users to accept the Terms of Service and Privacy Policy before making changes, managed from a dedicated **Legal documents** tab in administration. New users are blocked by a non-dismissable dialog until they accept. Versioning is automatic: editing and saving any legal document bumps the version under the hood (starting from 0), which forces existing users to re-accept. All three documents are admin-editable; the Privacy Policy and Impressum are publicly viewable without logging in (login page and public tree links), while the Terms are presented in the acceptance gate and the in-app sidebar. Documents are maintained per language (German and English, German authoritative), with an in-dialog language switch; the accepted language is recorded in the audit trail.
+- **Immutable legal document version history / consent receipts** — every published Terms, Privacy Policy, and Impressum text is snapshotted immutably the moment it goes live. Acceptance is recorded in an append-only audit log (the single source of truth for the gate) capturing username, timestamp, IP, user-agent, accepted language, and a content hash of the exact Terms and Privacy text agreed to — so a past "accepted" consent can always be tied back to the precise wording. Admins can browse the full version history (with the original text) per document and language in the Legal tab.
+- **Cemetery / place of burial field** — members now have a Cemetery field alongside Birthplace and Hometown, editable when a member is marked deceased. It shows up in the member sheet, list view, map view, statistics, GEDCOM import/export (as `BURI`/`PLAC`), source citations, and tree merging.
+
+### Changed
+
+- **Gender-specific fallback icon colors** — members without profile pictures now display a User icon colored by gender (pink for female, blue for male) to improve visual scanning of the tree.
+
+### Fixed
+
+- **Sharing popup horizontal scroll** — the share tree dialog now has a minimum width to prevent layout shift and horizontal scrolling when public sharing is enabled.
+- **Sharing popup stays open when toggling public access** — toggling public sharing in the share tree dialog no longer closes the dialog; the confirmation stays nested so users can see and copy the public link immediately.
+
 ## [1.3.1] - 2026-06-27
 
 ### Changed

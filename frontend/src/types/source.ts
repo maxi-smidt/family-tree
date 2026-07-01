@@ -5,6 +5,7 @@ export type FactType =
   | "birthplace"
   | "hometown"
   | "residence"
+  | "cemetery"
   | "general";
 
 export const FACT_TYPES: FactType[] = [
@@ -14,6 +15,7 @@ export const FACT_TYPES: FactType[] = [
   "birthplace",
   "hometown",
   "residence",
+  "cemetery",
   "general",
 ];
 

@@ -33,6 +33,7 @@ class MemberOut(FamilyTreeOrmBaseModel):
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
     places_lived: str | None = None
     is_collapsed: bool = False
     position_x: float = 0
@@ -55,11 +56,13 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     date_of_birth_sort: str | None = None
     date_of_death_sort: str | None = None
     deceased: bool = False
-    # birthplace/hometown are small, default-visible List-view columns, so they
-    # ride along in the surface payload (unlike the heavier additional_data /
-    # places_lived detail fields, which stay deferred to the per-member fetch).
+    # birthplace/hometown/cemetery are small, default-visible List-view columns,
+    # so they ride along in the surface payload (unlike the heavier
+    # additional_data/places_lived detail fields, which stay deferred to the
+    # per-member fetch).
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
@@ -82,6 +85,7 @@ class MemberCreate(FamilyTreeBaseModel):
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
     places_lived: str | None = None
     is_collapsed: bool = False
     position_x: float = 0
@@ -105,6 +109,7 @@ class MemberUpdate(FamilyTreeBaseModel):
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
     places_lived: str | None = None
     is_collapsed: bool | None = None
     position_x: float | None = None

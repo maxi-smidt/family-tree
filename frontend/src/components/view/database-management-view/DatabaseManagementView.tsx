@@ -798,6 +798,7 @@ export const DatabaseManagementView = () => {
             // Refresh so the owner's "Sharing" count reflects any changes.
             void loadTrees();
           }}
+          onTreeUpdated={(updated) => setShareTree(updated)}
         />
       )}
       <PasswordDialog

@@ -35,6 +35,7 @@ function makeMember(id: string, overrides: Partial<Member> = {}): Member {
     additionalData: null,
     birthplace: null,
     hometown: null,
+    cemetery: null,
     placesLived: [],
     isCollapsed: false,
     position: { x: 0, y: 0 },
@@ -47,16 +48,7 @@ const noop = vi.fn();
 
 function setup(members: Member[], edges: Edge[], unions: WorkerUnionInfo[]) {
   return renderHook(() =>
-    useFlowInteractions(
-      members,
-      edges,
-      unions,
-      noop,
-      noop,
-      noop,
-      noop,
-      noop,
-    ),
+    useFlowInteractions(members, edges, unions, noop, noop, noop, noop, noop),
   );
 }
 
@@ -72,7 +64,11 @@ describe("useFlowInteractions – removeMemberEdge", () => {
   it("removes a non-couple relation drawn as a rel: edge", () => {
     const a = makeMember("aaaa-1111", {
       relations: [
-        { fromMemberId: "aaaa-1111", toMemberId: "bbbb-2222", relationType: "sibling" },
+        {
+          fromMemberId: "aaaa-1111",
+          toMemberId: "bbbb-2222",
+          relationType: "sibling",
+        },
       ],
     });
     const b = makeMember("bbbb-2222");
@@ -107,20 +103,28 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     const { result } = setup([], edges, [union]);
     act(() => result.current.onEdgesChange([remove("ue:union-p1-p2:left")]));
 
-    expect(removeRelationBidirectional).toHaveBeenCalledWith("p1", "p2", "married");
+    expect(removeRelationBidirectional).toHaveBeenCalledWith(
+      "p1",
+      "p2",
+      "married",
+    );
     expect(removeRelationBidirectional).toHaveBeenCalledTimes(1);
   });
 
   it("detaches a shared child when its union edge is removed", () => {
-    const { result } = setup([], [], [
-      {
-        id: "union-p1-p2",
-        partner1Id: "p1",
-        partner2Id: "p2",
-        childIds: ["c1"],
-        relationType: "married",
-      },
-    ]);
+    const { result } = setup(
+      [],
+      [],
+      [
+        {
+          id: "union-p1-p2",
+          partner1Id: "p1",
+          partner2Id: "p2",
+          childIds: ["c1"],
+          relationType: "married",
+        },
+      ],
+    );
 
     act(() =>
       result.current.onEdgesChange([remove("ue:union-p1-p2:child:c1")]),

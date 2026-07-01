@@ -1,7 +1,7 @@
-"""Tests for the data-quality report (issue #164)."""
+"""Tests for the data-quality report (issue #164, dismissals issue #521)."""
 
 from app.models.family import Member, Relation
-from app.services.quality_checks import run_quality_checks
+from app.services.quality_checks import issue_id_for, run_quality_checks
 from tests.conftest import (
     API,
     add_member,
@@ -13,6 +13,22 @@ from tests.conftest import (
 # ---------------------------------------------------------------------------
 # Unit tests for quality check logic
 # ---------------------------------------------------------------------------
+
+
+class TestIssueId:
+    def test_stable_across_calls(self):
+        m = _member("m1", date_of_birth="2010", date_of_death="2005")
+        first = run_quality_checks([m], [])
+        second = run_quality_checks([m], [])
+        assert first[0]["id"] == second[0]["id"]
+
+    def test_order_independent_for_member_ids(self):
+        assert issue_id_for("duplicate_candidate", ["a", "b"]) == issue_id_for(
+            "duplicate_candidate", ["b", "a"]
+        )
+
+    def test_differs_by_type(self):
+        assert issue_id_for("type_a", ["a"]) != issue_id_for("type_b", ["a"])
 
 
 def _member(mid: str, **kw) -> Member:
@@ -106,9 +122,7 @@ class TestRelationshipCycle:
         g = _member("g")
         p = _member("p")
         c = _member("c")
-        issues = run_quality_checks(
-            [g, p, c], [_relation("p", "g"), _relation("c", "p")]
-        )
+        issues = run_quality_checks([g, p, c], [_relation("p", "g"), _relation("c", "p")])
         assert not any(i["issue_type"] == "relationship_cycle" for i in issues)
 
 
@@ -245,3 +259,145 @@ def test_quality_report_duplicate_names(client, db):
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "duplicate_candidate" in types
+
+
+# ---------------------------------------------------------------------------
+# Dismissals
+# ---------------------------------------------------------------------------
+
+
+def test_dismiss_issue_hides_it_by_default(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(
+        db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
+    )
+
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+    ).json()
+    issue_id = report["issues"][0]["id"]
+
+    res = client.post(
+        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        headers=auth(owner),
+    )
+    assert res.status_code == 204
+
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+    ).json()
+    assert report["issues"] == []
+
+
+def test_dismissed_issue_visible_with_include_dismissed(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(
+        db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
+    )
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+    ).json()
+    issue_id = report["issues"][0]["id"]
+    client.post(
+        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        headers=auth(owner),
+    )
+
+    res = client.get(
+        f"{API}/trees/{tree.id}/quality-report",
+        params={"include_dismissed": True},
+        headers=auth(owner),
+    )
+    assert res.status_code == 200
+    issues = res.json()["issues"]
+    assert len(issues) == 1
+    assert issues[0]["dismissed"] is True
+
+
+def test_restore_dismissed_issue(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(
+        db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
+    )
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+    ).json()
+    issue_id = report["issues"][0]["id"]
+    client.post(
+        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        headers=auth(owner),
+    )
+
+    res = client.delete(
+        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        headers=auth(owner),
+    )
+    assert res.status_code == 204
+
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+    ).json()
+    assert len(report["issues"]) == 1
+    assert report["issues"][0]["dismissed"] is False
+
+
+def test_dismiss_unknown_issue_404(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+
+    res = client.post(
+        f"{API}/trees/{tree.id}/quality-report/issues/does-not-exist/dismiss",
+        headers=auth(owner),
+    )
+    assert res.status_code == 404
+
+
+def test_dismiss_requires_write_access(client, db):
+    from tests.conftest import share
+
+    owner = make_user(db, "alice")
+    viewer = make_user(db, "bob")
+    tree = make_tree(db, owner)
+    share(db, tree, viewer, role="viewer")
+    add_member(
+        db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
+    )
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+    ).json()
+    issue_id = report["issues"][0]["id"]
+
+    res = client.post(
+        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        headers=auth(viewer),
+    )
+    assert res.status_code == 403
+
+
+def test_dismiss_is_idempotent(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(
+        db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
+    )
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+    ).json()
+    issue_id = report["issues"][0]["id"]
+
+    for _ in range(2):
+        res = client.post(
+            f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+            headers=auth(owner),
+        )
+        assert res.status_code == 204
+
+    report = client.get(
+        f"{API}/trees/{tree.id}/quality-report",
+        params={"include_dismissed": True},
+        headers=auth(owner),
+    ).json()
+    assert len(report["issues"]) == 1

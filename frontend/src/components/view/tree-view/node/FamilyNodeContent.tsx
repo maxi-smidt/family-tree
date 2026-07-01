@@ -39,6 +39,17 @@ export const FamilyNodeContent = ({
     }
   };
 
+  const FallbackAvatar = () => {
+    switch (member.gender) {
+      case "f":
+        return <User size={iconSize} className="text-pink-500" />;
+      case "m":
+        return <User size={iconSize} className="text-blue-500" />;
+      default:
+        return <User size={iconSize} />;
+    }
+  };
+
   return (
     // w-full/min-w-0 pins the content to the card width (the card centers its
     // children, so an unconstrained child would grow past it) — required for
@@ -56,7 +67,7 @@ export const FamilyNodeContent = ({
             aria-hidden="true"
             className={`${sizeClass} flex justify-center items-center rounded-full bg-muted text-2xl font-bold text-muted-foreground`}
           >
-            <User size={iconSize} />
+            <FallbackAvatar />
           </div>
         )}
         <div

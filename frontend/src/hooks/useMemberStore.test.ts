@@ -138,6 +138,7 @@ describe("useMemberStore — addMember", () => {
       diseases: [],
       birthplace: null,
       hometown: null,
+      cemetery: null,
       placesLived: [],
     };
 
@@ -176,6 +177,7 @@ describe("useMemberStore — addMember", () => {
       diseases: [],
       birthplace: null,
       hometown: null,
+      cemetery: null,
       placesLived: [],
     };
 
@@ -381,6 +383,7 @@ describe("useMemberStore — undo/redo", () => {
       diseases: [],
       birthplace: null,
       hometown: null,
+      cemetery: null,
       placesLived: [],
     };
 
@@ -422,6 +425,7 @@ describe("useMemberStore — undo/redo", () => {
       diseases: [],
       birthplace: null,
       hometown: null,
+      cemetery: null,
       placesLived: [],
     };
 

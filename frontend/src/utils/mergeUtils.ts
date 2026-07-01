@@ -22,6 +22,7 @@ export const RESOLVABLE_FIELDS: readonly string[] = [
   "maidenName",
   "birthplace",
   "hometown",
+  "cemetery",
   "placesLived",
   "additionalData",
   "imageData",

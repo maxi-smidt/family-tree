@@ -517,6 +517,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       additionalData: detailRow.additionalData ?? null,
       birthplace: detailRow.birthplace ?? null,
       hometown: detailRow.hometown ?? null,
+      cemetery: detailRow.cemetery ?? null,
       placesLived: detailRow.placesLived
         ? (() => {
             try {

@@ -599,7 +599,21 @@ export class TreeService {
 
   // --- Quality report -------------------------------------------------------
   static getQualityReport(treeId: string) {
-    return api.get<QualityReport>(`${base(treeId)}/quality-report`);
+    return api.get<QualityReport>(`${base(treeId)}/quality-report`, {
+      include_dismissed: true,
+    });
+  }
+
+  static dismissQualityIssue(treeId: string, issueId: string) {
+    return api.post<void>(
+      `${base(treeId)}/quality-report/issues/${issueId}/dismiss`,
+    );
+  }
+
+  static restoreQualityIssue(treeId: string, issueId: string) {
+    return api.del<void>(
+      `${base(treeId)}/quality-report/issues/${issueId}/dismiss`,
+    );
   }
 
   // --- Statistics -----------------------------------------------------------

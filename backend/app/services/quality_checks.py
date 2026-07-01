@@ -1,5 +1,6 @@
 """Data-quality checks for a family tree."""
 
+import hashlib
 from collections import defaultdict
 
 from app.models.family import Member, Relation
@@ -16,6 +17,17 @@ def _year(date_str: str | None) -> int | None:
         return int(date_str.split("-")[0])
     except (ValueError, IndexError):
         return None
+
+
+def issue_id_for(issue_type: str, member_ids: list[str]) -> str:
+    """Deterministic id for an issue, derived from its type and members.
+
+    Issues are recomputed fresh on every request rather than stored, so this
+    id is what lets a dismissal survive across requests: as long as the same
+    underlying data produces the same issue, it hashes to the same id.
+    """
+    key = f"{issue_type}|{','.join(sorted(member_ids))}"
+    return hashlib.sha256(key.encode()).hexdigest()[:32]
 
 
 def run_quality_checks(
@@ -167,5 +179,8 @@ def run_quality_checks(
                         "description": "Member has no relationships.",
                     }
                 )
+
+    for issue in issues:
+        issue["id"] = issue_id_for(issue["issue_type"], issue["member_ids"])
 
     return issues

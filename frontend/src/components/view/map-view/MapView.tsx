@@ -51,12 +51,18 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-type LocationType = "event" | "birthplace" | "hometown" | "places-lived";
+type LocationType =
+  | "event"
+  | "birthplace"
+  | "hometown"
+  | "cemetery"
+  | "places-lived";
 
 const LOCATION_COLORS: Record<LocationType, string> = {
   event: "var(--color-map-event)",
   birthplace: "var(--color-map-birthplace)",
   hometown: "var(--color-map-hometown)",
+  cemetery: "var(--color-map-cemetery)",
   "places-lived": "var(--color-map-places-lived)",
 };
 
@@ -64,6 +70,7 @@ const LOCATION_TYPES: LocationType[] = [
   "event",
   "birthplace",
   "hometown",
+  "cemetery",
   "places-lived",
 ];
 
@@ -73,6 +80,7 @@ const TYPE_PRIORITY: LocationType[] = [
   "birthplace",
   "places-lived",
   "hometown",
+  "cemetery",
 ];
 
 interface LocationItem {
@@ -133,7 +141,11 @@ export const MapView = () => {
     keyPrefix: "map-view.view",
   });
   const { members } = useMemberStore();
-  const { events, refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const {
+    events,
+    refreshEvents,
+    initialized: eventsInitialized,
+  } = useEventStore();
   const { coords, resolveLocations } = useGeocodeStore();
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
@@ -160,6 +172,9 @@ export const MapView = () => {
       }
       if (visibleLocationTypeSet.has("hometown") && m.hometown) {
         locs.add(m.hometown);
+      }
+      if (visibleLocationTypeSet.has("cemetery") && m.cemetery) {
+        locs.add(m.cemetery);
       }
       if (visibleLocationTypeSet.has("places-lived")) {
         for (const p of m.placesLived) {
@@ -228,6 +243,9 @@ export const MapView = () => {
       }
       if (m.hometown) {
         add(m.hometown, { type: "hometown", memberName: name });
+      }
+      if (m.cemetery) {
+        add(m.cemetery, { type: "cemetery", memberName: name });
       }
       for (const p of m.placesLived) {
         if (p.location) {

@@ -43,6 +43,10 @@ class CurrentUserOut(UserOut):
     # admin-allowed set so the frontend can filter available options.
     image_storage_mode: ImageStorageMode = "compressed"
     image_storage_allowed_modes: list[ImageStorageMode] = ["compressed"]
+    # Legal Terms/Privacy/Impressum acceptance gate state, resolved server-side
+    # so the frontend can show the blocking gate immediately on login/`/me`.
+    legal_acceptance_required: bool = True
+    legal_accepted: bool = False
 
 
 class UserPreferences(BaseModel):

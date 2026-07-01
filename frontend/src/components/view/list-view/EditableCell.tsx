@@ -4,10 +4,7 @@ import { toast } from "sonner";
 import { Loader2, Mars, Venus, VenusAndMars } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
-import {
-  ToggleGroup,
-  ToggleGroupItem,
-} from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { formatDate as formatLocaleDate } from "@/utils/dateUtils";
 import type { Member, MemberUpdate, Gender } from "@/types/member";
@@ -27,6 +24,7 @@ function getCellCategory(columnId: ListColumnId): CellCategory | null {
     case "maidenName":
     case "birthplace":
     case "hometown":
+    case "cemetery":
       return "text";
     case "gender":
       return "gender";
@@ -50,6 +48,8 @@ function getTextValue(member: Member, columnId: ListColumnId): string | null {
       return member.birthplace ?? null;
     case "hometown":
       return member.hometown ?? null;
+    case "cemetery":
+      return member.cemetery ?? null;
     default:
       return null;
   }
@@ -74,6 +74,8 @@ function buildChanges(
       return { birthplace: draft || null };
     case "hometown":
       return { hometown: draft || null };
+    case "cemetery":
+      return { cemetery: draft || null };
     case "birth":
       return { dateOfBirth: draft ?? "" };
     case "death":
@@ -106,7 +108,7 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
   // ── DATE state ──────────────────────────────────────────────────────────────
   const dateOriginal =
     columnId === "birth"
-      ? (member.date.birth || null)
+      ? member.date.birth || null
       : columnId === "death"
         ? (member.date.death ?? null)
         : null;
@@ -158,11 +160,8 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
     }
 
     // No-op: no change
-    const newVal = isRequiredTextField(columnId)
-      ? trimmed
-      : textDraft || null;
-    const compareNew =
-      typeof newVal === "string" ? newVal : "";
+    const newVal = isRequiredTextField(columnId) ? trimmed : textDraft || null;
+    const compareNew = typeof newVal === "string" ? newVal : "";
     if (compareNew === originalStr) {
       setEditing(false);
       return;
@@ -216,7 +215,9 @@ export function EditableCell({ member, columnId }: EditableCellProps) {
     }
     // Also ignore if relatedTarget is in a portal (not inside our container but part of the picker)
     if (e.relatedTarget instanceof Element) {
-      const closest = e.relatedTarget.closest("[data-radix-popper-content-wrapper]");
+      const closest = e.relatedTarget.closest(
+        "[data-radix-popper-content-wrapper]",
+      );
       if (closest) return;
     }
     void commitDate();

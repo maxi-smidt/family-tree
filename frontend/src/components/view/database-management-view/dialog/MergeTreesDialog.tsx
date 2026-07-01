@@ -285,6 +285,7 @@ export const MergeTreesDialog = ({ isOpen, onClose }: Props) => {
                       additionalData: d.member_a.additionalData ?? null,
                       birthplace: d.member_a.birthplace ?? null,
                       hometown: d.member_a.hometown ?? null,
+                      cemetery: d.member_a.cemetery ?? null,
                       placesLived: [],
                       isCollapsed: false,
                       position: { x: 0, y: 0 },

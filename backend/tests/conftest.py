@@ -17,17 +17,19 @@ from app.api.router import api_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.core.security import create_access_token, hash_password
-from app.db.base import Base
+from app.db.base import Base, utcnow_iso
 from app.db.init_db import DEFAULT_RELATION_TYPES
 from app.db.session import get_db
 from app.models import (
     Friendship,
+    LegalAcceptance,
     Member,
     RelationType,
     Tree,
     TreeMembership,
     User,
 )
+from app.services.settings_service import DEFAULT_LEGAL_VERSION, get_setting
 
 # The dev .env uses a short key; patch before any JWT operation so
 # PyJWT's InsecureKeyLengthWarning (RFC 7518 §3.2, 32-byte minimum) is silent.
@@ -109,7 +111,15 @@ def make_user(
     password: str | None = "secret",
     is_admin: bool = False,
     is_active: bool = True,
+    legal_accepted: bool = True,
 ) -> User:
+    """Create a test user.
+
+    ``legal_accepted`` defaults to True (inserting an acceptance row for the
+    current ``legal_version``) so the legal acceptance gate added in #519
+    doesn't force every existing write-path test to accept first. Pass
+    ``legal_accepted=False`` for tests that specifically exercise the gate.
+    """
     user = User(
         username=username,
         email=f"{username}@example.com",
@@ -122,6 +132,18 @@ def make_user(
     db.add(user)
     db.commit()
     db.refresh(user)
+    if legal_accepted:
+        db.add(
+            LegalAcceptance(
+                user_id=user.id,
+                username=user.username,
+                version=get_setting(db, "legal_version", DEFAULT_LEGAL_VERSION)
+                or DEFAULT_LEGAL_VERSION,
+                locale="de",
+                accepted_at=utcnow_iso(),
+            )
+        )
+        db.commit()
     return user
 
 

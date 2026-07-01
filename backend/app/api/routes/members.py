@@ -67,6 +67,7 @@ _MEMBER_SURFACE_COLUMNS = (
     Member.deceased,
     Member.birthplace,
     Member.hometown,
+    Member.cemetery,
     Member.is_collapsed,
     Member.position_x,
     Member.position_y,
