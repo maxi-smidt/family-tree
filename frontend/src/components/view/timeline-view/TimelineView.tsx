@@ -90,7 +90,12 @@ export const TimelineView = () => {
     keyPrefix: "timeline-view.view",
   });
   const { members } = useMemberStore();
-  const { events, removeEvent, refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const {
+    events,
+    removeEvent,
+    refreshEvents,
+    initialized: eventsInitialized,
+  } = useEventStore();
   const isReady = useTreeStore((state) => state.isReady);
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
@@ -416,7 +421,7 @@ export const TimelineView = () => {
                               {formatDateWithFallback(item.data.date, i18n.t)}
                             </span>
                           </div>
-                          {showDetails && item.data.location && (
+                          {item.data.location && (
                             <div className="flex items-center gap-1">
                               <MapPin aria-hidden="true" className="w-4 h-4" />
                               <span>{item.data.location}</span>
