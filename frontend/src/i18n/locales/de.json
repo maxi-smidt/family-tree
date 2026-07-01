@@ -1070,7 +1070,11 @@
     "issue-parent-too-old": "Elternteil zu alt",
     "issue-relationship-cycle": "Beziehungszyklus",
     "issue-duplicate-candidate": "Mögliches Duplikat",
-    "issue-disconnected-member": "Keine Beziehungen"
+    "issue-disconnected-member": "Keine Beziehungen",
+    "dismiss": "Verwerfen",
+    "restore": "Wiederherstellen",
+    "dismissed-badge": "Verworfen",
+    "show-dismissed": "Verworfene anzeigen ({{count}})"
   },
   "statistics-view": {
     "title": "Statistiken",
