@@ -9,7 +9,7 @@ interface TimelineSettingsState {
 export const useTimelineSettings = create<TimelineSettingsState>()(
   persist(
     (set) => ({
-      showDetails: true,
+      showDetails: false,
       setShowDetails: (val) => set({ showDetails: val }),
     }),
     { name: "app-timeline-settings", version: 1 },
