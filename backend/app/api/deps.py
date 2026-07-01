@@ -198,6 +198,13 @@ def get_writable_tree(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Tree:
+    from app.services.settings_service import user_has_accepted_legal
+
+    if not user_has_accepted_legal(db, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Legal terms must be accepted before making changes",
+        )
     return _resolve_tree(db, tree_id, user, write=True)
 
 

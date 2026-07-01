@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MarkdownContent } from "@/components/shared/MarkdownContent";
 import { useAnnouncementStore } from "@/hooks/useAnnouncementStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { isNewerVersion } from "@/utils/version";
 
@@ -23,6 +24,12 @@ export function AnnouncementDialog() {
   const tutorialLoaded = useTutorialStore((s) => s.loaded);
   const tutorialCompleted = useTutorialStore((s) => s.completed);
 
+  // The legal acceptance gate takes priority: never show the announcement
+  // popup underneath/alongside the blocking legal dialog.
+  const user = useAuthStore((s) => s.user);
+  const legalGateOpen =
+    !!user?.legal_acceptance_required && !user?.legal_accepted;
+
   const hasContent =
     announcement !== null &&
     (announcement.body.trim() !== "" || announcement.title.trim() !== "");
@@ -33,14 +40,11 @@ export function AnnouncementDialog() {
     tutorialCompleted &&
     announcementLoaded &&
     !dismissed &&
-    isNewerVersion(
-      announcement!.version,
-      announcement!.acknowledged_version,
-    );
+    !legalGateOpen &&
+    isNewerVersion(announcement!.version, announcement!.acknowledged_version);
 
   const displayTitle =
-    announcement?.title.trim() ||
-    (hasContent ? t("default-title") : "");
+    announcement?.title.trim() || (hasContent ? t("default-title") : "");
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && acknowledge()}>
@@ -49,9 +53,7 @@ export function AnnouncementDialog() {
           <DialogTitle>{displayTitle}</DialogTitle>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto">
-          {announcement && (
-            <MarkdownContent content={announcement.body} />
-          )}
+          {announcement && <MarkdownContent content={announcement.body} />}
         </div>
         <DialogFooter>
           <Button onClick={acknowledge}>{t("dismiss")}</Button>

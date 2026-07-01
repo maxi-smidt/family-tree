@@ -9,6 +9,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- **Legal terms acceptance gate** — admins can require users to accept the Terms of Service and Privacy Policy before making changes, managed from a dedicated **Legal documents** tab in administration. New users are blocked by a non-dismissable dialog until they accept. Versioning is automatic: editing and saving any legal document bumps the version under the hood (starting from 0), which forces existing users to re-accept. All three documents are admin-editable; the Privacy Policy and Impressum are publicly viewable without logging in (login page and public tree links), while the Terms are presented in the acceptance gate and the in-app sidebar. Documents are maintained per language (German and English, German authoritative), with an in-dialog language switch; the accepted language is recorded in the audit trail.
+- **Immutable legal document version history / consent receipts** — every published Terms, Privacy Policy, and Impressum text is snapshotted immutably the moment it goes live. Acceptance is recorded in an append-only audit log (the single source of truth for the gate) capturing username, timestamp, IP, user-agent, accepted language, and a content hash of the exact Terms and Privacy text agreed to — so a past "accepted" consent can always be tied back to the precise wording. Admins can browse the full version history (with the original text) per document and language in the Legal tab.
+
 ### Changed
 
 - **Gender-specific fallback icon colors** — members without profile pictures now display a User icon colored by gender (pink for female, blue for male) to improve visual scanning of the tree.

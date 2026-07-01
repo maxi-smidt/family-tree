@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -19,6 +20,7 @@ const ADMIN_INITIATED_DELETION = "admin_initiated_deletion";
 
 export const LoginPage = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.login" });
+  const { t: tLegal } = useTranslation(undefined, { keyPrefix: "legal" });
   const config = useAuthStore((s) => s.config);
   const login = useAuthStore((s) => s.login);
   const register = useAuthStore((s) => s.register);
@@ -34,6 +36,7 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [pendingDeletion, setPendingDeletion] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
+  const [legalDocsOpen, setLegalDocsOpen] = useState(false);
 
   // TOTP step
   const [totpCode, setTotpCode] = useState("");
@@ -238,8 +241,21 @@ export const LoginPage = () => {
                 : t("switch-to-login")}
             </button>
           )}
+
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
+            onClick={() => setLegalDocsOpen(true)}
+          >
+            {tLegal("legal-link-public")}
+          </button>
         </CardContent>
       </Card>
+      <LegalDocsDialog
+        open={legalDocsOpen}
+        onOpenChange={setLegalDocsOpen}
+        showTerms={false}
+      />
     </div>
   );
 };
