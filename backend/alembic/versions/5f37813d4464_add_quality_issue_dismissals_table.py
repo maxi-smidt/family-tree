@@ -1,7 +1,7 @@
 """add quality issue dismissals table
 
 Revision ID: 5f37813d4464
-Revises: v1_3_0_adopted_drop_horizontal
+Revises: 2516a8c16809
 Create Date: 2026-07-01 04:47:14.199462
 
 """
@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "5f37813d4464"
-down_revision: str | None = "v1_3_0_adopted_drop_horizontal"
+down_revision: str | None = "2516a8c16809"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
