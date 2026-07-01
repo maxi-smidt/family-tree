@@ -25,6 +25,7 @@ export type DimensionId =
   | "age-at-death"
   | "birthplace"
   | "hometown"
+  | "cemetery"
   | "first-name"
   | "last-name"
   | "deceased-status"
@@ -173,7 +174,8 @@ export const DIMENSION_REGISTRY: DimensionDefinition[] = [
       return null;
     },
     order: "natural",
-    naturalSort: (a, b) => (AGE_BUCKET_INDEX[a] ?? 0) - (AGE_BUCKET_INDEX[b] ?? 0),
+    naturalSort: (a, b) =>
+      (AGE_BUCKET_INDEX[a] ?? 0) - (AGE_BUCKET_INDEX[b] ?? 0),
   },
   {
     id: "birthplace",
@@ -186,6 +188,13 @@ export const DIMENSION_REGISTRY: DimensionDefinition[] = [
     id: "hometown",
     labelKey: "dim-hometown",
     getValue: (m) => (m.hometown?.trim() ? m.hometown.trim() : null),
+    order: "value-desc",
+    limit: 12,
+  },
+  {
+    id: "cemetery",
+    labelKey: "dim-cemetery",
+    getValue: (m) => (m.cemetery?.trim() ? m.cemetery.trim() : null),
     order: "value-desc",
     limit: 12,
   },
@@ -208,7 +217,8 @@ export const DIMENSION_REGISTRY: DimensionDefinition[] = [
     labelKey: "dim-deceased-status",
     getValue: (m) => (m.deceased || m.date.death ? "deceased" : "living"),
     order: "natural",
-    naturalSort: (a, b) => (a === "living" ? -1 : 1) - (b === "living" ? -1 : 1),
+    naturalSort: (a, b) =>
+      (a === "living" ? -1 : 1) - (b === "living" ? -1 : 1),
     formatCategory: (c, t) =>
       c === "living" ? t("status-living") : t("status-deceased"),
   },
@@ -245,7 +255,9 @@ export const MEASURE_REGISTRY: MeasureDefinition[] = [
         .map(ageAtDeath)
         .filter((v): v is number => v !== null);
       if (spans.length === 0) return null;
-      return Math.round((spans.reduce((a, b) => a + b, 0) / spans.length) * 10) / 10;
+      return (
+        Math.round((spans.reduce((a, b) => a + b, 0) / spans.length) * 10) / 10
+      );
     },
   },
   {
@@ -263,7 +275,9 @@ export const MEASURE_REGISTRY: MeasureDefinition[] = [
         })
         .filter((v): v is number => v !== null);
       if (ages.length === 0) return null;
-      return Math.round((ages.reduce((a, b) => a + b, 0) / ages.length) * 10) / 10;
+      return (
+        Math.round((ages.reduce((a, b) => a + b, 0) / ages.length) * 10) / 10
+      );
     },
   },
 ];
@@ -421,7 +435,9 @@ export function serializeWidgets(widgets: CustomWidget[]): string {
  * Returns only the valid widget configs. Throws if the payload is not a
  * recognizable widget export at all.
  */
-export function parseWidgetsExport(raw: string | unknown): CustomWidgetConfig[] {
+export function parseWidgetsExport(
+  raw: string | unknown,
+): CustomWidgetConfig[] {
   let parsed: unknown;
   if (typeof raw === "string") {
     try {
@@ -519,9 +535,7 @@ export function aggregate(
   } else {
     // value-desc: order by total measure across all members in the category
     const total = (c: string) =>
-      measure.compute(
-        Array.from(groups.get(c)!.values()).flat(),
-      ) ?? 0;
+      measure.compute(Array.from(groups.get(c)!.values()).flat()) ?? 0;
     categories.sort((a, b) => total(b) - total(a));
   }
   if (dim.limit) categories = categories.slice(0, dim.limit);

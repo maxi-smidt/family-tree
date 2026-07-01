@@ -134,6 +134,7 @@ def _build_test_data() -> tuple[list[dict], list[dict]]:
             "date_of_death": None,
             "birthplace": "London",
             "hometown": "Manchester",
+            "cemetery": "Highgate Cemetery",
             "additional_data": "A note\nSecond line",
             "places_lived": None,
             "image_data": None,
@@ -318,6 +319,12 @@ class TestServiceRoundTrip:
     def test_hometown_round_trips(self):
         james = self.by_name[("James", "Smith")]
         assert james["hometown"] == "Manchester"
+
+    def test_cemetery_round_trips(self):
+        james = self.by_name[("James", "Smith")]
+        assert james["cemetery"] == "Highgate Cemetery"
+        assert "1 BURI" in self.ged_text
+        assert "2 PLAC Highgate Cemetery" in self.ged_text
 
     def test_multiline_note_round_trips(self):
         james = self.by_name[("James", "Smith")]

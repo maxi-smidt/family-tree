@@ -61,6 +61,7 @@ const member: Member = {
   additionalData: null,
   birthplace: "Vienna",
   hometown: "Graz",
+  cemetery: null,
   placesLived: [],
   isCollapsed: false,
   position: { x: 0, y: 0 },

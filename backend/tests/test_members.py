@@ -194,10 +194,12 @@ def test_surface_list_omits_detail_fields(client, db):
         additionalData="some notes",
         birthplace="Berlin",
         hometown="Munich",
+        cemetery="Ohlsdorf Cemetery",
     )
 
     # With surface=true, the heavy detail field (additionalData) is omitted,
-    # but birthplace/hometown ride along so the List view can render them.
+    # but birthplace/hometown/cemetery ride along so the List view can render
+    # them.
     res = client.get(
         f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
     )
@@ -207,6 +209,7 @@ def test_surface_list_omits_detail_fields(client, db):
     assert data[0]["additionalData"] is None
     assert data[0]["birthplace"] == "Berlin"
     assert data[0]["hometown"] == "Munich"
+    assert data[0]["cemetery"] == "Ohlsdorf Cemetery"
     # Surface fields should be present
     assert data[0]["id"] == "m1"
     assert data[0]["firstName"] == "Jo"
@@ -221,6 +224,7 @@ def test_surface_list_omits_detail_fields(client, db):
     assert data2[0]["additionalData"] == "some notes"
     assert data2[0]["birthplace"] == "Berlin"
     assert data2[0]["hometown"] == "Munich"
+    assert data2[0]["cemetery"] == "Ohlsdorf Cemetery"
 
 
 # ---------------------------------------------------------------------------
@@ -314,6 +318,7 @@ def test_member_detail_endpoint(client, db):
         "m1",
         additionalData="detailed notes",
         birthplace="Hamburg",
+        cemetery="Ohlsdorf Cemetery",
     )
 
     res = client.get(
@@ -324,4 +329,5 @@ def test_member_detail_endpoint(client, db):
     assert data["id"] == "m1"
     assert data["additionalData"] == "detailed notes"
     assert data["birthplace"] == "Hamburg"
+    assert data["cemetery"] == "Ohlsdorf Cemetery"
     assert data["firstName"] == "Jo"

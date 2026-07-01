@@ -62,6 +62,7 @@ export interface Member {
   additionalData: string | null;
   birthplace: string | null;
   hometown: string | null;
+  cemetery: string | null;
   placesLived: PlaceLived[];
   isCollapsed: boolean;
   position: {
@@ -130,6 +131,7 @@ export interface MemberDB {
   additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
+  cemetery?: string | null;
   placesLived?: string | null;
   isCollapsed: number;
   positionX: number;
@@ -167,6 +169,7 @@ export interface MemberUpdate {
   additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
+  cemetery?: string | null;
   placesLived?: string | null;
   isCollapsed?: boolean;
   positionX?: number;
@@ -213,6 +216,7 @@ export function mapMemberFromDB(
     additionalData: row.additionalData ?? null,
     birthplace: row.birthplace ?? null,
     hometown: row.hometown ?? null,
+    cemetery: row.cemetery ?? null,
     placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
     position: {
@@ -254,6 +258,7 @@ export function mapMemberToDB(member: Member): MemberDB {
     additionalData: member.additionalData ? member.additionalData : null,
     birthplace: member.birthplace ?? null,
     hometown: member.hometown ?? null,
+    cemetery: member.cemetery ?? null,
     placesLived:
       member.placesLived.length > 0 ? JSON.stringify(member.placesLived) : null,
     isCollapsed: member.isCollapsed ? 1 : 0,
@@ -278,6 +283,7 @@ export function createMember(position: { x: number; y: number }): Member {
     additionalData: null,
     birthplace: null,
     hometown: null,
+    cemetery: null,
     placesLived: [],
     isCollapsed: false,
     position: position,

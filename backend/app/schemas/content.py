@@ -158,7 +158,8 @@ class StoryLinkOut(BaseModel):
 
 # --- Sources ---------------------------------------------------------------
 FactType = Literal[
-    "name", "birth", "death", "birthplace", "hometown", "residence", "general"
+    "name", "birth", "death", "birthplace", "hometown", "residence", "cemetery",
+    "general"
 ]
 
 

@@ -26,6 +26,7 @@ function member(
     additionalData: null,
     birthplace: null,
     hometown: null,
+    cemetery: null,
     placesLived: [],
     isCollapsed: false,
     position: { x, y: 0 },
