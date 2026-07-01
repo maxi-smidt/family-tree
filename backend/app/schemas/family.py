@@ -66,6 +66,7 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
 
 
 class MemberCreate(FamilyTreeBaseModel):

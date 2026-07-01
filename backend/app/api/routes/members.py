@@ -71,6 +71,7 @@ _MEMBER_SURFACE_COLUMNS = (
     Member.is_collapsed,
     Member.position_x,
     Member.position_y,
+    Member.linked_tree_id,
 )
 
 

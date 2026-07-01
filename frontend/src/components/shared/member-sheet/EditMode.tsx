@@ -141,7 +141,8 @@ export const EditMode = ({
       JSON.stringify(formData.placesLived) !==
         JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
-      formData.parents.maternalParent !== initialData.parents.maternalParent;
+      formData.parents.maternalParent !== initialData.parents.maternalParent ||
+      (formData.linkedTreeId ?? null) !== (initialData.linkedTreeId ?? null);
 
     setIsDirty(dirty);
     onDirtyChange?.(dirty);
@@ -274,7 +275,9 @@ export const EditMode = ({
             : null,
         paternalParentId: formData.parents.paternalParent,
         maternalParentId: formData.parents.maternalParent,
-        linkedTreeId: formData.linkedTreeId ?? null,
+        ...(formData.linkedTreeId !== undefined
+          ? { linkedTreeId: formData.linkedTreeId }
+          : {}),
       });
       toast.success(t("toast-success"));
       onSaved?.(formData);

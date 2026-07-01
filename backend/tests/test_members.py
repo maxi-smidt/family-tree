@@ -357,6 +357,31 @@ def test_link_member_to_accessible_tree(client, db):
     assert cleared.json()["linkedTreeId"] is None
 
 
+def test_surface_list_includes_linked_tree_id(client, db):
+    """The surface=true endpoint must include linkedTreeId so windowed/search
+    views can render the linked-tree badge."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1")
+
+    linked = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedTreeId": other.id},
+    )
+    assert linked.status_code == 200
+
+    res = client.get(
+        f"{API}/trees/{main.id}/members?surface=true", headers=auth(user)
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert len(data) == 1
+    assert data[0]["id"] == "m1"
+    assert data[0]["linkedTreeId"] == other.id
+
+
 def test_cannot_link_member_to_own_tree(client, db):
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
