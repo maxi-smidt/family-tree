@@ -14,6 +14,7 @@ from app.api.routes import (
     geocode,
     invitations,
     jobs,
+    legal,
     media,
     members,
     oauth,
@@ -58,3 +59,4 @@ api_router.include_router(quality.router)
 api_router.include_router(statistics.router)
 api_router.include_router(media.router)
 api_router.include_router(sse.router)
+api_router.include_router(legal.router)

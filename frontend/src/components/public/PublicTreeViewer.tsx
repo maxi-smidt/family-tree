@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
+import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
 
 // Lazy so the tree-view bundle stays code-split (shared with the authenticated
 // app's lazy import) rather than being pulled into the main entry chunk.
@@ -31,8 +32,10 @@ interface Props {
  */
 export const PublicTreeViewer = ({ treeId }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "public-tree" });
+  const { t: tLegal } = useTranslation(undefined, { keyPrefix: "legal" });
   const [state, setState] = useState<ViewState>("loading");
   const [treeName, setTreeName] = useState("");
+  const [legalDocsOpen, setLegalDocsOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +46,9 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
         const tree = await api.get<Tree>(`/trees/${treeId}`);
         if (cancelled) return;
         setTreeName(tree.name);
-        await useTreeStore.getState().selectTree({ id: tree.id, name: tree.name });
+        await useTreeStore
+          .getState()
+          .selectTree({ id: tree.id, name: tree.name });
         if (cancelled) return;
         setState("loaded");
       } catch (err: unknown) {
@@ -80,6 +85,18 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
           {state === "not-public" ? t("not-public") : t("error")}
         </p>
         <Button onClick={handleLogin}>{t("login-button")}</Button>
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setLegalDocsOpen(true)}
+        >
+          {tLegal("legal-link-public")}
+        </button>
+        <LegalDocsDialog
+          open={legalDocsOpen}
+          onOpenChange={setLegalDocsOpen}
+          showTerms={false}
+        />
       </div>
     );
   }
@@ -92,6 +109,13 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
           <p className="text-xs text-muted-foreground">{t("read-only-hint")}</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setLegalDocsOpen(true)}
+          >
+            {tLegal("legal-link-public")}
+          </button>
           <ThemeToggle />
           <Button variant="outline" onClick={handleLogin}>
             {t("login-button")}
@@ -109,6 +133,11 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
           <FlowPanel publicView />
         </Suspense>
       </main>
+      <LegalDocsDialog
+        open={legalDocsOpen}
+        onOpenChange={setLegalDocsOpen}
+        showTerms={false}
+      />
     </div>
   );
 };

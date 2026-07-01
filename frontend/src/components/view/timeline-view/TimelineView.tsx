@@ -41,6 +41,7 @@ import { comparePartialDates, formatDateWithFallback } from "@/utils/dateUtils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useTimelineSettings } from "@/hooks/useTimelineSettings";
 
 interface VitalEvent {
   kind: "vital";
@@ -89,7 +90,12 @@ export const TimelineView = () => {
     keyPrefix: "timeline-view.view",
   });
   const { members } = useMemberStore();
-  const { events, removeEvent, refreshEvents, initialized: eventsInitialized } = useEventStore();
+  const {
+    events,
+    removeEvent,
+    refreshEvents,
+    initialized: eventsInitialized,
+  } = useEventStore();
   const isReady = useTreeStore((state) => state.isReady);
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
@@ -102,6 +108,7 @@ export const TimelineView = () => {
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
   const [showVitalEvents, setShowVitalEvents] = useState(true);
+  const { showDetails, setShowDetails } = useTimelineSettings();
 
   const filteredEvents = useMemo(() => {
     let filtered = events;
@@ -272,6 +279,20 @@ export const TimelineView = () => {
           </label>
         </div>
 
+        <div className="flex items-center gap-2">
+          <Switch
+            id="show-details"
+            checked={showDetails}
+            onCheckedChange={setShowDetails}
+          />
+          <label
+            htmlFor="show-details"
+            className="text-sm text-muted-foreground cursor-pointer select-none"
+          >
+            {t("show-details")}
+          </label>
+        </div>
+
         <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -408,7 +429,7 @@ export const TimelineView = () => {
                           )}
                         </div>
 
-                        {item.data.description && (
+                        {showDetails && item.data.description && (
                           <p className="text-sm">{item.data.description}</p>
                         )}
                       </div>
