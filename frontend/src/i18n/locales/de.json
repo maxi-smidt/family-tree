@@ -962,6 +962,7 @@
       "birth": "Geburt",
       "death": "Tod",
       "show-vital-events": "Geburten & Todesfälle anzeigen",
+      "show-details": "Details anzeigen",
       "edit-event": "Ereignis bearbeiten",
       "delete-event": "Ereignis löschen",
       "delete-dialog": {

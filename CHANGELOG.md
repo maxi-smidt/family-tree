@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- **Toggle timeline detail visibility** — the timeline view now has a "Show details" switch to hide event location and description for a more compact overview. The preference is remembered locally.
+
 ### Changed
 
 - **Gender-specific fallback icon colors** — members without profile pictures now display a User icon colored by gender (pink for female, blue for male) to improve visual scanning of the tree.
