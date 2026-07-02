@@ -282,9 +282,24 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
               type="button"
               variant="outline"
               size="icon-sm"
-              aria-label={t("open-linked-tree")}
-              title={t("open-linked-tree")}
-              className="nodrag nopan"
+              aria-label={
+                data.linkedTreeAccessible === false
+                  ? t("open-linked-tree-no-access")
+                  : t("open-linked-tree")
+              }
+              title={
+                data.linkedTreeAccessible === false
+                  ? t("open-linked-tree-no-access")
+                  : t("open-linked-tree")
+              }
+              // Muted when the target tree isn't shared with the viewer. Still
+              // clickable: the tree may be publicly readable, and the click
+              // path surfaces a clear error if not.
+              className={
+                data.linkedTreeAccessible === false
+                  ? "nodrag nopan opacity-40"
+                  : "nodrag nopan"
+              }
               onPointerDown={stopCanvasGesture}
               onClick={onOpenLinkedTreeClick}
             >

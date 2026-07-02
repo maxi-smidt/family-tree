@@ -37,6 +37,10 @@ export const useFlowNodes = (
   hiddenNodeIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
   onOpenLinkedTree?: (treeId: string, memberId?: string | null) => void,
   purelyVisual = false,
+  // Tree ids the current user has listed access to (own + shared). undefined
+  // = unknown (e.g. public view without a tree list) — badges then render
+  // normally instead of guessing.
+  accessibleTreeIds?: ReadonlySet<string>,
 ) => {
   const { t } = useTranslation();
 
@@ -67,6 +71,13 @@ export const useFlowNodes = (
             linkedTreeId && onOpenLinkedTree
               ? () => onOpenLinkedTree(linkedTreeId, linkedMemberId)
               : undefined,
+          // False only when we positively know the tree isn't in the user's
+          // list; the badge stays clickable (the target may still be public),
+          // it just looks muted with a "not shared with you" hint.
+          linkedTreeAccessible:
+            !linkedTreeId || !accessibleTreeIds
+              ? true
+              : accessibleTreeIds.has(linkedTreeId),
           isConnectionSelected: connectionSelectedIds.has(node.id),
           isConnectionPath: connectionPathNodeIds.has(node.id),
           isConnectionDimmed:
@@ -127,6 +138,7 @@ export const useFlowNodes = (
     hiddenNodeIds,
     onOpenLinkedTree,
     purelyVisual,
+    accessibleTreeIds,
     t,
   ]);
 };

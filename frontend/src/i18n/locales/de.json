@@ -787,6 +787,7 @@
       "add-left": "Verwandte Person links hinzufügen",
       "add-right": "Verwandte Person rechts hinzufügen",
       "open-linked-tree": "Verknüpften Stammbaum öffnen",
+      "open-linked-tree-no-access": "Der verknüpfte Stammbaum ist nicht mit dir geteilt",
       "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
     },
     "linked-tree": {

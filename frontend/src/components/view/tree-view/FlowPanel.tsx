@@ -297,6 +297,17 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   );
 
   const openLinkedTree = useTreeStore((s) => s.openLinkedTree);
+  const allTrees = useTreeStore((s) => s.trees);
+  // Tree ids the user has listed access to (own + shared) — used to mute
+  // linked-tree badges pointing at trees not shared with them. In the public
+  // view there is no tree list, so accessibility is unknown (undefined).
+  const accessibleTreeIds = useMemo(
+    () =>
+      publicView || allTrees.length === 0
+        ? undefined
+        : new Set(allTrees.map((tr) => tr.id)),
+    [publicView, allTrees],
+  );
   const handleOpenLinkedTree = useMemo(
     () =>
       treeLinksEnabled
@@ -340,6 +351,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     hiddenNodeIds,
     handleOpenLinkedTree,
     publicView,
+    accessibleTreeIds,
   );
   const viewEdges = useFlowEdges(
     baseEdges,

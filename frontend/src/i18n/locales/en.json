@@ -787,6 +787,7 @@
       "add-left": "Add relative on the left",
       "add-right": "Add relative on the right",
       "open-linked-tree": "Open linked tree",
+      "open-linked-tree-no-access": "Linked tree is not shared with you",
       "life-deceased-unknown": "Deceased, date of death unknown"
     },
     "linked-tree": {
