@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ShieldAlert,
   Dna,
+  Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Handle, Node, NodeProps, Position } from "@xyflow/react";
@@ -117,6 +118,13 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
     stopCanvasGesture(event);
     if (data.onView && typeof data.onView === "function") {
       data.onView();
+    }
+  };
+
+  const onOpenLinkedTreeClick = (event: MouseEvent<HTMLButtonElement>) => {
+    stopCanvasGesture(event);
+    if (data.onOpenLinkedTree && typeof data.onOpenLinkedTree === "function") {
+      data.onOpenLinkedTree();
     }
   };
 
@@ -251,24 +259,56 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         className={horizontalHandleClassName}
         data-export-hide="true"
       />
-      <div className="absolute top-2 flex justify-between w-full px-2" data-export-hide="true">
-        {/* In the purely-visual public view onView is undefined, so the detail
-            button disappears and the node becomes non-interactive. */}
-        {typeof data.onView === "function" ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label={t("view-details")}
-            className="nodrag nopan"
-            onPointerDown={stopCanvasGesture}
-            onClick={onViewClick}
-          >
-            <EyeIcon />
-          </Button>
-        ) : (
-          <span />
-        )}
+      <div
+        className="absolute top-2 flex justify-between w-full px-2"
+        data-export-hide="true"
+      >
+        <div className="flex gap-1">
+          {typeof data.onView === "function" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={t("view-details")}
+              className="nodrag nopan"
+              onPointerDown={stopCanvasGesture}
+              onClick={onViewClick}
+            >
+              <EyeIcon />
+            </Button>
+          )}
+          {typeof data.onOpenLinkedTree === "function" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label={
+                data.linkedTreeAccessible === false
+                  ? t("open-linked-tree-no-access")
+                  : t("open-linked-tree")
+              }
+              title={
+                data.linkedTreeAccessible === false
+                  ? t("open-linked-tree-no-access")
+                  : t("open-linked-tree")
+              }
+              // Muted and inert when the target tree isn't shared with the
+              // viewer: following the link would open a tree that appears
+              // nowhere in their own list (a "ghost tree"), so the badge only
+              // signals that a linked tree exists.
+              disabled={data.linkedTreeAccessible === false}
+              className={
+                data.linkedTreeAccessible === false
+                  ? "nodrag nopan opacity-40"
+                  : "nodrag nopan"
+              }
+              onPointerDown={stopCanvasGesture}
+              onClick={onOpenLinkedTreeClick}
+            >
+              <Network />
+            </Button>
+          )}
+        </div>
         {!data.isReadOnly && (
           <Button
             type="button"

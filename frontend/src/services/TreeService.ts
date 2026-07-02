@@ -98,13 +98,34 @@ export class TreeService {
     return api.del(`${base(treeId)}/members/${memberId}`);
   }
 
+  /** Create a new tree seeded with a copy of the member (the bridge person)
+   *  and link the two rows bidirectionally — all in one atomic request. */
+  static createMemberSubtree(treeId: string, memberId: string, name: string) {
+    return api.post<{ tree: Tree; anchor: MemberDB }>(
+      `${base(treeId)}/members/${memberId}/subtree`,
+      { name },
+    );
+  }
+
+  /** Resolve bridge-person drift: "push" writes this member's values onto the
+   *  linked counterpart, "pull" adopts the counterpart's values. */
+  static resolveBridgeDrift(
+    treeId: string,
+    memberId: string,
+    direction: "push" | "pull",
+  ) {
+    return api.post<MemberDB>(`${base(treeId)}/members/${memberId}/bridge-sync`, {
+      direction,
+    });
+  }
+
   static updateMember(
     treeId: string,
     id: string,
     changes: Omit<MemberUpdate, "paternalParentId" | "maternalParentId">,
-  ) {
-    if (Object.keys(changes).length === 0) return Promise.resolve();
-    return api.patch(`${base(treeId)}/members/${id}`, changes);
+  ): Promise<MemberDB | undefined> {
+    if (Object.keys(changes).length === 0) return Promise.resolve(undefined);
+    return api.patch<MemberDB>(`${base(treeId)}/members/${id}`, changes);
   }
 
   static updateMemberPosition(

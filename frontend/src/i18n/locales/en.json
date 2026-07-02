@@ -340,6 +340,10 @@
     "upload-image-card": "Upload Image"
   },
   "layout": {
+    "tree-breadcrumb": {
+      "aria-label": "Linked tree navigation",
+      "untitled": "Untitled tree"
+    },
     "main-panel": {
       "tree": "Tree",
       "list": "List",
@@ -463,6 +467,7 @@
       "toast-error-quota-tree": "Tree data quota exceeded.",
       "toast-error-save": "Failed to save member.",
       "toast-success": "Member updated successfully",
+      "toast-bridge-sync-skipped": "The linked copy of this person in another tree was not updated — you don't have edit access there.",
       "gender-field": "Gender",
       "gender-male": "Male",
       "gender-female": "Female",
@@ -481,6 +486,20 @@
       "maternal-parent-field": "Maternal Parent",
       "parent-placeholder": "Search members…",
       "parent-no-results": "No members found",
+      "linked-tree": {
+        "field-label": "Linked tree",
+        "field-hint": "Link this person to another tree that details their own family.",
+        "placeholder": "Choose a tree…",
+        "none": "Not linked",
+        "external-tree": "Currently linked tree",
+        "unlink": "Remove link",
+        "create-and-link": "Create & link new tree",
+        "new-tree-fallback-name": "New tree",
+        "toast-created": "Created and linked “{{name}}”.",
+        "toast-created-seeded": "Created “{{name}}” and added this person to it.",
+        "create-requires-save": "Save your changes first — creating a linked tree stores this person in it right away.",
+        "toast-create-error": "Could not create the linked tree."
+      },
       "birthplace-field": "Birthplace",
       "hometown-field": "Hometown / Where They Grew Up",
       "cemetery-field": "Cemetery",
@@ -768,7 +787,12 @@
       "add-child": "Add child",
       "add-left": "Add relative on the left",
       "add-right": "Add relative on the right",
+      "open-linked-tree": "Open linked tree",
+      "open-linked-tree-no-access": "Linked tree is not shared with you",
       "life-deceased-unknown": "Deceased, date of death unknown"
+    },
+    "linked-tree": {
+      "open-error": "That tree could not be opened — it may be private or no longer exist."
     },
     "canvas-label": "Family tree canvas",
     "a11y": {
@@ -1076,6 +1100,12 @@
     "issue-relationship-cycle": "Relationship cycle",
     "issue-duplicate-candidate": "Possible duplicate",
     "issue-disconnected-member": "No relationships",
+    "issue-bridge-person-drift": "Linked copy out of sync",
+    "resolve-drift-push": "Use this tree's data",
+    "resolve-drift-pull": "Use linked tree's data",
+    "resolve-drift-success": "Both copies of this person are in sync again.",
+    "resolve-drift-no-access": "You need edit access to the linked tree to resolve this.",
+    "resolve-drift-error": "Could not sync the linked copies.",
     "dismiss": "Dismiss",
     "restore": "Restore",
     "dismissed-badge": "Dismissed",
@@ -1437,7 +1467,8 @@
         "sharing_invites": "Share invitations",
         "map": "Map view",
         "sources": "Sources & Citations",
-        "onboarding_tour": "Onboarding tour"
+        "onboarding_tour": "Onboarding tour",
+        "tree_links": "Tree-in-tree links"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -1451,7 +1482,8 @@
         "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
         "map": "Interactive map of timeline events by location.",
         "sources": "Source citations and evidence records for member facts.",
-        "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features."
+        "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features.",
+        "tree_links": "Link a member to another tree that details their own family, and navigate between them."
       }
     },
     "col-username": "Username",

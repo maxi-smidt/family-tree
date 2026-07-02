@@ -44,6 +44,7 @@ import { MemberDiseases } from "./MemberDiseases";
 import { MemberSources } from "./MemberSources";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
+import { LinkedTreeField } from "./LinkedTreeField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 
@@ -84,6 +85,8 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
+  const currentTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const treeLinksEnabled = useFeature("tree_links");
   const eventsEnabled =
     useFeature("events") && !restrictions.includes("events");
   const storiesEnabled =
@@ -138,7 +141,8 @@ export const EditMode = ({
       JSON.stringify(formData.placesLived) !==
         JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
-      formData.parents.maternalParent !== initialData.parents.maternalParent;
+      formData.parents.maternalParent !== initialData.parents.maternalParent ||
+      (formData.linkedTreeId ?? null) !== (initialData.linkedTreeId ?? null);
 
     setIsDirty(dirty);
     onDirtyChange?.(dirty);
@@ -248,7 +252,7 @@ export const EditMode = ({
     }
 
     try {
-      await updateMemberPartial(member.id, {
+      const result = await updateMemberPartial(member.id, {
         academicTitle: formData.academicTitle || null,
         firstName: formData.firstName,
         middleNames: formData.middleNames || null,
@@ -271,8 +275,16 @@ export const EditMode = ({
             : null,
         paternalParentId: formData.parents.paternalParent,
         maternalParentId: formData.parents.maternalParent,
+        ...(formData.linkedTreeId !== undefined
+          ? { linkedTreeId: formData.linkedTreeId }
+          : {}),
       });
       toast.success(t("toast-success"));
+      // Bridge person whose counterpart tree the editor may not write: the
+      // save worked but the linked copy drifted — say so.
+      if (result?.bridgeSync === "skipped_no_access") {
+        toast.info(t("toast-bridge-sync-skipped"));
+      }
       onSaved?.(formData);
       return true;
     } catch (err: unknown) {
@@ -792,6 +804,19 @@ export const EditMode = ({
                     showBirthDate
                   />
                 </Field>
+
+                {treeLinksEnabled && (
+                  <LinkedTreeField
+                    currentTreeId={currentTreeId}
+                    value={formData.linkedTreeId ?? null}
+                    memberName={`${formData.firstName} ${formData.lastName}`}
+                    memberId={isNew ? undefined : formData.id}
+                    formDirty={isDirty}
+                    onChange={(treeId) =>
+                      handleChange("linkedTreeId", treeId)
+                    }
+                  />
+                )}
               </FieldGroup>
             </TabsContent>
           )}

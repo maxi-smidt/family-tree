@@ -8,9 +8,12 @@ other schemas intentionally stay snake_case because the frontend reads them
 as-is.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
+from app.schemas.tree import TreeOut
 
 
 # --- Members ---------------------------------------------------------------
@@ -38,6 +41,12 @@ class MemberOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
+    # Transient outcome of the bridge-person mirror on updates (not a column):
+    # "synced" when the counterpart row was updated too, "skipped_no_access"
+    # when identity fields changed but the actor may not write the other tree.
+    bridge_sync: str | None = None
 
 
 class MemberSurfaceOut(FamilyTreeOrmBaseModel):
@@ -65,6 +74,8 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberCreate(FamilyTreeBaseModel):
@@ -89,6 +100,8 @@ class MemberCreate(FamilyTreeBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberUpdate(FamilyTreeBaseModel):
@@ -112,6 +125,8 @@ class MemberUpdate(FamilyTreeBaseModel):
     is_collapsed: bool | None = None
     position_x: float | None = None
     position_y: float | None = None
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberPositionUpdate(FamilyTreeBaseModel):
@@ -127,6 +142,31 @@ class MemberCollapsedUpdate(FamilyTreeBaseModel):
 
     id: str
     is_collapsed: bool
+
+
+class MemberSubtreeCreate(FamilyTreeBaseModel):
+    """Request body for the create-and-link-subtree endpoint."""
+
+    name: str
+
+
+class BridgeSyncRequest(FamilyTreeBaseModel):
+    """Resolve bridge-person drift by copying fields across the link.
+
+    ``push`` copies this member's values onto the counterpart; ``pull`` adopts
+    the counterpart's values into this member.
+    """
+
+    direction: Literal["push", "pull"]
+
+
+class MemberSubtreeOut(FamilyTreeBaseModel):
+    """Result of creating a linked subtree: the new tree plus the updated
+    anchor member (whose linked_tree_id/linked_member_id now point at the
+    seeded counterpart)."""
+
+    tree: TreeOut
+    anchor: MemberOut
 
 
 # --- Relations -------------------------------------------------------------

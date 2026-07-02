@@ -340,6 +340,10 @@
     "upload-image-card": "Bild hochladen"
   },
   "layout": {
+    "tree-breadcrumb": {
+      "aria-label": "Navigation verknüpfter Stammbäume",
+      "untitled": "Unbenannter Stammbaum"
+    },
     "main-panel": {
       "tree": "Stammbaum",
       "list": "Liste",
@@ -463,6 +467,7 @@
       "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
       "toast-error-save": "Speichern fehlgeschlagen.",
       "toast-success": "Person aktualisiert.",
+      "toast-bridge-sync-skipped": "Die verknüpfte Kopie dieser Person in einem anderen Stammbaum wurde nicht aktualisiert — du hast dort keine Bearbeitungsrechte.",
       "gender-field": "Geschlecht",
       "gender-male": "Männlich",
       "gender-female": "Weiblich",
@@ -481,6 +486,20 @@
       "maternal-parent-field": "Mütterlicherseits",
       "parent-placeholder": "Personen suchen…",
       "parent-no-results": "Keine Personen gefunden",
+      "linked-tree": {
+        "field-label": "Verknüpfter Stammbaum",
+        "field-hint": "Verknüpfe diese Person mit einem anderen Stammbaum, der ihre eigene Familie zeigt.",
+        "placeholder": "Stammbaum auswählen…",
+        "none": "Nicht verknüpft",
+        "external-tree": "Aktuell verknüpfter Stammbaum",
+        "unlink": "Verknüpfung entfernen",
+        "create-and-link": "Neuen Stammbaum erstellen & verknüpfen",
+        "new-tree-fallback-name": "Neuer Stammbaum",
+        "toast-created": "„{{name}}“ erstellt und verknüpft.",
+        "toast-created-seeded": "„{{name}}“ erstellt und diese Person darin angelegt.",
+        "create-requires-save": "Speichere zuerst deine Änderungen — beim Erstellen wird diese Person sofort im neuen Stammbaum angelegt.",
+        "toast-create-error": "Der verknüpfte Stammbaum konnte nicht erstellt werden."
+      },
       "birthplace-field": "Geburtsort",
       "hometown-field": "Heimatort / Aufgewachsen in",
       "cemetery-field": "Friedhof",
@@ -768,7 +787,12 @@
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
       "add-right": "Verwandte Person rechts hinzufügen",
+      "open-linked-tree": "Verknüpften Stammbaum öffnen",
+      "open-linked-tree-no-access": "Der verknüpfte Stammbaum ist nicht mit dir geteilt",
       "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
+    },
+    "linked-tree": {
+      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise privat oder existiert nicht mehr."
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {
@@ -1076,6 +1100,12 @@
     "issue-relationship-cycle": "Beziehungszyklus",
     "issue-duplicate-candidate": "Mögliches Duplikat",
     "issue-disconnected-member": "Keine Beziehungen",
+    "issue-bridge-person-drift": "Verknüpfte Kopie nicht synchron",
+    "resolve-drift-push": "Daten dieses Stammbaums übernehmen",
+    "resolve-drift-pull": "Daten des verknüpften Stammbaums übernehmen",
+    "resolve-drift-success": "Beide Kopien dieser Person sind wieder synchron.",
+    "resolve-drift-no-access": "Zum Beheben brauchst du Bearbeitungsrechte im verknüpften Stammbaum.",
+    "resolve-drift-error": "Die verknüpften Kopien konnten nicht synchronisiert werden.",
     "dismiss": "Verwerfen",
     "restore": "Wiederherstellen",
     "dismissed-badge": "Verworfen",
@@ -1437,7 +1467,8 @@
         "sharing_invites": "Einladungen teilen",
         "map": "Kartenansicht",
         "sources": "Quellen & Zitate",
-        "onboarding_tour": "Onboarding-Tour"
+        "onboarding_tour": "Onboarding-Tour",
+        "tree_links": "Baum-im-Baum-Verknüpfungen"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1451,7 +1482,8 @@
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
         "sources": "Quellennachweise und Belege für Personendaten.",
-        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
+        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt.",
+        "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen."
       }
     },
     "col-username": "Benutzername",

@@ -45,6 +45,8 @@ import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { useFeature } from "@/hooks/useAuthStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
@@ -65,6 +67,7 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
+  const treeLinksEnabled = useFeature("tree_links");
   const activeTree = useTreeStore((s) => s.selectedTree);
   const availableTreeCount = useTreeStore(
     (s) => s.trees.length + s.virtualViews.length,
@@ -79,6 +82,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     neighborhoodTruncated,
     totalMemberCount,
     setFocusRoot,
+    pendingLocateMemberId,
+    setPendingLocateMemberId,
   } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
   const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
@@ -106,6 +111,39 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   // --- Extracted hooks ---
   const locator = useMemberLocator(members, rfInstance);
+
+  // Center the counterpart after navigating into a linked tree: consume the
+  // one-shot locate request once the member shows up in the loaded set. In
+  // windowed mode the counterpart may lie outside the current neighborhood —
+  // re-focus the window on it once and locate after the reload.
+  const attemptedLinkedFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingLocateMemberId) return;
+    const target = members.find((m) => m.id === pendingLocateMemberId);
+    if (target) {
+      attemptedLinkedFocusRef.current = null;
+      setPendingLocateMemberId(null);
+      locator.locateMember(target);
+      return;
+    }
+    if (members.length === 0) return; // still loading
+    if (windowed && attemptedLinkedFocusRef.current !== pendingLocateMemberId) {
+      attemptedLinkedFocusRef.current = pendingLocateMemberId;
+      void setFocusRoot(pendingLocateMemberId);
+      return;
+    }
+    // Fully loaded (or window already re-focused) and still absent: the
+    // counterpart no longer exists — drop the request.
+    attemptedLinkedFocusRef.current = null;
+    setPendingLocateMemberId(null);
+  }, [
+    pendingLocateMemberId,
+    members,
+    windowed,
+    setFocusRoot,
+    setPendingLocateMemberId,
+    locator,
+  ]);
 
   const connection = useConnectionMode(members, () => setSelectedNodes([]));
 
@@ -258,6 +296,30 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     ],
   );
 
+  const openLinkedTree = useTreeStore((s) => s.openLinkedTree);
+  const allTrees = useTreeStore((s) => s.trees);
+  // Tree ids the user has listed access to (own + shared) — used to mute
+  // linked-tree badges pointing at trees not shared with them. In the public
+  // view there is no tree list, so accessibility is unknown (undefined).
+  const accessibleTreeIds = useMemo(
+    () =>
+      publicView || allTrees.length === 0
+        ? undefined
+        : new Set(allTrees.map((tr) => tr.id)),
+    [publicView, allTrees],
+  );
+  const handleOpenLinkedTree = useMemo(
+    () =>
+      treeLinksEnabled
+        ? (treeId: string, memberId?: string | null) => {
+            void openLinkedTree(treeId, memberId).catch(() => {
+              toast.error(t("tree-view.linked-tree.open-error"));
+            });
+          }
+        : undefined,
+    [treeLinksEnabled, openLinkedTree, t],
+  );
+
   // Collapsed ancestors hide their descendant member nodes (handled in
   // useFlowNodes) and the union dots between them (above). Edges touching any
   // hidden member/union must also be hidden, otherwise React Flow keeps drawing
@@ -287,7 +349,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     connection.isConnectionMode,
     connection.hasConnectionPath,
     hiddenNodeIds,
+    handleOpenLinkedTree,
     publicView,
+    accessibleTreeIds,
   );
   const viewEdges = useFlowEdges(
     baseEdges,

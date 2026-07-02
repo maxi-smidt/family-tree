@@ -39,6 +39,24 @@ class Member(Base):
     deceased: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     adopted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_collapsed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Optional pointer to another tree that details this person's own family
+    # (the "tree-in-tree" link). SET NULL so deleting the target tree just
+    # clears the link rather than cascading.
+    linked_tree_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("trees.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # The counterpart row in the linked tree representing the same person (the
+    # "bridge person"). Navigation into the linked tree centers on it. SET NULL
+    # so deleting the counterpart degrades the link to tree-level only.
+    linked_member_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("members.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     position_x: Mapped[float] = mapped_column(Float, default=0)
     position_y: Mapped[float] = mapped_column(Float, default=0)
 

@@ -86,6 +86,7 @@ import {
   filterViewsByRestrictions,
 } from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
@@ -247,6 +248,7 @@ export const MainPanel = () => {
       onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
+      <TreeBreadcrumb />
       <div
         className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2"
         data-tutorial="views-tabs-mobile"
