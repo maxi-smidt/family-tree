@@ -45,6 +45,7 @@ from app.services.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
     UnsupportedImageType,
+    copy_media_to_tree,
     delete_media,
     process_image_field,
 )
@@ -148,6 +149,72 @@ def _validate_linked_member(
             status_code=400,
             detail="Linked member is not part of the linked tree",
         )
+
+
+# Person-level fields mirrored between the two rows of a bridge person (a
+# member linked to its counterpart row in another tree). Everything view- or
+# link-related (positions, collapse state, the link ids themselves) stays
+# per-tree.
+_BRIDGE_SYNC_FIELDS = {
+    "gender",
+    "academic_title",
+    "first_name",
+    "middle_names",
+    "baptismal_name",
+    "last_name",
+    "maiden_name",
+    "date_of_birth",
+    "date_of_death",
+    "deceased",
+    "adopted",
+    "additional_data",
+    "birthplace",
+    "hometown",
+    "cemetery",
+    "places_lived",
+    "image_data",
+}
+
+
+def _sync_bridge_person(
+    db: Session, member: Member, changes: dict, user: User
+) -> Tree | None:
+    """Mirror identity-field edits onto the counterpart row of a bridge person.
+
+    The two rows represent the same human, so person-level facts edited on one
+    side propagate to the other — but only while the tree_links feature is
+    enabled and the actor may write the counterpart's tree; otherwise the rows
+    simply drift until edited from a side with access. Returns the
+    counterpart's tree when something was mirrored so the caller can publish a
+    content event for it after commit.
+    """
+    if member.linked_member_id is None:
+        return None
+    synced = {k: v for k, v in changes.items() if k in _BRIDGE_SYNC_FIELDS}
+    if not synced:
+        return None
+    from app.services import feature_service  # noqa: PLC0415
+
+    if not feature_service.is_enabled(db, "tree_links", user):
+        return None
+    counterpart = db.get(Member, member.linked_member_id)
+    if counterpart is None:
+        return None
+    target_tree = db.get(Tree, counterpart.tree_id)
+    if target_tree is None:
+        return None
+    if not user.is_admin and role_for(db, target_tree, user) not in (
+        "owner",
+        "editor",
+    ):
+        return None
+    for key, value in synced.items():
+        if key == "image_data" and value:
+            # Media files are tree-scoped: copy the file into the
+            # counterpart's tree instead of sharing the URL across trees.
+            value = copy_media_to_tree(value, counterpart.tree_id)
+        setattr(counterpart, key, value)
+    return target_tree
 
 
 # --- Members ---------------------------------------------------------------
@@ -406,14 +473,25 @@ def update_member(
 ):
     member = _get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
+    # The member form re-sends the link fields unchanged on every save. Only an
+    # actual change is a link edit — an unchanged value must not re-run the
+    # feature/access checks, otherwise ordinary edits fail once the tree_links
+    # flag is turned off (or for editors without access to the linked tree).
+    if (
+        "linked_tree_id" in changes
+        and changes["linked_tree_id"] == member.linked_tree_id
+    ):
+        del changes["linked_tree_id"]
+    if (
+        "linked_member_id" in changes
+        and changes["linked_member_id"] == member.linked_member_id
+    ):
+        del changes["linked_member_id"]
     if "linked_tree_id" in changes:
         _validate_linked_tree(db, tree, user, changes["linked_tree_id"])
         # Unlinking or re-linking to a different tree invalidates a counterpart
         # pointer into the old tree; clear it unless a new one is provided.
-        if (
-            "linked_member_id" not in changes
-            and changes["linked_tree_id"] != member.linked_tree_id
-        ):
+        if "linked_member_id" not in changes:
             changes["linked_member_id"] = None
     if changes.get("linked_member_id") is not None:
         _validate_linked_member(
@@ -452,6 +530,9 @@ def update_member(
     for key, value in changes.items():
         setattr(member, key, value)
     after = {k: getattr(member, k) for k in before}
+    # Bridge person: mirror identity edits onto the counterpart row so the
+    # same human stays consistent on both sides of a tree-in-tree link.
+    synced_tree = _sync_bridge_person(db, member, changes, user)
     diff_details: dict | None = None
     changed = {
         k: {"before": before[k], "after": after[k]}
@@ -475,6 +556,12 @@ def update_member(
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)
+    if synced_tree is not None:
+        publish_tree_event(
+            db, synced_tree, "tree.content_changed",
+            {"tree_id": synced_tree.id, "domain": "member"},
+        )
+        invalidate_stats(synced_tree.id)
     return member
 
 

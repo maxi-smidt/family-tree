@@ -532,3 +532,155 @@ def test_unlinking_tree_clears_linked_member(client, db):
     assert cleared.status_code == 200
     assert cleared.json()["linkedTreeId"] is None
     assert cleared.json()["linkedMemberId"] is None
+
+
+def test_edit_member_with_unchanged_link_succeeds_when_flag_off(client, db):
+    """The member form re-sends linkedTreeId unchanged on every save; once the
+    tree_links flag is turned off that must not block ordinary edits."""
+    from app.services import feature_service
+
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    assert created.status_code == 201
+    linked_tree_id = created.json()["tree"]["id"]
+
+    feature_service.set_state(db, "tree_links", "off")
+    db.commit()
+    try:
+        res = client.patch(
+            f"{API}/trees/{main.id}/members/m1",
+            headers=auth(user),
+            json={"firstName": "Joanna", "linkedTreeId": linked_tree_id},
+        )
+        assert res.status_code == 200
+        assert res.json()["firstName"] == "Joanna"
+        # The link itself is untouched.
+        assert res.json()["linkedTreeId"] == linked_tree_id
+    finally:
+        feature_service.set_state(db, "tree_links", "on")
+        db.commit()
+
+
+def test_bridge_person_edits_sync_to_counterpart(client, db):
+    """Identity edits to either row of a bridge person propagate to the other."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    assert created.status_code == 201
+    sub_tree_id = created.json()["tree"]["id"]
+    counterpart_id = created.json()["anchor"]["linkedMemberId"]
+
+    # Edit the anchor → counterpart follows.
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"firstName": "Joanna", "deceased": True, "cemetery": "Ohlsdorf"},
+    )
+    assert res.status_code == 200
+    counterpart = client.get(
+        f"{API}/trees/{sub_tree_id}/members/{counterpart_id}", headers=auth(user)
+    ).json()
+    assert counterpart["firstName"] == "Joanna"
+    assert counterpart["deceased"] is True
+    assert counterpart["cemetery"] == "Ohlsdorf"
+
+    # Edit the counterpart → anchor follows (the link is symmetric).
+    res = client.patch(
+        f"{API}/trees/{sub_tree_id}/members/{counterpart_id}",
+        headers=auth(user),
+        json={"lastName": "Smith"},
+    )
+    assert res.status_code == 200
+    anchor = client.get(
+        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
+    ).json()
+    assert anchor["lastName"] == "Smith"
+    # View-level state is NOT mirrored.
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"isCollapsed": True, "positionX": 42.0},
+    )
+    assert res.status_code == 200
+    counterpart = client.get(
+        f"{API}/trees/{sub_tree_id}/members/{counterpart_id}", headers=auth(user)
+    ).json()
+    assert counterpart["isCollapsed"] is False
+    assert counterpart["positionX"] == 0
+
+
+def test_bridge_person_sync_skipped_when_flag_off(client, db):
+    from app.services import feature_service
+
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    sub_tree_id = created.json()["tree"]["id"]
+    counterpart_id = created.json()["anchor"]["linkedMemberId"]
+
+    feature_service.set_state(db, "tree_links", "off")
+    db.commit()
+    try:
+        res = client.patch(
+            f"{API}/trees/{main.id}/members/m1",
+            headers=auth(user),
+            json={"firstName": "Joanna"},
+        )
+        assert res.status_code == 200
+        counterpart = client.get(
+            f"{API}/trees/{sub_tree_id}/members/{counterpart_id}",
+            headers=auth(user),
+        ).json()
+        # Feature dormant: the rows drift instead of syncing.
+        assert counterpart["firstName"] == "Jo"
+    finally:
+        feature_service.set_state(db, "tree_links", "on")
+        db.commit()
+
+
+def test_bridge_person_sync_requires_write_access_to_other_tree(client, db):
+    """An editor of one side without write access to the other side may still
+    edit — the counterpart simply doesn't update."""
+    from tests.conftest import share
+
+    owner = make_user(db, "alice")
+    editor = make_user(db, "bob")
+    main = make_tree(db, owner, "Main")
+    _create_member(client, main, owner, "m1")
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(owner),
+        json={"name": "Sub"},
+    )
+    sub_tree_id = created.json()["tree"]["id"]
+    counterpart_id = created.json()["anchor"]["linkedMemberId"]
+    # bob may edit Main but has no access to Sub at all.
+    share(db, main, editor, "editor")
+
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(editor),
+        json={"firstName": "Joanna"},
+    )
+    assert res.status_code == 200
+    counterpart = client.get(
+        f"{API}/trees/{sub_tree_id}/members/{counterpart_id}",
+        headers=auth(owner),
+    ).json()
+    assert counterpart["firstName"] == "Jo"
