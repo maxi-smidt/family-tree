@@ -20,6 +20,7 @@ from app.db.session import get_db
 from app.models import Member, MemberDisease, Relation, RelationType, Tree
 from app.models.user import User
 from app.schemas.family import (
+    BridgeSyncRequest,
     DiseaseCreate,
     DiseaseOut,
     DiseaseUpdate,
@@ -37,6 +38,7 @@ from app.schemas.family import (
 )
 from app.schemas.tree import TreeOut
 from app.services.activity import record_activity
+from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
@@ -151,70 +153,50 @@ def _validate_linked_member(
         )
 
 
-# Person-level fields mirrored between the two rows of a bridge person (a
-# member linked to its counterpart row in another tree). Everything view- or
-# link-related (positions, collapse state, the link ids themselves) stays
-# per-tree.
-_BRIDGE_SYNC_FIELDS = {
-    "gender",
-    "academic_title",
-    "first_name",
-    "middle_names",
-    "baptismal_name",
-    "last_name",
-    "maiden_name",
-    "date_of_birth",
-    "date_of_death",
-    "deceased",
-    "adopted",
-    "additional_data",
-    "birthplace",
-    "hometown",
-    "cemetery",
-    "places_lived",
-    "image_data",
-}
-
-
 def _sync_bridge_person(
     db: Session, member: Member, changes: dict, user: User
-) -> Tree | None:
+) -> tuple[str | None, Tree | None]:
     """Mirror identity-field edits onto the counterpart row of a bridge person.
 
     The two rows represent the same human, so person-level facts edited on one
     side propagate to the other — but only while the tree_links feature is
     enabled and the actor may write the counterpart's tree; otherwise the rows
-    simply drift until edited from a side with access. Returns the
-    counterpart's tree when something was mirrored so the caller can publish a
-    content event for it after commit.
+    simply drift until edited from a side with access.
+
+    Returns ``(status, counterpart_tree)``: ``("synced", tree)`` when the
+    counterpart was updated, ``("skipped_no_access", None)`` when identity
+    fields changed but the actor may not write the other tree (the one case
+    the editor should be told about), and ``(None, None)`` when there was
+    nothing to sync (no link, no identity change, feature off, counterpart
+    gone).
     """
     if member.linked_member_id is None:
-        return None
-    synced = {k: v for k, v in changes.items() if k in _BRIDGE_SYNC_FIELDS}
+        return None, None
+    synced = {k: v for k, v in changes.items() if k in BRIDGE_SYNC_FIELDS}
     if not synced:
-        return None
+        return None, None
     from app.services import feature_service  # noqa: PLC0415
 
     if not feature_service.is_enabled(db, "tree_links", user):
-        return None
+        return None, None
     counterpart = db.get(Member, member.linked_member_id)
     if counterpart is None:
-        return None
+        return None, None
     target_tree = db.get(Tree, counterpart.tree_id)
     if target_tree is None:
-        return None
+        return None, None
     if not user.is_admin and role_for(db, target_tree, user) not in (
         "owner",
         "editor",
     ):
-        return None
+        return "skipped_no_access", None
     for key, value in synced.items():
         if key == "image_data" and value:
             # Media files are tree-scoped: copy the file into the
             # counterpart's tree instead of sharing the URL across trees.
             value = copy_media_to_tree(value, counterpart.tree_id)
         setattr(counterpart, key, value)
-    return target_tree
+    return "synced", target_tree
 
 
 # --- Members ---------------------------------------------------------------
@@ -532,7 +514,7 @@ def update_member(
     after = {k: getattr(member, k) for k in before}
     # Bridge person: mirror identity edits onto the counterpart row so the
     # same human stays consistent on both sides of a tree-in-tree link.
-    synced_tree = _sync_bridge_person(db, member, changes, user)
+    bridge_sync, synced_tree = _sync_bridge_person(db, member, changes, user)
     diff_details: dict | None = None
     changed = {
         k: {"before": before[k], "after": after[k]}
@@ -562,7 +544,9 @@ def update_member(
             {"tree_id": synced_tree.id, "domain": "member"},
         )
         invalidate_stats(synced_tree.id)
-    return member
+    out = MemberOut.model_validate(member)
+    out.bridge_sync = bridge_sync
+    return out
 
 
 @router.post(
@@ -638,6 +622,58 @@ def create_member_subtree(
         tree=TreeOut.model_validate(new_tree),
         anchor=MemberOut.model_validate(member),
     )
+
+
+@router.post("/members/{member_id}/bridge-sync", response_model=MemberOut)
+def resolve_bridge_drift(
+    member_id: str,
+    payload: BridgeSyncRequest,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Resolve bridge-person drift by copying person-level fields across the
+    link: ``push`` writes this member's values onto the counterpart, ``pull``
+    adopts the counterpart's values. Requires write access to both trees.
+    """
+    from app.services import feature_service  # noqa: PLC0415
+
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    member = _get_member(db, tree, member_id)
+    if member.linked_member_id is None:
+        raise HTTPException(status_code=400, detail="Member has no linked member")
+    counterpart = db.get(Member, member.linked_member_id)
+    if counterpart is None:
+        raise HTTPException(status_code=404, detail="Linked member not found")
+    other_tree = db.get(Tree, counterpart.tree_id)
+    if other_tree is None:
+        raise HTTPException(status_code=404, detail="Linked tree not found")
+    if not user.is_admin and role_for(db, other_tree, user) not in (
+        "owner",
+        "editor",
+    ):
+        raise HTTPException(status_code=403, detail="No write access to linked tree")
+
+    src, dst = (
+        (member, counterpart) if payload.direction == "push" else (counterpart, member)
+    )
+    copy_bridge_fields(src, dst)
+
+    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
+    record_activity(db, tree_id=tree.id, actor=user, action="update",
+                    target_type="member", target_id=member.id, target_label=label,
+                    details={"after": {"bridge_sync": payload.direction}})
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    db.refresh(member)
+    for t in (tree, other_tree):
+        publish_tree_event(
+            db, t, "tree.content_changed",
+            {"tree_id": t.id, "domain": "member"},
+        )
+        invalidate_stats(t.id)
+    return member
 
 
 @router.delete("/members/{member_id}", status_code=204)

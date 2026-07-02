@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { QualityReport } from "@/types/quality";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { useMemberStore } from "@/hooks/useMemberStore";
 
 interface QualityReportState {
   report: QualityReport | null;
@@ -11,6 +12,10 @@ interface QualityReportState {
   setShowDismissed: (show: boolean) => void;
   dismissIssue: (issueId: string) => Promise<void>;
   restoreIssue: (issueId: string) => Promise<void>;
+  resolveBridgeDrift: (
+    memberId: string,
+    direction: "push" | "pull",
+  ) => Promise<void>;
   clear: () => void;
 }
 
@@ -48,6 +53,21 @@ export const useQualityReportStore = create<QualityReportState>((set, get) => ({
     if (!treeId) return;
     await TreeService.restoreQualityIssue(treeId, issueId);
     await get().refreshReport(treeId);
+  },
+
+  // Resolve bridge-person drift by copying fields across the tree link
+  // ("push" = this tree wins, "pull" = the linked tree wins), then reload the
+  // report and — on pull — the members, whose fields just changed. Errors
+  // (e.g. 403 without write access to the linked tree) propagate to the view.
+  resolveBridgeDrift: async (memberId: string, direction: "push" | "pull") => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+    await TreeService.resolveBridgeDrift(treeId, memberId, direction);
+    const tasks: Promise<void>[] = [get().refreshReport(treeId)];
+    if (direction === "pull") {
+      tasks.push(useMemberStore.getState().refreshMembers(treeId));
+    }
+    await Promise.all(tasks);
   },
 
   clear: () => set({ report: null, showDismissed: false }),

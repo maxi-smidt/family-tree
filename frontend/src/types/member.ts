@@ -148,6 +148,10 @@ export interface MemberDB {
   // Counterpart member inside the linked tree (the same person's row there).
   // Written only by the backend; the client treats it as read-only.
   linkedMemberId?: string | null;
+  // Transient, only on update responses: outcome of the bridge-person mirror.
+  // "skipped_no_access" = identity fields changed but the counterpart tree is
+  // not writable by the actor, so the two rows drifted.
+  bridgeSync?: "synced" | "skipped_no_access" | null;
   // Only present for members returned by virtual view endpoints.
   sourceTreeId?: string;
   sourceTreeName?: string;

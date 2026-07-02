@@ -8,6 +8,8 @@ other schemas intentionally stay snake_case because the frontend reads them
 as-is.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
@@ -41,6 +43,10 @@ class MemberOut(FamilyTreeOrmBaseModel):
     position_y: float = 0
     linked_tree_id: str | None = None
     linked_member_id: str | None = None
+    # Transient outcome of the bridge-person mirror on updates (not a column):
+    # "synced" when the counterpart row was updated too, "skipped_no_access"
+    # when identity fields changed but the actor may not write the other tree.
+    bridge_sync: str | None = None
 
 
 class MemberSurfaceOut(FamilyTreeOrmBaseModel):
@@ -142,6 +148,16 @@ class MemberSubtreeCreate(FamilyTreeBaseModel):
     """Request body for the create-and-link-subtree endpoint."""
 
     name: str
+
+
+class BridgeSyncRequest(FamilyTreeBaseModel):
+    """Resolve bridge-person drift by copying fields across the link.
+
+    ``push`` copies this member's values onto the counterpart; ``pull`` adopts
+    the counterpart's values into this member.
+    """
+
+    direction: Literal["push", "pull"]
 
 
 class MemberSubtreeOut(FamilyTreeBaseModel):

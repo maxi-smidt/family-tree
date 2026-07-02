@@ -401,3 +401,127 @@ def test_dismiss_is_idempotent(client, db):
         headers=auth(owner),
     ).json()
     assert len(report["issues"]) == 1
+
+
+# ---------------------------------------------------------------------------
+# Bridge-person drift (tree-in-tree)
+# ---------------------------------------------------------------------------
+
+
+def _make_bridge(client, db, user, first_name="Jo"):
+    """Owner's tree with member m1 bridged into a fresh linked subtree."""
+    main = make_tree(db, user, "Main")
+    client.post(
+        f"{API}/trees/{main.id}/members",
+        headers=auth(user),
+        json={"id": "m1", "firstName": first_name, "lastName": "Doe", "gender": "f"},
+    )
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    assert created.status_code == 201
+    body = created.json()
+    return main, body["tree"]["id"], body["anchor"]["linkedMemberId"]
+
+
+def _drift_issues(client, user, tree_id):
+    res = client.get(f"{API}/trees/{tree_id}/quality-report", headers=auth(user))
+    assert res.status_code == 200
+    return [
+        i for i in res.json()["issues"] if i["issue_type"] == "bridge_person_drift"
+    ]
+
+
+def test_bridge_drift_detected_in_quality_report(client, db):
+    from app.models.family import Member as MemberModel
+
+    user = make_user(db, "alice")
+    main, sub_id, counterpart_id = _make_bridge(client, db, user)
+
+    # In sync right after creation: no drift note.
+    assert _drift_issues(client, user, main.id) == []
+
+    # Drift the counterpart directly (bypassing the mirroring route logic).
+    counterpart = db.get(MemberModel, counterpart_id)
+    counterpart.first_name = "Johanna"
+    counterpart.birthplace = "Linz"
+    db.commit()
+
+    issues = _drift_issues(client, user, main.id)
+    assert len(issues) == 1
+    assert issues[0]["member_ids"] == ["m1"]
+    assert "first name" in issues[0]["description"]
+    assert "birthplace" in issues[0]["description"]
+    # The linked tree's report shows the mirror-image note.
+    assert len(_drift_issues(client, user, sub_id)) == 1
+
+
+def test_bridge_drift_resolve_push_and_pull(client, db):
+    from app.models.family import Member as MemberModel
+
+    user = make_user(db, "alice")
+    main, sub_id, counterpart_id = _make_bridge(client, db, user)
+    counterpart = db.get(MemberModel, counterpart_id)
+    counterpart.first_name = "Johanna"
+    db.commit()
+
+    # push: this tree's values win.
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/bridge-sync",
+        headers=auth(user),
+        json={"direction": "push"},
+    )
+    assert res.status_code == 200
+    db.expire_all()
+    assert db.get(MemberModel, counterpart_id).first_name == "Jo"
+    assert _drift_issues(client, user, main.id) == []
+
+    # pull: the linked tree's values win.
+    counterpart = db.get(MemberModel, counterpart_id)
+    counterpart.first_name = "Johanna"
+    db.commit()
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/bridge-sync",
+        headers=auth(user),
+        json={"direction": "pull"},
+    )
+    assert res.status_code == 200
+    assert res.json()["firstName"] == "Johanna"
+    assert _drift_issues(client, user, main.id) == []
+
+
+def test_bridge_drift_resolve_requires_access_to_other_tree(client, db):
+    from tests.conftest import share
+
+    owner = make_user(db, "alice")
+    editor = make_user(db, "bob")
+    main, _sub_id, _counterpart_id = _make_bridge(client, db, owner)
+    share(db, main, editor, role="editor")
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/bridge-sync",
+        headers=auth(editor),
+        json={"direction": "push"},
+    )
+    assert res.status_code == 403
+
+
+def test_bridge_drift_hidden_when_flag_off(client, db):
+    from app.models.family import Member as MemberModel
+    from app.services import feature_service
+
+    user = make_user(db, "alice")
+    main, _sub_id, counterpart_id = _make_bridge(client, db, user)
+    counterpart = db.get(MemberModel, counterpart_id)
+    counterpart.first_name = "Johanna"
+    db.commit()
+
+    feature_service.set_state(db, "tree_links", "off")
+    db.commit()
+    try:
+        assert _drift_issues(client, user, main.id) == []
+    finally:
+        feature_service.set_state(db, "tree_links", "on")
+        db.commit()

@@ -252,7 +252,7 @@ export const EditMode = ({
     }
 
     try {
-      await updateMemberPartial(member.id, {
+      const result = await updateMemberPartial(member.id, {
         academicTitle: formData.academicTitle || null,
         firstName: formData.firstName,
         middleNames: formData.middleNames || null,
@@ -280,6 +280,11 @@ export const EditMode = ({
           : {}),
       });
       toast.success(t("toast-success"));
+      // Bridge person whose counterpart tree the editor may not write: the
+      // save worked but the linked copy drifted — say so.
+      if (result?.bridgeSync === "skipped_no_access") {
+        toast.info(t("toast-bridge-sync-skipped"));
+      }
       onSaved?.(formData);
       return true;
     } catch (err: unknown) {

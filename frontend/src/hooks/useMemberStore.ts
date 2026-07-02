@@ -245,7 +245,10 @@ interface MemberState {
   clear: () => void;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
-  updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
+  updateMemberPartial: (
+    id: string,
+    changes: MemberUpdate,
+  ) => Promise<{ bridgeSync?: "synced" | "skipped_no_access" | null } | undefined>;
   batchSetCollapsed: (
     updates: { id: string; isCollapsed: boolean }[],
   ) => Promise<void>;
@@ -702,7 +705,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     const { paternalParentId, maternalParentId, ...otherChanges } = changes;
 
-    await TreeService.updateMember(treeId, id, otherChanges);
+    const updated = await TreeService.updateMember(treeId, id, otherChanges);
+    // Transient outcome of the bridge-person mirror — surfaced to callers so
+    // the member form can tell the editor when the counterpart didn't follow.
+    const result = { bridgeSync: updated?.bridgeSync ?? null };
 
     // Re-point one parent slot: drop the previous "parent" relation (if it
     // changed) and add the new one. A no-op when old and new are the same.
@@ -763,7 +769,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     }
 
-    if (!currentMember) return;
+    if (!currentMember) return result;
 
     const oldPaternal = currentMember.parents.paternalParent;
     const oldMaternal = currentMember.parents.maternalParent;
@@ -816,6 +822,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         await get().refreshMembers(treeId);
       },
     });
+    return result;
   },
 
   // Persist collapse/expand state for many members in one request and reflect

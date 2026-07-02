@@ -588,6 +588,7 @@ def test_bridge_person_edits_sync_to_counterpart(client, db):
         json={"firstName": "Joanna", "deceased": True, "cemetery": "Ohlsdorf"},
     )
     assert res.status_code == 200
+    assert res.json()["bridgeSync"] == "synced"
     counterpart = client.get(
         f"{API}/trees/{sub_tree_id}/members/{counterpart_id}", headers=auth(user)
     ).json()
@@ -679,6 +680,8 @@ def test_bridge_person_sync_requires_write_access_to_other_tree(client, db):
         json={"firstName": "Joanna"},
     )
     assert res.status_code == 200
+    # The editor is told the linked copy did not follow.
+    assert res.json()["bridgeSync"] == "skipped_no_access"
     counterpart = client.get(
         f"{API}/trees/{sub_tree_id}/members/{counterpart_id}",
         headers=auth(owner),
