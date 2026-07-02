@@ -292,9 +292,11 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
                   ? t("open-linked-tree-no-access")
                   : t("open-linked-tree")
               }
-              // Muted when the target tree isn't shared with the viewer. Still
-              // clickable: the tree may be publicly readable, and the click
-              // path surfaces a clear error if not.
+              // Muted and inert when the target tree isn't shared with the
+              // viewer: following the link would open a tree that appears
+              // nowhere in their own list (a "ghost tree"), so the badge only
+              // signals that a linked tree exists.
+              disabled={data.linkedTreeAccessible === false}
               className={
                 data.linkedTreeAccessible === false
                   ? "nodrag nopan opacity-40"

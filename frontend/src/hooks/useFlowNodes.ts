@@ -72,8 +72,9 @@ export const useFlowNodes = (
               ? () => onOpenLinkedTree(linkedTreeId, linkedMemberId)
               : undefined,
           // False only when we positively know the tree isn't in the user's
-          // list; the badge stays clickable (the target may still be public),
-          // it just looks muted with a "not shared with you" hint.
+          // list; the badge then renders muted and disabled with a "not
+          // shared with you" hint — navigating would open a tree that appears
+          // nowhere else in their UI.
           linkedTreeAccessible:
             !linkedTreeId || !accessibleTreeIds
               ? true
