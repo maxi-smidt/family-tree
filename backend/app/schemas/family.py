@@ -11,6 +11,7 @@ as-is.
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
+from app.schemas.tree import TreeOut
 
 
 # --- Members ---------------------------------------------------------------
@@ -39,6 +40,7 @@ class MemberOut(FamilyTreeOrmBaseModel):
     position_x: float = 0
     position_y: float = 0
     linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberSurfaceOut(FamilyTreeOrmBaseModel):
@@ -67,6 +69,7 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     position_x: float = 0
     position_y: float = 0
     linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberCreate(FamilyTreeBaseModel):
@@ -92,6 +95,7 @@ class MemberCreate(FamilyTreeBaseModel):
     position_x: float = 0
     position_y: float = 0
     linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberUpdate(FamilyTreeBaseModel):
@@ -116,6 +120,7 @@ class MemberUpdate(FamilyTreeBaseModel):
     position_x: float | None = None
     position_y: float | None = None
     linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberPositionUpdate(FamilyTreeBaseModel):
@@ -131,6 +136,21 @@ class MemberCollapsedUpdate(FamilyTreeBaseModel):
 
     id: str
     is_collapsed: bool
+
+
+class MemberSubtreeCreate(FamilyTreeBaseModel):
+    """Request body for the create-and-link-subtree endpoint."""
+
+    name: str
+
+
+class MemberSubtreeOut(FamilyTreeBaseModel):
+    """Result of creating a linked subtree: the new tree plus the updated
+    anchor member (whose linked_tree_id/linked_member_id now point at the
+    seeded counterpart)."""
+
+    tree: TreeOut
+    anchor: MemberOut
 
 
 # --- Relations -------------------------------------------------------------

@@ -69,6 +69,9 @@ export interface Member {
   // own family. null when unlinked. Optional so existing object literals (e.g.
   // in tests) need not specify it; the DB mapping always populates it.
   linkedTreeId?: string | null;
+  // The counterpart row in the linked tree representing the same person (the
+  // "bridge person"). Navigation into the linked tree centers on it.
+  linkedMemberId?: string | null;
   position: {
     x: number;
     y: number;
@@ -142,6 +145,9 @@ export interface MemberDB {
   positionX: number;
   positionY: number;
   linkedTreeId?: string | null;
+  // Counterpart member inside the linked tree (the same person's row there).
+  // Written only by the backend; the client treats it as read-only.
+  linkedMemberId?: string | null;
   // Only present for members returned by virtual view endpoints.
   sourceTreeId?: string;
   sourceTreeName?: string;
@@ -227,6 +233,7 @@ export function mapMemberFromDB(
     placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
     linkedTreeId: row.linkedTreeId ?? null,
+    linkedMemberId: row.linkedMemberId ?? null,
     position: {
       x: row.positionX,
       y: row.positionY,
@@ -296,6 +303,7 @@ export function createMember(position: { x: number; y: number }): Member {
     placesLived: [],
     isCollapsed: false,
     linkedTreeId: null,
+    linkedMemberId: null,
     position: position,
   };
 }

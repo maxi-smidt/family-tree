@@ -55,7 +55,8 @@ interface DatabaseState {
     id?: string,
     options?: { select?: boolean },
   ) => Promise<Tree>;
-  openLinkedTree: (treeId: string) => Promise<void>;
+  openLinkedTree: (treeId: string, focusMemberId?: string | null) => Promise<void>;
+  createLinkedSubtree: (memberId: string, name: string) => Promise<Tree>;
   navigateToTreeStack: (index: number) => Promise<void>;
   renameTree: (tree: Tree, name: string) => Promise<void>;
   updateTree: (tree: Tree) => void;
@@ -149,14 +150,56 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
   // Follow a member→tree link: remember where we came from (breadcrumb), verify
   // the target is accessible, then switch to it. Throws if the linked tree is
   // missing or the user has no access, so callers can surface a message.
-  openLinkedTree: async (treeId: string) => {
+  // When the link carries a counterpart member (the bridge person's row in the
+  // target tree), the canvas centers on it after the switch.
+  openLinkedTree: async (treeId: string, focusMemberId?: string | null) => {
     const current = get().selectedTree;
     if (!current || current.id === treeId) return;
     const target = await api.get<Tree>(`/trees/${treeId}`);
-    set((s) => ({
-      treeNavStack: [...s.treeNavStack, { id: current.id, name: current.name }],
-    }));
+    // Following a back-link to where we just came from behaves like "back":
+    // pop the breadcrumb instead of growing it (A → B → A stays two levels).
+    const stack = get().treeNavStack;
+    const last = stack[stack.length - 1];
+    if (last && last.id === treeId) {
+      set({ treeNavStack: stack.slice(0, -1) });
+    } else {
+      set({
+        treeNavStack: [...stack, { id: current.id, name: current.name }],
+      });
+    }
     await get().connect(target);
+    if (focusMemberId) {
+      // Set after connect: the tree switch clears the member store, and the
+      // canvas consumes this once the counterpart is present in `members`.
+      useMemberStore.getState().setPendingLocateMemberId(focusMemberId);
+    }
+  },
+
+  // Tree-in-tree "create & link": one atomic backend call creates the new
+  // tree, seeds it with a copy of the member (the bridge person) and links
+  // the two rows bidirectionally. The current tree stays selected; the
+  // updated anchor is reflected into the member store so the badge appears.
+  createLinkedSubtree: async (memberId: string, name: string) => {
+    const current = get().selectedTree;
+    if (!current) throw new Error("No tree selected");
+    const res = await TreeService.createMemberSubtree(
+      current.id,
+      memberId,
+      name,
+    );
+    set((s) => ({ trees: [res.tree, ...s.trees] }));
+    useMemberStore.setState((s) => ({
+      members: s.members.map((m) =>
+        m.id === memberId
+          ? {
+              ...m,
+              linkedTreeId: res.anchor.linkedTreeId ?? null,
+              linkedMemberId: res.anchor.linkedMemberId ?? null,
+            }
+          : m,
+      ),
+    }));
+    return res.tree;
   },
 
   // Jump back to an ancestor in the breadcrumb, dropping everything below it.

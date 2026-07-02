@@ -495,6 +495,8 @@
         "create-and-link": "Create & link new tree",
         "new-tree-fallback-name": "New tree",
         "toast-created": "Created and linked “{{name}}”.",
+        "toast-created-seeded": "Created “{{name}}” and added this person to it.",
+        "create-requires-save": "Save your changes first — creating a linked tree stores this person in it right away.",
         "toast-create-error": "Could not create the linked tree."
       },
       "birthplace-field": "Birthplace",

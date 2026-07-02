@@ -805,6 +805,8 @@ export const EditMode = ({
                     currentTreeId={currentTreeId}
                     value={formData.linkedTreeId ?? null}
                     memberName={`${formData.firstName} ${formData.lastName}`}
+                    memberId={isNew ? undefined : formData.id}
+                    formDirty={isDirty}
                     onChange={(treeId) =>
                       handleChange("linkedTreeId", treeId)
                     }

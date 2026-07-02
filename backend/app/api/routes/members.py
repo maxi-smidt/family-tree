@@ -1,5 +1,7 @@
 """Members, relations and diseases — all scoped to a tree."""
 
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -13,6 +15,7 @@ from app.api.deps import (
     role_for,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Member, MemberDisease, Relation, RelationType, Tree
 from app.models.user import User
@@ -24,12 +27,15 @@ from app.schemas.family import (
     MemberCreate,
     MemberOut,
     MemberPositionUpdate,
+    MemberSubtreeCreate,
+    MemberSubtreeOut,
     MemberSurfaceOut,
     MemberUpdate,
     NeighborhoodOut,
     RelationCreate,
     RelationOut,
 )
+from app.schemas.tree import TreeOut
 from app.services.activity import record_activity
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
@@ -72,6 +78,7 @@ _MEMBER_SURFACE_COLUMNS = (
     Member.position_x,
     Member.position_y,
     Member.linked_tree_id,
+    Member.linked_member_id,
 )
 
 
@@ -112,6 +119,37 @@ def _validate_linked_tree(
         raise HTTPException(status_code=403, detail="No access to linked tree")
 
 
+def _validate_linked_member(
+    db: Session,
+    linked_tree_id: str | None,
+    linked_member_id: str | None,
+    member_id: str | None,
+) -> None:
+    """Validate the member-level counterpart of a tree-in-tree link.
+
+    ``linked_member_id`` identifies the row in the linked tree that represents
+    the same person (the bridge person), so it must live inside
+    ``linked_tree_id``. Access is already covered by ``_validate_linked_tree``.
+    """
+    if linked_member_id is None:
+        return
+    if linked_tree_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="A linked member requires a linked tree",
+        )
+    if linked_member_id == member_id:
+        raise HTTPException(
+            status_code=400, detail="A member cannot link to itself"
+        )
+    target = db.get(Member, linked_member_id)
+    if target is None or target.tree_id != linked_tree_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Linked member is not part of the linked tree",
+        )
+
+
 # --- Members ---------------------------------------------------------------
 @router.get("/members", response_model=list[MemberOut])
 def list_members(
@@ -143,6 +181,9 @@ def create_member(
 ):
     data = payload.model_dump()
     _validate_linked_tree(db, tree, user, data.get("linked_tree_id"))
+    _validate_linked_member(
+        db, data.get("linked_tree_id"), data.get("linked_member_id"), data.get("id")
+    )
     new_image_url: str | None = None
     try:
         new_image_url_candidate = process_image_field(
@@ -367,6 +408,20 @@ def update_member(
     changes = payload.model_dump(exclude_unset=True)
     if "linked_tree_id" in changes:
         _validate_linked_tree(db, tree, user, changes["linked_tree_id"])
+        # Unlinking or re-linking to a different tree invalidates a counterpart
+        # pointer into the old tree; clear it unless a new one is provided.
+        if (
+            "linked_member_id" not in changes
+            and changes["linked_tree_id"] != member.linked_tree_id
+        ):
+            changes["linked_member_id"] = None
+    if changes.get("linked_member_id") is not None:
+        _validate_linked_member(
+            db,
+            changes.get("linked_tree_id", member.linked_tree_id),
+            changes["linked_member_id"],
+            member.id,
+        )
     new_image_url: str | None = None
     if "image_data" in changes:
         try:
@@ -421,6 +476,81 @@ def update_member(
     )
     invalidate_stats(tree.id)
     return member
+
+
+@router.post(
+    "/members/{member_id}/subtree",
+    response_model=MemberSubtreeOut,
+    status_code=201,
+)
+def create_member_subtree(
+    member_id: str,
+    payload: MemberSubtreeCreate,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create a new tree seeded with a copy of this member and link both ways.
+
+    The member becomes the "bridge person": a clone of their identity fields
+    (including a copied photo) is created as the sole member of the new tree,
+    and the two rows point at each other via linked_tree_id/linked_member_id,
+    so navigation works in both directions and lands on the counterpart.
+    """
+    from app.services import feature_service  # noqa: PLC0415
+    from app.services.merge import _clone_member  # noqa: PLC0415
+
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    member = _get_member(db, tree, member_id)
+    if member.linked_tree_id is not None:
+        raise HTTPException(
+            status_code=409, detail="Member is already linked to a tree"
+        )
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="A name is required")
+
+    new_tree = Tree(
+        id=str(uuid4()),
+        name=name,
+        owner_id=user.id,
+        created_at=utcnow_iso(),
+        last_opened=utcnow_iso(),
+    )
+    db.add(new_tree)
+    db.flush()
+
+    counterpart = _clone_member(member, new_tree.id, str(uuid4()))
+    # The seed starts fresh in the new tree: the origin's canvas position and
+    # collapse state carry no meaning there.
+    counterpart.position_x = 0
+    counterpart.position_y = 0
+    counterpart.is_collapsed = False
+    counterpart.linked_tree_id = tree.id
+    counterpart.linked_member_id = member.id
+    db.add(counterpart)
+    db.flush()
+
+    member.linked_tree_id = new_tree.id
+    member.linked_member_id = counterpart.id
+
+    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
+    record_activity(db, tree_id=tree.id, actor=user, action="update",
+                    target_type="member", target_id=member.id, target_label=label,
+                    details={"after": {"linked_tree_id": new_tree.id}})
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    db.refresh(member)
+    db.refresh(new_tree)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
+    return MemberSubtreeOut(
+        tree=TreeOut.model_validate(new_tree),
+        anchor=MemberOut.model_validate(member),
+    )
 
 
 @router.delete("/members/{member_id}", status_code=204)

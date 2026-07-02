@@ -82,6 +82,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     neighborhoodTruncated,
     totalMemberCount,
     setFocusRoot,
+    pendingLocateMemberId,
+    setPendingLocateMemberId,
   } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
   const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
@@ -109,6 +111,39 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
 
   // --- Extracted hooks ---
   const locator = useMemberLocator(members, rfInstance);
+
+  // Center the counterpart after navigating into a linked tree: consume the
+  // one-shot locate request once the member shows up in the loaded set. In
+  // windowed mode the counterpart may lie outside the current neighborhood —
+  // re-focus the window on it once and locate after the reload.
+  const attemptedLinkedFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingLocateMemberId) return;
+    const target = members.find((m) => m.id === pendingLocateMemberId);
+    if (target) {
+      attemptedLinkedFocusRef.current = null;
+      setPendingLocateMemberId(null);
+      locator.locateMember(target);
+      return;
+    }
+    if (members.length === 0) return; // still loading
+    if (windowed && attemptedLinkedFocusRef.current !== pendingLocateMemberId) {
+      attemptedLinkedFocusRef.current = pendingLocateMemberId;
+      void setFocusRoot(pendingLocateMemberId);
+      return;
+    }
+    // Fully loaded (or window already re-focused) and still absent: the
+    // counterpart no longer exists — drop the request.
+    attemptedLinkedFocusRef.current = null;
+    setPendingLocateMemberId(null);
+  }, [
+    pendingLocateMemberId,
+    members,
+    windowed,
+    setFocusRoot,
+    setPendingLocateMemberId,
+    locator,
+  ]);
 
   const connection = useConnectionMode(members, () => setSelectedNodes([]));
 
@@ -265,8 +300,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const handleOpenLinkedTree = useMemo(
     () =>
       treeLinksEnabled
-        ? (treeId: string) => {
-            void openLinkedTree(treeId).catch(() => {
+        ? (treeId: string, memberId?: string | null) => {
+            void openLinkedTree(treeId, memberId).catch(() => {
               toast.error(t("tree-view.linked-tree.open-error"));
             });
           }

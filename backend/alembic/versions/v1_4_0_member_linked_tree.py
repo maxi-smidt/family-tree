@@ -1,4 +1,4 @@
-"""v1.4.0 — add members.linked_tree_id (tree-in-tree link)
+"""v1.4.0 — add members.linked_tree_id + linked_member_id (tree-in-tree link)
 
 Revision ID: v1_4_0_member_linked_tree
 Revises: v1_4_0_legal_quality_cemetery
@@ -39,9 +39,35 @@ def upgrade() -> None:
         ['id'],
         ondelete='SET NULL',
     )
+    # Member-level identity link: the counterpart row in the linked tree that
+    # represents the same person (the "bridge person"). Lets navigation land
+    # centered on the counterpart and keeps the two rows associated. SET NULL
+    # so deleting the counterpart just degrades the link to tree-level.
+    op.add_column(
+        'members',
+        sa.Column('linked_member_id', sa.String(length=36), nullable=True),
+    )
+    op.create_index(
+        op.f('ix_members_linked_member_id'),
+        'members',
+        ['linked_member_id'],
+    )
+    op.create_foreign_key(
+        'fk_members_linked_member_id_members',
+        'members',
+        'members',
+        ['linked_member_id'],
+        ['id'],
+        ondelete='SET NULL',
+    )
 
 
 def downgrade() -> None:
+    op.drop_constraint(
+        'fk_members_linked_member_id_members', 'members', type_='foreignkey'
+    )
+    op.drop_index(op.f('ix_members_linked_member_id'), table_name='members')
+    op.drop_column('members', 'linked_member_id')
     op.drop_constraint('fk_members_linked_tree_id_trees', 'members', type_='foreignkey')
     op.drop_index(op.f('ix_members_linked_tree_id'), table_name='members')
     op.drop_column('members', 'linked_tree_id')

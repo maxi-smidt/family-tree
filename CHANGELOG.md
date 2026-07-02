@@ -9,6 +9,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- **Tree-in-tree links** — a member can now be linked to another tree that details their own family (e.g. a spouse who married in, whose ancestry is a separate tree). Link an existing tree you can access, or create and link a brand-new one from the member's Relations tab — the new tree is seeded with a copy of that person (the "bridge person"), and the two rows are linked both ways: each side shows a badge on its node, and clicking it navigates into the other tree centered on the same person, with a breadcrumb to jump back. Gated by the admin-managed `tree_links` feature flag.
+
+### Fixed
+
+- **Tree merge and subtree extraction keep title, deceased and adopted flags** — copied members previously lost their academic title and their deceased/adopted status.
+
 ## [1.4.0] - 2026-07-01
 
 ### Added
@@ -33,10 +41,6 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Changed
 
 - **Public shared trees now show the interactive tree** — opening a tree shared with public read-only access renders the real, pannable/zoomable family tree (nodes and connections) instead of a flat list of member cards. The public view is purely visual: no tabs, sidebar, editing, or member detail pop-ups.
-
-### Added
-
-- **Tree-in-tree links** — a member can now be linked to another tree that details their own family (e.g. a spouse who married in, whose ancestry is a separate tree). Link an existing tree you can access or create and link a brand-new one from the member's Relations tab; linked members show a badge on their node, and clicking it navigates into the linked tree with a breadcrumb to jump back. Gated by the admin-managed `tree_links` feature flag.
 
 ### Fixed
 

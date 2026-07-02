@@ -225,6 +225,11 @@ interface MemberState {
   neighborhoodDown: number;
   neighborhoodTruncated: boolean;
   totalMemberCount: number;
+  // One-shot request to center/highlight a member once it is present in
+  // `members` — set when navigating into a linked tree so the view lands on
+  // the counterpart (bridge person). Consumed and cleared by the canvas.
+  pendingLocateMemberId: string | null;
+  setPendingLocateMemberId: (id: string | null) => void;
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
   _pushHistory: (entry: HistoryEntry) => void;
@@ -283,6 +288,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   neighborhoodDown: 3,
   neighborhoodTruncated: false,
   totalMemberCount: 0,
+  pendingLocateMemberId: null,
+  setPendingLocateMemberId: (id: string | null) =>
+    set({ pendingLocateMemberId: id }),
   isLayouting: false,
   undoStack: [],
   redoStack: [],
@@ -548,6 +556,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       windowedForTreeId: null,
       neighborhoodTruncated: false,
       totalMemberCount: 0,
+      pendingLocateMemberId: null,
       undoStack: [],
       redoStack: [],
     }),

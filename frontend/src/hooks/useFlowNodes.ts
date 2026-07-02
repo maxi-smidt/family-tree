@@ -35,7 +35,7 @@ export const useFlowNodes = (
   isConnectionMode = false,
   hasConnectionPath = false,
   hiddenNodeIds: ReadonlySet<string> = EMPTY_MEMBER_IDS,
-  onOpenLinkedTree?: (treeId: string) => void,
+  onOpenLinkedTree?: (treeId: string, memberId?: string | null) => void,
   purelyVisual = false,
 ) => {
   const { t } = useTranslation();
@@ -51,6 +51,7 @@ export const useFlowNodes = (
         : {};
 
       const linkedTreeId = (node.data as Member).linkedTreeId ?? null;
+      const linkedMemberId = (node.data as Member).linkedMemberId ?? null;
 
       return {
         ...node,
@@ -64,7 +65,7 @@ export const useFlowNodes = (
           // is a read action).
           onOpenLinkedTree:
             linkedTreeId && onOpenLinkedTree
-              ? () => onOpenLinkedTree(linkedTreeId)
+              ? () => onOpenLinkedTree(linkedTreeId, linkedMemberId)
               : undefined,
           isConnectionSelected: connectionSelectedIds.has(node.id),
           isConnectionPath: connectionPathNodeIds.has(node.id),

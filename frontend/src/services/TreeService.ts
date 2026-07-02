@@ -98,6 +98,15 @@ export class TreeService {
     return api.del(`${base(treeId)}/members/${memberId}`);
   }
 
+  /** Create a new tree seeded with a copy of the member (the bridge person)
+   *  and link the two rows bidirectionally — all in one atomic request. */
+  static createMemberSubtree(treeId: string, memberId: string, name: string) {
+    return api.post<{ tree: Tree; anchor: MemberDB }>(
+      `${base(treeId)}/members/${memberId}/subtree`,
+      { name },
+    );
+  }
+
   static updateMember(
     treeId: string,
     id: string,

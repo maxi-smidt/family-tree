@@ -408,3 +408,127 @@ def test_cannot_link_member_to_inaccessible_tree(client, db):
         json={"linkedTreeId": private_other.id},
     )
     assert res.status_code == 403
+
+
+def test_create_member_subtree_seeds_bridge_person(client, db):
+    """POST /members/{id}/subtree creates a new tree seeded with a copy of the
+    member, linked bidirectionally via linkedTreeId + linkedMemberId."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(
+        client, main, user, "m1",
+        academicTitle="Dr.", deceased=True, birthplace="Vienna",
+    )
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Jo Doe family"},
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["tree"]["name"] == "Jo Doe family"
+    new_tree_id = body["tree"]["id"]
+    anchor = body["anchor"]
+    assert anchor["linkedTreeId"] == new_tree_id
+    assert anchor["linkedMemberId"] is not None
+
+    # The new tree holds exactly one member: the cloned bridge person, linked
+    # back to the origin row.
+    members = client.get(
+        f"{API}/trees/{new_tree_id}/members", headers=auth(user)
+    ).json()
+    assert len(members) == 1
+    counterpart = members[0]
+    assert counterpart["id"] == anchor["linkedMemberId"]
+    assert counterpart["firstName"] == "Jo"
+    assert counterpart["academicTitle"] == "Dr."
+    assert counterpart["deceased"] is True
+    assert counterpart["birthplace"] == "Vienna"
+    assert counterpart["linkedTreeId"] == main.id
+    assert counterpart["linkedMemberId"] == "m1"
+
+
+def test_create_member_subtree_conflicts_when_already_linked(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+
+    first = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub 2"},
+    )
+    assert second.status_code == 409
+
+
+def test_create_member_subtree_requires_name(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "   "},
+    )
+    assert res.status_code == 400
+
+
+def test_linked_member_requires_linked_tree(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+    _create_member(client, main, user, "m2")
+
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedMemberId": "m2"},
+    )
+    assert res.status_code == 400
+
+
+def test_linked_member_must_belong_to_linked_tree(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1")
+    # m2 lives in *main*, not in the linked tree.
+    _create_member(client, main, user, "m2")
+
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedTreeId": other.id, "linkedMemberId": "m2"},
+    )
+    assert res.status_code == 400
+
+
+def test_unlinking_tree_clears_linked_member(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    assert created.status_code == 201
+
+    cleared = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedTreeId": None},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["linkedTreeId"] is None
+    assert cleared.json()["linkedMemberId"] is None
