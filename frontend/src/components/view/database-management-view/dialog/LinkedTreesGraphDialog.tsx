@@ -5,8 +5,8 @@ import {
   Edge,
   EdgeLabelRenderer,
   EdgeProps,
-  getStraightPath,
   Handle,
+  MarkerType,
   Node,
   NodeProps,
   Position,
@@ -32,6 +32,7 @@ import {
   LINK_GRAPH_NODE_HEIGHT,
   LINK_GRAPH_NODE_WIDTH,
   layoutLinkGraph,
+  LinkGraphPoint,
 } from "@/utils/linkGraphLayout";
 import { Network } from "lucide-react";
 
@@ -46,6 +47,25 @@ interface LinkGraphNodeData extends LinkGraphNodeDB, Record<string, unknown> {
 
 interface LinkGraphEdgeData extends Record<string, unknown> {
   bridgeNames: string[];
+  /** Dagre's routing waypoints — the path bends around intermediate nodes. */
+  points: LinkGraphPoint[];
+}
+
+/** A smooth path through dagre's waypoints (quadratic curves through segment midpoints). */
+function smoothPath(points: LinkGraphPoint[]): string {
+  if (points.length < 2) return "";
+  if (points.length === 2) {
+    return `M ${points[0].x},${points[0].y} L ${points[1].x},${points[1].y}`;
+  }
+  let d = `M ${points[0].x},${points[0].y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const midX = (points[i].x + points[i + 1].x) / 2;
+    const midY = (points[i].y + points[i + 1].y) / 2;
+    d += ` Q ${points[i].x},${points[i].y} ${midX},${midY}`;
+  }
+  const last = points[points.length - 1];
+  d += ` L ${last.x},${last.y}`;
+  return d;
 }
 
 function LinkGraphNodeCard({ data }: NodeProps<Node<LinkGraphNodeData>>) {
@@ -112,20 +132,17 @@ function LinkGraphNodeCard({ data }: NodeProps<Node<LinkGraphNodeData>>) {
 
 function LinkGraphEdgeLine({
   id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
   markerEnd,
   label,
   data,
 }: EdgeProps<Edge<LinkGraphEdgeData>>) {
-  const [edgePath, labelX, labelY] = getStraightPath({
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-  });
+  const points = data?.points ?? [];
+  if (points.length < 2) return null;
+
+  const edgePath = smoothPath(points);
+  const mid = points[Math.floor(points.length / 2)];
+  const labelX = mid.x;
+  const labelY = mid.y;
   const title = (data?.bridgeNames ?? []).join(", ");
 
   return (
@@ -214,20 +231,64 @@ export const LinkedTreesGraphDialog = ({ tree, onClose }: Props) => {
       data: { ...n, onOpen: handleOpen },
       draggable: false,
     }));
-    const rfEdges: Edge<LinkGraphEdgeData>[] = graphEdges.map((e) => ({
-      id: `${e.source_tree_id}->${e.target_tree_id}`,
-      source: e.source_tree_id,
-      target: e.target_tree_id,
-      type: "linkGraphEdge",
-      label: e.count > 1 ? String(e.count) : undefined,
-      data: {
-        bridgeNames: e.bridge_members
-          .map((m) => m.name)
-          .filter((n): n is string => !!n),
-      },
+    // A mutual pair (A→B plus B→A) is one bridge connection seen from both
+    // sides — draw it as a single undirected line. Only genuinely one-way
+    // links keep an arrowhead, which includes links into inaccessible
+    // placeholder trees (their back-links are unknowable).
+    const byPair = new Map(
+      graphEdges.map((e) => [`${e.source_tree_id}|${e.target_tree_id}`, e]),
+    );
+    const merged: { edge: LinkGraphEdgeDB; bidirectional: boolean }[] = [];
+    const consumed = new Set<string>();
+    for (const e of graphEdges) {
+      const key = `${e.source_tree_id}|${e.target_tree_id}`;
+      if (consumed.has(key)) continue;
+      consumed.add(key);
+      const reverse = byPair.get(`${e.target_tree_id}|${e.source_tree_id}`);
+      if (!reverse) {
+        merged.push({ edge: e, bidirectional: false });
+        continue;
+      }
+      consumed.add(`${e.target_tree_id}|${e.source_tree_id}`);
+      merged.push({
+        edge: {
+          ...e,
+          // Each fully linked bridge pair contributes one link per direction.
+          count: Math.max(e.count, reverse.count),
+          bridge_members: [...e.bridge_members, ...reverse.bridge_members],
+        },
+        bidirectional: true,
+      });
+    }
+
+    const rfEdges: Edge<LinkGraphEdgeData>[] = merged.map(
+      ({ edge: e, bidirectional }) => ({
+        id: `${e.source_tree_id}->${e.target_tree_id}`,
+        source: e.source_tree_id,
+        target: e.target_tree_id,
+        type: "linkGraphEdge",
+        label: e.count > 1 ? String(e.count) : undefined,
+        markerEnd: bidirectional
+          ? undefined
+          : { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+        data: {
+          bridgeNames: [
+            ...new Set(
+              e.bridge_members
+                .map((m) => m.name)
+                .filter((n): n is string => !!n),
+            ),
+          ],
+          points: [],
+        },
+      }),
+    );
+    const { nodes: laidOut, edgePoints } = layoutLinkGraph(rfNodes, rfEdges);
+    const routedEdges = rfEdges.map((e) => ({
+      ...e,
+      data: { ...e.data!, points: edgePoints.get(e.id) ?? [] },
     }));
-    const laidOut = layoutLinkGraph(rfNodes, rfEdges);
-    return { flowNodes: laidOut, flowEdges: rfEdges };
+    return { flowNodes: laidOut, flowEdges: routedEdges };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graphNodes, graphEdges]);
 

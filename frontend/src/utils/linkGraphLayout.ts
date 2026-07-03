@@ -14,10 +14,28 @@ import { Position } from "@xyflow/react";
 export const LINK_GRAPH_NODE_WIDTH = 220;
 export const LINK_GRAPH_NODE_HEIGHT = 88;
 
+export interface LinkGraphPoint {
+  x: number;
+  y: number;
+}
+
+export interface LinkGraphLayoutResult<
+  NodeData extends Record<string, unknown>,
+> {
+  nodes: Node<NodeData>[];
+  /**
+   * Dagre's routing polyline per edge id: border-to-border waypoints that
+   * bend around intermediate nodes instead of cutting straight through them.
+   * Dagre positions node *centers*, and we place each node's top-left at
+   * (center - half size), so these points are already in flow coordinates.
+   */
+  edgePoints: Map<string, LinkGraphPoint[]>;
+}
+
 export function layoutLinkGraph<NodeData extends Record<string, unknown>>(
   nodes: Node<NodeData>[],
   edges: Edge[],
-): Node<NodeData>[] {
+): LinkGraphLayoutResult<NodeData> {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 100 });
   g.setDefaultEdgeLabel(() => ({}));
@@ -34,7 +52,19 @@ export function layoutLinkGraph<NodeData extends Record<string, unknown>>(
 
   dagre.layout(g);
 
-  return nodes.map((node) => {
+  const edgePoints = new Map<string, LinkGraphPoint[]>();
+  edges.forEach((edge) => {
+    const geometry = g.edge(edge.source, edge.target);
+    edgePoints.set(
+      edge.id,
+      (geometry?.points ?? []).map((p: LinkGraphPoint) => ({
+        x: p.x,
+        y: p.y,
+      })),
+    );
+  });
+
+  const laidOutNodes = nodes.map((node) => {
     const pos = g.node(node.id);
     return {
       ...node,
@@ -46,4 +76,6 @@ export function layoutLinkGraph<NodeData extends Record<string, unknown>>(
       },
     };
   });
+
+  return { nodes: laidOutNodes, edgePoints };
 }
