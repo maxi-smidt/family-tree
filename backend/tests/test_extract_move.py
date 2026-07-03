@@ -156,6 +156,30 @@ def test_move_root_stays_and_bridge_is_wired(db):
     assert counterpart.is_collapsed is False
 
 
+def test_move_zeroes_positions_for_a_fresh_layout(db):
+    """Moved members keep their old positions from the source tree by
+    default (only tree_id and image_data are otherwise touched); the move
+    must zero them out so the new tree opens with an "unarranged" layout
+    (matching the bridge counterpart, which is already 0/0) instead of
+    stale, holey positions the frontend then auto-arranges on first open."""
+    user = make_user(db, "alice")
+    tree = make_family(db, user)
+    for member_id, x, y in (("p1", 100, 200), ("c1", 300, 400), ("c2", -50, 75)):
+        m = db.get(Member, member_id)
+        m.position_x = x
+        m.position_y = y
+    db.commit()
+
+    new_tree = extract_subtree(
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
+    )
+
+    for m in members_of(db, new_tree):
+        assert m.position_x == 0
+        assert m.position_y == 0
+
+
 def test_move_relations_repointed_severed_and_kept(db):
     user = make_user(db, "alice")
     tree = make_family(db, user)

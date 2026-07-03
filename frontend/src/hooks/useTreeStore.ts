@@ -375,6 +375,21 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     if (virtual && get().metadata.hasLayout !== true) {
       await useMemberStore.getState().updateLayout();
     }
+
+    // Freshly extracted (or seeded) trees: every member sits at (0, 0)
+    // because they've never been arranged. Auto-arrange on first open,
+    // same as virtual views, instead of showing a pile of stacked nodes.
+    const freshRole = get().selectedTree?.role;
+    const canWrite = freshRole === "owner" || freshRole === "editor";
+    if (!virtual && canWrite) {
+      const members = useMemberStore.getState().members;
+      if (
+        members.length >= 2 &&
+        members.every((m) => m.position.x === 0 && m.position.y === 0)
+      ) {
+        await useMemberStore.getState().updateLayout();
+      }
+    }
     set({ isReady: true });
   },
 

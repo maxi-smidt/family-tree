@@ -441,6 +441,12 @@ def extract_subtree(
     ):
         m.tree_id = new_tree.id
         m.image_data = move_media_to_tree(m.image_data, new_tree.id)
+        # Zeroed out like the bridge counterpart: all-zero positions mark a
+        # never-arranged tree, which the frontend auto-lays-out on first open
+        # rather than opening with stale positions carried over from the
+        # source tree (which would leave the new tree sparse and disjoint).
+        m.position_x = 0
+        m.position_y = 0
     _progress(45)
 
     # --- Relations ---
