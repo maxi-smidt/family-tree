@@ -16,10 +16,15 @@ from app.api.deps import (
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import SessionLocal, get_db
 from app.models import Tree, TreeMembership, User
+from app.models.family import Member
 from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.job import JobStarted
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
+    LinkGraphBridgeMember,
+    LinkGraphEdge,
+    LinkGraphNode,
+    LinkGraphOut,
     MemberRestrictionsUpdate,
     PublicAccessUpdate,
     ShareCandidate,
@@ -33,7 +38,7 @@ from app.schemas.tree import (
     TreeTransferResult,
     TreeUpdate,
 )
-from app.services import friendships
+from app.services import feature_service, friendships
 from app.services.event_bus import event_bus, publish_tree_event, tree_audience
 from app.services.extract import compute_subtree_preview, extract_subtree
 from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
@@ -234,6 +239,141 @@ def get_storage_usage(
         total_bytes=usage["total_bytes"],
         tree_quota_bytes=quotas["tree_quota_bytes"],
         media_quota_bytes=quotas["media_quota_bytes"],
+    )
+
+
+_LINK_GRAPH_MAX_DEPTH = 10
+_LINK_GRAPH_MAX_NODES = 100
+_LINK_GRAPH_MAX_BRIDGE_MEMBERS = 5
+
+
+def _member_name(member: Member) -> str | None:
+    return " ".join(filter(None, [member.first_name, member.last_name])) or None
+
+
+@router.get("/{tree_id}/link-graph", response_model=LinkGraphOut)
+def get_link_graph(
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Graph of trees reachable from this one via tree-in-tree member links.
+
+    BFS over member.linked_tree_id starting at the current tree. Trees the
+    requesting user cannot read become terminal placeholder nodes (no name,
+    no member count, not expanded further) so nothing about them leaks.
+    Bounded by depth and node-count caps; ``truncated`` is set when a cap
+    stops expansion before the graph was fully explored.
+    """
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+
+    def is_accessible(t: Tree) -> bool:
+        return (
+            user.is_admin
+            or role_for(db, t, user) is not None
+            or t.public_role == "viewer"
+        )
+
+    nodes: dict[str, LinkGraphNode] = {}
+    edges: dict[tuple[str, str], LinkGraphEdge] = {}
+    truncated = False
+
+    member_count = db.scalar(
+        select(func.count()).select_from(Member).where(Member.tree_id == tree.id)
+    )
+    nodes[tree.id] = LinkGraphNode(
+        id=tree.id,
+        name=tree.name,
+        member_count=member_count or 0,
+        role=role_for(db, tree, user),
+        accessible=True,
+        is_current=True,
+    )
+
+    # (tree, depth) frontier of accessible, expandable trees.
+    frontier: list[tuple[Tree, int]] = [(tree, 0)]
+    visited: set[str] = {tree.id}
+
+    while frontier:
+        current, depth = frontier.pop(0)
+        if depth >= _LINK_GRAPH_MAX_DEPTH:
+            truncated = True
+            continue
+
+        linked_members = db.scalars(
+            select(Member)
+            .where(Member.tree_id == current.id, Member.linked_tree_id.isnot(None))
+            .order_by(Member.id)
+        ).all()
+        if not linked_members:
+            continue
+
+        by_target: dict[str, list[Member]] = {}
+        for m in linked_members:
+            by_target.setdefault(m.linked_tree_id, []).append(m)
+
+        for target_id, members in by_target.items():
+            edge_key = (current.id, target_id)
+            edges[edge_key] = LinkGraphEdge(
+                source_tree_id=current.id,
+                target_tree_id=target_id,
+                count=len(members),
+                bridge_members=[
+                    LinkGraphBridgeMember(id=m.id, name=_member_name(m))
+                    for m in members[:_LINK_GRAPH_MAX_BRIDGE_MEMBERS]
+                ],
+            )
+
+            if target_id in visited:
+                continue
+
+            if len(nodes) >= _LINK_GRAPH_MAX_NODES:
+                truncated = True
+                visited.add(target_id)
+                continue
+
+            visited.add(target_id)
+            target = db.get(Tree, target_id)
+            if target is None:
+                nodes[target_id] = LinkGraphNode(
+                    id=target_id,
+                    name=None,
+                    member_count=None,
+                    role=None,
+                    accessible=False,
+                    is_current=False,
+                )
+                continue
+
+            if not is_accessible(target):
+                nodes[target_id] = LinkGraphNode(
+                    id=target_id,
+                    name=None,
+                    member_count=None,
+                    role=None,
+                    accessible=False,
+                    is_current=False,
+                )
+                continue
+
+            target_count = db.scalar(
+                select(func.count())
+                .select_from(Member)
+                .where(Member.tree_id == target.id)
+            )
+            nodes[target_id] = LinkGraphNode(
+                id=target_id,
+                name=target.name,
+                member_count=target_count or 0,
+                role=role_for(db, target, user),
+                accessible=True,
+                is_current=False,
+            )
+            frontier.append((target, depth + 1))
+
+    return LinkGraphOut(
+        nodes=list(nodes.values()), edges=list(edges.values()), truncated=truncated
     )
 
 

@@ -246,6 +246,21 @@
       "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
       "toast-error-no-root": "Bitte wähle eine Ausgangsperson aus."
     },
+    "linked-trees-graph": {
+      "title": "Verknüpfte Stammbäume",
+      "description": "Stammbäume, die über verknüpfte Personen mit \"{{name}}\" verbunden sind.",
+      "current-tree-badge": "Aktueller Stammbaum",
+      "role-own-badge": "Eigener",
+      "role-shared-badge": "Geteilt",
+      "member-count_one": "{{count}} Person",
+      "member-count_other": "{{count}} Personen",
+      "no-access-node": "Kein Zugriff",
+      "no-access-hint": "Du hast keinen Zugriff auf diesen Stammbaum.",
+      "empty-state": "Dieser Stammbaum ist noch mit keinem anderen Stammbaum verknüpft.",
+      "load-error": "Das Diagramm der verknüpften Stammbäume konnte nicht geladen werden.",
+      "open-error": "Der verknüpfte Stammbaum konnte nicht geöffnet werden.",
+      "truncated-hint": "Das Diagramm ist sehr groß und wurde gekürzt."
+    },
     "tab-settings": {
       "title": "Tabs anpassen",
       "description": "Ordne Tabs per Drag-and-drop neu an und blende sie ein oder aus.",
@@ -1210,6 +1225,7 @@
     "merge-button": "Vereinen",
     "duplicate-button": "Duplizieren",
     "extract-subtree-button": "Teilbaum extrahieren",
+    "linked-trees-graph-button": "Verknüpfte Stammbäume anzeigen",
     "table-name": "Name",
     "table-actions": "Aktionen",
     "copy-id-button": "ID kopieren",

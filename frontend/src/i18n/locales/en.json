@@ -246,6 +246,21 @@
       "toast-error-name": "Please provide a name for the new tree.",
       "toast-error-no-root": "Please select a root member."
     },
+    "linked-trees-graph": {
+      "title": "Linked Trees",
+      "description": "Trees connected to \"{{name}}\" through linked members.",
+      "current-tree-badge": "Current tree",
+      "role-own-badge": "Own",
+      "role-shared-badge": "Shared",
+      "member-count_one": "{{count}} member",
+      "member-count_other": "{{count}} members",
+      "no-access-node": "No access",
+      "no-access-hint": "You don't have access to this tree.",
+      "empty-state": "This tree isn't linked to any other trees yet.",
+      "load-error": "Could not load the linked-trees graph.",
+      "open-error": "Could not open the linked tree.",
+      "truncated-hint": "The graph is large and has been truncated."
+    },
     "tab-settings": {
       "title": "Customize tabs",
       "description": "Reorder tabs by dragging and toggle their visibility.",
@@ -1210,6 +1225,7 @@
     "merge-button": "Merge",
     "duplicate-button": "Duplicate",
     "extract-subtree-button": "Extract Sub-Tree",
+    "linked-trees-graph-button": "View Linked Trees",
     "table-name": "Name",
     "table-actions": "Actions",
     "copy-id-button": "Copy ID",
