@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { Tree } from "@/types/tree";
+import {
+  SubtreeExtractPayload,
+  SubtreeExtractPreview,
+  Tree,
+} from "@/types/tree";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import {
@@ -67,14 +71,10 @@ interface DatabaseState {
     sourceB?: string,
     resolutions?: MergeResolution[],
   ) => Promise<Tree>;
-  extractSubtree: (payload: {
-    name: string;
-    source_tree_id: string;
-    root_member_id: string;
-    direction: "descendants" | "ancestors" | "both";
-    depth: number | null;
-    include_partners: boolean;
-  }) => Promise<Tree>;
+  extractSubtree: (payload: SubtreeExtractPayload) => Promise<Tree>;
+  extractSubtreePreview: (
+    payload: Omit<SubtreeExtractPayload, "name">,
+  ) => Promise<SubtreeExtractPreview>;
   fetchTreeMembers: (treeId: string) => Promise<Member[]>;
   createVirtualView: (name: string, sourceTreeIds: string[]) => Promise<Tree>;
   renameVirtualView: (view: Tree, name: string) => Promise<void>;
@@ -254,15 +254,16 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
   },
 
   extractSubtree: async (payload) => {
-    const { job_id } = await api.post<{ job_id: string }>(
-      "/trees/extract-subtree",
-      payload,
-    );
+    const { job_id } = await TreeService.extractSubtree(payload);
     const treeId = await useJobStore.getState().trackJob(job_id);
     const tree = await api.get<Tree>(`/trees/${treeId}`);
     await get().loadTrees();
     await get().selectTree(tree);
     return tree;
+  },
+
+  extractSubtreePreview: async (payload) => {
+    return TreeService.previewSubtree(payload);
   },
 
   fetchTreeMembers: async (treeId: string) => {

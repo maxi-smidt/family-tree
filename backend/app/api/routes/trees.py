@@ -40,7 +40,11 @@ from app.schemas.tree import (
 )
 from app.services import feature_service, friendships
 from app.services.event_bus import event_bus, publish_tree_event, tree_audience
-from app.services.extract import compute_subtree_preview, extract_subtree
+from app.services.extract import (
+    compute_subtree_preview,
+    extract_subtree,
+    validate_move_request,
+)
 from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.merge import compute_merge_preview, merge_trees
@@ -178,6 +182,9 @@ def extract_subtree_endpoint(
 ):
     if not payload.name.strip():
         raise HTTPException(status_code=400, detail="A name is required")
+    # Surface precondition failures (direction, ownership, feature flag,
+    # already-linked root) as 4xx responses instead of a failed job.
+    validate_move_request(db, user, payload)
     job = create_job(db, user.id, "extract_subtree")
     background_tasks.add_task(run_job, job.id, user.id, _do_extract, user.id, payload)
     return JobStarted(job_id=job.id)

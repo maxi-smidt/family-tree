@@ -388,10 +388,12 @@ export const DatabaseManagementView = () => {
                   <Copy className="h-4 w-4" />
                   {t("duplicate-button")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setExtractTree(database)}>
-                  <Scissors className="h-4 w-4" />
-                  {t("extract-subtree-button")}
-                </DropdownMenuItem>
+                {isOwned && treeLinksEnabled && (
+                  <DropdownMenuItem onSelect={() => setExtractTree(database)}>
+                    <Scissors className="h-4 w-4" />
+                    {t("extract-subtree-button")}
+                  </DropdownMenuItem>
+                )}
                 {treeLinksEnabled && (
                   <DropdownMenuItem onSelect={() => setLinkGraphTree(database)}>
                     <Network className="h-4 w-4" />
