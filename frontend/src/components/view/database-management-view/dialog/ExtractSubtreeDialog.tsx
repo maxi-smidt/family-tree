@@ -169,6 +169,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
               onChange={setRootMemberId}
               placeholder={t("root-placeholder")}
               noResultsText={t("root-no-results")}
+              size="default"
             />
           </div>
 
