@@ -27,6 +27,7 @@ import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { StatisticsReport } from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
+import { LinkGraphDB } from "@/types/linkGraph";
 
 const base = (treeId: string) =>
   treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
@@ -114,9 +115,12 @@ export class TreeService {
     memberId: string,
     direction: "push" | "pull",
   ) {
-    return api.post<MemberDB>(`${base(treeId)}/members/${memberId}/bridge-sync`, {
-      direction,
-    });
+    return api.post<MemberDB>(
+      `${base(treeId)}/members/${memberId}/bridge-sync`,
+      {
+        direction,
+      },
+    );
   }
 
   static updateMember(
@@ -645,6 +649,11 @@ export class TreeService {
   // --- Storage usage -------------------------------------------------------
   static getStorageUsage(treeId: string) {
     return api.get<TreeStorageUsageDB>(`${base(treeId)}/storage`);
+  }
+
+  // --- Linked-trees graph ----------------------------------------------------
+  static getLinkGraph(treeId: string) {
+    return api.get<LinkGraphDB>(`${base(treeId)}/link-graph`);
   }
 
   // --- Virtual views --------------------------------------------------------
