@@ -5,15 +5,14 @@ member ids. The root stays behind in the source tree as the bridge person
 (tree-in-tree link) with a fresh counterpart seeded in the new tree, and
 relations crossing the cut elsewhere are severed.
 
-The branch is selected by picking a root member and one of three
-``direction`` values:
+The branch is selected by picking a root member and one of two ``direction``
+values:
 
-- ``descendants`` / ``ancestors``: traverse parent-edges from the root, up to
-  an optional depth, then (optionally) pull in one hop of partners.
-- ``whole_family`` (default): a two-sided selection that pulls in "everyone
-  attached to the root who isn't part of the root's own family" — see
-  ``_collect_whole_family_ids`` for the exact algorithm. ``depth`` and
-  ``include_partners`` do not apply to this mode.
+- ``direct_family`` (default): the root's family of origin — parents,
+  siblings and their branches, with married-in spouses. The root's own
+  children never move. See ``_collect_direct_family_ids``.
+- ``partnership``: the root's partner(s), the partner's family, and the
+  children the root shares with them. See ``_collect_partnership_ids``.
 """
 
 from __future__ import annotations
@@ -58,118 +57,109 @@ def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
     return tree
 
 
-def _bfs(
-    start: str, neighbours: dict[str, list[str]], max_depth: int | None
-) -> set[str]:
-    visited: set[str] = {start}
-    queue: deque[tuple[str, int]] = deque([(start, 0)])
-    while queue:
-        node, d = queue.popleft()
-        if max_depth is not None and d >= max_depth:
+def _load_relations(db: Session, tree_id: str) -> list[Relation]:
+    return list(db.scalars(select(Relation).where(Relation.tree_id == tree_id)))
+
+
+def _pull_one_hop_partners(
+    relations: list[Relation], moved: set[str], root_id: str
+) -> None:
+    """Add, in place, everyone sharing a non-parent (partner-like) relation
+    with a member already in ``moved`` — a single hop, no further traversal
+    from the pulled-in members. Partners of the root itself are excluded
+    (the root is the bridge, never in ``moved``)."""
+    peers: set[str] = set()
+    for r in relations:
+        if r.relation_type == "parent":
             continue
-        for nb in neighbours.get(node, []):
-            if nb not in visited:
-                visited.add(nb)
-                queue.append((nb, d + 1))
-    return visited
+        if r.from_member_id == root_id or r.to_member_id == root_id:
+            continue
+        if r.from_member_id in moved:
+            peers.add(r.to_member_id)
+        if r.to_member_id in moved:
+            peers.add(r.from_member_id)
+    moved |= peers
 
 
-def _collect_member_ids(
-    db: Session,
-    tree_id: str,
-    root_id: str,
-    direction: str,
-    depth: int | None,
-    include_partners: bool,
+def _collect_direct_family_ids(
+    db: Session, tree_id: str, root_id: str
 ) -> set[str]:
-    """Return the set of member ids that belong in the sub-tree.
+    """"Direct family" selection: the root's family of origin.
 
-    ``direction == "whole_family"`` ignores ``depth``/``include_partners``
-    and delegates to ``_collect_whole_family_ids``.
+    The root R stays as the bridge; R's own children/descendants do NOT
+    move (they belong to R's partnership in the main tree).
+
+    1. Build the vertical (parent-edge) adjacency, traversable both ways.
+    2. moved = BFS over vertical edges starting from R's PARENTS (rows
+       where from=R: their to-members), never visiting R itself. This
+       yields parents, grandparents, siblings (down from parents),
+       aunts/uncles/cousins (down from higher ancestors) — but never R's
+       own children, since downward traversal from R never happens (and
+       any path back down to them passes through R, which is blocked).
+    3. One-hop partner pull: every member sharing a non-parent relation
+       with a moved member is added to moved (single hop, no further
+       traversal) — e.g. a moved brother's wife comes along instead of
+       being severed. Partners of R itself are NOT pulled.
+    4. R is excluded from the returned set (it is the bridge).
     """
-    # Validate root exists in this tree.
-    root = db.scalar(
-        select(Member).where(Member.tree_id == tree_id, Member.id == root_id)
-    )
-    if root is None:
-        raise HTTPException(status_code=404, detail="Root member not found in tree")
+    relations = _load_relations(db, tree_id)
 
-    if direction == "whole_family":
-        return _collect_whole_family_ids(db, tree_id, root_id)
+    vertical: dict[str, set[str]] = {}
 
-    # Build parent-edge adjacency from Relation rows.
-    # A "parent" relation is stored as: from=child, to=parent.
-    parent_rows = list(
-        db.scalars(
-            select(Relation).where(
-                Relation.tree_id == tree_id,
-                Relation.relation_type == "parent",
-            )
-        )
-    )
-    parents_of: dict[str, list[str]] = {}   # child_id -> [parent_id, ...]
-    children_of: dict[str, list[str]] = {}  # parent_id -> [child_id, ...]
-    for r in parent_rows:
-        parents_of.setdefault(r.from_member_id, []).append(r.to_member_id)
-        children_of.setdefault(r.to_member_id, []).append(r.from_member_id)
+    def link(a: str, b: str) -> None:
+        vertical.setdefault(a, set()).add(b)
+        vertical.setdefault(b, set()).add(a)
 
-    if direction == "descendants":
-        core = _bfs(root_id, children_of, depth)
-    else:  # ancestors
-        core = _bfs(root_id, parents_of, depth)
+    root_parents: set[str] = set()
+    for r in relations:
+        if r.relation_type != "parent":
+            continue
+        link(r.from_member_id, r.to_member_id)
+        if r.from_member_id == root_id:
+            root_parents.add(r.to_member_id)
 
-    if include_partners:
-        # Load all non-parent relations; add peers (partner/married/divorced) of
-        # every core member — one hop, no further traversal.
-        peer_rows = list(
-            db.scalars(
-                select(Relation).where(
-                    Relation.tree_id == tree_id,
-                    Relation.relation_type != "parent",
-                )
-            )
-        )
-        peers: set[str] = set()
-        for r in peer_rows:
-            if r.from_member_id in core:
-                peers.add(r.to_member_id)
-            if r.to_member_id in core:
-                peers.add(r.from_member_id)
-        # Only add peers that actually exist in the source tree.
-        existing_ids = set(
-            db.scalars(select(Member.id).where(Member.tree_id == tree_id))
-        )
-        core |= peers & existing_ids
+    moved: set[str] = set()
+    queue: deque[str] = deque()
+    for p in root_parents:
+        if p not in moved:
+            moved.add(p)
+            queue.append(p)
+    while queue:
+        node = queue.popleft()
+        for nb in vertical.get(node, ()):
+            if nb == root_id or nb in moved:
+                continue
+            moved.add(nb)
+            queue.append(nb)
 
-    return core
+    _pull_one_hop_partners(relations, moved, root_id)
+    moved.discard(root_id)
+    return moved
 
 
-def _collect_whole_family_ids(db: Session, tree_id: str, root_id: str) -> set[str]:
-    """"Whole family" selection: everyone attached to the root who isn't part
-    of the root's own ("staying") family.
+def _collect_partnership_ids(
+    db: Session, tree_id: str, root_id: str
+) -> set[str]:
+    """"Partnership" selection: the root's partner(s) and their world, plus
+    the shared children.
 
-    Built over an undirected adjacency graph of ALL relations in the tree
-    (parent relations connect child<->parent; every other relation type -
-    partner, married, divorced, ... - connects its two endpoints):
+    The root R stays as the bridge; the partner side and the shared children
+    move.
 
-    1. Anchors = the root's partners (members sharing a non-parent relation
-       with the root) and the root's children (parent relations where the
-       root is the parent). NOT the root's own parents.
-    2. Staying set = everyone reachable from the anchors; moved set =
-       everyone reachable from the root. Both are grown breadth-first in
-       lockstep (one layer at a time, racing each other) so that a node is
-       claimed by whichever side reaches it first. This matters for cycles
-       that loop back through a marriage — e.g. the root's sister also
-       marries into the main family: the sister's husband is topologically
-       closer to the anchors (stays) while the sister herself is closer to
-       the root (moves), even though they're linked by a partner relation.
-       The root never joins staying and always seeds moved.
-    3. The root itself is excluded from the returned set (it is the bridge
-       and stays in both trees).
+    1. seeds = all of R's partners (members sharing any non-parent relation
+       with R) + all of R's children (parent rows where to=R: their
+       from-members).
+    2. moved = BFS from all seeds over ALL edges (vertical + horizontal),
+       never visiting R.
+    3. R is excluded from the returned set (it is the bridge).
+
+    Deliberately simple: in tangled trees (e.g. two siblings married into
+    the same family) this can reach back into the root's own blood family —
+    accepted; the preview's member count reveals it. No cleverness is added
+    to prevent that (unlike "direct family", which has no such need since it
+    never leaves the vertical axis until the one-hop partner pull).
     """
-    relations = list(
-        db.scalars(select(Relation).where(Relation.tree_id == tree_id))
-    )
+    relations = _load_relations(db, tree_id)
 
     adjacency: dict[str, set[str]] = {}
 
@@ -177,55 +167,49 @@ def _collect_whole_family_ids(db: Session, tree_id: str, root_id: str) -> set[st
         adjacency.setdefault(a, set()).add(b)
         adjacency.setdefault(b, set()).add(a)
 
-    anchors: set[str] = set()
+    seeds: set[str] = set()
     for r in relations:
         link(r.from_member_id, r.to_member_id)
         if r.relation_type == "parent":
             # from = child, to = parent. Root's children: root is the parent.
             if r.to_member_id == root_id:
-                anchors.add(r.from_member_id)
+                seeds.add(r.from_member_id)
         else:
-            # Peer relation (partner/married/divorced/...): both endpoints
-            # are anchors if either is the root.
             if r.from_member_id == root_id:
-                anchors.add(r.to_member_id)
+                seeds.add(r.to_member_id)
             elif r.to_member_id == root_id:
-                anchors.add(r.from_member_id)
+                seeds.add(r.from_member_id)
 
-    # Expand the "staying" (from anchors) and "moved" (from root) frontiers
-    # in lockstep, one BFS layer at a time, each claiming unclaimed nodes as
-    # it reaches them. A plain sequential BFS (all of staying first, then
-    # moved) would leak through marriage cycles that loop back into the
-    # root's own family (e.g. root's sister marries into the main family: a
-    # sequential staying-BFS would walk anchor -> ... -> sister's husband ->
-    # sister -> root's own parents and swallow the whole moved side).
-    # Racing the two frontiers layer-by-layer means whichever side is
-    # topologically closer wins each node, matching the intuitive "which
-    # family is this person closer to" split.
-    staying: set[str] = set(anchors)
-    moved: set[str] = {root_id}
-    claimed: set[str] = set(anchors) | {root_id}
-    staying_frontier: deque[str] = deque(anchors)
-    moved_frontier: deque[str] = deque([root_id])
-    while staying_frontier or moved_frontier:
-        for _ in range(len(staying_frontier)):
-            node = staying_frontier.popleft()
-            for nb in adjacency.get(node, ()):
-                if nb in claimed:
-                    continue
-                claimed.add(nb)
-                staying.add(nb)
-                staying_frontier.append(nb)
-        for _ in range(len(moved_frontier)):
-            node = moved_frontier.popleft()
-            for nb in adjacency.get(node, ()):
-                if nb in claimed:
-                    continue
-                claimed.add(nb)
-                moved.add(nb)
-                moved_frontier.append(nb)
+    moved: set[str] = set()
+    queue: deque[str] = deque()
+    for s in seeds:
+        if s not in moved:
+            moved.add(s)
+            queue.append(s)
+    while queue:
+        node = queue.popleft()
+        for nb in adjacency.get(node, ()):
+            if nb == root_id or nb in moved:
+                continue
+            moved.add(nb)
+            queue.append(nb)
 
     return moved
+
+
+def _collect_member_ids(
+    db: Session, tree_id: str, root_id: str, direction: str
+) -> set[str]:
+    """Return the set of member ids that belong in the sub-tree for ``direction``."""
+    root = db.scalar(
+        select(Member).where(Member.tree_id == tree_id, Member.id == root_id)
+    )
+    if root is None:
+        raise HTTPException(status_code=404, detail="Root member not found in tree")
+
+    if direction == "partnership":
+        return _collect_partnership_ids(db, tree_id, root_id)
+    return _collect_direct_family_ids(db, tree_id, root_id)
 
 
 def validate_move_request(
@@ -239,13 +223,8 @@ def validate_move_request(
     created, so precondition failures surface as 4xx responses instead of a
     failed job. Returns the source tree and the root (future bridge) member.
     """
-    if req.direction not in ("whole_family", "descendants", "ancestors"):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "direction must be 'whole_family', 'descendants' or 'ancestors'"
-            ),
-        )
+    # direction is a Pydantic Literal, so any value that reaches here is
+    # already one of the valid choices — no runtime check needed.
     # Extraction creates a tree-in-tree link; gate exactly like member subtrees.
     if not feature_service.is_enabled(db, "tree_links", user):
         raise HTTPException(status_code=404, detail="Not found")
@@ -363,9 +342,7 @@ def compute_subtree_preview(
 ) -> SubtreePreview:
     """Preview an extraction without writing anything (same checks as the move)."""
     tree, root = validate_move_request(db, user, req)
-    member_ids = _collect_member_ids(
-        db, tree.id, root.id, req.direction, req.depth, req.include_partners
-    )
+    member_ids = _collect_member_ids(db, tree.id, root.id, req.direction)
     moved = member_ids - {root.id}
     relations = list(db.scalars(select(Relation).where(Relation.tree_id == tree.id)))
     kept, bridged, severed = _classify_relations(relations, moved, root.id)
@@ -421,9 +398,7 @@ def extract_subtree(
             progress_cb(pct)
 
     tree, root = validate_move_request(db, user, req)
-    member_ids = _collect_member_ids(
-        db, tree.id, root.id, req.direction, req.depth, req.include_partners
-    )
+    member_ids = _collect_member_ids(db, tree.id, root.id, req.direction)
     moved = member_ids - {root.id}
     if not moved:
         raise HTTPException(

@@ -46,15 +46,12 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
   const [name, setName] = useState("");
   const [rootMemberId, setRootMemberId] = useState<string | null>(null);
   const [direction, setDirection] = useState<SubtreeExtractDirection>(
-    "whole_family",
+    "direct_family",
   );
-  const [depthInput, setDepthInput] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [preview, setPreview] = useState<SubtreeExtractPreview | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-
-  const isWholeFamily = direction === "whole_family";
 
   const abortRef = useRef<AbortController | null>(null);
 
@@ -62,8 +59,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
     if (!tree) return;
     setName(`${tree.name} ${t("name-suffix")}`);
     setRootMemberId(null);
-    setDirection("whole_family");
-    setDepthInput("");
+    setDirection("direct_family");
     setPreview(null);
 
     // Load members for the picker via store action (never call TreeService directly).
@@ -71,8 +67,6 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
       .then(setMembers)
       .catch(() => setMembers([]));
   }, [tree, t, fetchTreeMembers]);
-
-  const depth = depthInput.trim() !== "" ? parseInt(depthInput, 10) : null;
 
   // Fetch a preview whenever the selection is complete enough to evaluate.
   useEffect(() => {
@@ -92,8 +86,6 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
           source_tree_id: tree.id,
           root_member_id: rootMemberId,
           direction,
-          depth: isWholeFamily ? null : depth,
-          include_partners: !isWholeFamily,
         });
         if (ac.signal.aborted) return;
         setPreview(result);
@@ -108,7 +100,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
 
     return () => ac.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, rootMemberId, direction, depth, isWholeFamily]);
+  }, [tree, rootMemberId, direction]);
 
   const handleClose = () => {
     if (isExtracting) return;
@@ -133,8 +125,6 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
         source_tree_id: tree.id,
         root_member_id: rootMemberId,
         direction,
-        depth: isWholeFamily ? null : depth,
-        include_partners: !isWholeFamily,
       });
       toast.success(t("toast-success"));
       onClose();
@@ -192,39 +182,20 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="whole_family">
-                  {t("direction-whole-family")}
+                <SelectItem value="direct_family">
+                  {t("direction-direct-family")}
                 </SelectItem>
-                <SelectItem value="descendants">
-                  {t("direction-descendants")}
-                </SelectItem>
-                <SelectItem value="ancestors">
-                  {t("direction-ancestors")}
+                <SelectItem value="partnership">
+                  {t("direction-partnership")}
                 </SelectItem>
               </SelectContent>
             </Select>
-            {isWholeFamily && (
-              <p className="text-xs text-muted-foreground">
-                {t("direction-whole-family-hint")}
-              </p>
-            )}
+            <p className="text-xs text-muted-foreground">
+              {direction === "direct_family"
+                ? t("direction-direct-family-hint")
+                : t("direction-partnership-hint")}
+            </p>
           </div>
-
-          {!isWholeFamily && (
-            <div className="space-y-2">
-              <FieldLabel htmlFor="extract-subtree-depth">
-                {t("depth-label")}
-              </FieldLabel>
-              <Input
-                id="extract-subtree-depth"
-                type="number"
-                min={0}
-                value={depthInput}
-                onChange={(e) => setDepthInput(e.target.value)}
-                placeholder={t("depth-hint")}
-              />
-            </div>
-          )}
 
           {isLoadingPreview && (
             <p className="text-sm text-muted-foreground">

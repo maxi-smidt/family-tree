@@ -4,23 +4,21 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-# "whole_family" (default): everyone attached to the root who isn't part of
-# the root's own "staying" family (see services/extract.py for the exact
-# two-sided BFS definition) — depth and include_partners do not apply.
-# "descendants" / "ancestors": traverse parent-edges from the root, honouring
-# depth and include_partners as before.
-Direction = Literal["whole_family", "descendants", "ancestors"]
+# "direct_family" (default): the root's family of origin — parents,
+# siblings and their branches, with married-in spouses; the root's own
+# children never move. See services/extract.py for the exact algorithm.
+# "partnership": the root's partner(s), the partner's family, and the
+# children the root shares with them.
+Direction = Literal["direct_family", "partnership"]
 
 
 class SubtreeExtractRequest(BaseModel):
     name: str
     source_tree_id: str
     root_member_id: str
-    direction: Direction = "whole_family"
-    depth: int | None = Field(default=None, ge=0)
-    include_partners: bool = True
+    direction: Direction = "direct_family"
 
 
 class SubtreePreview(BaseModel):

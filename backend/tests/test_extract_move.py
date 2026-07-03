@@ -2,7 +2,7 @@
 linked through the root, which stays behind as the bridge person.
 
 Extraction is always a linked move (there is no more independent-copy mode).
-Direction is one of "whole_family" (default), "descendants" or "ancestors".
+Direction is one of "direct_family" (default) or "partnership".
 """
 
 import pytest
@@ -54,9 +54,7 @@ def req(**kw) -> SubtreeExtractRequest:
         "name": "Moved branch",
         "source_tree_id": "",
         "root_member_id": "",
-        "direction": "descendants",
-        "depth": None,
-        "include_partners": False,
+        "direction": "direct_family",
     }
     defaults.update(kw)
     return SubtreeExtractRequest(**defaults)
@@ -71,17 +69,57 @@ def relations_of(db, tree):
 
 
 def make_family(db, user):
-    """root -> c1 -> gc1, root -> c2, plus 'aunt' (partner of c1, stays)."""
+    """root's parent p1; p1's other children c1, c2 (root's siblings); c1's
+    child gc1 (root's nephew); c1's partner aunt (one-hop pull); aunt's own
+    parent outsider (two hops from c1, so NOT pulled in — stays and gets
+    severed).
+
+    Used by the move-mechanics tests with direction "direct_family": moved =
+    {p1, c1, c2, gc1, aunt}; root and outsider stay.
+    """
     tree = make_tree(db, user)
     add_member(db, tree, "root")
+    add_member(db, tree, "p1")
     add_member(db, tree, "c1")
     add_member(db, tree, "c2")
     add_member(db, tree, "gc1")
     add_member(db, tree, "aunt")
-    add_relation(db, tree, "c1", "root")
-    add_relation(db, tree, "c2", "root")
-    add_relation(db, tree, "gc1", "c1")
+    add_member(db, tree, "outsider")
+    add_relation(db, tree, "root", "p1", "parent")
+    add_relation(db, tree, "c1", "p1", "parent")
+    add_relation(db, tree, "c2", "p1", "parent")
+    add_relation(db, tree, "gc1", "c1", "parent")
     add_relation(db, tree, "c1", "aunt", "partner")
+    add_relation(db, tree, "aunt", "outsider", "parent")
+    return tree
+
+
+def make_canonical_family(db, user):
+    """The canonical family used across the direction-specific tests:
+
+    Karl+Rosa -> Jan, Tom
+    Emil+Marta -> Anna, Paul
+    Paul+Ines partners
+    Tom+Anna partners -> Lena, Max
+    """
+    tree = make_tree(db, user)
+    for m in ("karl", "rosa", "jan", "tom", "emil", "marta", "anna", "paul",
+              "ines", "lena", "max"):
+        add_member(db, tree, m)
+    add_relation(db, tree, "jan", "karl", "parent")
+    add_relation(db, tree, "jan", "rosa", "parent")
+    add_relation(db, tree, "tom", "karl", "parent")
+    add_relation(db, tree, "tom", "rosa", "parent")
+    add_relation(db, tree, "anna", "emil", "parent")
+    add_relation(db, tree, "anna", "marta", "parent")
+    add_relation(db, tree, "paul", "emil", "parent")
+    add_relation(db, tree, "paul", "marta", "parent")
+    add_relation(db, tree, "paul", "ines", "partner")
+    add_relation(db, tree, "tom", "anna", "partner")
+    add_relation(db, tree, "lena", "tom", "parent")
+    add_relation(db, tree, "lena", "anna", "parent")
+    add_relation(db, tree, "max", "tom", "parent")
+    add_relation(db, tree, "max", "anna", "parent")
     return tree
 
 
@@ -89,20 +127,21 @@ def make_family(db, user):
 # Core move behaviour
 # ---------------------------------------------------------------------------
 
-def test_move_descendants_root_stays_and_bridge_is_wired(db):
+def test_move_root_stays_and_bridge_is_wired(db):
     user = make_user(db, "alice")
     tree = make_family(db, user)
 
     new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="root")
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
 
-    # Root + aunt stay in the source; the branch moved with stable ids.
+    # Root + outsider stay in the source; the branch moved with stable ids.
     src_ids = {m.id for m in members_of(db, tree)}
-    assert src_ids == {"root", "aunt"}
+    assert src_ids == {"root", "outsider"}
     moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"c1", "c2", "gc1"} <= moved_ids
-    assert len(moved_ids) == 4  # + the bridge counterpart
+    assert {"p1", "c1", "c2", "gc1", "aunt"} <= moved_ids
+    assert len(moved_ids) == 6  # + the bridge counterpart
 
     # Bridge wired both ways.
     root = db.get(Member, "root")
@@ -122,7 +161,8 @@ def test_move_relations_repointed_severed_and_kept(db):
     tree = make_family(db, user)
 
     new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="root")
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
     root = db.get(Member, "root")
 
@@ -130,27 +170,32 @@ def test_move_relations_repointed_severed_and_kept(db):
         (r.from_member_id, r.to_member_id, r.relation_type)
         for r in relations_of(db, new_tree)
     }
-    # Internal relation kept as-is; root relations bridged to the counterpart.
+    # Internal relations kept as-is; root's relation to p1 bridged to the counterpart.
+    assert ("c1", "p1", "parent") in new_rels
+    assert ("c2", "p1", "parent") in new_rels
     assert ("gc1", "c1", "parent") in new_rels
-    assert ("c1", root.linked_member_id, "parent") in new_rels
-    assert ("c2", root.linked_member_id, "parent") in new_rels
-    # The c1<->aunt partner relation crossed the cut: severed everywhere.
-    assert len(new_rels) == 3
+    assert ("c1", "aunt", "partner") in new_rels
+    assert (root.linked_member_id, "p1", "parent") in new_rels
+    # The aunt<->outsider parent relation crossed the cut: severed everywhere.
+    assert len(new_rels) == 5
     assert relations_of(db, tree) == []
 
 
 def test_move_relations_among_staying_members_untouched(db):
     user = make_user(db, "alice")
     tree = make_family(db, user)
-    add_member(db, tree, "uncle")
-    add_relation(db, tree, "aunt", "uncle", "partner")
+    add_member(db, tree, "other_stayer")
+    add_relation(db, tree, "outsider", "other_stayer", "partner")
 
-    extract_subtree(db, user, req(source_tree_id=tree.id, root_member_id="root"))
+    extract_subtree(
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
+    )
 
     remaining = {
         (r.from_member_id, r.to_member_id) for r in relations_of(db, tree)
     }
-    assert remaining == {("aunt", "uncle")}
+    assert remaining == {("outsider", "other_stayer")}
 
 
 def test_move_diseases_follow_their_member(db):
@@ -171,7 +216,8 @@ def test_move_diseases_follow_their_member(db):
     db.commit()
 
     new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="root")
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
 
     assert db.get(MemberDisease, "d-moved").tree_id == new_tree.id
@@ -203,11 +249,12 @@ def test_move_wholly_linked_content_moves_mixed_content_stays(db):
               created_at=now, updated_at=now)
     )
     db.add(StoryMemberLink(story_id="st-mixed", member_id="c1"))
-    db.add(StoryMemberLink(story_id="st-mixed", member_id="aunt"))
+    db.add(StoryMemberLink(story_id="st-mixed", member_id="outsider"))
     db.commit()
 
     new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="root")
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
 
     assert db.get(GalleryImage, "img-moved").tree_id == new_tree.id
@@ -225,7 +272,7 @@ def test_move_wholly_linked_content_moves_mixed_content_stays(db):
 
     assert db.get(Story, "st-mixed").tree_id == tree.id
     story_links = db.query(StoryMemberLink).filter_by(story_id="st-mixed").all()
-    assert [ln.member_id for ln in story_links] == ["aunt"]
+    assert [ln.member_id for ln in story_links] == ["outsider"]
 
 
 def test_move_media_files_relocate_on_disk(db, media_root):
@@ -254,7 +301,8 @@ def test_move_media_files_relocate_on_disk(db, media_root):
     db.commit()
 
     new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="root")
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
 
     # Moved member photo: gone from the source dir, present in the new one.
@@ -280,328 +328,246 @@ def test_move_media_files_relocate_on_disk(db, media_root):
 
 
 # ---------------------------------------------------------------------------
-# Traversal selection (descendants / ancestors) — ported from the retired
-# copy-mode suite; the underlying selection logic (_collect_member_ids) is
-# unchanged by the move rework.
+# Direction: direct_family — the root's family of origin
 # ---------------------------------------------------------------------------
 
-def test_descendants_only(db):
+def test_direct_family_moves_parents_and_their_partners(db):
+    """Rooted at Anna: moves Emil, Marta (parents), Paul (sibling) and Ines
+    (Paul's partner, one-hop pull). Anna stays as bridge; Lena/Max/Tom/Karl/
+    Rosa/Jan stay (unrelated branch)."""
     user = make_user(db, "alice")
-    tree = make_tree(db, user)
-
-    # grandparent -> parent -> child -> grandchild
-    add_member(db, tree, "gp")
-    add_member(db, tree, "p")
-    add_member(db, tree, "c")
-    add_member(db, tree, "gc")
-    add_relation(db, tree, "p", "gp")   # p's parent is gp
-    add_relation(db, tree, "c", "p")    # c's parent is p
-    add_relation(db, tree, "gc", "c")   # gc's parent is c
-
-    new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="p")
-    )
-
-    # p -> c -> gc moved (root p excluded, counterpart replaces it); gp stays.
-    moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"c", "gc"} <= moved_ids
-    assert "gp" not in moved_ids
-    src_ids = {m.id for m in members_of(db, tree)}
-    assert src_ids == {"gp", "p"}
-
-
-def test_ancestors_only(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-
-    add_member(db, tree, "gp")
-    add_member(db, tree, "p")
-    add_member(db, tree, "c")
-    add_member(db, tree, "gc")
-    add_relation(db, tree, "p", "gp")
-    add_relation(db, tree, "c", "p")
-    add_relation(db, tree, "gc", "c")
+    tree = make_canonical_family(db, user)
 
     new_tree = extract_subtree(
         db, user,
-        req(source_tree_id=tree.id, root_member_id="c", direction="ancestors"),
+        req(source_tree_id=tree.id, root_member_id="anna", direction="direct_family"),
     )
 
     moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"p", "gp"} <= moved_ids
-    assert "gc" not in moved_ids
-
-
-def test_depth_one_stops_at_one_generation(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-
-    add_member(db, tree, "p")
-    add_member(db, tree, "c")
-    add_member(db, tree, "gc")
-    add_relation(db, tree, "c", "p")
-    add_relation(db, tree, "gc", "c")
-
-    new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="p", depth=1)
-    )
-
-    # p + c moved; gc is 2 generations away and stays out.
-    moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert "c" in moved_ids
-    assert "gc" not in moved_ids
-
-
-def test_depth_zero_rejected_as_empty_selection(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-
-    add_member(db, tree, "p")
-    add_member(db, tree, "c")
-    add_relation(db, tree, "c", "p")
-
-    # depth=0 selects only the root, which alone can't be moved.
-    with pytest.raises(HTTPException) as exc:
-        extract_subtree(
-            db, user, req(source_tree_id=tree.id, root_member_id="p", depth=0)
-        )
-    assert exc.value.status_code == 400
-
-
-def test_partners_included_when_enabled(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-
-    add_member(db, tree, "root")
-    add_member(db, tree, "child")
-    add_member(db, tree, "spouse")  # partner of root, not a descendant
-    add_relation(db, tree, "child", "root")          # child's parent is root
-    add_relation(db, tree, "root", "spouse", "partner")  # peer relation
-
-    new_tree = extract_subtree(
-        db,
-        user,
-        req(source_tree_id=tree.id, root_member_id="root", include_partners=True),
-    )
-
-    moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"child", "spouse"} <= moved_ids
-
-
-def test_partners_excluded_when_disabled(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-
-    add_member(db, tree, "root")
-    add_member(db, tree, "child")
-    add_member(db, tree, "spouse")
-    add_relation(db, tree, "child", "root")
-    add_relation(db, tree, "root", "spouse", "partner")
-
-    new_tree = extract_subtree(
-        db,
-        user,
-        req(source_tree_id=tree.id, root_member_id="root", include_partners=False),
-    )
-
-    moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert "child" in moved_ids
-    assert "spouse" not in moved_ids
-
-
-def test_relations_to_excluded_members_are_dropped(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-
-    add_member(db, tree, "p")
-    add_member(db, tree, "c1")
-    add_member(db, tree, "c2")
-    add_relation(db, tree, "c1", "p")
-    add_relation(db, tree, "c2", "p")
-
-    # Root c1 + ancestors only => c1 + p; c2 excluded/severed.
-    new_tree = extract_subtree(
-        db,
-        user,
-        req(source_tree_id=tree.id, root_member_id="c1", direction="ancestors"),
-    )
-
-    new_rels = relations_of(db, new_tree)
-    assert len(new_rels) == 1  # only c1->p (bridged), not c2->p
-
-
-# ---------------------------------------------------------------------------
-# Whole-family selection (default direction)
-# ---------------------------------------------------------------------------
-
-def test_whole_family_moves_everyone_not_in_main_family(db):
-    """wife (root) married into the main family: her parents/siblings should
-    all move, while the root's husband and children (the main family) stay."""
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-    add_member(db, tree, "wife")   # root
-    add_member(db, tree, "rh")     # root's husband — main family, stays
-    add_member(db, tree, "rk")     # root+rh's kid — main family, stays
-    add_member(db, tree, "wp1")    # wife's parent — moves
-    add_member(db, tree, "wp2")    # wife's parent — moves
-    add_member(db, tree, "wsis")   # wife's sister — moves
-    add_relation(db, tree, "wife", "rh", "partner")
-    add_relation(db, tree, "rk", "wife", "parent")
-    add_relation(db, tree, "rk", "rh", "parent")
-    add_relation(db, tree, "wife", "wp1", "parent")
-    add_relation(db, tree, "wife", "wp2", "parent")
-    add_relation(db, tree, "wsis", "wp1", "parent")
-    add_relation(db, tree, "wsis", "wp2", "parent")
-
-    new_tree = extract_subtree(
-        db, user,
-        req(source_tree_id=tree.id, root_member_id="wife", direction="whole_family"),
-    )
-
-    moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"wp1", "wp2", "wsis"} <= moved_ids
-    src_ids = {m.id for m in members_of(db, tree)}
-    assert src_ids == {"wife", "rh", "rk"}
-
-
-def test_whole_family_sister_married_into_main_family(db):
-    """The documented edge case: wife's sister also married into the main
-    family. The sister moves (she's still wife's blood relative), her
-    husband stays (he's connected to the main family via his own sibling),
-    and their partner + parent-to-kid relations are severed."""
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-    add_member(db, tree, "wife")       # root
-    add_member(db, tree, "rh")         # root's husband — main family anchor
-    add_member(db, tree, "rh_parent")  # rh's parent — main family
-    add_member(db, tree, "h")          # sister's husband, rh's sibling — main family
-    add_member(db, tree, "k")          # h + sister's kid — main family (via h)
-    add_member(db, tree, "wp1")        # wife's parent — moves
-    add_member(db, tree, "wp2")        # wife's parent — moves
-    add_member(db, tree, "sis")        # wife's sister — moves
-
-    add_relation(db, tree, "wife", "rh", "partner")
-    add_relation(db, tree, "rh", "rh_parent", "parent")
-    add_relation(db, tree, "h", "rh_parent", "parent")  # h and rh are siblings
-    add_relation(db, tree, "k", "h", "parent")
-
-    add_relation(db, tree, "wife", "wp1", "parent")
-    add_relation(db, tree, "wife", "wp2", "parent")
-    add_relation(db, tree, "sis", "wp1", "parent")
-    add_relation(db, tree, "sis", "wp2", "parent")
-    add_relation(db, tree, "sis", "h", "partner")
-    add_relation(db, tree, "k", "sis", "parent")
-
-    new_tree = extract_subtree(
-        db, user,
-        req(source_tree_id=tree.id, root_member_id="wife", direction="whole_family"),
-    )
-
-    moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"wp1", "wp2", "sis"} <= moved_ids
-    assert not {"rh", "rh_parent", "h", "k"} & moved_ids
+    assert {"emil", "marta", "paul", "ines"} <= moved_ids
+    assert len(moved_ids) == 5  # + bridge counterpart
 
     src_ids = {m.id for m in members_of(db, tree)}
-    assert src_ids == {"wife", "rh", "rh_parent", "h", "k"}
+    assert src_ids == {"anna", "lena", "max", "tom", "karl", "rosa", "jan"}
 
-    # Relations entirely among staying members (including root<->rh, since
-    # root itself never moves) are untouched; the sis<->h partner relation
-    # and both parent-to-k relations crossed the cut (sis moved, h/k
-    # stayed) and were severed rather than kept.
-    remaining_rels = {
-        (r.from_member_id, r.to_member_id, r.relation_type)
-        for r in relations_of(db, tree)
-    }
-    assert remaining_rels == {
-        ("wife", "rh", "partner"),
-        ("rh", "rh_parent", "parent"),
-        ("h", "rh_parent", "parent"),
-        ("k", "h", "parent"),
-    }
+    anna = db.get(Member, "anna")
+    counterpart_id = anna.linked_member_id
+
     new_rels = {
         (r.from_member_id, r.to_member_id, r.relation_type)
         for r in relations_of(db, new_tree)
     }
-    assert ("sis", "wp1", "parent") in new_rels
-    assert ("sis", "wp2", "parent") in new_rels
-    assert ("sis", "h", "partner") not in new_rels
-    assert ("k", "sis", "parent") not in new_rels
+    # Anna<->Emil/Marta parent relations become bridge relations.
+    assert (counterpart_id, "emil", "parent") in new_rels
+    assert (counterpart_id, "marta", "parent") in new_rels
+    # Paul<->Emil/Marta and Paul<->Ines kept as-is (both endpoints moved).
+    assert ("paul", "emil", "parent") in new_rels
+    assert ("paul", "marta", "parent") in new_rels
+    assert ("paul", "ines", "partner") in new_rels
+
+    # Anna<->Tom partner and Anna<->Lena/Max parent relations survive in the
+    # SOURCE tree untouched — they're staying<->root, not crossing the cut.
+    src_rels = {
+        (r.from_member_id, r.to_member_id, r.relation_type)
+        for r in relations_of(db, tree)
+    }
+    assert ("tom", "anna", "partner") in src_rels
+    assert ("lena", "anna", "parent") in src_rels
+    assert ("max", "anna", "parent") in src_rels
+    # And Tom's own family of origin (Karl/Rosa/Jan) is entirely untouched.
+    assert ("jan", "karl", "parent") in src_rels
+    assert ("jan", "rosa", "parent") in src_rels
+    assert ("tom", "karl", "parent") in src_rels
+    assert ("tom", "rosa", "parent") in src_rels
+    assert ("lena", "tom", "parent") in src_rels
+    assert ("max", "tom", "parent") in src_rels
 
 
-def test_whole_family_no_anchors_moves_everyone_connected(db):
-    """Root with no partners/children: the staying set is empty, so
-    everything connected to the root moves."""
+def test_direct_family_roots_own_children_never_move(db):
+    """Even in deeper trees, the root's own descendants (children,
+    grandchildren, ...) stay behind — direct_family only goes "up and
+    sideways" from the root."""
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(db, tree, "root")
-    add_member(db, tree, "p1")
-    add_member(db, tree, "p2")
-    add_relation(db, tree, "root", "p1", "parent")
-    add_relation(db, tree, "root", "p2", "parent")
+    add_member(db, tree, "parent")
+    add_member(db, tree, "child")
+    add_member(db, tree, "grandchild")
+    add_relation(db, tree, "root", "parent", "parent")
+    add_relation(db, tree, "child", "root", "parent")
+    add_relation(db, tree, "grandchild", "child", "parent")
 
     new_tree = extract_subtree(
         db, user,
-        req(source_tree_id=tree.id, root_member_id="root", direction="whole_family"),
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
 
     moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"p1", "p2"} <= moved_ids
+    assert "parent" in moved_ids
+    assert "child" not in moved_ids
+    assert "grandchild" not in moved_ids
+
     src_ids = {m.id for m in members_of(db, tree)}
-    assert src_ids == {"root"}
+    assert src_ids == {"root", "child", "grandchild"}
 
 
-def test_whole_family_ignores_depth_and_include_partners(db):
-    """depth/include_partners are irrelevant to whole_family and are ignored
-    rather than restricting the selection."""
+def test_direct_family_no_parents_in_tree_rejected(db):
+    """Siblings are only reachable via parents; a root with no parent rows
+    has nothing to move under direct_family."""
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(db, tree, "root")
-    add_member(db, tree, "p1")
-    add_member(db, tree, "gp1")
-    add_relation(db, tree, "root", "p1", "parent")
-    add_relation(db, tree, "p1", "gp1", "parent")
+    add_member(db, tree, "child")
+    add_relation(db, tree, "child", "root", "parent")
+
+    with pytest.raises(HTTPException) as exc:
+        extract_subtree(
+            db, user,
+            req(source_tree_id=tree.id, root_member_id="root",
+                direction="direct_family"),
+        )
+    assert exc.value.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Direction: partnership — the root's partner(s) and their world
+# ---------------------------------------------------------------------------
+
+def test_partnership_moves_partner_side_and_shared_children(db):
+    """Rooted at Tom: moves Anna, Emil, Marta, Paul, Ines, Lena, Max. Tom
+    stays as bridge; Karl/Rosa/Jan (Tom's own family of origin) stay."""
+    user = make_user(db, "alice")
+    tree = make_canonical_family(db, user)
 
     new_tree = extract_subtree(
         db, user,
-        req(
-            source_tree_id=tree.id,
-            root_member_id="root",
-            direction="whole_family",
-            depth=1,
-            include_partners=False,
-        ),
+        req(source_tree_id=tree.id, root_member_id="tom", direction="partnership"),
     )
 
     moved_ids = {m.id for m in members_of(db, new_tree)}
-    assert {"p1", "gp1"} <= moved_ids
+    assert {"anna", "emil", "marta", "paul", "ines", "lena", "max"} <= moved_ids
+    assert len(moved_ids) == 8  # + bridge counterpart
+
+    src_ids = {m.id for m in members_of(db, tree)}
+    assert src_ids == {"tom", "karl", "rosa", "jan"}
+
+    tom = db.get(Member, "tom")
+    counterpart_id = tom.linked_member_id
+    new_rels = {
+        (r.from_member_id, r.to_member_id, r.relation_type)
+        for r in relations_of(db, new_tree)
+    }
+    # Tom<->Anna and Tom<->Lena/Max become bridge relations.
+    assert (counterpart_id, "anna", "partner") in new_rels
+    assert ("lena", counterpart_id, "parent") in new_rels
+    assert ("max", counterpart_id, "parent") in new_rels
+
+    src_rels = {
+        (r.from_member_id, r.to_member_id, r.relation_type)
+        for r in relations_of(db, tree)
+    }
+    assert ("jan", "karl", "parent") in src_rels
+    assert ("jan", "rosa", "parent") in src_rels
+    assert ("tom", "karl", "parent") in src_rels
+    assert ("tom", "rosa", "parent") in src_rels
+
+
+def test_partnership_multiple_partners_all_sides_move(db):
+    """Root has two partners; both partners' sides move."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(db, tree, "root")
+    add_member(db, tree, "partner1")
+    add_member(db, tree, "p1_parent")
+    add_member(db, tree, "partner2")
+    add_member(db, tree, "p2_parent")
+    add_relation(db, tree, "root", "partner1", "partner")
+    add_relation(db, tree, "root", "partner2", "partner")
+    add_relation(db, tree, "partner1", "p1_parent", "parent")
+    add_relation(db, tree, "partner2", "p2_parent", "parent")
+
+    new_tree = extract_subtree(
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="partnership"),
+    )
+
+    moved_ids = {m.id for m in members_of(db, new_tree)}
+    assert {"partner1", "p1_parent", "partner2", "p2_parent"} <= moved_ids
+
+
+def test_partnership_no_partners_no_children_rejected(db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(db, tree, "root")
+    add_member(db, tree, "parent")
+    add_relation(db, tree, "root", "parent", "parent")
+
+    with pytest.raises(HTTPException) as exc:
+        extract_subtree(
+            db, user,
+            req(source_tree_id=tree.id, root_member_id="root",
+                direction="partnership"),
+        )
+    assert exc.value.status_code == 400
+
+
+def test_partnership_can_reach_back_into_roots_own_family(db):
+    """Deliberately simple selection: two siblings married into the same
+    family means partnership can reach back into the root's own blood
+    family. This is accepted behaviour, not a bug."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(db, tree, "root")       # root
+    add_member(db, tree, "sibling")    # root's sibling
+    add_member(db, tree, "parent1")
+    add_member(db, tree, "parent2")
+    add_member(db, tree, "in_law")     # sibling's partner
+    add_relation(db, tree, "root", "parent1", "parent")
+    add_relation(db, tree, "root", "parent2", "parent")
+    add_relation(db, tree, "sibling", "parent1", "parent")
+    add_relation(db, tree, "sibling", "parent2", "parent")
+    add_relation(db, tree, "root", "in_law", "partner")
+    add_relation(db, tree, "sibling", "in_law", "partner")
+
+    new_tree = extract_subtree(
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="partnership"),
+    )
+
+    moved_ids = {m.id for m in members_of(db, new_tree)}
+    # in_law is a seed (root's partner); from in_law, sibling is reachable
+    # (partner edge), and from sibling, parent1/parent2 are reachable too.
+    assert {"in_law", "sibling", "parent1", "parent2"} <= moved_ids
 
 
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
 
-def test_direction_both_no_longer_a_valid_value(db):
-    """"both" was already rejected server-side pre-#535 rework and is now
-    rejected at the schema level too, since only whole_family/descendants/
-    ancestors remain."""
-    with pytest.raises(ValidationError):
-        req(source_tree_id="t", root_member_id="root", direction="both")
+def test_old_direction_values_rejected_by_schema():
+    for old_direction in ("whole_family", "descendants", "ancestors"):
+        with pytest.raises(ValidationError):
+            req(
+                source_tree_id="t", root_member_id="root",
+                direction=old_direction,
+            )
 
 
-def test_direction_both_rejected_by_the_endpoint(client, db):
+def test_old_direction_values_rejected_by_the_endpoint(client, db):
     user = make_user(db, "alice")
-    tree = make_family(db, user)
-    res = client.post(
-        f"{API}/trees/extract-subtree",
-        headers=auth(user),
-        json={
-            "name": "Moved",
-            "source_tree_id": tree.id,
-            "root_member_id": "root",
-            "direction": "both",
-        },
-    )
-    assert res.status_code == 422
+    tree = make_canonical_family(db, user)
+    for old_direction in ("whole_family", "descendants", "ancestors"):
+        res = client.post(
+            f"{API}/trees/extract-subtree",
+            headers=auth(user),
+            json={
+                "name": "Moved",
+                "source_tree_id": tree.id,
+                "root_member_id": "anna",
+                "direction": old_direction,
+            },
+        )
+        assert res.status_code == 422
 
 
 def test_move_requires_ownership(db):
@@ -610,7 +576,10 @@ def test_move_requires_ownership(db):
     tree = make_family(db, owner)
     share(db, tree, editor, role="editor")
     with pytest.raises(HTTPException) as exc:
-        extract_subtree(db, editor, req(source_tree_id=tree.id, root_member_id="root"))
+        extract_subtree(
+            db, editor,
+            req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
+        )
     assert exc.value.status_code == 403
 
 
@@ -622,7 +591,9 @@ def test_move_requires_tree_links_feature(db):
     try:
         with pytest.raises(HTTPException) as exc:
             extract_subtree(
-                db, user, req(source_tree_id=tree.id, root_member_id="root")
+                db, user,
+                req(source_tree_id=tree.id, root_member_id="root",
+                    direction="direct_family"),
             )
         assert exc.value.status_code == 404
     finally:
@@ -637,7 +608,10 @@ def test_move_rejects_already_linked_root(db):
     db.get(Member, "root").linked_tree_id = other.id
     db.commit()
     with pytest.raises(HTTPException) as exc:
-        extract_subtree(db, user, req(source_tree_id=tree.id, root_member_id="root"))
+        extract_subtree(
+            db, user,
+            req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
+        )
     assert exc.value.status_code == 409
 
 
@@ -665,7 +639,7 @@ def test_move_endpoint_validates_before_creating_a_job(client, db):
             "name": "Moved",
             "source_tree_id": tree.id,
             "root_member_id": "root",
-            "direction": "whole_family",
+            "direction": "direct_family",
         },
     )
     assert res.status_code == 409
@@ -711,18 +685,20 @@ def test_move_preview_counts_and_writes_nothing(db, media_root):
 
     trees_before = db.query(Tree).count()
     preview = compute_subtree_preview(
-        db, user, req(source_tree_id=tree.id, root_member_id="root")
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
 
-    assert preview.member_count == 3  # c1, c2, gc1 — root excluded
-    assert preview.relation_count == 3  # gc1->c1 kept + two bridged to root
-    assert preview.severed_relation_count == 1  # c1<->aunt
+    assert preview.member_count == 5  # p1, c1, c2, gc1, aunt — root excluded
+    assert preview.relation_count == 5  # c1->p1, c2->p1, gc1->c1, c1<->aunt kept
+    # + one bridged (p1<->root's counterpart)
+    assert preview.severed_relation_count == 1  # aunt<->outsider
     assert preview.media_bytes == 5
 
     # Nothing written: no new tree, members and relations untouched, file kept.
     assert db.query(Tree).count() == trees_before
-    assert len(members_of(db, tree)) == 5
-    assert len(relations_of(db, tree)) == 4
+    assert len(members_of(db, tree)) == 7
+    assert len(relations_of(db, tree)) == 6
     assert (src_dir / "c1.webp").exists()
     assert db.get(Member, "root").linked_tree_id is None
 
@@ -734,27 +710,50 @@ def test_move_preview_enforces_ownership(db):
     share(db, tree, editor, role="editor")
     with pytest.raises(HTTPException) as exc:
         compute_subtree_preview(
-            db, editor, req(source_tree_id=tree.id, root_member_id="root")
+            db, editor,
+            req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
         )
     assert exc.value.status_code == 403
 
 
-def test_whole_family_preview_matches_extraction(db):
+def test_direct_family_preview_matches_extraction(db):
     user = make_user(db, "alice")
-    tree = make_tree(db, user)
-    add_member(db, tree, "wife")
-    add_member(db, tree, "rh")
-    add_member(db, tree, "wp1")
-    add_relation(db, tree, "wife", "rh", "partner")
-    add_relation(db, tree, "wife", "wp1", "parent")
+    tree = make_canonical_family(db, user)
 
     preview = compute_subtree_preview(
         db, user,
-        req(source_tree_id=tree.id, root_member_id="wife", direction="whole_family"),
+        req(source_tree_id=tree.id, root_member_id="anna", direction="direct_family"),
     )
-    assert preview.member_count == 1  # wp1
-    assert preview.relation_count == 1  # wife<->wp1 bridged
-    assert preview.severed_relation_count == 0
+    new_tree = extract_subtree(
+        db, user,
+        req(name="Moved 2", source_tree_id=tree.id, root_member_id="anna",
+            direction="direct_family"),
+    )
+
+    moved_member_count = len(members_of(db, new_tree)) - 1  # exclude bridge counterpart
+    assert preview.member_count == moved_member_count
+    kept_and_bridged = len(relations_of(db, new_tree))
+    assert preview.relation_count == kept_and_bridged
+
+
+def test_partnership_preview_matches_extraction(db):
+    user = make_user(db, "alice")
+    tree = make_canonical_family(db, user)
+
+    preview = compute_subtree_preview(
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="tom", direction="partnership"),
+    )
+    new_tree = extract_subtree(
+        db, user,
+        req(name="Moved 2", source_tree_id=tree.id, root_member_id="tom",
+            direction="partnership"),
+    )
+
+    moved_member_count = len(members_of(db, new_tree)) - 1  # exclude bridge counterpart
+    assert preview.member_count == moved_member_count
+    kept_and_bridged = len(relations_of(db, new_tree))
+    assert preview.relation_count == kept_and_bridged
 
 
 # ---------------------------------------------------------------------------
@@ -772,7 +771,8 @@ def test_subtree_survives_deletion_of_bridge_member(db):
     tree = make_family(db, user)
 
     new_tree = extract_subtree(
-        db, user, req(source_tree_id=tree.id, root_member_id="root")
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
     )
     root = db.get(Member, "root")
     counterpart_id = root.linked_member_id
