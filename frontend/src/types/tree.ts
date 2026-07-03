@@ -30,6 +30,29 @@ export interface Tree {
   sources?: VirtualViewSource[];
 }
 
+/** Sub-tree extraction always relocates the branch into a new tree, linked
+ * through the root member (the bridge person), which stays behind in the
+ * source tree. "direct_family" (default) moves the root's family of
+ * origin (parents, siblings and their branches, with married-in spouses);
+ * the root's own children stay. "partnership" moves the root's partner(s),
+ * the partner's family, and the children shared with them. */
+export type SubtreeExtractDirection = "direct_family" | "partnership";
+
+export interface SubtreeExtractPayload {
+  name: string;
+  source_tree_id: string;
+  root_member_id: string;
+  direction: SubtreeExtractDirection;
+}
+
+/** Mirrors the backend `SubtreePreview` schema. */
+export interface SubtreeExtractPreview {
+  member_count: number;
+  relation_count: number;
+  severed_relation_count: number;
+  media_bytes: number;
+}
+
 export interface TreeInvitation {
   id: string;
   tree_id: string;

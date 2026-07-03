@@ -6,7 +6,11 @@
  */
 
 import { api } from "@/services/api";
-import { Tree } from "@/types/tree";
+import {
+  SubtreeExtractPayload,
+  SubtreeExtractPreview,
+  Tree,
+} from "@/types/tree";
 import {
   Member,
   MemberDB,
@@ -585,28 +589,15 @@ export class TreeService {
   }
 
   // --- Sub-tree extraction -------------------------------------------------
-  static previewSubtree(payload: {
-    source_tree_id: string;
-    root_member_id: string;
-    direction: "descendants" | "ancestors" | "both";
-    depth: number | null;
-    include_partners: boolean;
-  }) {
-    return api.post<{ member_count: number; relation_count: number }>(
-      "/trees/extract-subtree/preview",
-      { ...payload, name: "" },
-    );
+  static previewSubtree(payload: Omit<SubtreeExtractPayload, "name">) {
+    return api.post<SubtreeExtractPreview>("/trees/extract-subtree/preview", {
+      ...payload,
+      name: "",
+    });
   }
 
-  static extractSubtree(payload: {
-    name: string;
-    source_tree_id: string;
-    root_member_id: string;
-    direction: "descendants" | "ancestors" | "both";
-    depth: number | null;
-    include_partners: boolean;
-  }) {
-    return api.post<Tree>("/trees/extract-subtree", payload);
+  static extractSubtree(payload: SubtreeExtractPayload) {
+    return api.post<{ job_id: string }>("/trees/extract-subtree", payload);
   }
 
   // --- Merge preview -------------------------------------------------------
