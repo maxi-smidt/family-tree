@@ -161,6 +161,17 @@
         "diseases": "Diseases",
         "biography": "Biography"
       },
+      "linked": {
+        "share-toggle_one": "Also share {{count}} linked tree",
+        "share-toggle_other": "Also share {{count}} linked trees",
+        "member-count_one": "{{count}} person",
+        "member-count_other": "{{count}} people",
+        "not-yours": "not owned by you",
+        "revoke-confirm-title": "Remove linked tree access too?",
+        "revoke-confirm-description": "\"{{username}}\" also has access to trees linked to this one. Choose which to remove it from.",
+        "revoke-this-tree-only": "Only this tree",
+        "revoke-confirm-action": "Remove access"
+      },
       "transfer-title": "Transfer ownership",
       "transfer-hint": "The new owner gets full control. You will lose owner rights and your access to this tree.",
       "transfer-select": "Select a new owner…",

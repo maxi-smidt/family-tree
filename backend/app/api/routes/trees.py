@@ -21,6 +21,7 @@ from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.job import JobStarted
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import (
+    LinkedShareTreeOut,
     LinkGraphBridgeMember,
     LinkGraphEdge,
     LinkGraphNode,
@@ -28,11 +29,13 @@ from app.schemas.tree import (
     MemberRestrictionsUpdate,
     PublicAccessUpdate,
     ShareCandidate,
+    TreeAccessBatchRevoke,
     TreeCreate,
     TreeMemberOut,
     TreeMerge,
     TreeOut,
     TreeShare,
+    TreeShareBatch,
     TreeStorageUsageOut,
     TreeTransfer,
     TreeTransferResult,
@@ -384,6 +387,53 @@ def get_link_graph(
     )
 
 
+def _reachable_linked_trees(db: Session, tree: Tree, user: User) -> list[Tree]:
+    """Trees reachable from ``tree`` via member links, readable by ``user``.
+
+    Same BFS/traversal rules as ``get_link_graph`` (depth/node caps, only
+    traversing through trees the user can read), but returns just the list of
+    accessible target ``Tree`` rows (excluding the anchor tree itself) since
+    the batch-sharing endpoints don't need the edge/placeholder detail.
+    """
+
+    def is_accessible(t: Tree) -> bool:
+        return (
+            user.is_admin
+            or role_for(db, t, user) is not None
+            or t.public_role == "viewer"
+        )
+
+    found: list[Tree] = []
+    frontier: list[tuple[Tree, int]] = [(tree, 0)]
+    visited: set[str] = {tree.id}
+
+    while frontier:
+        current, depth = frontier.pop(0)
+        if depth >= _LINK_GRAPH_MAX_DEPTH:
+            continue
+        if len(visited) >= _LINK_GRAPH_MAX_NODES:
+            continue
+
+        target_ids = db.scalars(
+            select(Member.linked_tree_id)
+            .where(Member.tree_id == current.id, Member.linked_tree_id.isnot(None))
+            .distinct()
+        ).all()
+        for target_id in target_ids:
+            if target_id in visited:
+                continue
+            visited.add(target_id)
+            if len(visited) > _LINK_GRAPH_MAX_NODES:
+                continue
+            target = db.get(Tree, target_id)
+            if target is None or not is_accessible(target):
+                continue
+            found.append(target)
+            frontier.append((target, depth + 1))
+
+    return found
+
+
 @router.patch("/{tree_id}", response_model=TreeOut)
 def update_tree(
     payload: TreeUpdate,
@@ -561,6 +611,172 @@ def revoke_access(
             "tree.access_changed",
             {"tree_id": tree.id},
             extra_user_ids=[user_id],
+        )
+
+
+_BATCH_TREE_IDS_MAX = 100
+
+
+@router.get(
+    "/{tree_id}/access/linked-trees", response_model=list[LinkedShareTreeOut]
+)
+def list_linked_share_trees(
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    username: str | None = None,
+):
+    """Trees reachable from this one via member links, for the batch-share UI.
+
+    Convenience listing only: it never grants anything by itself. Excludes the
+    anchor tree. Readable-but-not-owned linked trees are still included (with
+    ``manageable=False``) so the UI can show them as "can't be offered" rather
+    than silently omitting them; trees the actor cannot read at all are
+    skipped so their existence isn't leaked.
+    """
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the owner can share a tree")
+
+    target_user: User | None = None
+    if username is not None:
+        target_user = db.scalar(select(User).where(User.username == username))
+        if target_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+
+    linked = _reachable_linked_trees(db, tree, user)
+    result: list[LinkedShareTreeOut] = []
+    for t in linked:
+        member_count = (
+            db.scalar(
+                select(func.count()).select_from(Member).where(Member.tree_id == t.id)
+            )
+            or 0
+        )
+        manageable = t.owner_id == user.id or user.is_admin
+        target_role: str | None = None
+        if target_user is not None:
+            if t.owner_id == target_user.id:
+                target_role = "owner"
+            else:
+                membership = db.get(TreeMembership, (t.id, target_user.id))
+                target_role = membership.role if membership else None
+        result.append(
+            LinkedShareTreeOut(
+                tree_id=t.id,
+                name=t.name,
+                member_count=member_count,
+                manageable=manageable,
+                target_role=target_role,
+            )
+        )
+    return result
+
+
+@router.post("/{tree_id}/access/batch", response_model=list[TreeMemberOut])
+def share_trees_batch(
+    payload: TreeShareBatch,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Grant one user the same role across the anchor tree and a batch of
+    (typically linked) trees in a single call. All-or-nothing: every tree_id
+    is validated before any grant is applied."""
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the owner can share a tree")
+    if payload.role not in ("viewer", "editor"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    if len(payload.tree_ids) > _BATCH_TREE_IDS_MAX:
+        raise HTTPException(status_code=400, detail="Too many trees")
+
+    target = db.scalar(select(User).where(User.username == payload.username))
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    trees: list[Tree] = []
+    for tree_id in payload.tree_ids:
+        t = db.get(Tree, tree_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="Tree not found")
+        if t.owner_id != user.id and not user.is_admin:
+            raise HTTPException(
+                status_code=403, detail="Only the owner can share a tree"
+            )
+        if target.id == t.owner_id:
+            raise HTTPException(status_code=400, detail="User already owns this tree")
+        if not user.is_admin and not friendships.are_friends(db, t.owner_id, target.id):
+            raise HTTPException(status_code=403, detail="You can only share with friends")
+        trees.append(t)
+
+    for t in trees:
+        membership = db.get(TreeMembership, (t.id, target.id))
+        if membership is None:
+            db.add(
+                TreeMembership(
+                    tree_id=t.id,
+                    user_id=target.id,
+                    role=payload.role,
+                    restrictions=DEFAULT_RESTRICTIONS,
+                )
+            )
+        else:
+            membership.role = payload.role
+    db.commit()
+
+    for t in trees:
+        publish_tree_event(
+            db, t, "tree.access_changed", {"tree_id": t.id}, extra_user_ids=[target.id]
+        )
+    return list_access(tree=tree, db=db)
+
+
+@router.post("/{tree_id}/access/batch-revoke", status_code=204)
+def revoke_access_batch(
+    payload: TreeAccessBatchRevoke,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Revoke one user's access across a batch of (typically linked) trees in
+    a single call. Trees without an existing membership for the user are
+    silently skipped."""
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only the owner can manage sharing")
+    if len(payload.tree_ids) > _BATCH_TREE_IDS_MAX:
+        raise HTTPException(status_code=400, detail="Too many trees")
+
+    trees: list[Tree] = []
+    for tree_id in payload.tree_ids:
+        t = db.get(Tree, tree_id)
+        if t is None:
+            raise HTTPException(status_code=404, detail="Tree not found")
+        if t.owner_id != user.id and not user.is_admin:
+            raise HTTPException(
+                status_code=403, detail="Only the owner can manage sharing"
+            )
+        trees.append(t)
+
+    affected: list[Tree] = []
+    for t in trees:
+        membership = db.get(TreeMembership, (t.id, payload.user_id))
+        if membership is not None:
+            db.delete(membership)
+            affected.append(t)
+    db.commit()
+
+    for t in affected:
+        publish_tree_event(
+            db,
+            t,
+            "tree.access_changed",
+            {"tree_id": t.id},
+            extra_user_ids=[payload.user_id],
         )
 
 
