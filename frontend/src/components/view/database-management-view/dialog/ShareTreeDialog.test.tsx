@@ -6,6 +6,16 @@ import { type Tree } from "@/types/tree";
 import { ShareTreeDialog } from "./ShareTreeDialog";
 import { TreeSharingService } from "@/services/TreeSharingService";
 
+// The command palette used by the user picker (cmdk) relies on
+// ResizeObserver, which jsdom doesn't implement.
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+// @ts-expect-error -- test-only polyfill
+global.ResizeObserver = MockResizeObserver;
+
 vi.mock("@/services/TreeSharingService", () => ({
   TreeSharingService: {
     getSharingData: vi.fn(),
@@ -18,6 +28,9 @@ vi.mock("@/services/TreeSharingService", () => ({
     createInvitation: vi.fn(),
     revokeInvitation: vi.fn(),
     revertTransfer: vi.fn(),
+    getLinkedShareTrees: vi.fn(),
+    grantAccessBatch: vi.fn(),
+    revokeAccessBatch: vi.fn(),
   },
 }));
 
@@ -54,7 +67,7 @@ describe("ShareTreeDialog", () => {
     vi.clearAllMocks();
     Element.prototype.scrollIntoView = vi.fn();
     await i18n.changeLanguage("en");
-    useAuthStore.setState({ features: ["sharing_invites"] });
+    useAuthStore.setState({ features: ["sharing_invites", "tree_links"] });
     vi.mocked(TreeSharingService.getSharingData).mockResolvedValue({
       access: [
         {
@@ -73,6 +86,7 @@ describe("ShareTreeDialog", () => {
       candidates: [],
     });
     vi.mocked(TreeSharingService.listInvitations).mockResolvedValue([]);
+    vi.mocked(TreeSharingService.getLinkedShareTrees).mockResolvedValue([]);
   });
 
   it("keeps the share dialog open and shows the link after enabling public access", async () => {
@@ -224,6 +238,145 @@ describe("ShareTreeDialog", () => {
 
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("linked trees", () => {
+    const LINKED_MANAGEABLE = {
+      tree_id: "linked-1",
+      name: "Linked Tree",
+      member_count: 3,
+      manageable: true,
+      target_role: null,
+    };
+
+    const CANDIDATE = { user_id: "user-3", username: "carol" };
+
+    beforeEach(() => {
+      vi.mocked(TreeSharingService.getSharingData).mockResolvedValue({
+        access: [
+          {
+            user_id: "owner-1",
+            username: "owner",
+            role: "owner",
+            restrictions: [],
+          },
+          {
+            user_id: OTHER_USER.user_id,
+            username: OTHER_USER.username,
+            role: "editor",
+            restrictions: [],
+          },
+        ],
+        candidates: [CANDIDATE],
+      });
+    });
+
+    it("renders the linked-trees section when a manageable linked tree exists", async () => {
+      vi.mocked(TreeSharingService.getLinkedShareTrees).mockResolvedValue([
+        LINKED_MANAGEABLE,
+      ]);
+
+      render(
+        <ShareTreeDialog
+          tree={TREE}
+          isOpen
+          onClose={vi.fn()}
+          onTreeUpdated={vi.fn()}
+        />,
+      );
+      await screen.findByRole("dialog");
+
+      // Stage a candidate so the linked-trees toggle becomes visible.
+      fireEvent.click(screen.getByText("Select users…"));
+      fireEvent.click(await screen.findByText("carol"));
+
+      expect(
+        await screen.findByText("Also share 1 linked tree"),
+      ).toBeInTheDocument();
+    });
+
+    it("calls grantAccessBatch with the selected linked tree ids", async () => {
+      vi.mocked(TreeSharingService.getLinkedShareTrees).mockResolvedValue([
+        LINKED_MANAGEABLE,
+      ]);
+      vi.mocked(TreeSharingService.grantAccessBatch).mockResolvedValue([]);
+
+      render(
+        <ShareTreeDialog
+          tree={TREE}
+          isOpen
+          onClose={vi.fn()}
+          onTreeUpdated={vi.fn()}
+        />,
+      );
+      await screen.findByRole("dialog");
+
+      fireEvent.click(screen.getByText("Select users…"));
+      fireEvent.click(await screen.findByText("carol"));
+
+      const linkedToggle = (
+        await screen.findByText("Also share 1 linked tree")
+      ).closest("div")!;
+      const toggleSwitch = linkedToggle.querySelector('[role="switch"]')!;
+      fireEvent.click(toggleSwitch);
+
+      await screen.findByText("Linked Tree");
+
+      fireEvent.click(screen.getByRole("button", { name: /Share with/ }));
+
+      await waitFor(() => {
+        expect(TreeSharingService.grantAccessBatch).toHaveBeenCalledWith(
+          TREE.id,
+          "carol",
+          "editor",
+          [TREE.id, "linked-1"],
+        );
+      });
+    });
+
+    it("offers linked tree removal when revoking access to a user with linked access", async () => {
+      vi.mocked(TreeSharingService.getLinkedShareTrees).mockImplementation(
+        (_treeId, username) => {
+          if (username) {
+            return Promise.resolve([
+              { ...LINKED_MANAGEABLE, target_role: "editor" },
+            ]);
+          }
+          return Promise.resolve([LINKED_MANAGEABLE]);
+        },
+      );
+
+      render(
+        <ShareTreeDialog
+          tree={TREE}
+          isOpen
+          onClose={vi.fn()}
+          onTreeUpdated={vi.fn()}
+        />,
+      );
+      await screen.findByRole("dialog");
+
+      const row = (await screen.findByText(OTHER_USER.username)).closest(
+        "div",
+      )!;
+      const removeButton = row.querySelector('button[title="Remove access"]')!;
+      fireEvent.click(removeButton);
+
+      expect(
+        await screen.findByText("Remove linked tree access too?"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Linked Tree")).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Remove access" }));
+
+      await waitFor(() => {
+        expect(TreeSharingService.revokeAccessBatch).toHaveBeenCalledWith(
+          TREE.id,
+          OTHER_USER.user_id,
+          [TREE.id, "linked-1"],
+        );
+      });
     });
   });
 });

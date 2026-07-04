@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useJobStore } from "@/hooks/useJobStore";
 import {
   Dialog,
@@ -19,14 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { Member } from "@/types/member";
-import { Tree } from "@/types/tree";
+import { SubtreeExtractDirection, SubtreeExtractPreview, Tree } from "@/types/tree";
+import { formatFileSize } from "@/utils/attachmentUtils";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-
-type Direction = "descendants" | "ancestors" | "both";
 
 type Props = {
   tree: Tree | null;
@@ -38,28 +39,68 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
     keyPrefix: "dialog.extract-subtree",
   });
   const extractSubtree = useTreeStore((s) => s.extractSubtree);
+  const extractSubtreePreview = useTreeStore((s) => s.extractSubtreePreview);
   const fetchTreeMembers = useTreeStore((s) => s.fetchTreeMembers);
   const extractPct = useJobStore((s) => s.activeJobPct);
 
   const [name, setName] = useState("");
   const [rootMemberId, setRootMemberId] = useState<string | null>(null);
-  const [direction, setDirection] = useState<Direction>("descendants");
-  const [depthInput, setDepthInput] = useState("");
+  const [direction, setDirection] = useState<SubtreeExtractDirection>(
+    "direct_family",
+  );
   const [members, setMembers] = useState<Member[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [preview, setPreview] = useState<SubtreeExtractPreview | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!tree) return;
     setName(`${tree.name} ${t("name-suffix")}`);
     setRootMemberId(null);
-    setDirection("descendants");
-    setDepthInput("");
+    setDirection("direct_family");
+    setPreview(null);
 
     // Load members for the picker via store action (never call TreeService directly).
     fetchTreeMembers(tree.id)
       .then(setMembers)
       .catch(() => setMembers([]));
   }, [tree, t, fetchTreeMembers]);
+
+  // Fetch a preview whenever the selection is complete enough to evaluate.
+  useEffect(() => {
+    if (!tree || !rootMemberId) {
+      setPreview(null);
+      return;
+    }
+
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    setIsLoadingPreview(true);
+    void (async () => {
+      try {
+        const result = await extractSubtreePreview({
+          source_tree_id: tree.id,
+          root_member_id: rootMemberId,
+          direction,
+        });
+        if (ac.signal.aborted) return;
+        setPreview(result);
+      } catch (e) {
+        if (ac.signal.aborted) return;
+        console.error("Extract sub-tree preview failed", e);
+        setPreview(null);
+      } finally {
+        if (!ac.signal.aborted) setIsLoadingPreview(false);
+      }
+    })();
+
+    return () => ac.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, rootMemberId, direction]);
 
   const handleClose = () => {
     if (isExtracting) return;
@@ -77,8 +118,6 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
       return;
     }
 
-    const depth = depthInput.trim() !== "" ? parseInt(depthInput, 10) : null;
-
     setIsExtracting(true);
     try {
       await extractSubtree({
@@ -86,8 +125,6 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
         source_tree_id: tree.id,
         root_member_id: rootMemberId,
         direction,
-        depth,
-        include_partners: true,
       });
       toast.success(t("toast-success"));
       onClose();
@@ -132,6 +169,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
               onChange={setRootMemberId}
               placeholder={t("root-placeholder")}
               noResultsText={t("root-no-results")}
+              size="default"
             />
           </div>
 
@@ -139,36 +177,63 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
             <FieldLabel>{t("direction-label")}</FieldLabel>
             <Select
               value={direction}
-              onValueChange={(v) => setDirection(v as Direction)}
+              onValueChange={(v) => setDirection(v as SubtreeExtractDirection)}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="descendants">
-                  {t("direction-descendants")}
+                <SelectItem value="direct_family">
+                  {t("direction-direct-family")}
                 </SelectItem>
-                <SelectItem value="ancestors">
-                  {t("direction-ancestors")}
+                <SelectItem value="partnership">
+                  {t("direction-partnership")}
                 </SelectItem>
-                <SelectItem value="both">{t("direction-both")}</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              {direction === "direct_family"
+                ? t("direction-direct-family-hint")
+                : t("direction-partnership-hint")}
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <FieldLabel htmlFor="extract-subtree-depth">
-              {t("depth-label")}
-            </FieldLabel>
-            <Input
-              id="extract-subtree-depth"
-              type="number"
-              min={0}
-              value={depthInput}
-              onChange={(e) => setDepthInput(e.target.value)}
-              placeholder={t("depth-hint")}
-            />
-          </div>
+          {isLoadingPreview && (
+            <p className="text-sm text-muted-foreground">
+              {t("loading-preview")}
+            </p>
+          )}
+
+          {preview && !isLoadingPreview && (
+            <div className="rounded-md border p-3 space-y-2 text-sm">
+              <div className="text-muted-foreground">
+                {t("preview-members-move", { count: preview.member_count })}
+              </div>
+              <div className="text-muted-foreground">
+                {t("preview-relations-kept", {
+                  count: preview.relation_count,
+                })}
+              </div>
+              <div className="text-muted-foreground">
+                {t("preview-media-bytes", {
+                  size: formatFileSize(preview.media_bytes),
+                })}
+              </div>
+              {preview.severed_relation_count > 0 && (
+                <Alert className="bg-transparent border-none p-0">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-sm mb-1">
+                    {t("preview-severed-title")}
+                  </AlertTitle>
+                  <AlertDescription className="text-xs">
+                    {t("preview-severed-description", {
+                      count: preview.severed_relation_count,
+                    })}
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
         </div>
         {isExtracting && (
           <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -194,7 +259,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
             onClick={handleExtract}
             disabled={isExtracting || !name.trim() || !rootMemberId}
           >
-            {isExtracting ? t("extracting") : t("extract")}
+            {isExtracting ? t("moving") : t("move")}
           </Button>
         </DialogFooter>
       </DialogContent>

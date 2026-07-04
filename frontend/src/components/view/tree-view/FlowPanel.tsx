@@ -117,10 +117,26 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // windowed mode the counterpart may lie outside the current neighborhood —
   // re-focus the window on it once and locate after the reload.
   const attemptedLinkedFocusRef = useRef<string | null>(null);
+  const consumedLocateRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!pendingLocateMemberId) return;
+    if (!pendingLocateMemberId) {
+      consumedLocateRef.current = null;
+      return;
+    }
     const target = members.find((m) => m.id === pendingLocateMemberId);
     if (target) {
+      // Wait until the canvas is fully up before consuming the request: on a
+      // fresh mount (e.g. arriving from the map view) rfInstance is null,
+      // the nodes land a couple of commits later, and React Flow applies its
+      // initial viewport only once it is measured — centering before that
+      // gets silently overridden. viewportInitialized flips after that
+      // initial viewport is in; the `nodes` dep re-runs this until then.
+      if (!rfInstance?.viewportInitialized || !rfInstance.getNode(target.id))
+        return;
+      // Commits queued behind the mount burst still carry the pre-consumption
+      // store snapshot — don't re-center for each of them.
+      if (consumedLocateRef.current === pendingLocateMemberId) return;
+      consumedLocateRef.current = pendingLocateMemberId;
       attemptedLinkedFocusRef.current = null;
       setPendingLocateMemberId(null);
       locator.locateMember(target);
@@ -143,6 +159,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setFocusRoot,
     setPendingLocateMemberId,
     locator,
+    rfInstance,
+    nodes,
   ]);
 
   const connection = useConnectionMode(members, () => setSelectedNodes([]));

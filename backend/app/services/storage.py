@@ -375,6 +375,56 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
+def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
+    """Move a stored media file into another tree's directory (subtree move).
+
+    Mirrors ``copy_media_to_tree`` but relocates the file (and any
+    ``originals/`` sibling written by ``store_data_url`` in ``"both"`` mode)
+    instead of copying it. Returns the new media URL, the input unchanged when
+    it isn't one of our media URLs, or ``None`` if the source file is missing.
+    """
+    if not value or not value.startswith(MEDIA_URL_PREFIX):
+        return value
+    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
+    src = settings.media_root / rel
+    if not src.is_file():
+        return None
+    ext = src.suffix.lstrip(".") or "bin"
+    new_stem = uuid4().hex
+    filename = f"{new_stem}.{ext}"
+    dest_dir = _tree_media_dir(new_tree_id)
+    shutil.move(src, dest_dir / filename)
+    # Move the original stored in the originals/ subdir by "both" mode.
+    src_originals = src.parent / "originals"
+    if src_originals.is_dir():
+        for orig_src in src_originals.glob(f"{src.stem}.*"):
+            orig_ext = orig_src.suffix.lstrip(".") or "bin"
+            dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
+            shutil.move(orig_src, dest)
+    return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
+
+
+def media_disk_usage(value: str | None) -> int:
+    """Total on-disk bytes backing a media URL, including any ``originals/``
+    siblings. Returns 0 for non-media URLs and missing files (never raises).
+    """
+    if not value or not value.startswith(MEDIA_URL_PREFIX):
+        return 0
+    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
+    path = settings.media_root / rel
+    total = 0
+    try:
+        if path.is_file():
+            total += path.stat().st_size
+        originals_dir = path.parent / "originals"
+        if originals_dir.is_dir():
+            for orig in originals_dir.glob(f"{path.stem}.*"):
+                total += orig.stat().st_size
+    except OSError:
+        pass
+    return total
+
+
 def process_gallery_image_field(
     tree_id: str,
     value: str | None,
