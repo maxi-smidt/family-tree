@@ -1736,6 +1736,7 @@
       "date-from": "From",
       "date-to": "To",
       "no-mappable-events": "No mappable events found",
+      "resolving-locations": "Resolving locations…",
       "add-location-hint": "Add a location to an event to see it on the map",
       "unlocatable-count": "{{count}} event(s) have locations that could not be resolved on the map",
       "filter-location-types": "Location types",

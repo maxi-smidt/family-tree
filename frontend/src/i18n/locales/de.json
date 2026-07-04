@@ -1736,6 +1736,7 @@
       "date-from": "Von",
       "date-to": "Bis",
       "no-mappable-events": "Keine darstellbaren Ereignisse gefunden",
+      "resolving-locations": "Orte werden aufgelöst…",
       "add-location-hint": "Füge einem Ereignis einen Ort hinzu, um es auf der Karte zu sehen",
       "unlocatable-count": "{{count}} Ereignis(se) haben Orte, die auf der Karte nicht aufgelöst werden konnten",
       "filter-location-types": "Ortstypen",

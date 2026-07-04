@@ -57,8 +57,8 @@ router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
 # Columns selected for the lightweight "surface" projection (everything in
 # MemberSurfaceOut). Shared by the member list, search and neighborhood
-# endpoints so the three stay in lockstep. The heavier detail fields
-# (additional_data, places_lived) stay deferred to the per-member fetch.
+# endpoints so the three stay in lockstep. The heavier detail field
+# (additional_data) stays deferred to the per-member fetch.
 _MEMBER_SURFACE_COLUMNS = (
     Member.id,
     Member.gender,
@@ -77,6 +77,7 @@ _MEMBER_SURFACE_COLUMNS = (
     Member.birthplace,
     Member.hometown,
     Member.cemetery,
+    Member.places_lived,
     Member.is_collapsed,
     Member.position_x,
     Member.position_y,

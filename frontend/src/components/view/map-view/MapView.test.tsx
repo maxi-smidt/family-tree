@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
@@ -90,9 +90,10 @@ describe("MapView location type filters", () => {
   beforeEach(async () => {
     await i18n.changeLanguage("en");
     useMemberStore.setState({ members: [member] });
-    useEventStore.setState({ events: [event] });
+    useEventStore.setState({ events: [event], initialized: true });
     useGeocodeStore.setState({
       coords,
+      pendingCount: 0,
       resolveLocations: vi.fn(async () => undefined),
     });
   });
@@ -133,5 +134,67 @@ describe("MapView location type filters", () => {
     expect(
       screen.getByText("Enable a location type above to show its markers"),
     ).toBeInTheDocument();
+  });
+
+  it("renders places-lived markers from store members", () => {
+    render(<MapView />);
+
+    for (const name of ["Event", "Birthplace", "Hometown", "Cemetery"]) {
+      fireEvent.click(screen.getByRole("button", { name }));
+    }
+
+    // Only the Berlin places-lived marker remains
+    const markers = screen.getAllByTestId("map-marker");
+    expect(markers).toHaveLength(1);
+    expect(within(markers[0]).getByText("Place lived")).toBeInTheDocument();
+  });
+});
+
+describe("MapView loading state", () => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+    useMemberStore.setState({ members: [member] });
+    useEventStore.setState({ events: [event], initialized: true });
+  });
+
+  it("shows a loading indicator instead of the empty state while geocoding", () => {
+    useGeocodeStore.setState({
+      coords: new Map(),
+      pendingCount: 1,
+      resolveLocations: vi.fn(async () => undefined),
+    });
+
+    render(<MapView />);
+
+    expect(screen.getByText("Resolving locations…")).toBeInTheDocument();
+    expect(
+      screen.queryByText("No mappable events found"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the empty state once geocoding has settled without results", () => {
+    useGeocodeStore.setState({
+      coords: new Map(),
+      pendingCount: 0,
+      resolveLocations: vi.fn(async () => undefined),
+    });
+
+    render(<MapView />);
+
+    expect(screen.getByText("No mappable events found")).toBeInTheDocument();
+    expect(screen.queryByText("Resolving locations…")).not.toBeInTheDocument();
+  });
+
+  it("keeps the map visible with an inline indicator while more locations resolve", () => {
+    useGeocodeStore.setState({
+      coords,
+      pendingCount: 1,
+      resolveLocations: vi.fn(async () => undefined),
+    });
+
+    render(<MapView />);
+
+    expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
+    expect(screen.getByText("Resolving locations…")).toBeInTheDocument();
   });
 });

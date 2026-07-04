@@ -2,7 +2,7 @@
 
 import logging
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlalchemy.orm import Session
@@ -16,6 +16,13 @@ _NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 _USER_AGENT = "FamilyTree/1.0 (self-hosted genealogy app)"
 _REQUEST_DELAY = 1.1  # Nominatim policy: max 1 req/sec
 _MAX_NEW_LOOKUPS = 50  # cap per batch call to respect usage policy
+# "No results" answers are cached but re-attempted occasionally: OSM data
+# improves and users fix typos in cached-forever strings otherwise stay dead.
+_UNRESOLVED_RETRY = timedelta(days=7)
+
+
+class GeocodeUnavailableError(Exception):
+    """Nominatim could not be queried (timeout, 429, 5xx, malformed reply)."""
 
 
 def _normalize(location: str) -> str:
@@ -33,8 +40,26 @@ def _lookup_cached(db: Session, queries: list[str]) -> dict[str, GeocodeCache]:
     return {row.query: row for row in rows}
 
 
+def _is_retryable(row: GeocodeCache) -> bool:
+    """True for unresolved cache rows old enough to try Nominatim again."""
+    if row.resolved:
+        return False
+    try:
+        updated = datetime.fromisoformat(row.updated_at)
+    except (TypeError, ValueError):
+        return True
+    if updated.tzinfo is None:
+        updated = updated.replace(tzinfo=UTC)
+    return datetime.now(UTC) - updated >= _UNRESOLVED_RETRY
+
+
 def _geocode_one(query: str) -> tuple[float, float, str] | None:
-    """Call Nominatim for a single query. Returns (lat, lon, display_name) or None."""
+    """Call Nominatim for a single query.
+
+    Returns (lat, lon, display_name), or None when Nominatim answered but had
+    no results. Raises GeocodeUnavailableError when the request itself failed,
+    so transient errors are never mistaken for "this place does not exist".
+    """
     try:
         with httpx.Client(timeout=10.0) as client:
             resp = client.get(
@@ -47,16 +72,19 @@ def _geocode_one(query: str) -> tuple[float, float, str] | None:
             if results:
                 r = results[0]
                 return float(r["lat"]), float(r["lon"]), r.get("display_name", "")
-    except Exception:  # noqa: BLE001
-        logger.warning("Geocoding failed for %r", query)
-    return None
+            return None
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Geocoding request failed for %r: %s", query, exc)
+        raise GeocodeUnavailableError(query) from exc
 
 
 def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
     """Return coordinates for a list of location strings, geocoding unknown ones.
 
-    Results are cached in ``geocode_cache`` so subsequent calls for the same
-    location string are instant and never re-hit Nominatim.
+    Results are cached in ``geocode_cache``. Successful lookups never re-hit
+    Nominatim; "no results" answers are cached too but retried after
+    ``_UNRESOLVED_RETRY``; failed requests (timeout, 429, ...) are not cached
+    at all, so the next call retries them immediately.
     """
     # Map each original location to its normalized key
     normalized_map = {loc: _normalize(loc) for loc in locations if loc.strip()}
@@ -64,28 +92,37 @@ def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
     unique_normalized = list(dict.fromkeys(normalized_map.values()))
 
     cached = _lookup_cached(db, unique_normalized)
-    to_geocode = [q for q in unique_normalized if q not in cached][: _MAX_NEW_LOOKUPS]
+    to_geocode = [
+        q for q in unique_normalized if q not in cached or _is_retryable(cached[q])
+    ][:_MAX_NEW_LOOKUPS]
 
+    wrote = False
     for i, query in enumerate(to_geocode):
-        result = _geocode_one(query)
-        now = _now_iso()
-        if result:
-            lat, lon, display_name = result
-            row = GeocodeCache(
-                query=query, lat=lat, lon=lon,
-                display_name=display_name, resolved=True, updated_at=now,
-            )
+        try:
+            result = _geocode_one(query)
+        except GeocodeUnavailableError:
+            # Not cached: the next call retries immediately. A stale unresolved
+            # row (if any) is left untouched and stays retryable.
+            pass
         else:
-            row = GeocodeCache(
-                query=query, lat=None, lon=None,
-                display_name=None, resolved=False, updated_at=now,
-            )
-        db.merge(row)
-        cached[query] = row
+            if result:
+                lat, lon, display_name = result
+                row = GeocodeCache(
+                    query=query, lat=lat, lon=lon,
+                    display_name=display_name, resolved=True, updated_at=_now_iso(),
+                )
+            else:
+                row = GeocodeCache(
+                    query=query, lat=None, lon=None,
+                    display_name=None, resolved=False, updated_at=_now_iso(),
+                )
+            db.merge(row)
+            cached[query] = row
+            wrote = True
         if i < len(to_geocode) - 1:
             time.sleep(_REQUEST_DELAY)
 
-    if to_geocode:
+    if wrote:
         db.commit()
 
     # Build output: one entry per unique original location
