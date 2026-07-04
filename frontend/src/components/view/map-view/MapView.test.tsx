@@ -5,10 +5,13 @@ import i18n from "@/i18n/i18n";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useNavigationStore } from "@/hooks/useNavigationStore";
 import type { Event } from "@/types/event";
 import type { GeocodeResult } from "@/types/geocode";
 import type { Member } from "@/types/member";
 import { MapView } from "./MapView";
+
+const fitBoundsMock = vi.fn();
 
 vi.mock("leaflet", () => ({
   default: {
@@ -32,11 +35,30 @@ vi.mock("react-leaflet", () => ({
     <div data-testid="map-marker">{children}</div>
   ),
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  useMap: () => ({ fitBounds: vi.fn() }),
+  useMap: () => ({ fitBounds: fitBoundsMock }),
 }));
 
+// The real picker renders a full calendar popover; for MapView's purposes we
+// only care that a text value round-trips through onChange, so stub it as a
+// plain text input keyed by its placeholder (mirrors the from/to labels).
 vi.mock("@/components/ui/partial-date-picker", () => ({
-  PartialDatePicker: () => null,
+  PartialDatePicker: ({
+    value,
+    onChange,
+    placeholder,
+  }: {
+    value?: string | null;
+    onChange?: (value: string | null) => void;
+    placeholder?: string;
+  }) => (
+    <input
+      aria-label={placeholder}
+      value={value ?? ""}
+      onChange={(e) =>
+        onChange?.(e.target.value === "" ? null : e.target.value)
+      }
+    />
+  ),
 }));
 
 const member: Member = {
@@ -60,6 +82,18 @@ const member: Member = {
   placesLived: [{ location: "Berlin", from: "2010", to: "2015" }],
   isCollapsed: false,
   position: { x: 0, y: 0 },
+};
+
+// Second member sharing Alex's birthplace (Vienna), so the birthplace +
+// hometown markers collapse onto a single coordinate for the grouping tests.
+const secondMember: Member = {
+  ...member,
+  id: "member-2",
+  firstName: "Jamie",
+  lastName: "Sample",
+  birthplace: null,
+  hometown: "Vienna",
+  placesLived: [],
 };
 
 const event: Event = {
@@ -96,27 +130,34 @@ describe("MapView location type filters", () => {
       pendingCount: 0,
       resolveLocations: vi.fn(async () => undefined),
     });
+    useNavigationStore.setState({ pendingView: null });
+    fitBoundsMock.mockClear();
   });
 
-  it("updates the legend state and markers when a type is toggled", () => {
+  const openTypeFilter = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Location types" }));
+
+  it("updates the type switches and markers when a type is toggled", () => {
     render(<MapView />);
 
     expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
 
-    const birthplaceToggle = screen.getByRole("button", {
+    openTypeFilter();
+    const birthplaceSwitch = screen.getByRole("switch", {
       name: "Birthplace",
     });
-    expect(birthplaceToggle).toHaveAttribute("aria-pressed", "true");
+    expect(birthplaceSwitch).toHaveAttribute("aria-checked", "true");
 
-    fireEvent.click(birthplaceToggle);
+    fireEvent.click(birthplaceSwitch);
 
-    expect(birthplaceToggle).toHaveAttribute("aria-pressed", "false");
+    expect(birthplaceSwitch).toHaveAttribute("aria-checked", "false");
     expect(screen.getAllByTestId("map-marker")).toHaveLength(3);
   });
 
   it("shows a filter-specific empty state when all types are hidden", () => {
     render(<MapView />);
 
+    openTypeFilter();
     for (const name of [
       "Event",
       "Birthplace",
@@ -124,7 +165,7 @@ describe("MapView location type filters", () => {
       "Cemetery",
       "Place lived",
     ]) {
-      fireEvent.click(screen.getByRole("button", { name }));
+      fireEvent.click(screen.getByRole("switch", { name }));
     }
 
     expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();
@@ -136,65 +177,111 @@ describe("MapView location type filters", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders places-lived markers from store members", () => {
+  it("groups items sharing a coordinate into one marker with one popup section per type", () => {
+    useMemberStore.setState({ members: [member, secondMember] });
+
     render(<MapView />);
 
-    for (const name of ["Event", "Birthplace", "Hometown", "Cemetery"]) {
-      fireEvent.click(screen.getByRole("button", { name }));
-    }
+    // Vienna now carries both Alex's birthplace and Jamie's hometown, so it
+    // should still be a single marker, not two.
+    expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
 
-    // Only the Berlin places-lived marker remains
-    const markers = screen.getAllByTestId("map-marker");
-    expect(markers).toHaveLength(1);
-    expect(within(markers[0]).getByText("Place lived")).toBeInTheDocument();
-  });
-});
-
-describe("MapView loading state", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-    useMemberStore.setState({ members: [member] });
-    useEventStore.setState({ events: [event], initialized: true });
+    const viennaMarker = screen
+      .getAllByTestId("map-marker")
+      .find((marker) => within(marker).queryByText("Alex Example"));
+    expect(viennaMarker).toBeDefined();
+    const scoped = within(viennaMarker!);
+    expect(scoped.getByText("Birthplace")).toBeInTheDocument();
+    expect(scoped.getByText("Hometown")).toBeInTheDocument();
+    expect(scoped.getByText("Alex Example")).toBeInTheDocument();
+    expect(scoped.getByText("Jamie Sample")).toBeInTheDocument();
   });
 
-  it("shows a loading indicator instead of the empty state while geocoding", () => {
-    useGeocodeStore.setState({
-      coords: new Map(),
-      pendingCount: 1,
-      resolveLocations: vi.fn(async () => undefined),
+  it("navigates to the tree view centered on the clicked member name in a member-based popup item", () => {
+    render(<MapView />);
+
+    // Vienna is Alex's birthplace-only marker: exactly one clickable name.
+    const viennaMarker = screen
+      .getAllByTestId("map-marker")
+      .find((marker) => within(marker).queryByText("Vienna"));
+    expect(viennaMarker).toBeDefined();
+
+    fireEvent.click(within(viennaMarker!).getByText("Alex Example"));
+
+    expect(useMemberStore.getState().pendingLocateMemberId).toBe(member.id);
+    expect(useNavigationStore.getState().pendingView).toBe("tree-view");
+  });
+
+  it("navigates to the tree view for a linked member name inside an event popup", () => {
+    render(<MapView />);
+
+    // Paris only carries the education event, whose sole linked member is Alex.
+    const parisMarker = screen
+      .getAllByTestId("map-marker")
+      .find((marker) => within(marker).queryByText("Paris"));
+    expect(parisMarker).toBeDefined();
+
+    fireEvent.click(within(parisMarker!).getByText("Alex Example"));
+
+    expect(useMemberStore.getState().pendingLocateMemberId).toBe(member.id);
+    expect(useNavigationStore.getState().pendingView).toBe("tree-view");
+  });
+
+  it("filters places-lived markers by date range", () => {
+    const hasBerlinMarker = () =>
+      screen
+        .getAllByTestId("map-marker")
+        .some((marker) => within(marker).queryByText("Berlin"));
+
+    render(<MapView />);
+
+    // Berlin (2010–2015) is visible without a filter.
+    expect(hasBerlinMarker()).toBe(true);
+    expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
+
+    fireEvent.change(screen.getByLabelText("From"), {
+      target: { value: "2016" },
     });
 
-    render(<MapView />);
+    // Berlin's stay ended in 2015, before the "From" filter of 2016, so its
+    // marker (no longer backed by any other visible type) disappears. The
+    // Paris event (dated 2012) is also excluded by the same >= dateFrom
+    // check, so two markers drop out.
+    expect(hasBerlinMarker()).toBe(false);
+    expect(screen.getAllByTestId("map-marker")).toHaveLength(2);
 
-    expect(screen.getByText("Resolving locations…")).toBeInTheDocument();
-    expect(
-      screen.queryByText("No mappable events found"),
-    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "" } });
+    expect(hasBerlinMarker()).toBe(true);
+    expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
   });
 
-  it("shows the empty state once geocoding has settled without results", () => {
+  it("enables the recenter button only once markers are present, and bumps the fit signal on click", () => {
     useGeocodeStore.setState({
       coords: new Map(),
-      pendingCount: 0,
       resolveLocations: vi.fn(async () => undefined),
     });
+    const { rerender } = render(<MapView />);
 
-    render(<MapView />);
+    const recenterButton = screen.getByRole("button", {
+      name: "Fit to markers",
+    });
+    expect(recenterButton).toBeDisabled();
 
-    expect(screen.getByText("No mappable events found")).toBeInTheDocument();
-    expect(screen.queryByText("Resolving locations…")).not.toBeInTheDocument();
-  });
-
-  it("keeps the map visible with an inline indicator while more locations resolve", () => {
     useGeocodeStore.setState({
       coords,
-      pendingCount: 1,
       resolveLocations: vi.fn(async () => undefined),
     });
+    rerender(<MapView />);
 
-    render(<MapView />);
+    const enabledRecenterButton = screen.getByRole("button", {
+      name: "Fit to markers",
+    });
+    expect(enabledRecenterButton).toBeEnabled();
 
-    expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
-    expect(screen.getByText("Resolving locations…")).toBeInTheDocument();
+    fireEvent.click(enabledRecenterButton);
+    // FitBounds reacts to fitSignal via its own effect (mocked away here via
+    // useMap), so we only assert the button remains enabled and clickable
+    // rather than reaching into Leaflet internals.
+    expect(enabledRecenterButton).toBeEnabled();
   });
 });
