@@ -33,6 +33,7 @@ import {
   RefreshCw,
   MoreHorizontal,
   Scissors,
+  Network,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,6 +54,7 @@ import { ShareTreeDialog } from "@/components/view/database-management-view/dial
 import { MergeTreesDialog } from "@/components/view/database-management-view/dialog/MergeTreesDialog";
 import { DuplicateTreeDialog } from "@/components/view/database-management-view/dialog/DuplicateTreeDialog";
 import { ExtractSubtreeDialog } from "@/components/view/database-management-view/dialog/ExtractSubtreeDialog";
+import { LinkedTreesGraphDialog } from "@/components/view/database-management-view/dialog/LinkedTreesGraphDialog";
 import { VirtualViewDialog } from "@/components/view/database-management-view/dialog/VirtualViewDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
@@ -82,6 +84,7 @@ export const DatabaseManagementView = () => {
   } = useTreeManager();
   const gedcomEnabled = useFeature("gedcom");
   const virtualViewsEnabled = useFeature("virtual_views");
+  const treeLinksEnabled = useFeature("tree_links");
   const [isImporting, setIsImporting] = useState(false);
   const importPct = useJobStore((s) => s.activeJobPct);
 
@@ -96,6 +99,7 @@ export const DatabaseManagementView = () => {
   );
   const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
   const [extractTree, setExtractTree] = useState<Tree | null>(null);
+  const [linkGraphTree, setLinkGraphTree] = useState<Tree | null>(null);
   const [shareTree, setShareTree] = useState<Tree | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
@@ -384,10 +388,18 @@ export const DatabaseManagementView = () => {
                   <Copy className="h-4 w-4" />
                   {t("duplicate-button")}
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => setExtractTree(database)}>
-                  <Scissors className="h-4 w-4" />
-                  {t("extract-subtree-button")}
-                </DropdownMenuItem>
+                {isOwned && treeLinksEnabled && (
+                  <DropdownMenuItem onSelect={() => setExtractTree(database)}>
+                    <Scissors className="h-4 w-4" />
+                    {t("extract-subtree-button")}
+                  </DropdownMenuItem>
+                )}
+                {treeLinksEnabled && (
+                  <DropdownMenuItem onSelect={() => setLinkGraphTree(database)}>
+                    <Network className="h-4 w-4" />
+                    {t("linked-trees-graph-button")}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   disabled={editingDatabaseId !== null}
                   onSelect={() => handleStartRename(database)}
@@ -788,6 +800,10 @@ export const DatabaseManagementView = () => {
       <ExtractSubtreeDialog
         tree={extractTree}
         onClose={() => setExtractTree(null)}
+      />
+      <LinkedTreesGraphDialog
+        tree={linkGraphTree}
+        onClose={() => setLinkGraphTree(null)}
       />
       {shareTree && (
         <ShareTreeDialog

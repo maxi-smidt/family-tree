@@ -6,7 +6,11 @@
  */
 
 import { api } from "@/services/api";
-import { Tree } from "@/types/tree";
+import {
+  SubtreeExtractPayload,
+  SubtreeExtractPreview,
+  Tree,
+} from "@/types/tree";
 import {
   Member,
   MemberDB,
@@ -27,6 +31,7 @@ import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { StatisticsReport } from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
+import { LinkGraphDB } from "@/types/linkGraph";
 
 const base = (treeId: string) =>
   treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
@@ -114,9 +119,12 @@ export class TreeService {
     memberId: string,
     direction: "push" | "pull",
   ) {
-    return api.post<MemberDB>(`${base(treeId)}/members/${memberId}/bridge-sync`, {
-      direction,
-    });
+    return api.post<MemberDB>(
+      `${base(treeId)}/members/${memberId}/bridge-sync`,
+      {
+        direction,
+      },
+    );
   }
 
   static updateMember(
@@ -581,28 +589,15 @@ export class TreeService {
   }
 
   // --- Sub-tree extraction -------------------------------------------------
-  static previewSubtree(payload: {
-    source_tree_id: string;
-    root_member_id: string;
-    direction: "descendants" | "ancestors" | "both";
-    depth: number | null;
-    include_partners: boolean;
-  }) {
-    return api.post<{ member_count: number; relation_count: number }>(
-      "/trees/extract-subtree/preview",
-      { ...payload, name: "" },
-    );
+  static previewSubtree(payload: Omit<SubtreeExtractPayload, "name">) {
+    return api.post<SubtreeExtractPreview>("/trees/extract-subtree/preview", {
+      ...payload,
+      name: "",
+    });
   }
 
-  static extractSubtree(payload: {
-    name: string;
-    source_tree_id: string;
-    root_member_id: string;
-    direction: "descendants" | "ancestors" | "both";
-    depth: number | null;
-    include_partners: boolean;
-  }) {
-    return api.post<Tree>("/trees/extract-subtree", payload);
+  static extractSubtree(payload: SubtreeExtractPayload) {
+    return api.post<{ job_id: string }>("/trees/extract-subtree", payload);
   }
 
   // --- Merge preview -------------------------------------------------------
@@ -645,6 +640,11 @@ export class TreeService {
   // --- Storage usage -------------------------------------------------------
   static getStorageUsage(treeId: string) {
     return api.get<TreeStorageUsageDB>(`${base(treeId)}/storage`);
+  }
+
+  // --- Linked-trees graph ----------------------------------------------------
+  static getLinkGraph(treeId: string) {
+    return api.get<LinkGraphDB>(`${base(treeId)}/link-graph`);
   }
 
   // --- Virtual views --------------------------------------------------------

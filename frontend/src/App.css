@@ -220,3 +220,44 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Leaflet map (Map view) — dim OSM tiles in dark mode instead of leaving them
+   bright white against the dark app chrome. The filter approach (rather than
+   a dark tile server) keeps us on the same free OSM tile source in both modes. */
+.dark .leaflet-container {
+  background: var(--background);
+}
+
+.dark .leaflet-layer .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)
+    saturate(0.4);
+}
+
+.dark .leaflet-control-attribution {
+  background: var(--background);
+  color: var(--muted-foreground);
+}
+
+.dark .leaflet-control-attribution a {
+  color: var(--foreground);
+}
+
+.dark .leaflet-bar a {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.dark .leaflet-bar a:hover {
+  background: var(--accent);
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.dark .leaflet-popup-close-button {
+  color: var(--muted-foreground);
+}
