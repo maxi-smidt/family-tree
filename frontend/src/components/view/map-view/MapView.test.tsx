@@ -239,31 +239,34 @@ describe("MapView location type filters", () => {
     expect(useNavigationStore.getState().pendingView).toBe("tree-view");
   });
 
-  it("filters places-lived markers by date range", () => {
-    const hasBerlinMarker = () =>
+  it("filters dated markers by date range using each location's own date", () => {
+    const hasMarker = (text: string) =>
       screen
         .getAllByTestId("map-marker")
-        .some((marker) => within(marker).queryByText("Berlin"));
+        .some((marker) => within(marker).queryByText(text));
 
     render(<MapView />);
 
-    // Berlin (2010–2015) is visible without a filter.
-    expect(hasBerlinMarker()).toBe(true);
+    // Everything is visible without a filter.
+    expect(hasMarker("Berlin")).toBe(true);
     expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
 
     fireEvent.change(screen.getByLabelText("From"), {
       target: { value: "2016" },
     });
 
-    // Berlin's stay ended in 2015, before the "From" filter of 2016, so its
-    // marker (no longer backed by any other visible type) disappears. The
-    // Paris event (dated 2012) is also excluded by the same >= dateFrom
-    // check, so two markers drop out.
-    expect(hasBerlinMarker()).toBe(false);
-    expect(screen.getAllByTestId("map-marker")).toHaveLength(2);
+    // With a "From 2016" filter, every marker with a date before 2016 drops
+    // out: Berlin's stay ended in 2015, the Paris event is dated 2012, and the
+    // Vienna birthplace is dated by Alex's birth (1990). Only Graz survives —
+    // it's a hometown, which has no natural date and so ignores the filter.
+    expect(hasMarker("Berlin")).toBe(false);
+    expect(hasMarker("Paris")).toBe(false);
+    expect(hasMarker("Vienna")).toBe(false);
+    expect(hasMarker("Graz")).toBe(true);
+    expect(screen.getAllByTestId("map-marker")).toHaveLength(1);
 
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "" } });
-    expect(hasBerlinMarker()).toBe(true);
+    expect(hasMarker("Berlin")).toBe(true);
     expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
   });
 

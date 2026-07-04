@@ -16,7 +16,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { Switch } from "@/components/ui/switch";
@@ -247,6 +247,12 @@ function MemberPopupItem({
               : `${t("until")} ${formatDate(item.dateTo)}`}
         </p>
       )}
+      {(item.type === "birthplace" || item.type === "cemetery") &&
+        item.date && (
+          <p className="text-xs text-muted-foreground">
+            {formatDate(item.date)}
+          </p>
+        )}
     </div>
   );
 }
@@ -484,6 +490,20 @@ export const MapView = () => {
 
   const getMemberLabel = (m: Member) => `${m.firstName} ${m.lastName}`;
 
+  // A single point-in-time location (birthplace dated by birth, cemetery by
+  // death) is visible when its date isn't before "from" or after the effective
+  // "to". Undatable points (empty/null) can't be placed in time, so they always
+  // show — the date filters only ever hide things we can actually date.
+  const isPointDateVisible = useCallback(
+    (date: string | null | undefined) => {
+      if (!date) return true;
+      if (dateFrom && date < dateFrom) return false;
+      if (effectiveDateTo && date > effectiveDateTo) return false;
+      return true;
+    },
+    [dateFrom, effectiveDateTo],
+  );
+
   const locationGroups = useMemo((): LocationGroup[] => {
     const byCoord = new Map<string, LocationGroup>();
 
@@ -502,11 +522,14 @@ export const MapView = () => {
 
     for (const m of filteredMembers) {
       const name = getMemberLabel(m);
-      if (m.birthplace) {
+      // Birthplace is dated by birth, cemetery by death; hometown has no
+      // natural date so it ignores the date filters entirely.
+      if (m.birthplace && isPointDateVisible(m.date.birth)) {
         add(m.birthplace, {
           type: "birthplace",
           memberId: m.id,
           memberName: name,
+          date: m.date.birth || undefined,
         });
       }
       if (m.hometown) {
@@ -516,11 +539,12 @@ export const MapView = () => {
           memberName: name,
         });
       }
-      if (m.cemetery) {
+      if (m.cemetery && isPointDateVisible(m.date.death)) {
         add(m.cemetery, {
           type: "cemetery",
           memberId: m.id,
           memberName: name,
+          date: m.date.death || undefined,
         });
       }
       for (const p of m.placesLived) {
@@ -566,6 +590,7 @@ export const MapView = () => {
     visibleLocationTypeSet,
     dateFrom,
     effectiveDateTo,
+    isPointDateVisible,
   ]);
 
   // Auto-fit when the member filter changes so the new selection is centered.
@@ -596,7 +621,10 @@ export const MapView = () => {
 
     const ordered: [number, number][] = [];
 
-    if (visibleLocationTypeSet.has("birthplace")) {
+    if (
+      visibleLocationTypeSet.has("birthplace") &&
+      isPointDateVisible(member.date.birth)
+    ) {
       const p = resolve(member.birthplace);
       if (p) ordered.push(p);
     }
@@ -613,7 +641,10 @@ export const MapView = () => {
       }
     }
 
-    if (visibleLocationTypeSet.has("cemetery")) {
+    if (
+      visibleLocationTypeSet.has("cemetery") &&
+      isPointDateVisible(member.date.death)
+    ) {
       const p = resolve(member.cemetery);
       if (p) ordered.push(p);
     }
@@ -641,6 +672,7 @@ export const MapView = () => {
     visibleLocationTypeSet,
     dateFrom,
     effectiveDateTo,
+    isPointDateVisible,
   ]);
 
   // Leaflet renders the polyline into an SVG overlay, where a raw
@@ -776,41 +808,16 @@ export const MapView = () => {
             <LocateFixed className="h-4 w-4" />
           </Button>
 
-          {selectedMemberId !== "all" && (
-            <label className="flex items-center gap-2 shrink-0">
-              <Switch
-                checked={showLifePath}
-                onCheckedChange={setShowLifePath}
-                aria-label={t("show-life-path")}
-              />
-              <span className="text-sm text-muted-foreground">
-                {t("show-life-path")}
-              </span>
-            </label>
-          )}
-
-          {timeSliderAvailable && (
-            <label className="flex items-center gap-2 shrink-0">
-              <Switch
-                checked={timeSliderActive}
-                onCheckedChange={setTimeSliderActive}
-                aria-label={t("time-slider-toggle")}
-              />
-              <span className="text-sm text-muted-foreground">
-                {t("time-slider-toggle")}
-              </span>
-            </label>
-          )}
-
           {hasActiveFilters && (
             <Button
               variant="ghost"
-              size="sm"
-              className="h-9 shrink-0"
+              size="icon"
+              className="h-9 w-9 shrink-0"
               onClick={clearFilters}
+              aria-label={t("clear-filters")}
+              title={t("clear-filters")}
             >
-              <X className="h-4 w-4 mr-1" />
-              {t("clear-filters")}
+              <X className="h-4 w-4" />
             </Button>
           )}
 
@@ -891,41 +898,6 @@ export const MapView = () => {
             </Popover>
           </div>
         </div>
-
-        {timeSliderActive && timeSliderAvailable && asOfYear !== null && (
-          <div className="flex items-center gap-3 mb-4 px-1 pb-2 -mt-2">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 shrink-0"
-              onClick={() => setIsPlaying((p) => !p)}
-              disabled={asOfYear >= maxYear!}
-              aria-label={
-                isPlaying ? t("time-slider-pause") : t("time-slider-play")
-              }
-              title={isPlaying ? t("time-slider-pause") : t("time-slider-play")}
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )}
-            </Button>
-            <input
-              type="range"
-              min={minYear!}
-              max={maxYear!}
-              step={1}
-              value={asOfYear}
-              onChange={(e) => setAsOfYear(Number(e.target.value))}
-              aria-label={t("as-of-year", { year: asOfYear })}
-              className="flex-1 max-w-md accent-primary"
-            />
-            <span className="text-sm text-muted-foreground w-28 shrink-0">
-              {t("as-of-year", { year: asOfYear })}
-            </span>
-          </div>
-        )}
 
         {locationGroups.length === 0 && loading && !noLocationTypesVisible ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border flex-1 min-h-0">
@@ -1064,6 +1036,78 @@ export const MapView = () => {
                 );
               })}
             </MapContainer>
+          </div>
+        )}
+
+        {/* Below-map controls: contextual toggles kept out of the top filter
+            bar so it doesn't get crowded. The time slider stretches full width
+            here. This bar stays mounted regardless of the map/empty/loading
+            state above, so sliding the year back to before any data (which
+            empties the map) never hides the slider itself. */}
+        {(selectedMemberId !== "all" || timeSliderAvailable) && (
+          <div className="flex items-center gap-x-4 gap-y-2 mt-3 px-1 flex-wrap shrink-0">
+            {selectedMemberId !== "all" && (
+              <label className="flex items-center gap-2 shrink-0">
+                <Switch
+                  checked={showLifePath}
+                  onCheckedChange={setShowLifePath}
+                  aria-label={t("show-life-path")}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {t("show-life-path")}
+                </span>
+              </label>
+            )}
+
+            {timeSliderAvailable && (
+              <label className="flex items-center gap-2 shrink-0">
+                <Switch
+                  checked={timeSliderActive}
+                  onCheckedChange={setTimeSliderActive}
+                  aria-label={t("time-slider-toggle")}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {t("time-slider-toggle")}
+                </span>
+              </label>
+            )}
+
+            {timeSliderActive && timeSliderAvailable && asOfYear !== null && (
+              <div className="flex items-center gap-3 flex-1 min-w-[220px]">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => setIsPlaying((p) => !p)}
+                  disabled={asOfYear >= maxYear!}
+                  aria-label={
+                    isPlaying ? t("time-slider-pause") : t("time-slider-play")
+                  }
+                  title={
+                    isPlaying ? t("time-slider-pause") : t("time-slider-play")
+                  }
+                >
+                  {isPlaying ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                </Button>
+                <input
+                  type="range"
+                  min={minYear!}
+                  max={maxYear!}
+                  step={1}
+                  value={asOfYear}
+                  onChange={(e) => setAsOfYear(Number(e.target.value))}
+                  aria-label={t("as-of-year", { year: asOfYear })}
+                  className="flex-1 accent-primary"
+                />
+                <span className="text-sm text-muted-foreground tabular-nums w-24 shrink-0 text-right">
+                  {t("as-of-year", { year: asOfYear })}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>
