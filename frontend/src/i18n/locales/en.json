@@ -1747,6 +1747,8 @@
       "legend-places-lived": "Place lived",
       "no-location-types-visible": "All location types are hidden",
       "enable-location-type-hint": "Enable a location type above to show its markers",
+      "fit-to-markers": "Fit to markers",
+      "show-in-tree": "Show in tree",
       "from": "from",
       "until": "until"
     }
