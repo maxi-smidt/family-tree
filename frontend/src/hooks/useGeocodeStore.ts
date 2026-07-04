@@ -12,6 +12,11 @@ interface GeocodeState {
   // this to show a loading state instead of a misleading empty one.
   pendingCount: number;
   resolveLocations: (locations: string[]) => Promise<void>;
+  // Evicts the given locations from the cache and re-requests them, so a
+  // previously-failed lookup gets a fresh attempt (the backend already
+  // re-attempts stale failed lookups on its own — see #545 — but this lets
+  // the user force an immediate retry instead of waiting).
+  retryLocations: (locations: string[]) => Promise<void>;
   getCoord: (location: string) => GeocodeResult | undefined;
   clear: () => void;
 }
@@ -48,6 +53,16 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
       // clear() may have reset the counter mid-flight; never go negative
       set((state) => ({ pendingCount: Math.max(0, state.pendingCount - 1) }));
     }
+  },
+
+  retryLocations: async (locations: string[]) => {
+    if (locations.length === 0) return;
+    set((state) => {
+      const next = new Map(state.coords);
+      for (const loc of locations) next.delete(loc);
+      return { coords: next };
+    });
+    await get().resolveLocations(locations);
   },
 
   getCoord: (location: string) => get().coords.get(location),

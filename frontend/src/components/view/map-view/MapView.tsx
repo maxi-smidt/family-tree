@@ -1,4 +1,6 @@
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
@@ -11,6 +13,7 @@ import {
   Polyline,
   useMap,
 } from "react-leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
@@ -42,6 +45,7 @@ import {
   X,
   Play,
   Pause,
+  RefreshCw,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -127,32 +131,81 @@ interface LocationGroup {
   types: LocationType[];
 }
 
-const RING_SIZE = 16; // px, outer diameter of a single type ring
-const RING_OVERLAP = 7; // px each ring overlaps its predecessor
+// One place a failed-to-geocode location string is referenced, so the
+// unresolved-locations popover can point the user at the record(s) that need
+// fixing instead of just naming the string.
+interface UnresolvedUsage {
+  kind: "member" | "event";
+  fieldLabelKey: string; // legend-{type} for members, event type label for events
+  label: string; // member name, or event type label
+  date?: string | null;
+  memberId?: string;
+}
 
-function createGroupIcon(types: LocationType[]) {
+interface UnresolvedLocation {
+  location: string;
+  usages: UnresolvedUsage[];
+}
+
+const PIN_SIZE = 28; // px, outer diameter of the pin disc
+const BADGE_SIZE = 15; // px, diameter of the count badge
+
+// Builds the divIcon HTML/options for one location marker. A single-type
+// group renders as a solid filled disc in that type's color; a multi-type
+// group renders one disc whose ring is split into equal conic-gradient
+// segments (one per present type, in TYPE_PRIORITY order) around a neutral
+// filled center, so every type present is visible at a glance without
+// stacking separate shapes. A small count badge appears in the top-right
+// corner when the group holds more than one item. The root element carries
+// `role="img"` + `aria-label` (divIcon markup isn't a real DOM node the
+// Marker can annotate directly); the caller passes an already-translated
+// label so screen readers get the user's language.
+function createGroupIcon(
+  types: LocationType[],
+  count: number,
+  ariaLabel: string,
+) {
   const sorted = [...new Set(types)].sort(
     (a, b) => TYPE_PRIORITY.indexOf(a) - TYPE_PRIORITY.indexOf(b),
   );
-  const dots = sorted
-    .map(
-      (t, i) =>
-        `<div style="width:${RING_SIZE}px;height:${RING_SIZE}px;border-radius:50%;` +
-        `border:2.5px solid ${LOCATION_COLORS[t]};background:var(--background);` +
-        `box-shadow:0 1px 3px rgba(0,0,0,0.3);flex-shrink:0;` +
-        // Overlap each ring onto the previous one; later rings (lower
-        // TYPE_PRIORITY) stack on top so the leading color stays readable.
-        `margin-left:${i === 0 ? 0 : -RING_OVERLAP}px;` +
-        `position:relative;z-index:${sorted.length - i};"></div>`,
-    )
-    .join("");
-  const w = RING_SIZE + (sorted.length - 1) * (RING_SIZE - RING_OVERLAP);
+
+  const ringBackground =
+    sorted.length <= 1
+      ? (LOCATION_COLORS[sorted[0] ?? TYPE_PRIORITY[0]] as string)
+      : `conic-gradient(${sorted
+          .map((t, i) => {
+            const from = (i / sorted.length) * 360;
+            const to = ((i + 1) / sorted.length) * 360;
+            return `${LOCATION_COLORS[t]} ${from}deg ${to}deg`;
+          })
+          .join(", ")})`;
+
+  const badge =
+    count > 1
+      ? `<div style="position:absolute;top:-4px;right:-4px;min-width:${BADGE_SIZE}px;` +
+        `height:${BADGE_SIZE}px;padding:0 3px;border-radius:${BADGE_SIZE}px;` +
+        `background:var(--primary);color:var(--primary-foreground);` +
+        `font-size:9px;font-weight:700;line-height:${BADGE_SIZE}px;text-align:center;` +
+        `box-shadow:0 1px 3px rgba(0,0,0,0.4);">${count > 99 ? "99+" : count}</div>`
+      : "";
+
+  const html =
+    `<div role="img" aria-label="${ariaLabel.replace(/"/g, "&quot;")}" ` +
+    `style="position:relative;width:${PIN_SIZE}px;height:${PIN_SIZE}px;">` +
+    `<div style="width:100%;height:100%;border-radius:50%;background:${ringBackground};` +
+    `box-shadow:0 1px 4px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;">` +
+    `<div style="width:${PIN_SIZE - 8}px;height:${PIN_SIZE - 8}px;border-radius:50%;` +
+    `background:var(--background);"></div>` +
+    `</div>` +
+    badge +
+    `</div>`;
+
   return L.divIcon({
-    html: `<div style="display:flex;align-items:center;">${dots}</div>`,
+    html,
     className: "",
-    iconSize: [w, RING_SIZE],
-    iconAnchor: [w / 2, RING_SIZE / 2],
-    popupAnchor: [0, -12],
+    iconSize: [PIN_SIZE, PIN_SIZE],
+    iconAnchor: [PIN_SIZE / 2, PIN_SIZE / 2],
+    popupAnchor: [0, -PIN_SIZE / 2],
   });
 }
 
@@ -307,6 +360,92 @@ function EventPopupItem({
   );
 }
 
+// Footer control replacing the old plain-text "unlocatable" count: a
+// muted trigger button that opens a scrollable list of every location string
+// that failed to geocode, each with where it's used (member field / event)
+// and a per-location retry button that evicts + re-requests just that one.
+function UnresolvedLocationsPopover({
+  unresolvedLocations,
+  t,
+  i18nT,
+  onShowMember,
+  onRetry,
+}: {
+  unresolvedLocations: UnresolvedLocation[];
+  t: (key: string, options?: Record<string, unknown>) => string;
+  i18nT: (key: string) => string;
+  onShowMember: (memberId: string) => void;
+  onRetry: (location: string) => void;
+}) {
+  if (unresolvedLocations.length === 0) return null;
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="text-sm text-muted-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none mt-2"
+        >
+          {t("unresolved-locations-count", {
+            count: unresolvedLocations.length,
+          })}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="start">
+        <div className="px-3 py-2 border-b text-sm font-medium">
+          {t("unresolved-locations-title")}
+        </div>
+        <div className="max-h-72 overflow-y-auto divide-y">
+          {unresolvedLocations.map(({ location, usages }) => (
+            <div key={location} className="p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium break-words">
+                  {location}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 shrink-0"
+                  onClick={() => onRetry(location)}
+                  aria-label={t("retry-location", { location })}
+                  title={t("retry-location", { location })}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  {t("retry")}
+                </Button>
+              </div>
+              <ul className="space-y-1">
+                {usages.map((usage, i) => (
+                  <li
+                    key={i}
+                    className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap"
+                  >
+                    <span>
+                      {t("used-in", { field: t(usage.fieldLabelKey) })}
+                    </span>
+                    {usage.kind === "member" && usage.memberId ? (
+                      <MemberNameLink
+                        id={usage.memberId}
+                        name={usage.label}
+                        title={t("show-in-tree")}
+                        onShowMember={onShowMember}
+                      />
+                    ) : (
+                      <span className="font-medium">{usage.label}</span>
+                    )}
+                    {usage.date && (
+                      <span>· {formatDateWithFallback(usage.date, i18nT)}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export const MapView = () => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "map-view.view",
@@ -321,7 +460,7 @@ export const MapView = () => {
     refreshEvents,
     initialized: eventsInitialized,
   } = useEventStore();
-  const { coords, resolveLocations } = useGeocodeStore();
+  const { coords, resolveLocations, retryLocations } = useGeocodeStore();
   const geocodePending = useGeocodeStore((s) => s.pendingCount > 0);
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
@@ -630,7 +769,9 @@ export const MapView = () => {
     const member = members.find((m) => m.id === selectedMemberId);
     if (!member) return [];
 
-    const resolve = (loc: string | null | undefined): [number, number] | null => {
+    const resolve = (
+      loc: string | null | undefined,
+    ): [number, number] | null => {
       if (!loc) return null;
       const c = coords.get(loc);
       if (!c?.resolved || c.lat === null || c.lon === null) return null;
@@ -650,7 +791,9 @@ export const MapView = () => {
     if (visibleLocationTypeSet.has("places-lived")) {
       const dated = member.placesLived.filter((p) => p.from);
       const undated = member.placesLived.filter((p) => !p.from);
-      dated.sort((a, b) => (a.from! < b.from! ? -1 : a.from! > b.from! ? 1 : 0));
+      dated.sort((a, b) =>
+        a.from! < b.from! ? -1 : a.from! > b.from! ? 1 : 0,
+      );
       for (const p of [...dated, ...undated]) {
         if (effectiveDateTo && p.from && p.from > effectiveDateTo) continue;
         if (dateFrom && p.to && p.to < dateFrom) continue;
@@ -710,6 +853,83 @@ export const MapView = () => {
       allLocations.filter((loc) => coords.get(loc)?.resolved === false).length,
     [allLocations, coords],
   );
+
+  // For every location that failed to geocode, collect where it's used
+  // (which members/fields, which events) so the unresolved-locations popover
+  // can show something actionable instead of a bare string. Walks the same
+  // sources/visibility rules as `allLocations`, but keyed by location so each
+  // failed string lists every place it appears.
+  const unresolvedLocations = useMemo((): UnresolvedLocation[] => {
+    const failed = new Set(
+      allLocations.filter((loc) => coords.get(loc)?.resolved === false),
+    );
+    if (failed.size === 0) return [];
+
+    const byLocation = new Map<string, UnresolvedUsage[]>();
+    const addUsage = (location: string, usage: UnresolvedUsage) => {
+      if (!failed.has(location)) return;
+      if (!byLocation.has(location)) byLocation.set(location, []);
+      byLocation.get(location)!.push(usage);
+    };
+
+    for (const m of members) {
+      const name = getMemberLabel(m);
+      if (visibleLocationTypeSet.has("birthplace") && m.birthplace) {
+        addUsage(m.birthplace, {
+          kind: "member",
+          fieldLabelKey: "legend-birthplace",
+          label: name,
+          date: m.date.birth,
+          memberId: m.id,
+        });
+      }
+      if (visibleLocationTypeSet.has("hometown") && m.hometown) {
+        addUsage(m.hometown, {
+          kind: "member",
+          fieldLabelKey: "legend-hometown",
+          label: name,
+          memberId: m.id,
+        });
+      }
+      if (visibleLocationTypeSet.has("cemetery") && m.cemetery) {
+        addUsage(m.cemetery, {
+          kind: "member",
+          fieldLabelKey: "legend-cemetery",
+          label: name,
+          date: m.date.death,
+          memberId: m.id,
+        });
+      }
+      if (visibleLocationTypeSet.has("places-lived")) {
+        for (const p of m.placesLived) {
+          if (!p.location) continue;
+          addUsage(p.location, {
+            kind: "member",
+            fieldLabelKey: "legend-places-lived",
+            label: name,
+            memberId: m.id,
+          });
+        }
+      }
+    }
+
+    if (visibleLocationTypeSet.has("event")) {
+      for (const e of events) {
+        if (!e.location) continue;
+        addUsage(e.location, {
+          kind: "event",
+          fieldLabelKey: "legend-event",
+          label: getEventTypeLabel(e.eventType, i18n.t),
+          date: e.date,
+        });
+      }
+    }
+
+    return [...byLocation.entries()].map(([location, usages]) => ({
+      location,
+      usages,
+    }));
+  }, [allLocations, coords, members, events, visibleLocationTypeSet, i18n.t]);
 
   const noLocationTypesVisible = visibleLocationTypes.length === 0;
 
@@ -981,78 +1201,92 @@ export const MapView = () => {
                     }}
                   />
                 )}
-              {locationGroups.map((group) => {
-                // Group items by location type (birthplace/hometown/etc.) in
-                // TYPE_PRIORITY order, so the popup shows one header per type
-                // present instead of an insertion-order list interleaving types.
-                const itemsByType = new Map<LocationType, LocationItem[]>();
-                for (const item of group.items) {
-                  if (!itemsByType.has(item.type))
-                    itemsByType.set(item.type, []);
-                  itemsByType.get(item.type)!.push(item);
-                }
-                const presentTypes = TYPE_PRIORITY.filter((type) =>
-                  itemsByType.has(type),
-                );
+              <MarkerClusterGroup
+                showCoverageOnHover={false}
+                spiderfyOnMaxZoom
+                maxClusterRadius={50}
+              >
+                {locationGroups.map((group) => {
+                  // Group items by location type (birthplace/hometown/etc.)
+                  // in TYPE_PRIORITY order, so the popup shows one header per
+                  // type present instead of an insertion-order list
+                  // interleaving types.
+                  const itemsByType = new Map<LocationType, LocationItem[]>();
+                  for (const item of group.items) {
+                    if (!itemsByType.has(item.type))
+                      itemsByType.set(item.type, []);
+                    itemsByType.get(item.type)!.push(item);
+                  }
+                  const presentTypes = TYPE_PRIORITY.filter((type) =>
+                    itemsByType.has(type),
+                  );
 
-                return (
-                  <Marker
-                    key={`${group.coord.lat},${group.coord.lon}`}
-                    position={[group.coord.lat!, group.coord.lon!]}
-                    icon={createGroupIcon(group.types)}
-                  >
-                    <Popup maxWidth={300} maxHeight={280}>
-                      <div className="space-y-2 text-sm">
-                        {group.coord.displayName && (
-                          <p className="text-xs text-muted-foreground font-medium pb-1 border-b">
-                            {group.coord.displayName}
-                          </p>
-                        )}
-                        {presentTypes.map((type) => (
-                          <div key={type} className="space-y-1">
-                            <div className="flex items-center gap-1.5 font-medium">
-                              <span
-                                style={{
-                                  display: "inline-block",
-                                  width: 8,
-                                  height: 8,
-                                  borderRadius: "50%",
-                                  border: `2px solid ${LOCATION_COLORS[type]}`,
-                                  background: "transparent",
-                                  flexShrink: 0,
-                                }}
-                              />
-                              {t(`legend-${type}`)}
+                  return (
+                    <Marker
+                      key={`${group.coord.lat},${group.coord.lon}`}
+                      position={[group.coord.lat!, group.coord.lon!]}
+                      icon={createGroupIcon(
+                        group.types,
+                        group.items.length,
+                        t("marker-aria-label", {
+                          location: group.coord.displayName || group.location,
+                          count: group.items.length,
+                        }),
+                      )}
+                    >
+                      <Popup maxWidth={300} maxHeight={280}>
+                        <div className="space-y-2 text-sm">
+                          {group.coord.displayName && (
+                            <p className="text-xs text-muted-foreground font-medium pb-1 border-b">
+                              {group.coord.displayName}
+                            </p>
+                          )}
+                          {presentTypes.map((type) => (
+                            <div key={type} className="space-y-1">
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <span
+                                  style={{
+                                    display: "inline-block",
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: "50%",
+                                    border: `2px solid ${LOCATION_COLORS[type]}`,
+                                    background: "transparent",
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                {t(`legend-${type}`)}
+                              </div>
+                              <div className="space-y-1 ml-4">
+                                {itemsByType
+                                  .get(type)!
+                                  .map((item, i) =>
+                                    item.type === "event" ? (
+                                      <EventPopupItem
+                                        key={i}
+                                        item={item}
+                                        t={t}
+                                        i18nT={i18n.t}
+                                        onShowMember={showMemberInTree}
+                                      />
+                                    ) : (
+                                      <MemberPopupItem
+                                        key={i}
+                                        item={item}
+                                        t={t}
+                                        onShowMember={showMemberInTree}
+                                      />
+                                    ),
+                                  )}
+                              </div>
                             </div>
-                            <div className="space-y-1 ml-4">
-                              {itemsByType
-                                .get(type)!
-                                .map((item, i) =>
-                                  item.type === "event" ? (
-                                    <EventPopupItem
-                                      key={i}
-                                      item={item}
-                                      t={t}
-                                      i18nT={i18n.t}
-                                      onShowMember={showMemberInTree}
-                                    />
-                                  ) : (
-                                    <MemberPopupItem
-                                      key={i}
-                                      item={item}
-                                      t={t}
-                                      onShowMember={showMemberInTree}
-                                    />
-                                  ),
-                                )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
+                          ))}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  );
+                })}
+              </MarkerClusterGroup>
             </MapContainer>
           </div>
         )}
@@ -1127,9 +1361,13 @@ export const MapView = () => {
       ) : (
         !loading &&
         unmappedCount > 0 && (
-          <p className="text-sm text-muted-foreground mt-2">
-            {t("unlocatable-count", { count: unmappedCount })}
-          </p>
+          <UnresolvedLocationsPopover
+            unresolvedLocations={unresolvedLocations}
+            t={t}
+            i18nT={i18n.t}
+            onShowMember={showMemberInTree}
+            onRetry={(location) => retryLocations([location])}
+          />
         )
       )}
     </ViewLayout>

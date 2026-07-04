@@ -1738,7 +1738,6 @@
       "no-mappable-events": "Keine darstellbaren Ereignisse gefunden",
       "resolving-locations": "Orte werden aufgelöst…",
       "add-location-hint": "Füge einem Ereignis einen Ort hinzu, um es auf der Karte zu sehen",
-      "unlocatable-count": "{{count}} Ereignis(se) haben Orte, die auf der Karte nicht aufgelöst werden konnten",
       "filter-location-types": "Ortstypen",
       "legend-event": "Ereignis",
       "legend-birthplace": "Geburtsort",
@@ -1755,7 +1754,14 @@
       "show-life-path": "Lebensweg anzeigen",
       "time-slider-play": "Abspielen",
       "time-slider-pause": "Pause",
-      "as-of-year": "Stand {{year}}"
+      "as-of-year": "Stand {{year}}",
+      "unresolved-locations-count": "{{count}} nicht aufgelöste(r) Ort(e)",
+      "unresolved-locations-title": "Nicht aufgelöste Orte",
+      "used-in": "{{field}}:",
+      "retry": "Erneut versuchen",
+      "retry-location": "\"{{location}}\" erneut auflösen",
+      "marker-aria-label_one": "{{location}} – {{count}} Eintrag",
+      "marker-aria-label_other": "{{location}} – {{count}} Einträge"
     }
   },
   "unsaved-changes": {
