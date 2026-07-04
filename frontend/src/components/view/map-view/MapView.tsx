@@ -3,7 +3,14 @@ import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+  useMap,
+} from "react-leaflet";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
@@ -27,7 +34,15 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { MapPin, Check, ChevronsUpDown, LocateFixed, X } from "lucide-react";
+import {
+  MapPin,
+  Check,
+  ChevronsUpDown,
+  LocateFixed,
+  X,
+  Play,
+  Pause,
+} from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Empty,
@@ -314,19 +329,97 @@ export const MapView = () => {
   const [visibleLocationTypes, setVisibleLocationTypes] =
     useState<LocationType[]>(LOCATION_TYPES);
   const [fitSignal, setFitSignal] = useState(0);
+  const [showLifePath, setShowLifePath] = useState(true);
+  const [timeSliderActive, setTimeSliderActive] = useState(false);
+  const [asOfYear, setAsOfYear] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const prevMemberRef = useRef<string | "all">(selectedMemberId);
   const visibleLocationTypeSet = useMemo(
     () => new Set(visibleLocationTypes),
     [visibleLocationTypes],
   );
 
+  // Every 4-digit year present anywhere in the tree's dates, used to bound the
+  // time slider. Parses only the leading year from partial-ISO strings.
+  const [minYear, maxYear] = useMemo(() => {
+    let min: number | null = null;
+    let max: number | null = null;
+    const consider = (value: string | null | undefined) => {
+      if (!value) return;
+      const match = /^(\d{4})/.exec(value);
+      if (!match) return;
+      const year = Number(match[1]);
+      if (min === null || year < min) min = year;
+      if (max === null || year > max) max = year;
+    };
+    for (const m of members) {
+      consider(m.date.birth);
+      consider(m.date.death);
+      for (const p of m.placesLived) {
+        consider(p.from);
+        consider(p.to);
+      }
+    }
+    for (const e of events) {
+      consider(e.date);
+    }
+    return [min, max];
+  }, [members, events]);
+
+  const timeSliderAvailable = minYear !== null && maxYear !== null;
+
+  // Turning the toggle on initializes asOfYear to the latest year so nothing
+  // is hidden until the user actually drags the slider back.
+  useEffect(() => {
+    if (timeSliderActive && asOfYear === null && maxYear !== null) {
+      setAsOfYear(maxYear);
+    }
+  }, [timeSliderActive, asOfYear, maxYear]);
+
+  // Advance asOfYear by one year on an interval while playing; stop at
+  // maxYear. Cleaned up on unmount / pause / toggle-off.
+  useEffect(() => {
+    if (!isPlaying || !timeSliderActive || maxYear === null) return;
+    const interval = setInterval(() => {
+      setAsOfYear((prev) => {
+        const current = prev ?? maxYear;
+        if (current >= maxYear) {
+          setIsPlaying(false);
+          return current;
+        }
+        return current + 1;
+      });
+    }, 700);
+    return () => clearInterval(interval);
+  }, [isPlaying, timeSliderActive, maxYear]);
+
+  useEffect(() => {
+    if (!timeSliderActive) setIsPlaying(false);
+  }, [timeSliderActive]);
+
+  // The as-of-year bound (end of that year, so the whole year is included)
+  // combined with any manual "to" date filter by taking the more restrictive
+  // (earlier) of the two — both compare as plain strings over partial ISO.
+  const effectiveDateTo = useMemo(() => {
+    if (!timeSliderActive || asOfYear === null) return dateTo;
+    const sliderBound = `${asOfYear}-12-31`;
+    if (dateTo && dateTo < sliderBound) return dateTo;
+    return sliderBound;
+  }, [timeSliderActive, asOfYear, dateTo]);
+
   const hasActiveFilters =
-    selectedMemberId !== "all" || dateFrom !== null || dateTo !== null;
+    selectedMemberId !== "all" ||
+    dateFrom !== null ||
+    dateTo !== null ||
+    timeSliderActive;
 
   const clearFilters = () => {
     setSelectedMemberId("all");
     setDateFrom(null);
     setDateTo(null);
+    setTimeSliderActive(false);
+    setAsOfYear(null);
+    setIsPlaying(false);
   };
 
   const showMemberInTree = (memberId: string) => {
@@ -383,10 +476,10 @@ export const MapView = () => {
         )
           return false;
         if (dateFrom && e.date < dateFrom) return false;
-        if (dateTo && e.date > dateTo) return false;
+        if (effectiveDateTo && e.date > effectiveDateTo) return false;
         return true;
       }),
-    [events, selectedMemberId, dateFrom, dateTo],
+    [events, selectedMemberId, dateFrom, effectiveDateTo],
   );
 
   const getMemberLabel = (m: Member) => `${m.firstName} ${m.lastName}`;
@@ -435,7 +528,7 @@ export const MapView = () => {
         // Same overlap check as the event date filter: plain string
         // comparison over possibly-partial ISO dates; open-ended sides
         // (null from/to) are unbounded.
-        if (dateTo && p.from && p.from > dateTo) continue;
+        if (effectiveDateTo && p.from && p.from > effectiveDateTo) continue;
         if (dateFrom && p.to && p.to < dateFrom) continue;
         add(p.location, {
           type: "places-lived",
@@ -472,7 +565,7 @@ export const MapView = () => {
     members,
     visibleLocationTypeSet,
     dateFrom,
-    dateTo,
+    effectiveDateTo,
   ]);
 
   // Auto-fit when the member filter changes so the new selection is centered.
@@ -482,6 +575,85 @@ export const MapView = () => {
       if (locationGroups.length > 0) setFitSignal((s) => s + 1);
     }
   }, [selectedMemberId, locationGroups.length]);
+
+  // Life path (#552): for a single selected member, a chronological line
+  // through birthplace -> places lived (sorted by "from", undated ones last)
+  // -> cemetery. Hometown is deliberately excluded — it isn't time-ordered.
+  // Only the currently-visible location types and geocoded points count, and
+  // consecutive duplicate coordinates are collapsed so a birthplace that
+  // matches the first residence doesn't create a zero-length segment.
+  const lifePathPoints = useMemo((): [number, number][] => {
+    if (selectedMemberId === "all") return [];
+    const member = members.find((m) => m.id === selectedMemberId);
+    if (!member) return [];
+
+    const resolve = (loc: string | null | undefined): [number, number] | null => {
+      if (!loc) return null;
+      const c = coords.get(loc);
+      if (!c?.resolved || c.lat === null || c.lon === null) return null;
+      return [c.lat, c.lon];
+    };
+
+    const ordered: [number, number][] = [];
+
+    if (visibleLocationTypeSet.has("birthplace")) {
+      const p = resolve(member.birthplace);
+      if (p) ordered.push(p);
+    }
+
+    if (visibleLocationTypeSet.has("places-lived")) {
+      const dated = member.placesLived.filter((p) => p.from);
+      const undated = member.placesLived.filter((p) => !p.from);
+      dated.sort((a, b) => (a.from! < b.from! ? -1 : a.from! > b.from! ? 1 : 0));
+      for (const p of [...dated, ...undated]) {
+        if (effectiveDateTo && p.from && p.from > effectiveDateTo) continue;
+        if (dateFrom && p.to && p.to < dateFrom) continue;
+        const point = resolve(p.location);
+        if (point) ordered.push(point);
+      }
+    }
+
+    if (visibleLocationTypeSet.has("cemetery")) {
+      const p = resolve(member.cemetery);
+      if (p) ordered.push(p);
+    }
+
+    // Dedupe consecutive identical coordinates (5-decimal precision, matching
+    // the marker-grouping key elsewhere in this file).
+    const deduped: [number, number][] = [];
+    for (const point of ordered) {
+      const prev = deduped[deduped.length - 1];
+      if (
+        prev &&
+        prev[0].toFixed(5) === point[0].toFixed(5) &&
+        prev[1].toFixed(5) === point[1].toFixed(5)
+      ) {
+        continue;
+      }
+      deduped.push(point);
+    }
+
+    return deduped;
+  }, [
+    selectedMemberId,
+    members,
+    coords,
+    visibleLocationTypeSet,
+    dateFrom,
+    effectiveDateTo,
+  ]);
+
+  // Leaflet renders the polyline into an SVG overlay, where a raw
+  // `var(--token)` string is not guaranteed to resolve as a `stroke` value.
+  // Resolve an existing map accent token to a concrete color string once.
+  const [lifePathColor, setLifePathColor] = useState<string>("#8b5cf6");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-map-places-lived")
+      .trim();
+    if (value) setLifePathColor(value);
+  }, []);
 
   const unmappedCount = useMemo(
     () =>
@@ -604,6 +776,32 @@ export const MapView = () => {
             <LocateFixed className="h-4 w-4" />
           </Button>
 
+          {selectedMemberId !== "all" && (
+            <label className="flex items-center gap-2 shrink-0">
+              <Switch
+                checked={showLifePath}
+                onCheckedChange={setShowLifePath}
+                aria-label={t("show-life-path")}
+              />
+              <span className="text-sm text-muted-foreground">
+                {t("show-life-path")}
+              </span>
+            </label>
+          )}
+
+          {timeSliderAvailable && (
+            <label className="flex items-center gap-2 shrink-0">
+              <Switch
+                checked={timeSliderActive}
+                onCheckedChange={setTimeSliderActive}
+                aria-label={t("time-slider-toggle")}
+              />
+              <span className="text-sm text-muted-foreground">
+                {t("time-slider-toggle")}
+              </span>
+            </label>
+          )}
+
           {hasActiveFilters && (
             <Button
               variant="ghost"
@@ -694,6 +892,41 @@ export const MapView = () => {
           </div>
         </div>
 
+        {timeSliderActive && timeSliderAvailable && asOfYear !== null && (
+          <div className="flex items-center gap-3 mb-4 px-1 pb-2 -mt-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => setIsPlaying((p) => !p)}
+              disabled={asOfYear >= maxYear!}
+              aria-label={
+                isPlaying ? t("time-slider-pause") : t("time-slider-play")
+              }
+              title={isPlaying ? t("time-slider-pause") : t("time-slider-play")}
+            >
+              {isPlaying ? (
+                <Pause className="h-4 w-4" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+            </Button>
+            <input
+              type="range"
+              min={minYear!}
+              max={maxYear!}
+              step={1}
+              value={asOfYear}
+              onChange={(e) => setAsOfYear(Number(e.target.value))}
+              aria-label={t("as-of-year", { year: asOfYear })}
+              className="flex-1 max-w-md accent-primary"
+            />
+            <span className="text-sm text-muted-foreground w-28 shrink-0">
+              {t("as-of-year", { year: asOfYear })}
+            </span>
+          </div>
+        )}
+
         {locationGroups.length === 0 && loading && !noLocationTypesVisible ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border flex-1 min-h-0">
             <Spinner className="size-6 text-muted-foreground" />
@@ -745,6 +978,19 @@ export const MapView = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
               <FitBounds groups={locationGroups} fitSignal={fitSignal} />
+              {showLifePath &&
+                selectedMemberId !== "all" &&
+                lifePathPoints.length >= 2 && (
+                  <Polyline
+                    positions={lifePathPoints}
+                    pathOptions={{
+                      color: lifePathColor,
+                      weight: 3,
+                      opacity: 0.7,
+                      dashArray: "6 6",
+                    }}
+                  />
+                )}
               {locationGroups.map((group) => {
                 // Group items by location type (birthplace/hometown/etc.) in
                 // TYPE_PRIORITY order, so the popup shows one header per type

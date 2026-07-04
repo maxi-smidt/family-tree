@@ -11,6 +11,17 @@ import type { GeocodeResult } from "@/types/geocode";
 import type { Member } from "@/types/member";
 import { MapView } from "./MapView";
 
+// The member-picker command palette (cmdk) relies on ResizeObserver, which
+// jsdom doesn't implement.
+class MockResizeObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+// @ts-expect-error -- test-only polyfill
+global.ResizeObserver = MockResizeObserver;
+Element.prototype.scrollIntoView = vi.fn();
+
 const fitBoundsMock = vi.fn();
 
 vi.mock("leaflet", () => ({
@@ -35,6 +46,7 @@ vi.mock("react-leaflet", () => ({
     <div data-testid="map-marker">{children}</div>
   ),
   Popup: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Polyline: () => <div data-testid="life-path" />,
   useMap: () => ({ fitBounds: fitBoundsMock }),
 }));
 
@@ -283,5 +295,45 @@ describe("MapView location type filters", () => {
     // useMap), so we only assert the button remains enabled and clickable
     // rather than reaching into Leaflet internals.
     expect(enabledRecenterButton).toBeEnabled();
+  });
+
+  it("renders the life path only when a single member with >=2 geocoded places is selected", () => {
+    render(<MapView />);
+
+    // "All Members" selected by default: no life path.
+    expect(screen.queryByTestId("life-path")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox"));
+    fireEvent.click(screen.getByRole("option", { name: "Alex Example" }));
+
+    // Alex has a geocoded birthplace (Vienna) and a geocoded place lived
+    // (Berlin), so the life path should now render.
+    expect(screen.getByTestId("life-path")).toBeInTheDocument();
+  });
+
+  it("hides the time-travel slider until dates exist, and lets asOfYear hide later markers", () => {
+    const hasParisMarker = () =>
+      screen
+        .getAllByTestId("map-marker")
+        .some((marker) => within(marker).queryByText("Paris"));
+
+    render(<MapView />);
+
+    const timeTravelSwitch = screen.getByRole("switch", {
+      name: "Time travel",
+    });
+    expect(timeTravelSwitch).toBeInTheDocument();
+
+    fireEvent.click(timeTravelSwitch);
+
+    // The slider initializes to the latest year, so nothing is hidden yet.
+    expect(hasParisMarker()).toBe(true);
+
+    const slider = screen.getByRole("slider");
+    fireEvent.change(slider, { target: { value: "2011" } });
+
+    // The Paris event (2012) is now after the as-of-year, so its marker
+    // disappears; Berlin (from 2010) remains.
+    expect(hasParisMarker()).toBe(false);
   });
 });
