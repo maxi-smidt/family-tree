@@ -112,24 +112,31 @@ interface LocationGroup {
   types: LocationType[];
 }
 
+const RING_SIZE = 16; // px, outer diameter of a single type ring
+const RING_OVERLAP = 7; // px each ring overlaps its predecessor
+
 function createGroupIcon(types: LocationType[]) {
   const sorted = [...new Set(types)].sort(
     (a, b) => TYPE_PRIORITY.indexOf(a) - TYPE_PRIORITY.indexOf(b),
   );
   const dots = sorted
     .map(
-      (t) =>
-        `<div style="width:16px;height:16px;border-radius:50%;` +
-        `border:2.5px solid ${LOCATION_COLORS[t]};background:transparent;` +
-        `box-shadow:0 1px 3px rgba(0,0,0,0.3);flex-shrink:0;"></div>`,
+      (t, i) =>
+        `<div style="width:${RING_SIZE}px;height:${RING_SIZE}px;border-radius:50%;` +
+        `border:2.5px solid ${LOCATION_COLORS[t]};background:var(--background);` +
+        `box-shadow:0 1px 3px rgba(0,0,0,0.3);flex-shrink:0;` +
+        // Overlap each ring onto the previous one; later rings (lower
+        // TYPE_PRIORITY) stack on top so the leading color stays readable.
+        `margin-left:${i === 0 ? 0 : -RING_OVERLAP}px;` +
+        `position:relative;z-index:${sorted.length - i};"></div>`,
     )
     .join("");
-  const w = sorted.length * 18;
+  const w = RING_SIZE + (sorted.length - 1) * (RING_SIZE - RING_OVERLAP);
   return L.divIcon({
-    html: `<div style="display:flex;gap:2px;align-items:center;">${dots}</div>`,
+    html: `<div style="display:flex;align-items:center;">${dots}</div>`,
     className: "",
-    iconSize: [w, 16],
-    iconAnchor: [w / 2, 8],
+    iconSize: [w, RING_SIZE],
+    iconAnchor: [w / 2, RING_SIZE / 2],
     popupAnchor: [0, -12],
   });
 }
@@ -552,7 +559,7 @@ export const MapView = () => {
               value={dateFrom}
               onChange={setDateFrom}
               placeholder={t("date-from")}
-              className="w-32 h-9"
+              className="w-40 h-9"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -563,7 +570,7 @@ export const MapView = () => {
               value={dateTo}
               onChange={setDateTo}
               placeholder={t("date-to")}
-              className="w-32 h-9"
+              className="w-40 h-9"
             />
           </div>
 
