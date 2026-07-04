@@ -336,9 +336,12 @@ export const MapView = () => {
     useState<LocationType[]>(LOCATION_TYPES);
   const [fitSignal, setFitSignal] = useState(0);
   const [showLifePath, setShowLifePath] = useState(true);
-  const [timeSliderActive, setTimeSliderActive] = useState(false);
   const [asOfYear, setAsOfYear] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  // Whether the user has moved the always-visible time slider off its default
+  // (latest) position. Until they do, we keep it pinned to the newest year so
+  // deferred-loading data (events arrive after members) never hides anything.
+  const [sliderTouched, setSliderTouched] = useState(false);
   const prevMemberRef = useRef<string | "all">(selectedMemberId);
   const visibleLocationTypeSet = useMemo(
     () => new Set(visibleLocationTypes),
@@ -374,18 +377,17 @@ export const MapView = () => {
 
   const timeSliderAvailable = minYear !== null && maxYear !== null;
 
-  // Turning the toggle on initializes asOfYear to the latest year so nothing
-  // is hidden until the user actually drags the slider back.
+  // Keep the slider pinned to the latest year until the user drags it, so it
+  // both initializes correctly and follows maxYear as deferred data widens the
+  // range. Once touched, the user's chosen year is left alone.
   useEffect(() => {
-    if (timeSliderActive && asOfYear === null && maxYear !== null) {
-      setAsOfYear(maxYear);
-    }
-  }, [timeSliderActive, asOfYear, maxYear]);
+    if (!sliderTouched && maxYear !== null) setAsOfYear(maxYear);
+  }, [sliderTouched, maxYear]);
 
-  // Advance asOfYear by one year on an interval while playing; stop at
-  // maxYear. Cleaned up on unmount / pause / toggle-off.
+  // Advance asOfYear by one year on an interval while playing; stop at maxYear.
+  // Cleaned up on unmount / pause.
   useEffect(() => {
-    if (!isPlaying || !timeSliderActive || maxYear === null) return;
+    if (!isPlaying || maxYear === null) return;
     const interval = setInterval(() => {
       setAsOfYear((prev) => {
         const current = prev ?? maxYear;
@@ -397,34 +399,50 @@ export const MapView = () => {
       });
     }, 700);
     return () => clearInterval(interval);
-  }, [isPlaying, timeSliderActive, maxYear]);
+  }, [isPlaying, maxYear]);
 
-  useEffect(() => {
-    if (!timeSliderActive) setIsPlaying(false);
-  }, [timeSliderActive]);
+  // Play/pause. Pressing play while already parked at the latest year rewinds
+  // to the earliest year and plays the whole range again.
+  const togglePlay = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+    setSliderTouched(true);
+    if (asOfYear !== null && maxYear !== null && asOfYear >= maxYear) {
+      setAsOfYear(minYear);
+    }
+    setIsPlaying(true);
+  };
 
   // The as-of-year bound (end of that year, so the whole year is included)
   // combined with any manual "to" date filter by taking the more restrictive
-  // (earlier) of the two — both compare as plain strings over partial ISO.
+  // (earlier) of the two — both compare as plain strings over partial ISO. At
+  // the latest year the slider imposes no restriction of its own.
   const effectiveDateTo = useMemo(() => {
-    if (!timeSliderActive || asOfYear === null) return dateTo;
+    if (asOfYear === null || maxYear === null || asOfYear >= maxYear) {
+      return dateTo;
+    }
     const sliderBound = `${asOfYear}-12-31`;
     if (dateTo && dateTo < sliderBound) return dateTo;
     return sliderBound;
-  }, [timeSliderActive, asOfYear, dateTo]);
+  }, [asOfYear, maxYear, dateTo]);
+
+  const sliderMovedBack =
+    asOfYear !== null && maxYear !== null && asOfYear < maxYear;
 
   const hasActiveFilters =
     selectedMemberId !== "all" ||
     dateFrom !== null ||
     dateTo !== null ||
-    timeSliderActive;
+    sliderMovedBack;
 
   const clearFilters = () => {
     setSelectedMemberId("all");
     setDateFrom(null);
     setDateTo(null);
-    setTimeSliderActive(false);
-    setAsOfYear(null);
+    setSliderTouched(false);
+    setAsOfYear(maxYear);
     setIsPlaying(false);
   };
 
@@ -1059,27 +1077,13 @@ export const MapView = () => {
               </label>
             )}
 
-            {timeSliderAvailable && (
-              <label className="flex items-center gap-2 shrink-0">
-                <Switch
-                  checked={timeSliderActive}
-                  onCheckedChange={setTimeSliderActive}
-                  aria-label={t("time-slider-toggle")}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {t("time-slider-toggle")}
-                </span>
-              </label>
-            )}
-
-            {timeSliderActive && timeSliderAvailable && asOfYear !== null && (
+            {timeSliderAvailable && asOfYear !== null && (
               <div className="flex items-center gap-3 flex-1 min-w-[220px]">
                 <Button
                   variant="outline"
                   size="icon"
                   className="h-8 w-8 shrink-0"
-                  onClick={() => setIsPlaying((p) => !p)}
-                  disabled={asOfYear >= maxYear!}
+                  onClick={togglePlay}
                   aria-label={
                     isPlaying ? t("time-slider-pause") : t("time-slider-play")
                   }
@@ -1099,7 +1103,10 @@ export const MapView = () => {
                   max={maxYear!}
                   step={1}
                   value={asOfYear}
-                  onChange={(e) => setAsOfYear(Number(e.target.value))}
+                  onChange={(e) => {
+                    setSliderTouched(true);
+                    setAsOfYear(Number(e.target.value));
+                  }}
                   aria-label={t("as-of-year", { year: asOfYear })}
                   className="flex-1 accent-primary"
                 />

@@ -314,7 +314,7 @@ describe("MapView location type filters", () => {
     expect(screen.getByTestId("life-path")).toBeInTheDocument();
   });
 
-  it("hides the time-travel slider until dates exist, and lets asOfYear hide later markers", () => {
+  it("shows an always-on time slider that hides markers dated after the as-of year", () => {
     const hasParisMarker = () =>
       screen
         .getAllByTestId("map-marker")
@@ -322,21 +322,33 @@ describe("MapView location type filters", () => {
 
     render(<MapView />);
 
-    const timeTravelSwitch = screen.getByRole("switch", {
-      name: "Time travel",
-    });
-    expect(timeTravelSwitch).toBeInTheDocument();
-
-    fireEvent.click(timeTravelSwitch);
-
-    // The slider initializes to the latest year, so nothing is hidden yet.
+    // The slider is present without any toggle and starts at the latest year
+    // (2015 here), so nothing is hidden yet.
+    const slider = screen.getByRole("slider");
+    expect(slider).toBeInTheDocument();
     expect(hasParisMarker()).toBe(true);
 
-    const slider = screen.getByRole("slider");
     fireEvent.change(slider, { target: { value: "2011" } });
 
     // The Paris event (2012) is now after the as-of-year, so its marker
     // disappears; Berlin (from 2010) remains.
     expect(hasParisMarker()).toBe(false);
+  });
+
+  it("rewinds to the earliest year when play is pressed at the end of the range", () => {
+    render(<MapView />);
+
+    // Dates present span 1990 (birth) to 2015 (Berlin, until); the slider
+    // parks at the latest year by default.
+    expect(screen.getByText("As of 2015")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Play" }));
+
+    // Pressing play while parked at the end rewinds to the earliest year and
+    // switches to the playing (pause) state.
+    expect(screen.getByText("As of 1990")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Pause" }),
+    ).toBeInTheDocument();
   });
 });
