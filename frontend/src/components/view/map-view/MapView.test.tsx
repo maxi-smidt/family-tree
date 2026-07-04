@@ -134,25 +134,30 @@ describe("MapView location type filters", () => {
     fitBoundsMock.mockClear();
   });
 
-  it("updates the legend state and markers when a type is toggled", () => {
+  const openTypeFilter = () =>
+    fireEvent.click(screen.getByRole("button", { name: "Location types" }));
+
+  it("updates the type switches and markers when a type is toggled", () => {
     render(<MapView />);
 
     expect(screen.getAllByTestId("map-marker")).toHaveLength(4);
 
-    const birthplaceToggle = screen.getByRole("button", {
+    openTypeFilter();
+    const birthplaceSwitch = screen.getByRole("switch", {
       name: "Birthplace",
     });
-    expect(birthplaceToggle).toHaveAttribute("aria-pressed", "true");
+    expect(birthplaceSwitch).toHaveAttribute("aria-checked", "true");
 
-    fireEvent.click(birthplaceToggle);
+    fireEvent.click(birthplaceSwitch);
 
-    expect(birthplaceToggle).toHaveAttribute("aria-pressed", "false");
+    expect(birthplaceSwitch).toHaveAttribute("aria-checked", "false");
     expect(screen.getAllByTestId("map-marker")).toHaveLength(3);
   });
 
   it("shows a filter-specific empty state when all types are hidden", () => {
     render(<MapView />);
 
+    openTypeFilter();
     for (const name of [
       "Event",
       "Birthplace",
@@ -160,7 +165,7 @@ describe("MapView location type filters", () => {
       "Cemetery",
       "Place lived",
     ]) {
-      fireEvent.click(screen.getByRole("button", { name }));
+      fireEvent.click(screen.getByRole("switch", { name }));
     }
 
     expect(screen.queryByTestId("map-marker")).not.toBeInTheDocument();

@@ -12,7 +12,7 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Switch } from "@/components/ui/switch";
 import {
   Popover,
   PopoverContent,
@@ -579,41 +579,81 @@ export const MapView = () => {
             <LocateFixed className="h-4 w-4" />
           </Button>
 
-          <div className="ml-auto flex flex-wrap items-center">
-            <ToggleGroup
-              type="multiple"
-              variant="outline"
-              size="sm"
-              spacing={1}
-              value={visibleLocationTypes}
-              onValueChange={(types) =>
-                setVisibleLocationTypes(types as LocationType[])
-              }
-              aria-label={t("filter-location-types")}
-              className="shrink-0"
-            >
-              {LOCATION_TYPES.map((type) => (
-                <ToggleGroupItem
-                  key={type}
-                  value={type}
-                  aria-label={t(`legend-${type}`)}
-                  className="h-8 px-1.5 text-xs text-muted-foreground data-[state=on]:text-foreground data-[state=off]:opacity-50"
+          {/* Compact location-type filter: a popover with one switch per
+              type (same pattern as the List view's customize popover). The
+              trigger previews the colors of the currently visible types. */}
+          <div className="ml-auto shrink-0">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-9 gap-2"
+                  aria-label={t("filter-location-types")}
                 >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      border: `2px solid ${LOCATION_COLORS[type]}`,
-                      background: "transparent",
-                      flexShrink: 0,
-                    }}
-                  />
-                  {t(`legend-${type}`)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+                  <span className="flex items-center gap-1">
+                    {visibleLocationTypes.length > 0 ? (
+                      LOCATION_TYPES.filter((type) =>
+                        visibleLocationTypeSet.has(type),
+                      ).map((type) => (
+                        <span
+                          key={type}
+                          style={{
+                            display: "inline-block",
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            border: `2px solid ${LOCATION_COLORS[type]}`,
+                            background: "transparent",
+                            flexShrink: 0,
+                          }}
+                        />
+                      ))
+                    ) : (
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </span>
+                  {t("filter-location-types")}
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-2" align="end">
+                <div className="space-y-1">
+                  {LOCATION_TYPES.map((type) => {
+                    const isVisible = visibleLocationTypeSet.has(type);
+                    return (
+                      <label
+                        key={type}
+                        className="flex items-center gap-2 rounded-md px-1 py-1 hover:bg-muted/50 cursor-pointer"
+                      >
+                        <Switch
+                          checked={isVisible}
+                          onCheckedChange={(checked) =>
+                            setVisibleLocationTypes((prev) =>
+                              checked
+                                ? [...prev, type]
+                                : prev.filter((v) => v !== type),
+                            )
+                          }
+                          aria-label={t(`legend-${type}`)}
+                        />
+                        <span
+                          style={{
+                            display: "inline-block",
+                            width: 10,
+                            height: 10,
+                            borderRadius: "50%",
+                            border: `2px solid ${LOCATION_COLORS[type]}`,
+                            background: "transparent",
+                            flexShrink: 0,
+                          }}
+                        />
+                        <span className="text-sm">{t(`legend-${type}`)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
