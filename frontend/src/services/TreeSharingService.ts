@@ -2,6 +2,7 @@ import { api } from "@/services/api";
 import {
   InvitationAcceptResult,
   InvitationPreview,
+  LinkedShareTree,
   ShareCandidate,
   ShareRole,
   Tree,
@@ -111,6 +112,39 @@ export const TreeSharingService = {
   setPublicAccess(treeId: string, publicRole: "viewer" | null): Promise<Tree> {
     return api.patch<Tree>(`/trees/${treeId}/public`, {
       public_role: publicRole,
+    });
+  },
+
+  getLinkedShareTrees(
+    treeId: string,
+    username?: string,
+  ): Promise<LinkedShareTree[]> {
+    return api.get<LinkedShareTree[]>(`/trees/${treeId}/access/linked-trees`, {
+      username,
+    });
+  },
+
+  grantAccessBatch(
+    treeId: string,
+    username: string,
+    role: ShareRole,
+    treeIds: string[],
+  ): Promise<TreeAccess[]> {
+    return api.post<TreeAccess[]>(`/trees/${treeId}/access/batch`, {
+      username,
+      role,
+      tree_ids: treeIds,
+    });
+  },
+
+  revokeAccessBatch(
+    treeId: string,
+    userId: string,
+    treeIds: string[],
+  ): Promise<void> {
+    return api.post<void>(`/trees/${treeId}/access/batch-revoke`, {
+      user_id: userId,
+      tree_ids: treeIds,
     });
   },
 };

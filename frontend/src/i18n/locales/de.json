@@ -161,6 +161,17 @@
         "diseases": "Krankheiten",
         "biography": "Biografie"
       },
+      "linked": {
+        "share-toggle_one": "{{count}} verlinkten Stammbaum ebenfalls teilen",
+        "share-toggle_other": "{{count}} verlinkte Stammbäume ebenfalls teilen",
+        "member-count_one": "{{count}} Person",
+        "member-count_other": "{{count}} Personen",
+        "not-yours": "nicht im eigenen Besitz",
+        "revoke-confirm-title": "Auch Zugriff auf verlinkte Stammbäume entziehen?",
+        "revoke-confirm-description": "\"{{username}}\" hat auch Zugriff auf mit diesem verlinkte Stammbäume. Auswählen, wo der Zugriff ebenfalls entzogen werden soll.",
+        "revoke-this-tree-only": "Nur dieser Stammbaum",
+        "revoke-confirm-action": "Zugriff entziehen"
+      },
       "transfer-title": "Eigentümerschaft übertragen",
       "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
       "transfer-select": "Neuen Eigentümer auswählen…",
