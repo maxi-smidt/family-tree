@@ -3,13 +3,20 @@ import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+  useMap,
+} from "react-leaflet";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { Switch } from "@/components/ui/switch";
@@ -27,7 +34,15 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { MapPin, Check, ChevronsUpDown, LocateFixed, X } from "lucide-react";
+import {
+  MapPin,
+  Check,
+  ChevronsUpDown,
+  LocateFixed,
+  X,
+  Play,
+  Pause,
+} from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Empty,
@@ -232,6 +247,12 @@ function MemberPopupItem({
               : `${t("until")} ${formatDate(item.dateTo)}`}
         </p>
       )}
+      {(item.type === "birthplace" || item.type === "cemetery") &&
+        item.date && (
+          <p className="text-xs text-muted-foreground">
+            {formatDate(item.date)}
+          </p>
+        )}
     </div>
   );
 }
@@ -314,19 +335,115 @@ export const MapView = () => {
   const [visibleLocationTypes, setVisibleLocationTypes] =
     useState<LocationType[]>(LOCATION_TYPES);
   const [fitSignal, setFitSignal] = useState(0);
+  const [showLifePath, setShowLifePath] = useState(true);
+  const [asOfYear, setAsOfYear] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  // Whether the user has moved the always-visible time slider off its default
+  // (latest) position. Until they do, we keep it pinned to the newest year so
+  // deferred-loading data (events arrive after members) never hides anything.
+  const [sliderTouched, setSliderTouched] = useState(false);
   const prevMemberRef = useRef<string | "all">(selectedMemberId);
   const visibleLocationTypeSet = useMemo(
     () => new Set(visibleLocationTypes),
     [visibleLocationTypes],
   );
 
+  // Every 4-digit year present anywhere in the tree's dates, used to bound the
+  // time slider. Parses only the leading year from partial-ISO strings.
+  const [minYear, maxYear] = useMemo(() => {
+    let min: number | null = null;
+    let max: number | null = null;
+    const consider = (value: string | null | undefined) => {
+      if (!value) return;
+      const match = /^(\d{4})/.exec(value);
+      if (!match) return;
+      const year = Number(match[1]);
+      if (min === null || year < min) min = year;
+      if (max === null || year > max) max = year;
+    };
+    for (const m of members) {
+      consider(m.date.birth);
+      consider(m.date.death);
+      for (const p of m.placesLived) {
+        consider(p.from);
+        consider(p.to);
+      }
+    }
+    for (const e of events) {
+      consider(e.date);
+    }
+    return [min, max];
+  }, [members, events]);
+
+  const timeSliderAvailable = minYear !== null && maxYear !== null;
+
+  // Keep the slider pinned to the latest year until the user drags it, so it
+  // both initializes correctly and follows maxYear as deferred data widens the
+  // range. Once touched, the user's chosen year is left alone.
+  useEffect(() => {
+    if (!sliderTouched && maxYear !== null) setAsOfYear(maxYear);
+  }, [sliderTouched, maxYear]);
+
+  // Advance asOfYear by one year on an interval while playing; stop at maxYear.
+  // Cleaned up on unmount / pause.
+  useEffect(() => {
+    if (!isPlaying || maxYear === null) return;
+    const interval = setInterval(() => {
+      setAsOfYear((prev) => {
+        const current = prev ?? maxYear;
+        if (current >= maxYear) {
+          setIsPlaying(false);
+          return current;
+        }
+        return current + 1;
+      });
+    }, 700);
+    return () => clearInterval(interval);
+  }, [isPlaying, maxYear]);
+
+  // Play/pause. Pressing play while already parked at the latest year rewinds
+  // to the earliest year and plays the whole range again.
+  const togglePlay = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+      return;
+    }
+    setSliderTouched(true);
+    if (asOfYear !== null && maxYear !== null && asOfYear >= maxYear) {
+      setAsOfYear(minYear);
+    }
+    setIsPlaying(true);
+  };
+
+  // The as-of-year bound (end of that year, so the whole year is included)
+  // combined with any manual "to" date filter by taking the more restrictive
+  // (earlier) of the two — both compare as plain strings over partial ISO. At
+  // the latest year the slider imposes no restriction of its own.
+  const effectiveDateTo = useMemo(() => {
+    if (asOfYear === null || maxYear === null || asOfYear >= maxYear) {
+      return dateTo;
+    }
+    const sliderBound = `${asOfYear}-12-31`;
+    if (dateTo && dateTo < sliderBound) return dateTo;
+    return sliderBound;
+  }, [asOfYear, maxYear, dateTo]);
+
+  const sliderMovedBack =
+    asOfYear !== null && maxYear !== null && asOfYear < maxYear;
+
   const hasActiveFilters =
-    selectedMemberId !== "all" || dateFrom !== null || dateTo !== null;
+    selectedMemberId !== "all" ||
+    dateFrom !== null ||
+    dateTo !== null ||
+    sliderMovedBack;
 
   const clearFilters = () => {
     setSelectedMemberId("all");
     setDateFrom(null);
     setDateTo(null);
+    setSliderTouched(false);
+    setAsOfYear(maxYear);
+    setIsPlaying(false);
   };
 
   const showMemberInTree = (memberId: string) => {
@@ -383,13 +500,27 @@ export const MapView = () => {
         )
           return false;
         if (dateFrom && e.date < dateFrom) return false;
-        if (dateTo && e.date > dateTo) return false;
+        if (effectiveDateTo && e.date > effectiveDateTo) return false;
         return true;
       }),
-    [events, selectedMemberId, dateFrom, dateTo],
+    [events, selectedMemberId, dateFrom, effectiveDateTo],
   );
 
   const getMemberLabel = (m: Member) => `${m.firstName} ${m.lastName}`;
+
+  // A single point-in-time location (birthplace dated by birth, cemetery by
+  // death) is visible when its date isn't before "from" or after the effective
+  // "to". Undatable points (empty/null) can't be placed in time, so they always
+  // show — the date filters only ever hide things we can actually date.
+  const isPointDateVisible = useCallback(
+    (date: string | null | undefined) => {
+      if (!date) return true;
+      if (dateFrom && date < dateFrom) return false;
+      if (effectiveDateTo && date > effectiveDateTo) return false;
+      return true;
+    },
+    [dateFrom, effectiveDateTo],
+  );
 
   const locationGroups = useMemo((): LocationGroup[] => {
     const byCoord = new Map<string, LocationGroup>();
@@ -409,11 +540,14 @@ export const MapView = () => {
 
     for (const m of filteredMembers) {
       const name = getMemberLabel(m);
-      if (m.birthplace) {
+      // Birthplace is dated by birth, cemetery by death; hometown has no
+      // natural date so it ignores the date filters entirely.
+      if (m.birthplace && isPointDateVisible(m.date.birth)) {
         add(m.birthplace, {
           type: "birthplace",
           memberId: m.id,
           memberName: name,
+          date: m.date.birth || undefined,
         });
       }
       if (m.hometown) {
@@ -423,11 +557,12 @@ export const MapView = () => {
           memberName: name,
         });
       }
-      if (m.cemetery) {
+      if (m.cemetery && isPointDateVisible(m.date.death)) {
         add(m.cemetery, {
           type: "cemetery",
           memberId: m.id,
           memberName: name,
+          date: m.date.death || undefined,
         });
       }
       for (const p of m.placesLived) {
@@ -435,7 +570,7 @@ export const MapView = () => {
         // Same overlap check as the event date filter: plain string
         // comparison over possibly-partial ISO dates; open-ended sides
         // (null from/to) are unbounded.
-        if (dateTo && p.from && p.from > dateTo) continue;
+        if (effectiveDateTo && p.from && p.from > effectiveDateTo) continue;
         if (dateFrom && p.to && p.to < dateFrom) continue;
         add(p.location, {
           type: "places-lived",
@@ -472,7 +607,8 @@ export const MapView = () => {
     members,
     visibleLocationTypeSet,
     dateFrom,
-    dateTo,
+    effectiveDateTo,
+    isPointDateVisible,
   ]);
 
   // Auto-fit when the member filter changes so the new selection is centered.
@@ -482,6 +618,92 @@ export const MapView = () => {
       if (locationGroups.length > 0) setFitSignal((s) => s + 1);
     }
   }, [selectedMemberId, locationGroups.length]);
+
+  // Life path (#552): for a single selected member, a chronological line
+  // through birthplace -> places lived (sorted by "from", undated ones last)
+  // -> cemetery. Hometown is deliberately excluded — it isn't time-ordered.
+  // Only the currently-visible location types and geocoded points count, and
+  // consecutive duplicate coordinates are collapsed so a birthplace that
+  // matches the first residence doesn't create a zero-length segment.
+  const lifePathPoints = useMemo((): [number, number][] => {
+    if (selectedMemberId === "all") return [];
+    const member = members.find((m) => m.id === selectedMemberId);
+    if (!member) return [];
+
+    const resolve = (loc: string | null | undefined): [number, number] | null => {
+      if (!loc) return null;
+      const c = coords.get(loc);
+      if (!c?.resolved || c.lat === null || c.lon === null) return null;
+      return [c.lat, c.lon];
+    };
+
+    const ordered: [number, number][] = [];
+
+    if (
+      visibleLocationTypeSet.has("birthplace") &&
+      isPointDateVisible(member.date.birth)
+    ) {
+      const p = resolve(member.birthplace);
+      if (p) ordered.push(p);
+    }
+
+    if (visibleLocationTypeSet.has("places-lived")) {
+      const dated = member.placesLived.filter((p) => p.from);
+      const undated = member.placesLived.filter((p) => !p.from);
+      dated.sort((a, b) => (a.from! < b.from! ? -1 : a.from! > b.from! ? 1 : 0));
+      for (const p of [...dated, ...undated]) {
+        if (effectiveDateTo && p.from && p.from > effectiveDateTo) continue;
+        if (dateFrom && p.to && p.to < dateFrom) continue;
+        const point = resolve(p.location);
+        if (point) ordered.push(point);
+      }
+    }
+
+    if (
+      visibleLocationTypeSet.has("cemetery") &&
+      isPointDateVisible(member.date.death)
+    ) {
+      const p = resolve(member.cemetery);
+      if (p) ordered.push(p);
+    }
+
+    // Dedupe consecutive identical coordinates (5-decimal precision, matching
+    // the marker-grouping key elsewhere in this file).
+    const deduped: [number, number][] = [];
+    for (const point of ordered) {
+      const prev = deduped[deduped.length - 1];
+      if (
+        prev &&
+        prev[0].toFixed(5) === point[0].toFixed(5) &&
+        prev[1].toFixed(5) === point[1].toFixed(5)
+      ) {
+        continue;
+      }
+      deduped.push(point);
+    }
+
+    return deduped;
+  }, [
+    selectedMemberId,
+    members,
+    coords,
+    visibleLocationTypeSet,
+    dateFrom,
+    effectiveDateTo,
+    isPointDateVisible,
+  ]);
+
+  // Leaflet renders the polyline into an SVG overlay, where a raw
+  // `var(--token)` string is not guaranteed to resolve as a `stroke` value.
+  // Resolve an existing map accent token to a concrete color string once.
+  const [lifePathColor, setLifePathColor] = useState<string>("#8b5cf6");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-map-places-lived")
+      .trim();
+    if (value) setLifePathColor(value);
+  }, []);
 
   const unmappedCount = useMemo(
     () =>
@@ -607,12 +829,13 @@ export const MapView = () => {
           {hasActiveFilters && (
             <Button
               variant="ghost"
-              size="sm"
-              className="h-9 shrink-0"
+              size="icon"
+              className="h-9 w-9 shrink-0"
               onClick={clearFilters}
+              aria-label={t("clear-filters")}
+              title={t("clear-filters")}
             >
-              <X className="h-4 w-4 mr-1" />
-              {t("clear-filters")}
+              <X className="h-4 w-4" />
             </Button>
           )}
 
@@ -745,6 +968,19 @@ export const MapView = () => {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
               <FitBounds groups={locationGroups} fitSignal={fitSignal} />
+              {showLifePath &&
+                selectedMemberId !== "all" &&
+                lifePathPoints.length >= 2 && (
+                  <Polyline
+                    positions={lifePathPoints}
+                    pathOptions={{
+                      color: lifePathColor,
+                      weight: 3,
+                      opacity: 0.7,
+                      dashArray: "6 6",
+                    }}
+                  />
+                )}
               {locationGroups.map((group) => {
                 // Group items by location type (birthplace/hometown/etc.) in
                 // TYPE_PRIORITY order, so the popup shows one header per type
@@ -818,6 +1054,67 @@ export const MapView = () => {
                 );
               })}
             </MapContainer>
+          </div>
+        )}
+
+        {/* Below-map controls: contextual toggles kept out of the top filter
+            bar so it doesn't get crowded. The time slider stretches full width
+            here. This bar stays mounted regardless of the map/empty/loading
+            state above, so sliding the year back to before any data (which
+            empties the map) never hides the slider itself. */}
+        {(selectedMemberId !== "all" || timeSliderAvailable) && (
+          <div className="flex items-center gap-x-4 gap-y-2 mt-3 px-1 flex-wrap shrink-0">
+            {selectedMemberId !== "all" && (
+              <label className="flex items-center gap-2 shrink-0">
+                <Switch
+                  checked={showLifePath}
+                  onCheckedChange={setShowLifePath}
+                  aria-label={t("show-life-path")}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {t("show-life-path")}
+                </span>
+              </label>
+            )}
+
+            {timeSliderAvailable && asOfYear !== null && (
+              <div className="flex items-center gap-3 flex-1 min-w-[220px]">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={togglePlay}
+                  aria-label={
+                    isPlaying ? t("time-slider-pause") : t("time-slider-play")
+                  }
+                  title={
+                    isPlaying ? t("time-slider-pause") : t("time-slider-play")
+                  }
+                >
+                  {isPlaying ? (
+                    <Pause className="h-4 w-4" />
+                  ) : (
+                    <Play className="h-4 w-4" />
+                  )}
+                </Button>
+                <input
+                  type="range"
+                  min={minYear!}
+                  max={maxYear!}
+                  step={1}
+                  value={asOfYear}
+                  onChange={(e) => {
+                    setSliderTouched(true);
+                    setAsOfYear(Number(e.target.value));
+                  }}
+                  aria-label={t("as-of-year", { year: asOfYear })}
+                  className="flex-1 accent-primary"
+                />
+                <span className="text-sm text-muted-foreground tabular-nums w-24 shrink-0 text-right">
+                  {t("as-of-year", { year: asOfYear })}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>

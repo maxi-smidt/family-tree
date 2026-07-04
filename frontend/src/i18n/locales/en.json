@@ -1751,7 +1751,11 @@
       "show-in-tree": "Show in tree",
       "from": "from",
       "until": "until",
-      "clear-filters": "Clear filters"
+      "clear-filters": "Clear filters",
+      "show-life-path": "Show life path",
+      "time-slider-play": "Play",
+      "time-slider-pause": "Pause",
+      "as-of-year": "As of {{year}}"
     }
   },
   "unsaved-changes": {

@@ -1751,7 +1751,11 @@
       "show-in-tree": "Im Stammbaum anzeigen",
       "from": "ab",
       "until": "bis",
-      "clear-filters": "Filter zurücksetzen"
+      "clear-filters": "Filter zurücksetzen",
+      "show-life-path": "Lebensweg anzeigen",
+      "time-slider-play": "Abspielen",
+      "time-slider-pause": "Pause",
+      "as-of-year": "Stand {{year}}"
     }
   },
   "unsaved-changes": {
