@@ -1750,7 +1750,8 @@
       "fit-to-markers": "An Markierungen anpassen",
       "show-in-tree": "Im Stammbaum anzeigen",
       "from": "ab",
-      "until": "bis"
+      "until": "bis",
+      "clear-filters": "Filter zurücksetzen"
     }
   },
   "unsaved-changes": {

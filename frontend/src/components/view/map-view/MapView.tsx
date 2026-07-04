@@ -27,7 +27,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { MapPin, Check, ChevronsUpDown, LocateFixed } from "lucide-react";
+import { MapPin, Check, ChevronsUpDown, LocateFixed, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Empty,
@@ -314,10 +314,20 @@ export const MapView = () => {
   const [visibleLocationTypes, setVisibleLocationTypes] =
     useState<LocationType[]>(LOCATION_TYPES);
   const [fitSignal, setFitSignal] = useState(0);
+  const prevMemberRef = useRef<string | "all">(selectedMemberId);
   const visibleLocationTypeSet = useMemo(
     () => new Set(visibleLocationTypes),
     [visibleLocationTypes],
   );
+
+  const hasActiveFilters =
+    selectedMemberId !== "all" || dateFrom !== null || dateTo !== null;
+
+  const clearFilters = () => {
+    setSelectedMemberId("all");
+    setDateFrom(null);
+    setDateTo(null);
+  };
 
   const showMemberInTree = (memberId: string) => {
     setPendingLocateMemberId(memberId);
@@ -465,6 +475,14 @@ export const MapView = () => {
     dateTo,
   ]);
 
+  // Auto-fit when the member filter changes so the new selection is centered.
+  useEffect(() => {
+    if (prevMemberRef.current !== selectedMemberId) {
+      prevMemberRef.current = selectedMemberId;
+      if (locationGroups.length > 0) setFitSignal((s) => s + 1);
+    }
+  }, [selectedMemberId, locationGroups.length]);
+
   const unmappedCount = useMemo(
     () =>
       allLocations.filter((loc) => coords.get(loc)?.resolved === false).length,
@@ -585,6 +603,18 @@ export const MapView = () => {
           >
             <LocateFixed className="h-4 w-4" />
           </Button>
+
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 shrink-0"
+              onClick={clearFilters}
+            >
+              <X className="h-4 w-4 mr-1" />
+              {t("clear-filters")}
+            </Button>
+          )}
 
           {/* Compact location-type filter: a popover with one switch per
               type (same pattern as the List view's customize popover). The
