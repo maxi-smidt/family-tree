@@ -27,6 +27,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { MapPin, Check, ChevronsUpDown } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Empty,
   EmptyDescription,
@@ -147,6 +148,7 @@ export const MapView = () => {
     initialized: eventsInitialized,
   } = useEventStore();
   const { coords, resolveLocations } = useGeocodeStore();
+  const geocodePending = useGeocodeStore((s) => s.pendingCount > 0);
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
 
@@ -294,6 +296,11 @@ export const MapView = () => {
 
   const noLocationTypesVisible = visibleLocationTypes.length === 0;
 
+  // Events load deferred and unknown locations are geocoded sequentially on
+  // the server (>1s each) — show a loading state instead of the empty state
+  // until both have settled.
+  const loading = !eventsInitialized || geocodePending;
+
   return (
     <ViewLayout title={t("title")}>
       {/* Filters + legend row */}
@@ -425,7 +432,17 @@ export const MapView = () => {
         </div>
       </div>
 
-      {locationGroups.length === 0 ? (
+      {locationGroups.length === 0 && loading && !noLocationTypesVisible ? (
+        <div
+          className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border"
+          style={{ height: "calc(100% - 130px)" }}
+        >
+          <Spinner className="size-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">
+            {t("resolving-locations")}
+          </p>
+        </div>
+      ) : locationGroups.length === 0 ? (
         <Empty className="border" style={{ height: "calc(100% - 130px)" }}>
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -546,10 +563,18 @@ export const MapView = () => {
         </div>
       )}
 
-      {unmappedCount > 0 && (
-        <p className="text-sm text-muted-foreground mt-2">
-          {t("unlocatable-count", { count: unmappedCount })}
+      {geocodePending && locationGroups.length > 0 ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+          <Spinner />
+          {t("resolving-locations")}
         </p>
+      ) : (
+        !loading &&
+        unmappedCount > 0 && (
+          <p className="text-sm text-muted-foreground mt-2">
+            {t("unlocatable-count", { count: unmappedCount })}
+          </p>
+        )
       )}
     </ViewLayout>
   );

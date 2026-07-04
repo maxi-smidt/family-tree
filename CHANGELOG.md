@@ -17,11 +17,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
-- **Subtree extraction now moves a branch into a linked tree** — extracting a subtree no longer creates an unlinked copy that silently diverges; the selected branch is *moved* into a new tree and the selected person stays in both trees as the connecting bridge person (tree-in-tree link). Extraction offers two selections: "direct family" (the person's family of origin: parents, siblings and their branches, with married-in spouses; the person's own children stay) and "partnership" (the person's partner(s), the partner's family, and the shared children). A preview shows members moved, relations severed by the cut, and media size before anything runs. Extraction now requires owning the tree and is gated by the `tree_links` feature flag; linked subtrees survive later deletion of the bridge person in the original tree, and freshly extracted trees are arranged automatically on first open (#535).
+- **Subtree extraction now moves a branch into a linked tree** — extracting a subtree no longer creates an unlinked copy that silently diverges; the selected branch is _moved_ into a new tree and the selected person stays in both trees as the connecting bridge person (tree-in-tree link). Extraction offers two selections: "direct family" (the person's family of origin: parents, siblings and their branches, with married-in spouses; the person's own children stay) and "partnership" (the person's partner(s), the partner's family, and the shared children). A preview shows members moved, relations severed by the cut, and media size before anything runs. Extraction now requires owning the tree and is gated by the `tree_links` feature flag; linked subtrees survive later deletion of the bridge person in the original tree, and freshly extracted trees are arranged automatically on first open (#535).
 
 ### Fixed
 
 - **Tree merge and subtree extraction keep title, deceased and adopted flags** — copied members previously lost their academic title and their deceased/adopted status.
+- **Map view shows "places lived" markers again** — the optimized member list payload had dropped the places-lived field, so the map's "Place lived" layer (and its legend filter) was always empty (#544).
+- **Locations that once failed geocoding can now recover** — transient lookup failures (e.g. rate limits or timeouts) are no longer cached as permanently unresolvable; they are retried on the next map visit, and "no results" answers are re-checked after a week (#545).
+- **Map view shows a loading indicator while locations are being resolved** — instead of a misleading "No mappable events found" empty state while events load and new locations are geocoded (#546).
 
 ## [1.4.0] - 2026-07-01
 

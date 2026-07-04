@@ -7,6 +7,10 @@ import i18n from "@/i18n/i18n";
 
 interface GeocodeState {
   coords: Map<string, GeocodeResult>;
+  // Number of geocode requests in flight. The backend resolves unknown
+  // locations sequentially against Nominatim (>1s each), so consumers use
+  // this to show a loading state instead of a misleading empty one.
+  pendingCount: number;
   resolveLocations: (locations: string[]) => Promise<void>;
   getCoord: (location: string) => GeocodeResult | undefined;
   clear: () => void;
@@ -14,6 +18,7 @@ interface GeocodeState {
 
 export const useGeocodeStore = create<GeocodeState>((set, get) => ({
   coords: new Map(),
+  pendingCount: 0,
 
   resolveLocations: async (locations: string[]) => {
     const treeId = activeTreeId();
@@ -24,6 +29,7 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
     const unknown = [...new Set(locations)].filter((loc) => !cached.has(loc));
     if (unknown.length === 0) return;
 
+    set((state) => ({ pendingCount: state.pendingCount + 1 }));
     try {
       const rows = await TreeService.geocodeLocations(treeId, unknown);
       if (!isActiveTree(treeId)) return;
@@ -38,10 +44,13 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
     } catch (error) {
       console.error("Failed to resolve geocode locations:", error);
       toast.error(i18n.t("hooks.geocode.resolve-error"));
+    } finally {
+      // clear() may have reset the counter mid-flight; never go negative
+      set((state) => ({ pendingCount: Math.max(0, state.pendingCount - 1) }));
     }
   },
 
   getCoord: (location: string) => get().coords.get(location),
 
-  clear: () => set({ coords: new Map() }),
+  clear: () => set({ coords: new Map(), pendingCount: 0 }),
 }));
