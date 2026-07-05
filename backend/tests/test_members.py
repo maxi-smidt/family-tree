@@ -832,6 +832,8 @@ def test_unlinking_tree_clears_linked_member(client, db):
         json={"name": "Sub"},
     )
     assert created.status_code == 201
+    sub_id = created.json()["tree"]["id"]
+    counterpart_id = created.json()["anchor"]["linkedMemberId"]
 
     cleared = client.patch(
         f"{API}/trees/{main.id}/members/m1",
@@ -841,6 +843,15 @@ def test_unlinking_tree_clears_linked_member(client, db):
     assert cleared.status_code == 200
     assert cleared.json()["linkedTreeId"] is None
     assert cleared.json()["linkedMemberId"] is None
+
+    # A bridge is symmetric: unlinking from one side must also clear the
+    # counterpart in the other tree, otherwise the link lingers there and
+    # identity edits keep syncing one-directionally.
+    counterpart = client.get(
+        f"{API}/trees/{sub_id}/members/{counterpart_id}", headers=auth(user)
+    ).json()
+    assert counterpart["linkedTreeId"] is None
+    assert counterpart["linkedMemberId"] is None
 
 
 def test_deleting_bridge_person_unlinks_counterpart(client, db):

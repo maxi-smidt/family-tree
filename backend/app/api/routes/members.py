@@ -478,6 +478,7 @@ def update_member(
         and changes["linked_member_id"] == member.linked_member_id
     ):
         del changes["linked_member_id"]
+    unlinked_counterpart_tree: Tree | None = None
     if "linked_tree_id" in changes:
         if changes["linked_tree_id"] is not None:
             # Establishing a link requires resolving a bridge person on both
@@ -491,6 +492,18 @@ def update_member(
         _validate_linked_tree(db, tree, user, changes["linked_tree_id"])
         # Unlinking invalidates the counterpart pointer into the old tree.
         changes["linked_member_id"] = None
+        # Tear down the other side too: a bridge is symmetric, so unlinking
+        # here must also clear the counterpart's fields. Otherwise the link
+        # lingers in the other tree (phantom badge) and identity edits keep
+        # flowing one-directionally from the still-linked counterpart back to
+        # this member. Cleared unconditionally, like the delete path — this is
+        # integrity cleanup of a now-broken bridge, not a content edit.
+        if member.linked_member_id is not None:
+            counterpart = db.get(Member, member.linked_member_id)
+            if counterpart is not None:
+                counterpart.linked_tree_id = None
+                counterpart.linked_member_id = None
+                unlinked_counterpart_tree = db.get(Tree, counterpart.tree_id)
     if changes.get("linked_member_id") is not None:
         _validate_linked_member(
             db,
@@ -560,6 +573,12 @@ def update_member(
             {"tree_id": synced_tree.id, "domain": "member"},
         )
         invalidate_stats(synced_tree.id)
+    if unlinked_counterpart_tree is not None:
+        publish_tree_event(
+            db, unlinked_counterpart_tree, "tree.content_changed",
+            {"tree_id": unlinked_counterpart_tree.id, "domain": "member"},
+        )
+        invalidate_stats(unlinked_counterpart_tree.id)
     out = MemberOut.model_validate(member)
     out.bridge_sync = bridge_sync
     return out
