@@ -785,10 +785,10 @@ def test_partnership_preview_matches_extraction(db):
 # ---------------------------------------------------------------------------
 
 def test_subtree_survives_deletion_of_bridge_member(db):
-    """Deleting the bridge member from the source tree must not touch the
-    linked tree: the member FK is ON DELETE SET NULL, and the linked tree
-    itself is untouched because nothing cascades from a member delete into
-    another tree."""
+    """Deleting the bridge member from the source tree keeps the linked tree
+    and all its members intact — nothing cascades from a member delete into
+    another tree — but dissolves the now-broken tree-in-tree link so the
+    surviving counterpart becomes an ordinary member again."""
     from app.api.routes.members import delete_member
 
     user = make_user(db, "alice")
@@ -815,9 +815,9 @@ def test_subtree_survives_deletion_of_bridge_member(db):
     linked_ids = {m.id for m in members_of(db, new_tree)}
     assert {"c1", "c2", "gc1", counterpart_id} <= linked_ids
 
-    # The counterpart's member-level link degrades to NULL (ON DELETE SET
-    # NULL on Member.linked_member_id); the tree-level link is unaffected
-    # because linked_tree_id points at the source *tree*, which still exists.
+    # The link is fully dissolved: deleting one half of a bridge person turns
+    # the surviving counterpart back into an ordinary member (both link fields
+    # cleared), rather than leaving a dangling tree-level link / broken badge.
     counterpart = db.get(Member, counterpart_id)
     assert counterpart.linked_member_id is None
-    assert counterpart.linked_tree_id == tree.id
+    assert counterpart.linked_tree_id is None

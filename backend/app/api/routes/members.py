@@ -873,6 +873,17 @@ def delete_member(
     db: Session = Depends(get_db),
 ):
     member = _get_member(db, tree, member_id)
+    # Deleting one half of a bridge person dissolves the tree-in-tree link: the
+    # surviving counterpart becomes an ordinary member again. The FK only SET
+    # NULLs its linked_member_id (the pointer at this row), leaving a dangling
+    # linked_tree_id / broken badge — so clear both sides explicitly here.
+    counterpart_tree: Tree | None = None
+    if member.linked_member_id is not None:
+        counterpart = db.get(Member, member.linked_member_id)
+        if counterpart is not None:
+            counterpart.linked_tree_id = None
+            counterpart.linked_member_id = None
+            counterpart_tree = db.get(Tree, counterpart.tree_id)
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="delete",
                     target_type="member", target_id=member.id, target_label=label)
@@ -884,6 +895,12 @@ def delete_member(
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)
+    if counterpart_tree is not None:
+        publish_tree_event(
+            db, counterpart_tree, "tree.content_changed",
+            {"tree_id": counterpart_tree.id, "domain": "member"},
+        )
+        invalidate_stats(counterpart_tree.id)
 
 
 # --- Relations -------------------------------------------------------------

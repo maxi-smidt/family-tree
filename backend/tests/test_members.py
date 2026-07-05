@@ -843,6 +843,62 @@ def test_unlinking_tree_clears_linked_member(client, db):
     assert cleared.json()["linkedMemberId"] is None
 
 
+def test_deleting_bridge_person_unlinks_counterpart(client, db):
+    """Deleting one half of a bridge person turns the surviving counterpart
+    back into an ordinary member — both link fields cleared, not just the FK
+    that points at the deleted row."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    assert created.status_code == 201
+    sub_id = created.json()["tree"]["id"]
+    counterpart_id = created.json()["anchor"]["linkedMemberId"]
+
+    # Delete the bridge person in the sub-tree; the origin row must fully unlink.
+    res = client.delete(
+        f"{API}/trees/{sub_id}/members/{counterpart_id}", headers=auth(user)
+    )
+    assert res.status_code == 204
+
+    origin = client.get(
+        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
+    ).json()
+    assert origin["linkedTreeId"] is None
+    assert origin["linkedMemberId"] is None
+
+
+def test_deleting_origin_unlinks_bridge_in_subtree(client, db):
+    """Symmetry: deleting the origin bridge person leaves the sub-tree copy an
+    ordinary member as well."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1")
+    created = client.post(
+        f"{API}/trees/{main.id}/members/m1/subtree",
+        headers=auth(user),
+        json={"name": "Sub"},
+    )
+    assert created.status_code == 201
+    sub_id = created.json()["tree"]["id"]
+    counterpart_id = created.json()["anchor"]["linkedMemberId"]
+
+    res = client.delete(
+        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
+    )
+    assert res.status_code == 204
+
+    counterpart = client.get(
+        f"{API}/trees/{sub_id}/members/{counterpart_id}", headers=auth(user)
+    ).json()
+    assert counterpart["linkedTreeId"] is None
+    assert counterpart["linkedMemberId"] is None
+
+
 def test_edit_member_with_unchanged_link_succeeds_when_flag_off(client, db):
     """The member form re-sends linkedTreeId unchanged on every save; once the
     tree_links flag is turned off that must not block ordinary edits."""
