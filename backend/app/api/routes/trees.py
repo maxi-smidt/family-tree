@@ -121,6 +121,7 @@ def create_tree(
     )
     db.commit()
     db.refresh(tree)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
 
 
@@ -401,6 +402,7 @@ def update_tree(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logged = False
     if payload.name is not None and payload.name != tree.name:
         old_name = tree.name
         tree.name = payload.name
@@ -409,8 +411,11 @@ def update_tree(
             target_type="tree", target_id=tree.id, target_label=tree.name,
             details={"before": {"name": old_name}, "after": {"name": tree.name}},
         )
+        logged = True
     db.commit()
     db.refresh(tree)
+    if logged:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
 
 
@@ -461,6 +466,7 @@ def set_public_access(
         )
     old_public_role = tree.public_role
     tree.public_role = payload.public_role
+    logged = False
     if old_public_role != tree.public_role:
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
@@ -470,8 +476,11 @@ def set_public_access(
                 "after": {"public_role": tree.public_role},
             },
         )
+        logged = True
     db.commit()
     db.refresh(tree)
+    if logged:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
 
 
@@ -576,6 +585,8 @@ def share_tree(
     publish_tree_event(
         db, tree, "tree.access_changed", {"tree_id": tree.id}, extra_user_ids=[target.id]
     )
+    if is_new_grant:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return list_access(tree=tree, db=db)
 
 
@@ -605,6 +616,7 @@ def revoke_access(
             {"tree_id": tree.id},
             extra_user_ids=[user_id],
         )
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
 
 
 _BATCH_TREE_IDS_MAX = 100
@@ -705,6 +717,7 @@ def share_trees_batch(
             raise HTTPException(status_code=403, detail="You can only share with friends")
         trees.append(t)
 
+    logged_trees: list[Tree] = []
     for t in trees:
         membership = db.get(TreeMembership, (t.id, target.id))
         is_new_grant = membership is None
@@ -725,12 +738,15 @@ def share_trees_batch(
                 target_type="share", target_id=target.id, target_label=target.username,
                 details={"role": payload.role},
             )
+            logged_trees.append(t)
     db.commit()
 
     for t in trees:
         publish_tree_event(
             db, t, "tree.access_changed", {"tree_id": t.id}, extra_user_ids=[target.id]
         )
+    for t in logged_trees:
+        publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
     return list_access(tree=tree, db=db)
 
 
@@ -784,6 +800,7 @@ def revoke_access_batch(
             {"tree_id": t.id},
             extra_user_ids=[payload.user_id],
         )
+        publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
 
 
 @router.patch(
@@ -809,16 +826,19 @@ def update_member_restrictions(
         raise HTTPException(status_code=404, detail="Membership not found")
     before_restrictions = list(membership.restrictions or [])
     membership.restrictions = payload.restrictions or None
+    after_restrictions = list(membership.restrictions or [])
     target_user = db.get(User, user_id)
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="share", target_id=user_id,
-        target_label=target_user.username if target_user else None,
-        details={
-            "before": {"restrictions": before_restrictions},
-            "after": {"restrictions": list(membership.restrictions or [])},
-        },
-    )
+    logged = before_restrictions != after_restrictions
+    if logged:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="share", target_id=user_id,
+            target_label=target_user.username if target_user else None,
+            details={
+                "before": {"restrictions": before_restrictions},
+                "after": {"restrictions": after_restrictions},
+            },
+        )
     db.commit()
     publish_tree_event(
         db,
@@ -827,6 +847,8 @@ def update_member_restrictions(
         {"tree_id": tree.id},
         extra_user_ids=[user_id],
     )
+    if logged:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return list_access(tree=tree, db=db)
 
 
@@ -926,6 +948,7 @@ def transfer_ownership(
     )
     db.commit()
     db.refresh(tree)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db,
         tree,
@@ -992,6 +1015,7 @@ def revert_transfer(
     )
     db.commit()
     db.refresh(tree)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db,
         tree,

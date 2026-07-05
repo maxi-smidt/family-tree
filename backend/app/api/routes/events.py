@@ -120,6 +120,11 @@ def update_event(
     )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "event"},
+    )
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(event)
     publish_tree_event(
         db, tree, "tree.content_changed",

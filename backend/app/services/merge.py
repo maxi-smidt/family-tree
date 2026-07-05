@@ -40,6 +40,7 @@ from app.models import (
 from app.schemas.family import MemberOut
 from app.schemas.merge import DuplicatePair, MergeResolution, TreeMergePreview
 from app.services.activity import record_activity
+from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback
 from app.services.storage import copy_media_to_tree
 
@@ -701,4 +702,5 @@ def merge_trees(
     )
     db.commit()
     db.refresh(new_tree)
+    publish_tree_event(db, new_tree, "activity.entry_added", {"tree_id": new_tree.id})
     return new_tree

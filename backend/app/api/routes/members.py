@@ -830,6 +830,7 @@ def link_member_to_tree(
         )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(db, target, "activity.entry_added", {"tree_id": target.id})
     db.refresh(member)
     db.refresh(target)
     publish_tree_event(
