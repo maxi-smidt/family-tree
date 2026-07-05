@@ -1,6 +1,6 @@
 """v1.5.0 — linked tree / member bridge + manual geocode flag
 
-Revision ID: v1_5_0_linked_tree_geocode_manual
+Revision ID: v1_5_0_linked_tree_geocode
 Revises: v1_4_0_legal_quality_cemetery
 Create Date: 2026-07-05 12:00:00.000000
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'v1_5_0_linked_tree_geocode_manual'
+revision: str = 'v1_5_0_linked_tree_geocode'
 down_revision: Union[str, None] = 'v1_4_0_legal_quality_cemetery'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
