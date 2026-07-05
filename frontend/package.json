@@ -4,7 +4,9 @@
   "version": "1.4.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/gen-changelog.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/gen-changelog.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "bump:patch": "node scripts/bump-version.js patch",
@@ -15,7 +17,9 @@
     "release:major": "node scripts/bump-version.js major --tag",
     "test": "vitest",
     "check-i18n": "node scripts/check-i18n.mjs",
-    "check-no-any": "node scripts/check-no-any.mjs"
+    "check-no-any": "node scripts/check-no-any.mjs",
+    "gen-changelog": "node scripts/gen-changelog.mjs",
+    "check-changelog": "node scripts/gen-changelog.mjs --check"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",

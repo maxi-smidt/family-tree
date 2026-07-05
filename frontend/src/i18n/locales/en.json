@@ -1691,6 +1691,11 @@
     "default-title": "What's new",
     "dismiss": "Got it"
   },
+  "changelog": {
+    "title": "What's new",
+    "trigger-label": "View changelog",
+    "empty": "No changelog entries available."
+  },
   "legal": {
     "legal-link": "Terms · Privacy · Impressum",
     "legal-link-public": "Privacy · Impressum",

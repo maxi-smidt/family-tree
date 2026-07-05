@@ -30,3 +30,4 @@ appdata
 data
 .data
 .appdata
+!frontend/src/data
