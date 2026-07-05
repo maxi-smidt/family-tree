@@ -53,6 +53,7 @@ from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
 from app.services.storage_usage import compute_usage, owner_quotas
+from app.services.tree_links import reachable_linked_trees
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -387,53 +388,6 @@ def get_link_graph(
     )
 
 
-def _reachable_linked_trees(db: Session, tree: Tree, user: User) -> list[Tree]:
-    """Trees reachable from ``tree`` via member links, readable by ``user``.
-
-    Same BFS/traversal rules as ``get_link_graph`` (depth/node caps, only
-    traversing through trees the user can read), but returns just the list of
-    accessible target ``Tree`` rows (excluding the anchor tree itself) since
-    the batch-sharing endpoints don't need the edge/placeholder detail.
-    """
-
-    def is_accessible(t: Tree) -> bool:
-        return (
-            user.is_admin
-            or role_for(db, t, user) is not None
-            or t.public_role == "viewer"
-        )
-
-    found: list[Tree] = []
-    frontier: list[tuple[Tree, int]] = [(tree, 0)]
-    visited: set[str] = {tree.id}
-
-    while frontier:
-        current, depth = frontier.pop(0)
-        if depth >= _LINK_GRAPH_MAX_DEPTH:
-            continue
-        if len(visited) >= _LINK_GRAPH_MAX_NODES:
-            continue
-
-        target_ids = db.scalars(
-            select(Member.linked_tree_id)
-            .where(Member.tree_id == current.id, Member.linked_tree_id.isnot(None))
-            .distinct()
-        ).all()
-        for target_id in target_ids:
-            if target_id in visited:
-                continue
-            visited.add(target_id)
-            if len(visited) > _LINK_GRAPH_MAX_NODES:
-                continue
-            target = db.get(Tree, target_id)
-            if target is None or not is_accessible(target):
-                continue
-            found.append(target)
-            frontier.append((target, depth + 1))
-
-    return found
-
-
 @router.patch("/{tree_id}", response_model=TreeOut)
 def update_tree(
     payload: TreeUpdate,
@@ -645,7 +599,7 @@ def list_linked_share_trees(
         if target_user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
-    linked = _reachable_linked_trees(db, tree, user)
+    linked = reachable_linked_trees(db, tree, user)
     result: list[LinkedShareTreeOut] = []
     for t in linked:
         member_count = (

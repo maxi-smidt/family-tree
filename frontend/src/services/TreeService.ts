@@ -33,7 +33,7 @@ import { CitationDB, EvidenceOps, SourceDB, SourceInput } from "@/types/source";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
-import { StatisticsReport } from "@/types/statistics";
+import { CombinedStatisticsReport, StatisticsReport } from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
 import { LinkGraphDB } from "@/types/linkGraph";
 
@@ -689,6 +689,12 @@ export class TreeService {
   // --- Statistics -----------------------------------------------------------
   static getStatistics(treeId: string) {
     return api.get<StatisticsReport>(`${base(treeId)}/statistics`);
+  }
+
+  static getCombinedStatistics(treeId: string) {
+    return api.get<CombinedStatisticsReport>(
+      `${base(treeId)}/statistics/combined`,
+    );
   }
 
   // --- Storage usage -------------------------------------------------------

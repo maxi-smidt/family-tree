@@ -37,3 +37,15 @@ class StatisticsReport(BaseModel):
     lifespan_distribution: list[AgeGroup]
     top_first_names: list[NameCount]
     top_last_names: list[NameCount]
+
+
+class CombinedStatisticsReport(StatisticsReport):
+    """Statistics aggregated across the anchor tree and its linked trees.
+
+    Same shape as ``StatisticsReport`` (``tree_id`` stays the anchor tree's
+    id) plus how many trees were folded in and which ones, so the frontend
+    can show "across N trees" without a second request.
+    """
+
+    tree_count: int
+    included_tree_ids: list[str]
