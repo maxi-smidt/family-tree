@@ -26,7 +26,7 @@ import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import { CitationDB, EvidenceOps, SourceDB, SourceInput } from "@/types/source";
-import { GeocodeDB } from "@/types/geocode";
+import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { StatisticsReport } from "@/types/statistics";
@@ -304,6 +304,19 @@ export class TreeService {
   static geocodePreview(treeId: string, q: string) {
     return api.get<GeocodeDB>(
       `${base(treeId)}/geocode/preview?q=${encodeURIComponent(q)}`,
+    );
+  }
+
+  static geocodeOverride(
+    treeId: string,
+    body: { query: string; lat: number; lon: number; display_name?: string },
+  ) {
+    return api.post<GeocodeDB>(`${base(treeId)}/geocode/override`, body);
+  }
+
+  static geocodeSearch(treeId: string, q: string, limit = 5) {
+    return api.get<GeocodeCandidate[]>(
+      `${base(treeId)}/geocode/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     );
   }
 

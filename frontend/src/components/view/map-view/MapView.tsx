@@ -12,6 +12,7 @@ import {
   Popup,
   Polyline,
   useMap,
+  useMapEvent,
 } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -23,11 +24,20 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Command,
   CommandEmpty,
@@ -46,6 +56,7 @@ import {
   Play,
   Pause,
   RefreshCw,
+  Wrench,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -60,7 +71,7 @@ import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTranslation } from "react-i18next";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { getEventTypeLabel, getEventTypeInfo } from "@/types/eventTypes";
-import { GeocodeResult } from "@/types/geocode";
+import { GeocodeCandidate, GeocodeResult } from "@/types/geocode";
 import { Member } from "@/types/member";
 
 // Fix Leaflet default icon paths in bundler environments
@@ -255,9 +266,17 @@ function TypeSwatch({
 function FitBounds({
   groups,
   fitSignal,
+  suppress,
 }: {
   groups: LocationGroup[];
   fitSignal: number;
+  // While a cross-view "show on map" request (#554) is pending/being
+  // consumed, `MapFocus` owns the viewport for that one interaction — skip
+  // fitting entirely so it can't win a race against `MapFocus`'s `setView`
+  // (e.g. the member-select side effect of a focus request would otherwise
+  // also bump `fitSignal` here and re-fit to that member's *entire* bounds,
+  // yanking the view back out right after `MapFocus` zoomed in).
+  suppress: boolean;
 }) {
   const map = useMap();
   // Fit once, the first time points become available, so toggling a legend
@@ -267,6 +286,16 @@ function FitBounds({
   const lastSignalRef = useRef(fitSignal);
 
   useEffect(() => {
+    if (suppress) {
+      // Count a suppressed run as "already fit" so that lifting suppression
+      // later doesn't get treated as the very first eligible run — without
+      // this, `hasFitRef` would still be false the moment `suppress` flips
+      // back off, and this effect would immediately fit to all bounds right
+      // after `MapFocus` finished zooming to its specific location.
+      hasFitRef.current = true;
+      lastSignalRef.current = fitSignal;
+      return;
+    }
     if (groups.length === 0) return;
     const signalChanged = lastSignalRef.current !== fitSignal;
     if (hasFitRef.current && !signalChanged) return;
@@ -278,7 +307,69 @@ function FitBounds({
       hasFitRef.current = true;
       lastSignalRef.current = fitSignal;
     }
-  }, [groups, map, fitSignal]);
+  }, [groups, map, fitSignal, suppress]);
+  return null;
+}
+
+// Handles a cross-view "show on map" request (#554): once the requested
+// location resolves to a coordinate present in `groups`, pans/zooms the map
+// there and opens that marker's popup, then clears the request so it only
+// fires once. If the coordinate isn't resolved yet (geocoding still
+// in-flight), it just waits — the effect re-runs as `coords`/`focus` change.
+// A consumed-ref guards against re-firing for the same request object.
+//
+// Matching is done by *resolved coordinate*, not by raw location string:
+// a `LocationGroup` only keeps whichever raw string was inserted into it
+// first, so a different string that geocodes to the same place (e.g. an
+// event's "Springfield" vs a member's "Springfield, Illinois") would never
+// string-match the group's `location` even though it's the exact same
+// marker. Resolving `focus.location` through the geocode `coords` map first
+// and then comparing coordinates handles that correctly.
+function MapFocus({
+  focus,
+  groups,
+  coords,
+  markerRefs,
+  onConsumed,
+}: {
+  focus: { location: string; memberId?: string } | null;
+  groups: LocationGroup[];
+  coords: Map<string, GeocodeResult>;
+  markerRefs: Map<string, L.Marker>;
+  onConsumed: () => void;
+}) {
+  const map = useMap();
+  const consumedRef = useRef<typeof focus>(null);
+
+  useEffect(() => {
+    if (!focus || consumedRef.current === focus) return;
+    const resolved = coords.get(focus.location);
+    if (!resolved?.resolved || resolved.lat === null || resolved.lon === null) {
+      return;
+    }
+    const key = `${resolved.lat.toFixed(5)},${resolved.lon.toFixed(5)}`;
+    const group = groups.find(
+      (g) =>
+        g.coord.lat !== null &&
+        g.coord.lon !== null &&
+        `${g.coord.lat.toFixed(5)},${g.coord.lon.toFixed(5)}` === key,
+    );
+    if (!group) return;
+
+    consumedRef.current = focus;
+    map.setView([resolved.lat, resolved.lon], 13);
+    // Give Leaflet a tick to settle the view (and any cluster
+    // unspiderfying) before opening the popup on the target marker. Calling
+    // `onConsumed` (which clears the request in the store) re-renders this
+    // component with `focus` now null — if the timeout were tied to this
+    // effect's cleanup, that re-render would cancel it before it fires, so it
+    // deliberately outlives the effect instead of being cleared on rerun.
+    setTimeout(() => {
+      markerRefs.get(key)?.openPopup();
+    }, 250);
+    onConsumed();
+  }, [focus, groups, coords, map, markerRefs, onConsumed]);
+
   return null;
 }
 
@@ -403,23 +494,255 @@ function EventPopupItem({
   );
 }
 
+// Listens for map clicks and reports the clicked lat/lon to the parent. Must
+// be rendered as a child of MapContainer (react-leaflet hooks require the
+// map context), which is why it's a tiny standalone component rather than
+// inline logic in LocationFixDialog.
+function PinDropListener({
+  onPick,
+}: {
+  onPick: (lat: number, lon: number) => void;
+}) {
+  useMapEvent("click", (e) => {
+    onPick(e.latlng.lat, e.latlng.lng);
+  });
+  return null;
+}
+
+// Dialog opened from the unresolved-locations popover's "Fix" button. Lets
+// the user correct a location that failed to geocode by either picking a
+// Nominatim suggestion for an edited search string, or dropping a pin on a
+// small embedded map. Confirming either tab calls overrideLocation, which
+// persists a `manual=true` row in the global geocode cache (never
+// re-geocoded) and updates the local coords map so the marker appears
+// immediately and the location drops out of the unresolved list.
+function LocationFixDialog({
+  location,
+  open,
+  onOpenChange,
+  t,
+  searchLocations,
+  overrideLocation,
+}: {
+  location: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  t: (key: string, options?: Record<string, unknown>) => string;
+  searchLocations: (query: string) => Promise<GeocodeCandidate[]>;
+  overrideLocation: (
+    location: string,
+    lat: number,
+    lon: number,
+    displayName?: string,
+  ) => Promise<void>;
+}) {
+  const [query, setQuery] = useState(location);
+  const [candidates, setCandidates] = useState<GeocodeCandidate[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [pin, setPin] = useState<{ lat: number; lon: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Reset local state whenever the dialog is (re)opened for a location.
+  useEffect(() => {
+    if (open) {
+      setQuery(location);
+      setCandidates([]);
+      setSearched(false);
+      setPin(null);
+    }
+  }, [open, location]);
+
+  const handleSearch = async () => {
+    setSearching(true);
+    try {
+      const results = await searchLocations(query);
+      setCandidates(results);
+      setSearched(true);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleConfirmCandidate = async (candidate: GeocodeCandidate) => {
+    setSaving(true);
+    try {
+      await overrideLocation(
+        location,
+        candidate.lat,
+        candidate.lon,
+        candidate.display_name,
+      );
+      onOpenChange(false);
+    } catch {
+      // overrideLocation already toasts; keep the dialog open to retry.
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleConfirmPin = async () => {
+    if (!pin) return;
+    setSaving(true);
+    try {
+      await overrideLocation(location, pin.lat, pin.lon);
+      onOpenChange(false);
+    } catch {
+      // overrideLocation already toasts; keep the dialog open to retry.
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t("fix-location-title", { location })}</DialogTitle>
+        </DialogHeader>
+        <Tabs defaultValue="search">
+          <TabsList className="w-full">
+            <TabsTrigger value="search">{t("fix-tab-search")}</TabsTrigger>
+            <TabsTrigger value="pin">{t("fix-tab-pin")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="search" className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("fix-search-placeholder")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleSearch();
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void handleSearch()}
+                disabled={searching || !query.trim()}
+              >
+                {searching ? <Spinner /> : t("fix-search-button")}
+              </Button>
+            </div>
+            {searched && candidates.length === 0 && !searching && (
+              <p className="text-sm text-muted-foreground">
+                {t("fix-no-results")}
+              </p>
+            )}
+            {candidates.length > 0 && (
+              <ul className="space-y-1 max-h-48 overflow-y-auto">
+                {candidates.map((candidate, i) => (
+                  <li key={i}>
+                    <button
+                      type="button"
+                      className="w-full text-left text-sm rounded-md border px-3 py-2 hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
+                      onClick={() => void handleConfirmCandidate(candidate)}
+                      disabled={saving}
+                    >
+                      {candidate.display_name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </TabsContent>
+          <TabsContent value="pin" className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {t("fix-drop-pin-hint")}
+            </p>
+            <div
+              className="rounded-lg overflow-hidden border border-border"
+              style={{ height: 320 }}
+            >
+              <MapContainer
+                center={[20, 0]}
+                zoom={2}
+                style={{ height: "100%", width: "100%" }}
+                scrollWheelZoom
+              >
+                <TileLayer
+                  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  detectRetina
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                />
+                <PinDropListener onPick={(lat, lon) => setPin({ lat, lon })} />
+                {pin && (
+                  <Marker
+                    position={[pin.lat, pin.lon]}
+                    draggable
+                    eventHandlers={{
+                      dragend: (e) => {
+                        const marker = e.target as L.Marker;
+                        const { lat, lng } = marker.getLatLng();
+                        setPin({ lat, lon: lng });
+                      },
+                    }}
+                  />
+                )}
+              </MapContainer>
+            </div>
+            {pin && (
+              <p className="text-sm text-muted-foreground">
+                {t("fix-selected-coords", {
+                  lat: pin.lat.toFixed(5),
+                  lon: pin.lon.toFixed(5),
+                })}
+              </p>
+            )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+              >
+                {t("cancel")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => void handleConfirmPin()}
+                disabled={!pin || saving}
+              >
+                {saving ? <Spinner /> : t("fix-confirm")}
+              </Button>
+            </DialogFooter>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Footer control replacing the old plain-text "unlocatable" count: a
 // muted trigger button that opens a scrollable list of every location string
 // that failed to geocode, each with where it's used (member field / event)
-// and a per-location retry button that evicts + re-requests just that one.
+// and a per-location retry button that evicts + re-requests just that one,
+// plus a "Fix" button that opens LocationFixDialog for a manual correction.
 function UnresolvedLocationsPopover({
   unresolvedLocations,
   t,
   i18nT,
   onShowMember,
   onRetry,
+  searchLocations,
+  overrideLocation,
 }: {
   unresolvedLocations: UnresolvedLocation[];
   t: (key: string, options?: Record<string, unknown>) => string;
   i18nT: (key: string) => string;
   onShowMember: (memberId: string) => void;
   onRetry: (location: string) => void;
+  searchLocations: (query: string) => Promise<GeocodeCandidate[]>;
+  overrideLocation: (
+    location: string,
+    lat: number,
+    lon: number,
+    displayName?: string,
+  ) => Promise<void>;
 }) {
+  const [fixLocation, setFixLocation] = useState<string | null>(null);
   if (unresolvedLocations.length === 0) return null;
   return (
     <Popover>
@@ -444,17 +767,30 @@ function UnresolvedLocationsPopover({
                 <span className="text-sm font-medium break-words">
                   {location}
                 </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 gap-1 shrink-0"
-                  onClick={() => onRetry(location)}
-                  aria-label={t("retry-location", { location })}
-                  title={t("retry-location", { location })}
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  {t("retry")}
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1"
+                    onClick={() => setFixLocation(location)}
+                    aria-label={t("fix-location")}
+                    title={t("fix-location")}
+                  >
+                    <Wrench className="h-3 w-3" />
+                    {t("fix-location")}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1"
+                    onClick={() => onRetry(location)}
+                    aria-label={t("retry-location", { location })}
+                    title={t("retry-location", { location })}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    {t("retry")}
+                  </Button>
+                </div>
               </div>
               <ul className="space-y-1">
                 {usages.map((usage, i) => (
@@ -485,6 +821,18 @@ function UnresolvedLocationsPopover({
           ))}
         </div>
       </PopoverContent>
+      {fixLocation !== null && (
+        <LocationFixDialog
+          location={fixLocation}
+          open={fixLocation !== null}
+          onOpenChange={(open) => {
+            if (!open) setFixLocation(null);
+          }}
+          t={t}
+          searchLocations={searchLocations}
+          overrideLocation={overrideLocation}
+        />
+      )}
     </Popover>
   );
 }
@@ -498,12 +846,20 @@ export const MapView = () => {
     (s) => s.setPendingLocateMemberId,
   );
   const navigateTo = useNavigationStore((s) => s.navigateTo);
+  const pendingMapFocus = useNavigationStore((s) => s.pendingMapFocus);
+  const clearMapFocus = useNavigationStore((s) => s.clearMapFocus);
   const {
     events,
     refreshEvents,
     initialized: eventsInitialized,
   } = useEventStore();
-  const { coords, resolveLocations, retryLocations } = useGeocodeStore();
+  const {
+    coords,
+    resolveLocations,
+    retryLocations,
+    searchLocations,
+    overrideLocation,
+  } = useGeocodeStore();
   const geocodePending = useGeocodeStore((s) => s.pendingCount > 0);
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
@@ -525,6 +881,11 @@ export const MapView = () => {
   // deferred-loading data (events arrive after members) never hides anything.
   const [sliderTouched, setSliderTouched] = useState(false);
   const prevMemberRef = useRef<string | "all">(selectedMemberId);
+  // Marker instances keyed by the same `${lat.toFixed(5)},${lon.toFixed(5)}`
+  // coordinate key used for each `Marker`'s `key`/grouping, so a cross-view
+  // "show on map" request (#554) can open that exact marker's popup once its
+  // location has resolved. Populated via each `Marker`'s `ref` callback.
+  const markerRefsRef = useRef<Map<string, L.Marker>>(new Map());
   const visibleLocationTypeSet = useMemo(
     () => new Set(visibleLocationTypes),
     [visibleLocationTypes],
@@ -632,6 +993,22 @@ export const MapView = () => {
     setPendingLocateMemberId(memberId);
     navigateTo("tree-view");
   };
+
+  // Cross-view "show on map" (#554): when a focus request carries a member
+  // (from a member sheet location field, or a timeline event's first linked
+  // member), select them on the map too so their life path/marker context
+  // shows up alongside the pan. The location pan/popup itself is handled by
+  // `MapFocus` below, keyed off the same `pendingMapFocus`. `prevMemberRef` is
+  // updated in lockstep so the "auto-fit when the member filter changes"
+  // effect below doesn't see this as a user-driven filter change and bump
+  // `fitSignal` — that would re-fit to the member's full bounds and yank the
+  // view away from the specific location we just panned/zoomed to.
+  useEffect(() => {
+    if (pendingMapFocus?.memberId) {
+      prevMemberRef.current = pendingMapFocus.memberId;
+      setSelectedMemberId(pendingMapFocus.memberId);
+    }
+  }, [pendingMapFocus]);
 
   // Gather visible location strings from all sources for geocoding
   const allLocations = useMemo(() => {
@@ -794,12 +1171,18 @@ export const MapView = () => {
   ]);
 
   // Auto-fit when the member filter changes so the new selection is centered.
+  // Skipped while a cross-view "show on map" request (#554) is pending: that
+  // flow selects a member as a side effect (so their life path/marker shows
+  // up), but `MapFocus` already owns the viewport for that one specific
+  // location — a bump here would re-fit to the member's *entire* bounds and
+  // yank the view away right after `MapFocus` zoomed in.
   useEffect(() => {
+    if (pendingMapFocus) return;
     if (prevMemberRef.current !== selectedMemberId) {
       prevMemberRef.current = selectedMemberId;
       if (locationGroups.length > 0) setFitSignal((s) => s + 1);
     }
-  }, [selectedMemberId, locationGroups.length]);
+  }, [selectedMemberId, locationGroups.length, pendingMapFocus]);
 
   // Life path (#552): for a single selected member, a chronological line
   // through birthplace -> places lived (sorted by "from", undated ones last)
@@ -1209,7 +1592,18 @@ export const MapView = () => {
                 detectRetina
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               />
-              <FitBounds groups={locationGroups} fitSignal={fitSignal} />
+              <FitBounds
+                groups={locationGroups}
+                fitSignal={fitSignal}
+                suppress={pendingMapFocus !== null}
+              />
+              <MapFocus
+                focus={pendingMapFocus}
+                groups={locationGroups}
+                coords={coords}
+                markerRefs={markerRefsRef.current}
+                onConsumed={clearMapFocus}
+              />
               {showLifePath &&
                 selectedMemberId !== "all" &&
                 lifePathPoints.length >= 2 && (
@@ -1243,6 +1637,11 @@ export const MapView = () => {
                     itemsByType.has(type),
                   );
 
+                  // Same key format as `locationGroups`' `byCoord` map, so
+                  // `MapFocus` can look up this exact marker instance by
+                  // coordinate to open its popup after panning to it.
+                  const coordKey = `${group.coord.lat!.toFixed(5)},${group.coord.lon!.toFixed(5)}`;
+
                   return (
                     <Marker
                       key={`${group.coord.lat},${group.coord.lon}`}
@@ -1257,6 +1656,10 @@ export const MapView = () => {
                           location: group.coord.displayName || group.location,
                         }),
                       )}
+                      ref={(marker) => {
+                        if (marker) markerRefsRef.current.set(coordKey, marker);
+                        else markerRefsRef.current.delete(coordKey);
+                      }}
                     >
                       <Popup maxWidth={300} maxHeight={280}>
                         <div className="space-y-2 text-sm">
@@ -1391,6 +1794,8 @@ export const MapView = () => {
             i18nT={i18n.t}
             onShowMember={showMemberInTree}
             onRetry={(location) => retryLocations([location])}
+            searchLocations={searchLocations}
+            overrideLocation={overrideLocation}
           />
         )
       )}
