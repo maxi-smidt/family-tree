@@ -152,6 +152,22 @@ class MemberSubtreeCreate(FamilyTreeBaseModel):
     name: str
 
 
+class MemberLinkRequest(FamilyTreeBaseModel):
+    """Request body for establishing a tree-in-tree bridge on an existing
+    member: either by finding a matching person already in the target tree
+    (``mode="existing"``) or by copying the member into it as a new bridge
+    person (``mode="create"``)."""
+
+    linked_tree_id: str
+    mode: Literal["existing", "create"]
+    counterpart_member_id: str | None = None
+    # Per-field resolution choices (a = this member, b = counterpart) applied
+    # when mode="existing" reconciles the bridge pair's conflicting fields.
+    # Ignored for mode="create" (nothing to reconcile — the counterpart is a
+    # fresh clone of this member).
+    field_choices: dict[str, Literal["a", "b", "combine"]] = {}
+
+
 class BridgeSyncRequest(FamilyTreeBaseModel):
     """Resolve bridge-person drift by copying fields across the link.
 

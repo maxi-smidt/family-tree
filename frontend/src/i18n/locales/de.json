@@ -532,7 +532,26 @@
         "toast-created": "„{{name}}“ erstellt und verknüpft.",
         "toast-created-seeded": "„{{name}}“ erstellt und diese Person darin angelegt.",
         "create-requires-save": "Speichere zuerst deine Änderungen — beim Erstellen wird diese Person sofort im neuen Stammbaum angelegt.",
-        "toast-create-error": "Der verknüpfte Stammbaum konnte nicht erstellt werden."
+        "save-first-hint": "Speichere diese Person zuerst — zum Verknüpfen muss sie bereits existieren.",
+        "toast-create-error": "Der verknüpfte Stammbaum konnte nicht erstellt werden.",
+        "link-dialog": {
+          "title": "„{{name}}“ verknüpfen",
+          "description": "Wähle aus, wie {{member}} mit einer Person in „{{tree}}“ zusammenhängt.",
+          "mode-existing": "Vorhandene Person finden",
+          "mode-create": "Kopie erstellen",
+          "mode-existing-description": "Es werden nur Personen angezeigt, die genauso heißen wie {{member}} in „{{tree}}“ — eine verbindende Person ist auf beiden Seiten dieselbe Person. Unterscheiden sich die Angaben der gefundenen Person, kannst du sie vor dem Verknüpfen Feld für Feld abgleichen.",
+          "mode-create-description": "Eine Kopie von {{member}} wird zu „{{tree}}“ hinzugefügt und dient dort als verbindende Person zwischen den Stammbäumen.",
+          "existing-placeholder": "Person auswählen…",
+          "no-candidates": "In „{{tree}}“ wurde niemand namens {{member}} gefunden — verwende stattdessen „Kopie erstellen“.",
+          "loading": "Wird geladen…",
+          "no-access": "Du benötigst Bearbeitungsrechte für „{{tree}}“, um ihn zu verknüpfen — bitte den Eigentümer, dich als Bearbeiter hinzuzufügen.",
+          "cancel": "Abbrechen",
+          "confirm": "Verknüpfen",
+          "toast-success": "Mit „{{name}}“ verknüpft.",
+          "toast-error-already-linked": "Diese Person ist bereits mit einem anderen Stammbaum verknüpft.",
+          "toast-error-no-access": "Du hast keine Bearbeitungsrechte für diesen Stammbaum.",
+          "toast-error-generic": "Der Stammbaum konnte nicht verknüpft werden."
+        }
       },
       "birthplace-field": "Geburtsort",
       "hometown-field": "Heimatort / Aufgewachsen in",

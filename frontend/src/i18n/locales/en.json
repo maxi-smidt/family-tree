@@ -532,7 +532,26 @@
         "toast-created": "Created and linked “{{name}}”.",
         "toast-created-seeded": "Created “{{name}}” and added this person to it.",
         "create-requires-save": "Save your changes first — creating a linked tree stores this person in it right away.",
-        "toast-create-error": "Could not create the linked tree."
+        "save-first-hint": "Save this person first — linking a tree requires it to already exist.",
+        "toast-create-error": "Could not create the linked tree.",
+        "link-dialog": {
+          "title": "Link “{{name}}”",
+          "description": "Choose how {{member}} relates to a person already in “{{tree}}”.",
+          "mode-existing": "Find existing person",
+          "mode-create": "Create a copy",
+          "mode-existing-description": "Only people named the same as {{member}} in “{{tree}}” are shown — a bridge person is the same individual on both sides. If the matched person's details differ, you'll be asked to resolve them field by field before the link is created.",
+          "mode-create-description": "A copy of {{member}} will be added to “{{tree}}” as the bridge person connecting the two trees.",
+          "existing-placeholder": "Choose a person…",
+          "no-candidates": "No one named {{member}} was found in “{{tree}}” — use “Create a copy” instead.",
+          "loading": "Loading…",
+          "no-access": "You need edit access to “{{tree}}” to link it — ask the owner to make you an editor first.",
+          "cancel": "Cancel",
+          "confirm": "Link",
+          "toast-success": "Linked to “{{name}}”.",
+          "toast-error-already-linked": "That person is already linked to another tree.",
+          "toast-error-no-access": "You don't have edit access to that tree.",
+          "toast-error-generic": "Could not link the tree."
+        }
       },
       "birthplace-field": "Birthplace",
       "hometown-field": "Hometown / Where They Grew Up",

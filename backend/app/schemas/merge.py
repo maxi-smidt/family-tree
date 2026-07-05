@@ -28,6 +28,14 @@ class TreeMergePreview(BaseModel):
     duplicates: list[DuplicatePair]
 
 
+class LinkCandidatesOut(BaseModel):
+    """Same-named members in a target tree that could be the bridge
+    counterpart for a tree-in-tree link, shaped like merge duplicate pairs so
+    the client can reuse ``MergeConflictResolver``."""
+
+    candidates: list[DuplicatePair]
+
+
 # --- Resolution types (used in the merge request) --------------------------
 
 
