@@ -128,10 +128,24 @@ class GeocodeOut(BaseModel):
     lon: float | None = None
     display_name: str | None = None
     resolved: bool
+    manual: bool = False
 
 
 class GeocodeRequest(BaseModel):
     locations: list[str] = []
+
+
+class GeocodeOverrideRequest(BaseModel):
+    query: str
+    lat: float
+    lon: float
+    display_name: str | None = None
+
+
+class GeocodeCandidate(BaseModel):
+    lat: float
+    lon: float
+    display_name: str
 
 
 # --- Member link rows (returned by the *_link list endpoints) --------------

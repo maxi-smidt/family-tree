@@ -586,6 +586,7 @@
       "birthplace-label": "Birthplace",
       "hometown-label": "Hometown",
       "cemetery-label": "Cemetery",
+      "show-on-map": "Show on map",
       "dod-deceased-no-date": "Deceased (date unknown)",
       "academic-title-item": "Academic / Honorific Title",
       "tab-identity": "Identity",
@@ -1028,6 +1029,7 @@
       "show-details": "Show details",
       "edit-event": "Edit event",
       "delete-event": "Delete event",
+      "show-on-map": "Show on map",
       "delete-dialog": {
         "title": "Delete Event",
         "description": "Are you sure you want to delete this event? This action cannot be undone.",
@@ -1112,7 +1114,9 @@
       "delete-error": "Could not delete the member. It has been restored."
     },
     "geocode": {
-      "resolve-error": "Could not resolve map locations."
+      "resolve-error": "Could not resolve map locations.",
+      "override-error": "Could not save the location correction.",
+      "search-error": "Could not search for locations."
     }
   },
   "quality-report-view": {
@@ -1761,7 +1765,18 @@
       "retry": "Retry",
       "retry-location": "Retry resolving \"{{location}}\"",
       "marker-aria-label_one": "{{location}} – {{count}} entry",
-      "marker-aria-label_other": "{{location}} – {{count}} entries"
+      "marker-aria-label_other": "{{location}} – {{count}} entries",
+      "fix-location": "Fix location",
+      "fix-location-title": "Correct location: {{location}}",
+      "fix-tab-search": "Search",
+      "fix-tab-pin": "Drop a pin",
+      "fix-search-placeholder": "Edit the search text…",
+      "fix-search-button": "Search",
+      "fix-no-results": "No results found. Try adjusting the search text.",
+      "fix-drop-pin-hint": "Click the map to place a pin at the correct location. Drag it to fine-tune the position.",
+      "fix-selected-coords": "Selected: {{lat}}, {{lon}}",
+      "fix-confirm": "Save correction",
+      "cancel": "Cancel"
     }
   },
   "unsaved-changes": {

@@ -6,7 +6,12 @@ import pytest
 
 from app.models.content import GeocodeCache
 from app.services import geocoding
-from app.services.geocoding import GeocodeUnavailableError, resolve_batch
+from app.services.geocoding import (
+    GeocodeUnavailableError,
+    resolve_batch,
+    search_candidates,
+    set_override,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -29,13 +34,16 @@ def _patch_lookup(monkeypatch, responses: dict[str, tuple | None]):
     return calls
 
 
-def _cache_row(db, query: str, *, resolved: bool, age: timedelta = timedelta()):
+def _cache_row(
+    db, query: str, *, resolved: bool, age: timedelta = timedelta(), manual: bool = False
+):
     row = GeocodeCache(
         query=query,
         lat=1.0 if resolved else None,
         lon=2.0 if resolved else None,
         display_name="cached" if resolved else None,
         resolved=resolved,
+        manual=manual,
         updated_at=(datetime.now(UTC) - age).isoformat(),
     )
     db.merge(row)
@@ -120,7 +128,7 @@ def test_unparsable_updated_at_counts_as_stale(db, monkeypatch):
     db.merge(
         GeocodeCache(
             query="springfield", lat=None, lon=None,
-            display_name=None, resolved=False, updated_at="not-a-date",
+            display_name=None, resolved=False, manual=False, updated_at="not-a-date",
         )
     )
     db.commit()
@@ -129,3 +137,97 @@ def test_unparsable_updated_at_counts_as_stale(db, monkeypatch):
     result = resolve_batch(db, ["Springfield"])
     assert result[0].resolved
     assert calls == ["springfield"]
+
+
+def test_set_override_stores_manual_row_and_echoes_original_query(db):
+    result = set_override(
+        db, "  Ye Olde Springe  ", 51.5, -0.1, "Ye Olde Springe (historic)"
+    )
+
+    assert result.query == "  Ye Olde Springe  "  # original string echoed back
+    assert result.resolved and result.manual
+    assert result.lat == 51.5 and result.lon == -0.1
+    assert result.display_name == "Ye Olde Springe (historic)"
+
+    row = db.get(GeocodeCache, geocoding._normalize("  Ye Olde Springe  "))
+    assert row is not None
+    assert row.manual is True
+    assert row.resolved is True
+    assert row.lat == 51.5
+
+
+def test_manual_override_is_never_re_geocoded(db, monkeypatch):
+    # Manually correct a location that is stale enough to normally be retried...
+    set_override(db, "Atlantis", 10.0, 20.0, "Atlantis (manual)")
+    row = db.get(GeocodeCache, "atlantis")
+    row.updated_at = (
+        datetime.now(UTC) - geocoding._UNRESOLVED_RETRY - timedelta(days=1)
+    ).isoformat()
+    db.commit()
+
+    # ...and confirm resolve_batch never calls Nominatim for it, nor overwrites it.
+    calls = _patch_lookup(monkeypatch, {})
+    result = resolve_batch(db, ["Atlantis"])
+
+    assert calls == []
+    assert result[0].resolved and result[0].manual
+    assert result[0].lat == 10.0
+    assert result[0].display_name == "Atlantis (manual)"
+
+
+def test_search_candidates_returns_live_results_uncached(db, monkeypatch):
+    def fake_get(url, params, headers):
+        class FakeResponse:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return [
+                    {"lat": "1.0", "lon": "2.0", "display_name": "Candidate A"},
+                    {"lat": "3.0", "lon": "4.0", "display_name": "Candidate B"},
+                ]
+
+        assert params["limit"] == 3
+        return FakeResponse()
+
+    class FakeClient:
+        def __init__(self, timeout=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, params, headers):
+            return fake_get(url, params, headers)
+
+    monkeypatch.setattr(geocoding.httpx, "Client", FakeClient)
+
+    candidates = search_candidates(db, "Springe", limit=3)
+
+    assert len(candidates) == 2
+    assert candidates[0].display_name == "Candidate A"
+    assert candidates[0].lat == 1.0
+    # Nothing cached: a live search must not touch geocode_cache.
+    assert db.get(GeocodeCache, "springe") is None
+
+
+def test_search_candidates_returns_empty_list_on_failure(db, monkeypatch):
+    class FakeClient:
+        def __init__(self, timeout=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def get(self, url, params, headers):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(geocoding.httpx, "Client", FakeClient)
+
+    assert search_candidates(db, "Nowhere") == []

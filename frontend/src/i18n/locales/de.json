@@ -586,6 +586,7 @@
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
       "cemetery-label": "Friedhof",
+      "show-on-map": "Auf Karte zeigen",
       "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
       "academic-title-item": "Akademischer / Ehrentitel",
       "tab-identity": "Identität",
@@ -1028,6 +1029,7 @@
       "show-details": "Details anzeigen",
       "edit-event": "Ereignis bearbeiten",
       "delete-event": "Ereignis löschen",
+      "show-on-map": "Auf Karte zeigen",
       "delete-dialog": {
         "title": "Ereignis löschen",
         "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -1112,7 +1114,9 @@
       "delete-error": "Die Person konnte nicht gelöscht werden und wurde wiederhergestellt."
     },
     "geocode": {
-      "resolve-error": "Kartenorte konnten nicht aufgelöst werden."
+      "resolve-error": "Kartenorte konnten nicht aufgelöst werden.",
+      "override-error": "Die Ortskorrektur konnte nicht gespeichert werden.",
+      "search-error": "Orte konnten nicht gesucht werden."
     }
   },
   "quality-report-view": {
@@ -1761,7 +1765,18 @@
       "retry": "Erneut versuchen",
       "retry-location": "\"{{location}}\" erneut auflösen",
       "marker-aria-label_one": "{{location}} – {{count}} Eintrag",
-      "marker-aria-label_other": "{{location}} – {{count}} Einträge"
+      "marker-aria-label_other": "{{location}} – {{count}} Einträge",
+      "fix-location": "Ort korrigieren",
+      "fix-location-title": "Ort korrigieren: {{location}}",
+      "fix-tab-search": "Suche",
+      "fix-tab-pin": "Stecknadel setzen",
+      "fix-search-placeholder": "Suchtext bearbeiten…",
+      "fix-search-button": "Suchen",
+      "fix-no-results": "Keine Ergebnisse gefunden. Passen Sie den Suchtext an.",
+      "fix-drop-pin-hint": "Klicken Sie auf die Karte, um eine Stecknadel am richtigen Ort zu setzen. Ziehen Sie sie, um die Position feinabzustimmen.",
+      "fix-selected-coords": "Ausgewählt: {{lat}}, {{lon}}",
+      "fix-confirm": "Korrektur speichern",
+      "cancel": "Abbrechen"
     }
   },
   "unsaved-changes": {

@@ -42,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useTimelineSettings } from "@/hooks/useTimelineSettings";
+import { useNavigationStore } from "@/hooks/useNavigationStore";
 
 interface VitalEvent {
   kind: "vital";
@@ -97,6 +98,8 @@ export const TimelineView = () => {
     initialized: eventsInitialized,
   } = useEventStore();
   const isReady = useTreeStore((state) => state.isReady);
+  const setMapFocus = useNavigationStore((s) => s.setMapFocus);
+  const navigateTo = useNavigationStore((s) => s.navigateTo);
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
@@ -222,6 +225,19 @@ export const TimelineView = () => {
   const handleAddEvent = () => {
     setEditingEvent(null);
     setIsEventDialogOpen(true);
+  };
+
+  // Cross-view "show on map" (#554): jump to the Map view focused on this
+  // event's location. Passing the first linked member (if any) gives a more
+  // focused view (e.g. selects them so their life path draws), but is purely
+  // optional context — the location itself is the primary target.
+  const handleShowEventOnMap = (event: Event) => {
+    if (!event.location) return;
+    setMapFocus({
+      location: event.location,
+      memberId: event.linkedMemberIds[0],
+    });
+    navigateTo("map-view");
   };
 
   const handleEditEvent = (event: Event) => {
@@ -425,6 +441,19 @@ export const TimelineView = () => {
                             <div className="flex items-center gap-1">
                               <MapPin aria-hidden="true" className="w-4 h-4" />
                               <span>{item.data.location}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-5 w-5"
+                                aria-label={t("show-on-map")}
+                                title={t("show-on-map")}
+                                onClick={() => handleShowEventOnMap(item.data)}
+                              >
+                                <MapPin
+                                  aria-hidden="true"
+                                  className="h-3 w-3"
+                                />
+                              </Button>
                             </div>
                           )}
                         </div>

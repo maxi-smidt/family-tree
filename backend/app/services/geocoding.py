@@ -8,7 +8,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.models.content import GeocodeCache
-from app.schemas.content import GeocodeOut
+from app.schemas.content import GeocodeCandidate, GeocodeOut
 
 logger = logging.getLogger("app")
 
@@ -42,7 +42,7 @@ def _lookup_cached(db: Session, queries: list[str]) -> dict[str, GeocodeCache]:
 
 def _is_retryable(row: GeocodeCache) -> bool:
     """True for unresolved cache rows old enough to try Nominatim again."""
-    if row.resolved:
+    if row.resolved or row.manual:
         return False
     try:
         updated = datetime.fromisoformat(row.updated_at)
@@ -93,7 +93,9 @@ def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
 
     cached = _lookup_cached(db, unique_normalized)
     to_geocode = [
-        q for q in unique_normalized if q not in cached or _is_retryable(cached[q])
+        q
+        for q in unique_normalized
+        if q not in cached or (not cached[q].manual and _is_retryable(cached[q]))
     ][:_MAX_NEW_LOOKUPS]
 
     wrote = False
@@ -109,12 +111,14 @@ def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
                 lat, lon, display_name = result
                 row = GeocodeCache(
                     query=query, lat=lat, lon=lon,
-                    display_name=display_name, resolved=True, updated_at=_now_iso(),
+                    display_name=display_name, resolved=True, manual=False,
+                    updated_at=_now_iso(),
                 )
             else:
                 row = GeocodeCache(
                     query=query, lat=None, lon=None,
-                    display_name=None, resolved=False, updated_at=_now_iso(),
+                    display_name=None, resolved=False, manual=False,
+                    updated_at=_now_iso(),
                 )
             db.merge(row)
             cached[query] = row
@@ -141,6 +145,7 @@ def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
                 GeocodeOut(
                     query=loc, lat=row.lat, lon=row.lon,
                     display_name=row.display_name, resolved=row.resolved,
+                    manual=row.manual,
                 )
             )
         else:
@@ -152,3 +157,62 @@ def resolve_single(db: Session, location: str) -> GeocodeOut:
     """Geocode a single location string, using the cache when possible."""
     results = resolve_batch(db, [location])
     return results[0] if results else GeocodeOut(query=location, resolved=False)
+
+
+def set_override(
+    db: Session, query: str, lat: float, lon: float, display_name: str | None
+) -> GeocodeOut:
+    """Store a user-supplied correction for ``query`` in the global cache.
+
+    Marked ``manual=True`` so resolve_batch never re-geocodes or overwrites
+    it. The cache key is the normalized query, but the returned GeocodeOut
+    echoes back the caller's original (un-normalized) string so the frontend
+    map — keyed by the original location text — can look it up directly.
+    """
+    normalized = _normalize(query)
+    row = GeocodeCache(
+        query=normalized,
+        lat=lat,
+        lon=lon,
+        display_name=display_name,
+        resolved=True,
+        manual=True,
+        updated_at=_now_iso(),
+    )
+    db.merge(row)
+    db.commit()
+    return GeocodeOut(
+        query=query, lat=lat, lon=lon, display_name=display_name,
+        resolved=True, manual=True,
+    )
+
+
+def search_candidates(db: Session, query: str, limit: int = 5) -> list[GeocodeCandidate]:
+    """Live Nominatim search for candidates matching ``query`` (not cached).
+
+    Used by the manual-correction UI so the user can pick from several
+    suggestions for an edited search string. Returns an empty list on
+    failure instead of raising, since this is a best-effort lookup driven
+    directly by user interaction (not a batch/background job).
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(
+                _NOMINATIM_URL,
+                params={"format": "json", "limit": limit, "q": query},
+                headers={"User-Agent": _USER_AGENT},
+            )
+            resp.raise_for_status()
+            results = resp.json()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Geocode search failed for %r: %s", query, exc)
+        return []
+
+    return [
+        GeocodeCandidate(
+            lat=float(r["lat"]),
+            lon=float(r["lon"]),
+            display_name=r.get("display_name", ""),
+        )
+        for r in results
+    ]

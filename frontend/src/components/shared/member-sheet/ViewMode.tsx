@@ -34,12 +34,39 @@ import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 type Props = {
   member: Member;
+  onShowLocationOnMap?: (location: string, memberId: string) => void;
 };
 
-export const ViewMode = ({ member }: Props) => {
+// Small ghost icon-button next to a location field/row (#554), jumping the
+// user to the Map view focused on that location. Only rendered when the
+// caller wired up `onShowLocationOnMap` (i.e. the map is enabled).
+function ShowOnMapButton({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-5 w-5 shrink-0 ml-auto"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
+      <MapPin className="h-3 w-3" />
+    </Button>
+  );
+}
+
+export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
   });
@@ -230,6 +257,17 @@ export const ViewMode = ({ member }: Props) => {
                             </span>
                             {member.birthplace}
                           </span>
+                          {mapEnabled && onShowLocationOnMap && (
+                            <ShowOnMapButton
+                              label={t("show-on-map")}
+                              onClick={() =>
+                                onShowLocationOnMap(
+                                  member.birthplace!,
+                                  member.id,
+                                )
+                              }
+                            />
+                          )}
                         </div>
                       )}
                       {mapEnabled && member.hometown && (
@@ -241,6 +279,14 @@ export const ViewMode = ({ member }: Props) => {
                             </span>
                             {member.hometown}
                           </span>
+                          {onShowLocationOnMap && (
+                            <ShowOnMapButton
+                              label={t("show-on-map")}
+                              onClick={() =>
+                                onShowLocationOnMap(member.hometown!, member.id)
+                              }
+                            />
+                          )}
                         </div>
                       )}
                       {mapEnabled && member.cemetery && (
@@ -252,6 +298,14 @@ export const ViewMode = ({ member }: Props) => {
                             </span>
                             {member.cemetery}
                           </span>
+                          {onShowLocationOnMap && (
+                            <ShowOnMapButton
+                              label={t("show-on-map")}
+                              onClick={() =>
+                                onShowLocationOnMap(member.cemetery!, member.id)
+                              }
+                            />
+                          )}
                         </div>
                       )}
                       {mapEnabled &&
@@ -271,6 +325,14 @@ export const ViewMode = ({ member }: Props) => {
                                 </span>
                               )}
                             </span>
+                            {onShowLocationOnMap && place.location && (
+                              <ShowOnMapButton
+                                label={t("show-on-map")}
+                                onClick={() =>
+                                  onShowLocationOnMap(place.location, member.id)
+                                }
+                              />
+                            )}
                           </div>
                         ))}
                     </div>

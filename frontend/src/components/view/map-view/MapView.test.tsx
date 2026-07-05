@@ -136,6 +136,7 @@ const coords = new Map<string, GeocodeResult>(
       lon: 16 + index,
       displayName: location,
       resolved: true,
+      manual: false,
     },
   ]),
 );
@@ -375,6 +376,7 @@ describe("MapView unresolved locations", () => {
       lon: null,
       displayName: null,
       resolved: false,
+      manual: false,
     });
     retryLocationsMock.mockClear();
     useGeocodeStore.setState({

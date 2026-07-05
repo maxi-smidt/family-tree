@@ -20,6 +20,7 @@ import { useStoryStore } from "@/hooks/useStoryStore";
 import { useSourceStore } from "@/hooks/useSourceStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
 
@@ -51,7 +52,10 @@ export const MemberSheet = ({
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
   const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
-  const { refreshGalleryImages, initialized: galleryInitialized } = useGalleryStore();
+  const { refreshGalleryImages, initialized: galleryInitialized } =
+    useGalleryStore();
+  const setMapFocus = useNavigationStore((s) => s.setMapFocus);
+  const navigateTo = useNavigationStore((s) => s.navigateTo);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
@@ -72,16 +76,27 @@ export const MemberSheet = ({
       if (!alreadyLoaded) {
         setIsLoadingDetail(true);
       }
-      void fetchMemberDetail(member.id).finally(() => setIsLoadingDetail(false));
+      void fetchMemberDetail(member.id).finally(() =>
+        setIsLoadingDetail(false),
+      );
     }
   }, [isOpen, member?.id, isNewMember]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Defer secondary-domain stores until the sheet opens for an existing member.
   // Passing `|| !isOpen || isNewMember` makes the shared hook a no-op while the
   // sheet is closed or showing an unsaved new member.
-  useDeferredStoreLoad(eventsInitialized || !isOpen || isNewMember, refreshEvents);
-  useDeferredStoreLoad(storiesInitialized || !isOpen || isNewMember, refreshStories);
-  useDeferredStoreLoad(sourcesInitialized || !isOpen || isNewMember, refreshSources);
+  useDeferredStoreLoad(
+    eventsInitialized || !isOpen || isNewMember,
+    refreshEvents,
+  );
+  useDeferredStoreLoad(
+    storiesInitialized || !isOpen || isNewMember,
+    refreshStories,
+  );
+  useDeferredStoreLoad(
+    sourcesInitialized || !isOpen || isNewMember,
+    refreshSources,
+  );
   useDeferredStoreLoad(
     galleryInitialized || !isOpen || isNewMember,
     refreshGalleryImages,
@@ -120,6 +135,14 @@ export const MemberSheet = ({
     ) as HTMLFormElement | null;
     form?.requestSubmit();
     setIsUnsavedDialogOpen(false);
+  };
+
+  // Cross-view "show on map" (#554): jump from a location field in the view
+  // mode straight to the Map view, focused on that location.
+  const handleShowLocationOnMap = (location: string, memberId: string) => {
+    setMapFocus({ location, memberId });
+    navigateTo("map-view");
+    onClose();
   };
 
   return (
@@ -180,7 +203,10 @@ export const MemberSheet = ({
                 onDirtyChange={setIsDirty}
               />
             ) : (
-              <ViewMode member={member} />
+              <ViewMode
+                member={member}
+                onShowLocationOnMap={handleShowLocationOnMap}
+              />
             )}
           </div>
         </div>
