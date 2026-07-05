@@ -19,6 +19,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - **Fix an unresolved map location manually** — the map view's unresolved-locations popover now has a "Fix location" button alongside Retry: pick from live Nominatim search suggestions for an edited query, or drop a pin directly on an embedded map (draggable to fine-tune). The correction is saved globally in the geocode cache and marked so it is never re-geocoded or overwritten, matching the tree-independent, instance-wide nature of the existing geocode cache (#555).
 - **In-app "What's new" changelog** — the version number in the sidebar footer is now a button that opens a dialog listing what changed in each release, grouped by version and generated from this changelog file (#563).
 - **Combined statistics across linked trees** — the Statistics view can now switch from "This tree" to "All linked trees" (shown once a tree has at least one tree-in-tree link), aggregating the anchor tree with every tree reachable through those links that you can read. Bridge persons — the same human represented by one row per linked tree — are counted once rather than once per tree. Gated by the existing `tree_links` feature flag (#566).
+- **Wider activity-log coverage** — the activity log now also records tree creation and renaming, sharing grants/revokes (including batch and restriction changes), ownership transfers, tree-in-tree links, JSON/GEDCOM imports, tree merges, and content member-link changes (#564).
 
 ### Changed
 

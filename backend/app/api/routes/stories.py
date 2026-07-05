@@ -179,10 +179,11 @@ def set_links(
     story_id: str,
     payload: LinksSet,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of members linked to this story."""
-    _get_story(db, tree, story_id)
+    story = _get_story(db, tree, story_id)
     replace_member_links(
         db,
         link_model=StoryMemberLink,
@@ -190,6 +191,10 @@ def set_links(
         parent_id=story_id,
         tree=tree,
         member_ids=payload.member_ids,
+    )
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="story", target_id=story.id, target_label=story.title,
     )
     db.commit()
 

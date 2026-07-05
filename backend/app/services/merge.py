@@ -39,6 +39,7 @@ from app.models import (
 )
 from app.schemas.family import MemberOut
 from app.schemas.merge import DuplicatePair, MergeResolution, TreeMergePreview
+from app.services.activity import record_activity
 from app.services.job_service import ProgressCallback
 from app.services.storage import copy_media_to_tree
 
@@ -694,6 +695,10 @@ def merge_trees(
             )
 
     _progress(95)
+    record_activity(
+        db, tree_id=new_tree.id, actor=user, action="create",
+        target_type="merge", target_id=new_tree.id, target_label=new_tree.name,
+    )
     db.commit()
     db.refresh(new_tree)
     return new_tree

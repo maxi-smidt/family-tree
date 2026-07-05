@@ -245,10 +245,11 @@ def set_links(
     image_id: str,
     payload: LinksSet,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of members linked to this image."""
-    _get_image(db, tree, image_id)
+    image = _get_image(db, tree, image_id)
     replace_member_links(
         db,
         link_model=GalleryMemberLink,
@@ -256,5 +257,9 @@ def set_links(
         parent_id=image_id,
         tree=tree,
         member_ids=payload.member_ids,
+    )
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
