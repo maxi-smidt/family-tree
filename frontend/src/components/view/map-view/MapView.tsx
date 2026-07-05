@@ -1228,9 +1228,11 @@ export const MapView = () => {
                       icon={createGroupIcon(
                         group.types,
                         group.items.length,
+                        // count first so the i18n checker sees the `count:`
+                        // param and treats this as a pluralized key (_one/_other).
                         t("marker-aria-label", {
-                          location: group.coord.displayName || group.location,
                           count: group.items.length,
+                          location: group.coord.displayName || group.location,
                         }),
                       )}
                     >
