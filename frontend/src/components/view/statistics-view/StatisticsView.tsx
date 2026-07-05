@@ -2,13 +2,17 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useFeature } from "@/hooks/useAuthStore";
 import {
   useStatisticsSettings,
   normalizeOrder,
 } from "@/hooks/useStatisticsSettings";
+import { CombinedStatisticsReport } from "@/types/statistics";
 import { WIDGET_MAP } from "./widgets";
 import { CustomizePopover } from "./CustomizePopover";
 import { CustomWidgetRenderer } from "./CustomWidgetRenderer";
@@ -60,9 +64,15 @@ function EmptyState({ t }: { t: (k: string) => string }) {
 
 export const StatisticsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
-  const { report, isLoading, refreshStatistics } = useStatisticsStore();
+  const { report, isLoading, scope, setScope, refreshStatistics } =
+    useStatisticsStore();
   const { order, hidden, customWidgets } = useStatisticsSettings();
   const members = useMemberStore((s) => s.members);
+  const treeLinksEnabled = useFeature("tree_links");
+  const hasLinkedMembers = members.some((m) => m.linkedTreeId);
+  const showScopeToggle = treeLinksEnabled && hasLinkedMembers;
+  const combinedReport =
+    scope === "linked" ? (report as CombinedStatisticsReport | null) : null;
 
   useEffect(() => {
     if (!report) {
@@ -72,9 +82,38 @@ export const StatisticsView = () => {
 
   const customById = Object.fromEntries(customWidgets.map((w) => [w.id, w]));
   const customIds = customWidgets.map((w) => w.id);
-  const visibleIds = normalizeOrder(order, customIds).filter((id) => !hidden.includes(id));
+  const visibleIds = normalizeOrder(order, customIds).filter(
+    (id) => !hidden.includes(id),
+  );
 
-  const actions = <CustomizePopover />;
+  const actions = (
+    <div className="flex items-center gap-2">
+      {showScopeToggle && (
+        <>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={scope}
+            onValueChange={(value) => {
+              if (value) setScope(value as "tree" | "linked");
+            }}
+          >
+            <ToggleGroupItem value="tree">{t("scope-tree")}</ToggleGroupItem>
+            <ToggleGroupItem value="linked">
+              {t("scope-linked")}
+            </ToggleGroupItem>
+          </ToggleGroup>
+          {combinedReport && (
+            <Badge variant="secondary">
+              {t("scope-tree-count", { count: combinedReport.tree_count })}
+            </Badge>
+          )}
+        </>
+      )}
+      <CustomizePopover />
+    </div>
+  );
 
   return (
     <ViewLayout title={t("title")} action={actions}>
@@ -114,7 +153,12 @@ export const StatisticsView = () => {
             />
           </div>
 
-          {/* Customizable charts grid */}
+          {/* Customizable charts grid.
+              Note: custom widgets are rendered from the raw `members` store,
+              which only ever holds the active tree's members — they do not
+              pick up the combined ("linked") scope. Only the report-driven
+              widgets (WIDGET_MAP) and the overview cards above reflect
+              combined statistics. */}
           {visibleIds.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               {t("all-hidden")}
@@ -133,7 +177,8 @@ export const StatisticsView = () => {
                     />
                   );
                 }
-                const Widget = WIDGET_MAP[id as keyof typeof WIDGET_MAP]?.Component;
+                const Widget =
+                  WIDGET_MAP[id as keyof typeof WIDGET_MAP]?.Component;
                 if (!Widget) return null;
                 return <Widget key={id} report={report} t={t} />;
               })}
