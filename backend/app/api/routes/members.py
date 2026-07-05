@@ -26,6 +26,7 @@ from app.schemas.family import (
     DiseaseUpdate,
     MemberCollapsedUpdate,
     MemberCreate,
+    MemberLinkRequest,
     MemberOut,
     MemberPositionUpdate,
     MemberSubtreeCreate,
@@ -230,10 +231,16 @@ def create_member(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
-    _validate_linked_tree(db, tree, user, data.get("linked_tree_id"))
-    _validate_linked_member(
-        db, data.get("linked_tree_id"), data.get("linked_member_id"), data.get("id")
-    )
+    if data.get("linked_tree_id") is not None or (
+        data.get("linked_member_id") is not None
+    ):
+        # A brand-new member can't already have a bridge counterpart — that
+        # requires writing a row in another tree, which only the dedicated
+        # link endpoint does. See POST /members/{id}/link.
+        raise HTTPException(
+            status_code=400,
+            detail="Establish tree links via the link endpoint",
+        )
     new_image_url: str | None = None
     try:
         new_image_url_candidate = process_image_field(
@@ -471,11 +478,18 @@ def update_member(
     ):
         del changes["linked_member_id"]
     if "linked_tree_id" in changes:
+        if changes["linked_tree_id"] is not None:
+            # Establishing a link requires resolving a bridge person on both
+            # sides, which touches two trees — this single-row endpoint can't
+            # do that safely. Only clearing (null) or leaving it unchanged is
+            # allowed here; see POST /members/{id}/link.
+            raise HTTPException(
+                status_code=400,
+                detail="Establish tree links via the link endpoint",
+            )
         _validate_linked_tree(db, tree, user, changes["linked_tree_id"])
-        # Unlinking or re-linking to a different tree invalidates a counterpart
-        # pointer into the old tree; clear it unless a new one is provided.
-        if "linked_member_id" not in changes:
-            changes["linked_member_id"] = None
+        # Unlinking invalidates the counterpart pointer into the old tree.
+        changes["linked_member_id"] = None
     if changes.get("linked_member_id") is not None:
         _validate_linked_member(
             db,
@@ -570,7 +584,7 @@ def create_member_subtree(
     so navigation works in both directions and lands on the counterpart.
     """
     from app.services import feature_service  # noqa: PLC0415
-    from app.services.merge import _clone_member  # noqa: PLC0415
+    from app.services.merge import _clone_member, _wire_bridge  # noqa: PLC0415
 
     if not feature_service.is_enabled(db, "tree_links", user):
         raise HTTPException(status_code=404, detail="Not found")
@@ -599,13 +613,10 @@ def create_member_subtree(
     counterpart.position_x = 0
     counterpart.position_y = 0
     counterpart.is_collapsed = False
-    counterpart.linked_tree_id = tree.id
-    counterpart.linked_member_id = member.id
     db.add(counterpart)
     db.flush()
 
-    member.linked_tree_id = new_tree.id
-    member.linked_member_id = counterpart.id
+    _wire_bridge(member, counterpart)
 
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="update",
@@ -621,6 +632,104 @@ def create_member_subtree(
     )
     return MemberSubtreeOut(
         tree=TreeOut.model_validate(new_tree),
+        anchor=MemberOut.model_validate(member),
+    )
+
+
+@router.post(
+    "/members/{member_id}/link",
+    response_model=MemberSubtreeOut,
+    status_code=201,
+)
+def link_member_to_tree(
+    member_id: str,
+    payload: MemberLinkRequest,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Establish a tree-in-tree bridge between this member and a target tree.
+
+    Unlike ``PATCH /members/{id}`` (which can only clear a link, never create
+    one — see the loophole this closes), this endpoint always resolves a real
+    bridge person on both sides: either an existing member the caller asserts
+    is the same person (``mode="existing"``), or a fresh clone seeded into the
+    target tree (``mode="create"``). Establishing a link writes rows in two
+    trees, so it requires write access to both.
+    """
+    from app.services import feature_service  # noqa: PLC0415
+    from app.services.merge import _clone_member, _wire_bridge  # noqa: PLC0415
+
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    member = _get_member(db, tree, member_id)
+    if member.linked_tree_id is not None:
+        raise HTTPException(
+            status_code=409, detail="Member is already linked to a tree"
+        )
+
+    _validate_linked_tree(db, tree, user, payload.linked_tree_id)
+    target = db.get(Tree, payload.linked_tree_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Linked tree not found")
+    # Establishing a bridge writes the counterpart row too, so read access to
+    # the target (already checked by _validate_linked_tree) is not enough.
+    if not user.is_admin and role_for(db, target, user) not in ("owner", "editor"):
+        raise HTTPException(
+            status_code=403, detail="No write access to the linked tree"
+        )
+
+    if payload.mode == "create":
+        counterpart = _clone_member(member, target.id, str(uuid4()))
+        counterpart.position_x = 0
+        counterpart.position_y = 0
+        counterpart.is_collapsed = False
+        db.add(counterpart)
+        db.flush()
+    else:
+        if payload.counterpart_member_id is None:
+            raise HTTPException(
+                status_code=400,
+                detail="counterpart_member_id is required for mode=existing",
+            )
+        counterpart = db.get(Member, payload.counterpart_member_id)
+        if counterpart is None or counterpart.tree_id != target.id:
+            raise HTTPException(
+                status_code=400,
+                detail="Counterpart member is not part of the linked tree",
+            )
+        if counterpart.id == member.id:
+            raise HTTPException(
+                status_code=400, detail="A member cannot link to itself"
+            )
+        if counterpart.linked_tree_id is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Counterpart member is already linked to a tree",
+            )
+
+    _wire_bridge(member, counterpart)
+
+    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
+    record_activity(db, tree_id=tree.id, actor=user, action="update",
+                    target_type="member", target_id=member.id, target_label=label,
+                    details={"after": {"linked_tree_id": target.id}})
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    db.refresh(member)
+    db.refresh(target)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
+    invalidate_stats(tree.id)
+    publish_tree_event(
+        db, target, "tree.content_changed",
+        {"tree_id": target.id, "domain": "member"},
+    )
+    invalidate_stats(target.id)
+    return MemberSubtreeOut(
+        tree=TreeOut.model_validate(target),
         anchor=MemberOut.model_validate(member),
     )
 

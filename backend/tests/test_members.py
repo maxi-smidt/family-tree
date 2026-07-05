@@ -334,6 +334,34 @@ def test_member_detail_endpoint(client, db):
 
 
 def test_link_member_to_accessible_tree(client, db):
+    """Establishing a link through the dedicated endpoint wires a bridge
+    person; clearing it via PATCH is still allowed."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1")
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={"linkedTreeId": other.id, "mode": "create"},
+    )
+    assert res.status_code == 201
+    assert res.json()["anchor"]["linkedTreeId"] == other.id
+
+    # Clearing the link is allowed via PATCH.
+    cleared = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"linkedTreeId": None},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["linkedTreeId"] is None
+
+
+def test_patch_cannot_establish_a_link(client, db):
+    """The loophole this issue closes: PATCH may only clear or leave a link
+    unchanged, never establish a new one."""
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
@@ -344,17 +372,18 @@ def test_link_member_to_accessible_tree(client, db):
         headers=auth(user),
         json={"linkedTreeId": other.id},
     )
-    assert res.status_code == 200
-    assert res.json()["linkedTreeId"] == other.id
+    assert res.status_code == 400
 
-    # Clearing the link is allowed.
-    cleared = client.patch(
-        f"{API}/trees/{main.id}/members/m1",
-        headers=auth(user),
-        json={"linkedTreeId": None},
-    )
-    assert cleared.status_code == 200
-    assert cleared.json()["linkedTreeId"] is None
+
+def test_create_member_cannot_set_a_link(client, db):
+    """A brand-new member cannot arrive pre-linked; that would require writing
+    a row in another tree, which only the link endpoint may do."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+
+    res = _create_member(client, main, user, "m1", linkedTreeId=other.id)
+    assert res.status_code == 400
 
 
 def test_surface_list_includes_linked_tree_id(client, db):
@@ -365,12 +394,12 @@ def test_surface_list_includes_linked_tree_id(client, db):
     other = make_tree(db, user, "Other")
     _create_member(client, main, user, "m1")
 
-    linked = client.patch(
-        f"{API}/trees/{main.id}/members/m1",
+    linked = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
         headers=auth(user),
-        json={"linkedTreeId": other.id},
+        json={"linkedTreeId": other.id, "mode": "create"},
     )
-    assert linked.status_code == 200
+    assert linked.status_code == 201
 
     res = client.get(
         f"{API}/trees/{main.id}/members?surface=true", headers=auth(user)
@@ -387,10 +416,10 @@ def test_cannot_link_member_to_own_tree(client, db):
     main = make_tree(db, user, "Main")
     _create_member(client, main, user, "m1")
 
-    res = client.patch(
-        f"{API}/trees/{main.id}/members/m1",
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
         headers=auth(user),
-        json={"linkedTreeId": main.id},
+        json={"linkedTreeId": main.id, "mode": "create"},
     )
     assert res.status_code == 400
 
@@ -402,10 +431,30 @@ def test_cannot_link_member_to_inaccessible_tree(client, db):
     private_other = make_tree(db, stranger, "Strangers")
     _create_member(client, main, owner, "m1")
 
-    res = client.patch(
-        f"{API}/trees/{main.id}/members/m1",
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
         headers=auth(owner),
-        json={"linkedTreeId": private_other.id},
+        json={"linkedTreeId": private_other.id, "mode": "create"},
+    )
+    assert res.status_code == 403
+
+
+def test_cannot_link_to_tree_without_write_access(client, db):
+    """Read access to the target is not enough: establishing a bridge writes
+    the counterpart row too, so write access to B is required."""
+    from tests.conftest import share
+
+    owner = make_user(db, "alice")
+    viewer_owner = make_user(db, "bob")
+    main = make_tree(db, owner, "Main")
+    viewable_only = make_tree(db, viewer_owner, "Viewable")
+    _create_member(client, main, owner, "m1")
+    share(db, viewable_only, owner, "viewer")
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(owner),
+        json={"linkedTreeId": viewable_only.id, "mode": "create"},
     )
     assert res.status_code == 403
 
@@ -482,6 +531,262 @@ def test_create_member_subtree_requires_name(client, db):
     assert res.status_code == 400
 
 
+# --- POST /members/{id}/link ------------------------------------------------
+def test_link_mode_create_seeds_and_wires_bridge(client, db):
+    """mode="create" clones the member into B and wires both rows, same as
+    the create-linked-subtree flow but for an already-existing target tree."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(
+        client, main, user, "m1",
+        academicTitle="Dr.", deceased=True, birthplace="Vienna",
+    )
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={"linkedTreeId": other.id, "mode": "create"},
+    )
+    assert res.status_code == 201
+    body = res.json()
+    assert body["tree"]["id"] == other.id
+    anchor = body["anchor"]
+    assert anchor["linkedTreeId"] == other.id
+    assert anchor["linkedMemberId"] is not None
+
+    members = client.get(
+        f"{API}/trees/{other.id}/members", headers=auth(user)
+    ).json()
+    assert len(members) == 1
+    counterpart = members[0]
+    assert counterpart["id"] == anchor["linkedMemberId"]
+    assert counterpart["firstName"] == "Jo"
+    assert counterpart["academicTitle"] == "Dr."
+    assert counterpart["deceased"] is True
+    assert counterpart["birthplace"] == "Vienna"
+    assert counterpart["linkedTreeId"] == main.id
+    assert counterpart["linkedMemberId"] == "m1"
+
+
+def test_link_mode_existing_wires_without_copying_identity(client, db):
+    """mode="existing" wires the two rows bidirectionally but leaves the
+    counterpart's own identity fields untouched — the user asserts sameness,
+    drift is resolved separately via bridge-sync."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1", firstName="Jo", lastName="Doe")
+    _create_member(
+        client, other, user, "counterpart", firstName="Josephine", lastName="Dupont"
+    )
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "counterpart",
+        },
+    )
+    assert res.status_code == 201
+    body = res.json()
+    anchor = body["anchor"]
+    assert anchor["linkedTreeId"] == other.id
+    assert anchor["linkedMemberId"] == "counterpart"
+
+    counterpart = client.get(
+        f"{API}/trees/{other.id}/members/counterpart", headers=auth(user)
+    ).json()
+    assert counterpart["linkedTreeId"] == main.id
+    assert counterpart["linkedMemberId"] == "m1"
+    # Identity fields were NOT copied over.
+    assert counterpart["firstName"] == "Josephine"
+    assert counterpart["lastName"] == "Dupont"
+
+
+def test_link_endpoint_requires_write_access_to_target(client, db):
+    from tests.conftest import share
+
+    owner = make_user(db, "alice")
+    viewer = make_user(db, "bob")
+    main = make_tree(db, owner, "Main")
+    other = make_tree(db, owner, "Other")
+    _create_member(client, main, owner, "m1")
+    share(db, main, viewer, "editor")
+    share(db, other, viewer, "viewer")
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(viewer),
+        json={"linkedTreeId": other.id, "mode": "create"},
+    )
+    assert res.status_code == 403
+
+
+def test_link_endpoint_conflicts_when_source_already_linked(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other_b = make_tree(db, user, "B")
+    other_c = make_tree(db, user, "C")
+    _create_member(client, main, user, "m1")
+
+    first = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={"linkedTreeId": other_b.id, "mode": "create"},
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={"linkedTreeId": other_c.id, "mode": "create"},
+    )
+    assert second.status_code == 409
+
+
+def test_link_endpoint_rejects_counterpart_not_in_target_tree(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    unrelated = make_tree(db, user, "Unrelated")
+    _create_member(client, main, user, "m1")
+    _create_member(client, unrelated, user, "elsewhere")
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "elsewhere",
+        },
+    )
+    assert res.status_code == 400
+
+
+def test_link_endpoint_rejects_counterpart_already_linked(client, db):
+    """Prevents hijacking another link's bridge person."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    third = make_tree(db, user, "Third")
+    _create_member(client, main, user, "m1")
+    _create_member(client, other, user, "m2")
+
+    # m2 is already the bridge counterpart of some other link.
+    seed = client.post(
+        f"{API}/trees/{other.id}/members/m2/link",
+        headers=auth(user),
+        json={"linkedTreeId": third.id, "mode": "create"},
+    )
+    assert seed.status_code == 201
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "m2",
+        },
+    )
+    assert res.status_code == 400
+
+
+def test_link_endpoint_rejects_self_as_counterpart(client, db):
+    """A member's own tree is already rejected by the not-self tree check
+    (_validate_linked_tree), so this can only be reached with linkedTreeId
+    pointed elsewhere while counterpartMemberId names the source member
+    itself — still correctly refused as "not part of the linked tree"."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1")
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "m1",
+        },
+    )
+    assert res.status_code == 400
+
+
+def test_link_endpoint_404_when_feature_off(client, db):
+    from app.services import feature_service
+
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1")
+
+    feature_service.set_state(db, "tree_links", "off")
+    db.commit()
+    try:
+        res = client.post(
+            f"{API}/trees/{main.id}/members/m1/link",
+            headers=auth(user),
+            json={"linkedTreeId": other.id, "mode": "create"},
+        )
+        assert res.status_code == 404
+    finally:
+        feature_service.set_state(db, "tree_links", "on")
+        db.commit()
+
+
+def test_link_endpoint_pairwise_chain_is_independent(client, db):
+    """A -> B and B -> C are independent pairwise links; no chain/global
+    consistency is enforced, and each bridge is self-contained."""
+    user = make_user(db, "alice")
+    tree_a = make_tree(db, user, "A")
+    tree_b = make_tree(db, user, "B")
+    tree_c = make_tree(db, user, "C")
+    _create_member(client, tree_a, user, "a1")
+    _create_member(client, tree_b, user, "b1")
+
+    ab = client.post(
+        f"{API}/trees/{tree_a.id}/members/a1/link",
+        headers=auth(user),
+        json={"linkedTreeId": tree_b.id, "mode": "create"},
+    )
+    assert ab.status_code == 201
+
+    bc = client.post(
+        f"{API}/trees/{tree_b.id}/members/b1/link",
+        headers=auth(user),
+        json={"linkedTreeId": tree_c.id, "mode": "create"},
+    )
+    assert bc.status_code == 201
+
+    a1 = client.get(
+        f"{API}/trees/{tree_a.id}/members/a1", headers=auth(user)
+    ).json()
+    b1 = client.get(
+        f"{API}/trees/{tree_b.id}/members/b1", headers=auth(user)
+    ).json()
+    assert a1["linkedTreeId"] == tree_b.id
+    assert b1["linkedTreeId"] == tree_c.id
+    # b1 is now a bridge counterpart for A→B and cannot be reused as a
+    # counterpart for a fresh link.
+    _create_member(client, tree_c, user, "c1")
+    reuse = client.post(
+        f"{API}/trees/{tree_c.id}/members/c1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": tree_b.id,
+            "mode": "existing",
+            "counterpartMemberId": "b1",
+        },
+    )
+    assert reuse.status_code == 400
+
+
 def test_linked_member_requires_linked_tree(client, db):
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
@@ -496,7 +801,7 @@ def test_linked_member_requires_linked_tree(client, db):
     assert res.status_code == 400
 
 
-def test_linked_member_must_belong_to_linked_tree(client, db):
+def test_link_existing_counterpart_must_belong_to_linked_tree(client, db):
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
@@ -504,10 +809,14 @@ def test_linked_member_must_belong_to_linked_tree(client, db):
     # m2 lives in *main*, not in the linked tree.
     _create_member(client, main, user, "m2")
 
-    res = client.patch(
-        f"{API}/trees/{main.id}/members/m1",
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
         headers=auth(user),
-        json={"linkedTreeId": other.id, "linkedMemberId": "m2"},
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "m2",
+        },
     )
     assert res.status_code == 400
 

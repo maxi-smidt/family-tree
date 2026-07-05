@@ -112,6 +112,25 @@ export class TreeService {
     );
   }
 
+  /** Establish a tree-in-tree bridge on an already-existing target tree:
+   *  either by finding a matching person already in it ("existing") or by
+   *  copying this member into it as a new bridge person ("create"). Unlike
+   *  updateMember, this always resolves a real bridge person on both sides. */
+  static linkMemberToTree(
+    treeId: string,
+    memberId: string,
+    body: {
+      linked_tree_id: string;
+      mode: "existing" | "create";
+      counterpart_member_id?: string | null;
+    },
+  ) {
+    return api.post<{ tree: Tree; anchor: MemberDB }>(
+      `${base(treeId)}/members/${memberId}/link`,
+      body,
+    );
+  }
+
   /** Resolve bridge-person drift: "push" writes this member's values onto the
    *  linked counterpart, "pull" adopts the counterpart's values. */
   static resolveBridgeDrift(

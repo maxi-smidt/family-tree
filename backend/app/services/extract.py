@@ -46,7 +46,7 @@ from app.services.activity import record_activity
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback
-from app.services.merge import _clone_member
+from app.services.merge import _clone_member, _wire_bridge
 from app.services.storage import media_disk_usage, move_media_to_tree
 
 
@@ -424,13 +424,10 @@ def extract_subtree(
     counterpart.position_x = 0
     counterpart.position_y = 0
     counterpart.is_collapsed = False
-    counterpart.linked_tree_id = tree.id
-    counterpart.linked_member_id = root.id
     db.add(counterpart)
     db.flush()
 
-    root.linked_tree_id = new_tree.id
-    root.linked_member_id = counterpart.id
+    _wire_bridge(root, counterpart)
     # The branch is gone; the linked-tree badge replaces the collapse chip.
     root.is_collapsed = False
     _progress(25)

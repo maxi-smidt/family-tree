@@ -59,8 +59,19 @@ interface DatabaseState {
     id?: string,
     options?: { select?: boolean },
   ) => Promise<Tree>;
-  openLinkedTree: (treeId: string, focusMemberId?: string | null) => Promise<void>;
+  openLinkedTree: (
+    treeId: string,
+    focusMemberId?: string | null,
+  ) => Promise<void>;
   createLinkedSubtree: (memberId: string, name: string) => Promise<Tree>;
+  linkExistingTree: (
+    memberId: string,
+    body: {
+      linked_tree_id: string;
+      mode: "existing" | "create";
+      counterpart_member_id?: string | null;
+    },
+  ) => Promise<Tree>;
   navigateToTreeStack: (index: number) => Promise<void>;
   renameTree: (tree: Tree, name: string) => Promise<void>;
   updateTree: (tree: Tree) => void;
@@ -135,7 +146,11 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     }
   },
 
-  createTree: async (name: string, id?: string, options?: { select?: boolean }) => {
+  createTree: async (
+    name: string,
+    id?: string,
+    options?: { select?: boolean },
+  ) => {
     const tree = await api.post<Tree>("/trees", { name, id });
     set((s) => ({ trees: [tree, ...s.trees] }));
     // `select: false` lets callers create a tree without switching to it — used
@@ -188,6 +203,34 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       name,
     );
     set((s) => ({ trees: [res.tree, ...s.trees] }));
+    useMemberStore.setState((s) => ({
+      members: s.members.map((m) =>
+        m.id === memberId
+          ? {
+              ...m,
+              linkedTreeId: res.anchor.linkedTreeId ?? null,
+              linkedMemberId: res.anchor.linkedMemberId ?? null,
+            }
+          : m,
+      ),
+    }));
+    return res.tree;
+  },
+
+  // Tree-in-tree "link existing tree": resolves a bridge person against an
+  // already-existing target tree — either an existing member the caller
+  // asserts is the same person, or a fresh copy seeded into the target. The
+  // current tree stays selected; the updated anchor is reflected into the
+  // member store so the badge appears immediately.
+  linkExistingTree: async (memberId, body) => {
+    const current = get().selectedTree;
+    if (!current) throw new Error("No tree selected");
+    const res = await TreeService.linkMemberToTree(current.id, memberId, body);
+    set((s) => ({
+      trees: s.trees.some((t) => t.id === res.tree.id)
+        ? s.trees
+        : [res.tree, ...s.trees],
+    }));
     useMemberStore.setState((s) => ({
       members: s.members.map((m) =>
         m.id === memberId

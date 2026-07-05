@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { LinkExistingTreeDialog } from "./LinkExistingTreeDialog";
 
 const NONE_VALUE = "__none__";
 
@@ -20,24 +21,27 @@ interface Props {
   value: string | null;
   memberName: string;
   /** Persisted id of the member being edited; undefined while creating a new
-   *  member (the seeded create-and-link flow needs an existing row). */
+   *  member (linking requires an existing row on both sides). */
   memberId?: string;
   /** The form has other unsaved changes. Creating + linking persists
    *  immediately and re-hydrates the form, so it is blocked until saved. */
   formDirty?: boolean;
   onChange: (treeId: string | null) => void;
+  /** Called after a link is established through the dialog so the caller can
+   *  re-hydrate the form from the (now updated) store member. */
+  onLinked?: () => void;
 }
 
 /**
  * Tree-in-tree editor control: link this member to another tree that details
- * their own family. The user can pick an existing accessible tree or create a
- * brand-new tree (named after the member) and link it in one step.
+ * their own family. The user can create a brand-new tree (named after the
+ * member) and link it in one step, or pick an existing accessible tree, which
+ * opens a dialog to resolve a bridge person (find a matching person already
+ * there, or copy this member in as a new one) — a link is never established
+ * without one.
  *
- * For a persisted member the create action is atomic on the backend: the new
- * tree is seeded with a copy of this person (the "bridge person") and both
- * rows are linked bidirectionally — the store member updates and the form
- * re-hydrates with the link already set. For a not-yet-saved member the tree
- * is created empty and the link is persisted when the member form saves.
+ * Linking always requires a saved member: bridging touches a row in a second
+ * tree, which a not-yet-saved member doesn't have yet.
  */
 export const LinkedTreeField = ({
   currentTreeId,
@@ -46,40 +50,45 @@ export const LinkedTreeField = ({
   memberId,
   formDirty = false,
   onChange,
+  onLinked,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode.linked-tree",
   });
   const trees = useTreeStore((s) => s.trees);
-  const createTree = useTreeStore((s) => s.createTree);
   const createLinkedSubtree = useTreeStore((s) => s.createLinkedSubtree);
   const [creating, setCreating] = useState(false);
+  const [pendingLinkTree, setPendingLinkTree] = useState<
+    (typeof trees)[number] | null
+  >(null);
 
   // A member cannot link to its own tree, so exclude the current one.
   const options = trees.filter((tr) => tr.id !== currentTreeId);
   const knownLink = options.find((tr) => tr.id === value);
 
+  // Linking (create or find-existing) requires a saved member on this side.
+  const linkingBlocked = memberId === undefined;
   // The seeded flow re-hydrates the form from the store, which would discard
   // any other in-progress edits — require a save first.
-  const createBlocked = memberId !== undefined && formDirty;
+  const createBlocked = linkingBlocked || formDirty;
 
   const handleCreate = async () => {
     setCreating(true);
     try {
       const name = memberName.trim() || t("new-tree-fallback-name");
-      if (memberId) {
-        const tree = await createLinkedSubtree(memberId, name);
-        toast.success(t("toast-created-seeded", { name: tree.name }));
-      } else {
-        const tree = await createTree(name, undefined, { select: false });
-        onChange(tree.id);
-        toast.success(t("toast-created", { name: tree.name }));
-      }
+      const tree = await createLinkedSubtree(memberId!, name);
+      toast.success(t("toast-created-seeded", { name: tree.name }));
     } catch {
       toast.error(t("toast-create-error"));
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleSelectTree = (treeId: string) => {
+    if (treeId === NONE_VALUE) return;
+    const tree = options.find((tr) => tr.id === treeId);
+    if (tree) setPendingLinkTree(tree);
   };
 
   return (
@@ -91,7 +100,8 @@ export const LinkedTreeField = ({
       <div className="flex items-center gap-2">
         <Select
           value={value ?? NONE_VALUE}
-          onValueChange={(v) => onChange(v === NONE_VALUE ? null : v)}
+          disabled={linkingBlocked}
+          onValueChange={handleSelectTree}
         >
           <SelectTrigger className="h-7 flex-1 text-xs!">
             <SelectValue placeholder={t("placeholder")} />
@@ -135,12 +145,32 @@ export const LinkedTreeField = ({
             <Plus />
             {t("create-and-link")}
           </Button>
-          {createBlocked && (
+          {linkingBlocked && (
+            <p className="text-xs text-muted-foreground">
+              {t("save-first-hint")}
+            </p>
+          )}
+          {!linkingBlocked && createBlocked && (
             <p className="text-xs text-muted-foreground">
               {t("create-requires-save")}
             </p>
           )}
         </>
+      )}
+      {pendingLinkTree && memberId && (
+        <LinkExistingTreeDialog
+          memberId={memberId}
+          memberName={memberName}
+          tree={pendingLinkTree}
+          open={pendingLinkTree !== null}
+          onOpenChange={(open) => {
+            if (!open) setPendingLinkTree(null);
+          }}
+          onLinked={() => {
+            setPendingLinkTree(null);
+            onLinked?.();
+          }}
+        />
       )}
     </Field>
   );

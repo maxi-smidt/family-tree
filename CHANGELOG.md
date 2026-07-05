@@ -28,6 +28,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- **Linking an existing tree now always creates a bridge person** — picking a tree from the "Linked tree" dropdown previously pointed the member at that tree without a matching row on the other side, leaving the link with nothing to navigate to. It now opens a dialog to resolve a real bridge person: find a matching person already in the target tree, or copy this member into it as a new one — writing to the target tree requires edit access there, and a member without edit access is shown a read-only explanation instead. Linking now also requires the member to be saved first, since establishing a bridge writes a row in the other tree (#565).
 - **Tree merge and subtree extraction keep title, deceased and adopted flags** — copied members previously lost their academic title and their deceased/adopted status.
 - **Map view shows "places lived" markers again** — the optimized member list payload had dropped the places-lived field, so the map's "Place lived" layer (and its legend filter) was always empty (#544).
 - **Locations that once failed geocoding can now recover** — transient lookup failures (e.g. rate limits or timeouts) are no longer cached as permanently unresolvable; they are retried on the next map visit, and "no results" answers are re-checked after a week (#545).

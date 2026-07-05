@@ -245,6 +245,19 @@ def _clone_member(m: Member, new_tree_id: str, new_id: str) -> Member:
     )
 
 
+def _wire_bridge(source: Member, counterpart: Member) -> None:
+    """Point two member rows at each other as a bridge person pair.
+
+    Shared by every flow that establishes a tree-in-tree link (create-linked-
+    subtree, extract-subtree, and the link-existing-tree endpoint) so the
+    bidirectional wiring stays in one place.
+    """
+    source.linked_tree_id = counterpart.tree_id
+    source.linked_member_id = counterpart.id
+    counterpart.linked_tree_id = source.tree_id
+    counterpart.linked_member_id = source.id
+
+
 def _apply_field_choices(
     clone: Member,
     ma: Member,
