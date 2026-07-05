@@ -1738,7 +1738,6 @@
       "no-mappable-events": "No mappable events found",
       "resolving-locations": "Resolving locations…",
       "add-location-hint": "Add a location to an event to see it on the map",
-      "unlocatable-count": "{{count}} event(s) have locations that could not be resolved on the map",
       "filter-location-types": "Location types",
       "legend-event": "Event",
       "legend-birthplace": "Birthplace",
@@ -1755,7 +1754,14 @@
       "show-life-path": "Show life path",
       "time-slider-play": "Play",
       "time-slider-pause": "Pause",
-      "as-of-year": "As of {{year}}"
+      "as-of-year": "As of {{year}}",
+      "unresolved-locations-count": "{{count}} unresolved location(s)",
+      "unresolved-locations-title": "Unresolved locations",
+      "used-in": "{{field}}:",
+      "retry": "Retry",
+      "retry-location": "Retry resolving \"{{location}}\"",
+      "marker-aria-label_one": "{{location}} – {{count}} entry",
+      "marker-aria-label_other": "{{location}} – {{count}} entries"
     }
   },
   "unsaved-changes": {

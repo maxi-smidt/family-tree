@@ -50,6 +50,14 @@ vi.mock("react-leaflet", () => ({
   useMap: () => ({ fitBounds: fitBoundsMock }),
 }));
 
+// react-leaflet-cluster's real MarkerClusterGroup needs a live Leaflet map
+// context (via @react-leaflet/core), which the react-leaflet mock above
+// doesn't provide. It's purely a visual grouping layer, so the test only
+// needs it to render its children transparently.
+vi.mock("react-leaflet-cluster", () => ({
+  default: ({ children }: { children: ReactNode }) => <>{children}</>,
+}));
+
 // The real picker renders a full calendar popover; for MapView's purposes we
 // only care that a text value round-trips through onChange, so stub it as a
 // plain text input keyed by its placeholder (mirrors the from/to labels).
@@ -347,8 +355,69 @@ describe("MapView location type filters", () => {
     // Pressing play while parked at the end rewinds to the earliest year and
     // switches to the playing (pause) state.
     expect(screen.getByText("As of 1990")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+  });
+});
+
+describe("MapView unresolved locations", () => {
+  const retryLocationsMock = vi.fn(async () => undefined);
+
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+    useMemberStore.setState({ members: [member] });
+    useEventStore.setState({ events: [event], initialized: true });
+    // Berlin (Alex's places-lived entry) fails to resolve; everything else
+    // resolves normally.
+    const mixedCoords = new Map(coords);
+    mixedCoords.set("Berlin", {
+      query: "Berlin",
+      lat: null,
+      lon: null,
+      displayName: null,
+      resolved: false,
+    });
+    retryLocationsMock.mockClear();
+    useGeocodeStore.setState({
+      coords: mixedCoords,
+      pendingCount: 0,
+      resolveLocations: vi.fn(async () => undefined),
+      retryLocations: retryLocationsMock,
+    });
+    useNavigationStore.setState({ pendingView: null });
+    fitBoundsMock.mockClear();
+  });
+
+  it("surfaces an unresolved location and its usage in the popover", () => {
+    render(<MapView />);
+
+    const trigger = screen.getByRole("button", {
+      name: "1 unresolved location(s)",
+    });
+    expect(trigger).toBeInTheDocument();
+
+    fireEvent.click(trigger);
+
+    const popoverTitle = screen.getByText("Unresolved locations");
+    expect(popoverTitle).toBeInTheDocument();
+    const popover = popoverTitle.closest("[data-slot='popover-content']")!;
     expect(
-      screen.getByRole("button", { name: "Pause" }),
+      within(popover as HTMLElement).getByText("Berlin"),
     ).toBeInTheDocument();
+    expect(
+      within(popover as HTMLElement).getByText("Alex Example"),
+    ).toBeInTheDocument();
+  });
+
+  it("calls retryLocations for that location when the retry button is clicked", () => {
+    render(<MapView />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "1 unresolved location(s)" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: 'Retry resolving "Berlin"' }),
+    );
+
+    expect(retryLocationsMock).toHaveBeenCalledWith(["Berlin"]);
   });
 });
