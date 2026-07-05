@@ -104,6 +104,25 @@ const TYPE_PRIORITY: LocationType[] = [
   "cemetery",
 ];
 
+// CSS background for a disc that summarizes a set of location types, shared by
+// the map markers and the location-type filter so both read the same visual
+// language: a light-gray fill when the set is empty, a solid fill for a single
+// type, or equal conic-gradient segments (in TYPE_PRIORITY order) for several.
+function typeSwatchBackground(types: LocationType[]): string {
+  const sorted = [...new Set(types)].sort(
+    (a, b) => TYPE_PRIORITY.indexOf(a) - TYPE_PRIORITY.indexOf(b),
+  );
+  if (sorted.length === 0) return "var(--muted)";
+  if (sorted.length === 1) return LOCATION_COLORS[sorted[0]];
+  return `conic-gradient(${sorted
+    .map((t, i) => {
+      const from = (i / sorted.length) * 360;
+      const to = ((i + 1) / sorted.length) * 360;
+      return `${LOCATION_COLORS[t]} ${from}deg ${to}deg`;
+    })
+    .join(", ")})`;
+}
+
 interface LinkedMember {
   id: string;
   name: string;
@@ -165,20 +184,7 @@ function createGroupIcon(
   count: number,
   ariaLabel: string,
 ) {
-  const sorted = [...new Set(types)].sort(
-    (a, b) => TYPE_PRIORITY.indexOf(a) - TYPE_PRIORITY.indexOf(b),
-  );
-
-  const ringBackground =
-    sorted.length <= 1
-      ? (LOCATION_COLORS[sorted[0] ?? TYPE_PRIORITY[0]] as string)
-      : `conic-gradient(${sorted
-          .map((t, i) => {
-            const from = (i / sorted.length) * 360;
-            const to = ((i + 1) / sorted.length) * 360;
-            return `${LOCATION_COLORS[t]} ${from}deg ${to}deg`;
-          })
-          .join(", ")})`;
+  const ringBackground = typeSwatchBackground(types);
 
   const badge =
     count > 1
@@ -207,6 +213,43 @@ function createGroupIcon(
     iconAnchor: [PIN_SIZE / 2, PIN_SIZE / 2],
     popupAnchor: [0, -PIN_SIZE / 2],
   });
+}
+
+// A small disc mirroring the map markers (see createGroupIcon): a conic-
+// gradient ring of the selected location-type colors around a hollow center,
+// or a light-gray disc when nothing is selected. Used as the location-type
+// filter's single combined preview.
+function TypeSwatch({
+  types,
+  size = 16,
+}: {
+  types: LocationType[];
+  size?: number;
+}) {
+  const inner = Math.round(size * 0.7);
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: typeSwatchBackground(types),
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          width: inner,
+          height: inner,
+          borderRadius: "50%",
+          background: "var(--background)",
+        }}
+      />
+    </span>
+  );
 }
 
 function FitBounds({
@@ -1070,28 +1113,7 @@ export const MapView = () => {
                   className="h-9 gap-2"
                   aria-label={t("filter-location-types")}
                 >
-                  <span className="flex items-center gap-1">
-                    {visibleLocationTypes.length > 0 ? (
-                      LOCATION_TYPES.filter((type) =>
-                        visibleLocationTypeSet.has(type),
-                      ).map((type) => (
-                        <span
-                          key={type}
-                          style={{
-                            display: "inline-block",
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            border: `2px solid ${LOCATION_COLORS[type]}`,
-                            background: "transparent",
-                            flexShrink: 0,
-                          }}
-                        />
-                      ))
-                    ) : (
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </span>
+                  <TypeSwatch types={visibleLocationTypes} />
                   {t("filter-location-types")}
                   <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
                 </Button>
