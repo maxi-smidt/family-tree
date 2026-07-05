@@ -4,7 +4,7 @@ export interface Activity {
   actorId: string | null;
   actorUsername: string | null;
   action: string; // "create" | "update" | "delete"
-  targetType: string; // "member" | "relation" | "event" | "story" | "gallery_image" | "disease"
+  targetType: string; // "member" | "relation" | "event" | "story" | "gallery_image" | "disease" | "tree" | "share" | "import" | "merge"
   targetId: string | null;
   targetLabel: string | null;
   createdAt: string;

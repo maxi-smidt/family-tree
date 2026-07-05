@@ -812,8 +812,25 @@ def link_member_to_tree(
     record_activity(db, tree_id=tree.id, actor=user, action="update",
                     target_type="member", target_id=member.id, target_label=label,
                     details={"after": {"linked_tree_id": target.id}})
+    counterpart_label = (
+        " ".join(filter(None, [counterpart.first_name, counterpart.last_name])) or None
+    )
+    if payload.mode == "create":
+        record_activity(
+            db, tree_id=target.id, actor=user, action="create",
+            target_type="member", target_id=counterpart.id,
+            target_label=counterpart_label,
+        )
+    else:
+        record_activity(
+            db, tree_id=target.id, actor=user, action="update",
+            target_type="member", target_id=counterpart.id,
+            target_label=counterpart_label,
+            details={"after": {"linked_tree_id": tree.id}},
+        )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(db, target, "activity.entry_added", {"tree_id": target.id})
     db.refresh(member)
     db.refresh(target)
     publish_tree_event(

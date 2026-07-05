@@ -386,6 +386,8 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       relationTypes: [],
     });
 
+    useActivityStore.getState().clear();
+
     const virtual = isVirtualId(tree.id);
 
     // Marks the tree/view as "opened" server-side and returns the latest

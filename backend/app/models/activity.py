@@ -22,7 +22,8 @@ class ActivityLog(Base):
 
     # "create" | "update" | "delete"
     action: Mapped[str] = mapped_column(String(20))
-    # "member" | "relation" | "event" | "story" | "gallery_image" | "disease"
+    # "member" | "relation" | "event" | "story" | "gallery_image" | "disease" |
+    # "tree" | "share" | "import" | "merge"
     target_type: Mapped[str] = mapped_column(String(40))
     # nullable because relations use a composite key
     target_id: Mapped[str | None] = mapped_column(String(36), nullable=True)

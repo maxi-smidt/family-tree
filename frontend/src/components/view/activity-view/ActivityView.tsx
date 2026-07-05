@@ -41,6 +41,10 @@ const TARGET_KEY: Record<string, string> = {
   story: "target-story",
   gallery_image: "target-gallery_image",
   disease: "target-disease",
+  tree: "target-tree",
+  share: "target-share",
+  import: "target-import",
+  merge: "target-merge",
 };
 
 const TARGET_VIEW: Record<string, ViewId> = {
@@ -176,14 +180,25 @@ const ALL_TARGET_TYPES = [
   "story",
   "gallery_image",
   "disease",
+  "tree",
+  "share",
+  "import",
+  "merge",
 ] as const;
 
 export const ActivityView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "activity-view" });
   const store = useActivityStore();
   const filteredActivities = selectFilteredActivities(store);
-  const { filterActor, filterAction, filterTargetType, setFilter, activities, refreshActivity, initialized } =
-    store;
+  const {
+    filterActor,
+    filterAction,
+    filterTargetType,
+    setFilter,
+    activities,
+    refreshActivity,
+    initialized,
+  } = store;
   useDeferredStoreLoad(initialized, refreshActivity);
 
   const uniqueActors = Array.from(

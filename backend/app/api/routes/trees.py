@@ -42,6 +42,7 @@ from app.schemas.tree import (
     TreeUpdate,
 )
 from app.services import feature_service, friendships
+from app.services.activity import record_activity
 from app.services.event_bus import event_bus, publish_tree_event, tree_audience
 from app.services.extract import (
     compute_subtree_preview,
@@ -113,8 +114,14 @@ def create_tree(
         last_opened=utcnow_iso(),
     )
     db.add(tree)
+    db.flush()
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="create",
+        target_type="tree", target_id=tree.id, target_label=tree.name,
+    )
     db.commit()
     db.refresh(tree)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
 
 
@@ -395,10 +402,20 @@ def update_tree(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if payload.name is not None:
+    logged = False
+    if payload.name is not None and payload.name != tree.name:
+        old_name = tree.name
         tree.name = payload.name
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="tree", target_id=tree.id, target_label=tree.name,
+            details={"before": {"name": old_name}, "after": {"name": tree.name}},
+        )
+        logged = True
     db.commit()
     db.refresh(tree)
+    if logged:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
 
 
@@ -420,6 +437,10 @@ def delete_tree(
         )
     tree_id = tree.id
     audience = tree_audience(db, tree)
+    # Intentionally not logged: ActivityLog.tree_id cascades on tree deletion,
+    # so any row written here would be deleted along with the tree itself
+    # (self-erasing audit trail). Durable tree-deletion audit is out of scope
+    # for the per-tree log — see docs/ACTIVITY_AUDIT.md.
     db.delete(tree)
     db.commit()
     # The DB cascade clears the rows; remove the backing media files too.
@@ -443,9 +464,23 @@ def set_public_access(
         raise HTTPException(
             status_code=400, detail="public_role must be 'viewer' or null"
         )
+    old_public_role = tree.public_role
     tree.public_role = payload.public_role
+    logged = False
+    if old_public_role != tree.public_role:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="tree", target_id=tree.id, target_label=tree.name,
+            details={
+                "before": {"public_role": old_public_role},
+                "after": {"public_role": tree.public_role},
+            },
+        )
+        logged = True
     db.commit()
     db.refresh(tree)
+    if logged:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
 
 
@@ -528,6 +563,7 @@ def share_tree(
         )
 
     membership = db.get(TreeMembership, (tree.id, target.id))
+    is_new_grant = membership is None
     if membership is None:
         db.add(
             TreeMembership(
@@ -539,10 +575,18 @@ def share_tree(
         )
     else:
         membership.role = payload.role
+    if is_new_grant:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="create",
+            target_type="share", target_id=target.id, target_label=target.username,
+            details={"role": payload.role},
+        )
     db.commit()
     publish_tree_event(
         db, tree, "tree.access_changed", {"tree_id": tree.id}, extra_user_ids=[target.id]
     )
+    if is_new_grant:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return list_access(tree=tree, db=db)
 
 
@@ -557,7 +601,13 @@ def revoke_access(
         raise HTTPException(status_code=403, detail="Only the owner can manage sharing")
     membership = db.get(TreeMembership, (tree.id, user_id))
     if membership is not None:
+        revoked_user = db.get(User, user_id)
         db.delete(membership)
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="delete",
+            target_type="share", target_id=user_id,
+            target_label=revoked_user.username if revoked_user else None,
+        )
         db.commit()
         publish_tree_event(
             db,
@@ -566,6 +616,7 @@ def revoke_access(
             {"tree_id": tree.id},
             extra_user_ids=[user_id],
         )
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
 
 
 _BATCH_TREE_IDS_MAX = 100
@@ -666,8 +717,10 @@ def share_trees_batch(
             raise HTTPException(status_code=403, detail="You can only share with friends")
         trees.append(t)
 
+    logged_trees: list[Tree] = []
     for t in trees:
         membership = db.get(TreeMembership, (t.id, target.id))
+        is_new_grant = membership is None
         if membership is None:
             db.add(
                 TreeMembership(
@@ -679,12 +732,21 @@ def share_trees_batch(
             )
         else:
             membership.role = payload.role
+        if is_new_grant:
+            record_activity(
+                db, tree_id=t.id, actor=user, action="create",
+                target_type="share", target_id=target.id, target_label=target.username,
+                details={"role": payload.role},
+            )
+            logged_trees.append(t)
     db.commit()
 
     for t in trees:
         publish_tree_event(
             db, t, "tree.access_changed", {"tree_id": t.id}, extra_user_ids=[target.id]
         )
+    for t in logged_trees:
+        publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
     return list_access(tree=tree, db=db)
 
 
@@ -716,11 +778,17 @@ def revoke_access_batch(
             )
         trees.append(t)
 
+    revoked_user = db.get(User, payload.user_id)
     affected: list[Tree] = []
     for t in trees:
         membership = db.get(TreeMembership, (t.id, payload.user_id))
         if membership is not None:
             db.delete(membership)
+            record_activity(
+                db, tree_id=t.id, actor=user, action="delete",
+                target_type="share", target_id=payload.user_id,
+                target_label=revoked_user.username if revoked_user else None,
+            )
             affected.append(t)
     db.commit()
 
@@ -732,6 +800,7 @@ def revoke_access_batch(
             {"tree_id": t.id},
             extra_user_ids=[payload.user_id],
         )
+        publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
 
 
 @router.patch(
@@ -755,7 +824,21 @@ def update_member_restrictions(
     membership = db.get(TreeMembership, (tree.id, user_id))
     if membership is None:
         raise HTTPException(status_code=404, detail="Membership not found")
+    before_restrictions = list(membership.restrictions or [])
     membership.restrictions = payload.restrictions or None
+    after_restrictions = list(membership.restrictions or [])
+    target_user = db.get(User, user_id)
+    logged = before_restrictions != after_restrictions
+    if logged:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="share", target_id=user_id,
+            target_label=target_user.username if target_user else None,
+            details={
+                "before": {"restrictions": before_restrictions},
+                "after": {"restrictions": after_restrictions},
+            },
+        )
     db.commit()
     publish_tree_event(
         db,
@@ -764,6 +847,8 @@ def update_member_restrictions(
         {"tree_id": tree.id},
         extra_user_ids=[user_id],
     )
+    if logged:
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return list_access(tree=tree, db=db)
 
 
@@ -853,8 +938,17 @@ def transfer_ownership(
         else:
             existing.role = payload.retain_role
 
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="tree", target_id=tree.id, target_label=tree.name,
+        details={
+            "before": {"owner_id": old_owner_id},
+            "after": {"owner_id": tree.owner_id},
+        },
+    )
     db.commit()
     db.refresh(tree)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db,
         tree,
@@ -911,8 +1005,17 @@ def revert_transfer(
     tree.previous_owner_id = None
     tree.ownership_transferred_at = None
 
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="tree", target_id=tree.id, target_label=tree.name,
+        details={
+            "before": {"owner_id": reverted_from_owner_id},
+            "after": {"owner_id": tree.owner_id},
+        },
+    )
     db.commit()
     db.refresh(tree)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db,
         tree,
