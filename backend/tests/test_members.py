@@ -996,3 +996,274 @@ def test_bridge_person_sync_requires_write_access_to_other_tree(client, db):
         headers=auth(owner),
     ).json()
     assert counterpart["firstName"] == "Jo"
+
+
+# --- Link candidates ---------------------------------------------------
+
+
+def test_link_candidates_returns_only_same_name_unlinked_members(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1", firstName="Jo", lastName="Doe")
+    # Same name+gender, different dates -> possible match.
+    _create_member(
+        client, other, user, "same-name",
+        firstName="Jo", lastName="Doe", dateOfBirth="1950-01-01",
+    )
+    # Different name entirely -> excluded.
+    _create_member(client, other, user, "diff-name", firstName="Someone", lastName="Else")
+    # Same name but already linked elsewhere -> excluded.
+    third = make_tree(db, user, "Third")
+    _create_member(
+        client, other, user, "already-linked", firstName="Jo", lastName="Doe"
+    )
+    client.post(
+        f"{API}/trees/{other.id}/members/already-linked/link",
+        headers=auth(user),
+        json={"linkedTreeId": third.id, "mode": "create"},
+    )
+
+    res = client.get(
+        f"{API}/trees/{main.id}/members/m1/link-candidates",
+        headers=auth(user),
+        params={"target_tree_id": other.id},
+    )
+    assert res.status_code == 200
+    candidates = res.json()["candidates"]
+    ids = {c["member_b"]["id"] for c in candidates}
+    assert ids == {"same-name"}
+    pair = candidates[0]
+    assert pair["match"] == "possible"
+    assert "date_of_birth" in pair["conflicts"]
+    assert pair["member_a"]["id"] == "m1"
+
+
+def test_link_candidates_exact_match_has_no_date_conflict(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(
+        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        dateOfBirth="1950-01-01",
+    )
+    _create_member(
+        client, other, user, "twin", firstName="Jo", lastName="Doe",
+        dateOfBirth="1950-01-01",
+    )
+
+    res = client.get(
+        f"{API}/trees/{main.id}/members/m1/link-candidates",
+        headers=auth(user),
+        params={"target_tree_id": other.id},
+    )
+    assert res.status_code == 200
+    candidates = res.json()["candidates"]
+    assert len(candidates) == 1
+    assert candidates[0]["match"] == "exact"
+    assert candidates[0]["conflicts"] == []
+
+
+def test_link_candidates_excludes_self(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    _create_member(client, main, user, "m1", firstName="Jo", lastName="Doe")
+
+    res = client.get(
+        f"{API}/trees/{main.id}/members/m1/link-candidates",
+        headers=auth(user),
+        params={"target_tree_id": main.id},
+    )
+    # Linking a member to its own tree is rejected up front.
+    assert res.status_code == 400
+
+
+def test_link_candidates_requires_write_access_to_target(client, db):
+    from tests.conftest import share
+
+    owner = make_user(db, "alice")
+    viewer = make_user(db, "bob")
+    main = make_tree(db, owner, "Main")
+    other = make_tree(db, owner, "Other")
+    _create_member(client, main, owner, "m1")
+    share(db, main, viewer, "editor")
+    share(db, other, viewer, "viewer")
+
+    res = client.get(
+        f"{API}/trees/{main.id}/members/m1/link-candidates",
+        headers=auth(viewer),
+        params={"target_tree_id": other.id},
+    )
+    assert res.status_code == 403
+
+
+def test_link_candidates_404_when_feature_off(client, db):
+    from app.services import feature_service
+
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(client, main, user, "m1")
+
+    feature_service.set_state(db, "tree_links", "off")
+    db.commit()
+    try:
+        res = client.get(
+            f"{API}/trees/{main.id}/members/m1/link-candidates",
+            headers=auth(user),
+            params={"target_tree_id": other.id},
+        )
+        assert res.status_code == 404
+    finally:
+        feature_service.set_state(db, "tree_links", "on")
+        db.commit()
+
+
+# --- Link field-choice reconciliation -----------------------------------
+
+
+def test_link_existing_without_choices_unions_empties_into_both_rows(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(
+        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        birthplace="Vienna",
+    )
+    _create_member(
+        client, other, user, "counterpart", firstName="Jo", lastName="Doe",
+        cemetery="Ohlsdorf",
+    )
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "counterpart",
+        },
+    )
+    assert res.status_code == 201
+
+    anchor = client.get(
+        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
+    ).json()
+    counterpart = client.get(
+        f"{API}/trees/{other.id}/members/counterpart", headers=auth(user)
+    ).json()
+    # Neither side had a cemetery/birthplace conflict (one side was empty), so
+    # the union fills in the missing value on both rows.
+    assert anchor["birthplace"] == "Vienna"
+    assert counterpart["birthplace"] == "Vienna"
+    assert anchor["cemetery"] == "Ohlsdorf"
+    assert counterpart["cemetery"] == "Ohlsdorf"
+
+
+def test_link_existing_field_choices_reconcile_both_rows(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(
+        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        birthplace="Vienna", hometown="Salzburg", cemetery="A",
+    )
+    _create_member(
+        client, other, user, "counterpart", firstName="Jo", lastName="Doe",
+        birthplace="Graz", hometown="Linz", cemetery="B",
+    )
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "counterpart",
+            "fieldChoices": {
+                "birthplace": "a",
+                "hometown": "b",
+                "cemetery": "combine",
+            },
+        },
+    )
+    assert res.status_code == 201
+
+    anchor = client.get(
+        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
+    ).json()
+    counterpart = client.get(
+        f"{API}/trees/{other.id}/members/counterpart", headers=auth(user)
+    ).json()
+    assert anchor["birthplace"] == "Vienna"
+    assert counterpart["birthplace"] == "Vienna"
+    assert anchor["hometown"] == "Linz"
+    assert counterpart["hometown"] == "Linz"
+    # "combine" doesn't apply to a non-text field like cemetery -> falls back
+    # to A's value on both rows.
+    assert anchor["cemetery"] == "A"
+    assert counterpart["cemetery"] == "A"
+
+
+def test_link_existing_field_choices_combine_text_field(client, db):
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(
+        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        additionalData="Loved gardening.",
+    )
+    _create_member(
+        client, other, user, "counterpart", firstName="Jo", lastName="Doe",
+        additionalData="Played the violin.",
+    )
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "existing",
+            "counterpartMemberId": "counterpart",
+            "fieldChoices": {"additionalData": "combine"},
+        },
+    )
+    assert res.status_code == 201
+
+    anchor = client.get(
+        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
+    ).json()
+    counterpart = client.get(
+        f"{API}/trees/{other.id}/members/counterpart", headers=auth(user)
+    ).json()
+    combined = anchor["additionalData"]
+    assert "Loved gardening." in combined
+    assert "Played the violin." in combined
+    assert counterpart["additionalData"] == combined
+
+
+def test_link_mode_create_ignores_field_choices(client, db):
+    """field_choices has no counterpart data to reconcile against under
+    mode="create" (the counterpart is a fresh clone of the source member)."""
+    user = make_user(db, "alice")
+    main = make_tree(db, user, "Main")
+    other = make_tree(db, user, "Other")
+    _create_member(
+        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        birthplace="Vienna",
+    )
+
+    res = client.post(
+        f"{API}/trees/{main.id}/members/m1/link",
+        headers=auth(user),
+        json={
+            "linkedTreeId": other.id,
+            "mode": "create",
+            "fieldChoices": {"birthplace": "b"},
+        },
+    )
+    assert res.status_code == 201
+    members = client.get(
+        f"{API}/trees/{other.id}/members", headers=auth(user)
+    ).json()
+    assert members[0]["birthplace"] == "Vienna"

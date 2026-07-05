@@ -20,7 +20,11 @@ import {
   RelationTypeDB,
   mapMemberToDB,
 } from "@/types/member";
-import { MergePreviewResult } from "@/types/merge";
+import {
+  DuplicatePair,
+  MergeFieldChoice,
+  MergePreviewResult,
+} from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
@@ -115,7 +119,9 @@ export class TreeService {
   /** Establish a tree-in-tree bridge on an already-existing target tree:
    *  either by finding a matching person already in it ("existing") or by
    *  copying this member into it as a new bridge person ("create"). Unlike
-   *  updateMember, this always resolves a real bridge person on both sides. */
+   *  updateMember, this always resolves a real bridge person on both sides.
+   *  `field_choices` (mode="existing" only) resolves conflicting fields
+   *  between the source member and the chosen counterpart. */
   static linkMemberToTree(
     treeId: string,
     memberId: string,
@@ -123,11 +129,27 @@ export class TreeService {
       linked_tree_id: string;
       mode: "existing" | "create";
       counterpart_member_id?: string | null;
+      field_choices?: Partial<Record<string, MergeFieldChoice>>;
     },
   ) {
     return api.post<{ tree: Tree; anchor: MemberDB }>(
       `${base(treeId)}/members/${memberId}/link`,
       body,
+    );
+  }
+
+  /** List same-named members of `targetTreeId` that could be the bridge
+   *  counterpart for `memberId` — candidates for `linkMemberToTree` with
+   *  mode="existing", shaped as merge `DuplicatePair`s so the client can
+   *  reuse the merge conflict-resolution UI. */
+  static getLinkCandidates(
+    treeId: string,
+    memberId: string,
+    targetTreeId: string,
+  ) {
+    const params = new URLSearchParams({ target_tree_id: targetTreeId });
+    return api.get<{ candidates: DuplicatePair[] }>(
+      `${base(treeId)}/members/${memberId}/link-candidates?${params}`,
     );
   }
 

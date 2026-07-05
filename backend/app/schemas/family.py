@@ -161,6 +161,11 @@ class MemberLinkRequest(FamilyTreeBaseModel):
     linked_tree_id: str
     mode: Literal["existing", "create"]
     counterpart_member_id: str | None = None
+    # Per-field resolution choices (a = this member, b = counterpart) applied
+    # when mode="existing" reconciles the bridge pair's conflicting fields.
+    # Ignored for mode="create" (nothing to reconcile — the counterpart is a
+    # fresh clone of this member).
+    field_choices: dict[str, Literal["a", "b", "combine"]] = {}
 
 
 class BridgeSyncRequest(FamilyTreeBaseModel):

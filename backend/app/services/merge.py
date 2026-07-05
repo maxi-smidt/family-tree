@@ -13,6 +13,7 @@ choose field values on a conflict.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -58,7 +59,17 @@ def _empty(value: str | None) -> bool:
     return not (value or "").strip()
 
 
-def _member_key(m: Member) -> tuple:
+_CAMEL_BOUNDARY = re.compile(r"(?<!^)(?=[A-Z])")
+
+
+def _to_snake_case(name: str) -> str:
+    """Convert a camelCase field name (as the frontend sends field_choices /
+    merge resolution keys) to the snake_case attribute name used on
+    ``Member``. Already-snake_case input passes through unchanged."""
+    return _CAMEL_BOUNDARY.sub("_", name).lower()
+
+
+def member_key(m: Member) -> tuple:
     """Exact-duplicate key: name + gender + both dates (all normalised)."""
     return (
         _norm(m.first_name), _norm(m.last_name),
@@ -66,7 +77,7 @@ def _member_key(m: Member) -> tuple:
     )
 
 
-def _member_name_key(m: Member) -> tuple:
+def member_name_key(m: Member) -> tuple:
     """Name + gender only — used for possible-candidate detection."""
     return (_norm(m.first_name), _norm(m.last_name), m.gender)
 
@@ -86,7 +97,7 @@ def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
 # Conflict detection
 # ---------------------------------------------------------------------------
 
-_CONFLICT_FIELDS: list[str] = [
+CONFLICT_FIELDS: list[str] = [
     "middle_names",
     "baptismal_name",
     "maiden_name",
@@ -101,10 +112,10 @@ _CONFLICT_FIELDS: list[str] = [
 ]
 
 
-def _compute_conflicts(a: Member, b: Member) -> list[str]:
+def compute_conflicts(a: Member, b: Member) -> list[str]:
     """Return field names where the two members differ in a meaningful way."""
     conflicts: list[str] = []
-    for field in _CONFLICT_FIELDS:
+    for field in CONFLICT_FIELDS:
         va = getattr(a, field, None)
         vb = getattr(b, field, None)
         if field == "image_data":
@@ -157,8 +168,8 @@ def compute_merge_preview(
     exact_by_key: dict[tuple, Member] = {}
     name_by_key: dict[tuple, Member] = {}
     for m in members_a:
-        exact_by_key[_member_key(m)] = m
-        name_by_key[_member_name_key(m)] = m
+        exact_by_key[member_key(m)] = m
+        name_by_key[member_name_key(m)] = m
 
     duplicates: list[DuplicatePair] = []
     exact_matched_b_ids: set[str] = set()
@@ -166,10 +177,10 @@ def compute_merge_preview(
 
     # First pass: exact duplicates
     for mb in members_b:
-        exact_key = _member_key(mb)
+        exact_key = member_key(mb)
         if exact_key in exact_by_key:
             ma = exact_by_key[exact_key]
-            conflicts = _compute_conflicts(ma, mb)
+            conflicts = compute_conflicts(ma, mb)
             duplicates.append(
                 DuplicatePair(
                     member_a=MemberOut.model_validate(ma),
@@ -185,13 +196,13 @@ def compute_merge_preview(
     for mb in members_b:
         if mb.id in exact_matched_b_ids:
             continue
-        name_key = _member_name_key(mb)
+        name_key = member_name_key(mb)
         if name_key in name_by_key:
             ma = name_by_key[name_key]
             # Sanity check: must not be an exact match (already handled above)
-            if _member_key(ma) == _member_key(mb):
+            if member_key(ma) == member_key(mb):
                 continue
-            conflicts = _compute_conflicts(ma, mb)
+            conflicts = compute_conflicts(ma, mb)
             duplicates.append(
                 DuplicatePair(
                     member_a=MemberOut.model_validate(ma),
@@ -258,7 +269,7 @@ def _wire_bridge(source: Member, counterpart: Member) -> None:
     counterpart.linked_member_id = source.id
 
 
-def _apply_field_choices(
+def apply_field_choices(
     clone: Member,
     ma: Member,
     mb: Member,
@@ -270,21 +281,8 @@ def _apply_field_choices(
     ``fields`` maps field_name → "a" | "b" | "combine".
     """
     text_fields = {"additional_data", "places_lived"}
-    choosable = {
-        "middle_names",
-        "baptismal_name",
-        "maiden_name",
-        "birthplace",
-        "hometown",
-        "cemetery",
-        "places_lived",
-        "additional_data",
-        "image_data",
-        "date_of_birth",
-        "date_of_death",
-    }
     for field, choice in fields.items():
-        if field not in choosable:
+        if field not in CONFLICT_FIELDS:
             continue
         va = getattr(ma, field, None)
         vb = getattr(mb, field, None)
@@ -301,6 +299,84 @@ def _apply_field_choices(
                 if p not in seen:
                     seen.append(p)
             setattr(clone, field, separator.join(seen) if seen else None)
+
+
+def reconcile_bridge_fields(
+    member: Member,
+    counterpart: Member,
+    choices: dict[str, str] | None = None,
+) -> None:
+    """Reconcile the conflicting fields of a freshly-wired bridge pair.
+
+    Used by the link-existing-tree flow (mode="existing") right after
+    ``_wire_bridge``: the two rows represent the same human, so once linked
+    their conflicting fields (dates, places, images, notes, ...) should agree
+    on both sides, not just drift until a later edit or bridge-sync.
+
+    For each field in ``CONFLICT_FIELDS`` an explicit choice ("a" | "b" |
+    "combine", a = ``member``, b = ``counterpart``) from ``choices`` is
+    applied when given; otherwise the fields are unioned (whichever side is
+    non-empty wins, preferring ``member`` when both are set) via the same
+    a/b/combine semantics as ``apply_field_choices``. ``image_data`` is copied
+    into the destination tree's media store, mirroring
+    ``bridge.copy_bridge_fields``.
+
+    ``choices`` keys may be camelCase (as sent by the frontend, matching its
+    ``RESOLVABLE_FIELDS``) or snake_case; both are normalised to the
+    ``Member`` attribute name.
+    """
+    choices = choices or {}
+    normalised_choices = {_to_snake_case(k): v for k, v in choices.items()}
+    resolved: dict[str, str] = {
+        k: v for k, v in normalised_choices.items() if k in CONFLICT_FIELDS
+    }
+    for field in CONFLICT_FIELDS:
+        if field in resolved:
+            continue
+        va = getattr(member, field, None)
+        vb = getattr(counterpart, field, None)
+        # Union default: prefer whichever side is non-empty; when both are
+        # set (a genuine conflict with no explicit choice) keep A's value.
+        resolved[field] = "a" if not _empty(va) or _empty(vb) else "b"
+
+    # Snapshot pre-reconciliation values so both a→b and b→a copies read the
+    # same source data even though `member` is mutated first below.
+    orig_member = {f: getattr(member, f, None) for f in CONFLICT_FIELDS}
+    orig_counterpart = {f: getattr(counterpart, f, None) for f in CONFLICT_FIELDS}
+
+    for field, choice in resolved.items():
+        if choice == "a":
+            value = orig_member[field]
+        elif choice == "b":
+            value = orig_counterpart[field]
+        else:  # combine
+            if field in {"additional_data", "places_lived"}:
+                separator = "\n\n" if field == "additional_data" else ", "
+                parts = [
+                    p for p in [orig_member[field], orig_counterpart[field]]
+                    if not _empty(p)
+                ]
+                seen: list[str] = []
+                for p in parts:
+                    if p not in seen:
+                        seen.append(p)
+                value = separator.join(seen) if seen else None
+            else:
+                # Combine doesn't apply to non-text fields; fall back to A.
+                value = orig_member[field]
+
+        if field == "image_data":
+            member.image_data = (
+                value if value == orig_member["image_data"]
+                else copy_media_to_tree(value, member.tree_id)
+            )
+            counterpart.image_data = (
+                value if value == orig_counterpart["image_data"]
+                else copy_media_to_tree(value, counterpart.tree_id)
+            )
+        else:
+            setattr(member, field, value)
+            setattr(counterpart, field, value)
 
 
 # ---------------------------------------------------------------------------
@@ -372,13 +448,13 @@ def merge_trees(
         member_map[ma.id] = new_id
         clone = _clone_member(ma, new_tree.id, new_id)
         db.add(clone)
-        dedup[_member_key(ma)] = clone
-        name_index[_member_name_key(ma)] = (clone, ma.id)
+        dedup[member_key(ma)] = clone
+        name_index[member_name_key(ma)] = (clone, ma.id)
 
     # ---- Pass 2: process source-B members ----
     for mb in members_b:
-        exact_key = _member_key(mb)
-        name_key = _member_name_key(mb)
+        exact_key = member_key(mb)
+        name_key = member_name_key(mb)
 
         # --- Check resolution for this pair (if any) ---
         # We need to find the matching source-A member to look up the resolution.
@@ -425,7 +501,7 @@ def merge_trees(
                         (m for m in members_a if m.id == matched_a_id), None
                     )
                     if orig_ma is not None:
-                        _apply_field_choices(
+                        apply_field_choices(
                             matched_a_clone, orig_ma, mb, resolution.fields
                         )
                 else:

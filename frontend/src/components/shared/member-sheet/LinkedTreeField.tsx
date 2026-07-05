@@ -157,8 +157,9 @@ export const LinkedTreeField = ({
           )}
         </>
       )}
-      {pendingLinkTree && memberId && (
+      {pendingLinkTree && memberId && currentTreeId && (
         <LinkExistingTreeDialog
+          sourceTreeId={currentTreeId}
           memberId={memberId}
           memberName={memberName}
           tree={pendingLinkTree}

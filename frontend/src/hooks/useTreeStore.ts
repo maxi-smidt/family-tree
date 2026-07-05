@@ -12,7 +12,7 @@ import {
   RelationTypeDB,
   mapMemberFromDB,
 } from "@/types/member";
-import { MergeResolution } from "@/types/merge";
+import { MergeFieldChoice, MergeResolution } from "@/types/merge";
 import { useJobStore } from "@/hooks/useJobStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -70,6 +70,7 @@ interface DatabaseState {
       linked_tree_id: string;
       mode: "existing" | "create";
       counterpart_member_id?: string | null;
+      field_choices?: Partial<Record<string, MergeFieldChoice>>;
     },
   ) => Promise<Tree>;
   navigateToTreeStack: (index: number) => Promise<void>;

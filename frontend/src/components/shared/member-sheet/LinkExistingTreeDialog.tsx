@@ -11,16 +11,31 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { TreeService } from "@/services/TreeService";
 import { ApiError } from "@/services/api";
 import { Tree } from "@/types/tree";
-import { mapMemberFromDB, MemberDB } from "@/types/member";
-import { MemberPicker } from "./MemberPicker";
+import { DuplicatePair } from "@/types/merge";
+import {
+  PairResolutionState,
+  buildInitialResolutionState,
+  memberDisplayName,
+} from "@/utils/mergeUtils";
+import { MergeConflictResolver } from "@/components/view/database-management-view/dialog/MergeConflictResolver";
 
 type Mode = "existing" | "create";
 
 interface Props {
+  /** Id of the tree the member being linked currently lives in (the source
+   *  side of the bridge, "A" in every conflict). */
+  sourceTreeId: string;
   memberId: string;
   memberName: string;
   tree: Tree;
@@ -35,10 +50,15 @@ interface Props {
  * dropdown. The member must already be saved (bridging writes rows in two
  * trees) and the caller must have write access to the target — both are
  * enforced by the backend, but the no-access case is also short-circuited
- * here from `tree.role` for a friendlier state. The source tree itself is
- * resolved by `linkExistingTree` from the currently selected tree.
+ * here from `tree.role` for a friendlier state.
+ *
+ * In "find existing person" mode, only same-named candidates from the
+ * merge/duplicate-detection machinery are offered (#565 follow-up) — picking
+ * one that conflicts on some fields opens the same `MergeConflictResolver`
+ * used by tree merge, so differences are resolved instead of left to drift.
  */
 export const LinkExistingTreeDialog = ({
+  sourceTreeId,
   memberId,
   memberName,
   tree,
@@ -52,9 +72,11 @@ export const LinkExistingTreeDialog = ({
   const linkExistingTree = useTreeStore((s) => s.linkExistingTree);
 
   const [mode, setMode] = useState<Mode>("existing");
-  const [candidates, setCandidates] = useState<MemberDB[]>([]);
+  const [candidates, setCandidates] = useState<DuplicatePair[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [resolutionState, setResolutionState] =
+    useState<PairResolutionState | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const hasWriteAccess = tree.role === "owner" || tree.role === "editor";
@@ -63,18 +85,22 @@ export const LinkExistingTreeDialog = ({
     if (!open || !hasWriteAccess) return;
     setMode("existing");
     setSelectedId(null);
+    setResolutionState(null);
     setLoading(true);
-    TreeService.getMembers(tree.id, true)
-      .then((rows) => setCandidates(rows))
+    TreeService.getLinkCandidates(sourceTreeId, memberId, tree.id)
+      .then((res) => setCandidates(res.candidates))
       .catch(() => setCandidates([]))
       .finally(() => setLoading(false));
-  }, [open, hasWriteAccess, tree.id]);
+  }, [open, hasWriteAccess, sourceTreeId, memberId, tree.id]);
 
-  // Members that already have a bridge to somewhere cannot be re-used as a
-  // counterpart (would hijack the other link's bridge).
-  const pickableMembers = candidates
-    .filter((m) => !m.linkedTreeId)
-    .map((m) => mapMemberFromDB(m));
+  const selectedPair =
+    candidates.find((c) => c.member_b.id === selectedId) ?? null;
+
+  const handleSelectCandidate = (id: string) => {
+    setSelectedId(id);
+    const pair = candidates.find((c) => c.member_b.id === id);
+    setResolutionState(pair ? buildInitialResolutionState(pair) : null);
+  };
 
   const handleConfirm = async () => {
     setSubmitting(true);
@@ -83,6 +109,10 @@ export const LinkExistingTreeDialog = ({
         linked_tree_id: tree.id,
         mode,
         counterpart_member_id: mode === "existing" ? selectedId : undefined,
+        field_choices:
+          mode === "existing" && resolutionState
+            ? resolutionState.fields
+            : undefined,
       });
       toast.success(t("toast-success", { name: tree.name }));
       onLinked();
@@ -102,7 +132,7 @@ export const LinkExistingTreeDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{t("title", { name: tree.name })}</DialogTitle>
           <DialogDescription>
@@ -128,17 +158,52 @@ export const LinkExistingTreeDialog = ({
               <p className="text-xs text-muted-foreground">
                 {t("mode-existing-description")}
               </p>
-              <MemberPicker
-                members={pickableMembers}
-                value={selectedId}
-                onChange={setSelectedId}
-                placeholder={loading ? t("loading") : t("existing-placeholder")}
-                noResultsText={
-                  loading ? t("loading") : t("existing-no-results")
-                }
-                showBirthDate
-                size="default"
-              />
+              {!loading && candidates.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("no-candidates", { member: memberName, tree: tree.name })}
+                </p>
+              ) : (
+                <Select
+                  value={selectedId ?? undefined}
+                  onValueChange={handleSelectCandidate}
+                  disabled={loading}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue
+                      placeholder={
+                        loading ? t("loading") : t("existing-placeholder")
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {candidates.map((c) => (
+                      <SelectItem key={c.member_b.id} value={c.member_b.id}>
+                        {memberDisplayName(c.member_b)}
+                        {c.member_b.dateOfBirth
+                          ? ` (${c.member_b.dateOfBirth})`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {selectedPair && selectedPair.conflicts.length > 0 && (
+                <div className="pt-2">
+                  <MergeConflictResolver
+                    pair={selectedPair}
+                    sourceAName={memberName}
+                    sourceBName={tree.name}
+                    state={
+                      resolutionState ??
+                      buildInitialResolutionState(selectedPair)
+                    }
+                    onChange={(updated) =>
+                      setResolutionState({ ...updated, action: "merge" })
+                    }
+                  />
+                </div>
+              )}
             </TabsContent>
             <TabsContent value="create" className="space-y-2">
               <p className="text-xs text-muted-foreground">
@@ -165,7 +230,9 @@ export const LinkExistingTreeDialog = ({
               type="button"
               size="sm"
               disabled={
-                submitting || (mode === "existing" && selectedId === null)
+                submitting ||
+                (mode === "existing" &&
+                  (selectedId === null || candidates.length === 0))
               }
               onClick={() => void handleConfirm()}
             >

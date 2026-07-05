@@ -37,6 +37,7 @@ from app.schemas.family import (
     RelationCreate,
     RelationOut,
 )
+from app.schemas.merge import DuplicatePair, LinkCandidatesOut
 from app.schemas.tree import TreeOut
 from app.services.activity import record_activity
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
@@ -636,6 +637,75 @@ def create_member_subtree(
     )
 
 
+@router.get(
+    "/members/{member_id}/link-candidates",
+    response_model=LinkCandidatesOut,
+)
+def get_link_candidates(
+    member_id: str,
+    target_tree_id: str = Query(...),
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List same-named members of ``target_tree_id`` that could be the bridge
+    counterpart for ``member_id`` — i.e. candidates for ``POST .../link``
+    with ``mode="existing"``.
+
+    Only members matching the source member's name+gender key are returned
+    (a bridge person is the same human on both sides, so an unrelated match
+    would be meaningless), excluding the source member itself and anyone
+    already linked to another tree. Each candidate is shaped as a
+    ``DuplicatePair`` (reusing the tree-merge machinery) so the client can
+    render the same conflict-resolution UI merge already uses.
+    """
+    from app.services import feature_service  # noqa: PLC0415
+    from app.services.merge import (  # noqa: PLC0415
+        compute_conflicts,
+        member_key,
+        member_name_key,
+    )
+
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    member = _get_member(db, tree, member_id)
+
+    _validate_linked_tree(db, tree, user, target_tree_id)
+    target = db.get(Tree, target_tree_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Linked tree not found")
+    # Candidates are only useful if the caller can actually link one, which
+    # requires write access to the target (same check the link endpoint uses).
+    if not user.is_admin and role_for(db, target, user) not in ("owner", "editor"):
+        raise HTTPException(
+            status_code=403, detail="No write access to the linked tree"
+        )
+
+    source_name_key = member_name_key(member)
+    source_exact_key = member_key(member)
+    candidates: list[DuplicatePair] = []
+    for candidate in db.scalars(
+        select(Member).where(Member.tree_id == target.id)
+    ):
+        if candidate.id == member.id:
+            continue
+        if candidate.linked_tree_id is not None:
+            continue
+        if member_name_key(candidate) != source_name_key:
+            continue
+        match = "exact" if member_key(candidate) == source_exact_key else "possible"
+        candidates.append(
+            DuplicatePair(
+                member_a=MemberOut.model_validate(member),
+                member_b=MemberOut.model_validate(candidate),
+                match=match,
+                conflicts=compute_conflicts(member, candidate),
+                default_action="merge",
+            )
+        )
+    return LinkCandidatesOut(candidates=candidates)
+
+
 @router.post(
     "/members/{member_id}/link",
     response_model=MemberSubtreeOut,
@@ -709,6 +779,15 @@ def link_member_to_tree(
             )
 
     _wire_bridge(member, counterpart)
+    if payload.mode == "existing":
+        # The two rows may describe the same person with differing details
+        # (dates, places, notes, ...) — reconcile them onto both sides now
+        # rather than letting the bridge start out of sync. field_choices is
+        # ignored for mode="create": the counterpart there is a fresh clone of
+        # `member`, so there is nothing to reconcile.
+        from app.services.merge import reconcile_bridge_fields  # noqa: PLC0415
+
+        reconcile_bridge_fields(member, counterpart, payload.field_choices)
 
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(db, tree_id=tree.id, actor=user, action="update",
