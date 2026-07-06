@@ -7,6 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Fixed
+
+- Allow drawing a relationship directly from a union node to add a shared child to a couple (#578).
+
 ## [1.5.0] - 2026-07-05
 
 ### Added
