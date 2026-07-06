@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ArrowLeft,
   HardDrive,
+  History,
   LayoutDashboard,
   ShieldCheck,
   Trash2,
@@ -21,6 +22,7 @@ import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import { TabSettingsPanel } from "@/components/settings/TabSettingsPanel";
 import { TwoFactorPanel } from "@/components/settings/TwoFactorPanel";
 import { DeleteAccountPanel } from "@/components/settings/DeleteAccountPanel";
+import { ChangelogList } from "@/components/changelog/ChangelogList";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { UserPreferencesService } from "@/services/UserPreferencesService";
@@ -114,6 +116,13 @@ export const UserSettingsView = () => {
               </TabsTrigger>
             )}
             <TabsTrigger
+              value="changelog"
+              className="justify-start data-[state=active]:bg-muted"
+            >
+              <History className="h-4 w-4 mr-2" />
+              {t("changelog.section")}
+            </TabsTrigger>
+            <TabsTrigger
               value="account"
               className="justify-start data-[state=active]:bg-muted text-destructive data-[state=active]:text-destructive"
             >
@@ -166,6 +175,12 @@ export const UserSettingsView = () => {
 
           <TabsContent value="two-factor" className="mt-0">
             <TwoFactorPanel />
+          </TabsContent>
+
+          <TabsContent value="changelog" className="mt-0">
+            <div className="space-y-4 max-w-lg">
+              <ChangelogList />
+            </div>
           </TabsContent>
 
           <TabsContent value="account" className="mt-0">
