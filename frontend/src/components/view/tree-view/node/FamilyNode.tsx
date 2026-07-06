@@ -153,6 +153,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   };
 
   const onNodeKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (data.isSelectionMode === true) return;
     if (e.key === "Enter" || e.key === " ") {
       // Only activate if the event target is the node wrapper itself (not a button inside)
       if (e.target === e.currentTarget) {
@@ -165,6 +166,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   };
 
   // Use CSS variables for theme-aware colors
+  const isSelectionMode = data.isSelectionMode === true;
   const isConnectionSelected = data.isConnectionSelected === true;
   const isConnectionPath = data.isConnectionPath === true;
   const isConnectionDimmed = data.isConnectionDimmed === true;
@@ -205,12 +207,12 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   const handleClassName = `${
     isFastMode ? "w-1/2!" : "w-1/4!"
   } bg-muted-foreground! rounded-md! ${
-    data.isReadOnly ? "pointer-events-none opacity-0" : ""
+    data.isReadOnly || isSelectionMode ? "pointer-events-none opacity-0" : ""
   }`;
   const horizontalHandleClassName = `${
     isFastMode ? "h-3/5!" : "h-1/4!"
   } bg-muted-foreground! rounded-md! ${
-    data.isReadOnly ? "pointer-events-none opacity-0" : ""
+    data.isReadOnly || isSelectionMode ? "pointer-events-none opacity-0" : ""
   }`;
 
   return (
@@ -225,6 +227,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         !isConnectionSelected && isConnectionPath
           ? "ring-2 ring-amber-500 ring-offset-2 ring-offset-background"
           : "",
+        isSelectionMode ? "select-none cursor-move" : "",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -239,7 +242,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="target"
         position={Position.Top}
         id="top"
-        isConnectable={!data.isReadOnly}
+        isConnectable={!data.isReadOnly && !isSelectionMode}
         className={handleClassName}
         data-export-hide="true"
       />
@@ -247,7 +250,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="source"
         position={Position.Left}
         id="left"
-        isConnectable={!data.isReadOnly}
+        isConnectable={!data.isReadOnly && !isSelectionMode}
         className={horizontalHandleClassName}
         data-export-hide="true"
       />
@@ -255,74 +258,82 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="source"
         position={Position.Right}
         id="right"
-        isConnectable={!data.isReadOnly}
+        isConnectable={!data.isReadOnly && !isSelectionMode}
         className={horizontalHandleClassName}
         data-export-hide="true"
       />
-      <div
-        className="absolute top-2 flex justify-between w-full px-2"
-        data-export-hide="true"
-      >
-        <div className="flex gap-1">
-          {typeof data.onView === "function" && (
+      {isSelectionMode && (
+        <div
+          className="absolute -inset-2 z-20 cursor-move"
+          aria-hidden="true"
+        />
+      )}
+      {!isSelectionMode && (
+        <div
+          className="absolute top-2 flex justify-between w-full px-2"
+          data-export-hide="true"
+        >
+          <div className="flex gap-1">
+            {typeof data.onView === "function" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label={t("view-details")}
+                className="nodrag nopan"
+                onPointerDown={stopCanvasGesture}
+                onClick={onViewClick}
+              >
+                <EyeIcon />
+              </Button>
+            )}
+            {typeof data.onOpenLinkedTree === "function" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label={
+                  data.linkedTreeAccessible === false
+                    ? t("open-linked-tree-no-access")
+                    : t("open-linked-tree")
+                }
+                title={
+                  data.linkedTreeAccessible === false
+                    ? t("open-linked-tree-no-access")
+                    : t("open-linked-tree")
+                }
+                // Muted and inert when the target tree isn't shared with the
+                // viewer: following the link would open a tree that appears
+                // nowhere in their own list (a "ghost tree"), so the badge only
+                // signals that a linked tree exists.
+                disabled={data.linkedTreeAccessible === false}
+                className={
+                  data.linkedTreeAccessible === false
+                    ? "nodrag nopan opacity-40"
+                    : "nodrag nopan"
+                }
+                onPointerDown={stopCanvasGesture}
+                onClick={onOpenLinkedTreeClick}
+              >
+                <Network />
+              </Button>
+            )}
+          </div>
+          {!data.isReadOnly && (
             <Button
               type="button"
               variant="outline"
               size="icon-sm"
-              aria-label={t("view-details")}
+              aria-label={t("edit-member")}
               className="nodrag nopan"
               onPointerDown={stopCanvasGesture}
-              onClick={onViewClick}
+              onClick={onEditClick}
             >
-              <EyeIcon />
-            </Button>
-          )}
-          {typeof data.onOpenLinkedTree === "function" && (
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-sm"
-              aria-label={
-                data.linkedTreeAccessible === false
-                  ? t("open-linked-tree-no-access")
-                  : t("open-linked-tree")
-              }
-              title={
-                data.linkedTreeAccessible === false
-                  ? t("open-linked-tree-no-access")
-                  : t("open-linked-tree")
-              }
-              // Muted and inert when the target tree isn't shared with the
-              // viewer: following the link would open a tree that appears
-              // nowhere in their own list (a "ghost tree"), so the badge only
-              // signals that a linked tree exists.
-              disabled={data.linkedTreeAccessible === false}
-              className={
-                data.linkedTreeAccessible === false
-                  ? "nodrag nopan opacity-40"
-                  : "nodrag nopan"
-              }
-              onPointerDown={stopCanvasGesture}
-              onClick={onOpenLinkedTreeClick}
-            >
-              <Network />
+              <PencilIcon />
             </Button>
           )}
         </div>
-        {!data.isReadOnly && (
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            aria-label={t("edit-member")}
-            className="nodrag nopan"
-            onPointerDown={stopCanvasGesture}
-            onClick={onEditClick}
-          >
-            <PencilIcon />
-          </Button>
-        )}
-      </div>
+      )}
 
       <FamilyNodeContent member={data} />
 
@@ -383,7 +394,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         </div>
       )}
 
-      {isFastMode && !data.isReadOnly && (
+      {isFastMode && !data.isReadOnly && !isSelectionMode && (
         <div data-export-hide="true">
           <Button
             variant="ghost"
@@ -448,7 +459,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         type="source"
         position={Position.Bottom}
         id="bottom"
-        isConnectable={!data.isReadOnly}
+        isConnectable={!data.isReadOnly && !isSelectionMode}
         className={handleClassName}
         data-export-hide="true"
       />

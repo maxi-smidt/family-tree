@@ -15,6 +15,7 @@ import {
   Plus,
   Redo2,
   Route,
+  SquareDashedMousePointer,
   Undo2,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
@@ -29,6 +30,10 @@ type Props = {
   isConnectionMode?: boolean;
   connectionDisabled?: boolean;
   onToggleConnectionMode?: () => void;
+  isSelectionMode?: boolean;
+  selectionAvailable?: boolean;
+  onToggleSelectionMode?: () => void;
+  selectionDisabled?: boolean;
 };
 
 export const FlowPanelControls = ({
@@ -36,6 +41,10 @@ export const FlowPanelControls = ({
   isConnectionMode = false,
   connectionDisabled = false,
   onToggleConnectionMode,
+  isSelectionMode = false,
+  selectionAvailable = false,
+  onToggleSelectionMode,
+  selectionDisabled = false,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.controls",
@@ -143,6 +152,30 @@ export const FlowPanelControls = ({
             : t("enable-connection-mode")}
         </TooltipContent>
       </Tooltip>
+      {selectionAvailable && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isSelectionMode ? "default" : "secondary"}
+              size="icon"
+              onClick={onToggleSelectionMode}
+              disabled={selectionDisabled || !onToggleSelectionMode}
+              aria-label={
+                isSelectionMode
+                  ? t("disable-selection-mode")
+                  : t("enable-selection-mode")
+              }
+            >
+              <SquareDashedMousePointer />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            {isSelectionMode
+              ? t("disable-selection-mode")
+              : t("enable-selection-mode")}
+          </TooltipContent>
+        </Tooltip>
+      )}
       {!navigationOnly && (
         <Tooltip>
           <TooltipTrigger asChild>
