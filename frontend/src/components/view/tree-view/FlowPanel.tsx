@@ -520,7 +520,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   return (
     <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>
       <ReactFlow
-        className={inSelectionMode ? "cursor-crosshair" : undefined}
+        className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
         nodes={[...viewNodes, ...unionNodes]}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -576,6 +576,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           !connection.isConnectionMode && !isCanvasReadOnly && !inSelectionMode
         }
         connectionMode={ConnectionMode.Loose}
+        connectionRadius={40}
         selectionOnDrag={inSelectionMode}
         panOnDrag={inSelectionMode ? [1, 2] : undefined}
         selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}

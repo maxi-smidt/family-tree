@@ -16,6 +16,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Fixed
 
 - Allow drawing a relationship directly from a union node to add a shared child to a couple (#578).
+- Make drawing relationships on the tree canvas less fiddly: a larger snap radius so target handles catch from further away, plus a bigger grab area on the source handles and the small union-node dots so connections are easier to start (#576).
 
 ## [1.5.0] - 2026-07-05
 
