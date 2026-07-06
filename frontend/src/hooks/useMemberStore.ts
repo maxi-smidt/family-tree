@@ -225,6 +225,11 @@ interface MemberState {
   neighborhoodDown: number;
   neighborhoodTruncated: boolean;
   totalMemberCount: number;
+  // One-shot request to center/highlight a member once it is present in
+  // `members` — set when navigating into a linked tree so the view lands on
+  // the counterpart (bridge person). Consumed and cleared by the canvas.
+  pendingLocateMemberId: string | null;
+  setPendingLocateMemberId: (id: string | null) => void;
   undoStack: HistoryEntry[];
   redoStack: HistoryEntry[];
   _pushHistory: (entry: HistoryEntry) => void;
@@ -240,7 +245,10 @@ interface MemberState {
   clear: () => void;
   addMember: (member: Member) => Promise<void>;
   removeMember: (id: string) => Promise<void>;
-  updateMemberPartial: (id: string, changes: MemberUpdate) => Promise<void>;
+  updateMemberPartial: (
+    id: string,
+    changes: MemberUpdate,
+  ) => Promise<{ bridgeSync?: "synced" | "skipped_no_access" | null } | undefined>;
   batchSetCollapsed: (
     updates: { id: string; isCollapsed: boolean }[],
   ) => Promise<void>;
@@ -283,6 +291,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   neighborhoodDown: 3,
   neighborhoodTruncated: false,
   totalMemberCount: 0,
+  pendingLocateMemberId: null,
+  setPendingLocateMemberId: (id: string | null) =>
+    set({ pendingLocateMemberId: id }),
   isLayouting: false,
   undoStack: [],
   redoStack: [],
@@ -517,6 +528,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       additionalData: detailRow.additionalData ?? null,
       birthplace: detailRow.birthplace ?? null,
       hometown: detailRow.hometown ?? null,
+      cemetery: detailRow.cemetery ?? null,
       placesLived: detailRow.placesLived
         ? (() => {
             try {
@@ -547,6 +559,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       windowedForTreeId: null,
       neighborhoodTruncated: false,
       totalMemberCount: 0,
+      pendingLocateMemberId: null,
       undoStack: [],
       redoStack: [],
     }),
@@ -692,7 +705,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
 
     const { paternalParentId, maternalParentId, ...otherChanges } = changes;
 
-    await TreeService.updateMember(treeId, id, otherChanges);
+    const updated = await TreeService.updateMember(treeId, id, otherChanges);
+    // Transient outcome of the bridge-person mirror — surfaced to callers so
+    // the member form can tell the editor when the counterpart didn't follow.
+    const result = { bridgeSync: updated?.bridgeSync ?? null };
 
     // Re-point one parent slot: drop the previous "parent" relation (if it
     // changed) and add the new one. A no-op when old and new are the same.
@@ -753,7 +769,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       );
     }
 
-    if (!currentMember) return;
+    if (!currentMember) return result;
 
     const oldPaternal = currentMember.parents.paternalParent;
     const oldMaternal = currentMember.parents.maternalParent;
@@ -806,6 +822,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         await get().refreshMembers(treeId);
       },
     });
+    return result;
   },
 
   // Persist collapse/expand state for many members in one request and reflect

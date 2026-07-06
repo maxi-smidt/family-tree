@@ -46,6 +46,8 @@ from app.models import (
 )
 from app.schemas.job import JobStarted
 from app.services import crypto_export, gedcom
+from app.services.activity import record_activity
+from app.services.event_bus import publish_tree_event
 from app.services.genealogy_date import sort_key as _sort_key
 from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.settings_service import get_media_limits
@@ -429,7 +431,15 @@ def _do_import(
         progress_cb(90)
 
         _enforce_import_quota(db, tree)
+        user = db.get(User, user_id)
+        if user is not None:
+            record_activity(
+                db, tree_id=tree.id, actor=user, action="create",
+                target_type="import", target_id=tree.id, target_label=tree.name,
+            )
         db.commit()
+        if user is not None:
+            publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
         return tree.id
     except Exception:
         db.rollback()
@@ -609,7 +619,15 @@ def _do_import_gedcom(
         progress_cb(90)
 
         _enforce_import_quota(db, tree)
+        user = db.get(User, user_id)
+        if user is not None:
+            record_activity(
+                db, tree_id=tree.id, actor=user, action="create",
+                target_type="import", target_id=tree.id, target_label=tree.name,
+            )
         db.commit()
+        if user is not None:
+            publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
         return tree.id
     except Exception:
         db.rollback()

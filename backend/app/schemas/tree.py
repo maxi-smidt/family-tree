@@ -133,3 +133,70 @@ class TreeStorageUsageOut(BaseModel):
     # Effective quota limits for the tree's owner (None = unlimited).
     tree_quota_bytes: int | None = None
     media_quota_bytes: int | None = None
+
+
+class LinkGraphBridgeMember(BaseModel):
+    """A bridge person backing one tree-to-tree link on an edge."""
+
+    id: str
+    name: str | None = None
+
+
+class LinkGraphNode(BaseModel):
+    """A tree reachable from the start tree via member links."""
+
+    id: str
+    name: str | None = None
+    member_count: int | None = None
+    # The requesting user's role on this tree ("owner"/"editor"/"viewer"), or
+    # None for inaccessible placeholders.
+    role: str | None = None
+    accessible: bool = True
+    is_current: bool = False
+
+
+class LinkGraphEdge(BaseModel):
+    """One or more bridge-person links from a source tree to a target tree."""
+
+    source_tree_id: str
+    target_tree_id: str
+    count: int
+    bridge_members: list[LinkGraphBridgeMember] = []
+
+
+class LinkGraphOut(BaseModel):
+    nodes: list[LinkGraphNode]
+    edges: list[LinkGraphEdge]
+    truncated: bool = False
+
+
+class LinkedShareTreeOut(BaseModel):
+    """A tree reachable from the anchor tree via member links, as offered by
+    the batch-sharing UI."""
+
+    tree_id: str
+    name: str
+    member_count: int
+    # True when the requesting user is this tree's owner (or an admin), i.e.
+    # they can actually grant/revoke access on it.
+    manageable: bool
+    # When a ``username`` was supplied: that user's role on this tree
+    # ("owner"/"editor"/"viewer"), or None if they have no access. Always
+    # None when no username was given.
+    target_role: str | None = None
+
+
+class TreeShareBatch(BaseModel):
+    """Grant one user the same role across the anchor tree and a batch of
+    linked trees in one call."""
+
+    username: str
+    role: str = "editor"  # "viewer" or "editor"
+    tree_ids: list[str]
+
+
+class TreeAccessBatchRevoke(BaseModel):
+    """Revoke one user's access across a batch of trees in one call."""
+
+    user_id: str
+    tree_ids: list[str]

@@ -117,6 +117,7 @@
       "locations": "Orte",
       "birthplace": "Geburtsort",
       "hometown": "Heimatstadt",
+      "cemetery": "Friedhof",
       "family-relations": "Familiäre Beziehungen",
       "paternal-parent": "Vater",
       "maternal-parent": "Mutter",
@@ -159,6 +160,17 @@
         "sources": "Quellen",
         "diseases": "Krankheiten",
         "biography": "Biografie"
+      },
+      "linked": {
+        "share-toggle_one": "{{count}} verlinkten Stammbaum ebenfalls teilen",
+        "share-toggle_other": "{{count}} verlinkte Stammbäume ebenfalls teilen",
+        "member-count_one": "{{count}} Person",
+        "member-count_other": "{{count}} Personen",
+        "not-yours": "nicht im eigenen Besitz",
+        "revoke-confirm-title": "Auch Zugriff auf verlinkte Stammbäume entziehen?",
+        "revoke-confirm-description": "\"{{username}}\" hat auch Zugriff auf mit diesem verlinkte Stammbäume. Auswählen, wo der Zugriff ebenfalls entzogen werden soll.",
+        "revoke-this-tree-only": "Nur dieser Stammbaum",
+        "revoke-confirm-action": "Zugriff entziehen"
       },
       "transfer-title": "Eigentümerschaft übertragen",
       "transfer-hint": "Der neue Eigentümer erhält die volle Kontrolle. Sie verlieren die Eigentümerrechte und Ihren Zugriff auf diesen Stammbaum.",
@@ -225,25 +237,48 @@
     },
     "extract-subtree": {
       "title": "Teilbaum extrahieren",
-      "description": "Einen neuen unabhängigen Stammbaum aus einem Teil von \"{{name}}\" erstellen.",
+      "description": "Einen Zweig von \"{{name}}\" in einen neuen Stammbaum verschieben, verknüpft über die ausgewählte Person, die als verbindende Person (Brücke) zurückbleibt.",
       "name-label": "Name des neuen Stammbaums",
       "name-suffix": "(Teilbaum)",
       "root-label": "Ausgangsperson",
       "root-placeholder": "Person auswählen...",
       "root-no-results": "Keine Personen gefunden.",
       "direction-label": "Richtung",
-      "direction-descendants": "Nachkommen",
-      "direction-ancestors": "Vorfahren",
-      "direction-both": "Beide",
-      "depth-label": "Tiefe (Generationen)",
-      "depth-hint": "Leer lassen für alle Generationen",
+      "direction-direct-family": "Herkunftsfamilie",
+      "direction-direct-family-hint": "Die Herkunftsfamilie dieser Person: Eltern, Geschwister und deren Zweige, einschließlich eingeheirateter Partner. Ihre eigenen Kinder bleiben zurück.",
+      "direction-partnership": "Partnerseite",
+      "direction-partnership-hint": "Der/die Partner dieser Person, deren Familie sowie die gemeinsamen Kinder.",
+      "loading-preview": "Vorschau wird geladen...",
+      "preview-members-move": "{{count}} Person wird verschoben",
+      "preview-members-move_other": "{{count}} Personen werden verschoben",
+      "preview-relations-kept": "{{count}} Beziehung bleibt erhalten",
+      "preview-relations-kept_other": "{{count}} Beziehungen bleiben erhalten",
+      "preview-media-bytes": "{{size}} an Medien werden mit dem Zweig verschoben",
+      "preview-severed-title": "Einige Beziehungen werden getrennt",
+      "preview-severed-description": "{{count}} Beziehung überschreitet die Trennlinie und wird endgültig gelöscht.",
+      "preview-severed-description_other": "{{count}} Beziehungen überschreiten die Trennlinie und werden endgültig gelöscht.",
       "cancel": "Abbrechen",
-      "extract": "Extrahieren",
-      "extracting": "Wird extrahiert...",
-      "toast-success": "Teilbaum erfolgreich extrahiert.",
-      "toast-error": "Teilbaum konnte nicht extrahiert werden.",
+      "move": "Verschieben",
+      "moving": "Wird verschoben...",
+      "toast-success": "Zweig in einen neuen verknüpften Stammbaum verschoben.",
+      "toast-error": "Zweig konnte nicht verschoben werden.",
       "toast-error-name": "Bitte gib einen Namen für den neuen Stammbaum an.",
       "toast-error-no-root": "Bitte wähle eine Ausgangsperson aus."
+    },
+    "linked-trees-graph": {
+      "title": "Verknüpfte Stammbäume",
+      "description": "Stammbäume, die über verknüpfte Personen mit \"{{name}}\" verbunden sind.",
+      "current-tree-badge": "Aktueller Stammbaum",
+      "role-own-badge": "Eigener",
+      "role-shared-badge": "Geteilt",
+      "member-count_one": "{{count}} Person",
+      "member-count_other": "{{count}} Personen",
+      "no-access-node": "Kein Zugriff",
+      "no-access-hint": "Du hast keinen Zugriff auf diesen Stammbaum.",
+      "empty-state": "Dieser Stammbaum ist noch mit keinem anderen Stammbaum verknüpft.",
+      "load-error": "Das Diagramm der verknüpften Stammbäume konnte nicht geladen werden.",
+      "open-error": "Der verknüpfte Stammbaum konnte nicht geöffnet werden.",
+      "truncated-hint": "Das Diagramm ist sehr groß und wurde gekürzt."
     },
     "tab-settings": {
       "title": "Tabs anpassen",
@@ -339,6 +374,10 @@
     "upload-image-card": "Bild hochladen"
   },
   "layout": {
+    "tree-breadcrumb": {
+      "aria-label": "Navigation verknüpfter Stammbäume",
+      "untitled": "Unbenannter Stammbaum"
+    },
     "main-panel": {
       "tree": "Stammbaum",
       "list": "Liste",
@@ -403,6 +442,7 @@
         "caption": "Familienmitglieder",
         "birthplace": "Geburtsort",
         "hometown": "Heimatort",
+        "cemetery": "Friedhof",
         "age": "Alter",
         "children": "Kinder",
         "status": "Status",
@@ -461,6 +501,7 @@
       "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
       "toast-error-save": "Speichern fehlgeschlagen.",
       "toast-success": "Person aktualisiert.",
+      "toast-bridge-sync-skipped": "Die verknüpfte Kopie dieser Person in einem anderen Stammbaum wurde nicht aktualisiert — du hast dort keine Bearbeitungsrechte.",
       "gender-field": "Geschlecht",
       "gender-male": "Männlich",
       "gender-female": "Weiblich",
@@ -479,8 +520,42 @@
       "maternal-parent-field": "Mütterlicherseits",
       "parent-placeholder": "Personen suchen…",
       "parent-no-results": "Keine Personen gefunden",
+      "linked-tree": {
+        "field-label": "Verknüpfter Stammbaum",
+        "field-hint": "Verknüpfe diese Person mit einem anderen Stammbaum, der ihre eigene Familie zeigt.",
+        "placeholder": "Stammbaum auswählen…",
+        "none": "Nicht verknüpft",
+        "external-tree": "Aktuell verknüpfter Stammbaum",
+        "unlink": "Verknüpfung entfernen",
+        "create-and-link": "Neuen Stammbaum erstellen & verknüpfen",
+        "new-tree-fallback-name": "Neuer Stammbaum",
+        "toast-created": "„{{name}}“ erstellt und verknüpft.",
+        "toast-created-seeded": "„{{name}}“ erstellt und diese Person darin angelegt.",
+        "create-requires-save": "Speichere zuerst deine Änderungen — beim Erstellen wird diese Person sofort im neuen Stammbaum angelegt.",
+        "save-first-hint": "Speichere diese Person zuerst — zum Verknüpfen muss sie bereits existieren.",
+        "toast-create-error": "Der verknüpfte Stammbaum konnte nicht erstellt werden.",
+        "link-dialog": {
+          "title": "„{{name}}“ verknüpfen",
+          "description": "Wähle aus, wie {{member}} mit einer Person in „{{tree}}“ zusammenhängt.",
+          "mode-existing": "Vorhandene Person finden",
+          "mode-create": "Kopie erstellen",
+          "mode-existing-description": "Es werden nur Personen angezeigt, die genauso heißen wie {{member}} in „{{tree}}“ — eine verbindende Person ist auf beiden Seiten dieselbe Person. Unterscheiden sich die Angaben der gefundenen Person, kannst du sie vor dem Verknüpfen Feld für Feld abgleichen.",
+          "mode-create-description": "Eine Kopie von {{member}} wird zu „{{tree}}“ hinzugefügt und dient dort als verbindende Person zwischen den Stammbäumen.",
+          "existing-placeholder": "Person auswählen…",
+          "no-candidates": "In „{{tree}}“ wurde niemand namens {{member}} gefunden — verwende stattdessen „Kopie erstellen“.",
+          "loading": "Wird geladen…",
+          "no-access": "Du benötigst Bearbeitungsrechte für „{{tree}}“, um ihn zu verknüpfen — bitte den Eigentümer, dich als Bearbeiter hinzuzufügen.",
+          "cancel": "Abbrechen",
+          "confirm": "Verknüpfen",
+          "toast-success": "Mit „{{name}}“ verknüpft.",
+          "toast-error-already-linked": "Diese Person ist bereits mit einem anderen Stammbaum verknüpft.",
+          "toast-error-no-access": "Du hast keine Bearbeitungsrechte für diesen Stammbaum.",
+          "toast-error-generic": "Der Stammbaum konnte nicht verknüpft werden."
+        }
+      },
       "birthplace-field": "Geburtsort",
       "hometown-field": "Heimatort / Aufgewachsen in",
+      "cemetery-field": "Friedhof",
       "location-placeholder": "Stadt, Region, Land…",
       "places-lived-field": "Wohnorte",
       "places-lived-add": "Ort hinzufügen",
@@ -529,6 +604,8 @@
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
+      "cemetery-label": "Friedhof",
+      "show-on-map": "Auf Karte zeigen",
       "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
       "academic-title-item": "Akademischer / Ehrentitel",
       "tab-identity": "Identität",
@@ -650,6 +727,7 @@
           "birthplace": "Geburtsort",
           "hometown": "Heimatort",
           "residence": "Wohnort",
+          "cemetery": "Friedhof",
           "general": "Allgemein"
         },
         "dialog": {
@@ -763,7 +841,12 @@
       "add-child": "Kind hinzufügen",
       "add-left": "Verwandte Person links hinzufügen",
       "add-right": "Verwandte Person rechts hinzufügen",
+      "open-linked-tree": "Verknüpften Stammbaum öffnen",
+      "open-linked-tree-no-access": "Der verknüpfte Stammbaum ist nicht mit dir geteilt",
       "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
+    },
+    "linked-tree": {
+      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise privat oder existiert nicht mehr."
     },
     "canvas-label": "Stammbaum-Leinwand",
     "a11y": {
@@ -805,6 +888,8 @@
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",
       "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden.",
+      "enable-selection-mode": "Mehrere auswählen",
+      "disable-selection-mode": "Auswahl beenden",
       "export-image": "Stammbaum als Bild exportieren",
       "focus-here": "Nachbarschaft auf diese Person fokussieren",
       "depth-increase": "Nachbarschaftstiefe erhöhen",
@@ -821,6 +906,10 @@
     },
     "windowed": {
       "banner": "{{count}} von {{total}} Mitgliedern in der Nachbarschaft"
+    },
+    "selection": {
+      "selected-count": "{{count}} ausgewählt",
+      "clear": "Zurücksetzen"
     },
     "connection": {
       "kinship": {
@@ -937,6 +1026,10 @@
     "target-story": "Geschichte",
     "target-gallery_image": "Bild",
     "target-disease": "Erkrankung",
+    "target-tree": "Stammbaum",
+    "target-share": "Freigabe",
+    "target-import": "Import",
+    "target-merge": "Zusammenführung",
     "unknown-actor": "Jemand",
     "filter-all-actors": "Alle Akteure",
     "filter-all-actions": "Alle Aktionen",
@@ -962,8 +1055,10 @@
       "birth": "Geburt",
       "death": "Tod",
       "show-vital-events": "Geburten & Todesfälle anzeigen",
+      "show-details": "Details anzeigen",
       "edit-event": "Ereignis bearbeiten",
       "delete-event": "Ereignis löschen",
+      "show-on-map": "Auf Karte zeigen",
       "delete-dialog": {
         "title": "Ereignis löschen",
         "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -1048,7 +1143,9 @@
       "delete-error": "Die Person konnte nicht gelöscht werden und wurde wiederhergestellt."
     },
     "geocode": {
-      "resolve-error": "Kartenorte konnten nicht aufgelöst werden."
+      "resolve-error": "Kartenorte konnten nicht aufgelöst werden.",
+      "override-error": "Die Ortskorrektur konnte nicht gespeichert werden.",
+      "search-error": "Orte konnten nicht gesucht werden."
     }
   },
   "quality-report-view": {
@@ -1069,7 +1166,17 @@
     "issue-parent-too-old": "Elternteil zu alt",
     "issue-relationship-cycle": "Beziehungszyklus",
     "issue-duplicate-candidate": "Mögliches Duplikat",
-    "issue-disconnected-member": "Keine Beziehungen"
+    "issue-disconnected-member": "Keine Beziehungen",
+    "issue-bridge-person-drift": "Verknüpfte Kopie nicht synchron",
+    "resolve-drift-push": "Daten dieses Stammbaums übernehmen",
+    "resolve-drift-pull": "Daten des verknüpften Stammbaums übernehmen",
+    "resolve-drift-success": "Beide Kopien dieser Person sind wieder synchron.",
+    "resolve-drift-no-access": "Zum Beheben brauchst du Bearbeitungsrechte im verknüpften Stammbaum.",
+    "resolve-drift-error": "Die verknüpften Kopien konnten nicht synchronisiert werden.",
+    "dismiss": "Verwerfen",
+    "restore": "Wiederherstellen",
+    "dismissed-badge": "Verworfen",
+    "show-dismissed": "Verworfene anzeigen ({{count}})"
   },
   "statistics-view": {
     "title": "Statistiken",
@@ -1077,6 +1184,10 @@
     "loading": "Statistiken werden berechnet…",
     "empty-title": "Nicht genug Daten",
     "empty-description": "Füge Mitglieder zum Stammbaum hinzu, um Statistiken zu sehen.",
+    "scope-tree": "Dieser Stammbaum",
+    "scope-linked": "Alle verknüpften Stammbäume",
+    "scope-tree-count_one": "Über {{count}} Stammbaum",
+    "scope-tree-count_other": "Über {{count}} Stammbäume",
     "stat-total-members": "Mitglieder gesamt",
     "stat-with-birth": "Bekannte Geburten",
     "stat-with-death": "Bekannte Todesfälle",
@@ -1130,6 +1241,7 @@
     "dim-age-at-death": "Alter bei Tod",
     "dim-birthplace": "Geburtsort",
     "dim-hometown": "Heimatort",
+    "dim-cemetery": "Friedhof",
     "dim-first-name": "Vorname",
     "dim-last-name": "Nachname",
     "dim-deceased-status": "Lebend / verstorben",
@@ -1169,6 +1281,7 @@
     "merge-button": "Vereinen",
     "duplicate-button": "Duplizieren",
     "extract-subtree-button": "Teilbaum extrahieren",
+    "linked-trees-graph-button": "Verknüpfte Stammbäume anzeigen",
     "table-name": "Name",
     "table-actions": "Aktionen",
     "copy-id-button": "ID kopieren",
@@ -1404,6 +1517,7 @@
     "settings-tab": "Einstellungen",
     "features-tab": "Funktionen",
     "relation-types-tab": "Beziehungstypen",
+    "legal-tab": "Rechtliche Dokumente",
     "backups-tab": "Backups",
     "features": {
       "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",
@@ -1425,7 +1539,8 @@
         "sharing_invites": "Einladungen teilen",
         "map": "Kartenansicht",
         "sources": "Quellen & Zitate",
-        "onboarding_tour": "Onboarding-Tour"
+        "onboarding_tour": "Onboarding-Tour",
+        "tree_links": "Baum-im-Baum-Verknüpfungen"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1439,7 +1554,8 @@
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
         "sources": "Quellennachweise und Belege für Personendaten.",
-        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt."
+        "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt.",
+        "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen."
       }
     },
     "col-username": "Benutzername",
@@ -1581,11 +1697,51 @@
     "announcement-hint": "Wird wiederkehrenden Nutzern nach einer neuen Version einmalig angezeigt. Titel und Nachricht leer lassen, um sie zu deaktivieren. Version leer lassen, um die aktuelle App-Version zu verwenden.",
     "announcement-title-label": "Titel",
     "announcement-body-label": "Nachricht (Markdown)",
-    "announcement-version-label": "Version"
+    "announcement-version-label": "Version",
+    "legal-section-title": "Rechtliche Dokumente",
+    "legal-section-hint": "Nutzungsbedingungen, Datenschutzerklärung und Impressum, die Nutzern angezeigt werden. Eine Erhöhung der Version zwingt alle Nutzer, erneut zuzustimmen, bevor sie Änderungen vornehmen können.",
+    "legal-acceptance-required": "Zustimmung erforderlich",
+    "legal-acceptance-required-hint": "Wenn aktiviert, müssen Nutzer den aktuellen Nutzungsbedingungen und der Datenschutzerklärung zustimmen, bevor sie Änderungen vornehmen können.",
+    "legal-version-label": "Aktuelle rechtliche Version",
+    "legal-version-hint": "Wird automatisch verwaltet — sie erhöht sich bei jeder Bearbeitung und Speicherung eines Dokuments, was alle Nutzer zur erneuten Zustimmung zwingt.",
+    "legal-locale-label": "Dokumentsprache",
+    "legal-locale-hint": "Deutsch ist die maßgebliche Fassung; Englisch ist eine Übersetzung. Bearbeiten Sie jede Sprache separat und halten Sie sie konsistent.",
+    "legal-locale-de": "Deutsch",
+    "legal-locale-en": "Englisch",
+    "legal-terms-body-label": "Nutzungsbedingungen (Markdown)",
+    "legal-privacy-body-label": "Datenschutzerklärung (Markdown)",
+    "legal-imprint-body-label": "Impressum (Markdown)",
+    "legal-history-title": "Versionsverlauf",
+    "legal-history-empty": "Noch keine veröffentlichten Versionen.",
+    "legal-history-load-error": "Versionsverlauf konnte nicht geladen werden.",
+    "legal-history-published-at": "Veröffentlicht",
+    "legal-history-version": "Version",
+    "legal-history-hash": "Inhalts-Hash",
+    "legal-history-view": "Ansehen",
+    "legal-history-detail-title": "Version {{version}}"
   },
   "announcement": {
     "default-title": "Neuigkeiten",
     "dismiss": "Verstanden"
+  },
+  "changelog": {
+    "title": "Neuigkeiten",
+    "trigger-label": "Änderungsprotokoll anzeigen",
+    "empty": "Keine Einträge im Änderungsprotokoll verfügbar."
+  },
+  "legal": {
+    "legal-link": "AGB · Datenschutz · Impressum",
+    "legal-link-public": "Datenschutz · Impressum",
+    "docs-dialog-title": "Rechtliche Dokumente",
+    "language-label": "Sprache",
+    "lang-de": "Deutsch",
+    "lang-en": "English",
+    "gate-title": "Bevor Sie fortfahren",
+    "gate-checkbox-label": "Ich habe die Nutzungsbedingungen und die Datenschutzerklärung gelesen und stimme ihnen zu.",
+    "gate-accept": "Zustimmen und fortfahren",
+    "tab-terms": "Nutzungsbedingungen",
+    "tab-privacy": "Datenschutzerklärung",
+    "tab-imprint": "Impressum"
   },
   "event-types": {
     "birth": "Geburt",
@@ -1622,17 +1778,43 @@
       "date-from": "Von",
       "date-to": "Bis",
       "no-mappable-events": "Keine darstellbaren Ereignisse gefunden",
+      "resolving-locations": "Orte werden aufgelöst…",
       "add-location-hint": "Füge einem Ereignis einen Ort hinzu, um es auf der Karte zu sehen",
-      "unlocatable-count": "{{count}} Ereignis(se) haben Orte, die auf der Karte nicht aufgelöst werden konnten",
       "filter-location-types": "Ortstypen",
       "legend-event": "Ereignis",
       "legend-birthplace": "Geburtsort",
       "legend-hometown": "Heimatort",
+      "legend-cemetery": "Friedhof",
       "legend-places-lived": "Wohnort",
       "no-location-types-visible": "Alle Ortstypen sind ausgeblendet",
       "enable-location-type-hint": "Aktiviere oben einen Ortstyp, um seine Markierungen anzuzeigen",
+      "fit-to-markers": "An Markierungen anpassen",
+      "show-in-tree": "Im Stammbaum anzeigen",
       "from": "ab",
-      "until": "bis"
+      "until": "bis",
+      "clear-filters": "Filter zurücksetzen",
+      "show-life-path": "Lebensweg anzeigen",
+      "time-slider-play": "Abspielen",
+      "time-slider-pause": "Pause",
+      "as-of-year": "Stand {{year}}",
+      "unresolved-locations-count": "{{count}} nicht aufgelöste(r) Ort(e)",
+      "unresolved-locations-title": "Nicht aufgelöste Orte",
+      "used-in": "{{field}}:",
+      "retry": "Erneut versuchen",
+      "retry-location": "\"{{location}}\" erneut auflösen",
+      "marker-aria-label_one": "{{location}} – {{count}} Eintrag",
+      "marker-aria-label_other": "{{location}} – {{count}} Einträge",
+      "fix-location": "Ort korrigieren",
+      "fix-location-title": "Ort korrigieren: {{location}}",
+      "fix-tab-search": "Suche",
+      "fix-tab-pin": "Stecknadel setzen",
+      "fix-search-placeholder": "Suchtext bearbeiten…",
+      "fix-search-button": "Suchen",
+      "fix-no-results": "Keine Ergebnisse gefunden. Passen Sie den Suchtext an.",
+      "fix-drop-pin-hint": "Klicken Sie auf die Karte, um eine Stecknadel am richtigen Ort zu setzen. Ziehen Sie sie, um die Position feinabzustimmen.",
+      "fix-selected-coords": "Ausgewählt: {{lat}}, {{lon}}",
+      "fix-confirm": "Korrektur speichern",
+      "cancel": "Abbrechen"
     }
   },
   "unsaved-changes": {
@@ -1679,6 +1861,9 @@
       "status-enabled": "Die Zwei-Faktor-Authentifizierung ist derzeit auf deinem Konto aktiv.",
       "status-disabled": "Die Zwei-Faktor-Authentifizierung ist derzeit deaktiviert.",
       "button": "2FA verwalten"
+    },
+    "changelog": {
+      "section": "Neuigkeiten"
     },
     "delete-account": {
       "section": "Konto löschen",

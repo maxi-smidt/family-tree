@@ -281,13 +281,66 @@ export const useFlowInteractions = (
     [edges, memberMap, updateMemberPartial, setNewRelation],
   );
 
+  const addUnionChildEdge = useCallback(
+    (params: Connection) => {
+      const union = unions.find((u) => u.id === params.source);
+      if (!union) throw new Error("Union not found");
+
+      const child = memberMap.get(params.target);
+      if (!child) throw new Error("Target member not found");
+
+      if (
+        params.target === union.partner1Id ||
+        params.target === union.partner2Id
+      ) {
+        throw new Error("Cannot add a partner as their own child");
+      }
+
+      if (child.parents.paternalParent || child.parents.maternalParent) {
+        throw new Error("Child already has a parent");
+      }
+
+      if (
+        isDescendant(params.target, union.partner1Id) ||
+        isDescendant(params.target, union.partner2Id)
+      ) {
+        throw new Error("Cycle detected: Cannot add ancestor as child");
+      }
+
+      const partner1 = memberMap.get(union.partner1Id);
+      const partner2 = memberMap.get(union.partner2Id);
+
+      let paternalParentId = union.partner1Id;
+      let maternalParentId = union.partner2Id;
+
+      if (partner1?.gender === "m" || partner2?.gender === "f") {
+        paternalParentId = union.partner1Id;
+        maternalParentId = union.partner2Id;
+      } else if (partner1?.gender === "f" || partner2?.gender === "m") {
+        paternalParentId = union.partner2Id;
+        maternalParentId = union.partner1Id;
+      }
+
+      void updateMemberPartial(params.target, {
+        paternalParentId,
+        maternalParentId,
+      });
+    },
+    [unions, memberMap, updateMemberPartial],
+  );
+
   const onConnect = useCallback(
     (params: Connection) => {
-      const newEdge = {
-        ...params,
-        id: createEdgeId(params.source, params.target),
-      } as Edge;
       try {
+        if (params.source.startsWith("union-")) {
+          addUnionChildEdge(params);
+          return;
+        }
+
+        const newEdge = {
+          ...params,
+          id: createEdgeId(params.source, params.target),
+        } as Edge;
         addMemberEdge(newEdge as Connection);
       } catch (e: unknown) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
@@ -295,7 +348,7 @@ export const useFlowInteractions = (
         toast.error(t("toast-error-database-create"));
       }
     },
-    [addMemberEdge],
+    [addMemberEdge, addUnionChildEdge],
   );
 
   const onSelectionChange = useCallback(

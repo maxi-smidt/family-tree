@@ -62,8 +62,16 @@ export interface Member {
   additionalData: string | null;
   birthplace: string | null;
   hometown: string | null;
+  cemetery: string | null;
   placesLived: PlaceLived[];
   isCollapsed: boolean;
+  // Tree-in-tree: optional pointer to another tree detailing this person's
+  // own family. null when unlinked. Optional so existing object literals (e.g.
+  // in tests) need not specify it; the DB mapping always populates it.
+  linkedTreeId?: string | null;
+  // The counterpart row in the linked tree representing the same person (the
+  // "bridge person"). Navigation into the linked tree centers on it.
+  linkedMemberId?: string | null;
   position: {
     x: number;
     y: number;
@@ -83,6 +91,7 @@ export interface Member {
   onAddParent?: () => void;
   onAddLeft?: () => void;
   onAddRight?: () => void;
+  onOpenLinkedTree?: () => void;
   [key: string]: unknown;
 }
 
@@ -130,10 +139,19 @@ export interface MemberDB {
   additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
+  cemetery?: string | null;
   placesLived?: string | null;
   isCollapsed: number;
   positionX: number;
   positionY: number;
+  linkedTreeId?: string | null;
+  // Counterpart member inside the linked tree (the same person's row there).
+  // Written only by the backend; the client treats it as read-only.
+  linkedMemberId?: string | null;
+  // Transient, only on update responses: outcome of the bridge-person mirror.
+  // "skipped_no_access" = identity fields changed but the counterpart tree is
+  // not writable by the actor, so the two rows drifted.
+  bridgeSync?: "synced" | "skipped_no_access" | null;
   // Only present for members returned by virtual view endpoints.
   sourceTreeId?: string;
   sourceTreeName?: string;
@@ -167,10 +185,12 @@ export interface MemberUpdate {
   additionalData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
+  cemetery?: string | null;
   placesLived?: string | null;
   isCollapsed?: boolean;
   positionX?: number;
   positionY?: number;
+  linkedTreeId?: string | null;
 }
 
 function parsePlacesLived(raw: string | null | undefined): PlaceLived[] {
@@ -213,8 +233,11 @@ export function mapMemberFromDB(
     additionalData: row.additionalData ?? null,
     birthplace: row.birthplace ?? null,
     hometown: row.hometown ?? null,
+    cemetery: row.cemetery ?? null,
     placesLived: parsePlacesLived(row.placesLived),
     isCollapsed: !!row.isCollapsed,
+    linkedTreeId: row.linkedTreeId ?? null,
+    linkedMemberId: row.linkedMemberId ?? null,
     position: {
       x: row.positionX,
       y: row.positionY,
@@ -254,9 +277,11 @@ export function mapMemberToDB(member: Member): MemberDB {
     additionalData: member.additionalData ? member.additionalData : null,
     birthplace: member.birthplace ?? null,
     hometown: member.hometown ?? null,
+    cemetery: member.cemetery ?? null,
     placesLived:
       member.placesLived.length > 0 ? JSON.stringify(member.placesLived) : null,
     isCollapsed: member.isCollapsed ? 1 : 0,
+    linkedTreeId: member.linkedTreeId ?? null,
   };
 }
 
@@ -278,8 +303,11 @@ export function createMember(position: { x: number; y: number }): Member {
     additionalData: null,
     birthplace: null,
     hometown: null,
+    cemetery: null,
     placesLived: [],
     isCollapsed: false,
+    linkedTreeId: null,
+    linkedMemberId: null,
     position: position,
   };
 }

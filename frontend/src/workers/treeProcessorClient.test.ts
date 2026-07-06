@@ -25,6 +25,7 @@ function member(
     additionalData: null,
     birthplace: null,
     hometown: null,
+    cemetery: null,
     placesLived: [],
     isCollapsed: false,
     position: { x, y: 0 },
@@ -37,14 +38,20 @@ describe("treeProcessorClient.computeLayout — sync path", () => {
     const members = [
       member("alice", 0),
       member("bob", 300),
-      member("charlie", 150, [], { paternalParent: "alice", maternalParent: "bob" }),
+      member("charlie", 150, [], {
+        paternalParent: "alice",
+        maternalParent: "bob",
+      }),
     ];
 
     const positions = await treeProcessorClient.computeLayout("t1", members);
 
     expect(typeof positions).toBe("object");
     for (const m of members) {
-      expect(positions[m.id], `positions["${m.id}"] should exist`).toBeDefined();
+      expect(
+        positions[m.id],
+        `positions["${m.id}"] should exist`,
+      ).toBeDefined();
       expect(
         Number.isFinite(positions[m.id].x),
         `positions["${m.id}"].x should be finite`,

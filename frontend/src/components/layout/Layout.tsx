@@ -6,6 +6,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import { TutorialTour } from "@/components/tutorial/TutorialTour";
 import { AnnouncementDialog } from "@/components/announcement/AnnouncementDialog";
+import { LegalGateDialog } from "@/components/legal/LegalGateDialog";
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const { sidebarOpen, setSidebarOpen } = useFamilyTreeSettings();
@@ -26,6 +27,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
         </main>
         <TutorialTour />
         <AnnouncementDialog />
+        <LegalGateDialog />
       </SidebarProvider>
     </TooltipProvider>
   );

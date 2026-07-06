@@ -8,9 +8,12 @@ other schemas intentionally stay snake_case because the frontend reads them
 as-is.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
+from app.schemas.tree import TreeOut
 
 
 # --- Members ---------------------------------------------------------------
@@ -33,10 +36,17 @@ class MemberOut(FamilyTreeOrmBaseModel):
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
     places_lived: str | None = None
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
+    # Transient outcome of the bridge-person mirror on updates (not a column):
+    # "synced" when the counterpart row was updated too, "skipped_no_access"
+    # when identity fields changed but the actor may not write the other tree.
+    bridge_sync: str | None = None
 
 
 class MemberSurfaceOut(FamilyTreeOrmBaseModel):
@@ -54,14 +64,20 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     date_of_birth_sort: str | None = None
     date_of_death_sort: str | None = None
     deceased: bool = False
-    # birthplace/hometown are small, default-visible List-view columns, so they
-    # ride along in the surface payload (unlike the heavier additional_data /
-    # places_lived detail fields, which stay deferred to the per-member fetch).
+    # birthplace/hometown/cemetery are small, default-visible List-view columns,
+    # and places_lived is a short JSON list the Map view renders as markers, so
+    # they ride along in the surface payload (unlike the heavier
+    # additional_data detail field, which stays deferred to the per-member
+    # fetch).
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
+    places_lived: str | None = None
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberCreate(FamilyTreeBaseModel):
@@ -81,10 +97,13 @@ class MemberCreate(FamilyTreeBaseModel):
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
     places_lived: str | None = None
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberUpdate(FamilyTreeBaseModel):
@@ -103,10 +122,13 @@ class MemberUpdate(FamilyTreeBaseModel):
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None
+    cemetery: str | None = None
     places_lived: str | None = None
     is_collapsed: bool | None = None
     position_x: float | None = None
     position_y: float | None = None
+    linked_tree_id: str | None = None
+    linked_member_id: str | None = None
 
 
 class MemberPositionUpdate(FamilyTreeBaseModel):
@@ -122,6 +144,47 @@ class MemberCollapsedUpdate(FamilyTreeBaseModel):
 
     id: str
     is_collapsed: bool
+
+
+class MemberSubtreeCreate(FamilyTreeBaseModel):
+    """Request body for the create-and-link-subtree endpoint."""
+
+    name: str
+
+
+class MemberLinkRequest(FamilyTreeBaseModel):
+    """Request body for establishing a tree-in-tree bridge on an existing
+    member: either by finding a matching person already in the target tree
+    (``mode="existing"``) or by copying the member into it as a new bridge
+    person (``mode="create"``)."""
+
+    linked_tree_id: str
+    mode: Literal["existing", "create"]
+    counterpart_member_id: str | None = None
+    # Per-field resolution choices (a = this member, b = counterpart) applied
+    # when mode="existing" reconciles the bridge pair's conflicting fields.
+    # Ignored for mode="create" (nothing to reconcile — the counterpart is a
+    # fresh clone of this member).
+    field_choices: dict[str, Literal["a", "b", "combine"]] = {}
+
+
+class BridgeSyncRequest(FamilyTreeBaseModel):
+    """Resolve bridge-person drift by copying fields across the link.
+
+    ``push`` copies this member's values onto the counterpart; ``pull`` adopts
+    the counterpart's values into this member.
+    """
+
+    direction: Literal["push", "pull"]
+
+
+class MemberSubtreeOut(FamilyTreeBaseModel):
+    """Result of creating a linked subtree: the new tree plus the updated
+    anchor member (whose linked_tree_id/linked_member_id now point at the
+    seeded counterpart)."""
+
+    tree: TreeOut
+    anchor: MemberOut
 
 
 # --- Relations -------------------------------------------------------------

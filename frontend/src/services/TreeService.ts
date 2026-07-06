@@ -6,7 +6,11 @@
  */
 
 import { api } from "@/services/api";
-import { Tree } from "@/types/tree";
+import {
+  SubtreeExtractPayload,
+  SubtreeExtractPreview,
+  Tree,
+} from "@/types/tree";
 import {
   Member,
   MemberDB,
@@ -16,17 +20,22 @@ import {
   RelationTypeDB,
   mapMemberToDB,
 } from "@/types/member";
-import { MergePreviewResult } from "@/types/merge";
+import {
+  DuplicatePair,
+  MergeFieldChoice,
+  MergePreviewResult,
+} from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import { CitationDB, EvidenceOps, SourceDB, SourceInput } from "@/types/source";
-import { GeocodeDB } from "@/types/geocode";
+import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
-import { StatisticsReport } from "@/types/statistics";
+import { CombinedStatisticsReport, StatisticsReport } from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
+import { LinkGraphDB } from "@/types/linkGraph";
 
 const base = (treeId: string) =>
   treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
@@ -98,13 +107,74 @@ export class TreeService {
     return api.del(`${base(treeId)}/members/${memberId}`);
   }
 
+  /** Create a new tree seeded with a copy of the member (the bridge person)
+   *  and link the two rows bidirectionally — all in one atomic request. */
+  static createMemberSubtree(treeId: string, memberId: string, name: string) {
+    return api.post<{ tree: Tree; anchor: MemberDB }>(
+      `${base(treeId)}/members/${memberId}/subtree`,
+      { name },
+    );
+  }
+
+  /** Establish a tree-in-tree bridge on an already-existing target tree:
+   *  either by finding a matching person already in it ("existing") or by
+   *  copying this member into it as a new bridge person ("create"). Unlike
+   *  updateMember, this always resolves a real bridge person on both sides.
+   *  `field_choices` (mode="existing" only) resolves conflicting fields
+   *  between the source member and the chosen counterpart. */
+  static linkMemberToTree(
+    treeId: string,
+    memberId: string,
+    body: {
+      linked_tree_id: string;
+      mode: "existing" | "create";
+      counterpart_member_id?: string | null;
+      field_choices?: Partial<Record<string, MergeFieldChoice>>;
+    },
+  ) {
+    return api.post<{ tree: Tree; anchor: MemberDB }>(
+      `${base(treeId)}/members/${memberId}/link`,
+      body,
+    );
+  }
+
+  /** List same-named members of `targetTreeId` that could be the bridge
+   *  counterpart for `memberId` — candidates for `linkMemberToTree` with
+   *  mode="existing", shaped as merge `DuplicatePair`s so the client can
+   *  reuse the merge conflict-resolution UI. */
+  static getLinkCandidates(
+    treeId: string,
+    memberId: string,
+    targetTreeId: string,
+  ) {
+    const params = new URLSearchParams({ target_tree_id: targetTreeId });
+    return api.get<{ candidates: DuplicatePair[] }>(
+      `${base(treeId)}/members/${memberId}/link-candidates?${params}`,
+    );
+  }
+
+  /** Resolve bridge-person drift: "push" writes this member's values onto the
+   *  linked counterpart, "pull" adopts the counterpart's values. */
+  static resolveBridgeDrift(
+    treeId: string,
+    memberId: string,
+    direction: "push" | "pull",
+  ) {
+    return api.post<MemberDB>(
+      `${base(treeId)}/members/${memberId}/bridge-sync`,
+      {
+        direction,
+      },
+    );
+  }
+
   static updateMember(
     treeId: string,
     id: string,
     changes: Omit<MemberUpdate, "paternalParentId" | "maternalParentId">,
-  ) {
-    if (Object.keys(changes).length === 0) return Promise.resolve();
-    return api.patch(`${base(treeId)}/members/${id}`, changes);
+  ): Promise<MemberDB | undefined> {
+    if (Object.keys(changes).length === 0) return Promise.resolve(undefined);
+    return api.patch<MemberDB>(`${base(treeId)}/members/${id}`, changes);
   }
 
   static updateMemberPosition(
@@ -275,6 +345,19 @@ export class TreeService {
   static geocodePreview(treeId: string, q: string) {
     return api.get<GeocodeDB>(
       `${base(treeId)}/geocode/preview?q=${encodeURIComponent(q)}`,
+    );
+  }
+
+  static geocodeOverride(
+    treeId: string,
+    body: { query: string; lat: number; lon: number; display_name?: string },
+  ) {
+    return api.post<GeocodeDB>(`${base(treeId)}/geocode/override`, body);
+  }
+
+  static geocodeSearch(treeId: string, q: string, limit = 5) {
+    return api.get<GeocodeCandidate[]>(
+      `${base(treeId)}/geocode/search?q=${encodeURIComponent(q)}&limit=${limit}`,
     );
   }
 
@@ -560,28 +643,15 @@ export class TreeService {
   }
 
   // --- Sub-tree extraction -------------------------------------------------
-  static previewSubtree(payload: {
-    source_tree_id: string;
-    root_member_id: string;
-    direction: "descendants" | "ancestors" | "both";
-    depth: number | null;
-    include_partners: boolean;
-  }) {
-    return api.post<{ member_count: number; relation_count: number }>(
-      "/trees/extract-subtree/preview",
-      { ...payload, name: "" },
-    );
+  static previewSubtree(payload: Omit<SubtreeExtractPayload, "name">) {
+    return api.post<SubtreeExtractPreview>("/trees/extract-subtree/preview", {
+      ...payload,
+      name: "",
+    });
   }
 
-  static extractSubtree(payload: {
-    name: string;
-    source_tree_id: string;
-    root_member_id: string;
-    direction: "descendants" | "ancestors" | "both";
-    depth: number | null;
-    include_partners: boolean;
-  }) {
-    return api.post<Tree>("/trees/extract-subtree", payload);
+  static extractSubtree(payload: SubtreeExtractPayload) {
+    return api.post<{ job_id: string }>("/trees/extract-subtree", payload);
   }
 
   // --- Merge preview -------------------------------------------------------
@@ -599,7 +669,21 @@ export class TreeService {
 
   // --- Quality report -------------------------------------------------------
   static getQualityReport(treeId: string) {
-    return api.get<QualityReport>(`${base(treeId)}/quality-report`);
+    return api.get<QualityReport>(`${base(treeId)}/quality-report`, {
+      include_dismissed: true,
+    });
+  }
+
+  static dismissQualityIssue(treeId: string, issueId: string) {
+    return api.post<void>(
+      `${base(treeId)}/quality-report/issues/${issueId}/dismiss`,
+    );
+  }
+
+  static restoreQualityIssue(treeId: string, issueId: string) {
+    return api.del<void>(
+      `${base(treeId)}/quality-report/issues/${issueId}/dismiss`,
+    );
   }
 
   // --- Statistics -----------------------------------------------------------
@@ -607,9 +691,20 @@ export class TreeService {
     return api.get<StatisticsReport>(`${base(treeId)}/statistics`);
   }
 
+  static getCombinedStatistics(treeId: string) {
+    return api.get<CombinedStatisticsReport>(
+      `${base(treeId)}/statistics/combined`,
+    );
+  }
+
   // --- Storage usage -------------------------------------------------------
   static getStorageUsage(treeId: string) {
     return api.get<TreeStorageUsageDB>(`${base(treeId)}/storage`);
+  }
+
+  // --- Linked-trees graph ----------------------------------------------------
+  static getLinkGraph(treeId: string) {
+    return api.get<LinkGraphDB>(`${base(treeId)}/link-graph`);
   }
 
   // --- Virtual views --------------------------------------------------------

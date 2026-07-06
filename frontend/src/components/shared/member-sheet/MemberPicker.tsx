@@ -26,6 +26,8 @@ type Props = {
   noResultsText: string;
   /** Show each member's birth date next to their name for easier identification. */
   showBirthDate?: boolean;
+  /** "sm" matches the compact member sheet; "default" matches Input/SelectTrigger (h-9). */
+  size?: "sm" | "default";
 };
 
 export const MemberPicker = ({
@@ -35,6 +37,7 @@ export const MemberPicker = ({
   placeholder,
   noResultsText,
   showBirthDate = false,
+  size = "sm",
 }: Props) => {
   const [open, setOpen] = useState(false);
   const [portalContainer, setPortalContainer] = useState<HTMLElement>();
@@ -45,9 +48,12 @@ export const MemberPicker = ({
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
+      // Portal into the containing sheet/dialog so its scroll lock doesn't
+      // swallow wheel events over the list (body-portaled content is outside
+      // the lock's allowed subtree and becomes wheel-inert).
       setPortalContainer(
         triggerContainerRef.current?.closest<HTMLElement>(
-          '[data-slot="sheet-content"]',
+          '[data-slot="sheet-content"], [data-slot="dialog-content"]',
         ) ?? undefined,
       );
     }
@@ -63,7 +69,10 @@ export const MemberPicker = ({
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="h-7 w-full justify-between text-xs shadow-none font-normal"
+            className={cn(
+              "w-full justify-between shadow-none font-normal",
+              size === "default" ? "h-9 text-sm" : "h-7 text-xs",
+            )}
           >
             <span className={cn(!label && "text-muted-foreground truncate")}>
               {label ?? placeholder}

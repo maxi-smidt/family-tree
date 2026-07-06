@@ -1,9 +1,18 @@
 """Sub-tree extraction service.
 
-Creates a new independent tree from a connected subset of an existing tree,
-selected by picking a root member and traversal direction (descendants /
-ancestors / both) with an optional depth limit.  The source tree is never
-modified.
+Moves a connected branch of an existing tree into a brand-new tree, keeping
+member ids. The root stays behind in the source tree as the bridge person
+(tree-in-tree link) with a fresh counterpart seeded in the new tree, and
+relations crossing the cut elsewhere are severed.
+
+The branch is selected by picking a root member and one of two ``direction``
+values:
+
+- ``direct_family`` (default): the root's family of origin — parents,
+  siblings and their branches, with married-in spouses. The root's own
+  children never move. See ``_collect_direct_family_ids``.
+- ``partnership``: the root's partner(s), the partner's family, and the
+  children the root shares with them. See ``_collect_partnership_ids``.
 """
 
 from __future__ import annotations
@@ -32,9 +41,13 @@ from app.models import (
     User,
 )
 from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
+from app.services import feature_service
+from app.services.activity import record_activity
+from app.services.cache import invalidate_stats
+from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback
-from app.services.merge import _clone_member
-from app.services.storage import copy_media_to_tree
+from app.services.merge import _clone_member, _wire_bridge
+from app.services.storage import media_disk_usage, move_media_to_tree
 
 
 def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
@@ -44,85 +57,282 @@ def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
     return tree
 
 
-def _collect_member_ids(
-    db: Session,
-    tree_id: str,
-    root_id: str,
-    direction: str,
-    depth: int | None,
-    include_partners: bool,
+def _load_relations(db: Session, tree_id: str) -> list[Relation]:
+    return list(db.scalars(select(Relation).where(Relation.tree_id == tree_id)))
+
+
+def _pull_one_hop_partners(
+    relations: list[Relation], moved: set[str], root_id: str
+) -> None:
+    """Add, in place, everyone sharing a non-parent (partner-like) relation
+    with a member already in ``moved`` — a single hop, no further traversal
+    from the pulled-in members. Partners of the root itself are excluded
+    (the root is the bridge, never in ``moved``)."""
+    peers: set[str] = set()
+    for r in relations:
+        if r.relation_type == "parent":
+            continue
+        if r.from_member_id == root_id or r.to_member_id == root_id:
+            continue
+        if r.from_member_id in moved:
+            peers.add(r.to_member_id)
+        if r.to_member_id in moved:
+            peers.add(r.from_member_id)
+    moved |= peers
+
+
+def _collect_direct_family_ids(
+    db: Session, tree_id: str, root_id: str
 ) -> set[str]:
-    """Return the set of member ids that belong in the sub-tree."""
-    # Validate root exists in this tree.
+    """"Direct family" selection: the root's family of origin.
+
+    The root R stays as the bridge; R's own children/descendants do NOT
+    move (they belong to R's partnership in the main tree).
+
+    1. Build the vertical (parent-edge) adjacency, traversable both ways.
+    2. moved = BFS over vertical edges starting from R's PARENTS (rows
+       where from=R: their to-members), never visiting R itself. This
+       yields parents, grandparents, siblings (down from parents),
+       aunts/uncles/cousins (down from higher ancestors) — but never R's
+       own children, since downward traversal from R never happens (and
+       any path back down to them passes through R, which is blocked).
+    3. One-hop partner pull: every member sharing a non-parent relation
+       with a moved member is added to moved (single hop, no further
+       traversal) — e.g. a moved brother's wife comes along instead of
+       being severed. Partners of R itself are NOT pulled.
+    4. R is excluded from the returned set (it is the bridge).
+    """
+    relations = _load_relations(db, tree_id)
+
+    vertical: dict[str, set[str]] = {}
+
+    def link(a: str, b: str) -> None:
+        vertical.setdefault(a, set()).add(b)
+        vertical.setdefault(b, set()).add(a)
+
+    root_parents: set[str] = set()
+    for r in relations:
+        if r.relation_type != "parent":
+            continue
+        link(r.from_member_id, r.to_member_id)
+        if r.from_member_id == root_id:
+            root_parents.add(r.to_member_id)
+
+    moved: set[str] = set()
+    queue: deque[str] = deque()
+    for p in root_parents:
+        if p not in moved:
+            moved.add(p)
+            queue.append(p)
+    while queue:
+        node = queue.popleft()
+        for nb in vertical.get(node, ()):
+            if nb == root_id or nb in moved:
+                continue
+            moved.add(nb)
+            queue.append(nb)
+
+    _pull_one_hop_partners(relations, moved, root_id)
+    moved.discard(root_id)
+    return moved
+
+
+def _collect_partnership_ids(
+    db: Session, tree_id: str, root_id: str
+) -> set[str]:
+    """"Partnership" selection: the root's partner(s) and their world, plus
+    the shared children.
+
+    The root R stays as the bridge; the partner side and the shared children
+    move.
+
+    1. seeds = all of R's partners (members sharing any non-parent relation
+       with R) + all of R's children (parent rows where to=R: their
+       from-members).
+    2. moved = BFS from all seeds over ALL edges (vertical + horizontal),
+       never visiting R.
+    3. R is excluded from the returned set (it is the bridge).
+
+    Deliberately simple: in tangled trees (e.g. two siblings married into
+    the same family) this can reach back into the root's own blood family —
+    accepted; the preview's member count reveals it. No cleverness is added
+    to prevent that (unlike "direct family", which has no such need since it
+    never leaves the vertical axis until the one-hop partner pull).
+    """
+    relations = _load_relations(db, tree_id)
+
+    adjacency: dict[str, set[str]] = {}
+
+    def link(a: str, b: str) -> None:
+        adjacency.setdefault(a, set()).add(b)
+        adjacency.setdefault(b, set()).add(a)
+
+    seeds: set[str] = set()
+    for r in relations:
+        link(r.from_member_id, r.to_member_id)
+        if r.relation_type == "parent":
+            # from = child, to = parent. Root's children: root is the parent.
+            if r.to_member_id == root_id:
+                seeds.add(r.from_member_id)
+        else:
+            if r.from_member_id == root_id:
+                seeds.add(r.to_member_id)
+            elif r.to_member_id == root_id:
+                seeds.add(r.from_member_id)
+
+    moved: set[str] = set()
+    queue: deque[str] = deque()
+    for s in seeds:
+        if s not in moved:
+            moved.add(s)
+            queue.append(s)
+    while queue:
+        node = queue.popleft()
+        for nb in adjacency.get(node, ()):
+            if nb == root_id or nb in moved:
+                continue
+            moved.add(nb)
+            queue.append(nb)
+
+    return moved
+
+
+def _collect_member_ids(
+    db: Session, tree_id: str, root_id: str, direction: str
+) -> set[str]:
+    """Return the set of member ids that belong in the sub-tree for ``direction``."""
     root = db.scalar(
         select(Member).where(Member.tree_id == tree_id, Member.id == root_id)
     )
     if root is None:
         raise HTTPException(status_code=404, detail="Root member not found in tree")
 
-    # Build parent-edge adjacency from Relation rows.
-    # A "parent" relation is stored as: from=child, to=parent.
-    parent_rows = list(
-        db.scalars(
-            select(Relation).where(
-                Relation.tree_id == tree_id,
-                Relation.relation_type == "parent",
-            )
+    if direction == "partnership":
+        return _collect_partnership_ids(db, tree_id, root_id)
+    return _collect_direct_family_ids(db, tree_id, root_id)
+
+
+def validate_move_request(
+    db: Session,
+    user: User,
+    req: SubtreeExtractRequest,
+) -> tuple[Tree, Member]:
+    """Validate an extraction request without writing anything.
+
+    Called synchronously from the endpoint before the background job is
+    created, so precondition failures surface as 4xx responses instead of a
+    failed job. Returns the source tree and the root (future bridge) member.
+    """
+    # direction is a Pydantic Literal, so any value that reaches here is
+    # already one of the valid choices — no runtime check needed.
+    # Extraction creates a tree-in-tree link; gate exactly like member subtrees.
+    if not feature_service.is_enabled(db, "tree_links", user):
+        raise HTTPException(status_code=404, detail="Not found")
+    tree = _require_readable(db, user, req.source_tree_id)
+    if tree.owner_id != user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the tree owner can extract a branch into a new tree",
+        )
+    root = db.scalar(
+        select(Member).where(
+            Member.tree_id == tree.id, Member.id == req.root_member_id
         )
     )
-    parents_of: dict[str, list[str]] = {}   # child_id -> [parent_id, ...]
-    children_of: dict[str, list[str]] = {}  # parent_id -> [child_id, ...]
-    for r in parent_rows:
-        parents_of.setdefault(r.from_member_id, []).append(r.to_member_id)
-        children_of.setdefault(r.to_member_id, []).append(r.from_member_id)
+    if root is None:
+        raise HTTPException(status_code=404, detail="Root member not found in tree")
+    if root.linked_tree_id is not None:
+        raise HTTPException(
+            status_code=409, detail="Member is already linked to a tree"
+        )
+    return tree, root
 
-    def bfs(
-        start: str, neighbours: dict[str, list[str]], max_depth: int | None
-    ) -> set[str]:
-        visited: set[str] = {start}
-        queue: deque[tuple[str, int]] = deque([(start, 0)])
-        while queue:
-            node, d = queue.popleft()
-            if max_depth is not None and d >= max_depth:
-                continue
-            for nb in neighbours.get(node, []):
-                if nb not in visited:
-                    visited.add(nb)
-                    queue.append((nb, d + 1))
-        return visited
 
-    core: set[str]
-    if direction == "descendants":
-        core = bfs(root_id, children_of, depth)
-    elif direction == "ancestors":
-        core = bfs(root_id, parents_of, depth)
-    else:  # both
-        core = bfs(root_id, children_of, depth) | bfs(root_id, parents_of, depth)
+def _classify_relations(
+    relations: list[Relation],
+    moved: set[str],
+    root_id: str,
+) -> tuple[list[Relation], list[Relation], list[Relation]]:
+    """Split a source tree's relations for a move.
 
-    if include_partners:
-        # Load all non-parent relations; add peers (partner/married/divorced) of
-        # every core member — one hop, no further traversal.
-        peer_rows = list(
-            db.scalars(
-                select(Relation).where(
-                    Relation.tree_id == tree_id,
-                    Relation.relation_type != "parent",
-                )
+    Returns ``(kept, bridged, severed)``:
+
+    - kept: both endpoints move → recreated as-is in the new tree,
+    - bridged: root ↔ moved → recreated with the root replaced by its
+      counterpart (the bridge person carries the seam),
+    - severed: moved ↔ anything staying (other than the root) → deleted.
+
+    Relations entirely among staying members are not returned (untouched).
+    """
+    kept: list[Relation] = []
+    bridged: list[Relation] = []
+    severed: list[Relation] = []
+    for r in relations:
+        from_moved = r.from_member_id in moved
+        to_moved = r.to_member_id in moved
+        if from_moved and to_moved:
+            kept.append(r)
+        elif from_moved or to_moved:
+            other = r.to_member_id if from_moved else r.from_member_id
+            if other == root_id:
+                bridged.append(r)
+            else:
+                severed.append(r)
+    return kept, bridged, severed
+
+
+def _split_linked_entities(
+    links: list,
+    id_attr: str,
+    moved: set[str],
+) -> tuple[set[str], list]:
+    """Partition member-linked entities (gallery / events / stories) for a move.
+
+    An entity whose links ALL point at moved members moves with them; anything
+    with mixed links stays in the source tree and its links to moved members
+    are dropped. Returns ``(moved_entity_ids, stale_links_to_delete)``.
+    Entities without member links never show up here and stay untouched.
+    """
+    by_entity: dict[str, list] = {}
+    for lnk in links:
+        by_entity.setdefault(getattr(lnk, id_attr), []).append(lnk)
+    moved_ids: set[str] = set()
+    stale_links: list = []
+    for entity_id, entity_links in by_entity.items():
+        if all(lnk.member_id in moved for lnk in entity_links):
+            moved_ids.add(entity_id)
+        else:
+            stale_links.extend(
+                lnk for lnk in entity_links if lnk.member_id in moved
             )
-        )
-        peers: set[str] = set()
-        for r in peer_rows:
-            if r.from_member_id in core:
-                peers.add(r.to_member_id)
-            if r.to_member_id in core:
-                peers.add(r.from_member_id)
-        # Only add peers that actually exist in the source tree.
-        existing_ids = set(
-            db.scalars(select(Member.id).where(Member.tree_id == tree_id))
-        )
-        core |= peers & existing_ids
+    return moved_ids, stale_links
 
-    return core
+
+def _load_member_links(db: Session, tree_id: str) -> tuple[list, list, list]:
+    """All gallery/event/story member links of a tree (link tables carry no
+    tree_id, so they are reached through their tree-scoped entity)."""
+    gallery_links = list(
+        db.scalars(
+            select(GalleryMemberLink)
+            .join(GalleryImage, GalleryImage.id == GalleryMemberLink.gallery_image_id)
+            .where(GalleryImage.tree_id == tree_id)
+        )
+    )
+    event_links = list(
+        db.scalars(
+            select(EventMemberLink)
+            .join(Event, Event.id == EventMemberLink.event_id)
+            .where(Event.tree_id == tree_id)
+        )
+    )
+    story_links = list(
+        db.scalars(
+            select(StoryMemberLink)
+            .join(Story, Story.id == StoryMemberLink.story_id)
+            .where(Story.tree_id == tree_id)
+        )
+    )
+    return gallery_links, event_links, story_links
 
 
 def compute_subtree_preview(
@@ -130,25 +340,49 @@ def compute_subtree_preview(
     user: User,
     req: SubtreeExtractRequest,
 ) -> SubtreePreview:
-    """Compute a preview without writing anything."""
-    _require_readable(db, user, req.source_tree_id)
-    member_ids = _collect_member_ids(
-        db,
-        req.source_tree_id,
-        req.root_member_id,
-        req.direction,
-        req.depth,
-        req.include_partners,
+    """Preview an extraction without writing anything (same checks as the move)."""
+    tree, root = validate_move_request(db, user, req)
+    member_ids = _collect_member_ids(db, tree.id, root.id, req.direction)
+    moved = member_ids - {root.id}
+    relations = list(db.scalars(select(Relation).where(Relation.tree_id == tree.id)))
+    kept, bridged, severed = _classify_relations(relations, moved, root.id)
+
+    media_bytes = 0
+    if moved:
+        for image_data in db.scalars(
+            select(Member.image_data).where(
+                Member.tree_id == tree.id, Member.id.in_(moved)
+            )
+        ):
+            media_bytes += media_disk_usage(image_data)
+        gallery_links, _event_links, story_links = _load_member_links(db, tree.id)
+        moved_image_ids, _ = _split_linked_entities(
+            gallery_links, "gallery_image_id", moved
+        )
+        if moved_image_ids:
+            for image_data in db.scalars(
+                select(GalleryImage.image_data).where(
+                    GalleryImage.tree_id == tree.id,
+                    GalleryImage.id.in_(moved_image_ids),
+                )
+            ):
+                media_bytes += media_disk_usage(image_data)
+        moved_story_ids, _ = _split_linked_entities(story_links, "story_id", moved)
+        if moved_story_ids:
+            for url in db.scalars(
+                select(StoryAttachment.url).where(
+                    StoryAttachment.tree_id == tree.id,
+                    StoryAttachment.story_id.in_(moved_story_ids),
+                )
+            ):
+                media_bytes += media_disk_usage(url)
+
+    return SubtreePreview(
+        member_count=len(moved),
+        relation_count=len(kept) + len(bridged),
+        severed_relation_count=len(severed),
+        media_bytes=media_bytes,
     )
-    relations = list(
-        db.scalars(select(Relation).where(Relation.tree_id == req.source_tree_id))
-    )
-    relation_count = sum(
-        1
-        for r in relations
-        if r.from_member_id in member_ids and r.to_member_id in member_ids
-    )
-    return SubtreePreview(member_count=len(member_ids), relation_count=relation_count)
 
 
 def extract_subtree(
@@ -157,20 +391,21 @@ def extract_subtree(
     req: SubtreeExtractRequest,
     progress_cb: ProgressCallback | None = None,
 ) -> Tree:
+    """Move the selected branch into a new tree linked through the root."""
+
     def _progress(pct: int) -> None:
         if progress_cb is not None:
             progress_cb(pct)
 
-    _require_readable(db, user, req.source_tree_id)
-    member_ids = _collect_member_ids(
-        db,
-        req.source_tree_id,
-        req.root_member_id,
-        req.direction,
-        req.depth,
-        req.include_partners,
-    )
-    _progress(15)
+    tree, root = validate_move_request(db, user, req)
+    member_ids = _collect_member_ids(db, tree.id, root.id, req.direction)
+    moved = member_ids - {root.id}
+    if not moved:
+        raise HTTPException(
+            status_code=400,
+            detail="Nothing to move: the selection contains only the root member",
+        )
+    _progress(10)
 
     new_tree = Tree(
         id=str(uuid4()),
@@ -182,219 +417,154 @@ def extract_subtree(
     db.add(new_tree)
     db.flush()
 
-    # --- Members ---
-    member_map: dict[str, str] = {}
-    source_members = list(
-        db.scalars(
-            select(Member).where(
-                Member.tree_id == req.source_tree_id,
-                Member.id.in_(member_ids),
-            )
-        )
-    )
-    for m in source_members:
-        new_id = str(uuid4())
-        member_map[m.id] = new_id
-        db.add(_clone_member(m, new_tree.id, new_id))
+    # --- Bridge person ---
+    # The root stays in the source tree; a clone (photo copied, not moved)
+    # seeds the new tree and the two rows link both ways.
+    counterpart = _clone_member(root, new_tree.id, str(uuid4()))
+    counterpart.position_x = 0
+    counterpart.position_y = 0
+    counterpart.is_collapsed = False
+    db.add(counterpart)
     db.flush()
-    _progress(40)
+
+    _wire_bridge(root, counterpart)
+    # The branch is gone; the linked-tree badge replaces the collapse chip.
+    root.is_collapsed = False
+    _progress(25)
+
+    # --- Members: keep ids, re-point the tree, relocate photos on disk ---
+    for m in db.scalars(
+        select(Member).where(Member.tree_id == tree.id, Member.id.in_(moved))
+    ):
+        m.tree_id = new_tree.id
+        m.image_data = move_media_to_tree(m.image_data, new_tree.id)
+        # Zeroed out like the bridge counterpart: all-zero positions mark a
+        # never-arranged tree, which the frontend auto-lays-out on first open
+        # rather than opening with stale positions carried over from the
+        # source tree (which would leave the new tree sparse and disjoint).
+        m.position_x = 0
+        m.position_y = 0
+    _progress(45)
 
     # --- Relations ---
-    seen_relations: set[tuple] = set()
-    for r in db.scalars(
-        select(Relation).where(Relation.tree_id == req.source_tree_id)
-    ):
-        f = member_map.get(r.from_member_id)
-        to = member_map.get(r.to_member_id)
-        if not f or not to:
-            continue
-        key = (f, to, r.relation_type)
-        if key not in seen_relations:
-            seen_relations.add(key)
-            db.add(
-                Relation(
-                    tree_id=new_tree.id,
-                    from_member_id=f,
-                    to_member_id=to,
-                    relation_type=r.relation_type,
-                )
-            )
-
-    # --- Diseases ---
-    seen_diseases: set[tuple] = set()
-    for d in db.scalars(
-        select(MemberDisease).where(MemberDisease.tree_id == req.source_tree_id)
-    ):
-        mid = member_map.get(d.member_id)
-        if mid is None:
-            continue
-        key = (mid, (d.name or "").strip().lower())
-        if key in seen_diseases:
-            continue
-        seen_diseases.add(key)
-        db.add(
-            MemberDisease(
-                id=str(uuid4()),
-                tree_id=new_tree.id,
-                member_id=mid,
-                name=d.name,
-                carrier_status=d.carrier_status,
-                inheritance_pattern=d.inheritance_pattern,
-                diagnosis_date=d.diagnosis_date,
-                notes=d.notes,
-            )
-        )
-
-    _progress(55)
-
-    # --- Gallery images + links ---
-    # Only include images that have at least one link to an included member.
-    all_gallery_links = list(
-        db.scalars(
-            select(GalleryMemberLink)
-            .join(GalleryImage, GalleryImage.id == GalleryMemberLink.gallery_image_id)
-            .where(GalleryImage.tree_id == req.source_tree_id)
-        )
-    )
-    # Which image ids have at least one link to a selected member?
-    included_image_ids: set[str] = {
-        lnk.gallery_image_id
-        for lnk in all_gallery_links
-        if lnk.member_id in member_ids
-    }
-    image_map: dict[str, str] = {}
-    for img in db.scalars(
-        select(GalleryImage).where(
-            GalleryImage.tree_id == req.source_tree_id,
-            GalleryImage.id.in_(included_image_ids),
-        )
-    ):
-        new_id = str(uuid4())
-        image_map[img.id] = new_id
-        db.add(
-            GalleryImage(
-                id=new_id,
-                tree_id=new_tree.id,
-                image_data=copy_media_to_tree(img.image_data, new_tree.id),
-                title=img.title,
-                description=img.description,
-                created_at=img.created_at,
-                uploaded_at=img.uploaded_at,
-            )
-        )
+    # tree_id is part of the composite PK, so rows are deleted and recreated
+    # in the new tree rather than mutated in place.
+    relations = list(db.scalars(select(Relation).where(Relation.tree_id == tree.id)))
+    kept, bridged, severed = _classify_relations(relations, moved, root.id)
+    for r in (*kept, *bridged, *severed):
+        db.delete(r)
     db.flush()
-    seen_gallery_links: set[tuple] = set()
-    for lnk in all_gallery_links:
-        gi = image_map.get(lnk.gallery_image_id)
-        mid = member_map.get(lnk.member_id)
-        if gi and mid and (gi, mid) not in seen_gallery_links:
-            seen_gallery_links.add((gi, mid))
-            db.add(GalleryMemberLink(gallery_image_id=gi, member_id=mid))
-
-    _progress(65)
-
-    # --- Events + links ---
-    all_event_links = list(
-        db.scalars(
-            select(EventMemberLink)
-            .join(Event, Event.id == EventMemberLink.event_id)
-            .where(Event.tree_id == req.source_tree_id)
+    for r in kept:
+        db.add(
+            Relation(
+                tree_id=new_tree.id,
+                from_member_id=r.from_member_id,
+                to_member_id=r.to_member_id,
+                relation_type=r.relation_type,
+            )
         )
+    for r in bridged:
+        db.add(
+            Relation(
+                tree_id=new_tree.id,
+                from_member_id=(
+                    counterpart.id if r.from_member_id == root.id else r.from_member_id
+                ),
+                to_member_id=(
+                    counterpart.id if r.to_member_id == root.id else r.to_member_id
+                ),
+                relation_type=r.relation_type,
+            )
+        )
+    _progress(60)
+
+    # --- Diseases (tree-scoped rows of moved members follow them) ---
+    for d in db.scalars(select(MemberDisease).where(MemberDisease.tree_id == tree.id)):
+        if d.member_id in moved:
+            d.tree_id = new_tree.id
+
+    # --- Gallery / events / stories ---
+    # Entities whose member links ALL point at moved members follow the move
+    # (ids are stable, so the link rows keep working); entities with mixed
+    # links stay behind and just drop their links to moved members.
+    gallery_links, event_links, story_links = _load_member_links(db, tree.id)
+
+    moved_image_ids, stale_gallery_links = _split_linked_entities(
+        gallery_links, "gallery_image_id", moved
     )
-    included_event_ids: set[str] = {
-        lnk.event_id for lnk in all_event_links if lnk.member_id in member_ids
-    }
-    event_map: dict[str, str] = {}
-    for e in db.scalars(
-        select(Event).where(
-            Event.tree_id == req.source_tree_id,
-            Event.id.in_(included_event_ids),
-        )
-    ):
-        new_id = str(uuid4())
-        event_map[e.id] = new_id
-        db.add(
-            Event(
-                id=new_id,
-                tree_id=new_tree.id,
-                event_type=e.event_type,
-                date=e.date,
-                location=e.location,
-                description=e.description,
-                created_at=e.created_at,
+    if moved_image_ids:
+        for img in db.scalars(
+            select(GalleryImage).where(
+                GalleryImage.tree_id == tree.id,
+                GalleryImage.id.in_(moved_image_ids),
             )
-        )
-    db.flush()
-    seen_event_links: set[tuple] = set()
-    for lnk in all_event_links:
-        ev = event_map.get(lnk.event_id)
-        mid = member_map.get(lnk.member_id)
-        if ev and mid and (ev, mid) not in seen_event_links:
-            seen_event_links.add((ev, mid))
-            db.add(EventMemberLink(event_id=ev, member_id=mid))
+        ):
+            img.tree_id = new_tree.id
+            img.image_data = move_media_to_tree(img.image_data, new_tree.id)
+    for lnk in stale_gallery_links:
+        db.delete(lnk)
+    _progress(70)
 
-    _progress(75)
-
-    # --- Stories + links + attachments ---
-    all_story_links = list(
-        db.scalars(
-            select(StoryMemberLink)
-            .join(Story, Story.id == StoryMemberLink.story_id)
-            .where(Story.tree_id == req.source_tree_id)
-        )
+    moved_event_ids, stale_event_links = _split_linked_entities(
+        event_links, "event_id", moved
     )
-    included_story_ids: set[str] = {
-        lnk.story_id for lnk in all_story_links if lnk.member_id in member_ids
-    }
-    story_map: dict[str, str] = {}
-    for s in db.scalars(
-        select(Story).where(
-            Story.tree_id == req.source_tree_id,
-            Story.id.in_(included_story_ids),
-        )
-    ):
-        new_id = str(uuid4())
-        story_map[s.id] = new_id
-        db.add(
-            Story(
-                id=new_id,
-                tree_id=new_tree.id,
-                title=s.title,
-                content=s.content,
-                created_at=s.created_at,
-                updated_at=s.updated_at,
+    if moved_event_ids:
+        for e in db.scalars(
+            select(Event).where(
+                Event.tree_id == tree.id, Event.id.in_(moved_event_ids)
             )
-        )
-    db.flush()
-    seen_story_links: set[tuple] = set()
-    for lnk in all_story_links:
-        st = story_map.get(lnk.story_id)
-        mid = member_map.get(lnk.member_id)
-        if st and mid and (st, mid) not in seen_story_links:
-            seen_story_links.add((st, mid))
-            db.add(StoryMemberLink(story_id=st, member_id=mid))
+        ):
+            e.tree_id = new_tree.id
+    for lnk in stale_event_links:
+        db.delete(lnk)
+    _progress(78)
 
-    for att in db.scalars(
-        select(StoryAttachment).where(StoryAttachment.tree_id == req.source_tree_id)
-    ):
-        st = story_map.get(att.story_id)
-        new_url = copy_media_to_tree(att.url, new_tree.id)
-        if st is None or new_url is None:
-            continue
-        db.add(
-            StoryAttachment(
-                id=str(uuid4()),
-                tree_id=new_tree.id,
-                story_id=st,
-                filename=att.filename,
-                url=new_url,
-                mime_type=att.mime_type,
-                size=att.size,
-                created_at=att.created_at,
+    moved_story_ids, stale_story_links = _split_linked_entities(
+        story_links, "story_id", moved
+    )
+    if moved_story_ids:
+        for s in db.scalars(
+            select(Story).where(
+                Story.tree_id == tree.id, Story.id.in_(moved_story_ids)
             )
-        )
+        ):
+            s.tree_id = new_tree.id
+        for att in db.scalars(
+            select(StoryAttachment).where(
+                StoryAttachment.tree_id == tree.id,
+                StoryAttachment.story_id.in_(moved_story_ids),
+            )
+        ):
+            att.tree_id = new_tree.id
+            new_url = move_media_to_tree(att.url, new_tree.id)
+            if new_url is not None:
+                att.url = new_url
+    for lnk in stale_story_links:
+        db.delete(lnk)
+    _progress(88)
 
-    _progress(95)
+    # --- Bookkeeping ---
+    label = " ".join(filter(None, [root.first_name, root.last_name])) or None
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="update",
+        target_type="member",
+        target_id=root.id,
+        target_label=label,
+        details={
+            "after": {"linked_tree_id": new_tree.id},
+            "moved_member_count": len(moved),
+            "severed_relation_count": len(severed),
+        },
+    )
     db.commit()
+    invalidate_stats(tree.id)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "member"}
+    )
     db.refresh(new_tree)
+    _progress(95)
     return new_tree

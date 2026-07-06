@@ -46,6 +46,7 @@ FEATURES: dict[str, FeatureState] = {
     "gedcom": "on",
     "sharing_invites": "on",
     "onboarding_tour": "on",
+    "tree_links": "on",
 }
 
 # Domains whose visibility can be restricted per shared member.

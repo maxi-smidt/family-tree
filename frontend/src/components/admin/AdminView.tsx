@@ -26,6 +26,8 @@ import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDia
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { RelationTypesPanel } from "@/components/admin/RelationTypesPanel";
+import { LegalVersionHistoryPanel } from "@/components/admin/LegalVersionHistoryPanel";
+import { LEGAL_LOCALES, LegalLocale } from "@/lib/legalLocale";
 import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import {
   ArrowLeft,
@@ -76,6 +78,7 @@ export const AdminView = () => {
     media: "",
   });
   const [settings, setSettings] = useState<AdminSettings | null>(null);
+  const [legalLocale, setLegalLocale] = useState<LegalLocale>("de");
   const [newUser, setNewUser] = useState({
     username: "",
     password: "",
@@ -285,6 +288,12 @@ export const AdminView = () => {
                 className="justify-start data-[state=active]:bg-muted"
               >
                 {t("relation-types-tab")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="legal"
+                className="justify-start data-[state=active]:bg-muted"
+              >
+                {t("legal-tab")}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -807,6 +816,109 @@ export const AdminView = () => {
                         }
                       />
                     </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <Button onClick={saveSettings}>{t("save-settings")}</Button>
+                  </div>
+                </>
+              )}
+            </TabsContent>
+
+            <TabsContent value="legal" className="mt-0 space-y-4">
+              {settings && (
+                <>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="font-medium text-sm">
+                        {t("legal-section-title")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("legal-section-hint")}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg border p-3">
+                      <div>
+                        <p className="font-medium text-sm">
+                          {t("legal-acceptance-required")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {t("legal-acceptance-required-hint")}
+                        </p>
+                      </div>
+                      <Switch
+                        checked={settings.legal_acceptance_required}
+                        onCheckedChange={(v) =>
+                          setSettings({
+                            ...settings,
+                            legal_acceptance_required: v,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <FieldLabel>{t("legal-version-label")}</FieldLabel>
+                      <p className="text-sm font-mono">
+                        {settings.legal_version}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {t("legal-version-hint")}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <div
+                        className="flex items-center gap-1"
+                        role="group"
+                        aria-label={t("legal-locale-label")}
+                      >
+                        {LEGAL_LOCALES.map((loc) => (
+                          <Button
+                            key={loc}
+                            type="button"
+                            size="sm"
+                            variant={
+                              legalLocale === loc ? "default" : "outline"
+                            }
+                            onClick={() => setLegalLocale(loc)}
+                          >
+                            {t(`legal-locale-${loc}`)}
+                          </Button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {t("legal-locale-hint")}
+                      </p>
+                    </div>
+                    {(["terms", "privacy", "imprint"] as const).map((doc) => {
+                      const key =
+                        `legal_${doc}_body_${legalLocale}` as keyof AdminSettings;
+                      return (
+                        <div key={doc} className="space-y-2">
+                          <FieldLabel htmlFor={`legal-${doc}-body`}>
+                            {t(`legal-${doc}-body-label`)}
+                          </FieldLabel>
+                          <Textarea
+                            id={`legal-${doc}-body`}
+                            rows={8}
+                            value={settings[key] as string}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                [key]: e.target.value,
+                              })
+                            }
+                          />
+                          <div className="pt-1">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">
+                              {t("legal-history-title")}
+                            </p>
+                            <LegalVersionHistoryPanel
+                              documentType={doc}
+                              locale={legalLocale}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="flex justify-end">
                     <Button onClick={saveSettings}>{t("save-settings")}</Button>

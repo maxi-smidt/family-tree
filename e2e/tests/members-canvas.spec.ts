@@ -144,6 +144,11 @@ canvasTest(
     let popover = page.locator('[data-slot="popover-content"]');
     await popover.getByRole("button", { name: "Y", exact: true }).click();
     await popover.getByRole("button", { name: "2020", exact: true }).click();
+    // Explicitly dismiss the birth-date popover so it isn't still open when the
+    // death-date popover is opened below (two open popovers would make the
+    // `[data-slot="popover-content"]` locator ambiguous under strict mode).
+    await page.keyboard.press("Escape");
+    await expect(popover).toBeHidden();
 
     await sheet
       .locator('[data-slot="field"]')

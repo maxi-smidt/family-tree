@@ -120,6 +120,11 @@ def update_event(
     )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "event"},
+    )
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(event)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -154,10 +159,11 @@ def set_links(
     event_id: str,
     payload: LinksSet,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of members linked to this event."""
-    _get_event(db, tree, event_id)
+    event = _get_event(db, tree, event_id)
     replace_member_links(
         db,
         link_model=EventMemberLink,
@@ -165,5 +171,9 @@ def set_links(
         parent_id=event_id,
         tree=tree,
         member_ids=payload.member_ids,
+    )
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="event", target_id=event.id, target_label=event.event_type,
     )
     db.commit()

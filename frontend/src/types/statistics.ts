@@ -33,3 +33,13 @@ export interface StatisticsReport {
   top_first_names: NameCount[];
   top_last_names: NameCount[];
 }
+
+/**
+ * Statistics aggregated across the anchor tree and every tree reachable via
+ * tree-in-tree links (bridge persons counted once). Superset of
+ * `StatisticsReport` — `tree_id` stays the anchor tree's id.
+ */
+export interface CombinedStatisticsReport extends StatisticsReport {
+  tree_count: number;
+  included_tree_ids: string[];
+}

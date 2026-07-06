@@ -45,6 +45,7 @@ from app.services.settings_service import (
     effective_storage_mode,
     get_bool_setting,
     get_media_limits,
+    user_has_accepted_legal,
 )
 from app.services.user_deletion import schedule_deletion
 
@@ -60,6 +61,10 @@ def _current_user_out(db: Session, user: User) -> CurrentUserOut:
     out.image_storage_mode = effective_storage_mode(  # type: ignore[assignment]
         limits.image_storage_mode, limits.image_storage_allowed_modes, user_mode
     )
+    out.legal_acceptance_required = get_bool_setting(
+        db, "legal_acceptance_required", True
+    )
+    out.legal_accepted = user_has_accepted_legal(db, user)
     return out
 
 

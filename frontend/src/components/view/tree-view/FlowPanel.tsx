@@ -7,8 +7,10 @@ import {
   Position,
   ReactFlow,
   ReactFlowInstance,
+  SelectionMode,
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
+import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
@@ -42,9 +44,12 @@ import {
 import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
+import { useSelectionMode } from "@/hooks/useSelectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
+import { useFeature } from "@/hooks/useAuthStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
@@ -65,6 +70,7 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
+  const treeLinksEnabled = useFeature("tree_links");
   const activeTree = useTreeStore((s) => s.selectedTree);
   const availableTreeCount = useTreeStore(
     (s) => s.trees.length + s.virtualViews.length,
@@ -79,6 +85,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     neighborhoodTruncated,
     totalMemberCount,
     setFocusRoot,
+    pendingLocateMemberId,
+    setPendingLocateMemberId,
   } = useMemberStore();
   const canWrite = activeTree?.role !== "viewer";
   const isVirtualView = !!activeTree?.id && isVirtualId(activeTree.id);
@@ -107,7 +115,97 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // --- Extracted hooks ---
   const locator = useMemberLocator(members, rfInstance);
 
-  const connection = useConnectionMode(members, () => setSelectedNodes([]));
+  // Center the counterpart after navigating into a linked tree: consume the
+  // one-shot locate request once the member shows up in the loaded set. In
+  // windowed mode the counterpart may lie outside the current neighborhood —
+  // re-focus the window on it once and locate after the reload.
+  const attemptedLinkedFocusRef = useRef<string | null>(null);
+  const consumedLocateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingLocateMemberId) {
+      consumedLocateRef.current = null;
+      return;
+    }
+    const target = members.find((m) => m.id === pendingLocateMemberId);
+    if (target) {
+      // Wait until the canvas is fully up before consuming the request: on a
+      // fresh mount (e.g. arriving from the map view) rfInstance is null,
+      // the nodes land a couple of commits later, and React Flow applies its
+      // initial viewport only once it is measured — centering before that
+      // gets silently overridden. viewportInitialized flips after that
+      // initial viewport is in; the `nodes` dep re-runs this until then.
+      if (!rfInstance?.viewportInitialized || !rfInstance.getNode(target.id))
+        return;
+      // Commits queued behind the mount burst still carry the pre-consumption
+      // store snapshot — don't re-center for each of them.
+      if (consumedLocateRef.current === pendingLocateMemberId) return;
+      consumedLocateRef.current = pendingLocateMemberId;
+      attemptedLinkedFocusRef.current = null;
+      setPendingLocateMemberId(null);
+      locator.locateMember(target);
+      return;
+    }
+    if (members.length === 0) return; // still loading
+    if (windowed && attemptedLinkedFocusRef.current !== pendingLocateMemberId) {
+      attemptedLinkedFocusRef.current = pendingLocateMemberId;
+      void setFocusRoot(pendingLocateMemberId);
+      return;
+    }
+    // Fully loaded (or window already re-focused) and still absent: the
+    // counterpart no longer exists — drop the request.
+    attemptedLinkedFocusRef.current = null;
+    setPendingLocateMemberId(null);
+  }, [
+    pendingLocateMemberId,
+    members,
+    windowed,
+    setFocusRoot,
+    setPendingLocateMemberId,
+    locator,
+    rfInstance,
+    nodes,
+  ]);
+
+  // Mutual exclusion between connection mode and selection mode: entering one
+  // exits the other. `connection` is instantiated first, so its
+  // onEnterConnectionMode callback can't close over `selection` directly
+  // (TDZ / stale closure). Instead it reads the latest selection-mode state
+  // and toggle function through a ref that is kept up to date every render.
+  const exitSelectionRef = useRef<{
+    isSelectionMode: boolean;
+    toggleSelectionMode: () => void;
+  } | null>(null);
+
+  const connection = useConnectionMode(members, () => {
+    setSelectedNodes([]);
+    if (exitSelectionRef.current?.isSelectionMode) {
+      exitSelectionRef.current.toggleSelectionMode();
+    }
+  });
+
+  const selection = useSelectionMode(() => {
+    if (connection.isConnectionMode) connection.toggleConnectionMode();
+  });
+
+  useEffect(() => {
+    exitSelectionRef.current = selection;
+  });
+
+  // Clear the marquee selection when selection mode is exited (native RF
+  // selection + our selectedNodes mirror). Skip the initial mount so this
+  // doesn't run before the user has ever entered selection mode.
+  const prevIsSelectionModeRef = useRef(false);
+  useEffect(() => {
+    if (prevIsSelectionModeRef.current && !selection.isSelectionMode) {
+      setSelectedNodes([]);
+      setNodes((ns) =>
+        ns.map((n) => (n.selected ? { ...n, selected: false } : n)),
+      );
+    }
+    prevIsSelectionModeRef.current = selection.isSelectionMode;
+  }, [selection.isSelectionMode]);
+
+  const inSelectionMode = selection.isSelectionMode;
 
   const relation = useRelationCreation();
 
@@ -258,6 +356,30 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     ],
   );
 
+  const openLinkedTree = useTreeStore((s) => s.openLinkedTree);
+  const allTrees = useTreeStore((s) => s.trees);
+  // Tree ids the user has listed access to (own + shared) — used to mute
+  // linked-tree badges pointing at trees not shared with them. In the public
+  // view there is no tree list, so accessibility is unknown (undefined).
+  const accessibleTreeIds = useMemo(
+    () =>
+      publicView || allTrees.length === 0
+        ? undefined
+        : new Set(allTrees.map((tr) => tr.id)),
+    [publicView, allTrees],
+  );
+  const handleOpenLinkedTree = useMemo(
+    () =>
+      treeLinksEnabled
+        ? (treeId: string, memberId?: string | null) => {
+            void openLinkedTree(treeId, memberId).catch(() => {
+              toast.error(t("tree-view.linked-tree.open-error"));
+            });
+          }
+        : undefined,
+    [treeLinksEnabled, openLinkedTree, t],
+  );
+
   // Collapsed ancestors hide their descendant member nodes (handled in
   // useFlowNodes) and the union dots between them (above). Edges touching any
   // hidden member/union must also be hidden, otherwise React Flow keeps drawing
@@ -287,7 +409,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     connection.isConnectionMode,
     connection.hasConnectionPath,
     hiddenNodeIds,
+    handleOpenLinkedTree,
     publicView,
+    accessibleTreeIds,
+    selection.isSelectionMode,
   );
   const viewEdges = useFlowEdges(
     baseEdges,
@@ -395,6 +520,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   return (
     <div className="w-full h-full" aria-label={t("tree-view.canvas-label")}>
       <ReactFlow
+        className={`ft-tree-canvas${inSelectionMode ? " cursor-crosshair" : ""}`}
         nodes={[...viewNodes, ...unionNodes]}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -406,12 +532,12 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             : onNodesChange
         }
         onEdgesChange={
-          isCanvasReadOnly || connection.isConnectionMode
+          isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
             ? undefined
             : onEdgesChange
         }
         onConnect={
-          isCanvasReadOnly || connection.isConnectionMode
+          isCanvasReadOnly || connection.isConnectionMode || inSelectionMode
             ? undefined
             : onConnect
         }
@@ -429,7 +555,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           !connection.isConnectionMode && !isLockedScreen && canDragLayout
         }
         nodesConnectable={
-          !connection.isConnectionMode && !isLockedScreen && !isCanvasReadOnly
+          !connection.isConnectionMode &&
+          !isLockedScreen &&
+          !isCanvasReadOnly &&
+          !inSelectionMode
         }
         elementsSelectable={
           connection.isConnectionMode || (!isLockedScreen && !isCanvasReadOnly)
@@ -443,8 +572,14 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             ? null
             : ["Backspace", "Delete"]
         }
-        connectOnClick={!connection.isConnectionMode && !isCanvasReadOnly}
+        connectOnClick={
+          !connection.isConnectionMode && !isCanvasReadOnly && !inSelectionMode
+        }
         connectionMode={ConnectionMode.Loose}
+        connectionRadius={40}
+        selectionOnDrag={inSelectionMode}
+        panOnDrag={inSelectionMode ? [1, 2] : undefined}
+        selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
         onInit={setRfInstance}
         defaultViewport={viewport}
         onMoveEnd={(_, vp) => activeTree && setViewport(activeTree.id, vp)}
@@ -505,12 +640,40 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               </div>
             </Panel>
           )}
+        {inSelectionMode && (
+          <Panel position="top-center" className="!top-2">
+            <div className="flex items-center gap-2 rounded-md border bg-background/90 px-3 py-1.5 text-xs shadow-md">
+              <span>
+                {t("tree-view.selection.selected-count", {
+                  count: selectedNodes.length,
+                })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-0.5 text-xs"
+                onClick={() => {
+                  setSelectedNodes([]);
+                  setNodes((ns) =>
+                    ns.map((n) => (n.selected ? { ...n, selected: false } : n)),
+                  );
+                }}
+              >
+                {t("tree-view.selection.clear")}
+              </Button>
+            </div>
+          </Panel>
+        )}
         <Panel position="bottom-left" className="pb-2 flex flex-col gap-2">
           <FlowPanelControls
             navigationOnly={isCanvasReadOnly}
             isConnectionMode={connection.isConnectionMode}
             connectionDisabled={members.length < 2}
             onToggleConnectionMode={connection.toggleConnectionMode}
+            isSelectionMode={selection.isSelectionMode}
+            onToggleSelectionMode={selection.toggleSelectionMode}
+            selectionAvailable={!isCanvasReadOnly}
+            selectionDisabled={members.length < 1 || isLockedScreen}
           />
         </Panel>
         {(!isCanvasReadOnly || isVirtualView) && (

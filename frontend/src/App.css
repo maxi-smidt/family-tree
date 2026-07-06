@@ -48,6 +48,7 @@
   --color-map-event: var(--map-event);
   --color-map-birthplace: var(--map-birthplace);
   --color-map-hometown: var(--map-hometown);
+  --color-map-cemetery: var(--map-cemetery);
   --color-map-places-lived: var(--map-places-lived);
 
   --color-disease-affected: var(--disease-affected);
@@ -122,13 +123,14 @@
   --map-event: oklch(0.769 0.156 70.7);
   --map-birthplace: oklch(0.623 0.214 259.8);
   --map-hometown: oklch(0.715 0.135 215.2);
+  --map-cemetery: oklch(0.6 0.14 152);
   --map-places-lived: oklch(0.627 0.233 303.9);
 
   /* Disease / risk indicators */
   --disease-affected: oklch(0.637 0.208 25.3);
   --disease-affected-bg: oklch(0.637 0.208 25.3 / 0.15);
-  --disease-carrier: oklch(0.828 0.158 76.0);
-  --disease-carrier-bg: oklch(0.828 0.158 76.0 / 0.15);
+  --disease-carrier: oklch(0.828 0.158 76);
+  --disease-carrier-bg: oklch(0.828 0.158 76 / 0.15);
   --disease-other: oklch(0.711 0.018 261.3);
   --disease-other-bg: oklch(0.711 0.018 261.3 / 0.15);
   --disease-risk: oklch(0.762 0.166 84.2);
@@ -179,30 +181,31 @@
   /* Statistics charts */
   --chart-gender-male: oklch(0.672 0.182 277.1);
   --chart-gender-female: oklch(0.724 0.187 354.3);
-  --chart-gender-other: oklch(0.828 0.155 78.0);
+  --chart-gender-other: oklch(0.828 0.155 78);
   --chart-gender-unknown: oklch(0.78 0.03 256.8);
   --chart-birth: oklch(0.672 0.182 277.1);
   --chart-death: oklch(0.712 0.196 16.4);
 
   /* Map marker types */
-  --map-event: oklch(0.828 0.155 78.0);
+  --map-event: oklch(0.828 0.155 78);
   --map-birthplace: oklch(0.715 0.165 259.8);
   --map-hometown: oklch(0.79 0.12 215.2);
+  --map-cemetery: oklch(0.72 0.15 152);
   --map-places-lived: oklch(0.72 0.19 303.9);
 
   /* Disease / risk indicators */
   --disease-affected: oklch(0.704 0.191 22.2);
   --disease-affected-bg: oklch(0.704 0.191 22.2 / 0.22);
-  --disease-carrier: oklch(0.86 0.15 80.0);
-  --disease-carrier-bg: oklch(0.86 0.15 80.0 / 0.22);
+  --disease-carrier: oklch(0.86 0.15 80);
+  --disease-carrier-bg: oklch(0.86 0.15 80 / 0.22);
   --disease-other: oklch(0.78 0.02 261.3);
   --disease-other-bg: oklch(0.78 0.02 261.3 / 0.22);
-  --disease-risk: oklch(0.83 0.16 86.0);
-  --disease-risk-bg: oklch(0.83 0.16 86.0 / 0.18);
-  --disease-risk-border: oklch(0.83 0.16 86.0 / 0.6);
+  --disease-risk: oklch(0.83 0.16 86);
+  --disease-risk-bg: oklch(0.83 0.16 86 / 0.18);
+  --disease-risk-border: oklch(0.83 0.16 86 / 0.6);
 
   /* Tree connection path highlight */
-  --connection-path: oklch(0.83 0.16 86.0);
+  --connection-path: oklch(0.83 0.16 86);
 
   /* Success (buttons) */
   --success: oklch(0.696 0.16 149.2);
@@ -216,4 +219,59 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Tree canvas (Tree view) — enlarge the pointer hit-area of connection handles
+   (member-node handles and the small union-node dots) so a relationship is easier
+   to start dragging, mirroring the larger `connectionRadius` used for snapping onto
+   a target. The invisible `::after` grows the grab zone without changing the visible
+   handle size; it inherits `pointer-events` from the handle, so it is inert while a
+   handle is non-interactive (read-only / selection mode). Scoped to the family-tree
+   canvas so other React Flow graphs (e.g. the linked-trees diagram) are unaffected. */
+.ft-tree-canvas .react-flow__handle::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+}
+
+/* Leaflet map (Map view) — dim OSM tiles in dark mode instead of leaving them
+   bright white against the dark app chrome. The filter approach (rather than
+   a dark tile server) keeps us on the same free OSM tile source in both modes. */
+.dark .leaflet-container {
+  background: var(--background);
+}
+
+.dark .leaflet-layer .leaflet-tile {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9)
+    saturate(0.4);
+}
+
+.dark .leaflet-control-attribution {
+  background: var(--background);
+  color: var(--muted-foreground);
+}
+
+.dark .leaflet-control-attribution a {
+  color: var(--foreground);
+}
+
+.dark .leaflet-bar a {
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.dark .leaflet-bar a:hover {
+  background: var(--accent);
+}
+
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.dark .leaflet-popup-close-button {
+  color: var(--muted-foreground);
 }

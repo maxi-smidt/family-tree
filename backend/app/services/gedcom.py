@@ -385,6 +385,12 @@ def serialize_to_gedcom(
         elif member.get("deceased"):
             L("1 DEAT Y")
 
+        # BURI
+        cemetery = (member.get("cemetery") or "").strip()
+        if cemetery:
+            L("1 BURI")
+            L(f"2 PLAC {cemetery}")
+
         # RESI
         hometown = (member.get("hometown") or "").strip()
         if hometown:
@@ -406,7 +412,8 @@ def serialize_to_gedcom(
             if page:
                 L(f"2 PAGE {page}")
             if fact_type not in ("general", "name", "birth", "death",
-                                 "birthplace", "hometown", "residence"):
+                                 "birthplace", "hometown", "residence",
+                                 "cemetery"):
                 L(f"2 _FACT {fact_type}")
 
         # Adoption event — emitted before FAMC so readers see ADOP in the
@@ -683,6 +690,7 @@ def parse_gedcom(text: str) -> dict:
             "deceased": False,
             "birthplace": None,
             "hometown": None,
+            "cemetery": None,
             "additional_data": None,
             "places_lived": None,
             "image_data": None,
@@ -783,6 +791,11 @@ def parse_gedcom(text: str) -> dict:
                 plac_val = _child_value(child, "PLAC")
                 if plac_val:
                     member["hometown"] = plac_val.strip()
+
+            elif tag == "BURI":
+                plac_val = _child_value(child, "PLAC")
+                if plac_val:
+                    member["cemetery"] = plac_val.strip()
 
             elif tag == "NOTE":
                 # Rebuild value including CONT lines.

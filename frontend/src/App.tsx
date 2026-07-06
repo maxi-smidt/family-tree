@@ -2,6 +2,7 @@ import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { resetAnnouncementStoreForSession } from "@/hooks/useAnnouncementStore";
+import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
 import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
 import { startRealtime, stopRealtime } from "@/services/realtime";
@@ -39,6 +40,7 @@ export const App = () => {
     if (status !== "authenticated" || !userId) {
       setTreesBootstrapped(false);
       resetAnnouncementStoreForSession();
+      resetLegalStoreForSession();
       resetTreeStoreForSession();
       resetTutorialStoreForSession();
       stopRealtime();
@@ -48,6 +50,7 @@ export const App = () => {
     let cancelled = false;
     setTreesBootstrapped(false);
     resetAnnouncementStoreForSession();
+    resetLegalStoreForSession();
     resetTreeStoreForSession();
     resetTutorialStoreForSession();
 
