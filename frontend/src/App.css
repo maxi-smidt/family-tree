@@ -221,6 +221,20 @@
   }
 }
 
+/* Tree canvas (Tree view) — enlarge the pointer hit-area of connection handles
+   (member-node handles and the small union-node dots) so a relationship is easier
+   to start dragging, mirroring the larger `connectionRadius` used for snapping onto
+   a target. The invisible `::after` grows the grab zone without changing the visible
+   handle size; it inherits `pointer-events` from the handle, so it is inert while a
+   handle is non-interactive (read-only / selection mode). Scoped to the family-tree
+   canvas so other React Flow graphs (e.g. the linked-trees diagram) are unaffected. */
+.ft-tree-canvas .react-flow__handle::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  border-radius: inherit;
+}
+
 /* Leaflet map (Map view) — dim OSM tiles in dark mode instead of leaving them
    bright white against the dark app chrome. The filter approach (rather than
    a dark tile server) keeps us on the same free OSM tile source in both modes. */
