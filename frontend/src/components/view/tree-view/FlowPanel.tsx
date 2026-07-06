@@ -576,6 +576,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           !connection.isConnectionMode && !isCanvasReadOnly && !inSelectionMode
         }
         connectionMode={ConnectionMode.Loose}
+        connectionRadius={40}
         selectionOnDrag={inSelectionMode}
         panOnDrag={inSelectionMode ? [1, 2] : undefined}
         selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
