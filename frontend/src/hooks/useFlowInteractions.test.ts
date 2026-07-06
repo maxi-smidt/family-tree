@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import type { Edge, EdgeChange } from "@xyflow/react";
+import type { Edge, EdgeChange, Connection } from "@xyflow/react";
 import { useFlowInteractions } from "./useFlowInteractions";
 import { Member } from "@/types/member";
 import type { WorkerUnionInfo } from "@/workers/treeProcessor.types";
@@ -16,6 +16,9 @@ vi.mock("@/hooks/useMemberStore", () => ({
     persistPositions,
   }),
 }));
+
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 
 function makeMember(id: string, overrides: Partial<Member> = {}): Member {
   return {
@@ -150,5 +153,117 @@ describe("useFlowInteractions – removeMemberEdge", () => {
     expect(updateMemberPartial).toHaveBeenCalledWith("child-1", {
       paternalParentId: null,
     });
+  });
+});
+
+describe("useFlowInteractions – union child connection", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function connection(source: string, target: string): Connection {
+    return { source, target, sourceHandle: "bottom", targetHandle: "top" };
+  }
+
+  it("assigns paternal/maternal slots by gender when dragging union to a childless member", () => {
+    const p1 = makeMember("p1", { gender: "m" });
+    const p2 = makeMember("p2", { gender: "f" });
+    const child = makeMember("child-1");
+    const union: WorkerUnionInfo = {
+      id: "union-p1-p2",
+      partner1Id: "p1",
+      partner2Id: "p2",
+      childIds: [],
+      relationType: "married",
+    };
+
+    const { result } = setup([p1, p2, child], [], [union]);
+    act(() => result.current.onConnect(connection("union-p1-p2", "child-1")));
+
+    expect(updateMemberPartial).toHaveBeenCalledWith("child-1", {
+      paternalParentId: "p1",
+      maternalParentId: "p2",
+    });
+    expect(updateMemberPartial).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to partner1→paternal, partner2→maternal when genders don't disambiguate", () => {
+    const p1 = makeMember("p1", { gender: "o" });
+    const p2 = makeMember("p2", { gender: "o" });
+    const child = makeMember("child-1");
+    const union: WorkerUnionInfo = {
+      id: "union-p1-p2",
+      partner1Id: "p1",
+      partner2Id: "p2",
+      childIds: [],
+      relationType: "married",
+    };
+
+    const { result } = setup([p1, p2, child], [], [union]);
+    act(() => result.current.onConnect(connection("union-p1-p2", "child-1")));
+
+    expect(updateMemberPartial).toHaveBeenCalledWith("child-1", {
+      paternalParentId: "p1",
+      maternalParentId: "p2",
+    });
+    expect(updateMemberPartial).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects when the target already has a parent", () => {
+    const p1 = makeMember("p1", { gender: "m" });
+    const p2 = makeMember("p2", { gender: "f" });
+    const child = makeMember("child-1", {
+      parents: { paternalParent: "existing-dad", maternalParent: null },
+    });
+    const union: WorkerUnionInfo = {
+      id: "union-p1-p2",
+      partner1Id: "p1",
+      partner2Id: "p2",
+      childIds: [],
+      relationType: "married",
+    };
+
+    const { result } = setup([p1, p2, child], [], [union]);
+    act(() => result.current.onConnect(connection("union-p1-p2", "child-1")));
+
+    expect(updateMemberPartial).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the target is one of the union's partners", () => {
+    const p1 = makeMember("p1", { gender: "m" });
+    const p2 = makeMember("p2", { gender: "f" });
+    const union: WorkerUnionInfo = {
+      id: "union-p1-p2",
+      partner1Id: "p1",
+      partner2Id: "p2",
+      childIds: [],
+      relationType: "married",
+    };
+
+    const { result } = setup([p1, p2], [], [union]);
+    act(() => result.current.onConnect(connection("union-p1-p2", "p1")));
+
+    expect(updateMemberPartial).not.toHaveBeenCalled();
+  });
+
+  it("rejects a connection that would create a cycle", () => {
+    const p1 = makeMember("p1", {
+      gender: "m",
+      parents: { paternalParent: "child-1", maternalParent: null },
+    });
+    const p2 = makeMember("p2", { gender: "f" });
+    const child = makeMember("child-1");
+    const union: WorkerUnionInfo = {
+      id: "union-p1-p2",
+      partner1Id: "p1",
+      partner2Id: "p2",
+      childIds: [],
+      relationType: "married",
+    };
+
+    const { result } = setup([p1, p2, child], [], [union]);
+    act(() => result.current.onConnect(connection("union-p1-p2", "child-1")));
+
+    expect(updateMemberPartial).not.toHaveBeenCalled();
   });
 });
