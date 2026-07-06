@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- Selection mode on the tree canvas: box-select or click multiple members, then drag to reposition them together for manual layout — or act on them in bulk (delete, collapse/expand) (#577).
+
 ### Fixed
 
 - Allow drawing a relationship directly from a union node to add a shared child to a couple (#578).

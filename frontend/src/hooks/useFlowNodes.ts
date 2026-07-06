@@ -41,6 +41,7 @@ export const useFlowNodes = (
   // = unknown (e.g. public view without a tree list) — badges then render
   // normally instead of guessing.
   accessibleTreeIds?: ReadonlySet<string>,
+  isSelectionMode = false,
 ) => {
   const { t } = useTranslation();
 
@@ -86,6 +87,7 @@ export const useFlowNodes = (
             hasConnectionPath &&
             !connectionPathNodeIds.has(node.id),
           isReadOnly,
+          isSelectionMode,
           onEdit: isReadOnly
             ? undefined
             : () => {
@@ -140,6 +142,7 @@ export const useFlowNodes = (
     onOpenLinkedTree,
     purelyVisual,
     accessibleTreeIds,
+    isSelectionMode,
     t,
   ]);
 };

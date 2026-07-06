@@ -888,6 +888,8 @@
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",
       "connection-path-partial": "Einige ausgewählte Personen sind nicht verbunden.",
+      "enable-selection-mode": "Mehrere auswählen",
+      "disable-selection-mode": "Auswahl beenden",
       "export-image": "Stammbaum als Bild exportieren",
       "focus-here": "Nachbarschaft auf diese Person fokussieren",
       "depth-increase": "Nachbarschaftstiefe erhöhen",
@@ -904,6 +906,10 @@
     },
     "windowed": {
       "banner": "{{count}} von {{total}} Mitgliedern in der Nachbarschaft"
+    },
+    "selection": {
+      "selected-count": "{{count}} ausgewählt",
+      "clear": "Zurücksetzen"
     },
     "connection": {
       "kinship": {

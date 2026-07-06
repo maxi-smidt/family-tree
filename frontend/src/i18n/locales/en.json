@@ -888,6 +888,8 @@
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",
       "connection-path-partial": "Some selected members are not connected.",
+      "enable-selection-mode": "Select multiple",
+      "disable-selection-mode": "Exit selection",
       "export-image": "Export tree as image",
       "focus-here": "Focus neighborhood on this person",
       "depth-increase": "Expand neighborhood depth",
@@ -904,6 +906,10 @@
     },
     "windowed": {
       "banner": "Showing {{count}} of {{total}} members in neighborhood"
+    },
+    "selection": {
+      "selected-count": "{{count}} selected",
+      "clear": "Clear"
     },
     "connection": {
       "kinship": {
