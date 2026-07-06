@@ -1862,6 +1862,9 @@
       "status-disabled": "Die Zwei-Faktor-Authentifizierung ist derzeit deaktiviert.",
       "button": "2FA verwalten"
     },
+    "changelog": {
+      "section": "Neuigkeiten"
+    },
     "delete-account": {
       "section": "Konto löschen",
       "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",

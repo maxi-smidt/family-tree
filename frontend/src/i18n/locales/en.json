@@ -1862,6 +1862,9 @@
       "status-disabled": "Two-factor authentication is currently disabled.",
       "button": "Manage 2FA"
     },
+    "changelog": {
+      "section": "What's new"
+    },
     "delete-account": {
       "section": "Delete account",
       "hint": "Permanently remove your account and all associated data. This action cannot be undone.",

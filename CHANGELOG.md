@@ -12,6 +12,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Added
 
 - Selection mode on the tree canvas: box-select or click multiple members, then drag to reposition them together for manual layout — or act on them in bulk (delete, collapse/expand) (#577).
+- Changelog ("What's new") is now available as a dedicated tab in user settings.
 
 ### Fixed
 
