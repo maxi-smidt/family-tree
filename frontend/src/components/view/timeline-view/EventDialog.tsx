@@ -156,7 +156,9 @@ export const EventDialog = ({
   const isSubmitDisabled =
     !effectiveEventType || selectedMemberIds.length === 0;
 
-  const memberOptions = getMemberOptions(members);
+  const memberOptions = getMemberOptions(members, (name) =>
+    t("common.nee", { name }),
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

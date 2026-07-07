@@ -6,6 +6,7 @@ import { Member, MemberDB } from "@/types/member";
 import { TreeService } from "@/services/TreeService";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { getMemberSearchText, formatMemberSubLabel } from "@/utils/memberUtils";
 
 const MAX_RESULTS = 8;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -48,12 +49,7 @@ export const CanvasSearch = ({
     const q = query.trim().toLowerCase();
     if (!q) return [];
     return members
-      .filter(
-        (m) =>
-          m.firstName.toLowerCase().includes(q) ||
-          m.lastName.toLowerCase().includes(q) ||
-          (m.maidenName?.toLowerCase().includes(q) ?? false),
-      )
+      .filter((m) => getMemberSearchText(m).toLowerCase().includes(q))
       .slice(0, MAX_RESULTS);
   }, [members, query, windowed]);
 
@@ -195,11 +191,18 @@ export const CanvasSearch = ({
                     onClick={() => selectServer(member)}
                   >
                     <span className="font-medium">{name || t("unnamed")}</span>
-                    {member.maidenName && (
-                      <span className="text-xs text-muted-foreground">
-                        {t("nee", { name: member.maidenName })}
-                      </span>
-                    )}
+                    {(() => {
+                      const sub = formatMemberSubLabel(
+                        member.maidenName,
+                        member.dateOfBirth,
+                        (name) => t("nee", { name }),
+                      );
+                      return sub ? (
+                        <span className="text-xs text-muted-foreground">
+                          {sub}
+                        </span>
+                      ) : null;
+                    })()}
                   </button>
                 </li>
               );
@@ -221,11 +224,18 @@ export const CanvasSearch = ({
                     {`${member.firstName} ${member.lastName}`.trim() ||
                       t("unnamed")}
                   </span>
-                  {member.maidenName && (
-                    <span className="text-xs text-muted-foreground">
-                      {t("nee", { name: member.maidenName })}
-                    </span>
-                  )}
+                  {(() => {
+                    const sub = formatMemberSubLabel(
+                      member.maidenName,
+                      member.date.birth,
+                      (name) => t("nee", { name }),
+                    );
+                    return sub ? (
+                      <span className="text-xs text-muted-foreground">
+                        {sub}
+                      </span>
+                    ) : null;
+                  })()}
                 </button>
               </li>
             ))

@@ -1,14 +1,52 @@
 import { Member } from "@/types/member";
+import { getYear } from "@/utils/dateUtils";
 
 export interface MemberOption {
   label: string;
   value: string;
+  /** Muted secondary line: born (maiden) name and birth year. */
+  sublabel?: string;
+  /** Text the picker matches against — full name + maiden name only. */
+  searchValue?: string;
 }
 
-export function getMemberOptions(members: Member[]): MemberOption[] {
+/** Searchable text for a member: full name plus maiden name (no dates/ids). */
+export function getMemberSearchText(
+  m: Pick<Member, "firstName" | "lastName" | "maidenName">,
+): string {
+  return [m.firstName, m.lastName, m.maidenName]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
+/**
+ * Muted secondary line for a member: born (maiden) name and birth year, e.g.
+ * "née Jones · 1900". `formatMaiden` localizes the maiden-name part (it returns
+ * the whole "née X" string). Returns undefined when neither piece is known.
+ */
+export function formatMemberSubLabel(
+  maidenName: string | null | undefined,
+  birthDate: string | null | undefined,
+  formatMaiden: (name: string) => string,
+): string | undefined {
+  const year = getYear(birthDate);
+  const parts = [
+    maidenName ? formatMaiden(maidenName) : null,
+    year !== null ? String(year) : null,
+  ].filter(Boolean) as string[];
+  return parts.length ? parts.join(" · ") : undefined;
+}
+
+export function getMemberOptions(
+  members: Member[],
+  formatMaiden: (name: string) => string,
+): MemberOption[] {
   return members.map((m) => ({
-    label: `${m.firstName} ${m.lastName}`,
+    label: `${m.firstName} ${m.lastName}`.trim(),
     value: m.id,
+    sublabel: formatMemberSubLabel(m.maidenName, m.date.birth, formatMaiden),
+    searchValue: getMemberSearchText(m),
   }));
 }
 

@@ -782,7 +782,6 @@ export const EditMode = ({
                     }
                     placeholder={t("parent-placeholder")}
                     noResultsText={t("parent-no-results")}
-                    showBirthDate
                   />
                 </Field>
 
@@ -801,7 +800,6 @@ export const EditMode = ({
                     }
                     placeholder={t("parent-placeholder")}
                     noResultsText={t("parent-no-results")}
-                    showBirthDate
                   />
                 </Field>
 
@@ -812,9 +810,7 @@ export const EditMode = ({
                     memberName={`${formData.firstName} ${formData.lastName}`}
                     memberId={isNew ? undefined : formData.id}
                     formDirty={isDirty}
-                    onChange={(treeId) =>
-                      handleChange("linkedTreeId", treeId)
-                    }
+                    onChange={(treeId) => handleChange("linkedTreeId", treeId)}
                   />
                 )}
               </FieldGroup>

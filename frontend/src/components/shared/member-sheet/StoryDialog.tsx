@@ -60,7 +60,7 @@ export const StoryDialog = ({
   story,
   initialMemberId,
 }: StoryDialogProps) => {
-  const { t } = useTranslation(undefined, {
+  const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.stories.dialog",
   });
   const { addStory, updateStory } = useStoryStore();
@@ -224,7 +224,9 @@ export const StoryDialog = ({
 
   useUnsavedGuard("story", isDirty, save);
 
-  const memberOptions = getMemberOptions(members);
+  const memberOptions = getMemberOptions(members, (name) =>
+    i18n.t("common.nee", { name }),
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
