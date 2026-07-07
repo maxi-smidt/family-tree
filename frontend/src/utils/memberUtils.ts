@@ -1,5 +1,4 @@
 import { Member } from "@/types/member";
-import { getYear } from "@/utils/dateUtils";
 
 export interface MemberOption {
   label: string;
@@ -30,10 +29,13 @@ export function formatMemberSubLabel(
   birthDate: string | null | undefined,
   formatMaiden: (name: string) => string,
 ): string | undefined {
-  const year = getYear(birthDate);
+  // Parse the year inline rather than importing dateUtils: this module is
+  // pulled into the tree-layout web worker (via memberMapping), and dateUtils
+  // imports i18n, which touches localStorage and crashes the worker.
+  const yearMatch = birthDate?.match(/^(\d{4})/);
   const parts = [
     maidenName ? formatMaiden(maidenName) : null,
-    year !== null ? String(year) : null,
+    yearMatch ? yearMatch[1] : null,
   ].filter(Boolean) as string[];
   return parts.length ? parts.join(" · ") : undefined;
 }
