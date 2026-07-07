@@ -146,7 +146,7 @@ describe("getMemberOptions", () => {
       firstName: "Jane",
       lastName: "Smith",
       maidenName: "Jones",
-      date: { birth: "1900-05-01" },
+      date: { birth: "1900-05-01", death: null },
     });
     const [option] = getMemberOptions([m], (name) => `née ${name}`);
     expect(option).toEqual({
