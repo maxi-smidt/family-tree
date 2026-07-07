@@ -89,53 +89,32 @@ def test_create_story_emits_content_changed(client, db, tree, headers):
     assert _content_event(_events(m), tree.id, "story")
 
 
-def test_create_source_emits_content_changed(client, db, tree, headers):
-    with patch("app.api.routes.sources.publish_tree_event") as m:
+def test_create_document_emits_content_changed(client, db, tree, headers):
+    with patch("app.api.routes.documents.publish_tree_event") as m:
         res = client.post(
-            f"{API}/trees/{tree.id}/sources",
-            json={
-                "id": "src1", "title": "Census 1900",
-                "created_at": _TS, "updated_at": _TS,
-            },
+            f"{API}/trees/{tree.id}/documents",
+            json={"title": "Census 1900"},
             headers=headers,
         )
         assert res.status_code == 201, res.text
-    assert _content_event(_events(m), tree.id, "source")
+    assert _content_event(_events(m), tree.id, "document")
 
 
 _DOC = "data:text/plain;base64,aGVsbG8="  # "hello"
 
 
-def test_add_story_attachment_emits_content_changed(client, db, tree, headers):
-    client.post(
-        f"{API}/trees/{tree.id}/stories",
-        json={"id": "s1", "title": "A tale", "created_at": _TS, "updated_at": _TS},
+def test_add_document_file_emits_content_changed(client, db, tree, headers):
+    created = client.post(
+        f"{API}/trees/{tree.id}/documents",
+        json={"title": "Census 1900"},
         headers=headers,
     )
-    with patch("app.api.routes.stories.publish_tree_event") as m:
+    document_id = created.json()["id"]
+    with patch("app.api.routes.documents.publish_tree_event") as m:
         res = client.post(
-            f"{API}/trees/{tree.id}/stories/s1/attachments",
-            json={"filename": "note.txt", "data": _DOC},
+            f"{API}/trees/{tree.id}/documents/{document_id}/files",
+            json={"filename": "scan.txt", "data": _DOC},
             headers=headers,
         )
         assert res.status_code == 201, res.text
-    assert _content_event(_events(m), tree.id, "story")
-
-
-def test_add_source_evidence_emits_content_changed(client, db, tree, headers):
-    client.post(
-        f"{API}/trees/{tree.id}/sources",
-        json={
-            "id": "src1", "title": "Census 1900",
-            "created_at": _TS, "updated_at": _TS,
-        },
-        headers=headers,
-    )
-    with patch("app.api.routes.sources.publish_tree_event") as m:
-        res = client.post(
-            f"{API}/trees/{tree.id}/sources/src1/evidence",
-            json={"kind": "file", "filename": "scan.txt", "data": _DOC},
-            headers=headers,
-        )
-        assert res.status_code == 201, res.text
-    assert _content_event(_events(m), tree.id, "source")
+    assert _content_event(_events(m), tree.id, "document")

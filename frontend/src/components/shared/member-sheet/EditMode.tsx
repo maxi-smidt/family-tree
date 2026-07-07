@@ -41,7 +41,7 @@ import { comparePartialDates } from "@/utils/dateUtils";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
-import { MemberSources } from "./MemberSources";
+import { MemberDocuments } from "./MemberDocuments";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
 import { LinkedTreeField } from "./LinkedTreeField";
@@ -91,7 +91,7 @@ export const EditMode = ({
     useFeature("events") && !restrictions.includes("events");
   const storiesEnabled =
     useFeature("stories") && !restrictions.includes("stories");
-  const sourcesEnabled =
+  const documentsEnabled =
     useFeature("sources") && !restrictions.includes("sources");
   const galleryEnabled =
     useFeature("gallery") && !restrictions.includes("gallery");
@@ -825,7 +825,7 @@ export const EditMode = ({
                   {galleryEnabled && <MemberPhotos member={member} />}
                   {eventsEnabled && <MemberEvents member={member} />}
                   {storiesEnabled && <MemberStories member={member} />}
-                  {sourcesEnabled && <MemberSources member={member} />}
+                  {documentsEnabled && <MemberDocuments member={member} />}
                   {diseasesEnabled && <MemberDiseases member={member} />}
                 </div>
               )}

@@ -12,6 +12,9 @@ from pydantic import ValidationError
 from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.models import (
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
     Event,
     EventMemberLink,
     GalleryImage,
@@ -20,7 +23,7 @@ from app.models import (
     MemberDisease,
     Relation,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
     Tree,
 )
@@ -299,6 +302,61 @@ def test_move_wholly_linked_content_moves_mixed_content_stays(db):
     assert [ln.member_id for ln in story_links] == ["outsider"]
 
 
+def test_move_document_linked_to_moved_and_staying_member_is_copied(db):
+    """A document linked to both a moved member (c1) and a staying member
+    (outsider) is copied into the new tree: the moved member's link points at
+    the copy, the staying member's link stays on the original, and neither link
+    crosses a tree boundary."""
+    user = make_user(db, "alice")
+    tree = make_family(db, user)
+    now = utcnow_iso()
+    db.add(
+        Document(id="doc", tree_id=tree.id, title="Shared",
+                 created_at=now, updated_at=now)
+    )
+    db.add(
+        DocumentFile(id="df", tree_id=tree.id, document_id="doc", kind="link",
+                     filename="Rec", url="https://example.com/r", created_at=now)
+    )
+    db.add(DocumentMemberLink(document_id="doc", member_id="c1"))       # moves
+    db.add(DocumentMemberLink(document_id="doc", member_id="outsider"))  # stays
+    db.commit()
+
+    new_tree = extract_subtree(
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
+    )
+
+    # Original stays for the staying member's link.
+    original = db.get(Document, "doc")
+    assert original.tree_id == tree.id
+    orig_links = db.query(DocumentMemberLink).filter_by(document_id="doc").all()
+    assert [ln.member_id for ln in orig_links] == ["outsider"]
+
+    # A copy was created in the new tree for the moved member's link.
+    copies = [
+        d for d in db.query(Document).filter(Document.tree_id == new_tree.id).all()
+    ]
+    assert len(copies) == 1
+    copy = copies[0]
+    assert copy.id != "doc"
+    assert copy.title == "Shared"
+    copy_member_links = (
+        db.query(DocumentMemberLink).filter_by(document_id=copy.id).all()
+    )
+    assert [ln.member_id for ln in copy_member_links] == ["c1"]
+    # The copied file rode along, in the new tree.
+    copy_files = db.query(DocumentFile).filter_by(document_id=copy.id).all()
+    assert len(copy_files) == 1
+    assert copy_files[0].tree_id == new_tree.id
+
+    # No document_member_link crosses a tree boundary.
+    for link in db.query(DocumentMemberLink).all():
+        member = db.get(Member, link.member_id)
+        doc = db.get(Document, link.document_id)
+        assert member.tree_id == doc.tree_id
+
+
 def test_move_media_files_relocate_on_disk(db, media_root):
     user = make_user(db, "alice")
     tree = make_family(db, user)
@@ -316,12 +374,19 @@ def test_move_media_files_relocate_on_disk(db, media_root):
     )
     db.add(StoryMemberLink(story_id="st", member_id="gc1"))
     db.add(
-        StoryAttachment(
-            id="att", tree_id=tree.id, story_id="st", filename="story.pdf",
+        Document(
+            id="doc", tree_id=tree.id, title="S", created_at=now, updated_at=now,
+        )
+    )
+    db.add(
+        DocumentFile(
+            id="att", tree_id=tree.id, document_id="doc", kind="file",
+            filename="story.pdf",
             url=f"{MEDIA_URL_PREFIX}/{tree.id}/story.pdf",
             mime_type="application/pdf", size=10, created_at=now,
         )
     )
+    db.add(StoryDocumentLink(story_id="st", document_id="doc"))
     db.commit()
 
     new_tree = extract_subtree(
@@ -344,11 +409,33 @@ def test_move_media_files_relocate_on_disk(db, media_root):
     cp_rel = counterpart.image_data[len(MEDIA_URL_PREFIX) + 1 :]
     assert (media_root / cp_rel).read_bytes() == b"root-photo"
 
-    # Story attachment moved with its story.
-    att = db.get(StoryAttachment, "att")
-    assert att.tree_id == new_tree.id
-    assert att.url.startswith(f"{MEDIA_URL_PREFIX}/{new_tree.id}/")
-    assert not (src_dir / "story.pdf").exists()
+    # The story moved into the new tree; its linked document is reusable
+    # content, so it is COPIED into the new tree (with its file bytes) and the
+    # story's link is repointed to the copy — no link crosses a tree boundary.
+    story = db.get(Story, "st")
+    assert story.tree_id == new_tree.id
+
+    links = db.query(StoryDocumentLink).filter_by(story_id="st").all()
+    assert len(links) == 1
+    copied_doc_id = links[0].document_id
+    assert copied_doc_id != "doc"  # repointed to the copy, not the original
+    copied_doc = db.get(Document, copied_doc_id)
+    assert copied_doc.tree_id == new_tree.id  # link stays within the new tree
+
+    copied_files = db.query(DocumentFile).filter_by(document_id=copied_doc_id).all()
+    assert len(copied_files) == 1
+    cf = copied_files[0]
+    assert cf.tree_id == new_tree.id
+    assert cf.kind == "file"
+    assert cf.filename == "story.pdf"
+    assert cf.url.startswith(f"{MEDIA_URL_PREFIX}/{new_tree.id}/")
+    cf_rel = cf.url[len(MEDIA_URL_PREFIX) + 1 :]
+    assert (media_root / cf_rel).read_bytes() == b"story-file"
+
+    # The original document + its file stay behind in the source tree.
+    orig_file = db.get(DocumentFile, "att")
+    assert orig_file.tree_id == tree.id
+    assert (src_dir / "story.pdf").exists()
 
 
 # ---------------------------------------------------------------------------

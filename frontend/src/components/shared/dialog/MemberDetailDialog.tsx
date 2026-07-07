@@ -21,7 +21,6 @@ import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
-import { StoryAttachments } from "@/components/shared/member-sheet/StoryAttachments";
 import {
   Calendar,
   MapPin,
@@ -435,7 +434,6 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                             {story.content}
                           </div>
                         )}
-                        <StoryAttachments attachments={story.attachments} />
                       </div>
                     ))}
                   </div>

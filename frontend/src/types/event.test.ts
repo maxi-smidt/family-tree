@@ -23,6 +23,7 @@ describe("Event type mapping", () => {
         location: "New York",
         description: "Born in New York",
         createdAt: "2024-01-01T00:00:00Z",
+        documentIds: [],
       };
 
       const result = mapEventFromDB(eventDB, linkedMemberIds);
@@ -72,6 +73,7 @@ describe("Event type mapping", () => {
         location: "London",
         description: "Wedding ceremony",
         createdAt: "2024-01-01T00:00:00Z",
+        documentIds: ["doc-1"],
       };
 
       const expected: EventDB = {
@@ -81,6 +83,7 @@ describe("Event type mapping", () => {
         location: "London",
         description: "Wedding ceremony",
         created_at: "2024-01-01T00:00:00Z",
+        document_ids: ["doc-1"],
       };
 
       const result = mapEventToDB(event);
@@ -96,6 +99,7 @@ describe("Event type mapping", () => {
         location: null,
         description: null,
         createdAt: "2024-01-01T00:00:00Z",
+        documentIds: [],
       };
 
       const result = mapEventToDB(event);
@@ -116,6 +120,7 @@ describe("Event type mapping", () => {
         location: "Paris",
         description: "Moved to Paris for work",
         createdAt: "2024-01-01T00:00:00Z",
+        documentIds: ["doc-1", "doc-2"],
       };
 
       const db = mapEventToDB(original);

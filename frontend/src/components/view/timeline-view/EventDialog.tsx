@@ -33,6 +33,7 @@ import { getMemberOptions } from "@/utils/memberUtils";
 import { isValidPartialDate } from "@/utils/dateUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId } from "@/hooks/useTreeStore";
+import { DocumentLinkField } from "@/components/shared/member-sheet/DocumentLinkField";
 
 interface EventDialogProps {
   open: boolean;
@@ -60,6 +61,7 @@ export const EventDialog = ({
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [customLabel, setCustomLabel] = useState<string>("");
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [dateError, setDateError] = useState<string | null>(null);
   const [geocodeStatus, setGeocodeStatus] = useState<
     "idle" | "checking" | "found" | "not-found"
@@ -79,6 +81,7 @@ export const EventDialog = ({
         description: event.description || "",
       });
       setSelectedMemberIds(event.linkedMemberIds || []);
+      setSelectedDocumentIds(event.documentIds || []);
       const { isPredefined, predefined } = getEventTypeInfo(event.eventType);
       if (isPredefined && predefined) {
         setSelectedCategory(predefined.value);
@@ -96,6 +99,7 @@ export const EventDialog = ({
       setSelectedCategory("");
       setCustomLabel("");
       setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
+      setSelectedDocumentIds([]);
       setDateError(null);
       setGeocodeStatus("idle");
       setGeocodeDisplayName(null);
@@ -145,9 +149,14 @@ export const EventDialog = ({
     };
 
     if (event) {
-      await updateEvent(event.id, eventInput, selectedMemberIds);
+      await updateEvent(
+        event.id,
+        eventInput,
+        selectedMemberIds,
+        selectedDocumentIds,
+      );
     } else {
-      await addEvent(selectedMemberIds, eventInput);
+      await addEvent(selectedMemberIds, eventInput, selectedDocumentIds);
     }
 
     onOpenChange(false);
@@ -281,6 +290,12 @@ export const EventDialog = ({
                 rows={4}
               />
             </div>
+
+            <DocumentLinkField
+              documentIds={selectedDocumentIds}
+              onChange={setSelectedDocumentIds}
+              seedMemberIds={selectedMemberIds}
+            />
           </div>
 
           <DialogFooter>

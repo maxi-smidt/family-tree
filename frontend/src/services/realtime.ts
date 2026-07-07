@@ -17,7 +17,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
@@ -84,7 +84,7 @@ function connect(): void {
     member: (id) => void useMemberStore.getState().refreshMembers(id),
     event: (id) => void useEventStore.getState().refreshEvents(id),
     story: (id) => void useStoryStore.getState().refreshStories(id),
-    source: (id) => void useSourceStore.getState().refreshSources(id),
+    document: (id) => void useDocumentStore.getState().refreshDocuments(id),
     gallery: (id) => void useGalleryStore.getState().refreshGalleryImages(id),
   };
   source.addEventListener("tree.content_changed", (e) => {

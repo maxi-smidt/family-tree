@@ -15,16 +15,18 @@ from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
     ActivityLog,
-    Citation,
+    Document,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
     Member,
     MemberDisease,
     Relation,
-    Source,
     Story,
+    StoryDocumentLink,
     StoryMemberLink,
     Tree,
     User,
@@ -37,14 +39,13 @@ from app.models.virtual_view import (
 )
 from app.schemas.activity import ActivityOut
 from app.schemas.content import (
-    CitationOut,
+    DocumentOut,
     EventLinkOut,
     EventOut,
     GalleryImageOut,
     GalleryLinkOut,
     GeocodeOut,
     GeocodeRequest,
-    SourceOut,
     StoryLinkOut,
     StoryOut,
 )
@@ -889,7 +890,23 @@ def list_virtual_events(
 ) -> list[EventOut]:
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
-    return [EventOut.model_validate(e) for e in _aggregate(db, source_ids, Event)]
+    events = _aggregate(db, source_ids, Event)
+    event_ids = [e.id for e in events]
+    doc_map: dict[str, list[str]] = {}
+    if event_ids:
+        rows = db.execute(
+            select(EventDocumentLink.event_id, EventDocumentLink.document_id).where(
+                EventDocumentLink.event_id.in_(event_ids)
+            )
+        ).all()
+        for eid, did in rows:
+            doc_map.setdefault(eid, []).append(did)
+    return [
+        EventOut.model_validate(e).model_copy(
+            update={"document_ids": doc_map.get(e.id, [])}
+        )
+        for e in events
+    ]
 
 
 @router.get("/{view_id}/events/links", response_model=list[EventLinkOut])
@@ -916,11 +933,24 @@ def list_virtual_stories(
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
     stories = db.scalars(
-        select(Story)
-        .where(Story.tree_id.in_(source_ids))
-        .options(selectinload(Story.attachments))
+        select(Story).where(Story.tree_id.in_(source_ids))
     ).all()
-    return [StoryOut.model_validate(s) for s in stories]
+    story_ids = [s.id for s in stories]
+    doc_map: dict[str, list[str]] = {}
+    if story_ids:
+        rows = db.execute(
+            select(StoryDocumentLink.story_id, StoryDocumentLink.document_id).where(
+                StoryDocumentLink.story_id.in_(story_ids)
+            )
+        ).all()
+        for sid, did in rows:
+            doc_map.setdefault(sid, []).append(did)
+    return [
+        StoryOut.model_validate(s).model_copy(
+            update={"document_ids": doc_map.get(s.id, [])}
+        )
+        for s in stories
+    ]
 
 
 @router.get("/{view_id}/stories/links", response_model=list[StoryLinkOut])
@@ -937,39 +967,39 @@ def list_virtual_story_links(
     return [StoryLinkOut(story_id=other, member_id=node) for other, node in pairs]
 
 
-@router.get("/{view_id}/sources", response_model=list[SourceOut])
-def list_virtual_sources(
+@router.get("/{view_id}/documents", response_model=list[DocumentOut])
+def list_virtual_documents(
     view_id: str,
+    # The flag/domain key is kept as "sources" for backward compatibility; the
+    # feature is now presented as "Documents".
     _: None = Depends(require_feature("sources")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[SourceOut]:
-    view = _resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
-    sources = db.scalars(
-        select(Source)
-        .where(Source.tree_id.in_(source_ids))
-        .options(selectinload(Source.evidence))
-    ).all()
-    return [SourceOut.model_validate(s) for s in sources]
-
-
-@router.get("/{view_id}/sources/citations", response_model=list[CitationOut])
-def list_virtual_citations(
-    view_id: str,
-    _: None = Depends(require_feature("sources")),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[CitationOut]:
+) -> list[DocumentOut]:
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
     id_map = _build_id_map(db, view)
-    result: list[CitationOut] = []
-    for c in _aggregate(db, source_ids, Citation):
-        out = CitationOut.model_validate(c)
-        node_id = id_map.get(c.member_id, c.member_id)
-        result.append(out.model_copy(update={"member_id": node_id}))
-    return result
+    documents = db.scalars(
+        select(Document)
+        .where(Document.tree_id.in_(source_ids))
+        .options(selectinload(Document.files))
+    ).all()
+    doc_ids = [d.id for d in documents]
+    member_map: dict[str, list[str]] = {}
+    if doc_ids:
+        rows = db.execute(
+            select(DocumentMemberLink.document_id, DocumentMemberLink.member_id).where(
+                DocumentMemberLink.document_id.in_(doc_ids)
+            )
+        ).all()
+        for did, mid in rows:
+            member_map.setdefault(did, []).append(id_map.get(mid, mid))
+    return [
+        DocumentOut.model_validate(d).model_copy(
+            update={"member_ids": member_map.get(d.id, [])}
+        )
+        for d in documents
+    ]
 
 
 @router.get("/{view_id}/activity", response_model=list[ActivityOut])

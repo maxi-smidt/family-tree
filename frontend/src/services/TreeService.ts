@@ -27,9 +27,9 @@ import {
 } from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
-import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
+import { StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
-import { CitationDB, EvidenceOps, SourceDB, SourceInput } from "@/types/source";
+import { DocumentDB, DocumentFileDB, DocumentInput } from "@/types/document";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
@@ -337,6 +337,16 @@ export class TreeService {
     return api.del(`${base(treeId)}/events/${id}`);
   }
 
+  static setEventDocuments(
+    treeId: string,
+    eventId: string,
+    documentIds: string[],
+  ) {
+    return api.put(`${base(treeId)}/events/${eventId}/documents`, {
+      document_ids: documentIds,
+    });
+  }
+
   // --- Geocode -------------------------------------------------------------
   static geocodeLocations(treeId: string, locations: string[]) {
     return api.post<GeocodeDB[]>(`${base(treeId)}/geocode`, { locations });
@@ -412,205 +422,98 @@ export class TreeService {
     return api.del(`${base(treeId)}/stories/${id}`);
   }
 
-  static addStoryAttachment(
+  static setStoryDocuments(
     treeId: string,
     storyId: string,
+    documentIds: string[],
+  ) {
+    return api.put(`${base(treeId)}/stories/${storyId}/documents`, {
+      document_ids: documentIds,
+    });
+  }
+
+  // --- Documents -----------------------------------------------------------
+  static getDocuments(treeId: string) {
+    return api.get<DocumentDB[]>(`${base(treeId)}/documents`);
+  }
+
+  static addDocument(
+    treeId: string,
+    input: DocumentInput,
+    memberIds: string[],
+  ) {
+    return api.post<DocumentDB>(`${base(treeId)}/documents`, {
+      title: input.title,
+      description: input.description || null,
+      document_date: input.documentDate || null,
+      member_ids: memberIds,
+    });
+  }
+
+  static updateDocument(treeId: string, id: string, input: DocumentInput) {
+    return api.patch<DocumentDB>(`${base(treeId)}/documents/${id}`, {
+      title: input.title,
+      description: input.description || null,
+      document_date: input.documentDate || null,
+    });
+  }
+
+  static removeDocument(treeId: string, id: string) {
+    return api.del(`${base(treeId)}/documents/${id}`);
+  }
+
+  static setDocumentMembers(
+    treeId: string,
+    documentId: string,
+    memberIds: string[],
+  ) {
+    return api.put(`${base(treeId)}/documents/${documentId}/members`, {
+      member_ids: memberIds,
+    });
+  }
+
+  static addDocumentFile(
+    treeId: string,
+    documentId: string,
     filename: string,
     data: string,
   ) {
-    return api.post<StoryAttachmentDB>(
-      `${base(treeId)}/stories/${storyId}/attachments`,
+    return api.post<DocumentFileDB>(
+      `${base(treeId)}/documents/${documentId}/files`,
       { filename, data },
     );
   }
 
-  static updateStoryAttachment(
+  static addDocumentLink(
     treeId: string,
-    storyId: string,
-    attachmentId: string,
-    filename: string,
-  ) {
-    return api.patch(
-      `${base(treeId)}/stories/${storyId}/attachments/${attachmentId}`,
-      { filename },
-    );
-  }
-
-  static removeStoryAttachment(
-    treeId: string,
-    storyId: string,
-    attachmentId: string,
-  ) {
-    return api.del(
-      `${base(treeId)}/stories/${storyId}/attachments/${attachmentId}`,
-    );
-  }
-
-  // --- Sources -------------------------------------------------------------
-  static getSources(treeId: string) {
-    return api.get<SourceDB[]>(`${base(treeId)}/sources`);
-  }
-
-  static getCitations(treeId: string) {
-    return api.get<CitationDB[]>(`${base(treeId)}/sources/citations`);
-  }
-
-  static addSource(
-    treeId: string,
-    id: string,
-    input: SourceInput,
-    now: string,
-  ) {
-    return api.post<SourceDB>(`${base(treeId)}/sources`, {
-      id,
-      title: input.title,
-      author: input.author || null,
-      publication_info: input.publicationInfo || null,
-      repository: input.repository || null,
-      source_date: input.sourceDate || null,
-      notes: input.notes || null,
-      created_at: now,
-      updated_at: now,
-    });
-  }
-
-  static updateSource(treeId: string, id: string, input: SourceInput) {
-    return api.patch<SourceDB>(`${base(treeId)}/sources/${id}`, {
-      title: input.title,
-      author: input.author || null,
-      publication_info: input.publicationInfo || null,
-      repository: input.repository || null,
-      source_date: input.sourceDate || null,
-      notes: input.notes || null,
-    });
-  }
-
-  static removeSource(treeId: string, id: string) {
-    return api.del(`${base(treeId)}/sources/${id}`);
-  }
-
-  static addSourceEvidenceFile(
-    treeId: string,
-    sourceId: string,
-    filename: string,
-    data: string,
-  ) {
-    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
-      kind: "file",
-      filename,
-      data,
-    });
-  }
-
-  static addSourceEvidenceLink(
-    treeId: string,
-    sourceId: string,
+    documentId: string,
     url: string,
-    label: string | null,
+    filename: string | null,
   ) {
-    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
-      kind: "link",
-      url,
-      filename: label,
-    });
+    return api.post<DocumentFileDB>(
+      `${base(treeId)}/documents/${documentId}/links`,
+      { url, filename },
+    );
   }
 
-  static renameSourceEvidence(
+  static renameDocumentFile(
     treeId: string,
-    sourceId: string,
-    evidenceId: string,
+    documentId: string,
+    fileId: string,
     filename: string,
   ) {
-    return api.patch(
-      `${base(treeId)}/sources/${sourceId}/evidence/${evidenceId}`,
+    return api.patch<DocumentFileDB>(
+      `${base(treeId)}/documents/${documentId}/files/${fileId}`,
       { filename },
     );
   }
 
-  static removeSourceEvidence(
+  static removeDocumentFile(
     treeId: string,
-    sourceId: string,
-    evidenceId: string,
+    documentId: string,
+    fileId: string,
   ) {
-    return api.del(
-      `${base(treeId)}/sources/${sourceId}/evidence/${evidenceId}`,
-    );
-  }
-
-  static addCitation(
-    treeId: string,
-    id: string,
-    sourceId: string,
-    memberId: string,
-    factType: string,
-    page: string | null,
-    detail: string | null,
-    now: string,
-  ) {
-    return api.post<CitationDB>(`${base(treeId)}/sources/citations`, {
-      id,
-      source_id: sourceId,
-      member_id: memberId,
-      fact_type: factType,
-      page: page || null,
-      detail: detail || null,
-      created_at: now,
-    });
-  }
-
-  static updateCitation(
-    treeId: string,
-    id: string,
-    factType: string,
-    page: string | null,
-    detail: string | null,
-  ) {
-    return api.patch(`${base(treeId)}/sources/citations/${id}`, {
-      fact_type: factType,
-      page: page || null,
-      detail: detail || null,
-    });
-  }
-
-  static removeCitation(treeId: string, id: string) {
-    return api.del(`${base(treeId)}/sources/citations/${id}`);
-  }
-
-  static applyEvidenceOps(
-    treeId: string,
-    sourceId: string,
-    ops: EvidenceOps,
-  ): Promise<unknown>[] {
-    const tasks: Promise<unknown>[] = [];
-    for (const id of ops.removedIds) {
-      tasks.push(TreeService.removeSourceEvidence(treeId, sourceId, id));
-    }
-    for (const { id, filename } of ops.renamed) {
-      tasks.push(
-        TreeService.renameSourceEvidence(treeId, sourceId, id, filename),
-      );
-    }
-    for (const f of ops.addedFiles) {
-      tasks.push(
-        TreeService.addSourceEvidenceFile(
-          treeId,
-          sourceId,
-          f.filename,
-          f.dataUrl,
-        ),
-      );
-    }
-    for (const link of ops.addedLinks) {
-      tasks.push(
-        TreeService.addSourceEvidenceLink(
-          treeId,
-          sourceId,
-          link.url,
-          link.label,
-        ),
-      );
-    }
-    return tasks;
+    return api.del(`${base(treeId)}/documents/${documentId}/files/${fileId}`);
   }
 
   // --- Diseases ------------------------------------------------------------

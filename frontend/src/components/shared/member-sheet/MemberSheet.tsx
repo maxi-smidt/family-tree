@@ -17,7 +17,7 @@ import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDia
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
@@ -51,7 +51,8 @@ export const MemberSheet = ({
   const { removeMember, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
-  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
+  const { refreshDocuments, initialized: documentsInitialized } =
+    useDocumentStore();
   const { refreshGalleryImages, initialized: galleryInitialized } =
     useGalleryStore();
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
@@ -94,8 +95,8 @@ export const MemberSheet = ({
     refreshStories,
   );
   useDeferredStoreLoad(
-    sourcesInitialized || !isOpen || isNewMember,
-    refreshSources,
+    documentsInitialized || !isOpen || isNewMember,
+    refreshDocuments,
   );
   useDeferredStoreLoad(
     galleryInitialized || !isOpen || isNewMember,

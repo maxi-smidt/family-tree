@@ -21,7 +21,7 @@ describe("Story type mapping", () => {
         content: "Born in a small town...",
         createdAt: "2024-01-01T00:00:00Z",
         updatedAt: "2024-01-02T00:00:00Z",
-        attachments: [],
+        documentIds: [],
       };
 
       const result = mapStoryFromDB(storyDB, linkedMemberIds);
@@ -66,7 +66,7 @@ describe("Story type mapping", () => {
     it("should map null content to an empty string", () => {
       const storyDB: StoryDB = {
         id: "3",
-        title: "Files only",
+        title: "Notes only",
         content: null,
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
@@ -76,36 +76,18 @@ describe("Story type mapping", () => {
       expect(result.content).toBe("");
     });
 
-    it("should map attachments and snake_case fields", () => {
+    it("should map linked document ids", () => {
       const storyDB: StoryDB = {
         id: "4",
-        title: "With files",
-        content: "See attached",
+        title: "With documents",
+        content: "See linked documents",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-01T00:00:00Z",
-        attachments: [
-          {
-            id: "att-1",
-            filename: "birth-certificate.pdf",
-            url: "/api/media/tree-1/abc.pdf",
-            mime_type: "application/pdf",
-            size: 12345,
-            created_at: "2024-01-01T00:00:00Z",
-          },
-        ],
+        document_ids: ["doc-1", "doc-2"],
       };
 
       const result = mapStoryFromDB(storyDB, ["member-1"]);
-      expect(result.attachments).toEqual([
-        {
-          id: "att-1",
-          filename: "birth-certificate.pdf",
-          url: "/api/media/tree-1/abc.pdf",
-          mimeType: "application/pdf",
-          size: 12345,
-          createdAt: "2024-01-01T00:00:00Z",
-        },
-      ]);
+      expect(result.documentIds).toEqual(["doc-1", "doc-2"]);
     });
   });
 
@@ -118,7 +100,7 @@ describe("Story type mapping", () => {
         content: "Served in the military...",
         createdAt: "2024-01-01T00:00:00Z",
         updatedAt: "2024-01-03T00:00:00Z",
-        attachments: [],
+        documentIds: [],
       };
 
       const expected: StoryDB = {
@@ -127,7 +109,7 @@ describe("Story type mapping", () => {
         content: "Served in the military...",
         created_at: "2024-01-01T00:00:00Z",
         updated_at: "2024-01-03T00:00:00Z",
-        attachments: [],
+        document_ids: [],
       };
 
       const result = mapStoryToDB(story);
@@ -142,7 +124,7 @@ describe("Story type mapping", () => {
         content: "Test content",
         createdAt: "2024-01-01T00:00:00Z",
         updatedAt: "2024-01-01T00:00:00Z",
-        attachments: [],
+        documentIds: [],
       };
 
       const result = mapStoryToDB(story);
@@ -160,16 +142,7 @@ describe("Story type mapping", () => {
         content: "This is the story of a wonderful life...",
         createdAt: "2024-01-01T00:00:00Z",
         updatedAt: "2024-01-05T00:00:00Z",
-        attachments: [
-          {
-            id: "att-1",
-            filename: "photo.png",
-            url: "/api/media/tree-1/x.png",
-            mimeType: "image/png",
-            size: 999,
-            createdAt: "2024-01-01T00:00:00Z",
-          },
-        ],
+        documentIds: ["doc-1"],
       };
 
       const db = mapStoryToDB(original);
@@ -187,7 +160,7 @@ describe("Story type mapping", () => {
         content: "Content with special chars: \n\t'\"<>&",
         createdAt: "2024-01-01T00:00:00Z",
         updatedAt: "2024-01-01T00:00:00Z",
-        attachments: [],
+        documentIds: [],
       };
 
       const db = mapStoryToDB(original);
