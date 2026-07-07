@@ -46,6 +46,38 @@ class Event(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
 
+    attachments: Mapped[list["EventAttachment"]] = relationship(
+        back_populates="event",
+        cascade="all, delete-orphan",
+        order_by="EventAttachment.created_at",
+    )
+
+
+class EventAttachment(Base):
+    """A file (image, pdf, document, ...) attached to an event.
+
+    Mirrors ``StoryAttachment``: the bytes live on disk under
+    ``DATA_PATH/media/<tree_id>/`` and ``url`` is the stable ``/api/media/...``
+    reference; ``filename`` is the user-facing, settable display/download name.
+    """
+
+    __tablename__ = "event_attachments"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    )
+    event_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("events.id", ondelete="CASCADE"), index=True
+    )
+    filename: Mapped[str] = mapped_column(String(255))
+    url: Mapped[str] = mapped_column(Text)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+
+    event: Mapped["Event"] = relationship(back_populates="attachments")
+
 
 class EventMemberLink(Base):
     __tablename__ = "event_member_link"

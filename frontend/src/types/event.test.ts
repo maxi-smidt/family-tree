@@ -23,6 +23,7 @@ describe("Event type mapping", () => {
         location: "New York",
         description: "Born in New York",
         createdAt: "2024-01-01T00:00:00Z",
+        attachments: [],
       };
 
       const result = mapEventFromDB(eventDB, linkedMemberIds);
@@ -60,6 +61,39 @@ describe("Event type mapping", () => {
       expect(result.location).toBeNull();
       expect(result.description).toBeNull();
     });
+
+    it("should map attachments and snake_case fields", () => {
+      const eventDB: EventDB = {
+        id: "4",
+        event_type: "Birth",
+        date: "1990-01-01",
+        location: null,
+        description: null,
+        created_at: "2024-01-01T00:00:00Z",
+        attachments: [
+          {
+            id: "att-1",
+            filename: "birth-certificate.pdf",
+            url: "/api/media/tree-1/abc.pdf",
+            mime_type: "application/pdf",
+            size: 12345,
+            created_at: "2024-01-01T00:00:00Z",
+          },
+        ],
+      };
+
+      const result = mapEventFromDB(eventDB, ["member-1"]);
+      expect(result.attachments).toEqual([
+        {
+          id: "att-1",
+          filename: "birth-certificate.pdf",
+          url: "/api/media/tree-1/abc.pdf",
+          mimeType: "application/pdf",
+          size: 12345,
+          createdAt: "2024-01-01T00:00:00Z",
+        },
+      ]);
+    });
   });
 
   describe("mapEventToDB", () => {
@@ -72,6 +106,7 @@ describe("Event type mapping", () => {
         location: "London",
         description: "Wedding ceremony",
         createdAt: "2024-01-01T00:00:00Z",
+        attachments: [],
       };
 
       const expected: EventDB = {
@@ -81,6 +116,7 @@ describe("Event type mapping", () => {
         location: "London",
         description: "Wedding ceremony",
         created_at: "2024-01-01T00:00:00Z",
+        attachments: [],
       };
 
       const result = mapEventToDB(event);
@@ -96,6 +132,7 @@ describe("Event type mapping", () => {
         location: null,
         description: null,
         createdAt: "2024-01-01T00:00:00Z",
+        attachments: [],
       };
 
       const result = mapEventToDB(event);
@@ -116,6 +153,16 @@ describe("Event type mapping", () => {
         location: "Paris",
         description: "Moved to Paris for work",
         createdAt: "2024-01-01T00:00:00Z",
+        attachments: [
+          {
+            id: "att-1",
+            filename: "photo.png",
+            url: "/api/media/tree-1/x.png",
+            mimeType: "image/png",
+            size: 999,
+            createdAt: "2024-01-01T00:00:00Z",
+          },
+        ],
       };
 
       const db = mapEventToDB(original);

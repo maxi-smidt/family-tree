@@ -9,6 +9,7 @@ from app.models.backup import BackupRecord
 from app.models.content import (
     Citation,
     Event,
+    EventAttachment,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
@@ -53,6 +54,7 @@ __all__ = [
     "GalleryImage",
     "GalleryMemberLink",
     "Event",
+    "EventAttachment",
     "EventMemberLink",
     "GeocodeCache",
     "Source",

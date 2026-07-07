@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- Documents and images can now be uploaded directly to events, matching the stories/documents workflow — attach, rename, download, and remove files from the event dialog (#594).
+
 ### Fixed
 
 - Member name search now works in the Events and Stories dialogs and the gallery image sheet, where typing a name previously returned no results (#592).

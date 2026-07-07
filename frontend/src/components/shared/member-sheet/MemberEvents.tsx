@@ -9,6 +9,7 @@ import { formatDateWithFallback } from "@/utils/dateUtils";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { AttachmentList } from "@/components/shared/attachments/AttachmentList";
 
 type Props = {
   member: Member;
@@ -84,6 +85,12 @@ export const MemberEvents = ({ member }: Props) => {
                       </div>
                       {event.description && (
                         <p className="text-sm mt-2">{event.description}</p>
+                      )}
+                      {event.attachments.length > 0 && (
+                        <AttachmentList
+                          attachments={event.attachments}
+                          keyPrefix="sheet.member-sheet.events.attachments"
+                        />
                       )}
                     </div>
                     <div className="flex gap-1">

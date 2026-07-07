@@ -630,6 +630,10 @@
         "title": "Lebensereignisse",
         "add": "Hinzufügen",
         "no-events": "Keine Ereignisse gespeichert",
+        "attachments": {
+          "download": "Herunterladen",
+          "error-open": "Datei konnte nicht geöffnet werden."
+        },
         "delete-dialog": {
           "title": "Ereignis löschen",
           "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -658,7 +662,25 @@
           "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation",
           "location-checking": "Adresse wird geprüft...",
           "location-found": "Adresse gefunden",
-          "location-not-found": "Adresse nicht gefunden – erscheint nicht auf der Karte"
+          "location-not-found": "Adresse nicht gefunden – erscheint nicht auf der Karte",
+          "attachments": {
+            "heading": "Dateien",
+            "add": "Datei hinzufügen",
+            "empty": "Noch keine Dateien angehängt",
+            "new": "Neu",
+            "download": "Herunterladen",
+            "remove": "Datei entfernen",
+            "filename": "Dateiname",
+            "hint": "Bilder, PDF und Dokumente bis {{max}}.",
+            "hint-without-limit": "Bilder, PDF und Dokumente.",
+            "error-type": "Nicht unterstützter Dateityp",
+            "error-size": "Datei ist zu groß (max. {{max}})",
+            "error-quota-media": "Medienspeicher-Kontingent überschritten.",
+            "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
+            "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
+            "error-save": "Ereignis konnte nicht gespeichert werden.",
+            "error-open": "Datei konnte nicht geöffnet werden."
+          }
         }
       },
       "stories": {

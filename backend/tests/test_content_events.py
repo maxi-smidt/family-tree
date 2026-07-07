@@ -122,6 +122,22 @@ def test_add_story_attachment_emits_content_changed(client, db, tree, headers):
     assert _content_event(_events(m), tree.id, "story")
 
 
+def test_add_event_attachment_emits_content_changed(client, db, tree, headers):
+    client.post(
+        f"{API}/trees/{tree.id}/events",
+        json={"id": "ev1", "event_type": "birth", "date": "2000", "created_at": _TS},
+        headers=headers,
+    )
+    with patch("app.api.routes.events.publish_tree_event") as m:
+        res = client.post(
+            f"{API}/trees/{tree.id}/events/ev1/attachments",
+            json={"filename": "note.txt", "data": _DOC},
+            headers=headers,
+        )
+        assert res.status_code == 201, res.text
+    assert _content_event(_events(m), tree.id, "event")
+
+
 def test_add_source_evidence_emits_content_changed(client, db, tree, headers):
     client.post(
         f"{API}/trees/{tree.id}/sources",

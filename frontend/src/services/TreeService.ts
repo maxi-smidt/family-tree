@@ -27,7 +27,8 @@ import {
 } from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
-import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
+import { StoryDB, StoryInput } from "@/types/story";
+import { AttachmentDB } from "@/types/attachment";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import { CitationDB, EvidenceOps, SourceDB, SourceInput } from "@/types/source";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
@@ -337,6 +338,40 @@ export class TreeService {
     return api.del(`${base(treeId)}/events/${id}`);
   }
 
+  static addEventAttachment(
+    treeId: string,
+    eventId: string,
+    filename: string,
+    data: string,
+  ) {
+    return api.post<AttachmentDB>(
+      `${base(treeId)}/events/${eventId}/attachments`,
+      { filename, data },
+    );
+  }
+
+  static updateEventAttachment(
+    treeId: string,
+    eventId: string,
+    attachmentId: string,
+    filename: string,
+  ) {
+    return api.patch(
+      `${base(treeId)}/events/${eventId}/attachments/${attachmentId}`,
+      { filename },
+    );
+  }
+
+  static removeEventAttachment(
+    treeId: string,
+    eventId: string,
+    attachmentId: string,
+  ) {
+    return api.del(
+      `${base(treeId)}/events/${eventId}/attachments/${attachmentId}`,
+    );
+  }
+
   // --- Geocode -------------------------------------------------------------
   static geocodeLocations(treeId: string, locations: string[]) {
     return api.post<GeocodeDB[]>(`${base(treeId)}/geocode`, { locations });
@@ -418,7 +453,7 @@ export class TreeService {
     filename: string,
     data: string,
   ) {
-    return api.post<StoryAttachmentDB>(
+    return api.post<AttachmentDB>(
       `${base(treeId)}/stories/${storyId}/attachments`,
       { filename, data },
     );

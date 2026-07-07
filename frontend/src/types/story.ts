@@ -1,20 +1,19 @@
-export interface StoryAttachment {
-  id: string;
-  filename: string;
-  url: string;
-  mimeType: string | null;
-  size: number | null;
-  createdAt: string;
-}
+import {
+  Attachment,
+  AttachmentDB,
+  mapAttachmentFromDB,
+} from "@/types/attachment";
 
-export interface StoryAttachmentDB {
-  id: string;
-  filename: string;
-  url: string;
-  mime_type: string | null;
-  size: number | null;
-  created_at: string;
-}
+export type { NewAttachment, AttachmentOps } from "@/types/attachment";
+export { mapAttachmentFromDB } from "@/types/attachment";
+
+/** @deprecated use `Attachment` from `@/types/attachment` — kept as an alias
+ * so existing story-specific imports keep working. */
+export type StoryAttachment = Attachment;
+
+/** @deprecated use `AttachmentDB` from `@/types/attachment` — kept as an
+ * alias so existing story-specific imports keep working. */
+export type StoryAttachmentDB = AttachmentDB;
 
 export interface Story {
   id: string;
@@ -23,7 +22,7 @@ export interface Story {
   content: string;
   createdAt: string;
   updatedAt: string;
-  attachments: StoryAttachment[];
+  attachments: Attachment[];
 }
 
 export interface StoryDB {
@@ -32,36 +31,12 @@ export interface StoryDB {
   content: string | null;
   created_at: string;
   updated_at: string;
-  attachments?: StoryAttachmentDB[];
+  attachments?: AttachmentDB[];
 }
 
 export interface StoryInput {
   title: string;
   content: string;
-}
-
-/** A file the user picked but hasn't uploaded yet (base64 data URL). */
-export interface NewAttachment {
-  filename: string;
-  dataUrl: string;
-}
-
-/** The attachment changes to apply when saving a story. */
-export interface AttachmentOps {
-  added: NewAttachment[];
-  removedIds: string[];
-  renamed: { id: string; filename: string }[];
-}
-
-export function mapAttachmentFromDB(a: StoryAttachmentDB): StoryAttachment {
-  return {
-    id: a.id,
-    filename: a.filename,
-    url: a.url,
-    mimeType: a.mime_type ?? null,
-    size: a.size ?? null,
-    createdAt: a.created_at,
-  };
 }
 
 export function mapStoryFromDB(row: StoryDB, linkedMemberIds: string[]): Story {

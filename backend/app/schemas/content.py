@@ -45,36 +45,7 @@ class LinksSet(BaseModel):
     member_ids: list[str] = []
 
 
-# --- Events ----------------------------------------------------------------
-class EventOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    event_type: str
-    date: str
-    location: str | None = None
-    description: str | None = None
-    created_at: str
-
-
-class EventCreate(BaseModel):
-    id: str
-    event_type: str
-    date: str
-    location: str | None = None
-    description: str | None = None
-    created_at: str
-    member_ids: list[str] = []
-
-
-class EventUpdate(BaseModel):
-    event_type: str
-    date: str
-    location: str | None = None
-    description: str | None = None
-
-
-# --- Stories ---------------------------------------------------------------
+# --- Attachments (shared by events & stories) -------------------------------
 class AttachmentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -95,6 +66,37 @@ class AttachmentUpdate(BaseModel):
     filename: str
 
 
+# --- Events ----------------------------------------------------------------
+class EventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    event_type: str
+    date: str
+    location: str | None = None
+    description: str | None = None
+    created_at: str
+    attachments: list[AttachmentOut] = []
+
+
+class EventCreate(BaseModel):
+    id: str
+    event_type: str
+    date: str
+    location: str | None = None
+    description: str | None = None
+    created_at: str
+    member_ids: list[str] = []
+
+
+class EventUpdate(BaseModel):
+    event_type: str
+    date: str
+    location: str | None = None
+    description: str | None = None
+
+
+# --- Stories ---------------------------------------------------------------
 class StoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

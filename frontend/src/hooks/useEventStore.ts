@@ -1,22 +1,52 @@
 import { create } from "zustand";
 import { Event, EventInput, mapEventFromDB } from "@/types/event";
+import { AttachmentOps } from "@/types/attachment";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
+
+const NO_OPS: AttachmentOps = { added: [], removedIds: [], renamed: [] };
 
 interface EventState {
   events: Event[];
   initialized: boolean;
   refreshEvents: (treeId?: string) => Promise<void>;
   getEventsByMember: (memberId: string) => Event[];
-  addEvent: (memberIds: string[], event: EventInput) => Promise<void>;
+  addEvent: (
+    memberIds: string[],
+    event: EventInput,
+    attachments?: AttachmentOps,
+  ) => Promise<void>;
   updateEvent: (
     id: string,
     event: EventInput,
     memberIds: string[],
+    attachments?: AttachmentOps,
   ) => Promise<void>;
   removeEvent: (id: string) => Promise<void>;
   clear: () => void;
+}
+
+async function applyAttachmentOps(
+  treeId: string,
+  eventId: string,
+  ops: AttachmentOps,
+) {
+  for (const id of ops.removedIds) {
+    await TreeService.removeEventAttachment(treeId, eventId, id);
+  }
+  for (const { id, filename } of ops.renamed) {
+    await TreeService.updateEventAttachment(treeId, eventId, id, filename);
+  }
+  for (const att of ops.added) {
+    await TreeService.addEventAttachment(
+      treeId,
+      eventId,
+      att.filename,
+      att.dataUrl,
+    );
+  }
 }
 
 export const useEventStore = create<EventState>((set, get) => ({
@@ -56,7 +86,11 @@ export const useEventStore = create<EventState>((set, get) => ({
     return get().events.filter((e) => e.linkedMemberIds.includes(memberId));
   },
 
-  addEvent: async (memberIds: string[], event: EventInput) => {
+  addEvent: async (
+    memberIds: string[],
+    event: EventInput,
+    attachments: AttachmentOps = NO_OPS,
+  ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
@@ -65,18 +99,31 @@ export const useEventStore = create<EventState>((set, get) => ({
 
     await TreeService.addEvent(treeId, id, event, now, memberIds);
 
+    await applyAttachmentOps(treeId, id, attachments);
+
     await get().refreshEvents(treeId);
+    if (attachments.added.length > 0)
+      useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
 
-  updateEvent: async (id: string, event: EventInput, memberIds: string[]) => {
+  updateEvent: async (
+    id: string,
+    event: EventInput,
+    memberIds: string[],
+    attachments: AttachmentOps = NO_OPS,
+  ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
     await TreeService.updateEvent(treeId, id, event);
     await TreeService.setEventLinks(treeId, id, memberIds);
 
+    await applyAttachmentOps(treeId, id, attachments);
+
     await get().refreshEvents(treeId);
+    if (attachments.added.length > 0 || attachments.removedIds.length > 0)
+      useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
 
@@ -86,6 +133,7 @@ export const useEventStore = create<EventState>((set, get) => ({
 
     await TreeService.removeEvent(treeId, id);
     await get().refreshEvents(treeId);
+    useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
 

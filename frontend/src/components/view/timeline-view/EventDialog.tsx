@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,9 @@ import {
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { Event, EventInput } from "@/types/event";
+import { AttachmentOps } from "@/types/attachment";
 import {
   PREDEFINED_EVENT_TYPES,
   CUSTOM_EVENT_TYPE,
@@ -33,6 +35,15 @@ import { getMemberOptions } from "@/utils/memberUtils";
 import { isValidPartialDate } from "@/utils/dateUtils";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId } from "@/hooks/useTreeStore";
+import { ApiError } from "@/services/api";
+import { getQuotaBucket } from "@/lib/quotaError";
+import { toast } from "sonner";
+import { formatFileSize } from "@/utils/attachmentUtils";
+import {
+  AttachmentEditor,
+  ExistingAttachment,
+  PendingFile,
+} from "@/components/shared/attachments/AttachmentEditor";
 
 interface EventDialogProps {
   open: boolean;
@@ -48,9 +59,17 @@ export const EventDialog = ({
   initialMemberId,
 }: EventDialogProps) => {
   const { t, i18n } = useTranslation();
-  const tDialog = (key: string) => t(`sheet.member-sheet.events.dialog.${key}`);
+  const tDialog = (key: string, options?: Record<string, unknown>) =>
+    t(`sheet.member-sheet.events.dialog.${key}`, options);
   const { addEvent, updateEvent } = useEventStore();
   const { members } = useMemberStore();
+  const maxAttachmentBytes = useAuthStore(
+    (state) => state.config?.media_limits.max_document_bytes,
+  );
+  const maxAttachmentSize =
+    maxAttachmentBytes === undefined
+      ? null
+      : formatFileSize(maxAttachmentBytes);
 
   const [formData, setFormData] = useState<Omit<EventInput, "eventType">>({
     date: new Date().toISOString().split("T")[0],
@@ -67,11 +86,17 @@ export const EventDialog = ({
   const [geocodeDisplayName, setGeocodeDisplayName] = useState<string | null>(
     null,
   );
+  const [existing, setExisting] = useState<ExistingAttachment[]>([]);
+  const [added, setAdded] = useState<PendingFile[]>([]);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const isCustom = selectedCategory === CUSTOM_EVENT_TYPE;
   const effectiveEventType = isCustom ? customLabel.trim() : selectedCategory;
 
   useEffect(() => {
+    setFileError(null);
+    setAdded([]);
     if (event) {
       setFormData({
         date: event.date,
@@ -87,6 +112,15 @@ export const EventDialog = ({
         setSelectedCategory(CUSTOM_EVENT_TYPE);
         setCustomLabel(event.eventType);
       }
+      setExisting(
+        event.attachments.map((a) => ({
+          id: a.id,
+          filename: a.filename,
+          url: a.url,
+          mimeType: a.mimeType,
+          size: a.size,
+        })),
+      );
     } else {
       setFormData({
         date: new Date().toISOString().split("T")[0],
@@ -99,6 +133,7 @@ export const EventDialog = ({
       setDateError(null);
       setGeocodeStatus("idle");
       setGeocodeDisplayName(null);
+      setExisting([]);
     }
   }, [event, initialMemberId, open]);
 
@@ -130,6 +165,25 @@ export const EventDialog = ({
     return () => clearTimeout(timer);
   }, [formData.location]);
 
+  const buildAttachmentOps = useCallback((): AttachmentOps => {
+    const original = event?.attachments ?? [];
+    const keptIds = new Set(existing.map((a) => a.id));
+    const removedIds = original
+      .filter((a) => !keptIds.has(a.id))
+      .map((a) => a.id);
+    const renamed = existing
+      .filter((a) => {
+        const orig = original.find((o) => o.id === a.id);
+        return orig && orig.filename !== a.filename && a.filename.trim() !== "";
+      })
+      .map((a) => ({ id: a.id, filename: a.filename.trim() }));
+    const addedOps = added.map((a) => ({
+      filename: a.filename.trim() || "file",
+      dataUrl: a.dataUrl,
+    }));
+    return { added: addedOps, removedIds, renamed };
+  }, [event, existing, added]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -144,17 +198,35 @@ export const EventDialog = ({
       eventType: effectiveEventType,
     };
 
-    if (event) {
-      await updateEvent(event.id, eventInput, selectedMemberIds);
-    } else {
-      await addEvent(selectedMemberIds, eventInput);
+    setSubmitting(true);
+    try {
+      const ops = buildAttachmentOps();
+      if (event) {
+        await updateEvent(event.id, eventInput, selectedMemberIds, ops);
+      } else {
+        await addEvent(selectedMemberIds, eventInput, ops);
+      }
+      onOpenChange(false);
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 413) {
+        const bucket = getQuotaBucket(err.message);
+        if (bucket) {
+          toast.error(tDialog(`attachments.error-quota-${bucket}`));
+        } else {
+          toast.error(
+            tDialog("attachments.error-size", { max: maxAttachmentSize }),
+          );
+        }
+      } else {
+        toast.error(tDialog("attachments.error-save"));
+      }
+    } finally {
+      setSubmitting(false);
     }
-
-    onOpenChange(false);
   };
 
   const isSubmitDisabled =
-    !effectiveEventType || selectedMemberIds.length === 0;
+    submitting || !effectiveEventType || selectedMemberIds.length === 0;
 
   const memberOptions = getMemberOptions(members, (name) =>
     t("common.nee", { name }),
@@ -162,14 +234,17 @@ export const EventDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-125">
+      <DialogContent className="sm:max-w-125 max-h-[80vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {event ? tDialog("title-edit") : tDialog("title-add")}
           </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-4 py-4 px-1">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 flex flex-col flex-1 min-h-0"
+        >
+          <div className="space-y-4 py-4 px-1 flex-1 overflow-y-auto">
             <div className="space-y-2">
               <Label htmlFor="members">{tDialog("linked-members")} *</Label>
               <MultiSelect
@@ -281,6 +356,17 @@ export const EventDialog = ({
                 rows={4}
               />
             </div>
+
+            <AttachmentEditor
+              keyPrefix="sheet.member-sheet.events.dialog.attachments"
+              existing={existing}
+              setExisting={setExisting}
+              added={added}
+              setAdded={setAdded}
+              fileError={fileError}
+              setFileError={setFileError}
+              maxAttachmentBytes={maxAttachmentBytes}
+            />
           </div>
 
           <DialogFooter>
