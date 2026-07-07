@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { reconstructParents } from "./memberUtils";
+import {
+  reconstructParents,
+  getMemberSearchText,
+  formatMemberSubLabel,
+  getMemberOptions,
+} from "./memberUtils";
+import { Member } from "@/types/member";
+
+const makeMember = (overrides: Partial<Member> = {}): Member =>
+  ({
+    id: "m1",
+    firstName: "Jane",
+    lastName: "Doe",
+    maidenName: null,
+    date: { birth: "" },
+    ...overrides,
+  }) as Member;
 
 const genders = (entries: Record<string, string>) =>
   new Map(Object.entries(entries));
@@ -78,5 +94,66 @@ describe("reconstructParents", () => {
       genders({ a: "m", b: "f", c: "m" }),
     );
     expect(slots).toEqual({ paternalParent: "a", maternalParent: "b" });
+  });
+});
+
+describe("getMemberSearchText", () => {
+  it("joins first, last, and maiden name", () => {
+    const m = makeMember({
+      firstName: "Jane",
+      lastName: "Smith",
+      maidenName: "Jones",
+    });
+    expect(getMemberSearchText(m)).toBe("Jane Smith Jones");
+  });
+
+  it("omits a null maiden name", () => {
+    const m = makeMember({
+      firstName: "Jane",
+      lastName: "Smith",
+      maidenName: null,
+    });
+    expect(getMemberSearchText(m)).toBe("Jane Smith");
+  });
+});
+
+describe("formatMemberSubLabel", () => {
+  const formatMaiden = (name: string) => `née ${name}`;
+
+  it("returns maiden name and birth year when both are present", () => {
+    expect(formatMemberSubLabel("Jones", "1900-05-01", formatMaiden)).toBe(
+      "née Jones · 1900",
+    );
+  });
+
+  it("returns just the maiden part when there is no birth year", () => {
+    expect(formatMemberSubLabel("Jones", null, formatMaiden)).toBe("née Jones");
+  });
+
+  it("returns just the year when there is no maiden name", () => {
+    expect(formatMemberSubLabel(null, "1900-05-01", formatMaiden)).toBe("1900");
+  });
+
+  it("returns undefined when neither is known", () => {
+    expect(formatMemberSubLabel(null, null, formatMaiden)).toBeUndefined();
+  });
+});
+
+describe("getMemberOptions", () => {
+  it("maps members to options with label, value, sublabel, and searchValue", () => {
+    const m = makeMember({
+      id: "m42",
+      firstName: "Jane",
+      lastName: "Smith",
+      maidenName: "Jones",
+      date: { birth: "1900-05-01", death: null },
+    });
+    const [option] = getMemberOptions([m], (name) => `née ${name}`);
+    expect(option).toEqual({
+      label: "Jane Smith",
+      value: "m42",
+      sublabel: "née Jones · 1900",
+      searchValue: "Jane Smith Jones",
+    });
   });
 });

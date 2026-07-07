@@ -7,6 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Fixed
+
+- Member name search now works in the Events and Stories dialogs and the gallery image sheet, where typing a name previously returned no results (#592).
+- Every member search (tree canvas, parent pickers, extract-subtree, and the member selectors above) now shows the born (maiden) name and birth year beneath each result, and matches only on the full and maiden name — birth dates and internal ids no longer affect search (#592).
+
 ## [1.6.0] - 2026-07-06
 
 ### Added

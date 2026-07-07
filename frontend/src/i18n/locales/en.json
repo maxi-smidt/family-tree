@@ -1355,7 +1355,8 @@
     "date-unknown": "unknown",
     "clear-date": "Clear date",
     "date-input-hint": "MM/DD/YYYY",
-    "open-date-picker": "Open date picker"
+    "open-date-picker": "Open date picker",
+    "nee": "née {{name}}"
   },
   "auth": {
     "session": {

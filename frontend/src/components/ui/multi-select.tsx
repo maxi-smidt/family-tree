@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
@@ -84,6 +83,10 @@ interface MultiSelectOption {
   icon?: React.ComponentType<{ className?: string }>;
   /** Whether this option is disabled */
   disabled?: boolean;
+  /** Optional muted secondary line rendered under the label. */
+  sublabel?: string;
+  /** Text used for filtering instead of the label (e.g. name + maiden name). */
+  searchValue?: string;
   /** Custom styling for the option */
   style?: {
     /** Custom badge color */
@@ -592,20 +595,18 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
         return options
           .map((group) => ({
             ...group,
-            options: group.options.filter(
-              (option) =>
-                option.label
-                  .toLowerCase()
-                  .includes(searchValue.toLowerCase()) ||
-                option.value.toLowerCase().includes(searchValue.toLowerCase()),
+            options: group.options.filter((option) =>
+              (option.searchValue ?? option.label)
+                .toLowerCase()
+                .includes(searchValue.toLowerCase()),
             ),
           }))
           .filter((group) => group.options.length > 0);
       }
-      return options.filter(
-        (option) =>
-          option.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-          option.value.toLowerCase().includes(searchValue.toLowerCase()),
+      return options.filter((option) =>
+        (option.searchValue ?? option.label)
+          .toLowerCase()
+          .includes(searchValue.toLowerCase()),
       );
     }, [options, searchValue, searchable, isGroupedOptions]);
 
@@ -697,6 +698,10 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 
     const widthConstraints = getWidthConstraints();
 
+    const hasVisibleOptions = isGroupedOptions(filteredOptions)
+      ? filteredOptions.some((group) => group.options.length > 0)
+      : filteredOptions.length > 0;
+
     React.useEffect(() => {
       if (!isPopoverOpen) {
         setSearchValue("");
@@ -750,10 +755,10 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
         searchValue !== undefined
       ) {
         if (searchValue && isPopoverOpen) {
-          const filteredCount = allOptions.filter(
-            (opt) =>
-              opt.label.toLowerCase().includes(searchValue.toLowerCase()) ||
-              opt.value.toLowerCase().includes(searchValue.toLowerCase()),
+          const filteredCount = allOptions.filter((opt) =>
+            (opt.searchValue ?? opt.label)
+              .toLowerCase()
+              .includes(searchValue.toLowerCase()),
           ).length;
 
           announce(
@@ -1037,7 +1042,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
             side={popoverSide}
             onEscapeKeyDown={() => setIsPopoverOpen(false)}
           >
-            <Command>
+            <Command shouldFilter={false}>
               {searchable && (
                 <CommandInput
                   placeholder="Search options..."
@@ -1062,9 +1067,11 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                 )}
                 data-vaul-no-drag
               >
-                <CommandEmpty>
-                  {emptyIndicator || "No results found."}
-                </CommandEmpty>{" "}
+                {!hasVisibleOptions && (
+                  <div className="py-6 text-center text-sm text-muted-foreground">
+                    {emptyIndicator || "No results found."}
+                  </div>
+                )}{" "}
                 {!hideSelectAll && !searchValue && (
                   <CommandGroup>
                     <CommandItem
@@ -1145,11 +1152,18 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                                 aria-hidden="true"
                               />
                             )}
-                            <span className="truncate">
-                              {option.label.length > 50
-                                ? `${option.label.slice(0, 47)}...`
-                                : option.label}
-                            </span>
+                            <div className="flex flex-col min-w-0">
+                              <span className="truncate">
+                                {option.label.length > 50
+                                  ? `${option.label.slice(0, 47)}...`
+                                  : option.label}
+                              </span>
+                              {option.sublabel && (
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {option.sublabel}
+                                </span>
+                              )}
+                            </div>
                           </CommandItem>
                         );
                       })}
@@ -1193,11 +1207,18 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
                               aria-hidden="true"
                             />
                           )}
-                          <span className="truncate">
-                            {option.label.length > 50
-                              ? `${option.label.slice(0, 47)}...`
-                              : option.label}
-                          </span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="truncate">
+                              {option.label.length > 50
+                                ? `${option.label.slice(0, 47)}...`
+                                : option.label}
+                            </span>
+                            {option.sublabel && (
+                              <span className="truncate text-xs text-muted-foreground">
+                                {option.sublabel}
+                              </span>
+                            )}
+                          </div>
                         </CommandItem>
                       );
                     })}
