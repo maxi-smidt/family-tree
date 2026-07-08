@@ -4,7 +4,8 @@ Operates entirely on plain dicts — no DB or SQLAlchemy imports.
 
 Public API
 ----------
-serialize_to_gedcom(tree_name, members, relations) -> str
+serialize_to_gedcom(tree_name, members, relations, documents=, document_files=,
+                     citations=) -> str
 parse_gedcom(text) -> {"members": [...], "relations": [...]}
 """
 
@@ -173,7 +174,8 @@ def serialize_to_gedcom(
     tree_name: str,
     members: list[dict],
     relations: list[dict],
-    sources: list[dict] | None = None,
+    documents: list[dict] | None = None,
+    document_files: list[dict] | None = None,
     citations: list[dict] | None = None,
     app_version: str | None = None,
 ) -> str:
@@ -222,22 +224,30 @@ def serialize_to_gedcom(
         member_xref[member["id"]] = f"@I{idx}@"
 
     # --- Assign SOUR xrefs and build citations index -------------------------
-    sources = sources or []
+    # "Documents" replaces the old Source/Citation/Evidence model: each
+    # Document becomes a GEDCOM SOUR record, its files become OBJE multimedia
+    # links, and each mentioned member gets a plain SOUR citation (no
+    # PAGE/fact-type granularity — that concept doesn't exist on Documents).
+    documents = documents or []
+    document_files = document_files or []
     citations = citations or []
     source_xref: dict[str, str] = {}
-    for idx, src in enumerate(sources, start=1):
-        source_xref[src["id"]] = f"@S{idx}@"
-    # member_id → list of (fact_type, source_xref, page)
-    member_citations: dict[str, list[tuple[str, str, str | None]]] = {}
+    for idx, doc in enumerate(documents, start=1):
+        source_xref[doc["id"]] = f"@S{idx}@"
+    # member_id → list of source_xref
+    member_citations: dict[str, list[str]] = {}
     for cit in citations:
-        src_id = cit.get("source_id", "")
-        xref = source_xref.get(src_id)
+        doc_id = cit.get("document_id", "")
+        xref = source_xref.get(doc_id)
         if xref is None:
             continue
         mem_id = cit.get("member_id", "")
-        member_citations.setdefault(mem_id, []).append(
-            (cit.get("fact_type", "general"), xref, cit.get("page"))
-        )
+        member_citations.setdefault(mem_id, []).append(xref)
+    # document_id → list of file dicts (kind == "file" only; links are external
+    # URLs and have no place in a MULTIMEDIA_LINK).
+    files_by_document: dict[str, list[dict]] = {}
+    for f in document_files:
+        files_by_document.setdefault(f.get("document_id", ""), []).append(f)
 
     # --- Build family groups -------------------------------------------------
     # A family is keyed by a frozenset of spouse ids (1 or 2 members).
@@ -405,16 +415,10 @@ def serialize_to_gedcom(
             for cont_line in note_lines[1:]:
                 L(f"2 CONT {cont_line}")
 
-        # Source citations at individual level
+        # Source (Document) citations at individual level.
         mid = member["id"]
-        for fact_type, sx, page in member_citations.get(mid, []):
+        for sx in member_citations.get(mid, []):
             L(f"1 SOUR {sx}")
-            if page:
-                L(f"2 PAGE {page}")
-            if fact_type not in ("general", "name", "birth", "death",
-                                 "birthplace", "hometown", "residence",
-                                 "cemetery"):
-                L(f"2 _FACT {fact_type}")
 
         # Adoption event — emitted before FAMC so readers see ADOP in the
         # individual record regardless of whether a family link exists.
@@ -517,25 +521,34 @@ def serialize_to_gedcom(
         L(f"1 _TYPE {rtype}")
         rel_idx += 1
 
-    # --- SOUR records -------------------------------------------------------
-    for src in sources:
-        sx = source_xref.get(src["id"])
+    # --- SOUR records (one per Document) -------------------------------------
+    for doc in documents:
+        sx = source_xref.get(doc["id"])
         if not sx:
             continue
         L(f"0 {sx} SOUR")
-        if src.get("title"):
-            L(f"1 TITL {src['title']}")
-        if src.get("author"):
-            L(f"1 AUTH {src['author']}")
-        if src.get("publication_info"):
-            L(f"1 PUBL {src['publication_info']}")
-        if src.get("repository"):
-            L(f"1 REPO {src['repository']}")
-        if src.get("notes"):
-            note_lines = src["notes"].splitlines()
+        if doc.get("title"):
+            L(f"1 TITL {doc['title']}")
+        # No core GEDCOM 5.5.1 tag carries a source-level date; a private-use
+        # tag (matching this file's existing _FIRST_NAME / _RELTYPE style)
+        # keeps it out of the file without inventing ambiguous semantics.
+        doc_date_ged = _to_gedcom_date(doc.get("document_date"))
+        if doc_date_ged:
+            L(f"1 _DATE {doc_date_ged}")
+        if doc.get("description"):
+            note_lines = doc["description"].splitlines()
             L(f"1 NOTE {note_lines[0]}")
             for cont in note_lines[1:]:
                 L(f"2 CONT {cont}")
+        for f in files_by_document.get(doc["id"], []):
+            if not f.get("url"):
+                continue
+            L("1 OBJE")
+            L(f"2 FILE {f['url']}")
+            if f.get("mime_type"):
+                L(f"3 FORM {f['mime_type']}")
+            if f.get("filename"):
+                L(f"2 TITL {f['filename']}")
 
     # --- SUBM record (required by the header reference) ---------------------
     L(f"0 {SUBMITTER_XREF} SUBM")

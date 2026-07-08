@@ -19,8 +19,9 @@ const DYNAMIC_KEY_PREFIXES = [
   "quality-report-view.severity-",
   // t(`role-${database.role}`)  — DatabaseManagementView
   "database-management-view.role-",
-  // t(`attachments.error-${err}`)  — StoryDialog (keyPrefix: sheet.member-sheet.stories.dialog)
-  "sheet.member-sheet.stories.dialog.attachments.error-",
+  // t(`files.error-${err}`), t(`files.error-quota-${bucket}`)  — DocumentDialog
+  //   (keyPrefix: sheet.member-sheet.documents.dialog)
+  "sheet.member-sheet.documents.dialog.files.error-",
   // t(`state-${state}`), t(`names.${flag.name}`), t(`descriptions.${flag.name}`)
   //   — FeatureFlagsPanel (keyPrefix: admin.features)
   "admin.features.state-",

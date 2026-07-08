@@ -103,10 +103,11 @@ describe("useEventStore — addEvent", () => {
 });
 
 describe("useEventStore — updateEvent", () => {
-  it("calls TreeService.updateEvent and setEventLinks then refreshes", async () => {
+  it("calls TreeService.updateEvent, setEventLinks and setEventDocuments then refreshes", async () => {
     useTreeStore.setState({ selectedTree: makeTree() });
     vi.mocked(TreeService.updateEvent).mockResolvedValue(undefined);
     vi.mocked(TreeService.setEventLinks).mockResolvedValue(undefined);
+    vi.mocked(TreeService.setEventDocuments).mockResolvedValue(undefined);
     vi.mocked(TreeService.getEvents).mockResolvedValue([]);
     vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
 
@@ -119,6 +120,7 @@ describe("useEventStore — updateEvent", () => {
         description: null,
       },
       ["m2"],
+      ["doc-1"],
     );
 
     expect(TreeService.updateEvent).toHaveBeenCalledWith(
@@ -129,6 +131,26 @@ describe("useEventStore — updateEvent", () => {
     expect(TreeService.setEventLinks).toHaveBeenCalledWith(TREE_ID, "ev1", [
       "m2",
     ]);
+    expect(TreeService.setEventDocuments).toHaveBeenCalledWith(TREE_ID, "ev1", [
+      "doc-1",
+    ]);
+  });
+});
+
+describe("useEventStore — setEventDocuments", () => {
+  it("calls TreeService.setEventDocuments then refreshes", async () => {
+    useTreeStore.setState({ selectedTree: makeTree() });
+    vi.mocked(TreeService.setEventDocuments).mockResolvedValue(undefined);
+    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
+    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+
+    await useEventStore.getState().setEventDocuments("ev1", ["doc-1", "doc-2"]);
+
+    expect(TreeService.setEventDocuments).toHaveBeenCalledWith(TREE_ID, "ev1", [
+      "doc-1",
+      "doc-2",
+    ]);
+    expect(TreeService.getEvents).toHaveBeenCalled();
   });
 });
 

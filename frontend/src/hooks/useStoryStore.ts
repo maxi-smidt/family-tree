@@ -1,16 +1,8 @@
 import { create } from "zustand";
-import {
-  AttachmentOps,
-  Story,
-  StoryInput,
-  mapStoryFromDB,
-} from "@/types/story";
+import { Story, StoryInput, mapStoryFromDB } from "@/types/story";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
-import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
-
-const NO_OPS: AttachmentOps = { added: [], removedIds: [], renamed: [] };
 
 interface StoryState {
   stories: Story[];
@@ -20,37 +12,17 @@ interface StoryState {
   addStory: (
     memberIds: string[],
     story: StoryInput,
-    attachments?: AttachmentOps,
+    documentIds?: string[],
   ) => Promise<void>;
   updateStory: (
     id: string,
     story: StoryInput,
     memberIds: string[],
-    attachments?: AttachmentOps,
+    documentIds?: string[],
   ) => Promise<void>;
   removeStory: (id: string) => Promise<void>;
+  setStoryDocuments: (id: string, documentIds: string[]) => Promise<void>;
   clear: () => void;
-}
-
-async function applyAttachmentOps(
-  treeId: string,
-  storyId: string,
-  ops: AttachmentOps,
-) {
-  for (const id of ops.removedIds) {
-    await TreeService.removeStoryAttachment(treeId, storyId, id);
-  }
-  for (const { id, filename } of ops.renamed) {
-    await TreeService.updateStoryAttachment(treeId, storyId, id, filename);
-  }
-  for (const att of ops.added) {
-    await TreeService.addStoryAttachment(
-      treeId,
-      storyId,
-      att.filename,
-      att.dataUrl,
-    );
-  }
 }
 
 export const useStoryStore = create<StoryState>((set, get) => ({
@@ -93,7 +65,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
   addStory: async (
     memberIds: string[],
     story: StoryInput,
-    attachments: AttachmentOps = NO_OPS,
+    documentIds: string[] = [],
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
@@ -102,12 +74,11 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     const now = new Date().toISOString();
 
     await TreeService.addStory(treeId, id, story, now, memberIds);
-
-    await applyAttachmentOps(treeId, id, attachments);
+    if (documentIds.length > 0) {
+      await TreeService.setStoryDocuments(treeId, id, documentIds);
+    }
 
     await get().refreshStories(treeId);
-    if (attachments.added.length > 0)
-      useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
 
@@ -115,7 +86,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     id: string,
     story: StoryInput,
     memberIds: string[],
-    attachments: AttachmentOps = NO_OPS,
+    documentIds: string[] = [],
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
@@ -123,12 +94,9 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     const now = new Date().toISOString();
     await TreeService.updateStory(treeId, id, story, now);
     await TreeService.setStoryLinks(treeId, id, memberIds);
-
-    await applyAttachmentOps(treeId, id, attachments);
+    await TreeService.setStoryDocuments(treeId, id, documentIds);
 
     await get().refreshStories(treeId);
-    if (attachments.added.length > 0 || attachments.removedIds.length > 0)
-      useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
 
@@ -138,7 +106,15 @@ export const useStoryStore = create<StoryState>((set, get) => ({
 
     await TreeService.removeStory(treeId, id);
     await get().refreshStories(treeId);
-    useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
+  },
+
+  setStoryDocuments: async (id: string, documentIds: string[]) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    await TreeService.setStoryDocuments(treeId, id, documentIds);
+    await get().refreshStories(treeId);
     invalidateActivityView();
   },
 

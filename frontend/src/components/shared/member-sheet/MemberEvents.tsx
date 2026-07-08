@@ -9,6 +9,7 @@ import { formatDateWithFallback } from "@/utils/dateUtils";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { LinkedDocumentList } from "./LinkedDocumentList";
 
 type Props = {
   member: Member;
@@ -85,6 +86,7 @@ export const MemberEvents = ({ member }: Props) => {
                       {event.description && (
                         <p className="text-sm mt-2">{event.description}</p>
                       )}
+                      <LinkedDocumentList documentIds={event.documentIds} />
                     </div>
                     <div className="flex gap-1">
                       <Button

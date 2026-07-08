@@ -6,6 +6,7 @@ from app.api.routes import (
     activity,
     auth,
     backups,
+    documents,
     events,
     export_import,
     features,
@@ -22,7 +23,6 @@ from app.api.routes import (
     quality,
     relation_types,
     settings,
-    sources,
     sse,
     statistics,
     stories,
@@ -53,7 +53,7 @@ api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)
 api_router.include_router(stories.router)
-api_router.include_router(sources.router)
+api_router.include_router(documents.router)
 api_router.include_router(activity.router)
 api_router.include_router(quality.router)
 api_router.include_router(statistics.router)

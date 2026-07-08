@@ -27,8 +27,11 @@ from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.db.session import SessionLocal, get_db
 from app.models import (
-    Citation,
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
@@ -36,10 +39,8 @@ from app.models import (
     MemberDisease,
     Relation,
     RelationType,
-    Source,
-    SourceEvidence,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
     Tree,
     User,
@@ -123,14 +124,11 @@ def export_tree(
     gallery = _rows(db, GalleryImage, tree.id)
     for g in gallery:
         g["image_data"] = media_url_to_data_url(g.get("image_data"))
-    story_attachments = _rows(db, StoryAttachment, tree.id)
-    for a in story_attachments:
-        a["url"] = media_url_to_data_url(a.get("url"))
 
-    source_evidence = _rows(db, SourceEvidence, tree.id)
-    for ev in source_evidence:
-        if ev.get("kind") == "file":
-            ev["url"] = media_url_to_data_url(ev.get("url"))
+    document_files = _rows(db, DocumentFile, tree.id)
+    for f in document_files:
+        if f.get("kind") == "file":
+            f["url"] = media_url_to_data_url(f.get("url"))
 
     bundle = {
         "version": BUNDLE_VERSION,
@@ -152,10 +150,11 @@ def export_tree(
         "event_links": _link_rows(db, EventMemberLink, Event, tree.id),
         "stories": _rows(db, Story, tree.id),
         "story_links": _link_rows(db, StoryMemberLink, Story, tree.id),
-        "story_attachments": story_attachments,
-        "sources": _rows(db, Source, tree.id),
-        "source_evidence": source_evidence,
-        "citations": _rows(db, Citation, tree.id),
+        "documents": _rows(db, Document, tree.id),
+        "document_files": document_files,
+        "document_member_links": _document_link_rows(db, DocumentMemberLink, tree.id),
+        "event_document_links": _document_link_rows(db, EventDocumentLink, tree.id),
+        "story_document_links": _document_link_rows(db, StoryDocumentLink, tree.id),
     }
 
     blob = crypto_export.encrypt_bundle(bundle, password or None)
@@ -177,6 +176,21 @@ def _link_rows(db: Session, link_model, parent_model, tree_id: str) -> list[dict
         select(link_model)
         .join(parent_model, parent_model.id == getattr(link_model, parent_id_col))
         .where(parent_model.tree_id == tree_id)
+    ).all()
+    cols = [c.key for c in sa_inspect(link_model).mapper.column_attrs]
+    return [{c: getattr(i, c) for c in cols} for i in items]
+
+
+def _document_link_rows(db: Session, link_model, tree_id: str) -> list[dict]:
+    """Rows of a document_id-keyed link table (member/event/story) scoped to
+    *tree_id* via the Document side — every such link table has a
+    ``document_id`` column and Document always carries ``tree_id``."""
+    from sqlalchemy import inspect as sa_inspect
+
+    items = db.scalars(
+        select(link_model)
+        .join(Document, Document.id == link_model.document_id)
+        .where(Document.tree_id == tree_id)
     ).all()
     cols = [c.key for c in sa_inspect(link_model).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]
@@ -349,85 +363,52 @@ def _do_import(
             db.add(Story(tree_id=tree.id, **data))
         _import_links(db, bundle.get("story_links", []), StoryMemberLink,
                       "story_id", story_map, member_map)
-
         db.flush()
-        for row in bundle.get("story_attachments", []):
-            story_id = story_map.get(row.get("story_id"))
-            if story_id is None:
-                continue
-            try:
-                url, mime, size = store_document(
-                    tree.id, row["filename"], row["url"], media_limits
-                )
-            except ValueError:
-                continue
-            db.add(
-                StoryAttachment(
-                    id=str(uuid4()),
-                    tree_id=tree.id,
-                    story_id=story_id,
-                    filename=row["filename"],
-                    url=url,
-                    mime_type=mime,
-                    size=size,
-                    created_at=row.get("created_at") or utcnow_iso(),
-                )
-            )
-        progress_cb(86)
+        progress_cb(84)
 
-        source_map = _remap(bundle.get("sources", []))
-        for row in bundle.get("sources", []):
+        document_map = _remap(bundle.get("documents", []))
+        for row in bundle.get("documents", []):
             data = dict(row)
             data.pop("tree_id", None)
-            data["id"] = source_map[row["id"]]
-            db.add(Source(tree_id=tree.id, **data))
-        db.flush()
+            data["id"] = document_map[row["id"]]
+            db.add(Document(tree_id=tree.id, **data))
+        db.flush()  # documents before their files/links
 
-        for row in bundle.get("source_evidence", []):
-            source_id = source_map.get(row.get("source_id"))
-            if source_id is None:
+        for row in bundle.get("document_files", []):
+            document_id = document_map.get(row.get("document_id"))
+            if document_id is None:
                 continue
-            ev_url = row.get("url", "")
-            ev_mime = row.get("mime_type")
-            ev_size = row.get("size")
+            file_url = row.get("url", "")
+            file_mime = row.get("mime_type")
+            file_size = row.get("size")
             if row.get("kind") == "file":
                 try:
-                    ev_url, ev_mime, ev_size = store_document(
-                        tree.id, row.get("filename", "file"), ev_url, media_limits,
+                    file_url, file_mime, file_size = store_document(
+                        tree.id, row.get("filename") or "file", file_url, media_limits,
                     )
                 except ValueError:
                     continue
             db.add(
-                SourceEvidence(
+                DocumentFile(
                     id=str(uuid4()),
                     tree_id=tree.id,
-                    source_id=source_id,
+                    document_id=document_id,
                     kind=row.get("kind", "link"),
                     filename=row.get("filename"),
-                    url=ev_url,
-                    mime_type=ev_mime,
-                    size=ev_size,
+                    url=file_url,
+                    mime_type=file_mime,
+                    size=file_size,
                     created_at=row.get("created_at") or utcnow_iso(),
                 )
             )
+        progress_cb(87)
 
-        for row in bundle.get("citations", []):
-            source_id = source_map.get(row.get("source_id"))
-            member_id = member_map.get(row.get("member_id"))
-            if source_id is None or member_id is None:
-                continue
-            db.add(
-                Citation(
-                    id=str(uuid4()),
-                    tree_id=tree.id,
-                    source_id=source_id,
-                    member_id=member_id,
-                    fact_type=row.get("fact_type", "general"),
-                    page=row.get("page"),
-                    detail=row.get("detail"),
-                    created_at=row.get("created_at") or utcnow_iso(),
-                )
-            )
+        _import_links(db, bundle.get("document_member_links", []),
+                      DocumentMemberLink, "document_id", document_map, member_map)
+        _import_doc_links(db, bundle.get("event_document_links", []),
+                          EventDocumentLink, "event_id", event_map, document_map)
+        _import_doc_links(db, bundle.get("story_document_links", []),
+                          StoryDocumentLink, "story_id", story_map, document_map)
         progress_cb(90)
 
         _enforce_import_quota(db, tree)
@@ -489,6 +470,24 @@ def _import_links(db, links, model, parent_key, parent_map, member_map):
             )
 
 
+def _import_doc_links(db, links, model, parent_key, parent_map, document_map):
+    """Like ``_import_links`` but for the document_id-keyed link tables
+    (event_document_link / story_document_link)."""
+    db.flush()
+    for row in links:
+        parent_old = row[parent_key]
+        document_old = row["document_id"]
+        if parent_old in parent_map and document_old in document_map:
+            db.add(
+                model(
+                    **{
+                        parent_key: parent_map[parent_old],
+                        "document_id": document_map[document_old],
+                    }
+                )
+            )
+
+
 # ---------------------------------------------------------------------------
 # GEDCOM export / import
 # ---------------------------------------------------------------------------
@@ -505,13 +504,17 @@ def export_tree_gedcom(
     """Export the tree as a plain-text GEDCOM 5.5.1 file."""
     members = _rows(db, Member, tree.id)
     relations = _rows(db, Relation, tree.id)
-    sources_ged = _rows(db, Source, tree.id)
-    citations_ged = _rows(db, Citation, tree.id)
+    documents_ged = _rows(db, Document, tree.id)
+    document_files_ged = [
+        f for f in _rows(db, DocumentFile, tree.id) if f.get("kind") == "file"
+    ]
+    citations_ged = _document_link_rows(db, DocumentMemberLink, tree.id)
     text = gedcom.serialize_to_gedcom(
         tree.name or "family-tree",
         members,
         relations,
-        sources=sources_ged,
+        documents=documents_ged,
+        document_files=document_files_ged,
         citations=citations_ged,
         app_version=settings.APP_VERSION,
     )
