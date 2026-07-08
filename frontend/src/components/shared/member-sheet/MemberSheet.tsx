@@ -151,6 +151,24 @@ export const MemberSheet = ({
       <SheetContent
         className="w-full max-w-full sm:w-135 sm:max-w-none"
         showCloseButton={false}
+        // The sheet has no close button; it is meant to close only on a click
+        // of its own backdrop or via Escape. Any other outside interaction —
+        // a nested Documents/Stories/Events dialog, its native file picker, or
+        // focus bouncing to the body as that dialog closes — must NOT dismiss
+        // it. Uploading a document via the nested dialog was closing the whole
+        // edit sheet; guard against every non-backdrop dismissal.
+        onInteractOutside={(e) => {
+          const target = e.detail.originalEvent.target as Element | null;
+          const clickedOwnOverlay = !!target?.closest(
+            '[data-slot="sheet-overlay"]',
+          );
+          const nestedDialogOpen = !!document.querySelector(
+            '[data-slot="dialog-content"]',
+          );
+          if (!clickedOwnOverlay || nestedDialogOpen) {
+            e.preventDefault();
+          }
+        }}
         onOpenAutoFocus={(e) => {
           if (isViewingEditMode) {
             e.preventDefault();
