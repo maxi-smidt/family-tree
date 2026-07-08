@@ -18,6 +18,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
+import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
@@ -103,6 +104,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     visibleRelationTypes,
     viewports,
     setViewport,
+    showGenerationLines,
   } = useFamilyTreeSettings();
   const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
   const viewport = (activeTree && viewports[activeTree.id]) ?? DEFAULT_VIEWPORT;
@@ -594,6 +596,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         }}
       >
         <Background />
+        <GenerationLines visible={showGenerationLines} />
         {members.length === 0 && !isCanvasReadOnly && (
           <Panel
             position="top-center"
