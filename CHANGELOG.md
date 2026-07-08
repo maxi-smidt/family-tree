@@ -12,6 +12,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Added
 
 - Subtle horizontal ruled lines in the tree view background for vertical orientation — notebook-style, evenly spaced, and toggleable in the canvas controls (enabled by default).
+- Fast Mode: add a child directly to both parents from their union node (#595).
 - **Documents**: a reusable document bundles one or more files (or external links) with a title, date, notes, and the people it mentions, and appears on every mentioned person's profile. Events and stories can link documents directly — and create them inline — so a scan or record can be attached once and referenced from multiple places (#594).
 
 ### Changed

@@ -305,6 +305,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 connection.isConnectionMode &&
                 connection.hasConnectionPath &&
                 !isUnionConnectionPath,
+              onAddChildToUnion: pending.onAddChildToUnion,
+              isReadOnly: isCanvasReadOnly,
             },
             draggable: false,
             selectable: false,
@@ -355,6 +357,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       connection.hasConnectionPath,
       connection.isConnectionMode,
       hiddenNodeIds,
+      pending.onAddChildToUnion,
+      isCanvasReadOnly,
     ],
   );
 

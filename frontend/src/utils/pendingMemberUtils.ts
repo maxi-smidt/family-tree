@@ -3,7 +3,8 @@ import { RelationType } from "@/types/member";
 export type PendingRelation =
   | { type: "child-of"; parentId: string }
   | { type: "parent-of"; childId: string }
-  | { type: "related"; sourceId: string; relationType: RelationType };
+  | { type: "related"; sourceId: string; relationType: RelationType }
+  | { type: "child-of-union"; parent1Id: string; parent2Id: string };
 
 export type MemberPlacement = "child" | "parent" | "left" | "right";
 
