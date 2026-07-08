@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- Fast Mode: add a child directly to both parents from their union node (#595).
+
 ### Fixed
 
 - Member name search now works in the Events and Stories dialogs and the gallery image sheet, where typing a name previously returned no results (#592).
