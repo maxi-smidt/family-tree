@@ -304,6 +304,9 @@ export const DocumentDialog = ({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    // Stop the submit from bubbling through the portal to the surrounding
+    // member-edit form, which would save the member and close the sheet.
+    e.stopPropagation();
     void save();
   };
 
