@@ -9,6 +9,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Added
+
+- Subtle horizontal generation lines in the tree view that align with each generation tier, with a toggle in the canvas controls (enabled by default).
+
 ### Fixed
 
 - Member name search now works in the Events and Stories dialogs and the gallery image sheet, where typing a name previously returned no results (#592).
