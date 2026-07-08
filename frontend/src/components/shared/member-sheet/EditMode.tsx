@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { GeocodeHint } from "@/components/shared/GeocodeHint";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
@@ -552,6 +553,10 @@ export const EditMode = ({
                     placeholder={t("location-placeholder")}
                     onChange={(e) => handleChange("birthplace", e.target.value)}
                   />
+                  <GeocodeHint
+                    location={formData.birthplace}
+                    enabled={mapEnabled}
+                  />
                 </Field>
               </div>
 
@@ -618,6 +623,7 @@ export const EditMode = ({
                           handleChange("hometown", e.target.value)
                         }
                       />
+                      <GeocodeHint location={formData.hometown} />
                     </Field>
                   )}
                 </div>
@@ -635,6 +641,7 @@ export const EditMode = ({
                     placeholder={t("location-placeholder")}
                     onChange={(e) => handleChange("cemetery", e.target.value)}
                   />
+                  <GeocodeHint location={formData.cemetery} />
                 </Field>
               )}
 
@@ -650,6 +657,7 @@ export const EditMode = ({
                     placeholder={t("location-placeholder")}
                     onChange={(e) => handleChange("hometown", e.target.value)}
                   />
+                  <GeocodeHint location={formData.hometown} />
                 </Field>
               )}
 
@@ -708,6 +716,7 @@ export const EditMode = ({
                             <Trash2 className="size-3.5" />
                           </button>
                         </div>
+                        <GeocodeHint location={place.location} />
                         <div className="flex gap-1">
                           <Input
                             value={place.from || ""}

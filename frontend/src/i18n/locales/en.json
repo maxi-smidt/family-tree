@@ -655,10 +655,7 @@
           "update": "Update",
           "add": "Add",
           "custom": "Custom...",
-          "custom-placeholder": "e.g., Graduation, Migration, Confirmation",
-          "location-checking": "Checking address...",
-          "location-found": "Address found",
-          "location-not-found": "Address not found — won't appear on map"
+          "custom-placeholder": "e.g., Graduation, Migration, Confirmation"
         }
       },
       "stories": {
@@ -1342,7 +1339,12 @@
     "clear-date": "Clear date",
     "date-input-hint": "MM/DD/YYYY",
     "open-date-picker": "Open date picker",
-    "nee": "née {{name}}"
+    "nee": "née {{name}}",
+    "geocode": {
+      "checking": "Checking address...",
+      "found": "Address found",
+      "not-found": "Address not found — won't appear on map"
+    }
   },
   "auth": {
     "session": {
