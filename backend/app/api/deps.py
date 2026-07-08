@@ -1,11 +1,11 @@
 """Shared FastAPI dependencies: authentication and tree authorization."""
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, decode_public_tree_token
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
 
@@ -142,8 +142,26 @@ def get_current_user_optional(
     return user
 
 
+def _public_access_ok(tree: Tree, public_token: str | None) -> bool:
+    """True if the tree needs no public password, or the supplied unlock token
+    is valid for this tree."""
+    if not tree.public_password_hash:
+        return True
+    if not public_token:
+        return False
+    try:
+        return decode_public_tree_token(public_token) == tree.id
+    except Exception:  # noqa: BLE001 - any decode failure means no access
+        return False
+
+
 def _resolve_tree(
-    db: Session, tree_id: str, user: User | None, *, write: bool
+    db: Session,
+    tree_id: str,
+    user: User | None,
+    *,
+    write: bool,
+    public_token: str | None = None,
 ) -> Tree:
     tree = db.get(Tree, tree_id)
     if tree is None:
@@ -152,6 +170,12 @@ def _resolve_tree(
     if user is None:
         # Anonymous requests succeed only for public read-only trees.
         if not write and tree.public_role == "viewer":
+            if not _public_access_ok(tree, public_token):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="public_password_required",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             return tree
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -169,6 +193,12 @@ def _resolve_tree(
     role = role_for(db, tree, user)
     if role is None:
         if not write and tree.public_role == "viewer":
+            if not _public_access_ok(tree, public_token):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="public_password_required",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
             return tree
         raise HTTPException(status_code=403, detail="No access to this tree")
     if write and role == "viewer":
@@ -188,9 +218,10 @@ def get_readable_tree_public(
     tree_id: str,
     user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
+    public_token: str | None = Header(None, alias="X-Public-Tree-Token"),
 ) -> Tree:
     """Like get_readable_tree but allows anonymous access to public trees."""
-    return _resolve_tree(db, tree_id, user, write=False)
+    return _resolve_tree(db, tree_id, user, write=False, public_token=public_token)
 
 
 def get_writable_tree(

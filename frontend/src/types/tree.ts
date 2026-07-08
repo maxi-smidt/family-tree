@@ -23,6 +23,8 @@ export interface Tree {
   shared_count?: number;
   // null = private; "viewer" = public read-only.
   public_role?: "viewer" | null;
+  // True when the public tree requires a password (the hash is never sent).
+  public_password_protected?: boolean;
   // Domains the current user may not see. Empty for owner/admin.
   restrictions?: string[];
   // Set on virtual views returned by /virtual-views.

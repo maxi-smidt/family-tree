@@ -79,6 +79,34 @@ def decode_totp_session_token(token: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Public-tree unlock tokens (short-lived JWTs proving a visitor entered the
+# correct password for a password-protected public tree).
+# ---------------------------------------------------------------------------
+
+_PUBLIC_TREE_PHASE = "public_tree"
+_PUBLIC_TREE_TOKEN_HOURS = 12
+
+
+def create_public_tree_token(tree_id: str) -> str:
+    expire = datetime.now(UTC) + timedelta(hours=_PUBLIC_TREE_TOKEN_HOURS)
+    payload = {
+        "sub": tree_id,
+        "exp": expire,
+        "iat": datetime.now(UTC),
+        "phase": _PUBLIC_TREE_PHASE,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def decode_public_tree_token(token: str) -> str:
+    """Validate a public-tree unlock token; return the tree id or raise."""
+    data = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    if data.get("phase") != _PUBLIC_TREE_PHASE:
+        raise jwt.InvalidTokenError("Not a public-tree token")
+    return data["sub"]
+
+
+# ---------------------------------------------------------------------------
 # TOTP / recovery-code helpers
 # ---------------------------------------------------------------------------
 
