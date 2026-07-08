@@ -693,6 +693,7 @@
         "title": "Documents",
         "add": "Add",
         "no-documents": "No documents yet",
+        "open-hint": "Double-click to open",
         "delete-dialog": {
           "title": "Delete Document",
           "description": "Are you sure you want to delete this document and its files? This action cannot be undone.",
@@ -727,6 +728,9 @@
             "add-link": "Add link",
             "empty": "No files yet",
             "new": "New",
+            "uploading": "Uploading {{done}} of {{total}}…",
+            "status-done": "Uploaded",
+            "status-queued": "Queued",
             "download": "Download",
             "remove": "Remove",
             "filename": "File name",

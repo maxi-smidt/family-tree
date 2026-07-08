@@ -6,9 +6,11 @@ import {
   FileSpreadsheet,
   FileText,
 } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
+import { Spinner } from "@/components/ui/spinner";
 import { downloadMedia, openMedia } from "@/hooks/useMediaUrl";
 import { DocumentFile } from "@/types/document";
 import {
@@ -71,11 +73,15 @@ export const DocumentFileList = ({ files }: { files: DocumentFile[] }) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.file",
   });
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   if (!files.length) return null;
 
   const open = (f: DocumentFile) => {
-    void openMedia(f.url).catch(() => toast.error(t("error-open")));
+    setOpeningId(f.id);
+    void openMedia(f.url)
+      .catch(() => toast.error(t("error-open")))
+      .finally(() => setOpeningId(null));
   };
   const download = (f: DocumentFile) => {
     void downloadMedia(f.url, f.filename ?? "file").catch(() =>
@@ -106,10 +112,12 @@ export const DocumentFileList = ({ files }: { files: DocumentFile[] }) => {
               className="flex items-center gap-2 min-w-0 flex-1 hover:underline text-left"
               title={f.filename ?? ""}
             >
-              {isImageAttachment({
-                filename: f.filename ?? "",
-                mimeType: f.mimeType,
-              }) ? (
+              {openingId === f.id ? (
+                <Spinner className="w-4 h-4 text-muted-foreground shrink-0" />
+              ) : isImageAttachment({
+                  filename: f.filename ?? "",
+                  mimeType: f.mimeType,
+                }) ? (
                 <AuthenticatedImage
                   src={f.url}
                   alt={f.filename ?? ""}
