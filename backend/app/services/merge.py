@@ -24,7 +24,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import role_for
 from app.db.base import utcnow_iso
 from app.models import (
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
@@ -32,7 +36,7 @@ from app.models import (
     MemberDisease,
     Relation,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
     Tree,
     User,
@@ -673,27 +677,89 @@ def merge_trees(
                 seen_story_links.add((st, mid))
                 db.add(StoryMemberLink(story_id=st, member_id=mid))
 
-    # --- Story attachments (copy files into the new tree) ------------------
+    # --- Documents + files + links -----------------------------------------
+    # Documents are reusable, tree-scoped content. Copy each source tree's
+    # documents (with their files) into the new tree and repoint the merged
+    # member/event/story links to the copies, so no link crosses a tree
+    # boundary.
+    document_map: dict[str, str] = {}
     for t in sources:
-        for att in db.scalars(
-            select(StoryAttachment).where(StoryAttachment.tree_id == t.id)
-        ):
-            st = story_map.get(att.story_id)
-            new_url = copy_media_to_tree(att.url, new_tree.id)
-            if st is None or new_url is None:
-                continue
+        for doc in db.scalars(select(Document).where(Document.tree_id == t.id)):
+            new_id = str(uuid4())
+            document_map[doc.id] = new_id
             db.add(
-                StoryAttachment(
-                    id=str(uuid4()),
+                Document(
+                    id=new_id,
                     tree_id=new_tree.id,
-                    story_id=st,
-                    filename=att.filename,
-                    url=new_url,
-                    mime_type=att.mime_type,
-                    size=att.size,
-                    created_at=att.created_at,
+                    title=doc.title,
+                    document_date=doc.document_date,
+                    description=doc.description,
+                    created_at=doc.created_at,
+                    updated_at=doc.updated_at,
                 )
             )
+    db.flush()  # documents before their files/links
+    for t in sources:
+        for f in db.scalars(
+            select(DocumentFile)
+            .join(Document, Document.id == DocumentFile.document_id)
+            .where(Document.tree_id == t.id)
+        ):
+            new_doc_id = document_map.get(f.document_id)
+            if new_doc_id is None:
+                continue
+            new_url = f.url
+            if f.kind == "file":
+                new_url = copy_media_to_tree(f.url, new_tree.id) or f.url
+            db.add(
+                DocumentFile(
+                    id=str(uuid4()),
+                    tree_id=new_tree.id,
+                    document_id=new_doc_id,
+                    kind=f.kind,
+                    filename=f.filename,
+                    url=new_url,
+                    mime_type=f.mime_type,
+                    size=f.size,
+                    created_at=f.created_at,
+                )
+            )
+    seen_doc_member_links: set[tuple] = set()
+    for t in sources:
+        for link in db.scalars(
+            select(DocumentMemberLink)
+            .join(Document, Document.id == DocumentMemberLink.document_id)
+            .where(Document.tree_id == t.id)
+        ):
+            nd = document_map.get(link.document_id)
+            mid = member_map.get(link.member_id)
+            if nd and mid and (nd, mid) not in seen_doc_member_links:
+                seen_doc_member_links.add((nd, mid))
+                db.add(DocumentMemberLink(document_id=nd, member_id=mid))
+    seen_event_doc_links: set[tuple] = set()
+    for t in sources:
+        for link in db.scalars(
+            select(EventDocumentLink)
+            .join(Document, Document.id == EventDocumentLink.document_id)
+            .where(Document.tree_id == t.id)
+        ):
+            ev = event_map.get(link.event_id)
+            nd = document_map.get(link.document_id)
+            if ev and nd and (ev, nd) not in seen_event_doc_links:
+                seen_event_doc_links.add((ev, nd))
+                db.add(EventDocumentLink(event_id=ev, document_id=nd))
+    seen_story_doc_links: set[tuple] = set()
+    for t in sources:
+        for link in db.scalars(
+            select(StoryDocumentLink)
+            .join(Document, Document.id == StoryDocumentLink.document_id)
+            .where(Document.tree_id == t.id)
+        ):
+            st = story_map.get(link.story_id)
+            nd = document_map.get(link.document_id)
+            if st and nd and (st, nd) not in seen_story_doc_links:
+                seen_story_doc_links.add((st, nd))
+                db.add(StoryDocumentLink(story_id=st, document_id=nd))
 
     _progress(95)
     record_activity(

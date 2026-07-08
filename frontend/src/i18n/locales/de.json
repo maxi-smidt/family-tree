@@ -124,7 +124,7 @@
       "children": "Kinder",
       "siblings": "Geschwister",
       "life-events": "Lebensereignisse",
-      "stories": "Dokumente & Geschichten",
+      "stories": "Geschichten",
       "diseases": "Genetische Erkrankungen",
       "images": "Verlinkte Bilder"
     },
@@ -596,11 +596,11 @@
       "linked-images-fallback": "Noch keine Bilder mit dieser Person verlinkt.",
       "life-events": "Lebensereignisse",
       "no-events": "Keine Ereignisse erfasst",
-      "stories": "Dokumente & Geschichten",
+      "stories": "Geschichten",
       "no-stories": "Noch nichts gespeichert",
       "genetic-conditions": "Genetische Erkrankungen",
       "no-conditions": "Keine Erkrankungen erfasst",
-      "sources": "Quellennachweise",
+      "documents": "Dokumente",
       "locations-section": "Orte",
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
@@ -662,18 +662,14 @@
         }
       },
       "stories": {
-        "title": "Dokumente & Geschichten",
+        "title": "Geschichten",
         "add": "Hinzufügen",
         "no-stories": "Noch nichts gespeichert",
         "show-less": "Weniger anzeigen",
         "read-more": "Mehr lesen",
-        "attachments": {
-          "download": "Herunterladen",
-          "error-open": "Datei konnte nicht geöffnet werden."
-        },
         "delete-dialog": {
           "title": "Eintrag löschen",
-          "description": "Bist du dir sicher, dass dieser Eintrag und seine Dateien gelöscht werden sollen? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "description": "Bist du dir sicher, dass dieser Eintrag gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
           "cancel": "Abbrechen",
           "delete": "Löschen"
         },
@@ -684,17 +680,59 @@
           "linked-members-placeholder": "Wähle Personen...",
           "linked-members-description": "Wähle eine oder mehrere Personen um die es in diesem Eintrag geht",
           "title": "Titel",
-          "title-placeholder": "z.B. Frühes Leben, Geburtsurkunde, Kriegsjahre",
+          "title-placeholder": "z.B. Frühes Leben, Kriegsjahre",
           "story": "Notizen",
           "story-placeholder": "Schreibe hier eine Geschichte, Biografie oder beliebige Notizen...",
-          "attachments": {
+          "error-save": "Geschichte konnte nicht gespeichert werden.",
+          "cancel": "Abbrechen",
+          "update": "Aktualisieren",
+          "add": "Hinzufügen"
+        }
+      },
+      "documents": {
+        "title": "Dokumente",
+        "add": "Hinzufügen",
+        "no-documents": "Noch keine Dokumente",
+        "delete-dialog": {
+          "title": "Dokument löschen",
+          "description": "Möchtest du dieses Dokument und seine Dateien wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "cancel": "Abbrechen",
+          "delete": "Löschen"
+        },
+        "file": {
+          "download": "Herunterladen",
+          "error-open": "Datei konnte nicht geöffnet werden."
+        },
+        "linked": {
+          "label": "Verlinkte Dokumente",
+          "placeholder": "Dokumente auswählen...",
+          "create": "Dokument erstellen",
+          "empty": "Noch keine Dokumente"
+        },
+        "dialog": {
+          "add-title": "Dokument hinzufügen",
+          "edit-title": "Dokument bearbeiten",
+          "title": "Titel",
+          "title-placeholder": "z.B. Geburtsurkunde, Volkszählung 1920",
+          "description": "Beschreibung",
+          "description-placeholder": "Notizen zu diesem Dokument...",
+          "date": "Datum",
+          "date-placeholder": "z.B. 1920 oder 1920-05",
+          "people-mentioned": "Erwähnte Personen",
+          "people-mentioned-placeholder": "Personen auswählen...",
+          "people-mentioned-description": "Wähle eine oder mehrere Personen um die es in diesem Dokument geht",
+          "files": {
             "heading": "Dateien",
-            "add": "Datei hinzufügen",
-            "empty": "Noch keine Dateien angehängt",
+            "add-file": "Datei hinzufügen",
+            "add-link": "Link hinzufügen",
+            "empty": "Noch keine Dateien",
             "new": "Neu",
             "download": "Herunterladen",
-            "remove": "Datei entfernen",
+            "remove": "Entfernen",
             "filename": "Dateiname",
+            "link-url-placeholder": "https://...",
+            "link-label-placeholder": "Bezeichnung (optional)",
+            "link-add": "Hinzufügen",
             "hint": "Bilder, PDF und Dokumente bis {{max}}.",
             "hint-without-limit": "Bilder, PDF und Dokumente.",
             "error-type": "Nicht unterstützter Dateityp",
@@ -702,65 +740,11 @@
             "error-quota-media": "Medienspeicher-Kontingent überschritten.",
             "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
             "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
-            "error-save": "Geschichte konnte nicht gespeichert werden.",
             "error-open": "Datei konnte nicht geöffnet werden."
           },
           "cancel": "Abbrechen",
-          "update": "Aktualisieren",
-          "add": "Hinzufügen"
-        }
-      },
-      "sources": {
-        "title": "Quellennachweise",
-        "add": "Hinzufügen",
-        "no-citations": "Noch keine Quellennachweise",
-        "delete-dialog": {
-          "title": "Nachweis entfernen",
-          "description": "Möchtest du diesen Nachweis wirklich entfernen? Der Quelldatensatz selbst wird nicht gelöscht.",
-          "cancel": "Abbrechen",
-          "delete": "Entfernen"
-        },
-        "fact": {
-          "name": "Name",
-          "birth": "Geburt",
-          "death": "Tod",
-          "birthplace": "Geburtsort",
-          "hometown": "Heimatort",
-          "residence": "Wohnort",
-          "cemetery": "Friedhof",
-          "general": "Allgemein"
-        },
-        "dialog": {
-          "add-title": "Quellennachweis hinzufügen",
-          "edit-title": "Nachweis bearbeiten",
-          "source-label": "Quelle",
-          "source-placeholder": "Quelle auswählen...",
-          "source-search-placeholder": "Quellen suchen...",
-          "source-empty": "Keine Quellen gefunden",
-          "source-new": "Neue Quelle erstellen...",
-          "source-title": "Titel",
-          "source-title-placeholder": "z.B. Volkszählung 1920, Geburtsurkunde",
-          "author": "Autor",
-          "author-placeholder": "z.B. Max Mustermann",
-          "repository": "Archiv / Ablageort",
-          "repository-placeholder": "z.B. Bundesarchiv",
-          "source-date": "Datum",
-          "notes": "Notizen",
-          "notes-placeholder": "Zusätzliche Notizen zu dieser Quelle",
-          "fact-type": "Belegtes Merkmal",
-          "page": "Seite / Folio",
-          "page-placeholder": "z.B. S. 42, Rolle 123",
-          "detail": "Transkription / Detail",
-          "detail-placeholder": "Relevante Passage zitieren oder Kontext hinzufügen",
-          "evidence": "Belege",
-          "evidence-hint": "Füge den eigentlichen Beleg für diesen Nachweis hinzu – z. B. ein eingescanntes Dokument, ein Volkszählungsbild oder einen Link zu einem Online-Archiveintrag.",
-          "add-file": "Datei anhängen",
-          "add-link": "Link hinzufügen",
-          "link-url-placeholder": "https://...",
-          "link-label-placeholder": "Bezeichnung (optional)",
-          "link-add": "Hinzufügen",
           "save": "Speichern",
-          "cancel": "Abbrechen"
+          "error-save": "Dokument konnte nicht gespeichert werden."
         }
       },
       "diseases": {
@@ -1541,13 +1525,13 @@
         "gedcom": "GEDCOM-Import/-Export",
         "sharing_invites": "Einladungen teilen",
         "map": "Kartenansicht",
-        "sources": "Quellen & Zitate",
+        "sources": "Dokumente",
         "onboarding_tour": "Onboarding-Tour",
         "tree_links": "Baum-im-Baum-Verknüpfungen"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
-        "stories": "Geschichten und Anhänge bei Mitgliedern.",
+        "stories": "Geschichten und Biografien bei Mitgliedern.",
         "events": "Lebensereignisse und die Zeitstrahl-Ansicht.",
         "activity_log": "Protokoll der letzten Änderungen pro Stammbaum.",
         "quality_report": "Datenqualitätsprüfungen pro Stammbaum.",
@@ -1556,7 +1540,7 @@
         "gedcom": "Stammbäume als GEDCOM-Dateien importieren und exportieren.",
         "sharing_invites": "Einladungslinks, ablaufende Token und öffentlicher Lesezugriff auf Stammbäume.",
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
-        "sources": "Quellennachweise und Belege für Personendaten.",
+        "sources": "Wiederverwendbare Dokumente – Dateien und Links – verknüpft mit Personen, Ereignissen und Geschichten.",
         "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt.",
         "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen."
       }

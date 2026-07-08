@@ -5,7 +5,7 @@ import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { BookOpen, Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { StoryDialog } from "./StoryDialog";
-import { StoryAttachments } from "./StoryAttachments";
+import { LinkedDocumentList } from "./LinkedDocumentList";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
@@ -114,7 +114,7 @@ export const MemberStories = ({ member }: Props) => {
                     </Button>
                   )}
 
-                  <StoryAttachments attachments={story.attachments} />
+                  <LinkedDocumentList documentIds={story.documentIds} />
                 </div>
               );
             })}

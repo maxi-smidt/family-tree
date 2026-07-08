@@ -124,7 +124,7 @@
       "children": "Children",
       "siblings": "Siblings",
       "life-events": "Life Events",
-      "stories": "Documents & Stories",
+      "stories": "Stories",
       "diseases": "Genetic Conditions",
       "images": "Linked Images"
     },
@@ -596,11 +596,11 @@
       "linked-images-fallback": "No images linked to this person yet.",
       "life-events": "Life Events",
       "no-events": "No events recorded",
-      "stories": "Documents & Stories",
+      "stories": "Stories",
       "no-stories": "Nothing stored yet",
       "genetic-conditions": "Genetic Conditions",
       "no-conditions": "No conditions recorded",
-      "sources": "Source Citations",
+      "documents": "Documents",
       "locations-section": "Locations",
       "birthplace-label": "Birthplace",
       "hometown-label": "Hometown",
@@ -662,18 +662,14 @@
         }
       },
       "stories": {
-        "title": "Documents & Stories",
+        "title": "Stories",
         "add": "Add",
         "no-stories": "Nothing stored yet",
         "show-less": "Show less",
         "read-more": "Read more",
-        "attachments": {
-          "download": "Download",
-          "error-open": "Could not open the file."
-        },
         "delete-dialog": {
           "title": "Delete Entry",
-          "description": "Are you sure you want to delete this entry and its files? This action cannot be undone.",
+          "description": "Are you sure you want to delete this entry? This action cannot be undone.",
           "cancel": "Cancel",
           "delete": "Delete"
         },
@@ -684,17 +680,59 @@
           "linked-members-placeholder": "Select members...",
           "linked-members-description": "Select one or more family members this entry is about",
           "title": "Title",
-          "title-placeholder": "e.g., Early Life, Birth Certificate, War Years",
+          "title-placeholder": "e.g., Early Life, War Years",
           "story": "Notes",
           "story-placeholder": "Write a story, biography or any notes here...",
-          "attachments": {
+          "error-save": "Could not save the story.",
+          "cancel": "Cancel",
+          "update": "Update",
+          "add": "Add"
+        }
+      },
+      "documents": {
+        "title": "Documents",
+        "add": "Add",
+        "no-documents": "No documents yet",
+        "delete-dialog": {
+          "title": "Delete Document",
+          "description": "Are you sure you want to delete this document and its files? This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "file": {
+          "download": "Download",
+          "error-open": "Could not open the file."
+        },
+        "linked": {
+          "label": "Linked documents",
+          "placeholder": "Select documents...",
+          "create": "Create document",
+          "empty": "No documents yet"
+        },
+        "dialog": {
+          "add-title": "Add Document",
+          "edit-title": "Edit Document",
+          "title": "Title",
+          "title-placeholder": "e.g., Birth Certificate, 1920 US Census",
+          "description": "Description",
+          "description-placeholder": "Notes about this document...",
+          "date": "Date",
+          "date-placeholder": "e.g., 1920 or 1920-05",
+          "people-mentioned": "People mentioned",
+          "people-mentioned-placeholder": "Select people...",
+          "people-mentioned-description": "Select one or more people this document is about",
+          "files": {
             "heading": "Files",
-            "add": "Add file",
-            "empty": "No files attached yet",
+            "add-file": "Add file",
+            "add-link": "Add link",
+            "empty": "No files yet",
             "new": "New",
             "download": "Download",
-            "remove": "Remove file",
+            "remove": "Remove",
             "filename": "File name",
+            "link-url-placeholder": "https://...",
+            "link-label-placeholder": "Label (optional)",
+            "link-add": "Add",
             "hint": "Images, PDF and documents up to {{max}}.",
             "hint-without-limit": "Images, PDF and documents.",
             "error-type": "Unsupported file type",
@@ -702,65 +740,11 @@
             "error-quota-media": "Media storage quota exceeded.",
             "error-quota-tree": "Tree data quota exceeded.",
             "error-quota-total": "Total storage quota exceeded.",
-            "error-save": "Could not save the story.",
             "error-open": "Could not open the file."
           },
           "cancel": "Cancel",
-          "update": "Update",
-          "add": "Add"
-        }
-      },
-      "sources": {
-        "title": "Source Citations",
-        "add": "Add",
-        "no-citations": "No source citations yet",
-        "delete-dialog": {
-          "title": "Remove Citation",
-          "description": "Are you sure you want to remove this citation? The source record itself is not deleted.",
-          "cancel": "Cancel",
-          "delete": "Remove"
-        },
-        "fact": {
-          "name": "Name",
-          "birth": "Birth",
-          "death": "Death",
-          "birthplace": "Birthplace",
-          "hometown": "Hometown",
-          "residence": "Residence",
-          "cemetery": "Cemetery",
-          "general": "General"
-        },
-        "dialog": {
-          "add-title": "Add Source Citation",
-          "edit-title": "Edit Citation",
-          "source-label": "Source",
-          "source-placeholder": "Select a source...",
-          "source-search-placeholder": "Search sources...",
-          "source-empty": "No sources found",
-          "source-new": "Create new source...",
-          "source-title": "Title",
-          "source-title-placeholder": "e.g., 1920 US Census, Birth certificate",
-          "author": "Author",
-          "author-placeholder": "e.g., John Smith",
-          "repository": "Repository / Archive",
-          "repository-placeholder": "e.g., National Archives",
-          "source-date": "Date",
-          "notes": "Notes",
-          "notes-placeholder": "Additional notes about this source",
-          "fact-type": "Cited fact",
-          "page": "Page / Folio",
-          "page-placeholder": "e.g., p. 42, roll 123",
-          "detail": "Transcription / Detail",
-          "detail-placeholder": "Quote the relevant passage or add context",
-          "evidence": "Evidence",
-          "evidence-hint": "Attach the actual record this citation is based on — e.g. a scanned certificate, census image, or URL to an online database entry.",
-          "add-file": "Attach file",
-          "add-link": "Add link",
-          "link-url-placeholder": "https://...",
-          "link-label-placeholder": "Label (optional)",
-          "link-add": "Add",
           "save": "Save",
-          "cancel": "Cancel"
+          "error-save": "Could not save the document."
         }
       },
       "diseases": {
@@ -1541,13 +1525,13 @@
         "gedcom": "GEDCOM import/export",
         "sharing_invites": "Share invitations",
         "map": "Map view",
-        "sources": "Sources & Citations",
+        "sources": "Documents",
         "onboarding_tour": "Onboarding tour",
         "tree_links": "Tree-in-tree links"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
-        "stories": "Stories and attachments on members.",
+        "stories": "Stories and biographies on members.",
         "events": "Life events and the timeline view.",
         "activity_log": "Recent-changes log per tree.",
         "quality_report": "Data-quality checks per tree.",
@@ -1556,7 +1540,7 @@
         "gedcom": "Import and export trees as GEDCOM files.",
         "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
         "map": "Interactive map of timeline events by location.",
-        "sources": "Source citations and evidence records for member facts.",
+        "sources": "Reusable documents — files and links — linked to people, events and stories.",
         "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features.",
         "tree_links": "Link a member to another tree that details their own family, and navigate between them."
       }

@@ -27,7 +27,11 @@ from sqlalchemy.orm import Session
 from app.api.deps import role_for
 from app.db.base import utcnow_iso
 from app.models import (
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
@@ -35,7 +39,7 @@ from app.models import (
     MemberDisease,
     Relation,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
     Tree,
     User,
@@ -47,7 +51,11 @@ from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback
 from app.services.merge import _clone_member, _wire_bridge
-from app.services.storage import media_disk_usage, move_media_to_tree
+from app.services.storage import (
+    copy_media_to_tree,
+    media_disk_usage,
+    move_media_to_tree,
+)
 
 
 def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
@@ -335,6 +343,185 @@ def _load_member_links(db: Session, tree_id: str) -> tuple[list, list, list]:
     return gallery_links, event_links, story_links
 
 
+def _linked_document_ids(
+    db: Session,
+    source_tree_id: str,
+    *,
+    moved_member_ids: set[str],
+    moved_event_ids: set[str],
+    moved_story_ids: set[str],
+) -> set[str]:
+    """Document ids (of ``source_tree_id``) linked to any moving entity.
+
+    Documents are reusable, tree-scoped content; a document linked to a member,
+    event, or story that is relocating must be copied into the new tree so no
+    link ends up crossing a tree boundary.
+    """
+    doc_ids: set[str] = set()
+    if moved_member_ids:
+        doc_ids |= set(
+            db.scalars(
+                select(DocumentMemberLink.document_id)
+                .join(Document, Document.id == DocumentMemberLink.document_id)
+                .where(
+                    Document.tree_id == source_tree_id,
+                    DocumentMemberLink.member_id.in_(moved_member_ids),
+                )
+            )
+        )
+    if moved_event_ids:
+        doc_ids |= set(
+            db.scalars(
+                select(EventDocumentLink.document_id)
+                .join(Document, Document.id == EventDocumentLink.document_id)
+                .where(
+                    Document.tree_id == source_tree_id,
+                    EventDocumentLink.event_id.in_(moved_event_ids),
+                )
+            )
+        )
+    if moved_story_ids:
+        doc_ids |= set(
+            db.scalars(
+                select(StoryDocumentLink.document_id)
+                .join(Document, Document.id == StoryDocumentLink.document_id)
+                .where(
+                    Document.tree_id == source_tree_id,
+                    StoryDocumentLink.story_id.in_(moved_story_ids),
+                )
+            )
+        )
+    return doc_ids
+
+
+def _copy_documents_for_move(
+    db: Session,
+    source_tree: Tree,
+    new_tree: Tree,
+    *,
+    moved_member_ids: set[str],
+    moved_event_ids: set[str],
+    moved_story_ids: set[str],
+) -> None:
+    """Copy documents linked to moving entities into ``new_tree`` and repoint.
+
+    Every document linked (member/event/story) to a relocating entity is copied
+    — with its files (``copy_media_to_tree`` for ``kind == "file"``) — into the
+    new tree, and the moving entities' link rows are repointed to the copy. The
+    original stays behind to serve any links from entities that did not move, so
+    no link ever crosses a tree boundary.
+    """
+    doc_ids = _linked_document_ids(
+        db,
+        source_tree.id,
+        moved_member_ids=moved_member_ids,
+        moved_event_ids=moved_event_ids,
+        moved_story_ids=moved_story_ids,
+    )
+    if not doc_ids:
+        return
+
+    doc_copy_map: dict[str, str] = {}
+    for old_doc_id in doc_ids:
+        doc = db.get(Document, old_doc_id)
+        if doc is None:
+            continue
+        new_doc_id = str(uuid4())
+        doc_copy_map[old_doc_id] = new_doc_id
+        db.add(
+            Document(
+                id=new_doc_id,
+                tree_id=new_tree.id,
+                title=doc.title,
+                document_date=doc.document_date,
+                description=doc.description,
+                created_at=doc.created_at,
+                updated_at=doc.updated_at,
+            )
+        )
+        for f in db.scalars(
+            select(DocumentFile).where(DocumentFile.document_id == old_doc_id)
+        ):
+            new_url = f.url
+            if f.kind == "file":
+                new_url = copy_media_to_tree(f.url, new_tree.id) or f.url
+            db.add(
+                DocumentFile(
+                    id=str(uuid4()),
+                    tree_id=new_tree.id,
+                    document_id=new_doc_id,
+                    kind=f.kind,
+                    filename=f.filename,
+                    url=new_url,
+                    mime_type=f.mime_type,
+                    size=f.size,
+                    created_at=f.created_at,
+                )
+            )
+    db.flush()  # copied documents must exist before repointed links reference them
+
+    # Repoint the moving entities' link rows to the copied documents. Collect
+    # the target pairs first, then delete the old rows and add the new ones, so
+    # the result cursors aren't mutated mid-iteration.
+    member_links = list(
+        db.scalars(
+            select(DocumentMemberLink)
+            .join(Document, Document.id == DocumentMemberLink.document_id)
+            .where(
+                Document.tree_id == source_tree.id,
+                DocumentMemberLink.member_id.in_(moved_member_ids),
+            )
+        )
+    ) if moved_member_ids else []
+    event_links = list(
+        db.scalars(
+            select(EventDocumentLink)
+            .join(Document, Document.id == EventDocumentLink.document_id)
+            .where(
+                Document.tree_id == source_tree.id,
+                EventDocumentLink.event_id.in_(moved_event_ids),
+            )
+        )
+    ) if moved_event_ids else []
+    story_links = list(
+        db.scalars(
+            select(StoryDocumentLink)
+            .join(Document, Document.id == StoryDocumentLink.document_id)
+            .where(
+                Document.tree_id == source_tree.id,
+                StoryDocumentLink.story_id.in_(moved_story_ids),
+            )
+        )
+    ) if moved_story_ids else []
+
+    new_member_links = [
+        (doc_copy_map[link.document_id], link.member_id)
+        for link in member_links
+        if link.document_id in doc_copy_map
+    ]
+    new_event_links = [
+        (link.event_id, doc_copy_map[link.document_id])
+        for link in event_links
+        if link.document_id in doc_copy_map
+    ]
+    new_story_links = [
+        (link.story_id, doc_copy_map[link.document_id])
+        for link in story_links
+        if link.document_id in doc_copy_map
+    ]
+    for link in (*member_links, *event_links, *story_links):
+        if link.document_id in doc_copy_map:
+            db.delete(link)
+    db.flush()
+    for doc_id, member_id in new_member_links:
+        db.add(DocumentMemberLink(document_id=doc_id, member_id=member_id))
+    for event_id, doc_id in new_event_links:
+        db.add(EventDocumentLink(event_id=event_id, document_id=doc_id))
+    for story_id, doc_id in new_story_links:
+        db.add(StoryDocumentLink(story_id=story_id, document_id=doc_id))
+    db.flush()
+
+
 def compute_subtree_preview(
     db: Session,
     user: User,
@@ -355,7 +542,7 @@ def compute_subtree_preview(
             )
         ):
             media_bytes += media_disk_usage(image_data)
-        gallery_links, _event_links, story_links = _load_member_links(db, tree.id)
+        gallery_links, event_links, story_links = _load_member_links(db, tree.id)
         moved_image_ids, _ = _split_linked_entities(
             gallery_links, "gallery_image_id", moved
         )
@@ -367,12 +554,22 @@ def compute_subtree_preview(
                 )
             ):
                 media_bytes += media_disk_usage(image_data)
+        # Documents linked to any moving entity (member, event, or story) are
+        # copied into the new tree, so their file bytes count toward it.
+        moved_event_ids, _ = _split_linked_entities(event_links, "event_id", moved)
         moved_story_ids, _ = _split_linked_entities(story_links, "story_id", moved)
-        if moved_story_ids:
+        doc_ids = _linked_document_ids(
+            db,
+            tree.id,
+            moved_member_ids=moved,
+            moved_event_ids=moved_event_ids,
+            moved_story_ids=moved_story_ids,
+        )
+        if doc_ids:
             for url in db.scalars(
-                select(StoryAttachment.url).where(
-                    StoryAttachment.tree_id == tree.id,
-                    StoryAttachment.story_id.in_(moved_story_ids),
+                select(DocumentFile.url).where(
+                    DocumentFile.document_id.in_(doc_ids),
+                    DocumentFile.kind == "file",
                 )
             ):
                 media_bytes += media_disk_usage(url)
@@ -529,18 +726,24 @@ def extract_subtree(
             )
         ):
             s.tree_id = new_tree.id
-        for att in db.scalars(
-            select(StoryAttachment).where(
-                StoryAttachment.tree_id == tree.id,
-                StoryAttachment.story_id.in_(moved_story_ids),
-            )
-        ):
-            att.tree_id = new_tree.id
-            new_url = move_media_to_tree(att.url, new_tree.id)
-            if new_url is not None:
-                att.url = new_url
     for lnk in stale_story_links:
         db.delete(lnk)
+    _progress(84)
+
+    # --- Documents ---
+    # Documents are reusable, tree-scoped content: any document linked to a
+    # moving member/event/story is copied (with its files) into the new tree
+    # and the moving entity's link is repointed to the copy, so no link ever
+    # crosses a tree boundary. The original stays behind for any links from
+    # entities that did not move.
+    _copy_documents_for_move(
+        db,
+        tree,
+        new_tree,
+        moved_member_ids=moved,
+        moved_event_ids=moved_event_ids,
+        moved_story_ids=moved_story_ids,
+    )
     _progress(88)
 
     # --- Bookkeeping ---

@@ -6,6 +6,7 @@ export interface Event {
   location: string | null;
   description: string | null;
   createdAt: string;
+  documentIds: string[];
 }
 
 export interface EventDB {
@@ -15,6 +16,7 @@ export interface EventDB {
   location: string | null;
   description: string | null;
   created_at: string;
+  document_ids?: string[];
 }
 
 export interface EventInput {
@@ -33,6 +35,7 @@ export function mapEventFromDB(row: EventDB, linkedMemberIds: string[]): Event {
     location: row.location,
     description: row.description,
     createdAt: row.created_at,
+    documentIds: row.document_ids ?? [],
   };
 }
 
@@ -44,5 +47,6 @@ export function mapEventToDB(event: Event): EventDB {
     location: event.location,
     description: event.description,
     created_at: event.createdAt,
+    document_ids: event.documentIds,
   };
 }

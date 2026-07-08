@@ -19,15 +19,16 @@ from app.core.media_config import (
     MEBIBYTE,
 )
 from app.models.content import (
-    Citation,
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
-    Source,
-    SourceEvidence,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
@@ -61,8 +62,9 @@ def _tree_model_bytes(db: Session, tree_id: str) -> int:
 
     Covers every model that carries ``tree_id``:
     Member, Relation, MemberDisease, GalleryImage, GalleryMemberLink,
-    Event, EventMemberLink, Story, StoryAttachment, StoryMemberLink,
-    Source, SourceEvidence, Citation.
+    Event, EventMemberLink, Story, StoryMemberLink,
+    Document, DocumentFile, DocumentMemberLink, EventDocumentLink,
+    StoryDocumentLink.
     """
     total = 0
 
@@ -98,7 +100,6 @@ def _tree_model_bytes(db: Session, tree_id: str) -> int:
 
     # Stories
     total += _sum_model(Story, Story.tree_id)
-    total += _sum_model(StoryAttachment, StoryAttachment.tree_id)
     story_links = db.execute(
         sa.select(StoryMemberLink).join(
             Story, Story.id == StoryMemberLink.story_id
@@ -106,10 +107,29 @@ def _tree_model_bytes(db: Session, tree_id: str) -> int:
     ).scalars().all()
     total += sum(_row_bytes(r) for r in story_links)
 
-    # Sources
-    total += _sum_model(Source, Source.tree_id)
-    total += _sum_model(SourceEvidence, SourceEvidence.tree_id)
-    total += _sum_model(Citation, Citation.tree_id)
+    # Documents
+    total += _sum_model(Document, Document.tree_id)
+    total += _sum_model(DocumentFile, DocumentFile.tree_id)
+    # The three document link tables have no tree_id column — traverse via
+    # Document, which always carries one.
+    doc_member_links = db.execute(
+        sa.select(DocumentMemberLink).join(
+            Document, Document.id == DocumentMemberLink.document_id
+        ).where(Document.tree_id == tree_id)
+    ).scalars().all()
+    total += sum(_row_bytes(r) for r in doc_member_links)
+    event_doc_links = db.execute(
+        sa.select(EventDocumentLink).join(
+            Document, Document.id == EventDocumentLink.document_id
+        ).where(Document.tree_id == tree_id)
+    ).scalars().all()
+    total += sum(_row_bytes(r) for r in event_doc_links)
+    story_doc_links = db.execute(
+        sa.select(StoryDocumentLink).join(
+            Document, Document.id == StoryDocumentLink.document_id
+        ).where(Document.tree_id == tree_id)
+    ).scalars().all()
+    total += sum(_row_bytes(r) for r in story_doc_links)
 
     return total
 

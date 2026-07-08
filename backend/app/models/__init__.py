@@ -7,16 +7,17 @@ so that table creation / migrations see the full schema.
 from app.models.activity import ActivityLog
 from app.models.backup import BackupRecord
 from app.models.content import (
-    Citation,
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
     GeocodeCache,
-    Source,
-    SourceEvidence,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation, RelationType
@@ -55,11 +56,12 @@ __all__ = [
     "Event",
     "EventMemberLink",
     "GeocodeCache",
-    "Source",
-    "SourceEvidence",
-    "Citation",
+    "Document",
+    "DocumentFile",
+    "DocumentMemberLink",
+    "EventDocumentLink",
     "Story",
-    "StoryAttachment",
+    "StoryDocumentLink",
     "StoryMemberLink",
     "AppSetting",
     "FeatureFlagOverride",
