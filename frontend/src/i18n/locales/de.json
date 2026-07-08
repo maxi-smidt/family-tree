@@ -872,6 +872,8 @@
       "enable-quick-add": "Schnellhinzufügen aktivieren",
       "disable-disease-mode": "Krankheitsmodus deaktivieren",
       "enable-disease-mode": "Krankheitsmodus aktivieren",
+      "show-generation-lines": "Generationslinien anzeigen",
+      "hide-generation-lines": "Generationslinien ausblenden",
       "enable-connection-mode": "Verbindung finden",
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",

@@ -20,6 +20,8 @@ interface FamilyTreeSettingsState {
   setIsFastMode: (val: boolean) => void;
   isDiseaseMode: boolean;
   setIsDiseaseMode: (val: boolean) => void;
+  showGenerationLines: boolean;
+  setShowGenerationLines: (val: boolean) => void;
   visibleRelationTypes: string[];
   toggleRelationType: (type: string) => void;
   viewports: Record<string, Viewport>;
@@ -33,6 +35,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       isLockedScreen: false,
       isFastMode: false,
       isDiseaseMode: false,
+      showGenerationLines: true,
       sidebarOpen: true,
       visibleRelationTypes: ["parent"],
       viewports: {},
@@ -41,6 +44,8 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
       setIsFastMode: (val: boolean) => set({ isFastMode: val }),
       setIsDiseaseMode: (val: boolean) => set({ isDiseaseMode: val }),
+      setShowGenerationLines: (val: boolean) =>
+        set({ showGenerationLines: val }),
       toggleRelationType: (type) =>
         set((state) => {
           if (type === "parent") return state;

@@ -47,6 +47,22 @@ export const usePendingMember = ({
     setIsNewMemberSession(true);
   };
 
+  const onAddChildToUnion = (parent1Id: string, parent2Id: string) => {
+    const p1 = members.find((m) => m.id === parent1Id);
+    const p2 = members.find((m) => m.id === parent2Id);
+    if (!p1 || !p2) return;
+    const midpoint = {
+      x: (p1.position.x + p2.position.x) / 2,
+      y: (p1.position.y + p2.position.y) / 2,
+    };
+    const newMember = createMember(nextMemberPosition(midpoint, "child"));
+    setPendingNewMember(newMember);
+    setPendingRelation({ type: "child-of-union", parent1Id, parent2Id });
+    setEditingMemberId(newMember.id);
+    setIsEditMode(true);
+    setIsNewMemberSession(true);
+  };
+
   const onAddParent = (childId: string) => {
     const child = members.find((m) => m.id === childId);
     if (!child) return;
@@ -134,6 +150,9 @@ export const usePendingMember = ({
             id,
             pendingRelation.relationType,
           );
+        } else if (pendingRelation.type === "child-of-union") {
+          await addRelation(id, pendingRelation.parent1Id, "parent");
+          await addRelation(id, pendingRelation.parent2Id, "parent");
         }
         setPendingRelation(null);
       }
@@ -167,6 +186,7 @@ export const usePendingMember = ({
     setIsEditMode,
     // Handlers
     onAddChild,
+    onAddChildToUnion,
     onAddParent,
     onAddHorizontal,
     editExisting,
