@@ -26,12 +26,14 @@ interface DocumentState {
     input: DocumentInput,
     memberIds: string[],
     fileOps?: DocumentFileOps,
+    onFileProgress?: (uploaded: number, total: number) => void,
   ) => Promise<Document | null>;
   updateDocument: (
     id: string,
     input: DocumentInput,
     memberIds: string[],
     fileOps?: DocumentFileOps,
+    onFileProgress?: (uploaded: number, total: number) => void,
   ) => Promise<void>;
   removeDocument: (id: string) => Promise<void>;
   clear: () => void;
@@ -43,6 +45,7 @@ async function applyFileOps(
   treeId: string,
   documentId: string,
   ops: DocumentFileOps,
+  onFileProgress?: (uploaded: number, total: number) => void,
 ): Promise<boolean> {
   for (const id of ops.removedIds) {
     await TreeService.removeDocumentFile(treeId, documentId, id);
@@ -50,13 +53,16 @@ async function applyFileOps(
   for (const { id, filename } of ops.renamed) {
     await TreeService.renameDocumentFile(treeId, documentId, id, filename);
   }
-  for (const f of ops.addedFiles) {
+  const total = ops.addedFiles.length;
+  if (total > 0) onFileProgress?.(0, total);
+  for (const [i, f] of ops.addedFiles.entries()) {
     await TreeService.addDocumentFile(
       treeId,
       documentId,
       f.filename,
       f.dataUrl,
     );
+    onFileProgress?.(i + 1, total);
   }
   for (const link of ops.addedLinks) {
     await TreeService.addDocumentLink(
@@ -94,12 +100,18 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     input: DocumentInput,
     memberIds: string[],
     fileOps: DocumentFileOps = NO_OPS,
+    onFileProgress?: (uploaded: number, total: number) => void,
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return null;
 
     const row = await TreeService.addDocument(treeId, input, memberIds);
-    const filesChanged = await applyFileOps(treeId, row.id, fileOps);
+    const filesChanged = await applyFileOps(
+      treeId,
+      row.id,
+      fileOps,
+      onFileProgress,
+    );
 
     await get().refreshDocuments(treeId);
     if (filesChanged) useStorageStore.getState().refreshStorageUsage();
@@ -112,13 +124,19 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     input: DocumentInput,
     memberIds: string[],
     fileOps: DocumentFileOps = NO_OPS,
+    onFileProgress?: (uploaded: number, total: number) => void,
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
     await TreeService.updateDocument(treeId, id, input);
     await TreeService.setDocumentMembers(treeId, id, memberIds);
-    const filesChanged = await applyFileOps(treeId, id, fileOps);
+    const filesChanged = await applyFileOps(
+      treeId,
+      id,
+      fileOps,
+      onFileProgress,
+    );
 
     await get().refreshDocuments(treeId);
     if (filesChanged) useStorageStore.getState().refreshStorageUsage();

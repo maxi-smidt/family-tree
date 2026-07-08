@@ -12,6 +12,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Added
 
 - **Documents**: a reusable document bundles one or more files (or external links) with a title, date, notes, and the people it mentions, and appears on every mentioned person's profile. Events and stories can link documents directly — and create them inline — so a scan or record can be attached once and referenced from multiple places (#594).
+- **Documents**: document uploads now show a progress indicator while files upload, matching the gallery image upload experience (#596).
+- **Documents**: double-click a document to open its file in a new browser tab, with a loading indicator while it opens (#597).
 
 ### Changed
 
