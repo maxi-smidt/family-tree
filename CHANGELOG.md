@@ -15,7 +15,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
-- Renamed the member "Sources" section to **Documents** and reworked it from per-fact source citations into the simpler, reusable document model above; the "Documents & Stories" section is now just **Stories**. Existing story file attachments are automatically migrated into Documents (one per story). The admin `sources` feature flag is unchanged and now governs Documents.
+- Renamed the member "Sources" section to **Documents** and reworked it from per-fact source citations into the simpler, reusable document model above; the "Documents & Stories" section is now just **Stories**. The admin `sources` feature flag is unchanged and now governs Documents.
 
 ### Fixed
 
