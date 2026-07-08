@@ -592,7 +592,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         }}
       >
         <Background />
-        <GenerationLines nodes={nodes} visible={showGenerationLines} />
+        <GenerationLines visible={showGenerationLines} />
         {members.length === 0 && !isCanvasReadOnly && (
           <Panel
             position="top-center"

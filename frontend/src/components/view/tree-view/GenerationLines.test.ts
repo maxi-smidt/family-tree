@@ -1,39 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { getGenerationLines } from "@/components/view/tree-view/GenerationLines";
-import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
+import {
+  getRuledLinePattern,
+  GENERATION_LINE_GAP,
+} from "@/components/view/tree-view/GenerationLines";
 
-describe("getGenerationLines", () => {
-  it("returns null for an empty node list", () => {
-    expect(getGenerationLines([])).toBeNull();
+describe("getRuledLinePattern", () => {
+  it("scales the gap by the zoom level", () => {
+    expect(getRuledLinePattern([0, 0, 1], 250).scaledGap).toBe(250);
+    expect(getRuledLinePattern([0, 0, 2], 250).scaledGap).toBe(500);
+    expect(getRuledLinePattern([0, 0, 0.5], 250).scaledGap).toBe(125);
   });
 
-  it("returns deduped, sorted line centers for distinct generation ys", () => {
-    const nodes = [
-      { position: { x: 0, y: 0 } },
-      { position: { x: 300, y: 200 } },
-      { position: { x: 150, y: 0 } },
-    ];
-
-    const result = getGenerationLines(nodes);
-
-    expect(result).not.toBeNull();
-    expect(result?.lineYs).toEqual([
-      0 + NODE_HEIGHT / 2,
-      200 + NODE_HEIGHT / 2,
-    ]);
+  it("falls back to a 1px gap when the scaled gap would be zero", () => {
+    expect(getRuledLinePattern([0, 0, 0], 250).scaledGap).toBe(1);
   });
 
-  it("computes xStart/xEnd from the min/max x plus padding", () => {
-    const nodes = [
-      { position: { x: 0, y: 0 } },
-      { position: { x: 300, y: 200 } },
-      { position: { x: 150, y: 0 } },
-    ];
+  it("offsets vertically by the panned y within one gap", () => {
+    // zoom 1, gap 250, panned 300 -> 300 % 250 = 50
+    expect(getRuledLinePattern([0, 300, 1], 250).offsetY).toBe(50);
+    expect(getRuledLinePattern([0, 250, 1], 250).offsetY).toBe(0);
+  });
 
-    const result = getGenerationLines(nodes);
-
-    expect(result).not.toBeNull();
-    expect(result?.xStart).toBe(0 - 80);
-    expect(result?.xEnd).toBe(300 + NODE_WIDTH + 80);
+  it("exposes a sensible default generation gap", () => {
+    expect(GENERATION_LINE_GAP).toBe(250);
   });
 });

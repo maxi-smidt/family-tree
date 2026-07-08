@@ -1,76 +1,95 @@
-import { useMemo } from "react";
-import { Node, ViewportPortal } from "@xyflow/react";
-import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
+import { useStore } from "@xyflow/react";
 
-const PADDING = 80;
+// Vertical spacing between ruled lines, in flow (canvas) coordinates. 250 is
+// five 50px grid cells and roughly one generation's row pitch (NODE_HEIGHT 145
+// + RANK_SEPARATION 90 ≈ 235), so the ruled bands read like notebook lines that
+// line up with the generations for orientation.
+export const GENERATION_LINE_GAP = 250;
 
-export interface GenerationLines {
-  lineYs: number[];
-  xStart: number;
-  xEnd: number;
+type Transform = [number, number, number];
+
+const transformSelector = (s: { transform: Transform }): Transform =>
+  s.transform;
+
+export interface RuledLinePattern {
+  scaledGap: number;
+  offsetY: number;
 }
 
-export function getGenerationLines(
-  nodes: { position: { x: number; y: number } }[],
-): GenerationLines | null {
-  if (nodes.length === 0) return null;
-
-  const distinctYs = Array.from(new Set(nodes.map((n) => n.position.y))).sort(
-    (a, b) => a - b,
-  );
-  const lineYs = distinctYs.map((y) => y + NODE_HEIGHT / 2);
-
-  const xs = nodes.map((n) => n.position.x);
-  const xStart = Math.min(...xs) - PADDING;
-  const xEnd = Math.max(...xs) + NODE_WIDTH + PADDING;
-
-  return { lineYs, xStart, xEnd };
+// Pure geometry helper (exported for testing): from the current viewport
+// transform [x, y, zoom] and the flow-space gap, return the on-screen line
+// spacing and the vertical offset so the lines track vertical panning. Mirrors
+// how React Flow's own <Background> derives its pattern from the transform.
+export function getRuledLinePattern(
+  transform: Transform,
+  gap: number,
+): RuledLinePattern {
+  const zoom = transform[2];
+  const scaledGap = gap * zoom || 1;
+  const offsetY = transform[1] % scaledGap;
+  return { scaledGap, offsetY };
 }
 
 interface GenerationLinesProps {
-  nodes: Node[];
   visible: boolean;
+  gap?: number;
 }
 
+// Fixed horizontal ruled lines rendered as a repeating SVG pattern behind the
+// nodes. Unlike React Flow's Lines background (a full grid) this draws only the
+// horizontal rules. It intentionally does NOT use the `.react-flow__background`
+// class, which paints an opaque background-color that would cover the canvas;
+// only the positioning styles are replicated so the pattern is transparent and
+// sits behind the nodes alongside the existing dot background.
 export default function GenerationLines({
-  nodes,
   visible,
+  gap = GENERATION_LINE_GAP,
 }: GenerationLinesProps) {
-  const lines = useMemo(() => getGenerationLines(nodes), [nodes]);
+  const transform = useStore(transformSelector);
+  const { scaledGap, offsetY } = getRuledLinePattern(transform, gap);
 
-  if (!visible || !lines) return null;
+  if (!visible) return null;
 
-  const { lineYs, xStart, xEnd } = lines;
+  const patternId = "ft-generation-lines";
 
   return (
-    <ViewportPortal>
-      <svg
-        aria-hidden="true"
-        className="text-muted-foreground/25"
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          width: 1,
-          height: 1,
-          overflow: "visible",
-          pointerEvents: "none",
-          zIndex: -1,
-        }}
+    <svg
+      aria-hidden="true"
+      className="text-muted-foreground/30"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        width: "100%",
+        height: "100%",
+        pointerEvents: "none",
+        zIndex: -1,
+      }}
+    >
+      <pattern
+        id={patternId}
+        x={0}
+        y={offsetY}
+        width={scaledGap}
+        height={scaledGap}
+        patternUnits="userSpaceOnUse"
       >
-        {lineYs.map((y) => (
-          <line
-            key={y}
-            x1={xStart}
-            x2={xEnd}
-            y1={y}
-            y2={y}
-            stroke="currentColor"
-            strokeWidth={1}
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
-      </svg>
-    </ViewportPortal>
+        <line
+          x1={0}
+          y1={0}
+          x2={scaledGap}
+          y2={0}
+          stroke="currentColor"
+          strokeWidth={1}
+        />
+      </pattern>
+      <rect
+        x="0"
+        y="0"
+        width="100%"
+        height="100%"
+        fill={`url(#${patternId})`}
+      />
+    </svg>
   );
 }
