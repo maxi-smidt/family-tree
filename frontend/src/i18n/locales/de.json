@@ -690,6 +690,7 @@
         "title": "Dokumente",
         "add": "Hinzufügen",
         "no-documents": "Noch keine Dokumente",
+        "open-hint": "Zum Öffnen doppelklicken",
         "delete-dialog": {
           "title": "Dokument löschen",
           "description": "Möchtest du dieses Dokument und seine Dateien wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -724,6 +725,9 @@
             "add-link": "Link hinzufügen",
             "empty": "Noch keine Dateien",
             "new": "Neu",
+            "uploading": "{{done}} von {{total}} werden hochgeladen…",
+            "status-done": "Hochgeladen",
+            "status-queued": "In Warteschlange",
             "download": "Herunterladen",
             "remove": "Entfernen",
             "filename": "Dateiname",

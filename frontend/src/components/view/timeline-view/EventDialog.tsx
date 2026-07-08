@@ -98,6 +98,9 @@ export const EventDialog = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Stop the submit from bubbling through the portal to the surrounding
+    // member-edit form, which would save the member and close the sheet.
+    e.stopPropagation();
 
     if (!isValidPartialDate(formData.date)) {
       setDateError(tDialog("date-invalid"));
