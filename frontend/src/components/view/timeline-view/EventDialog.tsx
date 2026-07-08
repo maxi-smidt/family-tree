@@ -17,7 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle2, AlertCircle } from "lucide-react";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { Event, EventInput } from "@/types/event";
@@ -31,9 +30,8 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { useTranslation } from "react-i18next";
 import { getMemberOptions } from "@/utils/memberUtils";
 import { isValidPartialDate } from "@/utils/dateUtils";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId } from "@/hooks/useTreeStore";
 import { DocumentLinkField } from "@/components/shared/member-sheet/DocumentLinkField";
+import { GeocodeHint } from "@/components/shared/GeocodeHint";
 
 interface EventDialogProps {
   open: boolean;
@@ -63,12 +61,6 @@ export const EventDialog = ({
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const [dateError, setDateError] = useState<string | null>(null);
-  const [geocodeStatus, setGeocodeStatus] = useState<
-    "idle" | "checking" | "found" | "not-found"
-  >("idle");
-  const [geocodeDisplayName, setGeocodeDisplayName] = useState<string | null>(
-    null,
-  );
 
   const isCustom = selectedCategory === CUSTOM_EVENT_TYPE;
   const effectiveEventType = isCustom ? customLabel.trim() : selectedCategory;
@@ -101,38 +93,8 @@ export const EventDialog = ({
       setSelectedMemberIds(initialMemberId ? [initialMemberId] : []);
       setSelectedDocumentIds([]);
       setDateError(null);
-      setGeocodeStatus("idle");
-      setGeocodeDisplayName(null);
     }
   }, [event, initialMemberId, open]);
-
-  // Debounced geocode preview — shows whether the typed location resolves
-  useEffect(() => {
-    const loc = formData.location?.trim();
-    if (!loc) {
-      setGeocodeStatus("idle");
-      setGeocodeDisplayName(null);
-      return;
-    }
-    setGeocodeStatus("checking");
-    const timer = setTimeout(async () => {
-      const treeId = activeTreeId();
-      if (!treeId) return;
-      try {
-        const result = await TreeService.geocodePreview(treeId, loc);
-        if (result.resolved) {
-          setGeocodeStatus("found");
-          setGeocodeDisplayName(result.display_name);
-        } else {
-          setGeocodeStatus("not-found");
-          setGeocodeDisplayName(null);
-        }
-      } catch {
-        setGeocodeStatus("idle");
-      }
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [formData.location]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -262,23 +224,7 @@ export const EventDialog = ({
                 }
                 placeholder={tDialog("location-placeholder")}
               />
-              {geocodeStatus === "checking" && (
-                <p className="text-xs text-muted-foreground">
-                  {tDialog("location-checking")}
-                </p>
-              )}
-              {geocodeStatus === "found" && (
-                <p className="text-xs text-green-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 shrink-0" />
-                  {geocodeDisplayName || tDialog("location-found")}
-                </p>
-              )}
-              {geocodeStatus === "not-found" && (
-                <p className="text-xs text-amber-600 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3 shrink-0" />
-                  {tDialog("location-not-found")}
-                </p>
-              )}
+              <GeocodeHint location={formData.location} />
             </div>
 
             <div className="space-y-2">

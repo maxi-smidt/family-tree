@@ -655,10 +655,7 @@
           "update": "Aktualisieren",
           "add": "Hinzufügen",
           "custom": "Benutzerdefiniert...",
-          "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation",
-          "location-checking": "Adresse wird geprüft...",
-          "location-found": "Adresse gefunden",
-          "location-not-found": "Adresse nicht gefunden – erscheint nicht auf der Karte"
+          "custom-placeholder": "z.B. Graduierung, Migration, Konfirmation"
         }
       },
       "stories": {
@@ -1346,7 +1343,12 @@
     "clear-date": "Datum löschen",
     "date-input-hint": "TT.MM.JJJJ",
     "open-date-picker": "Datumsauswahl öffnen",
-    "nee": "geb. {{name}}"
+    "nee": "geb. {{name}}",
+    "geocode": {
+      "checking": "Adresse wird geprüft...",
+      "found": "Adresse gefunden",
+      "not-found": "Adresse nicht gefunden – erscheint nicht auf der Karte"
+    }
   },
   "auth": {
     "session": {
