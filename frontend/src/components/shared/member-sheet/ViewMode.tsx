@@ -7,29 +7,20 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
-import { openMedia } from "@/hooks/useMediaUrl";
-import { toast } from "sonner";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
-import { StoryAttachments } from "./StoryAttachments";
+import { LinkedDocumentList } from "./LinkedDocumentList";
+import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import {
-  Calendar,
-  MapPin,
-  BookOpen,
-  Activity,
-  BookMarked,
-  File,
-  Link,
-} from "lucide-react";
+import { Calendar, MapPin, BookOpen, Activity, FileText } from "lucide-react";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
@@ -80,7 +71,7 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
     useFeature("events") && !restrictions.includes("events");
   const storiesEnabled =
     useFeature("stories") && !restrictions.includes("stories");
-  const sourcesEnabled =
+  const documentsEnabled =
     useFeature("sources") && !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
@@ -95,15 +86,14 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
     return linkedIds.includes(member.id);
   });
 
-  const { getCitationsByMember, getSourcesForMember } = useSourceStore();
+  const { getDocumentsForMember } = useDocumentStore();
 
   const memberEvents = getEventsByMember(member.id).sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
   const memberStories = getStoriesByMember(member.id);
-  const memberCitations = getCitationsByMember(member.id);
-  const memberSources = getSourcesForMember(member.id);
+  const memberDocuments = getDocumentsForMember(member.id);
 
   const memberDiseases = member.diseases || [];
 
@@ -472,8 +462,8 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                                     {story.content}
                                   </div>
                                 )}
-                                <StoryAttachments
-                                  attachments={story.attachments}
+                                <LinkedDocumentList
+                                  documentIds={story.documentIds}
                                 />
                               </div>
                             ))}
@@ -489,86 +479,44 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
               </Item>
             )}
 
-            {sourcesEnabled && memberCitations.length > 0 && (
+            {documentsEnabled && memberDocuments.length > 0 && (
               <Item variant="muted">
                 <ItemContent>
-                  <ItemTitle>{t("sources")}</ItemTitle>
+                  <ItemTitle>{t("documents")}</ItemTitle>
                   <CollapsibleSection
-                    totalCount={memberCitations.length}
+                    totalCount={memberDocuments.length}
                     collapsedCount={3}
                   >
                     {(showAll) => (
                       <div className="space-y-2 mt-2">
-                        {memberCitations
-                          .slice(0, showAll ? memberCitations.length : 3)
-                          .map((cit) => {
-                            const src = memberSources.find(
-                              (s) => s.id === cit.sourceId,
-                            );
-                            return (
-                              <div
-                                key={cit.id}
-                                className="border rounded-lg p-3 bg-accent/50"
-                              >
-                                <div className="flex items-start gap-2">
-                                  <BookMarked className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm">
-                                      {src?.title ?? cit.sourceId}
-                                    </p>
+                        {memberDocuments
+                          .slice(0, showAll ? memberDocuments.length : 3)
+                          .map((doc) => (
+                            <div
+                              key={doc.id}
+                              className="border rounded-lg p-3 bg-accent/50"
+                            >
+                              <div className="flex items-start gap-2">
+                                <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm">
+                                    {doc.title}
+                                  </p>
+                                  {doc.documentDate && (
                                     <p className="text-xs text-muted-foreground">
-                                      {i18n.t(
-                                        `sheet.member-sheet.sources.fact.${cit.factType}`,
-                                      )}
-                                      {cit.page && ` · ${cit.page}`}
+                                      {formatDate(doc.documentDate)}
                                     </p>
-                                    {cit.detail && (
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {cit.detail}
-                                      </p>
-                                    )}
-                                    {src && src.evidence.length > 0 && (
-                                      <div className="flex flex-wrap gap-2 mt-1.5">
-                                        {src.evidence.map((ev) =>
-                                          ev.kind === "link" ? (
-                                            <a
-                                              key={ev.id}
-                                              href={ev.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
-                                            >
-                                              <Link className="w-2.5 h-2.5" />
-                                              {ev.filename ?? ev.url}
-                                            </a>
-                                          ) : (
-                                            <button
-                                              type="button"
-                                              key={ev.id}
-                                              onClick={() =>
-                                                void openMedia(ev.url).catch(
-                                                  () =>
-                                                    toast.error(
-                                                      i18n.t(
-                                                        "sheet.member-sheet.stories.attachments.error-open",
-                                                      ),
-                                                    ),
-                                                )
-                                              }
-                                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                                            >
-                                              <File className="w-2.5 h-2.5" />
-                                              {ev.filename ?? ev.url}
-                                            </button>
-                                          ),
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
+                                  )}
+                                  {doc.description && (
+                                    <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                                      {doc.description}
+                                    </p>
+                                  )}
+                                  <DocumentFileList files={doc.files} />
                                 </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                       </div>
                     )}
                   </CollapsibleSection>

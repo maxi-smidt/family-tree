@@ -111,10 +111,11 @@ def test_import_rejects_future_bundle_version(client, db):
         "event_links": [],
         "stories": [],
         "story_links": [],
-        "story_attachments": [],
-        "sources": [],
-        "source_evidence": [],
-        "citations": [],
+        "documents": [],
+        "document_files": [],
+        "document_member_links": [],
+        "event_document_links": [],
+        "story_document_links": [],
     }
     blob = crypto_export.encrypt_bundle(future_bundle, None)
 
@@ -236,6 +237,106 @@ def test_import_old_bundle_without_sort_keys_recomputes_them(client, db):
     assert member_row is not None
     # Sort key must be recomputed even though the bundle didn't include it.
     assert member_row.date_of_birth_sort == "1880-03-20"
+
+
+def test_document_round_trip_preserves_files_and_links(client, db):
+    """Export → import must reproduce a document, its files, the people it
+    mentions, and its event/story links (documents #594)."""
+    owner = make_user(db, "doc-round-trip-owner")
+    tree = make_tree(db, owner, "Doc Tree")
+    headers = auth(owner)
+
+    member_resp = client.post(
+        f"{API}/trees/{tree.id}/members",
+        headers=headers,
+        json={"id": "m1", "firstName": "Ada", "lastName": "Lovelace"},
+    )
+    assert member_resp.status_code == 201
+
+    event_resp = client.post(
+        f"{API}/trees/{tree.id}/events",
+        headers=headers,
+        json={
+            "id": "e1", "event_type": "birth", "date": "1900",
+            "created_at": "1900-01-01T00:00:00Z",
+        },
+    )
+    assert event_resp.status_code == 201
+
+    story_resp = client.post(
+        f"{API}/trees/{tree.id}/stories",
+        headers=headers,
+        json={"id": "s1", "title": "Tale", "created_at": "1900", "updated_at": "1900"},
+    )
+    assert story_resp.status_code == 201
+
+    doc_resp = client.post(
+        f"{API}/trees/{tree.id}/documents",
+        headers=headers,
+        json={"title": "Census 1900", "description": "notes", "member_ids": ["m1"]},
+    )
+    assert doc_resp.status_code == 201, doc_resp.text
+    document_id = doc_resp.json()["id"]
+
+    file_resp = client.post(
+        f"{API}/trees/{tree.id}/documents/{document_id}/files",
+        headers=headers,
+        json={"filename": "scan.txt", "data": "data:text/plain;base64,aGVsbG8="},
+    )
+    assert file_resp.status_code == 201, file_resp.text
+
+    link_resp = client.post(
+        f"{API}/trees/{tree.id}/documents/{document_id}/links",
+        headers=headers,
+        json={"url": "https://example.com/record", "filename": "External record"},
+    )
+    assert link_resp.status_code == 201, link_resp.text
+
+    assert client.put(
+        f"{API}/trees/{tree.id}/events/e1/documents",
+        headers=headers,
+        json={"document_ids": [document_id]},
+    ).status_code == 204
+
+    assert client.put(
+        f"{API}/trees/{tree.id}/stories/s1/documents",
+        headers=headers,
+        json={"document_ids": [document_id]},
+    ).status_code == 204
+
+    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    assert exported.status_code == 200
+
+    imported = client.post(
+        f"{API}/trees/import",
+        headers=headers,
+        files={
+            "file": (
+                "doc-round-trip.treedb",
+                io.BytesIO(exported.content),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert imported.status_code == 202, imported.text
+    new_tree_id = wait_for_job(client, headers, imported.json()["job_id"])
+
+    docs = client.get(f"{API}/trees/{new_tree_id}/documents", headers=headers).json()
+    assert len(docs) == 1
+    doc = docs[0]
+    assert doc["title"] == "Census 1900"
+    assert doc["description"] == "notes"
+    assert len(doc["files"]) == 2
+    assert {f["kind"] for f in doc["files"]} == {"file", "link"}
+    assert len(doc["member_ids"]) == 1
+    assert len(doc["event_ids"]) == 1
+    assert len(doc["story_ids"]) == 1
+
+    events = client.get(f"{API}/trees/{new_tree_id}/events", headers=headers).json()
+    assert events[0]["document_ids"] == [doc["id"]]
+
+    stories = client.get(f"{API}/trees/{new_tree_id}/stories", headers=headers).json()
+    assert stories[0]["document_ids"] == [doc["id"]]
 
 
 def test_import_relations_bulk_path(client, db):

@@ -5,8 +5,6 @@ because the frontend reads/writes ``imageData``, ``createdAt``, ``uploadedAt``.
 All other schemas are intentionally snake_case end-to-end.
 """
 
-from typing import Literal
-
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
@@ -55,6 +53,7 @@ class EventOut(BaseModel):
     location: str | None = None
     description: str | None = None
     created_at: str
+    document_ids: list[str] = []
 
 
 class EventCreate(BaseModel):
@@ -75,26 +74,6 @@ class EventUpdate(BaseModel):
 
 
 # --- Stories ---------------------------------------------------------------
-class AttachmentOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    filename: str
-    url: str
-    mime_type: str | None = None
-    size: int | None = None
-    created_at: str
-
-
-class AttachmentCreate(BaseModel):
-    filename: str
-    data: str  # base64 data URL
-
-
-class AttachmentUpdate(BaseModel):
-    filename: str
-
-
 class StoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -103,7 +82,7 @@ class StoryOut(BaseModel):
     content: str | None = None
     created_at: str
     updated_at: str
-    attachments: list[AttachmentOut] = []
+    document_ids: list[str] = []
 
 
 class StoryCreate(BaseModel):
@@ -119,6 +98,12 @@ class StoryUpdate(BaseModel):
     title: str
     content: str | None = None
     updated_at: str
+
+
+class DocumentIdsSet(BaseModel):
+    """Replace the full set of documents linked to an event or story."""
+
+    document_ids: list[str] = []
 
 
 # --- Geocode ---------------------------------------------------------------
@@ -170,14 +155,8 @@ class StoryLinkOut(BaseModel):
     member_id: str
 
 
-# --- Sources ---------------------------------------------------------------
-FactType = Literal[
-    "name", "birth", "death", "birthplace", "hometown", "residence", "cemetery",
-    "general"
-]
-
-
-class EvidenceOut(BaseModel):
+# --- Documents ---------------------------------------------------------------
+class DocumentFileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -189,76 +168,43 @@ class EvidenceOut(BaseModel):
     created_at: str
 
 
-class EvidenceCreate(BaseModel):
-    kind: Literal["file", "link"]
+class DocumentFileCreate(BaseModel):
+    filename: str
+    data: str  # base64 data URL
+
+
+class DocumentLinkCreate(BaseModel):
+    url: str
     filename: str | None = None
-    data: str | None = None  # base64 data URL when kind == "file"
-    url: str | None = None   # external link when kind == "link"
 
 
-class EvidenceUpdate(BaseModel):
+class DocumentFileUpdate(BaseModel):
     filename: str
 
 
-class SourceOut(BaseModel):
+class DocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     title: str
-    author: str | None = None
-    publication_info: str | None = None
-    repository: str | None = None
-    source_date: str | None = None
-    notes: str | None = None
+    description: str | None = None
+    document_date: str | None = None
     created_at: str
     updated_at: str
-    evidence: list[EvidenceOut] = []
+    files: list[DocumentFileOut] = []
+    member_ids: list[str] = []
+    event_ids: list[str] = []
+    story_ids: list[str] = []
 
 
-class SourceCreate(BaseModel):
-    id: str
+class DocumentCreate(BaseModel):
     title: str
-    author: str | None = None
-    publication_info: str | None = None
-    repository: str | None = None
-    source_date: str | None = None
-    notes: str | None = None
-    created_at: str
-    updated_at: str
+    description: str | None = None
+    document_date: str | None = None
+    member_ids: list[str] = []
 
 
-class SourceUpdate(BaseModel):
+class DocumentUpdate(BaseModel):
     title: str
-    author: str | None = None
-    publication_info: str | None = None
-    repository: str | None = None
-    source_date: str | None = None
-    notes: str | None = None
-
-
-class CitationOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    source_id: str
-    member_id: str
-    fact_type: str
-    page: str | None = None
-    detail: str | None = None
-    created_at: str
-
-
-class CitationCreate(BaseModel):
-    id: str
-    source_id: str
-    member_id: str
-    fact_type: FactType
-    page: str | None = None
-    detail: str | None = None
-    created_at: str
-
-
-class CitationUpdate(BaseModel):
-    fact_type: FactType
-    page: str | None = None
-    detail: str | None = None
+    description: str | None = None
+    document_date: str | None = None
