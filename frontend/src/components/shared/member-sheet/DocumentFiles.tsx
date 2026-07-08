@@ -113,7 +113,9 @@ export const DocumentFileList = ({ files }: { files: DocumentFile[] }) => {
               title={f.filename ?? ""}
             >
               {openingId === f.id ? (
-                <Spinner className="w-9 h-9 rounded border p-2 shrink-0" />
+                <span className="w-9 h-9 rounded border flex items-center justify-center shrink-0">
+                  <Spinner className="w-4 h-4 text-muted-foreground" />
+                </span>
               ) : isImageAttachment({
                   filename: f.filename ?? "",
                   mimeType: f.mimeType,
