@@ -1,5 +1,5 @@
 /**
- * E2E tests: Member content — events, stories, sources & evidence (#270)
+ * E2E tests: Member content — events, stories & documents (#270, #594)
  * Depends on foundation harness (#263).
  */
 
@@ -226,156 +226,142 @@ test("delete story — removed from list", async ({ adminApi, seedTree }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Sources & citations
+// Documents (reusable files/links attached to people, events & stories)
 // ---------------------------------------------------------------------------
 
-test("add source — appears in source list", async ({ adminApi, seedTree }) => {
-  const tree = await seedTree("E2E-Source");
+interface DocumentFile {
+  id: string;
+  kind: string;
+  filename: string | null;
+  url: string;
+}
 
-  const source = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources`,
+interface Document {
+  id: string;
+  title: string;
+  member_ids: string[];
+  files: DocumentFile[];
+}
+
+test("add document — appears in document list", async ({
+  adminApi,
+  seedTree,
+}) => {
+  const tree = await seedTree("E2E-Document");
+  const member = await createMember(adminApi, tree.id, {
+    firstName: "DocPerson",
+    lastName: "D",
+  });
+
+  const document = await adminApi.post<Document>(
+    `/trees/${tree.id}/documents`,
     {
-      id: randomUUID(),
       title: "Birth Certificate",
-      author: "Civil Registry",
-      source_date: "1900-01-01",
-      created_at: nowIso(),
-      updated_at: nowIso(),
+      document_date: "1900-01-01",
+      member_ids: [member.id],
     },
   );
-  expect(source.id).toBeTruthy();
+  expect(document.id).toBeTruthy();
+  expect(document.member_ids).toContain(member.id);
 
-  const sources = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/sources`,
+  const documents = await adminApi.get<Document[]>(
+    `/trees/${tree.id}/documents`,
   );
-  expect(sources.find((s) => s.id === source.id)).toBeTruthy();
+  expect(documents.find((d) => d.id === document.id)).toBeTruthy();
 });
 
-test("add citation to source — linked to a member fact", async ({
+test("add link to document — appears in document files", async ({
   adminApi,
   seedTree,
 }) => {
-  const tree = await seedTree("E2E-Citation");
+  const tree = await seedTree("E2E-DocumentLink");
   const member = await createMember(adminApi, tree.id, {
-    firstName: "CitedPerson",
-    lastName: "C",
+    firstName: "LinkedPerson",
+    lastName: "L",
   });
-  const source = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources`,
+  const document = await adminApi.post<Document>(
+    `/trees/${tree.id}/documents`,
     {
-      id: randomUUID(),
       title: "Census 1900",
-      created_at: nowIso(),
-      updated_at: nowIso(),
+      member_ids: [member.id],
     },
   );
 
-  const citation = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources/citations`,
+  const file = await adminApi.post<DocumentFile>(
+    `/trees/${tree.id}/documents/${document.id}/links`,
     {
-      id: randomUUID(),
-      source_id: source.id,
-      member_id: member.id,
-      fact_type: "birth",
-      page: "p. 12",
-      detail: "Found in census record",
-      created_at: nowIso(),
-    },
-  );
-  expect(citation.id).toBeTruthy();
-
-  const citations = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/sources/citations`,
-  );
-  expect(citations.find((c) => c.id === citation.id)).toBeTruthy();
-});
-
-test("add evidence record to source", async ({ adminApi, seedTree }) => {
-  const tree = await seedTree("E2E-Evidence");
-  const source = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources`,
-    {
-      id: randomUUID(),
-      title: "Old Newspaper",
-      created_at: nowIso(),
-      updated_at: nowIso(),
-    },
-  );
-
-  const evidence = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources/${source.id}/evidence`,
-    {
-      kind: "link",
-      filename: "newspaper-link",
       url: "https://example.com/birth-announcement-1920",
+      filename: "newspaper-link",
     },
   );
-  expect(evidence.id).toBeTruthy();
+  expect(file.id).toBeTruthy();
+  expect(file.kind).toBe("link");
 
-  const sources = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/sources`,
+  const documents = await adminApi.get<Document[]>(
+    `/trees/${tree.id}/documents`,
   );
-  expect(sources.find((s) => s.id === source.id)).toBeTruthy();
+  const stored = documents.find((d) => d.id === document.id);
+  expect(stored?.files.find((f) => f.id === file.id)).toBeTruthy();
 });
 
-test("delete source — removes source and citations", async ({
+test("set people mentioned — updates document member links", async ({
   adminApi,
   seedTree,
 }) => {
-  const tree = await seedTree("E2E-DeleteSource");
-  const source = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources`,
-    {
-      id: randomUUID(),
-      title: "ToDeleteSource",
-      created_at: nowIso(),
-      updated_at: nowIso(),
-    },
-  );
-
-  const res = await fetch(`${API_URL}/trees/${tree.id}/sources/${source.id}`, {
-    method: "DELETE",
-    headers: authHeaders(adminApi.token),
+  const tree = await seedTree("E2E-DocumentMembers");
+  const first = await createMember(adminApi, tree.id, {
+    firstName: "FirstMentioned",
+    lastName: "M",
   });
-  expect(res.status).toBe(204);
-
-  const sources = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/sources`,
-  );
-  expect(sources.find((s) => s.id === source.id)).toBeFalsy();
-});
-
-test("delete citation — removed from citation list", async ({
-  adminApi,
-  seedTree,
-}) => {
-  const tree = await seedTree("E2E-DeleteCitation");
-  const member = await createMember(adminApi, tree.id, {
-    firstName: "Cit2Person",
-    lastName: "X",
+  const second = await createMember(adminApi, tree.id, {
+    firstName: "SecondMentioned",
+    lastName: "M",
   });
-  const source = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources`,
+  const document = await adminApi.post<Document>(
+    `/trees/${tree.id}/documents`,
     {
-      id: randomUUID(),
-      title: "Src for Cit",
-      created_at: nowIso(),
-      updated_at: nowIso(),
-    },
-  );
-  const citation = await adminApi.post<{ id: string }>(
-    `/trees/${tree.id}/sources/citations`,
-    {
-      id: randomUUID(),
-      source_id: source.id,
-      member_id: member.id,
-      fact_type: "name",
-      created_at: nowIso(),
+      title: "Family Record",
+      member_ids: [first.id],
     },
   );
 
   const res = await fetch(
-    `${API_URL}/trees/${tree.id}/sources/citations/${citation.id}`,
+    `${API_URL}/trees/${tree.id}/documents/${document.id}/members`,
+    {
+      method: "PUT",
+      headers: authHeaders(adminApi.token),
+      body: JSON.stringify({ member_ids: [first.id, second.id] }),
+    },
+  );
+  expect(res.status).toBe(204);
+
+  const documents = await adminApi.get<Document[]>(
+    `/trees/${tree.id}/documents`,
+  );
+  const stored = documents.find((d) => d.id === document.id);
+  expect(stored?.member_ids).toContain(first.id);
+  expect(stored?.member_ids).toContain(second.id);
+});
+
+test("delete document — removed from document list", async ({
+  adminApi,
+  seedTree,
+}) => {
+  const tree = await seedTree("E2E-DeleteDocument");
+  const member = await createMember(adminApi, tree.id, {
+    firstName: "DelDocPerson",
+    lastName: "X",
+  });
+  const document = await adminApi.post<Document>(
+    `/trees/${tree.id}/documents`,
+    {
+      title: "ToDeleteDocument",
+      member_ids: [member.id],
+    },
+  );
+
+  const res = await fetch(
+    `${API_URL}/trees/${tree.id}/documents/${document.id}`,
     {
       method: "DELETE",
       headers: authHeaders(adminApi.token),
@@ -383,8 +369,48 @@ test("delete citation — removed from citation list", async ({
   );
   expect(res.status).toBe(204);
 
-  const citations = await adminApi.get<Array<{ id: string }>>(
-    `/trees/${tree.id}/sources/citations`,
+  const documents = await adminApi.get<Document[]>(
+    `/trees/${tree.id}/documents`,
   );
-  expect(citations.find((c) => c.id === citation.id)).toBeFalsy();
+  expect(documents.find((d) => d.id === document.id)).toBeFalsy();
+});
+
+test("delete document file — removed from document files", async ({
+  adminApi,
+  seedTree,
+}) => {
+  const tree = await seedTree("E2E-DeleteDocumentFile");
+  const member = await createMember(adminApi, tree.id, {
+    firstName: "FileOwner",
+    lastName: "X",
+  });
+  const document = await adminApi.post<Document>(
+    `/trees/${tree.id}/documents`,
+    {
+      title: "Doc with file",
+      member_ids: [member.id],
+    },
+  );
+  const file = await adminApi.post<DocumentFile>(
+    `/trees/${tree.id}/documents/${document.id}/links`,
+    {
+      url: "https://example.com/record",
+      filename: "record-link",
+    },
+  );
+
+  const res = await fetch(
+    `${API_URL}/trees/${tree.id}/documents/${document.id}/files/${file.id}`,
+    {
+      method: "DELETE",
+      headers: authHeaders(adminApi.token),
+    },
+  );
+  expect(res.status).toBe(204);
+
+  const documents = await adminApi.get<Document[]>(
+    `/trees/${tree.id}/documents`,
+  );
+  const stored = documents.find((d) => d.id === document.id);
+  expect(stored?.files.find((f) => f.id === file.id)).toBeFalsy();
 });

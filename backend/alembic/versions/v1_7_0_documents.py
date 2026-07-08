@@ -5,9 +5,7 @@ Revises: v1_5_0_linked_tree_geocode
 Create Date: 2026-07-07 12:00:00.000000
 
 """
-from datetime import datetime, timezone
 from typing import Sequence, Union
-from uuid import uuid4
 
 from alembic import op
 import sqlalchemy as sa
@@ -18,10 +16,6 @@ revision: str = 'v1_7_0_documents'
 down_revision: Union[str, None] = 'v1_5_0_linked_tree_geocode'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def upgrade() -> None:
@@ -92,138 +86,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('story_id', 'document_id'),
     )
 
-    # --- Data migration: story_attachments -> one Document per story ----------
-    bind = op.get_bind()
-
-    stories_t = sa.table(
-        'stories',
-        sa.column('id', sa.String),
-        sa.column('tree_id', sa.String),
-        sa.column('title', sa.String),
-    )
-    story_attachments_t = sa.table(
-        'story_attachments',
-        sa.column('id', sa.String),
-        sa.column('tree_id', sa.String),
-        sa.column('story_id', sa.String),
-        sa.column('filename', sa.String),
-        sa.column('url', sa.Text),
-        sa.column('mime_type', sa.String),
-        sa.column('size', sa.Integer),
-        sa.column('created_at', sa.String),
-    )
-    story_member_link_t = sa.table(
-        'story_member_link',
-        sa.column('story_id', sa.String),
-        sa.column('member_id', sa.String),
-    )
-    documents_t = sa.table(
-        'documents',
-        sa.column('id', sa.String),
-        sa.column('tree_id', sa.String),
-        sa.column('title', sa.String),
-        sa.column('document_date', sa.String),
-        sa.column('description', sa.Text),
-        sa.column('created_at', sa.String),
-        sa.column('updated_at', sa.String),
-    )
-    document_files_t = sa.table(
-        'document_files',
-        sa.column('id', sa.String),
-        sa.column('tree_id', sa.String),
-        sa.column('document_id', sa.String),
-        sa.column('kind', sa.String),
-        sa.column('filename', sa.String),
-        sa.column('url', sa.Text),
-        sa.column('mime_type', sa.String),
-        sa.column('size', sa.Integer),
-        sa.column('created_at', sa.String),
-    )
-    document_member_link_t = sa.table(
-        'document_member_link',
-        sa.column('document_id', sa.String),
-        sa.column('member_id', sa.String),
-    )
-    story_document_link_t = sa.table(
-        'story_document_link',
-        sa.column('story_id', sa.String),
-        sa.column('document_id', sa.String),
-    )
-
-    story_ids_with_attachments = [
-        row.story_id
-        for row in bind.execute(
-            sa.select(story_attachments_t.c.story_id).distinct()
-        ).fetchall()
-    ]
-
-    for story_id in story_ids_with_attachments:
-        story_row = bind.execute(
-            sa.select(stories_t.c.id, stories_t.c.tree_id, stories_t.c.title).where(
-                stories_t.c.id == story_id
-            )
-        ).first()
-        if story_row is None:
-            continue  # defensive: orphaned attachment row, nothing to migrate onto
-
-        now = _now_iso()
-        document_id = str(uuid4())
-        bind.execute(
-            documents_t.insert().values(
-                id=document_id,
-                tree_id=story_row.tree_id,
-                title=(story_row.title or "").strip() or "Attachments",
-                document_date=None,
-                description=None,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-
-        attachment_rows = bind.execute(
-            sa.select(
-                story_attachments_t.c.id,
-                story_attachments_t.c.filename,
-                story_attachments_t.c.url,
-                story_attachments_t.c.mime_type,
-                story_attachments_t.c.size,
-                story_attachments_t.c.created_at,
-            ).where(story_attachments_t.c.story_id == story_id)
-        ).fetchall()
-        for att in attachment_rows:
-            bind.execute(
-                document_files_t.insert().values(
-                    id=str(uuid4()),
-                    tree_id=story_row.tree_id,
-                    document_id=document_id,
-                    kind='file',
-                    filename=att.filename,
-                    url=att.url,
-                    mime_type=att.mime_type,
-                    size=att.size,
-                    created_at=att.created_at,
-                )
-            )
-
-        member_rows = bind.execute(
-            sa.select(story_member_link_t.c.member_id).where(
-                story_member_link_t.c.story_id == story_id
-            )
-        ).fetchall()
-        for m in member_rows:
-            bind.execute(
-                document_member_link_t.insert().values(
-                    document_id=document_id, member_id=m.member_id
-                )
-            )
-
-        bind.execute(
-            story_document_link_t.insert().values(
-                story_id=story_id, document_id=document_id
-            )
-        )
-
     # --- Drop the superseded tables --------------------------------------------
+    # The old story attachments and Sources/Citations/Evidence data is dropped
+    # outright — it is not migrated into the new Documents model.
     op.drop_table('story_attachments')
 
     # FK-safe order: citations and source_evidence reference sources.
