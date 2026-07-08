@@ -1,10 +1,13 @@
 import { useStore } from "@xyflow/react";
+import { NODE_HEIGHT } from "@/constants";
 
-// Vertical spacing between ruled lines, in flow (canvas) coordinates. 250 is
-// five 50px grid cells and roughly one generation's row pitch (NODE_HEIGHT 145
-// + RANK_SEPARATION 90 ≈ 235), so the ruled bands read like notebook lines that
-// line up with the generations for orientation.
-export const GENERATION_LINE_GAP = 250;
+// Vertical spacing between ruled lines, in flow (canvas) coordinates. 500 is ten
+// 50px grid cells — roughly two generations' row pitch (NODE_HEIGHT 145 +
+// RANK_SEPARATION 90 ≈ 235 each) — so the ruled bands read like notebook lines
+// for orientation. Because the gap is a multiple of the 50px snap grid, a node
+// placed at a multiple of the gap lands its vertical center exactly on a line
+// (see the NODE_HEIGHT/2 phase applied below).
+export const GENERATION_LINE_GAP = 500;
 
 type Transform = [number, number, number];
 
@@ -17,16 +20,19 @@ export interface RuledLinePattern {
 }
 
 // Pure geometry helper (exported for testing): from the current viewport
-// transform [x, y, zoom] and the flow-space gap, return the on-screen line
-// spacing and the vertical offset so the lines track vertical panning. Mirrors
-// how React Flow's own <Background> derives its pattern from the transform.
+// transform [x, y, zoom], the flow-space gap, and a flow-space vertical phase,
+// return the on-screen line spacing and the pattern's vertical offset so the
+// lines track panning and are shifted by `phase`. Mirrors how React Flow's own
+// <Background> derives its pattern from the transform. The phase lets the lines
+// sit on node centers instead of node tops (phase = NODE_HEIGHT / 2).
 export function getRuledLinePattern(
   transform: Transform,
   gap: number,
+  phase = 0,
 ): RuledLinePattern {
   const zoom = transform[2];
   const scaledGap = gap * zoom || 1;
-  const offsetY = transform[1] % scaledGap;
+  const offsetY = (transform[1] + phase * zoom) % scaledGap;
   return { scaledGap, offsetY };
 }
 
@@ -46,7 +52,13 @@ export default function GenerationLines({
   gap = GENERATION_LINE_GAP,
 }: GenerationLinesProps) {
   const transform = useStore(transformSelector);
-  const { scaledGap, offsetY } = getRuledLinePattern(transform, gap);
+  // Phase the lines by half a card so a node's vertical center — not its top —
+  // can land on a line when placed at a multiple of the gap.
+  const { scaledGap, offsetY } = getRuledLinePattern(
+    transform,
+    gap,
+    NODE_HEIGHT / 2,
+  );
 
   if (!visible) return null;
 
