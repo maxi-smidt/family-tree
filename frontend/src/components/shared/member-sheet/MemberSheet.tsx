@@ -9,9 +9,9 @@ import {
 import { Member } from "@/types/member";
 import { useEffect, useState } from "react";
 import { ViewMode } from "./ViewMode";
-import { EditMode } from "./EditMode";
+import { EditMode, SaveStatus } from "./EditMode";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil } from "lucide-react";
+import { Check, CircleAlert, Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -61,6 +61,7 @@ export const MemberSheet = ({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
@@ -112,7 +113,11 @@ export const MemberSheet = ({
   };
 
   const handleCloseRequest = () => {
-    if (isDirty && isViewingEditMode) {
+    // Existing members autosave (and flush on EditMode unmount), so there's
+    // never an unsaved change to warn about there — only new members, which
+    // are purely client-side until an explicit "Create member", need the
+    // discard/save/stay prompt.
+    if (isNewMember && isDirty && isViewingEditMode) {
       setIsUnsavedDialogOpen(true);
       return;
     }
@@ -202,6 +207,7 @@ export const MemberSheet = ({
                   onClose();
                 }}
                 onDirtyChange={setIsDirty}
+                onSaveStatusChange={setSaveStatus}
               />
             ) : (
               <ViewMode
@@ -214,25 +220,56 @@ export const MemberSheet = ({
 
         {isViewingEditMode && (
           <SheetFooter className="mt-auto p-4 border-t bg-background gap-2">
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="flex-1"
-                onClick={() => setIsDeleteDialogOpen(true)}
-              >
-                {t("delete")}
-              </Button>
-              <Button
-                type="submit"
-                form="edit-member-form"
-                className="flex-1"
-                size="sm"
-              >
-                {t("save")}
-              </Button>
-            </div>
+            {isNewMember ? (
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  {t("delete")}
+                </Button>
+                <Button
+                  type="submit"
+                  form="edit-member-form"
+                  className="flex-1"
+                  size="sm"
+                >
+                  {t("create")}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  {t("delete")}
+                </Button>
+                {saveStatus === "saving" && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Spinner className="size-3.5" />
+                    {t("saving")}
+                  </span>
+                )}
+                {saveStatus === "saved" && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Check className="size-3.5" />
+                    {t("saved")}
+                  </span>
+                )}
+                {saveStatus === "error" && (
+                  <span className="flex items-center gap-1.5 text-xs text-destructive">
+                    <CircleAlert className="size-3.5" />
+                    {t("save-error")}
+                  </span>
+                )}
+              </div>
+            )}
           </SheetFooter>
         )}
       </SheetContent>
