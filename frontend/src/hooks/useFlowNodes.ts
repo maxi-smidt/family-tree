@@ -88,6 +88,9 @@ export const useFlowNodes = (
             !connectionPathNodeIds.has(node.id),
           isReadOnly,
           isSelectionMode,
+          // Public view: block the name-link detail dialog too (onView/onEdit
+          // are already nulled out above via purelyVisual/isReadOnly).
+          disableNameLink: purelyVisual,
           onEdit: isReadOnly
             ? undefined
             : () => {

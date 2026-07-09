@@ -219,7 +219,18 @@
         "confirm-enable-description": "Jeder mit dem Link kann diesen Stammbaum ohne Anmeldung einsehen.",
         "confirm-disable-title": "Stammbaum privat machen?",
         "confirm-disable-description": "Der öffentliche Link funktioniert dann nicht mehr. Bestehende Mitglieder behalten ihren Zugang.",
-        "error": "Öffentlicher Zugang konnte nicht aktualisiert werden."
+        "error": "Öffentlicher Zugang konnte nicht aktualisiert werden.",
+        "password": {
+          "hint": "Optional ein Passwort verlangen, bevor anonyme Besucher diesen Stammbaum ansehen können.",
+          "placeholder": "Neues Passwort",
+          "set": "Passwort festlegen",
+          "update": "Passwort aktualisieren",
+          "remove": "Passwort entfernen",
+          "protected": "Passwortgeschützt",
+          "saved": "Öffentliches Passwort gespeichert.",
+          "removed": "Öffentliches Passwort entfernt.",
+          "error": "Öffentliches Passwort konnte nicht aktualisiert werden."
+        }
       },
       "invitation-received": "Du wurdest zu \"{{name}}\" eingeladen"
     },
@@ -1763,7 +1774,13 @@
     "gender-male": "Männlich",
     "gender-female": "Weiblich",
     "not-public": "Dieser Stammbaum ist privat oder der Link ist nicht mehr gültig.",
-    "error": "Dieser Stammbaum konnte nicht geladen werden."
+    "error": "Dieser Stammbaum konnte nicht geladen werden.",
+    "password": {
+      "title": "Passwort erforderlich",
+      "description": "Dieser Stammbaum ist passwortgeschützt. Gib das Passwort ein, um ihn anzusehen.",
+      "submit": "Entsperren",
+      "error": "Falsches Passwort. Bitte versuche es erneut."
+    }
   },
   "map-view": {
     "view": {

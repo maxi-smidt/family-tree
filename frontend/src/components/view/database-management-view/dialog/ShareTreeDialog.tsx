@@ -120,6 +120,9 @@ export const ShareTreeDialog = ({
   const [pendingPublicRole, setPendingPublicRole] = useState<"viewer" | null>(
     null,
   );
+  const [publicPasswordProtected, setPublicPasswordProtected] =
+    useState<boolean>(tree.public_password_protected ?? false);
+  const [publicPasswordInput, setPublicPasswordInput] = useState("");
 
   // Linked trees (issue #537): grant/revoke access on linked trees together
   // with the anchor tree, as a convenience batch operation.
@@ -201,6 +204,10 @@ export const ShareTreeDialog = ({
       setInviteRole("editor");
       setInviteExpiry("never");
       setPublicRole(treeRef.current.public_role ?? null);
+      setPublicPasswordProtected(
+        treeRef.current.public_password_protected ?? false,
+      );
+      setPublicPasswordInput("");
       setShareLinkedToo(false);
       setSelectedLinkedIds(new Set());
       setRevokeLinkedOpen(false);
@@ -530,12 +537,46 @@ export const ShareTreeDialog = ({
         pendingPublicRole,
       );
       setPublicRole(updated.public_role ?? null);
+      // Disabling public access clears the password server-side.
+      setPublicPasswordProtected(updated.public_password_protected ?? false);
       onTreeUpdated?.(updated);
       setConfirmPublicOpen(false);
     } catch (err) {
       console.error(err);
       toast.error(t("public.error"));
       setConfirmPublicOpen(false);
+    }
+  };
+
+  const handleSetPublicPassword = async () => {
+    try {
+      const updated = await TreeSharingService.setPublicPassword(
+        tree.id,
+        publicPasswordInput,
+      );
+      setPublicPasswordProtected(updated.public_password_protected ?? false);
+      setPublicPasswordInput("");
+      onTreeUpdated?.(updated);
+      toast.success(t("public.password.saved"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("public.password.error"));
+    }
+  };
+
+  const handleRemovePublicPassword = async () => {
+    try {
+      const updated = await TreeSharingService.setPublicPassword(
+        tree.id,
+        null,
+      );
+      setPublicPasswordProtected(updated.public_password_protected ?? false);
+      setPublicPasswordInput("");
+      onTreeUpdated?.(updated);
+      toast.success(t("public.password.removed"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("public.password.error"));
     }
   };
 
@@ -955,21 +996,60 @@ export const ShareTreeDialog = ({
             </div>
             <p className="text-xs text-muted-foreground">{t("public.hint")}</p>
             {publicRole === "viewer" && (
-              <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
-                <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
-                  {publicLink}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(publicLink);
-                    toast.success(t("invites.link-copied"));
-                  }}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
+              <>
+                <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
+                  <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
+                    {publicLink}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(publicLink);
+                      toast.success(t("invites.link-copied"));
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {t("public.password.hint")}
+                  </p>
+                  {publicPasswordProtected && (
+                    <div className="flex items-center justify-between rounded-md border bg-muted/50 p-2">
+                      <span className="text-xs font-medium">
+                        {t("public.password.protected")}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemovePublicPassword}
+                      >
+                        {t("public.password.remove")}
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      placeholder={t("public.password.placeholder")}
+                      value={publicPasswordInput}
+                      onChange={(e) => setPublicPasswordInput(e.target.value)}
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={!publicPasswordInput}
+                      onClick={handleSetPublicPassword}
+                    >
+                      {publicPasswordProtected
+                        ? t("public.password.update")
+                        : t("public.password.set")}
+                    </Button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}

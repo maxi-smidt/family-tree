@@ -115,6 +115,19 @@ export const TreeSharingService = {
     });
   },
 
+  setPublicPassword(treeId: string, password: string | null): Promise<Tree> {
+    return api.put<Tree>(`/trees/${treeId}/public/password`, { password });
+  },
+
+  unlockPublicTree(
+    treeId: string,
+    password: string,
+  ): Promise<{ token: string }> {
+    return api.post<{ token: string }>(`/trees/${treeId}/public/unlock`, {
+      password,
+    });
+  },
+
   getLinkedShareTrees(
     treeId: string,
     username?: string,

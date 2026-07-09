@@ -335,7 +335,10 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
         </div>
       )}
 
-      <FamilyNodeContent member={data} />
+      <FamilyNodeContent
+        member={data}
+        disableNameLink={data.disableNameLink === true}
+      />
 
       {/* Disease indicator - shown only in disease mode when person has recorded diseases */}
       {isDiseaseMode && hasDiseases && (
