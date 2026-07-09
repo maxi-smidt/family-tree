@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { render } from "@testing-library/react";
-import { ReactFlowProvider, useStore } from "@xyflow/react";
+import { act, render } from "@testing-library/react";
+import {
+  ReactFlowProvider,
+  useStore,
+  useStoreApi,
+  type ReactFlowState,
+} from "@xyflow/react";
 import { SelectionModeController } from "./SelectionModeController";
 
-let latest = false;
+let multiSelectionActive = false;
+let nodesSelectionActive = false;
+let store: ReturnType<typeof useStoreApi<never, never>> | null = null;
 
 function Probe() {
-  latest = useStore((s) => s.multiSelectionActive);
+  multiSelectionActive = useStore((s: ReactFlowState) => s.multiSelectionActive);
+  nodesSelectionActive = useStore((s: ReactFlowState) => s.nodesSelectionActive);
+  store = useStoreApi();
   return null;
 }
 
@@ -18,7 +27,7 @@ describe("SelectionModeController", () => {
         <Probe />
       </ReactFlowProvider>,
     );
-    expect(latest).toBe(true);
+    expect(multiSelectionActive).toBe(true);
 
     rerender(
       <ReactFlowProvider>
@@ -26,6 +35,22 @@ describe("SelectionModeController", () => {
         <Probe />
       </ReactFlowProvider>,
     );
-    expect(latest).toBe(false);
+    expect(multiSelectionActive).toBe(false);
+  });
+
+  it("suppresses the persistent selection box while active", () => {
+    render(
+      <ReactFlowProvider>
+        <SelectionModeController active={true} />
+        <Probe />
+      </ReactFlowProvider>,
+    );
+
+    // React Flow raises nodesSelectionActive when a marquee ends; the controller
+    // must clear it again so the selection box never shows.
+    act(() => {
+      store?.setState({ nodesSelectionActive: true });
+    });
+    expect(nodesSelectionActive).toBe(false);
   });
 });
