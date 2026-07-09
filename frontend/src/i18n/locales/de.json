@@ -705,7 +705,11 @@
           "label": "Verlinkte Dokumente",
           "placeholder": "Dokumente auswählen...",
           "create": "Dokument erstellen",
-          "empty": "Noch keine Dokumente"
+          "empty": "Noch keine Dokumente",
+          "count_one": "{{count}} Dokument",
+          "count_other": "{{count}} Dokumente",
+          "show": "Verlinkte Dokumente anzeigen",
+          "hide": "Verlinkte Dokumente ausblenden"
         },
         "dialog": {
           "add-title": "Dokument hinzufügen",
