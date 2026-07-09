@@ -46,6 +46,7 @@ import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useSelectionMode } from "@/hooks/useSelectionMode";
+import { SelectionModeController } from "@/components/view/tree-view/SelectionModeController";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
@@ -586,6 +587,14 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         selectionOnDrag={inSelectionMode}
         panOnDrag={inSelectionMode ? [1, 2] : undefined}
         selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
+        // In selection mode every click toggles a member (see
+        // SelectionModeController); disabling the modifier key stops the
+        // built-in handler from turning multi-selection back off.
+        multiSelectionKeyCode={inSelectionMode ? null : undefined}
+        // With multi-selection forced on, selecting on drag-start would toggle
+        // (deselect) the node you grab to move; select on click instead so
+        // dragging a selected member keeps the selection intact.
+        selectNodesOnDrag={inSelectionMode ? false : undefined}
         onInit={setRfInstance}
         defaultViewport={viewport}
         onMoveEnd={(_, vp) => activeTree && setViewport(activeTree.id, vp)}
@@ -595,6 +604,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           "controls.fitView.ariaLabel": t("tree-view.controls.fit-view"),
         }}
       >
+        <SelectionModeController active={inSelectionMode} />
         <Background />
         <GenerationLines visible={showGenerationLines} />
         {members.length === 0 && !isCanvasReadOnly && (
@@ -654,6 +664,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 {t("tree-view.selection.selected-count", {
                   count: selectedNodes.length,
                 })}
+              </span>
+              <span className="text-muted-foreground">
+                {t("tree-view.selection.hint")}
               </span>
               <Button
                 variant="ghost"
@@ -728,12 +741,20 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   );
 
   function initializeFlow() {
-    const newNodes = members.map((member) => ({
-      id: member.id,
-      type: "familyMember",
-      position: member.position,
-      data: member,
-    }));
-    setNodes(newNodes);
+    // Rebuilt on every `members` change (incl. drag-position persistence), so
+    // carry the current selection over — otherwise moving a selected member
+    // would clear the selection once its new position is saved.
+    setNodes((prevNodes) => {
+      const selectedIds = new Set(
+        prevNodes.filter((n) => n.selected).map((n) => n.id),
+      );
+      return members.map((member) => ({
+        id: member.id,
+        type: "familyMember",
+        position: member.position,
+        data: member,
+        selected: selectedIds.has(member.id),
+      }));
+    });
   }
 };

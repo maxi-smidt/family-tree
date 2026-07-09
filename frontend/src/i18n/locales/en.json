@@ -915,7 +915,8 @@
     },
     "selection": {
       "selected-count": "{{count}} selected",
-      "clear": "Clear"
+      "clear": "Clear",
+      "hint": "Click a person to add or remove them"
     },
     "connection": {
       "kinship": {
