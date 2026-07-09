@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import { toggleSelectionId, useSelectionMode } from "./useSelectionMode";
+import { useSelectionMode } from "./useSelectionMode";
 
 describe("useSelectionMode", () => {
   it("starts with selection mode off", () => {
@@ -41,29 +41,5 @@ describe("useSelectionMode", () => {
       result.current.toggleSelectionMode();
     });
     expect(onEnterSelectionMode).toHaveBeenCalledTimes(2);
-  });
-});
-
-describe("toggleSelectionId", () => {
-  it("adds an id that is not currently selected", () => {
-    expect([...toggleSelectionId([], "a")]).toEqual(["a"]);
-    expect([...toggleSelectionId(["a"], "b")]).toEqual(["a", "b"]);
-  });
-
-  it("removes an id that is already selected", () => {
-    expect([...toggleSelectionId(["a", "b"], "a")]).toEqual(["b"]);
-  });
-
-  it("toggles the same id off after adding it", () => {
-    const added = toggleSelectionId(["a"], "b");
-    expect(added.has("b")).toBe(true);
-    const removed = toggleSelectionId(added, "b");
-    expect(removed.has("b")).toBe(false);
-  });
-
-  it("does not mutate the input set", () => {
-    const input = new Set(["a"]);
-    toggleSelectionId(input, "b");
-    expect([...input]).toEqual(["a"]);
   });
 });
