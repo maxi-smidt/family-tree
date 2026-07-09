@@ -8,10 +8,13 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_readable_tree
 from app.core.config import settings
-from app.models import Tree
+from app.db.session import get_db
+from app.models import DocumentFile, Tree
 
 router = APIRouter(tags=["media"])
 
@@ -40,6 +43,7 @@ _MIME: dict[str, str] = {
 def serve_media(
     filename: str,
     tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
 ) -> FileResponse:
     # Reject any attempt to escape the tree directory via path components.
     if "/" in filename or "\\" in filename or filename.startswith("."):
@@ -57,4 +61,19 @@ def serve_media(
 
     ext = path.suffix.lstrip(".").lower()
     mime = _MIME.get(ext, "application/octet-stream")
-    return FileResponse(path, media_type=mime)
+
+    # Document attachments carry their original upload name; download them under
+    # it (not the stored hash). FileResponse sets Content-Disposition and RFC
+    # 5987-encodes non-ASCII names. Member photos and gallery images have no
+    # DocumentFile row, so original_name is None and they keep serving inline.
+    media_url = f"{settings.API_PREFIX}/media/{tree.id}/{filename}"
+    original_name = db.scalar(
+        select(DocumentFile.filename).where(
+            DocumentFile.tree_id == tree.id,
+            DocumentFile.url == media_url,
+            DocumentFile.kind == "file",
+            DocumentFile.filename.is_not(None),
+        )
+    )
+
+    return FileResponse(path, media_type=mime, filename=original_name)
