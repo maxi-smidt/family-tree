@@ -1345,6 +1345,7 @@
     "date-input-hint": "TT.MM.JJJJ",
     "open-date-picker": "Datumsauswahl öffnen",
     "nee": "geb. {{name}}",
+    "location-input": { "placeholder": "Stadt, Region, Land…" },
     "geocode": {
       "checking": "Adresse wird geprüft...",
       "found": "Adresse gefunden",

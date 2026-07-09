@@ -1345,6 +1345,7 @@
     "date-input-hint": "MM/DD/YYYY",
     "open-date-picker": "Open date picker",
     "nee": "née {{name}}",
+    "location-input": { "placeholder": "City, region, country…" },
     "geocode": {
       "checking": "Checking address...",
       "found": "Address found",
