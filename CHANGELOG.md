@@ -34,6 +34,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - **Documents**: extracting a subtree now removes documents left orphaned (no member/event/story links) in the source tree after their links are moved into the new tree, deleting their files and on-disk bytes too — previously an unreferenced copy lingered in the source tree's document list (#605).
 - Public tree view: clicking a member's name no longer opens the full member detail dialog in the anonymous read-only view (#621).
 - Documents: a failed file upload no longer leaves an orphaned document entry with no file attached — if any attachment fails to upload (for example, rejected by a reverse proxy's body-size limit), the new document is rolled back and a clear error is shown. Also documented the reverse-proxy `client_max_body_size` guidance for self-hosters (#612).
+- Documents: downloaded files now keep their original upload name instead of the internal stored hash — `serve_media` sets a `Content-Disposition` header, RFC 5987-encoded for non-ASCII names (#613).
 - Tree view: the connector from a couple's union dot to their shared children now uses the relationship's colour for custom relationship types too, not only the built-in married/partner/divorced types. A newly created custom relationship colours the union dot and its child connectors immediately, without a refresh (#617).
 - Member edit sheet: the "Places lived" entry containers now use the same corner radius (`rounded-md`) as the surrounding input fields, fixing the mismatched border radius (#619).
 
