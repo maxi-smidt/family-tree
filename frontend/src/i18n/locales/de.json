@@ -716,7 +716,11 @@
           "label": "Verlinkte Dokumente",
           "placeholder": "Dokumente auswählen...",
           "create": "Dokument erstellen",
-          "empty": "Noch keine Dokumente"
+          "empty": "Noch keine Dokumente",
+          "count_one": "{{count}} Dokument",
+          "count_other": "{{count}} Dokumente",
+          "show": "Verlinkte Dokumente anzeigen",
+          "hide": "Verlinkte Dokumente ausblenden"
         },
         "dialog": {
           "add-title": "Dokument hinzufügen",
@@ -1355,6 +1359,7 @@
     "date-input-hint": "TT.MM.JJJJ",
     "open-date-picker": "Datumsauswahl öffnen",
     "nee": "geb. {{name}}",
+    "location-input": { "placeholder": "Stadt, Region, Land…" },
     "geocode": {
       "checking": "Adresse wird geprüft...",
       "found": "Adresse gefunden",

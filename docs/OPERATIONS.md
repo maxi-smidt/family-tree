@@ -233,8 +233,15 @@ server {
     ssl_certificate     /etc/letsencrypt/live/family.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/family.example.com/privkey.pem;
 
-    # Media uploads (photos) can exceed nginx's 1m default.
-    client_max_body_size 50m;
+    # Uploads (photos and documents) are sent base64-encoded, so the request
+    # body is ~4/3 of the file size. Set this at least as high as the largest
+    # upload your admin settings allow (Settings → Media: max_document_upload_mb
+    # / max_image_upload_mb) times that overhead, or this proxy will reject large
+    # uploads with 413 before they reach the app — which can leave a document
+    # entry with no file attached. The bundled frontend container already allows
+    # up to 700m; size this to match the largest upload you permit (e.g. a 100 MB
+    # document limit → ~140m).
+    client_max_body_size 140m;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
