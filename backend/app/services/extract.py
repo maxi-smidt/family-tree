@@ -53,6 +53,7 @@ from app.services.job_service import ProgressCallback
 from app.services.merge import _clone_member, _wire_bridge
 from app.services.storage import (
     copy_media_to_tree,
+    delete_media,
     media_disk_usage,
     move_media_to_tree,
 )
@@ -519,6 +520,49 @@ def _copy_documents_for_move(
         db.add(EventDocumentLink(event_id=event_id, document_id=doc_id))
     for story_id, doc_id in new_story_links:
         db.add(StoryDocumentLink(story_id=story_id, document_id=doc_id))
+    db.flush()
+
+    # Any source document that was linked ONLY to moved entities now has all
+    # its links repointed to the copy and is left orphaned — clean it up.
+    _gc_orphaned_documents(db, source_tree.id, set(doc_copy_map))
+
+
+def _gc_orphaned_documents(
+    db: Session, source_tree_id: str, doc_ids: set[str]
+) -> None:
+    """Delete source-tree documents left with no links after a move.
+
+    ``doc_ids`` are the documents the move touched (linked to a relocating
+    entity, hence copied and repointed). A document linked *only* to moved
+    entities is left with zero member/event/story links once repointing is
+    done; it would otherwise linger as an orphan in the source tree. Such a
+    document, its ``DocumentFile`` rows, and the underlying stored files are
+    removed. Restricting to the touched documents avoids sweeping away
+    documents the user deliberately left unlinked.
+    """
+    for doc_id in doc_ids:
+        doc = db.get(Document, doc_id)
+        if doc is None or doc.tree_id != source_tree_id:
+            continue
+        has_link = any(
+            db.scalar(
+                select(link_model.document_id)
+                .where(link_model.document_id == doc_id)
+                .limit(1)
+            )
+            is not None
+            for link_model in (
+                DocumentMemberLink,
+                EventDocumentLink,
+                StoryDocumentLink,
+            )
+        )
+        if has_link:
+            continue
+        for f in doc.files:
+            if f.kind == "file":
+                delete_media(f.url)
+        db.delete(doc)
     db.flush()
 
 

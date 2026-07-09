@@ -1,13 +1,22 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
-import { api } from "@/services/api";
+import { api, ApiError, setPublicTreeToken } from "@/services/api";
 import { Tree } from "@/types/tree";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
+import { TreeSharingService } from "@/services/TreeSharingService";
 
 // Lazy so the tree-view bundle stays code-split (shared with the authenticated
 // app's lazy import) rather than being pulled into the main entry chunk.
@@ -17,7 +26,7 @@ const FlowPanel = lazy(() =>
   })),
 );
 
-type ViewState = "loading" | "loaded" | "not-public" | "error";
+type ViewState = "loading" | "loaded" | "not-public" | "password" | "error";
 
 interface Props {
   treeId: string;
@@ -36,33 +45,68 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
   const [state, setState] = useState<ViewState>("loading");
   const [treeName, setTreeName] = useState("");
   const [legalDocsOpen, setLegalDocsOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState(false);
+  // Guards against setState after unmount / a treeId change mid-flight;
+  // load() is also invoked directly on unlock (outside the mount effect), so
+  // a plain effect-scoped `cancelled` closure variable isn't enough here.
+  const cancelledRef = useRef(false);
+
+  const load = useCallback(async () => {
+    try {
+      // Probe access (anonymous succeeds only for public trees) and grab the
+      // name before booting the canvas stores.
+      const tree = await api.get<Tree>(`/trees/${treeId}`);
+      if (cancelledRef.current) return;
+      setTreeName(tree.name);
+      await useTreeStore.getState().selectTree({ id: tree.id, name: tree.name });
+      if (cancelledRef.current) return;
+      setState("loaded");
+    } catch (err: unknown) {
+      if (cancelledRef.current) return;
+      if (
+        err instanceof ApiError &&
+        err.status === 401 &&
+        err.message === "public_password_required"
+      ) {
+        setState("password");
+        return;
+      }
+      const status = (err as { status?: number })?.status;
+      setState(status === 401 || status === 403 ? "not-public" : "error");
+    }
+  }, [treeId]);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        // Probe access (anonymous succeeds only for public trees) and grab the
-        // name before booting the canvas stores.
-        const tree = await api.get<Tree>(`/trees/${treeId}`);
-        if (cancelled) return;
-        setTreeName(tree.name);
-        await useTreeStore
-          .getState()
-          .selectTree({ id: tree.id, name: tree.name });
-        if (cancelled) return;
-        setState("loaded");
-      } catch (err: unknown) {
-        if (cancelled) return;
-        const status = (err as { status?: number })?.status;
-        setState(status === 401 || status === 403 ? "not-public" : "error");
-      }
-    })();
+    cancelledRef.current = false;
+    void load();
     return () => {
-      cancelled = true;
+      cancelledRef.current = true;
       // Tear the loaded tree back down so a subsequent login starts clean.
       void useTreeStore.getState().disconnect();
+      // Drop the unlock token — a fresh visit should re-prompt.
+      setPublicTreeToken(null);
     };
-  }, [treeId]);
+  }, [treeId, load]);
+
+  const handleUnlock = async () => {
+    setUnlocking(true);
+    setUnlockError(false);
+    try {
+      const res = await TreeSharingService.unlockPublicTree(treeId, password);
+      setPublicTreeToken(res.token);
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setUnlockError(true);
+      } else {
+        setState("error");
+      }
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   const handleLogin = () => {
     // Clearing pendingPublicTreeId lets the login page render; the user can
@@ -74,6 +118,54 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
     return (
       <div className="w-screen h-screen flex items-center justify-center">
         <Spinner className="size-8" />
+      </div>
+    );
+  }
+
+  if (state === "password") {
+    return (
+      <div className="w-screen h-screen flex flex-col items-center justify-center gap-4 p-8 text-center">
+        <p className="text-lg font-semibold">{t("password.title")}</p>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          {t("password.description")}
+        </p>
+        <div className="flex w-full max-w-xs flex-col gap-2">
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !unlocking && password) {
+                void handleUnlock();
+              }
+            }}
+            autoFocus
+          />
+          <Button
+            onClick={() => void handleUnlock()}
+            disabled={unlocking || !password}
+          >
+            {t("password.submit")}
+          </Button>
+          {unlockError && (
+            <p className="text-sm text-destructive">{t("password.error")}</p>
+          )}
+        </div>
+        <Button variant="outline" onClick={handleLogin}>
+          {t("login-button")}
+        </Button>
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:text-foreground"
+          onClick={() => setLegalDocsOpen(true)}
+        >
+          {tLegal("legal-link-public")}
+        </button>
+        <LegalDocsDialog
+          open={legalDocsOpen}
+          onOpenChange={setLegalDocsOpen}
+          showTerms={false}
+        />
       </div>
     );
   }

@@ -139,6 +139,29 @@ describe("useDocumentStore — addDocument", () => {
     );
   });
 
+  it("rolls back the orphaned document when a file upload fails", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.addDocument).mockResolvedValue(DOC_DB);
+    vi.mocked(TreeService.addDocumentFile).mockRejectedValue(
+      new Error("upload failed"),
+    );
+    vi.mocked(TreeService.removeDocument).mockResolvedValue(undefined);
+    vi.mocked(TreeService.getDocuments).mockResolvedValue([]);
+
+    await expect(
+      useDocumentStore.getState().addDocument(INPUT, ["m1"], {
+        addedFiles: [
+          { filename: "scan.pdf", dataUrl: "data:application/pdf;base64,AAA" },
+        ],
+        addedLinks: [],
+        removedIds: [],
+        renamed: [],
+      }),
+    ).rejects.toThrow("upload failed");
+
+    expect(TreeService.removeDocument).toHaveBeenCalledWith(TREE_ID, "d1");
+  });
+
   it("does nothing when no tree is selected", async () => {
     const created = await useDocumentStore
       .getState()

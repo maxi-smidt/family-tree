@@ -106,12 +106,29 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     if (!treeId) return null;
 
     const row = await TreeService.addDocument(treeId, input, memberIds);
-    const filesChanged = await applyFileOps(
-      treeId,
-      row.id,
-      fileOps,
-      onFileProgress,
-    );
+    let filesChanged: boolean;
+    try {
+      filesChanged = await applyFileOps(
+        treeId,
+        row.id,
+        fileOps,
+        onFileProgress,
+      );
+    } catch (err) {
+      // The metadata row is already committed, but a file upload failed (e.g. a
+      // reverse proxy rejected an oversized body with 413). Roll the new
+      // document back so a failed attachment never leaves a fileless orphan;
+      // deleting it also cleans up any files that did upload. Best-effort — the
+      // original error is surfaced to the caller regardless.
+      try {
+        await TreeService.removeDocument(treeId, row.id);
+      } catch {
+        // ignore cleanup failure; re-throw the original upload error
+      }
+      await get().refreshDocuments(treeId);
+      invalidateActivityView();
+      throw err;
+    }
 
     await get().refreshDocuments(treeId);
     if (filesChanged) useStorageStore.getState().refreshStorageUsage();

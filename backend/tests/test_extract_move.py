@@ -357,6 +357,60 @@ def test_move_document_linked_to_moved_and_staying_member_is_copied(db):
         assert member.tree_id == doc.tree_id
 
 
+def test_move_document_linked_only_to_moved_member_is_gc_d(db, media_root):
+    """A document linked ONLY to moved members is copied into the new tree and
+    its now-orphaned original (with its file row and the on-disk bytes) is
+    garbage-collected from the source tree."""
+    user = make_user(db, "alice")
+    tree = make_family(db, user)
+    now = utcnow_iso()
+
+    src_dir = media_root / tree.id
+    src_dir.mkdir(parents=True, exist_ok=True)
+    (src_dir / "orphan.pdf").write_bytes(b"orphan-file")
+
+    db.add(
+        Document(id="doc", tree_id=tree.id, title="Only moved",
+                 created_at=now, updated_at=now)
+    )
+    db.add(
+        DocumentFile(
+            id="df", tree_id=tree.id, document_id="doc", kind="file",
+            filename="orphan.pdf",
+            url=f"{MEDIA_URL_PREFIX}/{tree.id}/orphan.pdf",
+            mime_type="application/pdf", size=11, created_at=now,
+        )
+    )
+    db.add(DocumentMemberLink(document_id="doc", member_id="c1"))  # only moves
+    db.commit()
+
+    new_tree = extract_subtree(
+        db, user,
+        req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
+    )
+
+    # The orphaned original document, its file row, and the on-disk bytes are gone.
+    assert db.get(Document, "doc") is None
+    assert db.get(DocumentFile, "df") is None
+    assert not (src_dir / "orphan.pdf").exists()
+
+    # A copy lives in the new tree, carrying the file bytes.
+    copies = db.query(Document).filter(Document.tree_id == new_tree.id).all()
+    assert len(copies) == 1
+    copy = copies[0]
+    assert copy.title == "Only moved"
+    copy_member_links = (
+        db.query(DocumentMemberLink).filter_by(document_id=copy.id).all()
+    )
+    assert [ln.member_id for ln in copy_member_links] == ["c1"]
+    copy_files = db.query(DocumentFile).filter_by(document_id=copy.id).all()
+    assert len(copy_files) == 1
+    cf = copy_files[0]
+    assert cf.tree_id == new_tree.id
+    cf_rel = cf.url[len(MEDIA_URL_PREFIX) + 1 :]
+    assert (media_root / cf_rel).read_bytes() == b"orphan-file"
+
+
 def test_move_media_files_relocate_on_disk(db, media_root):
     user = make_user(db, "alice")
     tree = make_family(db, user)
@@ -432,10 +486,12 @@ def test_move_media_files_relocate_on_disk(db, media_root):
     cf_rel = cf.url[len(MEDIA_URL_PREFIX) + 1 :]
     assert (media_root / cf_rel).read_bytes() == b"story-file"
 
-    # The original document + its file stay behind in the source tree.
-    orig_file = db.get(DocumentFile, "att")
-    assert orig_file.tree_id == tree.id
-    assert (src_dir / "story.pdf").exists()
+    # The original document was linked only to the story, which moved in its
+    # entirety — it is now orphaned in the source tree, so it (and its file
+    # row and on-disk bytes) are garbage-collected rather than left behind.
+    assert db.get(Document, "doc") is None
+    assert db.get(DocumentFile, "att") is None
+    assert not (src_dir / "story.pdf").exists()
 
 
 # ---------------------------------------------------------------------------

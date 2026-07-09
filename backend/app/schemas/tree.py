@@ -18,6 +18,8 @@ class TreeOut(BaseModel):
     shared_count: int = 0
     # null = private; "viewer" = public read-only.
     public_role: str | None = None
+    # True when a public tree is password-gated (the hash is never exposed).
+    public_password_protected: bool = False
     # Domains the requesting member may not see. Empty for owner/admin.
     restrictions: list[str] = []
 
@@ -121,6 +123,19 @@ class InvitationPreview(BaseModel):
 
 class PublicAccessUpdate(BaseModel):
     public_role: str | None = None
+
+
+class PublicPasswordUpdate(BaseModel):
+    # New password; null or empty string clears/removes protection.
+    password: str | None = None
+
+
+class PublicTreeUnlock(BaseModel):
+    password: str
+
+
+class PublicTreeUnlockResult(BaseModel):
+    token: str
 
 
 class TreeStorageUsageOut(BaseModel):
