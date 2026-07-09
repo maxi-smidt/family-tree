@@ -93,7 +93,7 @@ canvasTest(
         response.request().method() === "POST" &&
         response.url().endsWith(`/api/trees/${ownedTree.id}/members`),
     );
-    await sheet.getByRole("button", { name: "Save" }).click();
+    await sheet.getByRole("button", { name: "Create member" }).click();
     const created = (await (await createResponse).json()) as { id: string };
 
     await expect(memberNode(page, created.id)).toContainText("Ada");
@@ -163,15 +163,25 @@ canvasTest(
     await popover.getByRole("button", { name: "Y", exact: true }).click();
     await popover.getByRole("button", { name: "2024", exact: true }).click();
 
-    await sheet.locator("#additionalData").fill("Compiler pioneer");
-    const updateResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === "PATCH" &&
-        response
+    // Existing members autosave (debounced) — there is no Save button. Set up
+    // the waiter before the final edit and match on its payload so we await the
+    // autosave PATCH that actually carries `additionalData`, not an earlier
+    // partial one, before asserting the persisted state below.
+    const updateResponse = page.waitForResponse((response) => {
+      if (
+        response.request().method() !== "PATCH" ||
+        !response
           .url()
-          .endsWith(`/api/trees/${ownedTree.id}/members/${member.id}`),
-    );
-    await sheet.getByRole("button", { name: "Save" }).click();
+          .endsWith(`/api/trees/${ownedTree.id}/members/${member.id}`)
+      ) {
+        return false;
+      }
+      const body = response.request().postDataJSON() as {
+        additionalData?: string;
+      } | null;
+      return body?.additionalData === "Compiler pioneer";
+    });
+    await sheet.locator("#additionalData").fill("Compiler pioneer");
     await updateResponse;
 
     await expect(memberNode(page, member.id)).toContainText("After");
