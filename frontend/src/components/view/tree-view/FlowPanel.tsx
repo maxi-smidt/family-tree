@@ -3,6 +3,7 @@ import {
   ConnectionMode,
   Edge,
   Node,
+  NodeMouseHandler,
   Panel,
   Position,
   ReactFlow,
@@ -11,7 +12,7 @@ import {
 } from "@xyflow/react";
 import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialog";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -45,7 +46,7 @@ import {
 import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
-import { useSelectionMode } from "@/hooks/useSelectionMode";
+import { useSelectionMode, toggleSelectionId } from "@/hooks/useSelectionMode";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
@@ -208,6 +209,59 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   }, [selection.isSelectionMode]);
 
   const inSelectionMode = selection.isSelectionMode;
+
+  // Mirror the live selection into a ref so click-to-toggle reads the
+  // pre-click selection synchronously — React Flow's own click handling may
+  // otherwise have replaced it by the time our handler runs.
+  const selectedNodeIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    selectedNodeIdsRef.current = new Set(selectedNodes.map((n) => n.id));
+  }, [selectedNodes]);
+
+  // Selection mode: clicking a member toggles it in/out of the current
+  // selection (additive), so a single person can be removed from — or added
+  // to — a marquee selection without clearing everything. We drive the full
+  // desired selection through setNodes, overriding React Flow's default
+  // "select only this node" click behaviour. Union dots aren't selectable.
+  const toggleNodeSelection = useCallback<NodeMouseHandler>(
+    (event, node) => {
+      if (node.id.startsWith("union-")) return;
+      event.stopPropagation();
+      const nextSelectedIds = toggleSelectionId(
+        selectedNodeIdsRef.current,
+        node.id,
+      );
+      selectedNodeIdsRef.current = nextSelectedIds;
+      setNodes((currentNodes) =>
+        currentNodes.map((n) => {
+          const shouldSelect = nextSelectedIds.has(n.id);
+          return n.selected === shouldSelect
+            ? n
+            : { ...n, selected: shouldSelect };
+        }),
+      );
+      setSelectedNodes(nodes.filter((n) => nextSelectedIds.has(n.id)));
+    },
+    [nodes, setNodes],
+  );
+
+  const handleNodeClick = useCallback<NodeMouseHandler>(
+    (event, node) => {
+      if (connection.isConnectionMode) {
+        connection.handleNodeClick(event, node);
+        return;
+      }
+      if (selection.isSelectionMode) {
+        toggleNodeSelection(event, node);
+      }
+    },
+    [
+      connection.isConnectionMode,
+      connection.handleNodeClick,
+      selection.isSelectionMode,
+      toggleNodeSelection,
+    ],
+  );
 
   const relation = useRelationCreation();
 
@@ -553,7 +607,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             ? undefined
             : onSelectionChange
         }
-        onNodeClick={connection.handleNodeClick}
+        onNodeClick={handleNodeClick}
         minZoom={0.1}
         snapToGrid={true}
         snapGrid={[50, 50]}
@@ -654,6 +708,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 {t("tree-view.selection.selected-count", {
                   count: selectedNodes.length,
                 })}
+              </span>
+              <span className="text-muted-foreground">
+                {t("tree-view.selection.hint")}
               </span>
               <Button
                 variant="ghost"

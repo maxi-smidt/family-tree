@@ -17,6 +17,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Location inputs in the member edit sheet now show a geocoding resolution hint below the field, matching the event dialog (#598).
 - **Documents**: document uploads now show a progress indicator while files upload, matching the gallery image upload experience (#596).
 - **Documents**: double-click a document to open its file in a new browser tab, with a loading indicator while it opens (#597).
+- Selection tool: click a highlighted person to toggle them in or out of the current selection, so individuals can be removed without clearing and re-selecting everything (#620).
 
 ### Changed
 

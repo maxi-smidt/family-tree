@@ -896,7 +896,8 @@
     },
     "selection": {
       "selected-count": "{{count}} ausgewählt",
-      "clear": "Zurücksetzen"
+      "clear": "Zurücksetzen",
+      "hint": "Klicke auf eine Person, um sie hinzuzufügen oder zu entfernen"
     },
     "connection": {
       "kinship": {
