@@ -765,7 +765,7 @@ export const EditMode = ({
                     {formData.placesLived.map((place, idx) => (
                       <div
                         key={idx}
-                        className="flex flex-col gap-1 border rounded p-2"
+                        className="flex flex-col gap-1 border rounded-md p-2"
                       >
                         <LocationInput
                           value={place.location}
