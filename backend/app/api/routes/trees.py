@@ -13,6 +13,12 @@ from app.api.deps import (
     get_writable_tree,
     role_for,
 )
+from app.core.security import (
+    create_public_tree_token,
+    hash_password,
+    run_dummy_verify,
+    verify_password,
+)
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import SessionLocal, get_db
 from app.models import Tree, TreeMembership, User
@@ -28,6 +34,9 @@ from app.schemas.tree import (
     LinkGraphOut,
     MemberRestrictionsUpdate,
     PublicAccessUpdate,
+    PublicPasswordUpdate,
+    PublicTreeUnlock,
+    PublicTreeUnlockResult,
     ShareCandidate,
     TreeAccessBatchRevoke,
     TreeCreate,
@@ -74,6 +83,7 @@ def _tree_out(
     if user is not None and out.role not in ("owner",) and not user.is_admin:
         membership = db.get(TreeMembership, (tree.id, user.id))
         out.restrictions = list(membership.restrictions or []) if membership else []
+    out.public_password_protected = tree.public_password_hash is not None
     return out
 
 
@@ -466,6 +476,8 @@ def set_public_access(
         )
     old_public_role = tree.public_role
     tree.public_role = payload.public_role
+    if tree.public_role is None:
+        tree.public_password_hash = None
     logged = False
     if old_public_role != tree.public_role:
         record_activity(
@@ -482,6 +494,51 @@ def set_public_access(
     if logged:
         publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
+
+
+@router.put("/{tree_id}/public/password", response_model=TreeOut)
+def set_public_password(
+    payload: PublicPasswordUpdate,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can change public access"
+        )
+    if tree.public_role != "viewer":
+        raise HTTPException(
+            status_code=400, detail="Tree is not publicly shared"
+        )
+    password = (payload.password or "").strip()
+    tree.public_password_hash = hash_password(password) if password else None
+    db.commit()
+    db.refresh(tree)
+    return _tree_out(db, tree, user)
+
+
+@router.post("/{tree_id}/public/unlock", response_model=PublicTreeUnlockResult)
+def unlock_public_tree(
+    tree_id: str,
+    payload: PublicTreeUnlock,
+    db: Session = Depends(get_db),
+):
+    """Anonymous: verify a public tree's password and return a short-lived
+    unlock token to be sent as the X-Public-Tree-Token header."""
+    tree = db.get(Tree, tree_id)
+    if (
+        tree is None
+        or tree.public_role != "viewer"
+        or tree.public_password_hash is None
+    ):
+        # Run a dummy bcrypt verify so timing does not reveal whether the tree
+        # exists / is protected, then answer uniformly.
+        run_dummy_verify(payload.password)
+        raise HTTPException(status_code=404, detail="Not found")
+    if not verify_password(payload.password, tree.public_password_hash):
+        raise HTTPException(status_code=401, detail="invalid_public_password")
+    return PublicTreeUnlockResult(token=create_public_tree_token(tree.id))
 
 
 # --- Sharing ---------------------------------------------------------------
