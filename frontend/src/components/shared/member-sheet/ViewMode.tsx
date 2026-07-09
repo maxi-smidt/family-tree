@@ -421,6 +421,9 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                                     {event.description}
                                   </p>
                                 )}
+                                <LinkedDocumentList
+                                  documentIds={event.documentIds}
+                                />
                               </div>
                             ))}
                         </div>
