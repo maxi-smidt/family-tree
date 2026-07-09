@@ -705,7 +705,11 @@
           "label": "Linked documents",
           "placeholder": "Select documents...",
           "create": "Create document",
-          "empty": "No documents yet"
+          "empty": "No documents yet",
+          "count_one": "{{count}} document",
+          "count_other": "{{count}} documents",
+          "show": "Show linked documents",
+          "hide": "Hide linked documents"
         },
         "dialog": {
           "add-title": "Add Document",
@@ -1344,6 +1348,7 @@
     "date-input-hint": "MM/DD/YYYY",
     "open-date-picker": "Open date picker",
     "nee": "née {{name}}",
+    "location-input": { "placeholder": "City, region, country…" },
     "geocode": {
       "checking": "Checking address...",
       "found": "Address found",
