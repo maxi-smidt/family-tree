@@ -1,5 +1,5 @@
 import { Input } from "@/components/ui/input";
-import { GeocodeHint } from "@/components/shared/GeocodeHint";
+import { LocationInput } from "@/components/shared/LocationInput";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
@@ -546,16 +546,13 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("birthplace-field")}
                   </FieldLabel>
-                  <Input
+                  <LocationInput
                     id="birthplace"
-                    value={formData.birthplace || ""}
+                    value={formData.birthplace}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("location-placeholder")}
-                    onChange={(e) => handleChange("birthplace", e.target.value)}
-                  />
-                  <GeocodeHint
-                    location={formData.birthplace}
-                    enabled={mapEnabled}
+                    geocodeEnabled={mapEnabled}
+                    onChange={(value) => handleChange("birthplace", value)}
                   />
                 </Field>
               </div>
@@ -614,16 +611,13 @@ export const EditMode = ({
                       <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                         {t("hometown-field")}
                       </FieldLabel>
-                      <Input
+                      <LocationInput
                         id="hometown"
-                        value={formData.hometown || ""}
+                        value={formData.hometown}
                         className="h-7 text-xs! shadow-none"
                         placeholder={t("location-placeholder")}
-                        onChange={(e) =>
-                          handleChange("hometown", e.target.value)
-                        }
+                        onChange={(value) => handleChange("hometown", value)}
                       />
-                      <GeocodeHint location={formData.hometown} />
                     </Field>
                   )}
                 </div>
@@ -634,14 +628,13 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("cemetery-field")}
                   </FieldLabel>
-                  <Input
+                  <LocationInput
                     id="cemetery"
-                    value={formData.cemetery || ""}
+                    value={formData.cemetery}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("location-placeholder")}
-                    onChange={(e) => handleChange("cemetery", e.target.value)}
+                    onChange={(value) => handleChange("cemetery", value)}
                   />
-                  <GeocodeHint location={formData.cemetery} />
                 </Field>
               )}
 
@@ -650,14 +643,13 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("hometown-field")}
                   </FieldLabel>
-                  <Input
+                  <LocationInput
                     id="hometown"
-                    value={formData.hometown || ""}
+                    value={formData.hometown}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("location-placeholder")}
-                    onChange={(e) => handleChange("hometown", e.target.value)}
+                    onChange={(value) => handleChange("hometown", value)}
                   />
-                  <GeocodeHint location={formData.hometown} />
                 </Field>
               )}
 
@@ -687,36 +679,33 @@ export const EditMode = ({
                         key={idx}
                         className="flex flex-col gap-1 border rounded p-2"
                       >
-                        <div className="flex items-center gap-1">
-                          <Input
-                            value={place.location}
-                            className="h-7 text-xs! shadow-none flex-1"
-                            placeholder={t("location-placeholder")}
-                            onChange={(e) => {
-                              const next = formData.placesLived.map((p, i) =>
-                                i === idx
-                                  ? { ...p, location: e.target.value }
-                                  : p,
-                              );
-                              handleChange("placesLived", next);
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                            onClick={() => {
-                              handleChange(
-                                "placesLived",
-                                formData.placesLived.filter(
-                                  (_, i) => i !== idx,
-                                ),
-                              );
-                            }}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
-                        <GeocodeHint location={place.location} />
+                        <LocationInput
+                          value={place.location}
+                          className="h-7 text-xs! shadow-none"
+                          placeholder={t("location-placeholder")}
+                          onChange={(value) => {
+                            const next = formData.placesLived.map((p, i) =>
+                              i === idx ? { ...p, location: value } : p,
+                            );
+                            handleChange("placesLived", next);
+                          }}
+                          trailing={
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              onClick={() => {
+                                handleChange(
+                                  "placesLived",
+                                  formData.placesLived.filter(
+                                    (_, i) => i !== idx,
+                                  ),
+                                );
+                              }}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          }
+                        />
                         <div className="flex gap-1">
                           <Input
                             value={place.from || ""}
