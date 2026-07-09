@@ -35,6 +35,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Public tree view: clicking a member's name no longer opens the full member detail dialog in the anonymous read-only view (#621).
 - Documents: a failed file upload no longer leaves an orphaned document entry with no file attached — if any attachment fails to upload (for example, rejected by a reverse proxy's body-size limit), the new document is rolled back and a clear error is shown. Also documented the reverse-proxy `client_max_body_size` guidance for self-hosters (#612).
 - Tree view: the connector from a couple's union dot to their shared children now uses the relationship's colour for custom relationship types too, not only the built-in married/partner/divorced types. A newly created custom relationship colours the union dot and its child connectors immediately, without a refresh (#617).
+- Member edit sheet: the "Places lived" entry containers now use the same corner radius (`rounded-md`) as the surrounding input fields, fixing the mismatched border radius (#619).
 
 ## [1.6.0] - 2026-07-06
 
