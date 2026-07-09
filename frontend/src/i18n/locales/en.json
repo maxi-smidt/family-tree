@@ -219,7 +219,18 @@
         "confirm-enable-description": "Anyone with the link will be able to view this tree without logging in.",
         "confirm-disable-title": "Make tree private?",
         "confirm-disable-description": "The public link will stop working. Existing members keep their access.",
-        "error": "Could not update public access."
+        "error": "Could not update public access.",
+        "password": {
+          "hint": "Optionally require a password before anonymous visitors can view this tree.",
+          "placeholder": "New password",
+          "set": "Set password",
+          "update": "Update password",
+          "remove": "Remove password",
+          "protected": "Password protected",
+          "saved": "Public password saved.",
+          "removed": "Public password removed.",
+          "error": "Could not update the public password."
+        }
       },
       "invitation-received": "You've been invited to \"{{name}}\""
     },
@@ -705,7 +716,11 @@
           "label": "Linked documents",
           "placeholder": "Select documents...",
           "create": "Create document",
-          "empty": "No documents yet"
+          "empty": "No documents yet",
+          "count_one": "{{count}} document",
+          "count_other": "{{count}} documents",
+          "show": "Show linked documents",
+          "hide": "Hide linked documents"
         },
         "dialog": {
           "add-title": "Add Document",
@@ -1344,6 +1359,7 @@
     "date-input-hint": "MM/DD/YYYY",
     "open-date-picker": "Open date picker",
     "nee": "née {{name}}",
+    "location-input": { "placeholder": "City, region, country…" },
     "geocode": {
       "checking": "Checking address...",
       "found": "Address found",
@@ -1758,7 +1774,13 @@
     "gender-male": "Male",
     "gender-female": "Female",
     "not-public": "This tree is private or the link is no longer valid.",
-    "error": "Could not load this tree."
+    "error": "Could not load this tree.",
+    "password": {
+      "title": "Password required",
+      "description": "This tree is password protected. Enter the password to view it.",
+      "submit": "Unlock",
+      "error": "Incorrect password. Please try again."
+    }
   },
   "map-view": {
     "view": {

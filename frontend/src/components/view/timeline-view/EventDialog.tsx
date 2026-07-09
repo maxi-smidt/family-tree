@@ -31,7 +31,7 @@ import { useTranslation } from "react-i18next";
 import { getMemberOptions } from "@/utils/memberUtils";
 import { isValidPartialDate } from "@/utils/dateUtils";
 import { DocumentLinkField } from "@/components/shared/member-sheet/DocumentLinkField";
-import { GeocodeHint } from "@/components/shared/GeocodeHint";
+import { LocationInput } from "@/components/shared/LocationInput";
 
 interface EventDialogProps {
   open: boolean;
@@ -216,15 +216,12 @@ export const EventDialog = ({
 
             <div className="space-y-2">
               <Label htmlFor="location">{tDialog("location")}</Label>
-              <Input
+              <LocationInput
                 id="location"
-                value={formData.location || ""}
-                onChange={(e) =>
-                  setFormData({ ...formData, location: e.target.value })
-                }
+                value={formData.location}
+                onChange={(location) => setFormData({ ...formData, location })}
                 placeholder={tDialog("location-placeholder")}
               />
-              <GeocodeHint location={formData.location} />
             </div>
 
             <div className="space-y-2">

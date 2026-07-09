@@ -17,10 +17,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Location inputs in the member edit sheet now show a geocoding resolution hint below the field, matching the event dialog (#598).
 - **Documents**: document uploads now show a progress indicator while files upload, matching the gallery image upload experience (#596).
 - **Documents**: double-click a document to open its file in a new browser tab, with a loading indicator while it opens (#597).
+- Public trees can now be optionally protected with a password: the owner sets a shared secret in the share dialog, and anonymous visitors must enter it before the tree loads. The password is stored hashed and never exposed (#622).
 
 ### Changed
 
 - Renamed the member "Sources" section to **Documents** and reworked it from per-fact source citations into the simpler, reusable document model above; the "Documents & Stories" section is now just **Stories**. The admin `sources` feature flag is unchanged and now governs Documents.
+- **Documents**: linked documents on events and stories are now collapsed behind a compact paperclip indicator showing the count — click it to reveal the files, instead of always rendering the full list inline (#614).
 
 ### Fixed
 
@@ -28,6 +30,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Every member search (tree canvas, parent pickers, extract-subtree, and the member selectors above) now shows the born (maiden) name and birth year beneath each result, and matches only on the full and maiden name — birth dates and internal ids no longer affect search (#592).
 - Uploads no longer fail with a "file too large" error for files below the admin-configured image/document size limits. The frontend proxy previously capped every request body at 50 MB — well under the configurable maximum and, because uploads are base64-encoded, rejecting documents around 37 MB and up — so raising the limit in settings had no effect (#593).
 - **Documents**: extracting a subtree now removes documents left orphaned (no member/event/story links) in the source tree after their links are moved into the new tree, deleting their files and on-disk bytes too — previously an unreferenced copy lingered in the source tree's document list (#605).
+- Public tree view: clicking a member's name no longer opens the full member detail dialog in the anonymous read-only view (#621).
+- Documents: a failed file upload no longer leaves an orphaned document entry with no file attached — if any attachment fails to upload (for example, rejected by a reverse proxy's body-size limit), the new document is rolled back and a clear error is shown. Also documented the reverse-proxy `client_max_body_size` guidance for self-hosters (#612).
 
 ## [1.6.0] - 2026-07-06
 

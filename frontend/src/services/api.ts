@@ -12,6 +12,16 @@ const TOKEN_KEY = "ft_token";
 let authToken: string | null = localStorage.getItem(TOKEN_KEY);
 let unauthorizedHandler: (() => void) | null = null;
 
+// In-memory only (never persisted): the short-lived unlock token proving a
+// visitor entered the correct password for a password-protected public tree.
+// A page refresh drops it and re-prompts — acceptable, and safer than
+// persisting it alongside the JWT.
+let publicTreeToken: string | null = null;
+
+export function setPublicTreeToken(token: string | null) {
+  publicTreeToken = token;
+}
+
 export function setAuthToken(token: string | null) {
   authToken = token;
   if (token) {
@@ -63,6 +73,7 @@ async function request<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  if (publicTreeToken) headers["X-Public-Tree-Token"] = publicTreeToken;
 
   let payload: BodyInit | undefined;
   if (options.formData) {
