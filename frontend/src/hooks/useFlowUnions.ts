@@ -71,6 +71,20 @@ export function useFlowUnions(members: Member[]): UnionInfo[] {
       }
     }
 
+    // Custom relation types between two co-parents adopt the union's colour
+    // (augment the existing parent-derived union only — never create a new
+    // union dot). Mirrors buildUnions in the tree-processor worker.
+    for (const member of members) {
+      if (!member.relations) continue;
+      for (const rel of member.relations) {
+        if (rel.relationType === "parent") continue;
+        if (COUPLE_RELATIONS.has(rel.relationType)) continue;
+        if (!memberIds.has(rel.toMemberId)) continue;
+        const u = unions.get(unionKey(member.id, rel.toMemberId));
+        if (u && !u.relationType) u.relationType = rel.relationType;
+      }
+    }
+
     return Array.from(unions.values());
   }, [members]);
 }
