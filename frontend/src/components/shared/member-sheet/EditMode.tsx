@@ -28,6 +28,7 @@ import {
 import { Gender, Member } from "@/types/member";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { toast } from "sonner";
+import debounce from "lodash.debounce";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Field,
@@ -68,11 +69,14 @@ function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   return descendants;
 }
 
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 type Props = {
   member: Member;
   isNew?: boolean;
   onSaved?: (data: Member) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onSaveStatusChange?: (status: SaveStatus) => void;
 };
 
 export const EditMode = ({
@@ -80,6 +84,7 @@ export const EditMode = ({
   isNew = false,
   onSaved,
   onDirtyChange,
+  onSaveStatusChange,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
@@ -109,9 +114,11 @@ export const EditMode = ({
   }>({});
   const [recordsMounted, setRecordsMounted] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
+  const lastDuplicateSignatureRef = useRef<string | null>(null);
 
   useEffect(() => {
     setFormData(member);
@@ -119,7 +126,15 @@ export const EditMode = ({
     setErrors({});
     setIsDirty(false);
     onDirtyChange?.(false);
-  }, [member]);
+    // Autosave (for existing members) persists in place and updates the
+    // `member` prop identity without the user switching members — only reset
+    // the form when a genuinely different member is opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member.id]);
+
+  useEffect(() => {
+    onSaveStatusChange?.(saveStatus);
+  }, [saveStatus, onSaveStatusChange]);
 
   useEffect(() => {
     const dirty =
@@ -214,103 +229,176 @@ export const EditMode = ({
     handleChange("gender", value);
   };
 
-  const save = useCallback(async (): Promise<boolean> => {
-    const nextErrors: { firstName?: string; lastName?: string } = {};
-    if (!formData.firstName.trim())
-      nextErrors.firstName = t("error-firstname-required");
-    if (!formData.lastName.trim())
-      nextErrors.lastName = t("error-lastname-required");
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
-      (nextErrors.firstName ? firstNameRef : lastNameRef).current?.focus();
-      return false;
-    }
-
-    // Same-named people are only treated as duplicates once a birth date has
-    // been entered; without one we allow namesakes to be created freely.
-    const duplicate = formData.date.birth
-      ? members.find(
-          (m) =>
-            m.id !== member.id &&
-            m.firstName === formData.firstName &&
-            (m.middleNames || "") === (formData.middleNames || "") &&
-            (m.baptismalName || "") === (formData.baptismalName || "") &&
-            m.lastName === formData.lastName &&
-            m.gender === formData.gender &&
-            m.date.birth === formData.date.birth &&
-            m.date.death === formData.date.death,
-        )
-      : undefined;
-
-    if (duplicate) {
-      toast.error(t("toast-error-duplicate"));
-      return false;
-    }
-
-    if (isNew) {
-      onSaved?.(formData);
-      return true;
-    }
-
-    try {
-      const result = await updateMemberPartial(member.id, {
-        academicTitle: formData.academicTitle || null,
-        firstName: formData.firstName,
-        middleNames: formData.middleNames || null,
-        baptismalName: formData.baptismalName || null,
-        lastName: formData.lastName,
-        maidenName: formData.maidenName || null,
-        gender: formData.gender,
-        imageData: formData.imageData || undefined,
-        dateOfBirth: formData.date.birth,
-        dateOfDeath: formData.date.death || null,
-        deceased: formData.deceased,
-        adopted: formData.adopted,
-        additionalData: formData.additionalData || null,
-        birthplace: formData.birthplace || null,
-        hometown: formData.hometown || null,
-        cemetery: formData.cemetery || null,
-        placesLived:
-          formData.placesLived.length > 0
-            ? JSON.stringify(formData.placesLived)
-            : null,
-        paternalParentId: formData.parents.paternalParent,
-        maternalParentId: formData.parents.maternalParent,
-        ...(formData.linkedTreeId !== undefined
-          ? { linkedTreeId: formData.linkedTreeId }
-          : {}),
-      });
-      toast.success(t("toast-success"));
-      // Bridge person whose counterpart tree the editor may not write: the
-      // save worked but the linked copy drifted — say so.
-      if (result?.bridgeSync === "skipped_no_access") {
-        toast.info(t("toast-bridge-sync-skipped"));
-      }
-      onSaved?.(formData);
-      return true;
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 413) {
-        const bucket = getQuotaBucket(err.message);
-        if (bucket) {
-          toast.error(t(quotaToastKey(bucket)));
+  const save = useCallback(
+    async (opts?: { autosave?: boolean }): Promise<boolean> => {
+      const snapshot = formData;
+      const nextErrors: { firstName?: string; lastName?: string } = {};
+      if (!snapshot.firstName.trim())
+        nextErrors.firstName = t("error-firstname-required");
+      if (!snapshot.lastName.trim())
+        nextErrors.lastName = t("error-lastname-required");
+      setErrors(nextErrors);
+      if (Object.keys(nextErrors).length > 0) {
+        if (opts?.autosave) {
+          setSaveStatus("idle");
         } else {
-          toast.error(t("toast-error-image-too-large"));
+          (nextErrors.firstName ? firstNameRef : lastNameRef).current?.focus();
         }
-      } else if (err instanceof ApiError && err.status === 400) {
-        toast.error(t("toast-error-image-unsupported"));
-      } else {
-        toast.error(t("toast-error-save"));
+        return false;
       }
-      return false;
-    }
-  }, [formData, member, members, isNew, onSaved, t, updateMemberPartial]);
+
+      // Same-named people are only treated as duplicates once a birth date has
+      // been entered; without one we allow namesakes to be created freely.
+      const duplicate = snapshot.date.birth
+        ? members.find(
+            (m) =>
+              m.id !== member.id &&
+              m.firstName === snapshot.firstName &&
+              (m.middleNames || "") === (snapshot.middleNames || "") &&
+              (m.baptismalName || "") === (snapshot.baptismalName || "") &&
+              m.lastName === snapshot.lastName &&
+              m.gender === snapshot.gender &&
+              m.date.birth === snapshot.date.birth &&
+              m.date.death === snapshot.date.death,
+          )
+        : undefined;
+
+      if (duplicate) {
+        const signature = [
+          snapshot.firstName,
+          snapshot.middleNames || "",
+          snapshot.baptismalName || "",
+          snapshot.lastName,
+          snapshot.gender,
+          snapshot.date.birth,
+          snapshot.date.death || "",
+        ].join("|");
+        if (lastDuplicateSignatureRef.current !== signature) {
+          toast.error(t("toast-error-duplicate"));
+          lastDuplicateSignatureRef.current = signature;
+        }
+        setSaveStatus("error");
+        return false;
+      }
+      lastDuplicateSignatureRef.current = null;
+
+      if (isNew) {
+        onSaved?.(snapshot);
+        return true;
+      }
+
+      setSaveStatus("saving");
+      try {
+        const result = await updateMemberPartial(member.id, {
+          academicTitle: snapshot.academicTitle || null,
+          firstName: snapshot.firstName,
+          middleNames: snapshot.middleNames || null,
+          baptismalName: snapshot.baptismalName || null,
+          lastName: snapshot.lastName,
+          maidenName: snapshot.maidenName || null,
+          gender: snapshot.gender,
+          imageData: snapshot.imageData || undefined,
+          dateOfBirth: snapshot.date.birth,
+          dateOfDeath: snapshot.date.death || null,
+          deceased: snapshot.deceased,
+          adopted: snapshot.adopted,
+          additionalData: snapshot.additionalData || null,
+          birthplace: snapshot.birthplace || null,
+          hometown: snapshot.hometown || null,
+          cemetery: snapshot.cemetery || null,
+          placesLived:
+            snapshot.placesLived.length > 0
+              ? JSON.stringify(snapshot.placesLived)
+              : null,
+          paternalParentId: snapshot.parents.paternalParent,
+          maternalParentId: snapshot.parents.maternalParent,
+          ...(snapshot.linkedTreeId !== undefined
+            ? { linkedTreeId: snapshot.linkedTreeId }
+            : {}),
+        });
+        if (!opts?.autosave) {
+          toast.success(t("toast-success"));
+        }
+        // Bridge person whose counterpart tree the editor may not write: the
+        // save worked but the linked copy drifted — say so.
+        if (result?.bridgeSync === "skipped_no_access") {
+          toast.info(t("toast-bridge-sync-skipped"));
+        }
+        // Settle the dirty baseline on the snapshot that was actually
+        // persisted — if the user kept typing during the in-flight save,
+        // formData has since moved on and stays (correctly) dirty.
+        setInitialData(snapshot);
+        setSaveStatus("saved");
+        if (!opts?.autosave) {
+          onSaved?.(snapshot);
+        }
+        return true;
+      } catch (err: unknown) {
+        if (err instanceof ApiError && err.status === 413) {
+          const bucket = getQuotaBucket(err.message);
+          if (bucket) {
+            toast.error(t(quotaToastKey(bucket)));
+          } else {
+            toast.error(t("toast-error-image-too-large"));
+          }
+        } else if (err instanceof ApiError && err.status === 400) {
+          toast.error(t("toast-error-image-unsupported"));
+        } else {
+          toast.error(t("toast-error-save"));
+        }
+        setSaveStatus("error");
+        return false;
+      }
+    },
+    [formData, member, members, isNew, onSaved, t, updateMemberPartial],
+  );
 
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
     void save();
   };
 
-  useUnsavedGuard("member-edit", isDirty, save);
+  // Keep a stable debounced trigger that always calls the freshest `save`
+  // (via a ref) so the debounce doesn't need to be recreated on every
+  // keystroke, which would otherwise reset its timer.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const autosave = useMemo(
+    () =>
+      debounce(() => {
+        void saveRef.current({ autosave: true });
+      }, 800),
+    [],
+  );
+
+  // Existing members autosave; new members are purely client-side until an
+  // explicit "Create member" action, so autosave never applies to them.
+  useEffect(() => {
+    if (isNew) return;
+    if (isDirty) {
+      setSaveStatus("saving");
+      autosave();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, isDirty, isNew, autosave]);
+
+  // Flush a pending autosave on unmount (sheet closing, switching members)
+  // so an in-progress debounce never silently loses the last edit.
+  useEffect(() => {
+    if (isNew) return;
+    return () => {
+      autosave.flush();
+    };
+  }, [autosave, isNew]);
+
+  // Only new members need the global unsaved-changes navigation guard —
+  // existing members autosave and flush any pending change on unmount, so
+  // there's never an unsaved change to interrupt navigation for.
+  useUnsavedGuard(
+    "member-edit",
+    isNew && isDirty,
+    useCallback(() => save(), [save]),
+  );
 
   return (
     <form id="edit-member-form" onSubmit={handleSave} className="flex flex-col">
