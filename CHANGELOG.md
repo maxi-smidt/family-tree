@@ -34,6 +34,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Fixed
 
 - Timeline and Activity filters now stay visible while their long lists scroll, without nested scrollbars or obscured entries (#646).
+- Tree Management keeps its owned, shared, and virtual-view tables in equal-height panes with independent scrolling (#647).
 - Member name search now works in the Events and Stories dialogs and the gallery image sheet, where typing a name previously returned no results (#592).
 - Every member search (tree canvas, parent pickers, extract-subtree, and the member selectors above) now shows the born (maiden) name and birth year beneath each result, and matches only on the full and maiden name — birth dates and internal ids no longer affect search (#592).
 - Uploads no longer fail with a "file too large" error for files below the admin-configured image/document size limits. The frontend proxy previously capped every request body at 50 MB — well under the configurable maximum and, because uploads are base64-encoded, rejecting documents around 37 MB and up — so raising the limit in settings had no effect (#593).
