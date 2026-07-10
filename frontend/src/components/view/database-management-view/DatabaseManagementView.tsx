@@ -444,16 +444,16 @@ export const DatabaseManagementView = () => {
     emptyLabel: string,
     statusHeader: string,
   ) => (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-sm font-semibold">
+    <section className="flex min-h-0 flex-1 flex-col gap-2">
+      <h3 className="shrink-0 text-sm font-semibold">
         {heading}{" "}
         <span className="text-muted-foreground font-normal">
           ({rows.length})
         </span>
       </h3>
-      <div className="border rounded-lg overflow-hidden">
-        <Table>
-          <TableHeader>
+      <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
+        <Table containerClassName="overflow-visible">
+          <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>
               <TableHead className="w-12"></TableHead>
               <TableHead>{t("table-name")}</TableHead>
@@ -477,12 +477,13 @@ export const DatabaseManagementView = () => {
           </TableBody>
         </Table>
       </div>
-    </div>
+    </section>
   );
 
   return (
     <ViewLayout
       title={t("title")}
+      contentClassName="flex min-h-0 flex-col overflow-hidden"
       action={
         <div className="flex gap-2">
           <DropdownMenu>
@@ -547,232 +548,236 @@ export const DatabaseManagementView = () => {
         </div>
       }
     >
-      <div className="flex-1 flex flex-col gap-6 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col gap-6">
         {isImporting && (
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div className="h-2 shrink-0 overflow-hidden rounded-full bg-muted">
             <div
               className="h-full bg-primary transition-[width] duration-300 ease-in-out"
               style={{ width: `${importPct}%` }}
             />
           </div>
         )}
-        {renderSection(
-          t("owned-section"),
-          ownedDatabases,
-          t("no-owned"),
-          t("table-sharing"),
-        )}
-        {renderSection(
-          t("shared-section"),
-          sharedDatabases,
-          t("no-shared"),
-          t("table-your-role"),
-        )}
-        {virtualViewsEnabled && (
-          <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold">
-              {t("virtual-views-section")}{" "}
-              <span className="text-muted-foreground font-normal">
-                ({virtualViews.length})
-              </span>
-            </h3>
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12"></TableHead>
-                    <TableHead>{t("table-name")}</TableHead>
-                    <TableHead>{t("table-sources")}</TableHead>
-                    <TableHead className="text-right">
-                      {t("table-actions")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {virtualViews.length === 0 ? (
+        <div className="flex min-h-0 flex-1 flex-col gap-6">
+          {renderSection(
+            t("owned-section"),
+            ownedDatabases,
+            t("no-owned"),
+            t("table-sharing"),
+          )}
+          {renderSection(
+            t("shared-section"),
+            sharedDatabases,
+            t("no-shared"),
+            t("table-your-role"),
+          )}
+          {virtualViewsEnabled && (
+            <section className="flex min-h-0 flex-1 flex-col gap-2">
+              <h3 className="shrink-0 text-sm font-semibold">
+                {t("virtual-views-section")}{" "}
+                <span className="text-muted-foreground font-normal">
+                  ({virtualViews.length})
+                </span>
+              </h3>
+              <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
+                <Table containerClassName="overflow-visible">
+                  <TableHeader className="sticky top-0 z-10 bg-background">
                     <TableRow>
-                      <TableCell
-                        colSpan={4}
-                        className="text-center text-muted-foreground"
-                      >
-                        {t("no-virtual-views")}
-                      </TableCell>
+                      <TableHead className="w-12"></TableHead>
+                      <TableHead>{t("table-name")}</TableHead>
+                      <TableHead>{t("table-sources")}</TableHead>
+                      <TableHead className="text-right">
+                        {t("table-actions")}
+                      </TableHead>
                     </TableRow>
-                  ) : (
-                    virtualViews.map((view) => {
-                      const isSelected = selectedTree?.id === view.id;
-                      const hasInaccessible = view.sources?.some(
-                        (s) => !s.accessible,
-                      );
-                      return (
-                        <TableRow
-                          key={view.id}
-                          onClick={() => handleSelectVirtualView(view)}
-                          className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
+                  </TableHeader>
+                  <TableBody>
+                    {virtualViews.length === 0 ? (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="text-center text-muted-foreground"
                         >
-                          <TableCell
-                            className={
-                              isSelected
-                                ? "border-l-2 border-l-primary"
-                                : "border-l-2 border-l-transparent"
-                            }
+                          {t("no-virtual-views")}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      virtualViews.map((view) => {
+                        const isSelected = selectedTree?.id === view.id;
+                        const hasInaccessible = view.sources?.some(
+                          (s) => !s.accessible,
+                        );
+                        return (
+                          <TableRow
+                            key={view.id}
+                            onClick={() => handleSelectVirtualView(view)}
+                            className={`group cursor-pointer ${isSelected ? "bg-muted" : ""}`}
                           >
-                            <input
-                              type="radio"
-                              checked={isSelected}
-                              onChange={() => handleSelectVirtualView(view)}
-                              className="cursor-pointer"
-                              aria-label={t("select-tree")}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            {editingDatabaseId === view.id ? (
-                              <div
-                                className="flex items-center gap-2"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Input
-                                  value={editingName}
-                                  onChange={(e) =>
-                                    setEditingName(e.target.value)
-                                  }
-                                  className="h-8"
-                                  autoFocus
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      void handleRenameVirtualView(
-                                        view,
-                                        editingName,
-                                      );
-                                    } else if (e.key === "Escape") {
-                                      handleCancelRename();
+                            <TableCell
+                              className={
+                                isSelected
+                                  ? "border-l-2 border-l-primary"
+                                  : "border-l-2 border-l-transparent"
+                              }
+                            >
+                              <input
+                                type="radio"
+                                checked={isSelected}
+                                onChange={() => handleSelectVirtualView(view)}
+                                className="cursor-pointer"
+                                aria-label={t("select-tree")}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              {editingDatabaseId === view.id ? (
+                                <div
+                                  className="flex items-center gap-2"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Input
+                                    value={editingName}
+                                    onChange={(e) =>
+                                      setEditingName(e.target.value)
                                     }
-                                  }}
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleRenameVirtualView(view, editingName)
-                                  }
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={handleCancelRename}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5 font-medium">
-                                <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
-                                {view.name}
-                              </div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {view.sources?.map((src) => (
-                                <Tooltip key={src.tree_id}>
-                                  <TooltipTrigger asChild>
-                                    <Badge
-                                      variant={
-                                        src.accessible ? "secondary" : "outline"
+                                    className="h-8"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        void handleRenameVirtualView(
+                                          view,
+                                          editingName,
+                                        );
+                                      } else if (e.key === "Escape") {
+                                        handleCancelRename();
                                       }
-                                      className="gap-1"
-                                    >
-                                      {!src.accessible && (
-                                        <AlertTriangle className="h-3 w-3 text-destructive" />
-                                      )}
-                                      {src.is_virtual && (
-                                        <Layers className="h-3 w-3" />
-                                      )}
-                                      {src.tree_name}
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  {!src.accessible && (
-                                    <TooltipContent>
-                                      {t("source-inaccessible")}
-                                    </TooltipContent>
-                                  )}
-                                </Tooltip>
-                              ))}
-                              {hasInaccessible && (
-                                <span className="text-xs text-destructive self-center">
-                                  {t("view-degraded")}
-                                </span>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell
-                            className="text-right"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <div className="flex justify-end">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                                    }}
+                                  />
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    aria-label={t("row-actions-button")}
+                                    onClick={() =>
+                                      handleRenameVirtualView(view, editingName)
+                                    }
                                   >
-                                    <MoreHorizontal className="h-4 w-4" />
+                                    <Check className="h-4 w-4" />
                                   </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem
-                                    onSelect={() => {
-                                      setEditingVirtualView(view);
-                                      setIsVirtualViewDialogOpen(true);
-                                    }}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleCancelRename}
                                   >
-                                    <Edit2 className="h-4 w-4" />
-                                    {t("edit-sources-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      void handleRecomputeMatches(view)
-                                    }
-                                  >
-                                    <RefreshCw className="h-4 w-4" />
-                                    {t("recompute-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    disabled={editingDatabaseId !== null}
-                                    onSelect={() => handleStartRename(view)}
-                                  >
-                                    <Hash className="h-4 w-4" />
-                                    {t("rename-button")}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onSelect={() =>
-                                      void handleDeleteVirtualView(view)
-                                    }
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                    {t("delete-virtual-view-button")}
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        )}
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-1.5 font-medium">
+                                  <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
+                                  {view.name}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap gap-1">
+                                {view.sources?.map((src) => (
+                                  <Tooltip key={src.tree_id}>
+                                    <TooltipTrigger asChild>
+                                      <Badge
+                                        variant={
+                                          src.accessible
+                                            ? "secondary"
+                                            : "outline"
+                                        }
+                                        className="gap-1"
+                                      >
+                                        {!src.accessible && (
+                                          <AlertTriangle className="h-3 w-3 text-destructive" />
+                                        )}
+                                        {src.is_virtual && (
+                                          <Layers className="h-3 w-3" />
+                                        )}
+                                        {src.tree_name}
+                                      </Badge>
+                                    </TooltipTrigger>
+                                    {!src.accessible && (
+                                      <TooltipContent>
+                                        {t("source-inaccessible")}
+                                      </TooltipContent>
+                                    )}
+                                  </Tooltip>
+                                ))}
+                                {hasInaccessible && (
+                                  <span className="text-xs text-destructive self-center">
+                                    {t("view-degraded")}
+                                  </span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell
+                              className="text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex justify-end">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      aria-label={t("row-actions-button")}
+                                    >
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem
+                                      onSelect={() => {
+                                        setEditingVirtualView(view);
+                                        setIsVirtualViewDialogOpen(true);
+                                      }}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                      {t("edit-sources-button")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        void handleRecomputeMatches(view)
+                                      }
+                                    >
+                                      <RefreshCw className="h-4 w-4" />
+                                      {t("recompute-button")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      disabled={editingDatabaseId !== null}
+                                      onSelect={() => handleStartRename(view)}
+                                    >
+                                      <Hash className="h-4 w-4" />
+                                      {t("rename-button")}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onSelect={() =>
+                                        void handleDeleteVirtualView(view)
+                                      }
+                                      className="text-destructive focus:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                      {t("delete-virtual-view-button")}
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          )}
+        </div>
       </div>
 
-      <div className="text-sm text-muted-foreground">
+      <div className="shrink-0 text-sm text-muted-foreground">
         {t("selected-label")}{" "}
         <span className="font-medium">
           {selectedTree?.name || t("none-selected")}
