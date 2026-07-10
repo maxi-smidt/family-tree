@@ -677,8 +677,6 @@
         "title": "Stories",
         "add": "Add",
         "no-stories": "Nothing stored yet",
-        "show-less": "Show less",
-        "read-more": "Read more",
         "delete-dialog": {
           "title": "Delete Entry",
           "description": "Are you sure you want to delete this entry? This action cannot be undone.",

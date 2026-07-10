@@ -20,7 +20,8 @@ import { LinkedDocumentList } from "./LinkedDocumentList";
 import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import { Calendar, MapPin, BookOpen, Activity, FileText } from "lucide-react";
+import { CollapsibleStory } from "./CollapsibleStory";
+import { Calendar, MapPin, Activity, FileText } from "lucide-react";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
@@ -452,23 +453,16 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                           {memberStories
                             .slice(0, showAll ? memberStories.length : 3)
                             .map((story) => (
-                              <div
+                              <CollapsibleStory
                                 key={story.id}
-                                className="border rounded-lg p-3 bg-accent/50"
+                                title={story.title}
+                                content={story.content}
+                                className="bg-accent/50"
                               >
-                                <div className="flex items-center gap-2 mb-2">
-                                  <BookOpen className="w-4 h-4 text-muted-foreground" />
-                                  <h4 className="font-medium">{story.title}</h4>
-                                </div>
-                                {story.content && (
-                                  <div className="text-sm whitespace-pre-wrap line-clamp-3">
-                                    {story.content}
-                                  </div>
-                                )}
                                 <LinkedDocumentList
                                   documentIds={story.documentIds}
                                 />
-                              </div>
+                              </CollapsibleStory>
                             ))}
                         </div>
                       )}
