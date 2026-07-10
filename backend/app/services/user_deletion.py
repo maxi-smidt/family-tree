@@ -26,5 +26,3 @@ def schedule_deletion(db: Session, user: User, requested_by: str) -> None:
     user.deletion_requested_at = now.isoformat()
     user.deletion_scheduled_for = (now + timedelta(days=grace_days)).isoformat()
     user.deletion_requested_by = requested_by
-    db.commit()
-    db.refresh(user)

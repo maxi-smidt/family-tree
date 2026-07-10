@@ -60,6 +60,7 @@ from app.schemas.virtual_view import (
     VirtualViewSourceOut,
     VirtualViewUpdate,
 )
+from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus
 from app.services.geocoding import resolve_batch, resolve_single
 from app.services.quality_checks import run_quality_checks
@@ -474,6 +475,11 @@ def create_virtual_view(
     _persist_sources(db, view, resolved)
     db.flush()
     persist_matches(db, view)
+    record_admin_audit(
+        db, actor=user, action="create", subject_type="virtual_view",
+        subject_id=view.id, subject_label=view.name,
+        details={"source_ids": payload.source_tree_ids},
+    )
     db.commit()
     db.refresh(view)
     return _view_out(db, view, user)
@@ -501,6 +507,10 @@ def update_virtual_view(
     view = _resolve_view(db, view_id, user)
     if view.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can update a view")
+    before = {
+        "name": view.name,
+        "source_ids": [src.tree_id or src.source_view_id for src in view.sources],
+    }
     if payload.name is not None:
         if not payload.name.strip():
             raise HTTPException(status_code=400, detail="A name is required")
@@ -524,6 +534,20 @@ def update_virtual_view(
         # collection (otherwise matches are computed against the old trees).
         db.expire(view, ["sources"])
         persist_matches(db, view)
+    if payload.name is not None or payload.source_tree_ids is not None:
+        after = {
+            "name": view.name,
+            "source_ids": (
+                payload.source_tree_ids
+                if payload.source_tree_ids is not None
+                else before["source_ids"]
+            ),
+        }
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="virtual_view",
+            subject_id=view.id, subject_label=view.name,
+            details={"before": before, "after": after},
+        )
     db.commit()
     db.refresh(view)
     return _view_out(db, view, user)
@@ -540,6 +564,10 @@ def delete_virtual_view(
         raise HTTPException(status_code=404, detail="Virtual view not found")
     if view.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete a view")
+    record_admin_audit(
+        db, actor=user, action="delete", subject_type="virtual_view",
+        subject_id=view.id, subject_label=view.name,
+    )
     db.delete(view)
     db.commit()
 

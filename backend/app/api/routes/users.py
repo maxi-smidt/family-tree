@@ -9,6 +9,7 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import UserCreate, UserOut, UserPasswordReset, UserUpdate
+from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus
 from app.services.user_deletion import schedule_deletion
 
@@ -21,7 +22,11 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=UserOut, status_code=201)
-def create_user(payload: UserCreate, db: Session = Depends(get_db)):
+def create_user(
+    payload: UserCreate,
+    current: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     if db.scalar(select(User).where(User.username == payload.username)):
         raise HTTPException(status_code=409, detail="Username already taken")
     user = User(
@@ -33,17 +38,37 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db)):
         auth_provider="local",
     )
     db.add(user)
+    db.flush()
+    record_admin_audit(
+        db, actor=current, action="create", subject_type="user",
+        subject_id=user.id, subject_label=user.username,
+        details={"is_admin": user.is_admin},
+    )
     db.commit()
     db.refresh(user)
     return user
 
 
 @router.patch("/{user_id}", response_model=UserOut)
-def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)):
+def update_user(
+    user_id: str,
+    payload: UserUpdate,
+    current: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
+    tracked_fields = (
+        "email",
+        "full_name",
+        "is_active",
+        "is_admin",
+        "tree_quota_bytes",
+        "media_quota_bytes",
+    )
+    before = {field: getattr(user, field) for field in tracked_fields}
     if payload.email is not None:
         user.email = payload.email
     if payload.full_name is not None:
@@ -66,6 +91,19 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
     if "media_quota_bytes" in payload.model_fields_set:
         user.media_quota_bytes = payload.media_quota_bytes
 
+    after = {field: getattr(user, field) for field in before}
+    changed = {
+        key: {"before": before[key], "after": after[key]}
+        for key in before
+        if before[key] != after[key]
+    }
+    if payload.password:
+        changed["password"] = {"updated": True}
+    if changed:
+        record_admin_audit(
+            db, actor=current, action="update", subject_type="user",
+            subject_id=user.id, subject_label=user.username, details={"changes": changed},
+        )
     db.commit()
     db.refresh(user)
     if deactivated:
@@ -77,6 +115,7 @@ def update_user(user_id: str, payload: UserUpdate, db: Session = Depends(get_db)
 def reset_password(
     user_id: str,
     payload: UserPasswordReset,
+    current: User = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     user = db.get(User, user_id)
@@ -84,6 +123,11 @@ def reset_password(
         raise HTTPException(status_code=404, detail="User not found")
 
     _reset_local_password(user, payload.password)
+    record_admin_audit(
+        db, actor=current, action="update", subject_type="password",
+        subject_id=user.id, subject_label=user.username,
+        details={"admin_reset": True},
+    )
     db.commit()
     db.refresh(user)
     return user
@@ -110,12 +154,22 @@ def delete_user(
         raise HTTPException(status_code=400, detail="Cannot delete the last admin")
 
     schedule_deletion(db, user, requested_by=current.id)
+    record_admin_audit(
+        db, actor=current, action="delete", subject_type="user",
+        subject_id=user.id, subject_label=user.username,
+        details={"scheduled": True},
+    )
+    db.commit()
     event_bus.publish([user.id], "session.invalidate", {"reason": "pending_deletion"})
     return user
 
 
 @router.delete("/{user_id}/2fa", response_model=UserOut)
-def reset_totp(user_id: str, db: Session = Depends(get_db)):
+def reset_totp(
+    user_id: str,
+    current: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     """Admin: remove TOTP 2FA from a user account (lockout recovery)."""
     user = db.get(User, user_id)
     if user is None:
@@ -123,13 +177,22 @@ def reset_totp(user_id: str, db: Session = Depends(get_db)):
     user.totp_enabled = False
     user.totp_secret = None
     user.totp_recovery_codes = None
+    record_admin_audit(
+        db, actor=current, action="update", subject_type="user",
+        subject_id=user.id, subject_label=user.username,
+        details={"two_factor_reset": True},
+    )
     db.commit()
     db.refresh(user)
     return user
 
 
 @router.post("/{user_id}/cancel-deletion", response_model=UserOut)
-def cancel_deletion(user_id: str, db: Session = Depends(get_db)):
+def cancel_deletion(
+    user_id: str,
+    current: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     """Reverse a scheduled deletion, restoring the account's access."""
     user = db.get(User, user_id)
     if user is None:
@@ -137,6 +200,11 @@ def cancel_deletion(user_id: str, db: Session = Depends(get_db)):
     user.deletion_requested_at = None
     user.deletion_scheduled_for = None
     user.deletion_requested_by = None
+    record_admin_audit(
+        db, actor=current, action="update", subject_type="user",
+        subject_id=user.id, subject_label=user.username,
+        details={"deletion_cancelled": True},
+    )
     db.commit()
     db.refresh(user)
     return user

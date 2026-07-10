@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Tree, User
+from app.services.admin_audit import record_admin_audit
 from app.services.storage import delete_tree_media
 
 logger = logging.getLogger("app.user_purge")
@@ -54,6 +55,15 @@ def purge_user(db: Session, user: User) -> None:
     # Remove files first; the row-level cascade follows on ``db.delete``.
     for tree_id in tree_ids:
         delete_tree_media(tree_id)
+    record_admin_audit(
+        db,
+        actor=None,
+        action="delete",
+        subject_type="user",
+        subject_id=user.id,
+        subject_label=user.username,
+        details={"purged_after_grace_period": True},
+    )
     db.delete(user)
     db.commit()
 

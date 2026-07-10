@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.db.base import new_uuid, utcnow_iso
 from app.models import (
     ActivityLog,
+    AdminAuditLog,
     AppSetting,
     BackupRecord,
     Document,
@@ -45,6 +46,7 @@ from app.models import (
     VirtualViewPosition,
     VirtualViewSource,
 )
+from app.services.admin_audit import record_admin_audit
 from app.services.crypto_export import encrypt_bundle
 
 logger = logging.getLogger("app.backup_service")
@@ -89,6 +91,7 @@ def _collect_bundle(db: Session) -> dict[str, Any]:
         "event_document_links": _model_rows(db, EventDocumentLink),
         "story_document_links": _model_rows(db, StoryDocumentLink),
         "activity_log": _model_rows(db, ActivityLog),
+        "admin_audit_log": _model_rows(db, AdminAuditLog),
         "app_settings": _model_rows(db, AppSetting),
         "feature_flag_overrides": _model_rows(db, FeatureFlagOverride),
         "virtual_views": _model_rows(db, VirtualView),
@@ -98,7 +101,9 @@ def _collect_bundle(db: Session) -> dict[str, Any]:
     }
 
 
-def create_backup(db: Session, *, trigger: str = "manual") -> BackupRecord:
+def create_backup(
+    db: Session, *, trigger: str = "manual", actor: User | None = None
+) -> BackupRecord:
     """Create a full encrypted backup of the instance.
 
     Inserts a BackupRecord with status='running', builds and encrypts the
@@ -131,6 +136,15 @@ def create_backup(db: Session, *, trigger: str = "manual") -> BackupRecord:
         record.status = "success"
         record.filename = filename
         record.size_bytes = len(blob)
+        record_admin_audit(
+            db,
+            actor=actor,
+            action="create",
+            subject_type="backup",
+            subject_id=record.id,
+            subject_label=filename,
+            details={"trigger": trigger, "size_bytes": record.size_bytes},
+        )
         db.commit()
         logger.info("Backup created: %s (%d bytes)", filename, len(blob))
     except Exception as exc:  # noqa: BLE001

@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.session import get_db
-from app.models import BackupRecord
+from app.models import BackupRecord, User
 from app.services import backup_service
+from app.services.admin_audit import record_admin_audit
 
 router = APIRouter(
     prefix="/admin/backups",
@@ -45,8 +46,10 @@ def list_backups(db: Session = Depends(get_db)):
 
 
 @router.post("", response_model=BackupOut, status_code=201)
-def trigger_backup(db: Session = Depends(get_db)):
-    record = backup_service.create_backup(db, trigger="manual")
+def trigger_backup(
+    user: User = Depends(require_admin), db: Session = Depends(get_db)
+):
+    record = backup_service.create_backup(db, trigger="manual", actor=user)
     return _to_out(record)
 
 
@@ -72,10 +75,19 @@ def download_backup(backup_id: str, db: Session = Depends(get_db)):
 
 
 @router.delete("/{backup_id}", status_code=204)
-def delete_backup(backup_id: str, db: Session = Depends(get_db)):
+def delete_backup(
+    backup_id: str,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     record = db.scalars(
         select(BackupRecord).where(BackupRecord.id == backup_id)
     ).first()
     if record is None:
         raise HTTPException(status_code=404, detail="Backup not found")
+    record_admin_audit(
+        db, actor=user, action="delete", subject_type="backup",
+        subject_id=record.id, subject_label=record.filename,
+        details={"created_at": record.created_at, "status": record.status},
+    )
     backup_service.delete_backup(db, record)

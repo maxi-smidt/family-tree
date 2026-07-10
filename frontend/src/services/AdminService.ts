@@ -41,6 +41,18 @@ export interface BackupRecord {
   error: string | null;
 }
 
+export interface AdminAuditEntry {
+  id: string;
+  actor_id: string | null;
+  actor_username: string | null;
+  action: "create" | "update" | "delete";
+  subject_type: string;
+  subject_id: string | null;
+  subject_label: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}
+
 export type FeatureState = "on" | "off" | "beta";
 
 export interface FeatureFlag {
@@ -115,6 +127,10 @@ export const AdminService = {
     changes: FeatureFlagUpdate,
   ): Promise<FeatureFlag> {
     return api.patch<FeatureFlag>(`/admin/features/${name}`, changes);
+  },
+
+  listAuditLog(limit = 100): Promise<AdminAuditEntry[]> {
+    return api.get<AdminAuditEntry[]>(`/admin/audit-log?limit=${limit}`);
   },
 
   listBackups(): Promise<BackupRecord[]> {
