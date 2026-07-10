@@ -214,88 +214,95 @@ export const ActivityView = () => {
   };
 
   return (
-    <ViewLayout title={t("title")}>
-      {/* Filter bar */}
-      <div className="flex flex-wrap gap-2 mb-4 items-center">
-        {/* Actor filter */}
-        <Select
-          value={filterActor || "__all__"}
-          onValueChange={(v) =>
-            setFilter("filterActor", v === "__all__" ? "" : v)
-          }
-        >
-          <SelectTrigger className="h-8 w-40 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">{t("filter-all-actors")}</SelectItem>
-            {uniqueActors.map((actor) => (
-              <SelectItem key={actor} value={actor}>
-                {actor}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Action filter: toggle buttons */}
-        <div className="flex gap-1">
-          <Button
-            variant={filterAction === "" ? "default" : "outline"}
-            size="sm"
-            className="h-8 text-xs px-3"
-            onClick={() => setFilter("filterAction", "")}
+    <ViewLayout
+      title={t("title")}
+      toolbar={
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Filter bar */}
+          {/* Actor filter */}
+          <Select
+            value={filterActor || "__all__"}
+            onValueChange={(v) =>
+              setFilter("filterActor", v === "__all__" ? "" : v)
+            }
           >
-            {t("filter-all-actions")}
-          </Button>
-          {ALL_ACTIONS.map((action) => (
+            <SelectTrigger className="h-8 w-40 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t("filter-all-actors")}</SelectItem>
+              {uniqueActors.map((actor) => (
+                <SelectItem key={actor} value={actor}>
+                  {actor}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Action filter: toggle buttons */}
+          <div className="flex gap-1">
             <Button
-              key={action}
-              variant={filterAction === action ? "default" : "outline"}
+              variant={filterAction === "" ? "default" : "outline"}
               size="sm"
               className="h-8 text-xs px-3"
-              onClick={() =>
-                setFilter("filterAction", filterAction === action ? "" : action)
-              }
+              onClick={() => setFilter("filterAction", "")}
             >
-              {t(ACTION_KEY[action])}
+              {t("filter-all-actions")}
             </Button>
-          ))}
-        </div>
-
-        {/* Target type filter */}
-        <Select
-          value={filterTargetType || "__all__"}
-          onValueChange={(v) =>
-            setFilter("filterTargetType", v === "__all__" ? "" : v)
-          }
-        >
-          <SelectTrigger className="h-8 w-36 text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all__">{t("filter-all-types")}</SelectItem>
-            {ALL_TARGET_TYPES.map((type) => (
-              <SelectItem key={type} value={type}>
-                {t(TARGET_KEY[type])}
-              </SelectItem>
+            {ALL_ACTIONS.map((action) => (
+              <Button
+                key={action}
+                variant={filterAction === action ? "default" : "outline"}
+                size="sm"
+                className="h-8 text-xs px-3"
+                onClick={() =>
+                  setFilter(
+                    "filterAction",
+                    filterAction === action ? "" : action,
+                  )
+                }
+              >
+                {t(ACTION_KEY[action])}
+              </Button>
             ))}
-          </SelectContent>
-        </Select>
+          </div>
 
-        {/* Clear filters button */}
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs gap-1"
-            onClick={clearFilters}
+          {/* Target type filter */}
+          <Select
+            value={filterTargetType || "__all__"}
+            onValueChange={(v) =>
+              setFilter("filterTargetType", v === "__all__" ? "" : v)
+            }
           >
-            <X className="w-3 h-3" />
-            {t("filter-clear")}
-          </Button>
-        )}
-      </div>
+            <SelectTrigger className="h-8 w-36 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t("filter-all-types")}</SelectItem>
+              {ALL_TARGET_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {t(TARGET_KEY[type])}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
+          {/* Clear filters button */}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs gap-1"
+              onClick={clearFilters}
+            >
+              <X className="w-3 h-3" />
+              {t("filter-clear")}
+            </Button>
+          )}
+        </div>
+      }
+      toolbarClassName="mb-4"
+    >
       {activities.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
           <ActivityIcon className="w-10 h-10 text-muted-foreground opacity-40" />
