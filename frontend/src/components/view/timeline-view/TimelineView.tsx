@@ -269,114 +269,116 @@ export const TimelineView = () => {
           {t("add-event")}
         </Button>
       }
-    >
-      <div className="flex gap-4 mb-6 p-1 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={t("search-placeholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+      toolbar={
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative min-w-52 flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("search-placeholder")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-vital-events"
-            checked={showVitalEvents}
-            onCheckedChange={setShowVitalEvents}
-          />
-          <label
-            htmlFor="show-vital-events"
-            className="text-sm text-muted-foreground cursor-pointer select-none"
-          >
-            {t("show-vital-events")}
-          </label>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-details"
-            checked={showDetails}
-            onCheckedChange={setShowDetails}
-          />
-          <label
-            htmlFor="show-details"
-            className="text-sm text-muted-foreground cursor-pointer select-none"
-          >
-            {t("show-details")}
-          </label>
-        </div>
-
-        <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={memberSelectOpen}
-              className="w-62.5 justify-between"
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-vital-events"
+              checked={showVitalEvents}
+              onCheckedChange={setShowVitalEvents}
+            />
+            <label
+              htmlFor="show-vital-events"
+              className="text-sm text-muted-foreground cursor-pointer select-none"
             >
-              {selectedMemberId === "all"
-                ? t("all-members")
-                : members.find((m) => m.id === selectedMemberId)
-                  ? `${members.find((m) => m.id === selectedMemberId)?.firstName} ${members.find((m) => m.id === selectedMemberId)?.lastName}`
-                  : t("member-place-holder")}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-62.5 p-0">
-            <Command>
-              <CommandInput placeholder={t("member-search-placeholder")} />
-              <CommandList>
-                <CommandEmpty>{t("no-member")}</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    value="all"
-                    onSelect={() => {
-                      setSelectedMemberId("all");
-                      setMemberSelectOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedMemberId === "all"
-                          ? "opacity-100"
-                          : "opacity-0",
-                      )}
-                    />
-                    {t("all-members")}
-                  </CommandItem>
-                  <CommandSeparator />
-                  {members.map((member) => (
+              {t("show-vital-events")}
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-details"
+              checked={showDetails}
+              onCheckedChange={setShowDetails}
+            />
+            <label
+              htmlFor="show-details"
+              className="text-sm text-muted-foreground cursor-pointer select-none"
+            >
+              {t("show-details")}
+            </label>
+          </div>
+
+          <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={memberSelectOpen}
+                className="w-62.5 max-w-full justify-between"
+              >
+                {selectedMemberId === "all"
+                  ? t("all-members")
+                  : members.find((m) => m.id === selectedMemberId)
+                    ? `${members.find((m) => m.id === selectedMemberId)?.firstName} ${members.find((m) => m.id === selectedMemberId)?.lastName}`
+                    : t("member-place-holder")}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-62.5 max-w-[calc(100vw-2rem)] p-0">
+              <Command>
+                <CommandInput placeholder={t("member-search-placeholder")} />
+                <CommandList>
+                  <CommandEmpty>{t("no-member")}</CommandEmpty>
+                  <CommandGroup>
                     <CommandItem
-                      key={member.id}
-                      value={`${member.firstName} ${member.lastName}`}
+                      value="all"
                       onSelect={() => {
-                        setSelectedMemberId(member.id);
+                        setSelectedMemberId("all");
                         setMemberSelectOpen(false);
                       }}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          selectedMemberId === member.id
+                          selectedMemberId === "all"
                             ? "opacity-100"
                             : "opacity-0",
                         )}
                       />
-                      {member.firstName} {member.lastName}
+                      {t("all-members")}
                     </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-4">
+                    <CommandSeparator />
+                    {members.map((member) => (
+                      <CommandItem
+                        key={member.id}
+                        value={`${member.firstName} ${member.lastName}`}
+                        onSelect={() => {
+                          setSelectedMemberId(member.id);
+                          setMemberSelectOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedMemberId === member.id
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                        {member.firstName} {member.lastName}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      }
+      toolbarClassName="mb-6"
+    >
+      <div className="space-y-4 pb-4">
         {timelineItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             <Calendar className="w-16 h-16 mb-4 opacity-50" />
@@ -448,7 +450,9 @@ export const TimelineView = () => {
                         </div>
 
                         {showDetails && item.data.description && (
-                          <p className="text-sm whitespace-pre-wrap">{item.data.description}</p>
+                          <p className="text-sm whitespace-pre-wrap">
+                            {item.data.description}
+                          </p>
                         )}
                       </div>
 
