@@ -84,7 +84,7 @@ export const MemberEvents = ({ member }: Props) => {
                         )}
                       </div>
                       {event.description && (
-                        <p className="text-sm mt-2">{event.description}</p>
+                        <p className="text-sm mt-2 whitespace-pre-wrap">{event.description}</p>
                       )}
                       <LinkedDocumentList documentIds={event.documentIds} />
                     </div>
