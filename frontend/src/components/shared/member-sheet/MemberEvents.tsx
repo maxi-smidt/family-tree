@@ -2,7 +2,8 @@ import { Member } from "@/types/member";
 import { useEventStore } from "@/hooks/useEventStore";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
-import { Calendar, MapPin, Plus, Pencil, Trash2 } from "lucide-react";
+import { Calendar, Plus, Pencil, Trash2 } from "lucide-react";
+import { Location } from "@/components/shared/Location";
 import { EventDialog } from "@/components/view/timeline-view/EventDialog";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
@@ -76,12 +77,7 @@ export const MemberEvents = ({ member }: Props) => {
                             {formatDateWithFallback(event.date, i18n.t)}
                           </span>
                         </div>
-                        {event.location && (
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            <span>{event.location}</span>
-                          </div>
-                        )}
+                        {event.location && <Location location={event.location} />}
                       </div>
                       {event.description && (
                         <p className="text-sm mt-2 whitespace-pre-wrap">{event.description}</p>
