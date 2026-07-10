@@ -376,7 +376,7 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                                   )}
                                 </div>
                                 {event.description && (
-                                  <p className="text-sm mt-2">
+                                  <p className="text-sm mt-2 whitespace-pre-wrap">
                                     {event.description}
                                   </p>
                                 )}

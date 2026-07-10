@@ -80,7 +80,7 @@ export const MemberEvents = ({ member }: Props) => {
                         {event.location && <Location location={event.location} />}
                       </div>
                       {event.description && (
-                        <p className="text-sm mt-2">{event.description}</p>
+                        <p className="text-sm mt-2 whitespace-pre-wrap">{event.description}</p>
                       )}
                       <LinkedDocumentList documentIds={event.documentIds} />
                     </div>

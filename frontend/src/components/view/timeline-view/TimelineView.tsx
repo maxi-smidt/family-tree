@@ -448,7 +448,7 @@ export const TimelineView = () => {
                         </div>
 
                         {showDetails && item.data.description && (
-                          <p className="text-sm">{item.data.description}</p>
+                          <p className="text-sm whitespace-pre-wrap">{item.data.description}</p>
                         )}
                       </div>
 
