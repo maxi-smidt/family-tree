@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 class TreeOut(BaseModel):
@@ -26,8 +26,6 @@ class TreeOut(BaseModel):
 
 class TreeCreate(BaseModel):
     name: str
-    # Optional client-provided id (the SPA generates UUIDs locally).
-    id: str | None = None
 
 
 class TreeUpdate(BaseModel):
@@ -129,9 +127,33 @@ class PublicPasswordUpdate(BaseModel):
     # New password; null or empty string clears/removes protection.
     password: str | None = None
 
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            return ""
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 UTF-8 bytes")
+        if len(value) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return value
+
 
 class PublicTreeUnlock(BaseModel):
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Password is required")
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 UTF-8 bytes")
+        return value
 
 
 class PublicTreeUnlockResult(BaseModel):

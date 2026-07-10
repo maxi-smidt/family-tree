@@ -200,7 +200,7 @@ def test_disabled_gedcom_endpoints_return_404(client, db):
     res = client.get(f"{API}/trees/{tree.id}/export-gedcom", headers=auth(owner))
     assert res.status_code == 404
     # The encrypted export in the same router stays available (core feature).
-    res = client.get(f"{API}/trees/{tree.id}/export", headers=auth(owner))
+    res = client.post(f"{API}/trees/{tree.id}/export", headers=auth(owner), json={})
     assert res.status_code == 200
 
 

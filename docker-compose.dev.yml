@@ -57,6 +57,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      ENVIRONMENT: development
       SECRET_KEY: dev-secret-change-me
       POSTGRES_HOST: db
       POSTGRES_USER: familytree

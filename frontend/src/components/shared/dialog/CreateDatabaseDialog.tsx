@@ -31,7 +31,6 @@ export const CreateDatabaseDialog = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.create-database",
   });
-  const [databaseId, setDatabaseId] = useState(crypto.randomUUID());
   const [databaseName, setDatabaseName] = useState<string>("");
   const createTree = useTreeStore((s) => s.createTree);
 
@@ -55,11 +54,6 @@ export const CreateDatabaseDialog = ({
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4 px-1">
-          <div className="space-y-2">
-            <FieldLabel htmlFor="databaseId">{t("id")}</FieldLabel>
-            <Input id="databaseId" value={databaseId} disabled />
-          </div>
-
           <div className="space-y-2">
             <FieldLabel htmlFor="databaseName">{t("name")}</FieldLabel>
             <Input
@@ -103,7 +97,7 @@ export const CreateDatabaseDialog = ({
   async function onConfirmation() {
     if (!databaseName) return;
     try {
-      await createTree(databaseName, databaseId);
+      await createTree(databaseName);
       resetState();
       onConfirm();
     } catch (e) {
@@ -114,6 +108,5 @@ export const CreateDatabaseDialog = ({
 
   function resetState() {
     setDatabaseName("");
-    setDatabaseId(crypto.randomUUID());
   }
 };

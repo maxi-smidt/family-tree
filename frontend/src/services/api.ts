@@ -122,4 +122,6 @@ export const api = {
     request<T>("POST", path, { formData }),
   getRaw: (path: string, params?: RequestOptions["params"]) =>
     request<Response>("GET", path, { params, raw: true }),
+  postRaw: (path: string, body?: unknown) =>
+    request<Response>("POST", path, { body, raw: true }),
 };

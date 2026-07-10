@@ -8,7 +8,7 @@
   `AUTHENTIK_*` environment variables are set. New users can be auto-provisioned;
   `AUTHENTIK_ADMIN_GROUP` membership is **synced on every Authentik login** —
   admin is granted when the user is in the group and **revoked** when they are
-  not. Local accounts (``auth_provider="local"``) are not affected by OIDC
+  not. Local accounts (`auth_provider="local"`) are not affected by OIDC
   logins, even if they share an email address with an Authentik user.
 - **Admin-managed users**: self-registration is off by default. The first
   account (seeded from `FIRST_ADMIN_*`) is an admin; admins create further users
@@ -28,10 +28,11 @@
   `409 Username already taken` — this is an acceptable trade-off because
   self-registration is disabled by default, and when it is enabled the actionable
   error message is required for usability.
-- **Initial admin password**: `FIRST_ADMIN_PASSWORD` is **required** by the
-  production `docker-compose.yml`. If the seed ever runs with the placeholder
-  value `admin`, a warning is logged — set a strong password and change it after
-  first login.
+- **Initial admin password**: local-auth production deployments require
+  `FIRST_ADMIN_PASSWORD`. Production startup rejects missing or known placeholder
+  values and passwords shorter than 12 UTF-8 bytes. It also rejects a placeholder
+  or shorter-than-32-character `SECRET_KEY`. Authentik-only deployments do not
+  require a local initial-admin password.
 
 ### Token storage (known trade-off)
 

@@ -51,6 +51,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Onboarding tutorial no longer starts while the legal acceptance gate (terms & privacy) is still open — it now waits until terms are accepted, so tour highlights no longer point at elements hidden behind the legal dialog (#615).
 - Event descriptions now preserve newlines when displayed — the Timeline, member sheet (edit and read-only), and member detail dialog render event descriptions with `whitespace-pre-wrap`, matching how story content is shown. Previously multi-line descriptions collapsed into a single run-on block (#637).
 
+### Security
+
+- Hardened release boundaries by separating JWT purposes, using short-lived SSE tickets, throttling and revoking public-tree unlocks, canonicalizing stored-media paths, redacting anonymous member payloads, allowlisting external document link schemes, keeping export passwords out of URLs, generating tree IDs server-side, and rejecting placeholder production credentials.
+
 ## [1.6.0] - 2026-07-06
 
 ### Added

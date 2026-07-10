@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.models  # noqa: F401  (registers every table on Base.metadata)
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.rate_limit import login_rate_limiter
+from app.core.rate_limit import login_rate_limiter, public_unlock_rate_limiter
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base, utcnow_iso
 from app.db.init_db import DEFAULT_RELATION_TYPES
@@ -97,6 +97,7 @@ def client(session_factory) -> TestClient:
 
     app.dependency_overrides[get_db] = override_get_db
     login_rate_limiter.clear()
+    public_unlock_rate_limiter.clear()
     return TestClient(app)
 
 

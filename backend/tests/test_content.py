@@ -286,6 +286,35 @@ def test_document_link_rejects_internal_media_url(client, db):
     assert res.status_code == 400
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        "data:text/html,unsafe",
+        "file:///etc/passwd",
+        "//example.com/path",
+        "/api/media/tree/file.txt",
+        "https://user:password@example.com/path",
+        "https://example.com/line\nbreak",
+        "https://example.com\\@evil.example/path",
+    ],
+)
+def test_document_link_rejects_unsafe_url_schemes(client, db, url):
+    user, tree = _setup(client, db)
+    created = client.post(
+        f"{API}/trees/{tree.id}/documents",
+        headers=auth(user),
+        json={"title": "Doc"},
+    ).json()
+
+    response = client.post(
+        f"{API}/trees/{tree.id}/documents/{created['id']}/links",
+        headers=auth(user),
+        json={"url": url},
+    )
+    assert response.status_code in {400, 422}
+
+
 def test_delete_document_removes_files_from_disk(client, db, media_root):
     user, tree = _setup(client, db)
     created = client.post(

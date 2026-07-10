@@ -11,6 +11,7 @@ import binascii
 import re
 import shutil
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
 
 from app.core.config import settings
@@ -19,6 +20,7 @@ from app.schemas.setting import MediaLimits
 MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
 
 _DATA_URL_RE = re.compile(r"^data:(?P<mime>[\w/+.-]+)?;base64,(?P<data>.+)$", re.DOTALL)
+_SAFE_PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 _MIME_EXT = {
     "image/jpeg": "jpg",
@@ -92,6 +94,71 @@ class InvalidImageURL(ValueError):
     """Raised when an image field contains an external or cross-tree URL."""
 
 
+def _safe_tree_dir(tree_id: str, *, create: bool = False) -> Path:
+    """Return a canonical direct child of media_root for a safe tree id."""
+    if not _SAFE_PATH_SEGMENT_RE.fullmatch(tree_id) or tree_id in {".", ".."}:
+        raise ValueError("Invalid tree id for media storage")
+    root = settings.media_root.resolve()
+    path = (root / tree_id).resolve()
+    if path.parent != root:
+        raise ValueError("Invalid tree id for media storage")
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _safe_media_path(
+    value: str | None,
+    *,
+    expected_tree_id: str | None = None,
+) -> Path | None:
+    """Resolve a canonical ``/api/media/<tree>/<file>`` URL safely.
+
+    Media URLs intentionally address one direct file in one direct tree
+    directory. Encoded or nested path syntax is not decoded or accepted.
+    """
+    prefix = f"{MEDIA_URL_PREFIX}/"
+    if not value or not value.startswith(prefix):
+        return None
+    relative = value[len(prefix) :]
+    if "\\" in relative:
+        return None
+    parts = relative.split("/")
+    if len(parts) != 2:
+        return None
+    tree_id, filename = parts
+    if expected_tree_id is not None and tree_id != expected_tree_id:
+        return None
+    if (
+        not _SAFE_PATH_SEGMENT_RE.fullmatch(tree_id)
+        or not _SAFE_PATH_SEGMENT_RE.fullmatch(filename)
+        or tree_id in {".", ".."}
+        or filename in {".", ".."}
+    ):
+        return None
+    try:
+        tree_dir = _safe_tree_dir(tree_id)
+    except ValueError:
+        return None
+    path = (tree_dir / filename).resolve()
+    if path.parent != tree_dir:
+        return None
+    return path
+
+
+def _safe_original_files(path: Path) -> list[Path]:
+    """Return only canonical, regular original siblings contained in-tree."""
+    originals_dir = (path.parent / "originals").resolve()
+    if originals_dir.parent != path.parent or not originals_dir.is_dir():
+        return []
+    files: list[Path] = []
+    for candidate in originals_dir.glob(f"{path.stem}.*"):
+        resolved = candidate.resolve()
+        if resolved.parent == originals_dir and resolved.is_file():
+            files.append(resolved)
+    return files
+
+
 def store_document(
     tree_id: str,
     filename: str,
@@ -143,28 +210,20 @@ def delete_media(value: str | None) -> None:
     in ``"both"`` mode. No-op for non-media URLs or missing files; never
     raises, so a failed cleanup can't break a delete request.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    path = _safe_media_path(value)
+    if path is None:
         return
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
     try:
-        path = (settings.media_root / rel).resolve()
-        # Guard against path traversal via a malformed stored URL.
-        if settings.media_root.resolve() not in path.parents:
-            return
         path.unlink(missing_ok=True)
         # Remove the original stored in the originals/ subdir by "both" mode.
-        originals_dir = path.parent / "originals"
-        if originals_dir.is_dir():
-            for orig in originals_dir.glob(f"{path.stem}.*"):
-                orig.unlink(missing_ok=True)
+        for orig in _safe_original_files(path):
+            orig.unlink(missing_ok=True)
     except OSError:
         pass
 
 
-def _tree_media_dir(tree_id: str):
-    path = settings.media_root / tree_id
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+def _tree_media_dir(tree_id: str) -> Path:
+    return _safe_tree_dir(tree_id, create=True)
 
 
 def _originals_dir(tree_id: str):
@@ -174,7 +233,10 @@ def _originals_dir(tree_id: str):
     ``<uuid>.<ext>`` so they share the same stem as the display WebP in the
     parent directory but are kept in their own namespace.
     """
-    path = _tree_media_dir(tree_id) / "originals"
+    tree_dir = _tree_media_dir(tree_id)
+    path = (tree_dir / "originals").resolve()
+    if path.parent != tree_dir:
+        raise ValueError("Invalid originals directory")
     path.mkdir(exist_ok=True)
     return path
 
@@ -189,12 +251,9 @@ def delete_tree_media(tree_id: str) -> None:
     if not tree_id:
         return
     try:
-        path = (settings.media_root / tree_id).resolve()
-        # Guard against escaping the media root via a malformed tree id.
-        if path.parent != settings.media_root.resolve():
-            return
+        path = _safe_tree_dir(tree_id)
         shutil.rmtree(path, ignore_errors=True)
-    except OSError:
+    except (OSError, ValueError):
         pass
 
 
@@ -334,11 +393,10 @@ def media_url_to_data_url(value: str | None) -> str | None:
     Returns the input unchanged when it isn't one of our media URLs, and
     ``None`` if the file is missing.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return value
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]  # strip "/<prefix>/"
-    path = settings.media_root / rel
-    if not path.is_file():
+    path = _safe_media_path(value)
+    if path is None or not path.is_file():
         return None
     ext = path.suffix.lstrip(".").lower()
     mime = _EXT_MIME.get(ext, "application/octet-stream")
@@ -354,11 +412,10 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     the input unchanged when it isn't one of our media URLs, or ``None`` if
     the source file is missing.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return value
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
-    src = settings.media_root / rel
-    if not src.is_file():
+    src = _safe_media_path(value)
+    if src is None or not src.is_file():
         return None
     ext = src.suffix.lstrip(".") or "bin"
     new_stem = uuid4().hex
@@ -366,12 +423,10 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     dest_dir = _tree_media_dir(new_tree_id)
     shutil.copyfile(src, dest_dir / filename)
     # Copy the original stored in the originals/ subdir by "both" mode.
-    src_originals = src.parent / "originals"
-    if src_originals.is_dir():
-        for orig_src in src_originals.glob(f"{src.stem}.*"):
-            orig_ext = orig_src.suffix.lstrip(".") or "bin"
-            dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
-            shutil.copyfile(orig_src, dest)
+    for orig_src in _safe_original_files(src):
+        orig_ext = orig_src.suffix.lstrip(".") or "bin"
+        dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
+        shutil.copyfile(orig_src, dest)
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
@@ -383,11 +438,10 @@ def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     instead of copying it. Returns the new media URL, the input unchanged when
     it isn't one of our media URLs, or ``None`` if the source file is missing.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return value
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
-    src = settings.media_root / rel
-    if not src.is_file():
+    src = _safe_media_path(value)
+    if src is None or not src.is_file():
         return None
     ext = src.suffix.lstrip(".") or "bin"
     new_stem = uuid4().hex
@@ -395,12 +449,10 @@ def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     dest_dir = _tree_media_dir(new_tree_id)
     shutil.move(src, dest_dir / filename)
     # Move the original stored in the originals/ subdir by "both" mode.
-    src_originals = src.parent / "originals"
-    if src_originals.is_dir():
-        for orig_src in src_originals.glob(f"{src.stem}.*"):
-            orig_ext = orig_src.suffix.lstrip(".") or "bin"
-            dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
-            shutil.move(orig_src, dest)
+    for orig_src in _safe_original_files(src):
+        orig_ext = orig_src.suffix.lstrip(".") or "bin"
+        dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
+        shutil.move(orig_src, dest)
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
@@ -408,18 +460,17 @@ def media_disk_usage(value: str | None) -> int:
     """Total on-disk bytes backing a media URL, including any ``originals/``
     siblings. Returns 0 for non-media URLs and missing files (never raises).
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return 0
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
-    path = settings.media_root / rel
+    path = _safe_media_path(value)
+    if path is None:
+        return 0
     total = 0
     try:
         if path.is_file():
             total += path.stat().st_size
-        originals_dir = path.parent / "originals"
-        if originals_dir.is_dir():
-            for orig in originals_dir.glob(f"{path.stem}.*"):
-                total += orig.stat().st_size
+        for orig in _safe_original_files(path):
+            total += orig.stat().st_size
     except OSError:
         pass
     return total
@@ -439,8 +490,7 @@ def process_gallery_image_field(
         return None
     if is_data_url(value):
         return store_data_url(tree_id, value, limits, mode=limits.image_storage_mode)
-    own_prefix = f"{MEDIA_URL_PREFIX}/{tree_id}/"
-    if value.startswith(own_prefix):
+    if _safe_media_path(value, expected_tree_id=tree_id) is not None:
         return value
     raise InvalidImageURL(
         "Image field must be null, a data URL, or a media URL owned by this tree"
@@ -466,8 +516,7 @@ def process_image_field(
         return None
     if is_data_url(value):
         return store_data_url(tree_id, value, limits)
-    own_prefix = f"{MEDIA_URL_PREFIX}/{tree_id}/"
-    if value.startswith(own_prefix):
+    if _safe_media_path(value, expected_tree_id=tree_id) is not None:
         return value
     raise InvalidImageURL(
         "Image field must be null, a data URL, or a media URL owned by this tree"

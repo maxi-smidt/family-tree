@@ -18,10 +18,13 @@ async function exportTree(
   treeId: string,
   password?: string,
 ): Promise<ArrayBuffer> {
-  const url = new URL(`${API_URL}/trees/${treeId}/export`);
-  if (password) url.searchParams.set("password", password);
-  const exportRes = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
+  const exportRes = await fetch(`${API_URL}/trees/${treeId}/export`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ password: password || null }),
   });
   expect(exportRes.ok).toBe(true);
   const blob = await exportRes.arrayBuffer();

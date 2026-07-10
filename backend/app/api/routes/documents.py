@@ -6,6 +6,7 @@ a single reusable content type. The feature flag key stays ``"sources"`` for
 backward compatibility even though the feature is now called "Documents".
 """
 
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -65,9 +66,6 @@ router = APIRouter(
     ],
 )
 
-_MEDIA_PREFIX = "/api/media/"
-
-
 def _get_document(db: Session, tree: Tree, document_id: str) -> Document:
     document = db.get(Document, document_id)
     if document is None or document.tree_id != tree.id:
@@ -80,6 +78,28 @@ def _get_file(db: Session, document: Document, file_id: str) -> DocumentFile:
     if file is None or file.document_id != document.id:
         raise HTTPException(status_code=404, detail="File not found")
     return file
+
+
+def _external_link_url(raw_url: str) -> str:
+    url = raw_url.strip()
+    if not url or "\\" in url or any(
+        char.isspace() or ord(char) == 127 for char in url
+    ):
+        raise HTTPException(status_code=400, detail="Invalid link URL")
+    try:
+        parsed = urlsplit(url)
+        # Accessing port performs urllib's range and syntax validation.
+        _ = parsed.port
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid link URL") from exc
+    if (
+        parsed.scheme.lower() not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        raise HTTPException(status_code=400, detail="Invalid link URL")
+    return url
 
 
 def _linked_ids(db: Session, link_model, id_column, document_id: str) -> list[str]:
@@ -371,11 +391,7 @@ def add_link(
 ):
     document = _get_document(db, tree, document_id)
 
-    link_url = (payload.url or "").strip()
-    if not link_url:
-        raise HTTPException(status_code=400, detail="url is required for links")
-    if link_url.startswith("data:") or link_url.startswith(_MEDIA_PREFIX):
-        raise HTTPException(status_code=400, detail="Invalid link URL")
+    link_url = _external_link_url(payload.url)
 
     file = DocumentFile(
         id=str(uuid4()),

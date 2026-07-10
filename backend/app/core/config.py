@@ -104,6 +104,10 @@ class Settings(BaseSettings):
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
 
+    # Brute-force protection for password-gated public-tree unlocks.
+    PUBLIC_UNLOCK_MAX_ATTEMPTS: int = 5
+    PUBLIC_UNLOCK_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
+
     # Seed admin account, created on first start if no users exist.
     FIRST_ADMIN_USERNAME: str = "admin"
     FIRST_ADMIN_PASSWORD: str = "admin"
@@ -160,3 +164,40 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+
+
+def validate_production_credentials(config: Settings = settings) -> None:
+    """Refuse to start production with known placeholders or weak secrets."""
+    if config.ENVIRONMENT.lower() != "production":
+        return
+
+    secret = config.SECRET_KEY.strip()
+    insecure_secrets = {
+        "change-me-in-production",
+        "change-me-please-generate-a-long-random-value",
+        "dev-secret-change-me",
+        "e2e-secret-not-for-production",
+    }
+    if (
+        len(secret) < 32
+        or secret.lower() in insecure_secrets
+        or secret.lower().startswith("change-me")
+    ):
+        raise RuntimeError(
+            "SECRET_KEY must be a unique random value of at least 32 characters "
+            "in production"
+        )
+
+    if config.authentik_enabled:
+        return
+
+    admin_password = config.FIRST_ADMIN_PASSWORD.strip()
+    if (
+        len(admin_password.encode("utf-8")) < 12
+        or admin_password.lower() in {"admin", "password", "change-me"}
+        or admin_password.lower().startswith("change-me")
+    ):
+        raise RuntimeError(
+            "FIRST_ADMIN_PASSWORD must be a non-placeholder value of at least "
+            "12 UTF-8 bytes in production"
+        )

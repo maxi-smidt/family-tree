@@ -19,6 +19,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.concurrency import run_in_threadpool
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -68,6 +69,10 @@ BUNDLE_VERSION = 2
 _BULK_CHUNK = 1000
 
 
+class TreeExportRequest(BaseModel):
+    password: str | None = Field(default=None, max_length=1024)
+
+
 def _bulk_insert_chunked(db: Session, model: type, mappings: list[dict]) -> None:
     """Bulk-insert ``mappings`` for ``model`` in ``_BULK_CHUNK``-sized batches.
 
@@ -112,9 +117,9 @@ def _rows(db: Session, model, tree_id: str) -> list[dict]:
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
-@router.get("/{tree_id}/export")
+@router.post("/{tree_id}/export")
 def export_tree(
-    password: str | None = None,
+    payload: TreeExportRequest,
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
 ):
@@ -157,12 +162,15 @@ def export_tree(
         "story_document_links": _document_link_rows(db, StoryDocumentLink, tree.id),
     }
 
-    blob = crypto_export.encrypt_bundle(bundle, password or None)
+    blob = crypto_export.encrypt_bundle(bundle, payload.password or None)
     filename = f"{tree.name or 'family-tree'}.treedb"
     return Response(
         content=blob,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
     )
 
 
