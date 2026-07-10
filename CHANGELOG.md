@@ -11,6 +11,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- The activity log now loads in pages with a page-size selector and a "showing X–Y of Z" summary, matching the list view. Actor, action, and type filters are applied server-side so paging and counts stay correct for large histories (#645).
 - An instance-wide, admin-visible audit trail for account, administrative,
   backup, virtual-view, and tree-deletion actions.
 - Subtle horizontal ruled lines in the tree view background for vertical orientation — notebook-style, evenly spaced, and toggleable in the canvas controls (enabled by default).

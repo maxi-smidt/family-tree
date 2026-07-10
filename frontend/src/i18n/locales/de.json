@@ -1039,6 +1039,10 @@
     "filter-all-actions": "Alle Aktionen",
     "filter-all-types": "Alle Typen",
     "filter-clear": "Filter zurücksetzen",
+    "filter-no-matches": "Keine Aktivität entspricht diesen Filtern.",
+    "loading": "Aktivität wird geladen …",
+    "error": "Aktivität konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
     "navigate-hint": "Zum Eintrag",
     "diff-changed": "Geändert:",
     "diff-arrow": "→"

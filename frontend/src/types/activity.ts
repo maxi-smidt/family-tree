@@ -24,6 +24,12 @@ export interface ActivityDB {
   details?: string | null;
 }
 
+export interface ActivityPageDB {
+  entries: ActivityDB[];
+  total: number;
+  actors: string[];
+}
+
 export function mapActivityFromDB(row: ActivityDB): Activity {
   let details: Record<string, unknown> | null = null;
   if (row.details) {

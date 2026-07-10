@@ -1,14 +1,13 @@
 """Activity / audit log endpoint — list recent changes for a tree."""
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.api.activity_query import activity_page
 from app.api.deps import get_readable_tree, require_feature
 from app.db.session import get_db
 from app.models import Tree
-from app.models.activity import ActivityLog
-from app.schemas.activity import ActivityOut
+from app.schemas.activity import ActivityPageOut
 
 router = APIRouter(
     prefix="/trees/{tree_id}",
@@ -17,18 +16,26 @@ router = APIRouter(
 )
 
 
-@router.get("/activity", response_model=list[ActivityOut])
+@router.get("/activity", response_model=ActivityPageOut)
 def list_activity(
     tree: Tree = Depends(get_readable_tree),
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    actor: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    target_type: str | None = Query(default=None),
     db: Session = Depends(get_db),
-):
-    """Return the 200 most-recent activity-log entries for a tree.
+) -> ActivityPageOut:
+    """Return an offset-based page of newest-first activity for a tree.
 
     Accessible to anyone with at least read access (owner, editor, viewer).
     """
-    return db.scalars(
-        select(ActivityLog)
-        .where(ActivityLog.tree_id == tree.id)
-        .order_by(ActivityLog.created_at.desc())
-        .limit(200)
-    ).all()
+    return activity_page(
+        db,
+        [tree.id],
+        limit=limit,
+        offset=offset,
+        actor=actor,
+        action=action,
+        target_type=target_type,
+    )

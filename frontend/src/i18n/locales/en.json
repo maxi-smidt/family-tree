@@ -1039,6 +1039,10 @@
     "filter-all-actions": "All actions",
     "filter-all-types": "All types",
     "filter-clear": "Clear filters",
+    "filter-no-matches": "No activity matches these filters.",
+    "loading": "Loading activity…",
+    "error": "Could not load activity.",
+    "retry": "Retry",
     "navigate-hint": "Go to item",
     "diff-changed": "Changed:",
     "diff-arrow": "→"
