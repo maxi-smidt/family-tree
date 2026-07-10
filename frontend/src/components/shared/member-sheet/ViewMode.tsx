@@ -21,7 +21,7 @@ import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { CollapsibleStory } from "./CollapsibleStory";
-import { Calendar, BookOpen, Activity, FileText } from "lucide-react";
+import { Calendar, Activity, FileText } from "lucide-react";
 import { Location } from "@/components/shared/Location";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
