@@ -400,7 +400,7 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                             )}
                           </div>
                           {event.description && (
-                            <p className="text-sm mt-2 text-foreground leading-relaxed">
+                            <p className="text-sm mt-2 text-foreground leading-relaxed whitespace-pre-wrap">
                               {event.description}
                             </p>
                           )}
