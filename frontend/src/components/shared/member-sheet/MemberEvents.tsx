@@ -2,8 +2,7 @@ import { Member } from "@/types/member";
 import { useEventStore } from "@/hooks/useEventStore";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
-import { Calendar, Plus, Pencil, Trash2 } from "lucide-react";
-import { Location } from "@/components/shared/Location";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { EventDialog } from "@/components/view/timeline-view/EventDialog";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
@@ -11,6 +10,7 @@ import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { LinkedDocumentList } from "./LinkedDocumentList";
+import { CollapsibleEvent } from "./CollapsibleEvent";
 
 type Props = {
   member: Member;
@@ -60,31 +60,15 @@ export const MemberEvents = ({ member }: Props) => {
             {events.map((event) => {
               const { icon: Icon } = getEventTypeInfo(event.eventType);
               return (
-                <div
+                <CollapsibleEvent
                   key={event.id}
-                  className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 font-medium mb-1">
-                        <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                        {getEventTypeLabel(event.eventType, i18n.t)}
-                      </div>
-                      <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          <span>
-                            {formatDateWithFallback(event.date, i18n.t)}
-                          </span>
-                        </div>
-                        {event.location && <Location location={event.location} />}
-                      </div>
-                      {event.description && (
-                        <p className="text-sm mt-2 whitespace-pre-wrap">{event.description}</p>
-                      )}
-                      <LinkedDocumentList documentIds={event.documentIds} />
-                    </div>
-                    <div className="flex gap-1">
+                  icon={Icon}
+                  typeLabel={getEventTypeLabel(event.eventType, i18n.t)}
+                  date={formatDateWithFallback(event.date, i18n.t)}
+                  location={event.location}
+                  description={event.description}
+                  actions={
+                    <>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -101,9 +85,11 @@ export const MemberEvents = ({ member }: Props) => {
                       >
                         <Trash2 />
                       </Button>
-                    </div>
-                  </div>
-                </div>
+                    </>
+                  }
+                >
+                  <LinkedDocumentList documentIds={event.documentIds} />
+                </CollapsibleEvent>
               );
             })}
           </div>

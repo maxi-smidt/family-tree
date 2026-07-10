@@ -369,6 +369,7 @@ export const ListView = () => {
   return (
     <ViewLayout
       title={t("title")}
+      contentClassName="md:flex md:min-h-0 md:flex-col md:overflow-hidden"
       action={
         isReady ? (
           <div
@@ -516,7 +517,7 @@ export const ListView = () => {
       </div>
 
       {/* Desktop table */}
-      <div className="hidden rounded-md border flex-1 overflow-hidden md:flex flex-col">
+      <div className="hidden min-h-0 flex-1 flex-col overflow-hidden rounded-md border md:flex">
         <Table containerClassName="flex-1 overflow-auto">
           <caption className="sr-only">{t("table.caption")}</caption>
           <TableHeader className="sticky top-0 z-20 bg-background shadow-sm">

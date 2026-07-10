@@ -676,8 +676,6 @@
         "title": "Geschichten",
         "add": "Hinzufügen",
         "no-stories": "Noch nichts gespeichert",
-        "show-less": "Weniger anzeigen",
-        "read-more": "Mehr lesen",
         "delete-dialog": {
           "title": "Eintrag löschen",
           "description": "Bist du dir sicher, dass dieser Eintrag gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
