@@ -20,6 +20,7 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
+import { CollapsibleStory } from "@/components/shared/member-sheet/CollapsibleStory";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Calendar, BookOpen, Users, Images, Activity } from "lucide-react";
 import { Location } from "@/components/shared/Location";
@@ -387,19 +388,12 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   </h3>
                   <div className="grid grid-cols-1 gap-4">
                     {memberStories.map((story) => (
-                      <div
+                      <CollapsibleStory
                         key={story.id}
-                        className="border rounded-lg p-5 bg-accent/30 hover:bg-accent/50 transition-colors"
-                      >
-                        <h4 className="font-semibold text-lg mb-3">
-                          {story.title}
-                        </h4>
-                        {story.content && (
-                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                            {story.content}
-                          </div>
-                        )}
-                      </div>
+                        title={story.title}
+                        content={story.content}
+                        className="p-5 bg-accent/30"
+                      />
                     ))}
                   </div>
                 </div>
