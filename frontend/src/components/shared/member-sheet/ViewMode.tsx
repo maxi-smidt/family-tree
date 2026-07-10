@@ -20,8 +20,9 @@ import { LinkedDocumentList } from "./LinkedDocumentList";
 import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
+import { CollapsibleEvent } from "./CollapsibleEvent";
+import { Activity, FileText } from "lucide-react";
 import { CollapsibleStory } from "./CollapsibleStory";
-import { Calendar, Activity, FileText } from "lucide-react";
 import { Location } from "@/components/shared/Location";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
@@ -346,46 +347,32 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                         <div className="space-y-3 mt-2">
                           {memberEvents
                             .slice(0, showAll ? memberEvents.length : 3)
-                            .map((event) => (
-                              <div
-                                key={event.id}
-                                className="border rounded-lg p-3 bg-accent/50"
-                              >
-                                <div className="flex items-center gap-2 font-medium mb-1">
-                                  {(() => {
-                                    const { icon: Icon } = getEventTypeInfo(
-                                      event.eventType,
-                                    );
-                                    return (
-                                      <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                                    );
-                                  })()}
-                                  {getEventTypeLabel(event.eventType, i18n.t)}
-                                </div>
-                                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    <span>
-                                      {formatDateWithFallback(
-                                        event.date,
-                                        i18n.t,
-                                      )}
-                                    </span>
-                                  </div>
-                                  {event.location && (
-                                    <Location location={event.location} />
+                            .map((event) => {
+                              const { icon: Icon } = getEventTypeInfo(
+                                event.eventType,
+                              );
+                              return (
+                                <CollapsibleEvent
+                                  key={event.id}
+                                  icon={Icon}
+                                  typeLabel={getEventTypeLabel(
+                                    event.eventType,
+                                    i18n.t,
                                   )}
-                                </div>
-                                {event.description && (
-                                  <p className="text-sm mt-2 whitespace-pre-wrap">
-                                    {event.description}
-                                  </p>
-                                )}
-                                <LinkedDocumentList
-                                  documentIds={event.documentIds}
-                                />
-                              </div>
-                            ))}
+                                  date={formatDateWithFallback(
+                                    event.date,
+                                    i18n.t,
+                                  )}
+                                  location={event.location}
+                                  description={event.description}
+                                  className="bg-accent/50"
+                                >
+                                  <LinkedDocumentList
+                                    documentIds={event.documentIds}
+                                  />
+                                </CollapsibleEvent>
+                              );
+                            })}
                         </div>
                       )}
                     </CollapsibleSection>
