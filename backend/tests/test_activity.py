@@ -108,10 +108,88 @@ def test_list_activity_returns_newest_first(client, db):
 
     res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(owner))
     assert res.status_code == 200
-    data = res.json()
+    body = res.json()
+    data = body["entries"]
     assert len(data) == 2
+    assert body["total"] == 2
     # Newest first: second member added → first in list
     assert data[0]["created_at"] >= data[1]["created_at"]
+
+
+def test_list_activity_paginates_by_offset(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    db.add_all(
+        [
+            ActivityLog(
+                id=f"a{i}",
+                tree_id=tree.id,
+                action="create",
+                target_type="member",
+                created_at=f"2026-01-01T00:00:0{i}+00:00",
+            )
+            for i in range(1, 4)
+        ]
+    )
+    db.commit()
+
+    first = client.get(
+        f"{API}/trees/{tree.id}/activity",
+        headers=auth(owner),
+        params={"limit": 2, "offset": 0},
+    )
+    assert first.status_code == 200
+    first_body = first.json()
+    assert [e["id"] for e in first_body["entries"]] == ["a3", "a2"]
+    assert first_body["total"] == 3
+
+    second = client.get(
+        f"{API}/trees/{tree.id}/activity",
+        headers=auth(owner),
+        params={"limit": 2, "offset": 2},
+    )
+    assert second.status_code == 200
+    second_body = second.json()
+    assert [e["id"] for e in second_body["entries"]] == ["a1"]
+    assert second_body["total"] == 3
+
+
+def test_list_activity_filters_reduce_total(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    db.add_all(
+        [
+            ActivityLog(
+                id="c1",
+                tree_id=tree.id,
+                actor_username="alice",
+                action="create",
+                target_type="member",
+                created_at="2026-01-01T00:00:01+00:00",
+            ),
+            ActivityLog(
+                id="u1",
+                tree_id=tree.id,
+                actor_username="bob",
+                action="update",
+                target_type="event",
+                created_at="2026-01-01T00:00:02+00:00",
+            ),
+        ]
+    )
+    db.commit()
+
+    res = client.get(
+        f"{API}/trees/{tree.id}/activity",
+        headers=auth(owner),
+        params={"action": "update"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert [e["id"] for e in body["entries"]] == ["u1"]
+    assert body["total"] == 1
+    # actors reflects the whole tree, not just the filtered page
+    assert body["actors"] == ["alice", "bob"]
 
 
 def test_viewer_can_read_activity(client, db):
@@ -128,7 +206,7 @@ def test_viewer_can_read_activity(client, db):
 
     res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(viewer))
     assert res.status_code == 200
-    assert len(res.json()) == 1
+    assert len(res.json()["entries"]) == 1
 
 
 def test_editor_can_read_activity(client, db):
@@ -145,8 +223,8 @@ def test_editor_can_read_activity(client, db):
 
     res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(editor))
     assert res.status_code == 200
-    assert len(res.json()) == 1
-    assert res.json()[0]["actor_username"] == "carol"
+    assert len(res.json()["entries"]) == 1
+    assert res.json()["entries"][0]["actor_username"] == "carol"
 
 
 def test_unauthorized_cannot_read_activity(client, db):
@@ -191,7 +269,7 @@ def test_activity_stores_actor_snapshot(client, db):
     )
 
     res = client.get(f"{API}/trees/{tree.id}/activity", headers=auth(owner))
-    row = res.json()[0]
+    row = res.json()["entries"][0]
     assert row["actor_id"] == owner.id
     assert row["actor_username"] == "alice"
     assert row["action"] == "create"

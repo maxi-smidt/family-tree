@@ -31,7 +31,7 @@ import { StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import { DocumentDB, DocumentFileDB, DocumentInput } from "@/types/document";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
-import { ActivityDB } from "@/types/activity";
+import { ActivityPageDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { CombinedStatisticsReport, StatisticsReport } from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
@@ -566,8 +566,17 @@ export class TreeService {
   }
 
   // --- Activity log ---------------------------------------------------------
-  static getActivity(treeId: string) {
-    return api.get<ActivityDB[]>(`${base(treeId)}/activity`);
+  static getActivity(
+    treeId: string,
+    params: {
+      offset?: number;
+      limit?: number;
+      actor?: string;
+      action?: string;
+      target_type?: string;
+    } = {},
+  ) {
+    return api.get<ActivityPageDB>(`${base(treeId)}/activity`, params);
   }
 
   // --- Quality report -------------------------------------------------------

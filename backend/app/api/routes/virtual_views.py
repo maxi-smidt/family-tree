@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.api.activity_query import activity_page
 from app.api.deps import (
     accessible_tree_ids,
     get_current_user,
@@ -14,7 +15,6 @@ from app.api.routes.statistics import compute_statistics
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
-    ActivityLog,
     Document,
     DocumentMemberLink,
     Event,
@@ -37,7 +37,7 @@ from app.models.virtual_view import (
     VirtualViewPosition,
     VirtualViewSource,
 )
-from app.schemas.activity import ActivityOut
+from app.schemas.activity import ActivityPageOut
 from app.schemas.content import (
     DocumentOut,
     EventLinkOut,
@@ -1030,22 +1030,29 @@ def list_virtual_documents(
     ]
 
 
-@router.get("/{view_id}/activity", response_model=list[ActivityOut])
+@router.get("/{view_id}/activity", response_model=ActivityPageOut)
 def list_virtual_activity(
     view_id: str,
     _: None = Depends(require_feature("activity_log")),
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    actor: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    target_type: str | None = Query(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[ActivityOut]:
+) -> ActivityPageOut:
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
-    rows = db.scalars(
-        select(ActivityLog)
-        .where(ActivityLog.tree_id.in_(source_ids))
-        .order_by(ActivityLog.created_at.desc())
-        .limit(200)
-    ).all()
-    return [ActivityOut.model_validate(r) for r in rows]
+    return activity_page(
+        db,
+        source_ids,
+        limit=limit,
+        offset=offset,
+        actor=actor,
+        action=action,
+        target_type=target_type,
+    )
 
 
 @router.post("/{view_id}/geocode", response_model=list[GeocodeOut])

@@ -1,11 +1,9 @@
-import {
-  useActivityStore,
-  selectFilteredActivities,
-} from "@/hooks/useActivityStore";
+import { useActivityStore } from "@/hooks/useActivityStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { Activity } from "@/types/activity";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { ViewLayout } from "@/components/layout/ViewLayout";
+import { ListPagination } from "@/components/view/list-view/ListPagination";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,9 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
-import { Clock, Activity as ActivityIcon, ArrowRight, X } from "lucide-react";
+import {
+  Clock,
+  Activity as ActivityIcon,
+  ArrowRight,
+  Loader2,
+  X,
+} from "lucide-react";
 
 type ViewId =
   | "tree-view"
@@ -188,30 +193,28 @@ const ALL_TARGET_TYPES = [
 
 export const ActivityView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "activity-view" });
-  const store = useActivityStore();
-  const filteredActivities = selectFilteredActivities(store);
   const {
+    activities,
+    actors,
+    total,
+    page,
+    pageSize,
     filterActor,
     filterAction,
     filterTargetType,
     setFilter,
-    activities,
+    clearFilters,
+    setPage,
+    setPageSize,
     refreshActivity,
+    retry,
     initialized,
-  } = store;
+    loading,
+    error,
+  } = useActivityStore();
   useDeferredStoreLoad(initialized, refreshActivity);
 
-  const uniqueActors = Array.from(
-    new Set(activities.map((a) => a.actorUsername).filter(Boolean)),
-  ) as string[];
-
   const hasActiveFilters = !!(filterActor || filterAction || filterTargetType);
-
-  const clearFilters = () => {
-    setFilter("filterActor", "");
-    setFilter("filterAction", "");
-    setFilter("filterTargetType", "");
-  };
 
   return (
     <ViewLayout
@@ -223,7 +226,7 @@ export const ActivityView = () => {
           <Select
             value={filterActor || "__all__"}
             onValueChange={(v) =>
-              setFilter("filterActor", v === "__all__" ? "" : v)
+              void setFilter("filterActor", v === "__all__" ? "" : v)
             }
           >
             <SelectTrigger className="h-8 w-40 text-xs">
@@ -231,7 +234,7 @@ export const ActivityView = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">{t("filter-all-actors")}</SelectItem>
-              {uniqueActors.map((actor) => (
+              {actors.map((actor) => (
                 <SelectItem key={actor} value={actor}>
                   {actor}
                 </SelectItem>
@@ -245,7 +248,7 @@ export const ActivityView = () => {
               variant={filterAction === "" ? "default" : "outline"}
               size="sm"
               className="h-8 text-xs px-3"
-              onClick={() => setFilter("filterAction", "")}
+              onClick={() => void setFilter("filterAction", "")}
             >
               {t("filter-all-actions")}
             </Button>
@@ -256,7 +259,7 @@ export const ActivityView = () => {
                 size="sm"
                 className="h-8 text-xs px-3"
                 onClick={() =>
-                  setFilter(
+                  void setFilter(
                     "filterAction",
                     filterAction === action ? "" : action,
                   )
@@ -271,7 +274,7 @@ export const ActivityView = () => {
           <Select
             value={filterTargetType || "__all__"}
             onValueChange={(v) =>
-              setFilter("filterTargetType", v === "__all__" ? "" : v)
+              void setFilter("filterTargetType", v === "__all__" ? "" : v)
             }
           >
             <SelectTrigger className="h-8 w-36 text-xs">
@@ -293,7 +296,7 @@ export const ActivityView = () => {
               variant="ghost"
               size="sm"
               className="h-8 text-xs gap-1"
-              onClick={clearFilters}
+              onClick={() => void clearFilters()}
             >
               <X className="w-3 h-3" />
               {t("filter-clear")}
@@ -302,27 +305,70 @@ export const ActivityView = () => {
         </div>
       }
       toolbarClassName="mb-4"
+      contentClassName="flex min-h-0 flex-col overflow-hidden"
     >
-      {activities.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
-          <ActivityIcon className="w-10 h-10 text-muted-foreground opacity-40" />
-          <div>
-            <p className="font-medium">{t("empty-title")}</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              {t("empty-description")}
-            </p>
+      <div className="min-h-0 flex-1 overflow-auto">
+        {error && activities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
+            <ActivityIcon className="w-10 h-10 text-destructive opacity-60" />
+            <div>
+              <p className="font-medium">{t("error")}</p>
+              <Button className="mt-3" size="sm" onClick={() => void retry()}>
+                {t("retry")}
+              </Button>
+            </div>
           </div>
+        ) : loading && !initialized ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{t("loading")}</p>
+          </div>
+        ) : total === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
+            <ActivityIcon className="w-10 h-10 text-muted-foreground opacity-40" />
+            <div>
+              <p className="font-medium">
+                {hasActiveFilters ? t("filter-no-matches") : t("empty-title")}
+              </p>
+              {!hasActiveFilters && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  {t("empty-description")}
+                </p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              "flex flex-col gap-3 pb-4 transition-opacity",
+              loading && "opacity-60",
+            )}
+          >
+            {activities.map((item) => (
+              <ActivityItem key={item.id} item={item} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {error && activities.length > 0 && (
+        <div className="mt-3 flex items-center justify-between rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <span>{t("error")}</span>
+          <Button variant="outline" size="sm" onClick={() => void retry()}>
+            {t("retry")}
+          </Button>
         </div>
-      ) : filteredActivities.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center gap-2">
-          <ActivityIcon className="w-8 h-8 text-muted-foreground opacity-40" />
-          <p className="text-sm text-muted-foreground">{t("filter-clear")}</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 pb-4">
-          {filteredActivities.map((item) => (
-            <ActivityItem key={item.id} item={item} />
-          ))}
+      )}
+
+      {initialized && total > 0 && (
+        <div className="flex-none border-t">
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={(p) => void setPage(p)}
+            onPageSizeChange={(s) => void setPageSize(s)}
+          />
         </div>
       )}
     </ViewLayout>
