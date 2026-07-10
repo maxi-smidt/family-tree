@@ -28,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { getEventTypeLabel, getEventTypeInfo } from "@/types/eventTypes";
 import { Badge } from "@/components/ui/badge";
+import { CollapsibleEvent } from "@/components/shared/member-sheet/CollapsibleEvent";
 
 type Props = {
   member: Member | null;
@@ -360,31 +361,15 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                         event.eventType,
                       );
                       return (
-                        <div
+                        <CollapsibleEvent
                           key={event.id}
-                          className="border rounded-lg p-4 bg-accent/30 hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 font-semibold mb-2">
-                            <EventIcon className="size-4 text-muted-foreground shrink-0" />
-                            {getEventTypeLabel(event.eventType, i18n.t)}
-                          </div>
-                          <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="size-3.5 shrink-0" />
-                              <span>
-                                {formatDateWithFallback(event.date, i18n.t)}
-                              </span>
-                            </div>
-                            {event.location && (
-                              <Location location={event.location} />
-                            )}
-                          </div>
-                          {event.description && (
-                            <p className="text-sm mt-2 text-foreground leading-relaxed whitespace-pre-wrap">
-                              {event.description}
-                            </p>
-                          )}
-                        </div>
+                          icon={EventIcon}
+                          typeLabel={getEventTypeLabel(event.eventType, i18n.t)}
+                          date={formatDateWithFallback(event.date, i18n.t)}
+                          location={event.location}
+                          description={event.description}
+                          className="p-4 bg-accent/30"
+                        />
                       );
                     })}
                   </div>
