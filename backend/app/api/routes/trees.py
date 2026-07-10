@@ -52,6 +52,7 @@ from app.schemas.tree import (
 )
 from app.services import feature_service, friendships
 from app.services.activity import record_activity
+from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus, publish_tree_event, tree_audience
 from app.services.extract import (
     compute_subtree_preview,
@@ -447,10 +448,14 @@ def delete_tree(
         )
     tree_id = tree.id
     audience = tree_audience(db, tree)
-    # Intentionally not logged: ActivityLog.tree_id cascades on tree deletion,
-    # so any row written here would be deleted along with the tree itself
-    # (self-erasing audit trail). Durable tree-deletion audit is out of scope
-    # for the per-tree log — see docs/ACTIVITY_AUDIT.md.
+    record_admin_audit(
+        db,
+        actor=user,
+        action="delete",
+        subject_type="tree",
+        subject_id=tree.id,
+        subject_label=tree.name,
+    )
     db.delete(tree)
     db.commit()
     # The DB cascade clears the rows; remove the backing media files too.
@@ -1084,4 +1089,3 @@ def revert_transfer(
         access=list_access(tree=tree, db=db),
         undo_available_until=None,
     )
-

@@ -41,6 +41,7 @@ from app.schemas.user import (
     UserOut,
 )
 from app.services import feature_service
+from app.services.admin_audit import record_admin_audit
 from app.services.settings_service import (
     effective_storage_mode,
     get_bool_setting,
@@ -114,6 +115,11 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
         session_token = create_totp_session_token(user.id)
         return LoginResponse(totp_required=True, totp_session_token=session_token)
 
+    record_admin_audit(
+        db, actor=user, action="create", subject_type="auth_login",
+        subject_id=user.id, subject_label=user.username,
+    )
+    db.commit()
     token = create_access_token(user.id)
     return LoginResponse(access_token=token, user=_current_user_out(db, user))
 
@@ -162,6 +168,12 @@ def verify_totp(
         db.commit()
         login_rate_limiter.reset(rate_key)
 
+    record_admin_audit(
+        db, actor=user, action="create", subject_type="auth_login",
+        subject_id=user.id, subject_label=user.username,
+        details={"two_factor": True},
+    )
+    db.commit()
     token = create_access_token(user.id)
     return Token(access_token=token, user=_current_user_out(db, user))
 
@@ -189,6 +201,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         auth_provider="local",
     )
     db.add(user)
+    db.flush()
+    record_admin_audit(
+        db, actor=user, action="create", subject_type="user",
+        subject_id=user.id, subject_label=user.username,
+        details={"self_registration": True, "is_admin": is_first},
+    )
     db.commit()
     db.refresh(user)
     token = create_access_token(user.id)
@@ -232,6 +250,12 @@ def delete_account(
             raise HTTPException(status_code=400, detail="Username does not match")
 
     schedule_deletion(db, user, requested_by=user.id)
+    record_admin_audit(
+        db, actor=user, action="delete", subject_type="user",
+        subject_id=user.id, subject_label=user.username,
+        details={"scheduled": True, "self_service": True},
+    )
+    db.commit()
     return user
 
 
@@ -269,6 +293,11 @@ def restore_account(
     user.deletion_requested_at = None
     user.deletion_scheduled_for = None
     user.deletion_requested_by = None
+    record_admin_audit(
+        db, actor=user, action="update", subject_type="user",
+        subject_id=user.id, subject_label=user.username,
+        details={"restored": True},
+    )
     db.commit()
     db.refresh(user)
 
@@ -288,6 +317,10 @@ def change_password(
     ):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     user.hashed_password = hash_password(payload.new_password)
+    record_admin_audit(
+        db, actor=user, action="update", subject_type="password",
+        subject_id=user.id, subject_label=user.username,
+    )
     db.commit()
 
 

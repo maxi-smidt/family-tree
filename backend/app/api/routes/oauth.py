@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models import User
+from app.services.admin_audit import record_admin_audit
 from app.services.authentik import get_client
 
 router = APIRouter(prefix="/auth/oauth/authentik", tags=["auth"])
@@ -50,6 +51,16 @@ async def callback(request: Request, db: Session = Depends(get_db)):
             f"{settings.FRONTEND_URL}/#oauth_error=pending_deletion"
         )
 
+    record_admin_audit(
+        db,
+        actor=user,
+        action="create",
+        subject_type="auth_login",
+        subject_id=user.id,
+        subject_label=user.username,
+        details={"provider": "authentik"},
+    )
+    db.commit()
     access = create_access_token(user.id)
     return RedirectResponse(f"{settings.FRONTEND_URL}/#token={access}")
 
@@ -82,6 +93,16 @@ def _provision_user(db: Session, userinfo: dict) -> User | None:
             is_admin=is_admin,
         )
         db.add(user)
+        db.flush()
+        record_admin_audit(
+            db,
+            actor=user,
+            action="create",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
+            details={"provider": "authentik", "is_admin": user.is_admin},
+        )
     else:
         user.oauth_subject = subject
         # Sync admin status unconditionally for Authentik users so that

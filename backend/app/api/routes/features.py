@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models import User
 from app.schemas.setting import FeatureFlagOut, FeatureFlagUpdate
 from app.services import feature_service
+from app.services.admin_audit import record_admin_audit
 
 router = APIRouter(
     prefix="/admin/features",
@@ -31,10 +32,16 @@ def list_features(db: Session = Depends(get_db)):
 
 
 @router.patch("/{name}", response_model=FeatureFlagOut)
-def update_feature(name: str, payload: FeatureFlagUpdate, db: Session = Depends(get_db)):
+def update_feature(
+    name: str,
+    payload: FeatureFlagUpdate,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     if name not in feature_service.FEATURES:
         raise HTTPException(status_code=404, detail="Unknown feature")
 
+    before = _flag_out(db, name)
     if payload.allowlist is not None:
         wanted = list(dict.fromkeys(payload.allowlist))
         existing = set(
@@ -50,5 +57,12 @@ def update_feature(name: str, payload: FeatureFlagUpdate, db: Session = Depends(
     if payload.state is not None:
         feature_service.set_state(db, name, payload.state)
 
+    db.flush()
+    after = _flag_out(db, name)
+    record_admin_audit(
+        db, actor=user, action="update", subject_type="feature_flag",
+        subject_id=name, subject_label=name,
+        details={"before": before.model_dump(), "after": after.model_dump()},
+    )
     db.commit()
-    return _flag_out(db, name)
+    return after

@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { BackupPanel } from "@/components/admin/BackupPanel";
+import { AdminAuditPanel } from "@/components/admin/AdminAuditPanel";
 import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { RelationTypesPanel } from "@/components/admin/RelationTypesPanel";
 import { LegalVersionHistoryPanel } from "@/components/admin/LegalVersionHistoryPanel";
@@ -282,6 +283,9 @@ export const AdminView = () => {
                 className="justify-start data-[state=active]:bg-muted"
               >
                 {t("backups-tab")}
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="w-full justify-start">
+                {t("audit-tab")}
               </TabsTrigger>
               <TabsTrigger
                 value="relation-types"
@@ -937,6 +941,10 @@ export const AdminView = () => {
                 onSettingsChange={setSettings}
                 onSaveSettings={saveSettings}
               />
+            </TabsContent>
+
+            <TabsContent value="audit" className="mt-0">
+              <AdminAuditPanel />
             </TabsContent>
 
             <TabsContent value="relation-types" className="mt-0">

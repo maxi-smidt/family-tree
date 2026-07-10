@@ -18,49 +18,48 @@ row is part of the same transaction and rolls back with it on failure.
 ## (a) Coverage matrix
 
 Legend: **Logged** = already covered before this PR · **Added** = added by
-this PR · **Admin audit (future)** = recommended for a separate, non-tree-
-scoped audit trail (see §c) · **N/A** = no DB mutation to log (read-only or
-preview-only endpoint).
+this PR · **Admin audit** = covered by the separate, non-tree-scoped trail
+(see §c) · **N/A** = no DB mutation to log (read-only or preview-only endpoint).
 
-| Action                                                             | Status                        | Notes                                                                                                                                         |
-| ------------------------------------------------------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| Member create/update/delete                                        | Logged                        | `app/api/routes/members.py`; update stores a before/after diff via `_SKIP_DIFF`-filtered fields                                               |
-| Relation create/delete                                             | Logged                        | `app/api/routes/members.py` (relation endpoints)                                                                                              |
-| Event create/update/delete                                         | Logged                        | `app/api/routes/events.py`                                                                                                                    |
-| Story create/update/delete                                         | Logged                        | `app/api/routes/stories.py`                                                                                                                   |
-| Gallery image create/update/delete                                 | Logged                        | `app/api/routes/gallery.py`                                                                                                                   |
-| Source / disease CRUD                                              | Logged                        | existing source & `MemberDisease` routes                                                                                                      |
-| Subtree extract                                                    | Logged                        | `app/services/extract.py:548`                                                                                                                 |
-| Tree-in-tree link (`POST /members/{id}/link`) — source side        | Logged                        | existing `action="update"`, `target_type="member"` on the anchor tree                                                                         |
-| Tree-in-tree link — **target-side counterpart**                    | **Added**                     | second row now written on `target.id`; `create` for a fresh clone (`mode="create"`), `update` for an existing counterpart (`mode="existing"`) |
-| Tree-in-tree unlink (via member `PATCH` clearing `linked_tree_id`) | Logged                        | already captured by the ordinary member-update diff; no separate action needed                                                                |
-| Tree create                                                        | **Added**                     | `app/api/routes/trees.py::create_tree`                                                                                                        |
-| Tree rename                                                        | **Added**                     | `update_tree`; only written when the name actually changes                                                                                    |
-| Tree delete                                                        | **Not logged (deliberately)** | see rationale below and in code comment at `delete_tree`                                                                                      |
-| Share grant (single)                                               | **Added**                     | `share_tree`; one row per newly-granted user, `target_type="share"`                                                                           |
-| Share grant (batch)                                                | **Added**                     | `share_trees_batch`; one row per tree × newly-granted user                                                                                    |
-| Share revoke (single)                                              | **Added**                     | `revoke_access`                                                                                                                               |
-| Share revoke (batch)                                               | **Added**                     | `revoke_access_batch`; one row per tree actually revoked                                                                                      |
-| Public-access toggle                                               | **Added**                     | `set_public_access`; only written when the flag actually changes                                                                              |
-| Member-restriction change                                          | **Added**                     | `update_member_restrictions`; before/after restriction list in `details`                                                                      |
-| Ownership transfer                                                 | **Added**                     | `transfer_ownership`; before/after `owner_id`                                                                                                 |
-| Ownership transfer revert                                          | **Added**                     | `revert_transfer`; before/after `owner_id`                                                                                                    |
-| Content member-link reassignment (`PUT .../links`) — event         | **Added**                     | `app/api/routes/events.py::set_links`                                                                                                         |
-| Content member-link reassignment — story                           | **Added**                     | `app/api/routes/stories.py::set_links`                                                                                                        |
-| Content member-link reassignment — gallery image                   | **Added**                     | `app/api/routes/gallery.py::set_links`                                                                                                        |
-| JSON-bundle import                                                 | **Added**                     | `_do_import` in `app/api/routes/export_import.py`; one `create`/`import` row on the new tree once the importing user is resolved              |
-| GEDCOM import                                                      | **Added**                     | `_do_import_gedcom`, same pattern                                                                                                             |
-| Tree merge                                                         | **Added**                     | `app/services/merge.py::merge_trees`; one row on the newly created tree                                                                       |
-| Virtual-view CRUD                                                  | Admin audit (future)          | owner-scoped, cross-tree overlay — no single `tree_id`                                                                                        |
-| Backup create/delete/restore                                       | Admin audit (future)          | instance-wide, not tied to one tree                                                                                                           |
-| Feature-flag change                                                | Admin audit (future)          | instance-wide setting                                                                                                                         |
-| App-settings change                                                | Admin audit (future)          | instance-wide setting                                                                                                                         |
-| Legal-doc version change                                           | Admin audit (future)          | instance-wide setting                                                                                                                         |
-| Auth login                                                         | Admin audit (future)          | not tree-scoped                                                                                                                               |
-| User create/delete                                                 | Admin audit (future)          | not tree-scoped                                                                                                                               |
-| Role/admin change                                                  | Admin audit (future)          | not tree-scoped                                                                                                                               |
-| Password change                                                    | Admin audit (future)          | not tree-scoped                                                                                                                               |
-| Merge/extract **preview** endpoints                                | N/A                           | read-only, no mutation                                                                                                                        |
+| Action                                                             | Status      | Notes                                                                                                                                         |
+| ------------------------------------------------------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Member create/update/delete                                        | Logged      | `app/api/routes/members.py`; update stores a before/after diff via `_SKIP_DIFF`-filtered fields                                               |
+| Relation create/delete                                             | Logged      | `app/api/routes/members.py` (relation endpoints)                                                                                              |
+| Event create/update/delete                                         | Logged      | `app/api/routes/events.py`                                                                                                                    |
+| Story create/update/delete                                         | Logged      | `app/api/routes/stories.py`                                                                                                                   |
+| Gallery image create/update/delete                                 | Logged      | `app/api/routes/gallery.py`                                                                                                                   |
+| Source / disease CRUD                                              | Logged      | existing source & `MemberDisease` routes                                                                                                      |
+| Subtree extract                                                    | Logged      | `app/services/extract.py:548`                                                                                                                 |
+| Tree-in-tree link (`POST /members/{id}/link`) — source side        | Logged      | existing `action="update"`, `target_type="member"` on the anchor tree                                                                         |
+| Tree-in-tree link — **target-side counterpart**                    | **Added**   | second row now written on `target.id`; `create` for a fresh clone (`mode="create"`), `update` for an existing counterpart (`mode="existing"`) |
+| Tree-in-tree unlink (via member `PATCH` clearing `linked_tree_id`) | Logged      | already captured by the ordinary member-update diff; no separate action needed                                                                |
+| Tree create                                                        | **Added**   | `app/api/routes/trees.py::create_tree`                                                                                                        |
+| Tree rename                                                        | **Added**   | `update_tree`; only written when the name actually changes                                                                                    |
+| Tree delete                                                        | Admin audit | preserved after the tree and its per-tree activity rows are deleted                                                                           |
+| Share grant (single)                                               | **Added**   | `share_tree`; one row per newly-granted user, `target_type="share"`                                                                           |
+| Share grant (batch)                                                | **Added**   | `share_trees_batch`; one row per tree × newly-granted user                                                                                    |
+| Share revoke (single)                                              | **Added**   | `revoke_access`                                                                                                                               |
+| Share revoke (batch)                                               | **Added**   | `revoke_access_batch`; one row per tree actually revoked                                                                                      |
+| Public-access toggle                                               | **Added**   | `set_public_access`; only written when the flag actually changes                                                                              |
+| Member-restriction change                                          | **Added**   | `update_member_restrictions`; before/after restriction list in `details`                                                                      |
+| Ownership transfer                                                 | **Added**   | `transfer_ownership`; before/after `owner_id`                                                                                                 |
+| Ownership transfer revert                                          | **Added**   | `revert_transfer`; before/after `owner_id`                                                                                                    |
+| Content member-link reassignment (`PUT .../links`) — event         | **Added**   | `app/api/routes/events.py::set_links`                                                                                                         |
+| Content member-link reassignment — story                           | **Added**   | `app/api/routes/stories.py::set_links`                                                                                                        |
+| Content member-link reassignment — gallery image                   | **Added**   | `app/api/routes/gallery.py::set_links`                                                                                                        |
+| JSON-bundle import                                                 | **Added**   | `_do_import` in `app/api/routes/export_import.py`; one `create`/`import` row on the new tree once the importing user is resolved              |
+| GEDCOM import                                                      | **Added**   | `_do_import_gedcom`, same pattern                                                                                                             |
+| Tree merge                                                         | **Added**   | `app/services/merge.py::merge_trees`; one row on the newly created tree                                                                       |
+| Virtual-view CRUD                                                  | Admin audit | owner-scoped, cross-tree overlay — no single `tree_id`                                                                                        |
+| Backup create/delete                                               | Admin audit | instance-wide; no backup restore endpoint currently exists                                                                                    |
+| Feature-flag change                                                | Admin audit | instance-wide setting                                                                                                                         |
+| App-settings change                                                | Admin audit | instance-wide setting                                                                                                                         |
+| Legal-doc version change                                           | Admin audit | legal changes are included in settings snapshots                                                                                              |
+| Auth login                                                         | Admin audit | successful local, TOTP, and Authentik logins only; no credentials are stored                                                                  |
+| User create/delete                                                 | Admin audit | self-registration and admin account lifecycle actions                                                                                         |
+| Role/admin change                                                  | Admin audit | captured as a before/after user update                                                                                                        |
+| Password change                                                    | Admin audit | password values are never recorded                                                                                                            |
+| Merge/extract **preview** endpoints                                | N/A         | read-only, no mutation                                                                                                                        |
 
 ## (b) Rollback feasibility
 
@@ -141,7 +140,14 @@ invariant the rest of this log relies on, or (b) allowing `tree_id` to be
 nullable, which would complicate every existing per-tree query and the
 `ondelete="CASCADE"` FK semantics for comparatively rare admin actions.
 
-**Recommendation:** build a **separate admin audit trail** — a distinct
-table/model (no `tree_id` FK, likely keyed by `actor_id` and a nullable
-generic `subject_id`/`subject_type`) — the next time one of these domains
-needs auditing. **Building it is out of scope for this issue.**
+**Implementation:** `AdminAuditLog` is the separate trail. It has no `tree_id`
+foreign key, snapshots both actor ID and username, captures generic subjects and
+JSON before/after details, and is exposed only via the read-only
+`GET /admin/audit-log` endpoint and the Administration → Audit trail tab.
+
+### Retention
+
+Audit rows are retained indefinitely by the application. Administrators should
+apply their organisation's data-retention policy through database lifecycle and
+backup controls; this application deliberately provides no UI or API to alter
+or delete audit entries, preserving their evidentiary value.

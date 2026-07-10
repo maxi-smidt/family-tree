@@ -30,6 +30,7 @@ from app.core.media_config import (
 )
 from app.models import AppSetting, LegalAcceptance, LegalDocumentVersion, User
 from app.schemas.setting import MediaLimits, SettingsOut, SettingsUpdate
+from app.services.admin_audit import record_admin_audit
 from app.services.legal_defaults import (
     DEFAULT_LEGAL_BODIES,
     LEGAL_DEFAULT_LOCALE,
@@ -345,7 +346,10 @@ def get_settings_out(db: Session) -> SettingsOut:
     )
 
 
-def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
+def update_settings(
+    db: Session, payload: SettingsUpdate, *, actor: User | None = None
+) -> SettingsOut:
+    before = get_settings_out(db).model_dump()
     if payload.allow_self_registration is not None:
         set_setting(
             db,
@@ -445,8 +449,27 @@ def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
         except ValueError:
             next_version = "1"
         set_setting(db, "legal_version", next_version)
+    db.flush()
+    result = get_settings_out(db)
+    changed = {
+        key: {"before": before[key], "after": value}
+        for key, value in result.model_dump().items()
+        if before[key] != value
+    }
+    if changed:
+        record_admin_audit(
+            db,
+            actor=actor,
+            action="update",
+            subject_type="legal_document" if legal_body_changed else "app_settings",
+            subject_id="legal" if legal_body_changed else None,
+            subject_label=(
+                "Legal documents" if legal_body_changed else "Instance settings"
+            ),
+            details={"changes": changed},
+        )
     db.commit()
     if legal_body_changed:
         # Immutably snapshot the now-live text under the freshly bumped version.
         snapshot_current_legal_versions(db)
-    return get_settings_out(db)
+    return result

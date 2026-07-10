@@ -1530,6 +1530,25 @@
     "relation-types-tab": "Relation types",
     "legal-tab": "Legal documents",
     "backups-tab": "Backups",
+    "audit-tab": "Audit trail",
+    "audit": {
+      "hint": "Instance-wide security and administration events. Entries are retained indefinitely; manage database retention through your normal backup and data-governance policy.",
+      "loading": "Loading audit trail…",
+      "error": "Could not load the audit trail.",
+      "retry": "Retry",
+      "empty": "No audit entries yet.",
+      "date": "Date",
+      "actor": "Actor",
+      "action": "Action",
+      "subject": "Subject",
+      "details": "Details",
+      "unknown": "Unknown",
+      "actions": {
+        "create": "Created",
+        "update": "Updated",
+        "delete": "Deleted"
+      }
+    },
     "features": {
       "hint": "Enable or disable features for this instance at runtime. \"Beta\" enables a feature only for the selected users.",
       "state-on": "On",

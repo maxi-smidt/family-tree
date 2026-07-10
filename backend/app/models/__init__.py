@@ -5,6 +5,7 @@ so that table creation / migrations see the full schema.
 """
 
 from app.models.activity import ActivityLog
+from app.models.admin_audit import AdminAuditLog
 from app.models.backup import BackupRecord
 from app.models.content import (
     Document,
@@ -37,6 +38,7 @@ from app.models.virtual_view import (
 
 __all__ = [
     "ActivityLog",
+    "AdminAuditLog",
     "BackgroundJob",
     "User",
     "Tree",

@@ -11,6 +11,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- An instance-wide, admin-visible audit trail for account, administrative,
+  backup, virtual-view, and tree-deletion actions.
 - Subtle horizontal ruled lines in the tree view background for vertical orientation — notebook-style, evenly spaced, and toggleable in the canvas controls (enabled by default).
 - Fast Mode: add a child directly to both parents from their union node (#595).
 - **Documents**: a reusable document bundles one or more files (or external links) with a title, date, notes, and the people it mentions, and appears on every mentioned person's profile. Events and stories can link documents directly — and create them inline — so a scan or record can be attached once and referenced from multiple places (#594).
@@ -41,6 +43,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Tree view: the connector from a couple's union dot to their shared children now uses the relationship's colour for custom relationship types too, not only the built-in married/partner/divorced types. A newly created custom relationship colours the union dot and its child connectors immediately, without a refresh (#617).
 - Member edit sheet: the "Places lived" entry containers now use the same corner radius (`rounded-md`) as the surrounding input fields, fixing the mismatched border radius (#619).
 - **Documents**: read-only member profiles now show linked documents beneath each event, matching the stories view and the edit mode (#606).
+- List view: the desktop table column header now stays frozen at the top while scrolling long member lists, rendering opaquely over the rows beneath in both light and dark themes. The header previously scrolled out of view because the table sat inside a redundant nested scroll container (#634).
 - List view: the desktop table column header and pagination now stay pinned while long member lists scroll inside the tab, with an opaque header over the rows beneath in both light and dark themes (#634).
 - Onboarding tutorial no longer starts while the legal acceptance gate (terms & privacy) is still open — it now waits until terms are accepted, so tour highlights no longer point at elements hidden behind the legal dialog (#615).
 - Event descriptions now preserve newlines when displayed — the Timeline, member sheet (edit and read-only), and member detail dialog render event descriptions with `whitespace-pre-wrap`, matching how story content is shown. Previously multi-line descriptions collapsed into a single run-on block (#637).

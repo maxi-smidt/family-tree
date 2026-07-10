@@ -1530,6 +1530,25 @@
     "relation-types-tab": "Beziehungstypen",
     "legal-tab": "Rechtliche Dokumente",
     "backups-tab": "Backups",
+    "audit-tab": "Audit-Protokoll",
+    "audit": {
+      "hint": "Instanzweite Sicherheits- und Verwaltungsereignisse. Einträge werden unbegrenzt aufbewahrt; verwalte die Datenaufbewahrung über deine reguläre Backup- und Datenrichtlinie.",
+      "loading": "Audit-Protokoll wird geladen …",
+      "error": "Audit-Protokoll konnte nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "empty": "Noch keine Audit-Einträge.",
+      "date": "Datum",
+      "actor": "Akteur",
+      "action": "Aktion",
+      "subject": "Betreff",
+      "details": "Details",
+      "unknown": "Unbekannt",
+      "actions": {
+        "create": "Erstellt",
+        "update": "Aktualisiert",
+        "delete": "Gelöscht"
+      }
+    },
     "features": {
       "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",
       "state-on": "An",
