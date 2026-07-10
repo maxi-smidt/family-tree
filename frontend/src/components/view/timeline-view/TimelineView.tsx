@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/command";
 import {
   Calendar,
-  MapPin,
   Plus,
   Pencil,
   Trash2,
@@ -28,6 +27,7 @@ import {
   Check,
   ChevronsUpDown,
 } from "lucide-react";
+import { Location } from "@/components/shared/Location";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
@@ -438,23 +438,12 @@ export const TimelineView = () => {
                             </span>
                           </div>
                           {item.data.location && (
-                            <div className="flex items-center gap-1">
-                              <MapPin aria-hidden="true" className="w-4 h-4" />
-                              <span>{item.data.location}</span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5"
-                                aria-label={t("show-on-map")}
-                                title={t("show-on-map")}
-                                onClick={() => handleShowEventOnMap(item.data)}
-                              >
-                                <MapPin
-                                  aria-hidden="true"
-                                  className="h-3 w-3"
-                                />
-                              </Button>
-                            </div>
+                            <Location
+                              location={item.data.location}
+                              onShowOnMap={() =>
+                                handleShowEventOnMap(item.data)
+                              }
+                            />
                           )}
                         </div>
 

@@ -25,6 +25,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Renamed the member "Sources" section to **Documents** and reworked it from per-fact source citations into the simpler, reusable document model above; the "Documents & Stories" section is now just **Stories**. The admin `sources` feature flag is unchanged and now governs Documents.
 - Member entry sheet: core fields now autosave for existing members (with a subtle "Saving…/Saved" indicator) instead of requiring an explicit Save button, matching the records that already saved automatically. Creating a new member still uses an explicit "Create member" action. (#618)
 - **Documents**: linked documents on events and stories are now collapsed behind a compact paperclip indicator showing the count — click it to reveal the files, instead of always rendering the full list inline (#614).
+- Location display is now a single reusable component with one leading map-pin icon that doubles as the "show on map" link where available. The timeline no longer renders a duplicate map-pin, and every place that shows a location (timeline, member sheet, read-only profile, and the member detail dialog) now looks consistent (#635).
 
 ### Fixed
 
