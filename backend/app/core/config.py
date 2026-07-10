@@ -28,7 +28,11 @@ class Settings(BaseSettings):
     APP_VERSION: str = "dev"
     APP_REVISION: str = "dev"
     APP_BUILD_DATE: str = ""
-    ENVIRONMENT: str = "production"
+    # Host/dev default. The shipped docker-compose files inject
+    # ENVIRONMENT=production explicitly (real env vars take precedence over
+    # this default and over the .env file), so real deployments still run the
+    # production credential validation below; a host-run dev backend does not.
+    ENVIRONMENT: str = "development"
     API_PREFIX: str = "/api"
 
     # Secret used to sign JWTs and the OAuth session cookie. MUST be overridden
