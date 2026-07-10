@@ -148,6 +148,56 @@ describe("MainPanel", () => {
     });
   });
 
+  it("does not start the tutorial while the legal gate is open", () => {
+    useAuthStore.setState({
+      user: {
+        ...USER,
+        legal_acceptance_required: true,
+        legal_accepted: false,
+      },
+      features: ["onboarding_tour"],
+    });
+    useTutorialStore.setState({
+      completed: false,
+      loaded: true,
+      isRunning: false,
+    });
+
+    render(<MainPanel />);
+
+    expect(useTutorialStore.getState().isRunning).toBe(false);
+  });
+
+  it("starts the tutorial once the legal gate is accepted", async () => {
+    useAuthStore.setState({
+      user: {
+        ...USER,
+        legal_acceptance_required: true,
+        legal_accepted: false,
+      },
+      features: ["onboarding_tour"],
+    });
+    useTutorialStore.setState({
+      completed: false,
+      loaded: true,
+      isRunning: false,
+    });
+
+    render(<MainPanel />);
+
+    expect(useTutorialStore.getState().isRunning).toBe(false);
+
+    act(() => {
+      useAuthStore.setState({
+        user: { ...USER, legal_acceptance_required: true, legal_accepted: true },
+      });
+    });
+
+    await waitFor(() => {
+      expect(useTutorialStore.getState().isRunning).toBe(true);
+    });
+  });
+
   it("does not load release announcements before onboarding is complete", async () => {
     const loadIncomingFriends = vi.fn().mockResolvedValue(undefined);
     useAuthStore.setState({
