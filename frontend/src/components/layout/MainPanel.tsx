@@ -152,6 +152,8 @@ export const MainPanel = () => {
   const tutorialRunning = useTutorialStore((s) => s.isRunning);
   const startTutorial = useTutorialStore((s) => s.start);
   const tutorialEnabled = features.includes("onboarding_tour");
+  const legalGateOpen =
+    !!user?.legal_acceptance_required && !user?.legal_accepted;
   const loadAnnouncement = useAnnouncementStore((s) => s.load);
   const loadLegalDocuments = useLegalStore((s) => s.load);
   const [manageOpen, setManageOpen] = useState(false);
@@ -183,12 +185,16 @@ export const MainPanel = () => {
     }
   }, [user, loadLegalDocuments]);
 
+  // Hold the tutorial until the blocking legal gate is accepted; otherwise the
+  // tour highlights elements hidden behind the legal dialog (#615). Accepting
+  // terms flips user.legal_accepted (via refreshMe), which re-runs this effect.
   useEffect(() => {
     if (
       tutorialLoaded &&
       !tutorialCompleted &&
       tutorialEnabled &&
-      !tutorialRunning
+      !tutorialRunning &&
+      !legalGateOpen
     ) {
       startTutorial();
     }
@@ -197,6 +203,7 @@ export const MainPanel = () => {
     tutorialCompleted,
     tutorialEnabled,
     tutorialRunning,
+    legalGateOpen,
     startTutorial,
   ]);
 
