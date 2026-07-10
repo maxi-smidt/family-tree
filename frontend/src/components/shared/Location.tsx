@@ -61,10 +61,7 @@ export function Location({
           type="button"
           variant="ghost"
           size="icon"
-          className={cn(
-            "size-5 shrink-0 -ml-0.5 text-muted-foreground",
-            align === "start" && "mt-0.5",
-          )}
+          className="size-5 shrink-0 -ml-0.5 text-muted-foreground"
           aria-label={mapLabel}
           title={mapLabel}
           onClick={onShowOnMap}
@@ -72,13 +69,14 @@ export function Location({
           <MapPin className="size-3.5" aria-hidden="true" />
         </Button>
       ) : (
-        <MapPin
-          aria-hidden="true"
-          className={cn(
-            "size-3.5 shrink-0 text-muted-foreground",
-            align === "start" && "mt-0.5",
-          )}
-        />
+        // A fixed line-height (h-5) box centres the pin against the first line
+        // of text, so it stays aligned whether or not the text wraps.
+        <span className="flex h-5 shrink-0 items-center">
+          <MapPin
+            className="size-3.5 text-muted-foreground"
+            aria-hidden="true"
+          />
+        </span>
       )}
       <span>
         {label && <span className="text-muted-foreground">{label}: </span>}
