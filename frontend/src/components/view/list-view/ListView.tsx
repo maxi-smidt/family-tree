@@ -517,134 +517,132 @@ export const ListView = () => {
 
       {/* Desktop table */}
       <div className="hidden rounded-md border flex-1 overflow-hidden md:flex flex-col">
-        <div className="overflow-auto flex-1">
-          <Table>
-            <caption className="sr-only">{t("table.caption")}</caption>
-            <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-              <TableRow>
-                {visibleColumns.map((id) => {
-                  const def = COLUMN_MAP[id];
-                  if (def.sortable && def.sortKey) {
-                    return (
-                      <TableHead
-                        key={id}
-                        aria-sort={
-                          sortConfig.key === def.sortKey
-                            ? sortConfig.direction === "asc"
-                              ? "ascending"
-                              : "descending"
-                            : "none"
-                        }
+        <Table containerClassName="flex-1 overflow-auto">
+          <caption className="sr-only">{t("table.caption")}</caption>
+          <TableHeader className="sticky top-0 z-20 bg-background shadow-sm">
+            <TableRow className="bg-background">
+              {visibleColumns.map((id) => {
+                const def = COLUMN_MAP[id];
+                if (def.sortable && def.sortKey) {
+                  return (
+                    <TableHead
+                      key={id}
+                      aria-sort={
+                        sortConfig.key === def.sortKey
+                          ? sortConfig.direction === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
+                      }
+                    >
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort(def.sortKey!)}
+                        className="h-8 px-2"
                       >
-                        <Button
-                          variant="ghost"
-                          onClick={() => handleSort(def.sortKey!)}
-                          className="h-8 px-2"
-                        >
-                          {t(def.titleKey)}
-                          <ArrowUpDown />
-                        </Button>
-                      </TableHead>
-                    );
-                  }
-                  return <TableHead key={id}>{t(def.titleKey)}</TableHead>;
-                })}
-                <TableHead className="w-12.5" />
+                        {t(def.titleKey)}
+                        <ArrowUpDown />
+                      </Button>
+                    </TableHead>
+                  );
+                }
+                return <TableHead key={id}>{t(def.titleKey)}</TableHead>;
+              })}
+              <TableHead className="w-12.5" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {!isReady ? (
+              Array.from({ length: SKELETON_ROWS }).map((_, rowIndex) => (
+                <TableRow key={rowIndex}>
+                  {Array.from({ length: colCount }).map((_, cellIndex) => (
+                    <TableCell key={cellIndex}>
+                      <Skeleton
+                        className={
+                          cellIndex === colCount - 1
+                            ? "h-8 w-8"
+                            : "h-4 w-full max-w-28"
+                        }
+                      />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : sortedMembers.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={colCount}
+                  className="h-24 text-center text-muted-foreground"
+                >
+                  {t("table.no-members")}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {!isReady ? (
-                Array.from({ length: SKELETON_ROWS }).map((_, rowIndex) => (
-                  <TableRow key={rowIndex}>
-                    {Array.from({ length: colCount }).map((_, cellIndex) => (
-                      <TableCell key={cellIndex}>
-                        <Skeleton
-                          className={
-                            cellIndex === colCount - 1
-                              ? "h-8 w-8"
-                              : "h-4 w-full max-w-28"
-                          }
-                        />
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              ) : sortedMembers.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={colCount}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    {t("table.no-members")}
+            ) : (
+              pagedMembers.map((member) => (
+                <TableRow key={member.id}>
+                  {visibleColumns.map((id) => (
+                    <TableCell
+                      key={id}
+                      className={
+                        inlineEditActive && EDITABLE_COLUMNS.has(id)
+                          ? "p-1"
+                          : undefined
+                      }
+                    >
+                      {inlineEditActive && EDITABLE_COLUMNS.has(id) ? (
+                        <EditableCell member={member} columnId={id} />
+                      ) : (
+                        renderCell(id, member)
+                      )}
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost">
+                          <span className="sr-only">{t("menu.trigger")}</span>
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>
+                          {t("menu.actions")}
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onClick={() => setViewingMember(member)}
+                        >
+                          <Eye />
+                          {t("menu.details")}
+                        </DropdownMenuItem>
+                        {canWrite && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setEditingMember(member);
+                                setIsEditMode(true);
+                              }}
+                            >
+                              <Pencil />
+                              {t("menu.edit")}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setMemberToDelete(member)}
+                            >
+                              <Trash2 />
+                              {t("menu.delete")}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ) : (
-                pagedMembers.map((member) => (
-                  <TableRow key={member.id}>
-                    {visibleColumns.map((id) => (
-                      <TableCell
-                        key={id}
-                        className={
-                          inlineEditActive && EDITABLE_COLUMNS.has(id)
-                            ? "p-1"
-                            : undefined
-                        }
-                      >
-                        {inlineEditActive && EDITABLE_COLUMNS.has(id) ? (
-                          <EditableCell member={member} columnId={id} />
-                        ) : (
-                          renderCell(id, member)
-                        )}
-                      </TableCell>
-                    ))}
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost">
-                            <span className="sr-only">{t("menu.trigger")}</span>
-                            <MoreHorizontal />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>
-                            {t("menu.actions")}
-                          </DropdownMenuLabel>
-                          <DropdownMenuItem
-                            onClick={() => setViewingMember(member)}
-                          >
-                            <Eye />
-                            {t("menu.details")}
-                          </DropdownMenuItem>
-                          {canWrite && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setEditingMember(member);
-                                  setIsEditMode(true);
-                                }}
-                              >
-                                <Pencil />
-                                {t("menu.edit")}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() => setMemberToDelete(member)}
-                              >
-                                <Trash2 />
-                                {t("menu.delete")}
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              ))
+            )}
+          </TableBody>
+        </Table>
         {isReady && sortedMembers.length > 0 && (
           <div className="border-t px-2">
             <ListPagination
