@@ -616,7 +616,6 @@
       "birthplace-label": "Geburtsort",
       "hometown-label": "Heimatort",
       "cemetery-label": "Friedhof",
-      "show-on-map": "Auf Karte zeigen",
       "dod-deceased-no-date": "Verstorben (Datum unbekannt)",
       "academic-title-item": "Akademischer / Ehrentitel",
       "tab-identity": "Identität",
@@ -1063,7 +1062,6 @@
       "show-details": "Details anzeigen",
       "edit-event": "Ereignis bearbeiten",
       "delete-event": "Ereignis löschen",
-      "show-on-map": "Auf Karte zeigen",
       "delete-dialog": {
         "title": "Ereignis löschen",
         "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
@@ -1363,6 +1361,7 @@
     "open-date-picker": "Datumsauswahl öffnen",
     "nee": "geb. {{name}}",
     "location-input": { "placeholder": "Stadt, Region, Land…" },
+    "location": { "show-on-map": "Auf Karte zeigen" },
     "geocode": {
       "checking": "Adresse wird geprüft...",
       "found": "Adresse gefunden",

@@ -21,42 +21,17 @@ import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { CollapsibleStory } from "./CollapsibleStory";
-import { Calendar, MapPin, Activity, FileText } from "lucide-react";
+import { Calendar, BookOpen, Activity, FileText } from "lucide-react";
+import { Location } from "@/components/shared/Location";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 
 type Props = {
   member: Member;
   onShowLocationOnMap?: (location: string, memberId: string) => void;
 };
-
-// Small ghost icon-button next to a location field/row (#554), jumping the
-// user to the Map view focused on that location. Only rendered when the
-// caller wired up `onShowLocationOnMap` (i.e. the map is enabled).
-function ShowOnMapButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="h-5 w-5 shrink-0 ml-auto"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-    >
-      <MapPin className="h-3 w-3" />
-    </Button>
-  );
-}
 
 export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
   const { t, i18n } = useTranslation(undefined, {
@@ -240,91 +215,78 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                     <ItemTitle>{t("locations-section")}</ItemTitle>
                     <div className="space-y-2 mt-1">
                       {member.birthplace && (
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <span>
-                            <span className="text-muted-foreground">
-                              {t("birthplace-label")}:{" "}
-                            </span>
-                            {member.birthplace}
-                          </span>
-                          {mapEnabled && onShowLocationOnMap && (
-                            <ShowOnMapButton
-                              label={t("show-on-map")}
-                              onClick={() =>
-                                onShowLocationOnMap(
-                                  member.birthplace!,
-                                  member.id,
-                                )
-                              }
-                            />
-                          )}
-                        </div>
+                        <Location
+                          align="start"
+                          label={t("birthplace-label")}
+                          location={member.birthplace}
+                          onShowOnMap={
+                            mapEnabled && onShowLocationOnMap
+                              ? () =>
+                                  onShowLocationOnMap(
+                                    member.birthplace!,
+                                    member.id,
+                                  )
+                              : undefined
+                          }
+                        />
                       )}
                       {mapEnabled && member.hometown && (
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <span>
-                            <span className="text-muted-foreground">
-                              {t("hometown-label")}:{" "}
-                            </span>
-                            {member.hometown}
-                          </span>
-                          {onShowLocationOnMap && (
-                            <ShowOnMapButton
-                              label={t("show-on-map")}
-                              onClick={() =>
-                                onShowLocationOnMap(member.hometown!, member.id)
-                              }
-                            />
-                          )}
-                        </div>
+                        <Location
+                          align="start"
+                          label={t("hometown-label")}
+                          location={member.hometown}
+                          onShowOnMap={
+                            onShowLocationOnMap
+                              ? () =>
+                                  onShowLocationOnMap(
+                                    member.hometown!,
+                                    member.id,
+                                  )
+                              : undefined
+                          }
+                        />
                       )}
                       {mapEnabled && member.cemetery && (
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <span>
-                            <span className="text-muted-foreground">
-                              {t("cemetery-label")}:{" "}
-                            </span>
-                            {member.cemetery}
-                          </span>
-                          {onShowLocationOnMap && (
-                            <ShowOnMapButton
-                              label={t("show-on-map")}
-                              onClick={() =>
-                                onShowLocationOnMap(member.cemetery!, member.id)
-                              }
-                            />
-                          )}
-                        </div>
+                        <Location
+                          align="start"
+                          label={t("cemetery-label")}
+                          location={member.cemetery}
+                          onShowOnMap={
+                            onShowLocationOnMap
+                              ? () =>
+                                  onShowLocationOnMap(
+                                    member.cemetery!,
+                                    member.id,
+                                  )
+                              : undefined
+                          }
+                        />
                       )}
                       {mapEnabled &&
                         member.placesLived.map((place, idx) => (
-                          <div
+                          <Location
                             key={idx}
-                            className="flex items-start gap-2 text-sm"
-                          >
-                            <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                            <span>
-                              {place.location}
-                              {(place.from || place.to) && (
+                            align="start"
+                            location={place.location}
+                            trailing={
+                              (place.from || place.to) && (
                                 <span className="text-muted-foreground">
                                   {" "}
                                   ({place.from || "?"}
                                   {place.to ? ` – ${place.to}` : ""})
                                 </span>
-                              )}
-                            </span>
-                            {onShowLocationOnMap && place.location && (
-                              <ShowOnMapButton
-                                label={t("show-on-map")}
-                                onClick={() =>
-                                  onShowLocationOnMap(place.location, member.id)
-                                }
-                              />
-                            )}
-                          </div>
+                              )
+                            }
+                            onShowOnMap={
+                              onShowLocationOnMap && place.location
+                                ? () =>
+                                    onShowLocationOnMap(
+                                      place.location,
+                                      member.id,
+                                    )
+                                : undefined
+                            }
+                          />
                         ))}
                     </div>
                   </ItemContent>
@@ -411,14 +373,11 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                                     </span>
                                   </div>
                                   {event.location && (
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      <span>{event.location}</span>
-                                    </div>
+                                    <Location location={event.location} />
                                   )}
                                 </div>
                                 {event.description && (
-                                  <p className="text-sm mt-2">
+                                  <p className="text-sm mt-2 whitespace-pre-wrap">
                                     {event.description}
                                   </p>
                                 )}
