@@ -53,6 +53,10 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useFeature } from "@/hooks/useAuthStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
+import {
+  clearMemberSheetState,
+  readMemberSheetState,
+} from "@/utils/memberSheetState";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
@@ -215,6 +219,39 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const pending = usePendingMember({
     onHorizontalRelationReady: relation.startHorizontalRelation,
   });
+  const attemptedMemberSheetRestoreRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const savedState = readMemberSheetState();
+    if (publicView || !savedState || pending.editingMemberId) return;
+
+    const savedMember = members.find(
+      (member) => member.id === savedState.memberId,
+    );
+    if (savedMember) {
+      attemptedMemberSheetRestoreRef.current = null;
+      pending.setEditingMemberId(savedMember.id);
+      pending.setIsEditMode(savedState.mode === "edit");
+    } else if (
+      isReady &&
+      windowed &&
+      attemptedMemberSheetRestoreRef.current !== savedState.memberId
+    ) {
+      attemptedMemberSheetRestoreRef.current = savedState.memberId;
+      void setFocusRoot(savedState.memberId);
+    } else if (isReady) {
+      clearMemberSheetState();
+    }
+  }, [
+    isReady,
+    members,
+    pending.editingMemberId,
+    pending.setEditingMemberId,
+    pending.setIsEditMode,
+    publicView,
+    setFocusRoot,
+    windowed,
+  ]);
 
   // --- Unions, edges & visibility — computed off the main thread ---
   const { unions, baseEdges, hiddenNodeIds } = useDerivedFlowView(

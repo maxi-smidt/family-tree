@@ -23,6 +23,12 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  clearMemberSheetState,
+  MemberSheetTab,
+  readMemberSheetState,
+  writeMemberSheetState,
+} from "@/utils/memberSheetState";
 
 type Props = {
   isOpen: boolean;
@@ -63,12 +69,30 @@ export const MemberSheet = ({
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [activeTab, setActiveTab] = useState<MemberSheetTab>("identity");
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !member || isNewMember) return;
+    const savedState = readMemberSheetState();
+    setActiveTab(
+      savedState?.memberId === member.id ? savedState.tab : "identity",
+    );
+  }, [isOpen, member?.id, isNewMember]);
+
+  useEffect(() => {
+    if (!isOpen || !member || isNewMember) return;
+    writeMemberSheetState({
+      memberId: member.id,
+      tab: activeTab,
+      mode: isViewingEditMode ? "edit" : "view",
+    });
+  }, [activeTab, isNewMember, isOpen, isViewingEditMode, member?.id]);
 
   // Fetch full member detail when the sheet opens for an existing member.
   // Skip the spinner entirely when detail is already cached for this member.
@@ -106,10 +130,15 @@ export const MemberSheet = ({
 
   if (!member) return null;
 
+  const closeSheet = () => {
+    clearMemberSheetState();
+    onClose();
+  };
+
   const handleDelete = async () => {
     await removeMember(member.id);
     setIsDeleteDialogOpen(false);
-    onClose();
+    closeSheet();
   };
 
   const handleCloseRequest = () => {
@@ -124,7 +153,7 @@ export const MemberSheet = ({
     if (isNewMember && onDiscardNewMember) {
       void onDiscardNewMember();
     }
-    onClose();
+    closeSheet();
   };
 
   const handleDiscard = async () => {
@@ -132,7 +161,7 @@ export const MemberSheet = ({
       await onDiscardNewMember();
     }
     setIsUnsavedDialogOpen(false);
-    onClose();
+    closeSheet();
   };
 
   const handleSaveAndClose = () => {
@@ -148,7 +177,7 @@ export const MemberSheet = ({
   const handleShowLocationOnMap = (location: string, memberId: string) => {
     setMapFocus({ location, memberId });
     navigateTo("map-view");
-    onClose();
+    closeSheet();
   };
 
   return (
@@ -204,15 +233,19 @@ export const MemberSheet = ({
                   if (isNewMember && onSaveNewMember) {
                     await onSaveNewMember(data);
                   }
-                  onClose();
+                  closeSheet();
                 }}
                 onDirtyChange={setIsDirty}
                 onSaveStatusChange={setSaveStatus}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
               />
             ) : (
               <ViewMode
                 member={member}
                 onShowLocationOnMap={handleShowLocationOnMap}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
               />
             )}
           </div>

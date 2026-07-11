@@ -34,6 +34,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Member sheets now keep the selected tab while switching between view and edit modes, and restore the same member, tab, and mode from a shareable URL after refresh (#648).
 - Timeline and Activity filters now stay visible while their long lists scroll, without nested scrollbars or obscured entries (#646).
 - Tree Management keeps its owned, shared, and virtual-view tables in equal-height panes with independent scrolling (#647).
 - Member name search now works in the Events and Stories dialogs and the gallery image sheet, where typing a name previously returned no results (#592).
