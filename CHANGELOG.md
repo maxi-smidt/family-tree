@@ -37,6 +37,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Storage quotas now apply to the combined data and media usage of every tree
+  owned by a user, rather than allowing the full quota in each individual tree
+  (#654).
 - Switching directly between trees now invalidates every content view before it
   is opened, so Activity, Timeline, Stories, Gallery, Documents, Statistics,
   and Data Quality cannot show rows from the previously selected tree (#652).

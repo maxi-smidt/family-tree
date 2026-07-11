@@ -15,7 +15,9 @@ from app.services.storage_usage import (
     check_full_usage_quota,
     check_media_quota,
     check_tree_quota,
+    compute_owner_usage,
     compute_usage,
+    media_warning,
     owner_quotas,
 )
 from tests.conftest import API, add_member, auth, make_tree, make_user
@@ -109,6 +111,29 @@ def test_compute_usage_shape(db: Session):
     assert usage["total_bytes"] == usage["tree_bytes"] + usage["media_bytes"]
 
 
+def test_compute_owner_usage_combines_all_owned_trees(db: Session):
+    owner = make_user(db, "aggregate-owner")
+    first_tree = make_tree(db, owner, "First tree")
+    second_tree = make_tree(db, owner, "Second tree")
+    add_member(db, first_tree, "aggregate-member-1", first_name="Alice")
+    add_member(db, second_tree, "aggregate-member-2", first_name="Bob")
+    db.flush()
+
+    owner_usage = compute_owner_usage(db, owner.id)
+    first_usage = compute_usage(db, first_tree.id)
+    second_usage = compute_usage(db, second_tree.id)
+
+    assert owner_usage["tree_bytes"] == (
+        first_usage["tree_bytes"] + second_usage["tree_bytes"]
+    )
+    assert owner_usage["media_bytes"] == (
+        first_usage["media_bytes"] + second_usage["media_bytes"]
+    )
+    assert owner_usage["total_bytes"] == (
+        first_usage["total_bytes"] + second_usage["total_bytes"]
+    )
+
+
 # ---------------------------------------------------------------------------
 # GET /trees/{tree_id}/storage endpoint
 # ---------------------------------------------------------------------------
@@ -158,6 +183,22 @@ def test_storage_endpoint_shows_quota_when_set(client: TestClient, db: Session):
     assert data["tree_quota_bytes"] is None  # not set
 
 
+def test_storage_endpoint_reports_owner_aggregate(client: TestClient, db: Session):
+    owner = make_user(db, "aggregate-endpoint-owner")
+    first_tree = make_tree(db, owner, "First tree")
+    second_tree = make_tree(db, owner, "Second tree")
+    add_member(db, first_tree, "aggregate-endpoint-member", first_name="Alice")
+    db.flush()
+
+    expected_usage = compute_owner_usage(db, owner.id)
+    resp = client.get(f"{API}/trees/{second_tree.id}/storage", headers=auth(owner))
+
+    assert resp.status_code == 200
+    assert resp.json()["tree_bytes"] == expected_usage["tree_bytes"]
+    assert resp.json()["media_bytes"] == expected_usage["media_bytes"]
+    assert resp.json()["total_bytes"] == expected_usage["total_bytes"]
+
+
 # ---------------------------------------------------------------------------
 # Quota enforcement
 # ---------------------------------------------------------------------------
@@ -191,6 +232,38 @@ def test_check_tree_quota_raises_when_exceeded(db: Session):
     assert exc_info.value.bucket == "tree"
 
 
+def test_check_tree_quota_counts_usage_in_other_owned_trees(db: Session):
+    owner = make_user(db, "aggregate-tree-quota-owner")
+    first_tree = make_tree(db, owner, "First tree")
+    second_tree = make_tree(db, owner, "Second tree")
+    add_member(db, first_tree, "aggregate-tree-member", first_name="A" * 500)
+    db.flush()
+    owner.tree_quota_bytes = compute_usage(db, first_tree.id)["tree_bytes"]
+    db.commit()
+
+    with pytest.raises(QuotaExceeded) as exc_info:
+        check_tree_quota(db, second_tree, 1)
+
+    assert exc_info.value.bucket == "tree"
+
+
+def test_check_media_quota_counts_usage_in_other_owned_trees(
+    db: Session, tmp_path, monkeypatch
+):
+    owner = make_user(db, "aggregate-media-quota-owner")
+    owner.media_quota_bytes = 100
+    db.commit()
+    first_tree = make_tree(db, owner, "First tree")
+    second_tree = make_tree(db, owner, "Second tree")
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    _write_fake_media(first_tree.id, "photo.webp", b"x" * 100)
+
+    with pytest.raises(QuotaExceeded) as exc_info:
+        check_media_quota(db, second_tree, 1)
+
+    assert exc_info.value.bucket == "media"
+
+
 def test_quota_zero_means_unlimited(db: Session):
     """A per-user quota of 0 means unlimited (not 'deny everything')."""
     owner = make_user(db, "quota-zero-owner")
@@ -214,6 +287,23 @@ def test_check_full_usage_quota_raises_when_already_over(db: Session):
     assert exc_info.value.bucket == "tree"
 
 
+def test_check_full_usage_quota_counts_all_owned_trees(db: Session):
+    owner = make_user(db, "aggregate-full-usage-owner")
+    first_tree = make_tree(db, owner, "First tree")
+    second_tree = make_tree(db, owner, "Second tree")
+    add_member(db, first_tree, "aggregate-full-member-1", first_name="A" * 500)
+    db.flush()
+    owner.tree_quota_bytes = compute_usage(db, first_tree.id)["tree_bytes"]
+    db.commit()
+    add_member(db, second_tree, "aggregate-full-member-2", first_name="Bob")
+    db.flush()
+
+    with pytest.raises(QuotaExceeded) as exc_info:
+        check_full_usage_quota(db, second_tree)
+
+    assert exc_info.value.bucket == "tree"
+
+
 def test_check_full_usage_quota_passes_when_unlimited(db: Session):
     """Bulk-operation check is a no-op when the owner has no quota set."""
     owner = make_user(db, "full-usage-owner2")
@@ -222,6 +312,26 @@ def test_check_full_usage_quota_passes_when_unlimited(db: Session):
     db.flush()
     # Should not raise (all quotas unlimited)
     check_full_usage_quota(db, tree)
+
+
+def test_media_warning_counts_usage_in_other_owned_trees(
+    db: Session, tmp_path, monkeypatch
+):
+    owner = make_user(db, "aggregate-warning-owner")
+    owner.media_quota_bytes = 100
+    db.commit()
+    first_tree = make_tree(db, owner, "First tree")
+    second_tree = make_tree(db, owner, "Second tree")
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    _write_fake_media(first_tree.id, "photo.webp", b"x" * 90)
+
+    warning = media_warning(db, second_tree)
+
+    assert warning == {
+        "tree_id": second_tree.id,
+        "used_bytes": 90,
+        "quota_bytes": 100,
+    }
 
 
 # ---------------------------------------------------------------------------

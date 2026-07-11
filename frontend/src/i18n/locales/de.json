@@ -1876,7 +1876,7 @@
     "discard": "Verwerfen"
   },
   "storage-usage": {
-    "title": "Speicher",
+    "title": "Speicher des Besitzers",
     "tree": "Stammbaumdaten",
     "media": "Mediendateien",
     "total": "Gesamt",
@@ -1886,7 +1886,7 @@
     "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
     "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
-    "quota-warning": "Der Medienspeicher für diesen Stammbaum ist fast voll."
+    "quota-warning": "Der Medienspeicher dieses Besitzers ist fast voll."
   },
   "user-settings": {
     "title": "Einstellungen",

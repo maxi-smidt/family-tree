@@ -41,8 +41,8 @@ describe("StorageUsagePanel", () => {
 
     render(<StorageUsagePanel treeId={TREE_ID} />);
 
-    // t("title") == "Storage", component appends "…"
-    expect(screen.getByText(/storage…/i)).toBeInTheDocument();
+    // t("title") == "Owner storage", component appends "…"
+    expect(screen.getByText(/owner storage…/i)).toBeInTheDocument();
   });
 
   it("renders nothing when not loading and no usage", () => {
@@ -63,8 +63,8 @@ describe("StorageUsagePanel", () => {
 
     render(<StorageUsagePanel treeId={TREE_ID} />);
 
-    // Section heading — t("title") == "Storage"
-    expect(screen.getByText("Storage")).toBeInTheDocument();
+    // Section heading — t("title") == "Owner storage"
+    expect(screen.getByText("Owner storage")).toBeInTheDocument();
     // Row labels — t("tree") == "Tree data", t("media") == "Media files", t("total") == "Total"
     expect(screen.getByText("Tree data")).toBeInTheDocument();
     expect(screen.getByText("Media files")).toBeInTheDocument();
