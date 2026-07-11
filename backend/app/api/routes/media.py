@@ -42,6 +42,7 @@ _MIME: dict[str, str] = {
 @router.get("/media/{tree_id}/{filename}")
 def serve_media(
     filename: str,
+    download: bool = False,
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
 ) -> FileResponse:
@@ -62,18 +63,20 @@ def serve_media(
     ext = path.suffix.lstrip(".").lower()
     mime = _MIME.get(ext, "application/octet-stream")
 
-    # Document attachments carry their original upload name; download them under
-    # it (not the stored hash). FileResponse sets Content-Disposition and RFC
-    # 5987-encodes non-ASCII names. Member photos and gallery images have no
-    # DocumentFile row, so original_name is None and they keep serving inline.
-    media_url = f"{settings.API_PREFIX}/media/{tree.id}/{filename}"
-    original_name = db.scalar(
-        select(DocumentFile.filename).where(
-            DocumentFile.tree_id == tree.id,
-            DocumentFile.url == media_url,
-            DocumentFile.kind == "file",
-            DocumentFile.filename.is_not(None),
+    # Inline media must stay on the hot path: member photos and gallery images
+    # do not have DocumentFile rows, so looking one up would be wasted work.
+    # Only explicit document downloads need the original upload name. FileResponse
+    # sets Content-Disposition and RFC 5987-encodes non-ASCII names for them.
+    original_name = None
+    if download:
+        media_url = f"{settings.API_PREFIX}/media/{tree.id}/{filename}"
+        original_name = db.scalar(
+            select(DocumentFile.filename).where(
+                DocumentFile.tree_id == tree.id,
+                DocumentFile.url == media_url,
+                DocumentFile.kind == "file",
+                DocumentFile.filename.is_not(None),
+            )
         )
-    )
 
     return FileResponse(path, media_type=mime, filename=original_name)

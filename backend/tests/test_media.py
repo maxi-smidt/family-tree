@@ -125,6 +125,32 @@ def _attach_document_file(db, tree_id, url, *, filename, mime="image/webp"):
     db.commit()
 
 
+def test_inline_document_media_does_not_lookup_filename(
+    client, db, media_file, monkeypatch
+):
+    """Inline document previews must not query document_files."""
+    from app.api.routes import media
+
+    tree_id, filename = media_file
+    owner = make_user(db, "owner")
+    make_tree(db, owner, tree_id=tree_id)
+    _attach_document_file(
+        db,
+        tree_id,
+        f"{API}/media/{tree_id}/{filename}",
+        filename="certificate.webp",
+    )
+
+    def unexpected_lookup(*_args, **_kwargs):
+        pytest.fail("inline media must not query document_files")
+
+    monkeypatch.setattr(media, "select", unexpected_lookup)
+
+    resp = client.get(f"{API}/media/{tree_id}/{filename}", headers=auth(owner))
+    assert resp.status_code == 200
+    assert "content-disposition" not in resp.headers
+
+
 def test_document_download_uses_original_filename(client, db, media_file):
     tree_id, filename = media_file
     owner = make_user(db, "owner")
@@ -136,7 +162,9 @@ def test_document_download_uses_original_filename(client, db, media_file):
         filename="certificate.webp",
     )
 
-    resp = client.get(f"{API}/media/{tree_id}/{filename}", headers=auth(owner))
+    resp = client.get(
+        f"{API}/media/{tree_id}/{filename}?download=true", headers=auth(owner)
+    )
     assert resp.status_code == 200
     cd = resp.headers["content-disposition"]
     assert cd.startswith("attachment")
@@ -155,7 +183,9 @@ def test_document_download_rfc5987_encodes_non_ascii_filename(client, db, media_
         filename="Ahnenpaß Müller.webp",
     )
 
-    resp = client.get(f"{API}/media/{tree_id}/{filename}", headers=auth(owner))
+    resp = client.get(
+        f"{API}/media/{tree_id}/{filename}?download=true", headers=auth(owner)
+    )
     assert resp.status_code == 200
     cd = resp.headers["content-disposition"]
     # Non-ASCII names use the RFC 5987 filename* form (percent-encoded UTF-8).
