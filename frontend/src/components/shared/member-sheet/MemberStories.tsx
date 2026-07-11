@@ -9,13 +9,14 @@ import { CollapsibleStory } from "./CollapsibleStory";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { formatDateWithFallback } from "@/utils/dateUtils";
 
 type Props = {
   member: Member;
 };
 
 export const MemberStories = ({ member }: Props) => {
-  const { t } = useTranslation(undefined, {
+  const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.stories",
   });
   const { getStoriesByMember, removeStory } = useStoryStore();
@@ -58,6 +59,11 @@ export const MemberStories = ({ member }: Props) => {
               <CollapsibleStory
                 key={story.id}
                 title={story.title}
+                date={
+                  story.date
+                    ? formatDateWithFallback(story.date, i18n.t)
+                    : undefined
+                }
                 content={story.content}
                 actions={
                   <>

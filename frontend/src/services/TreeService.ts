@@ -393,6 +393,7 @@ export class TreeService {
       id,
       title: story.title,
       content: story.content,
+      date: story.date ?? null,
       created_at: now,
       updated_at: now,
       member_ids: memberIds,
@@ -414,6 +415,7 @@ export class TreeService {
     return api.patch(`${base(treeId)}/stories/${id}`, {
       title: story.title,
       content: story.content,
+      date: story.date ?? null,
       updated_at: updatedAt,
     });
   }

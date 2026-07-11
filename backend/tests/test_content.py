@@ -96,12 +96,14 @@ def test_create_story_with_member_ids(client, db):
             "id": "s1",
             "title": "Tale",
             "content": "Once upon a time",
+            "date": "1901-06",
             "created_at": "2000",
             "updated_at": "2000",
             "member_ids": ["m1", "m2"],
         },
     )
     assert res.status_code == 201
+    assert res.json()["date"] == "1901-06"
     links = client.get(
         f"{API}/trees/{tree.id}/stories/links", headers=auth(user)
     ).json()

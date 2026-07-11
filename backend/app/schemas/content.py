@@ -80,6 +80,7 @@ class StoryOut(BaseModel):
     id: str
     title: str
     content: str | None = None
+    date: str | None = None
     created_at: str
     updated_at: str
     document_ids: list[str] = []
@@ -89,6 +90,7 @@ class StoryCreate(BaseModel):
     id: str
     title: str
     content: str | None = None
+    date: str | None = None
     created_at: str
     updated_at: str
     member_ids: list[str] = []
@@ -97,6 +99,7 @@ class StoryCreate(BaseModel):
 class StoryUpdate(BaseModel):
     title: str
     content: str | None = None
+    date: str | None = None
     updated_at: str
 
 
