@@ -1,6 +1,8 @@
 """Tree lifecycle, sharing and metadata."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+import math
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,7 @@ from app.api.deps import (
     get_writable_tree,
     role_for,
 )
+from app.core.rate_limit import public_unlock_rate_limiter
 from app.core.security import (
     create_public_tree_token,
     hash_password,
@@ -118,7 +121,7 @@ def create_tree(
     db: Session = Depends(get_db),
 ):
     tree = Tree(
-        id=payload.id or new_uuid(),
+        id=new_uuid(),
         name=payload.name,
         owner_id=user.id,
         created_at=utcnow_iso(),
@@ -485,6 +488,7 @@ def set_public_access(
         tree.public_password_hash = None
     logged = False
     if old_public_role != tree.public_role:
+        tree.public_access_version += 1
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
             target_type="tree", target_id=tree.id, target_label=tree.name,
@@ -516,8 +520,9 @@ def set_public_password(
         raise HTTPException(
             status_code=400, detail="Tree is not publicly shared"
         )
-    password = (payload.password or "").strip()
+    password = payload.password or ""
     tree.public_password_hash = hash_password(password) if password else None
+    tree.public_access_version += 1
     db.commit()
     db.refresh(tree)
     return _tree_out(db, tree, user)
@@ -527,10 +532,21 @@ def set_public_password(
 def unlock_public_tree(
     tree_id: str,
     payload: PublicTreeUnlock,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """Anonymous: verify a public tree's password and return a short-lived
     unlock token to be sent as the X-Public-Tree-Token header."""
+    client_ip = request.client.host if request.client else "unknown"
+    limiter_key = f"{client_ip}:{tree_id}"
+    retry_after = public_unlock_rate_limiter.retry_after(limiter_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many public unlock attempts",
+            headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+        )
+
     tree = db.get(Tree, tree_id)
     if (
         tree is None
@@ -540,10 +556,15 @@ def unlock_public_tree(
         # Run a dummy bcrypt verify so timing does not reveal whether the tree
         # exists / is protected, then answer uniformly.
         run_dummy_verify(payload.password)
+        public_unlock_rate_limiter.record_failure(limiter_key)
         raise HTTPException(status_code=404, detail="Not found")
     if not verify_password(payload.password, tree.public_password_hash):
+        public_unlock_rate_limiter.record_failure(limiter_key)
         raise HTTPException(status_code=401, detail="invalid_public_password")
-    return PublicTreeUnlockResult(token=create_public_tree_token(tree.id))
+    public_unlock_rate_limiter.reset(limiter_key)
+    return PublicTreeUnlockResult(
+        token=create_public_tree_token(tree.id, tree.public_access_version)
+    )
 
 
 # --- Sharing ---------------------------------------------------------------

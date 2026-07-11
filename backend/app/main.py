@@ -15,7 +15,7 @@ from sqlalchemy.exc import OperationalError
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.router import api_router
-from app.core.config import settings
+from app.core.config import settings, validate_production_credentials
 from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
@@ -49,6 +49,8 @@ def _init_db_with_retry(retries: int = 10, delay: float = 3.0) -> None:
 async def lifespan(app: FastAPI):
     from app.core import runtime
     from app.services.event_bus import event_bus
+
+    validate_production_credentials()
 
     loop = asyncio.get_running_loop()
     event_bus.set_loop(loop)

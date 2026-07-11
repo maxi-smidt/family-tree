@@ -41,7 +41,6 @@
     "create-database": {
       "title": "Stammbaum erstellen",
       "description": "Hier kann ein neuer Stammbaum erstellt werden.",
-      "id": "ID",
       "name": "Name",
       "create": "Erstellen",
       "cancel": "Abbrechen",

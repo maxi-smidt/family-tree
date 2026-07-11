@@ -127,7 +127,7 @@ describe("ShareTreeDialog", () => {
       ...TREE,
       public_role: "viewer",
     });
-    expect(screen.getByText(/#public=tree-1$/)).toBeInTheDocument();
+    expect(await screen.findByText(/#public=tree-1$/)).toBeInTheDocument();
   });
 
   it("does not reload sharing data when the tree's public role changes while open", async () => {

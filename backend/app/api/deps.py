@@ -150,7 +150,8 @@ def _public_access_ok(tree: Tree, public_token: str | None) -> bool:
     if not public_token:
         return False
     try:
-        return decode_public_tree_token(public_token) == tree.id
+        tree_id, access_version = decode_public_tree_token(public_token)
+        return tree_id == tree.id and access_version == tree.public_access_version
     except Exception:  # noqa: BLE001 - any decode failure means no access
         return False
 

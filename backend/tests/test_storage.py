@@ -23,6 +23,9 @@ from app.services.storage import (
     UnsupportedImageType,
     copy_media_to_tree,
     delete_media,
+    media_disk_usage,
+    media_url_to_data_url,
+    move_media_to_tree,
     process_image_field,
     store_data_url,
     store_document,
@@ -86,6 +89,71 @@ def test_external_http_url_without_scheme_is_rejected():
 def test_arbitrary_string_is_rejected():
     with pytest.raises(InvalidImageURL):
         process_image_field(_TREE_ID, "not-a-valid-url", _LIMITS)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"{MEDIA_URL_PREFIX}/{_TREE_ID}/../../secret.txt",
+        f"{MEDIA_URL_PREFIX}/../secret.txt",
+        f"{MEDIA_URL_PREFIX}/{_TREE_ID}/nested/file.png",
+        f"{MEDIA_URL_PREFIX}/{_TREE_ID}\\..\\secret.txt",
+    ],
+)
+def test_malformed_media_paths_are_rejected(url):
+    with pytest.raises(InvalidImageURL):
+        process_image_field(_TREE_ID, url, _LIMITS)
+
+
+def test_media_helpers_cannot_escape_media_root(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    secret = tmp_path / "secret.txt"
+    secret.write_text("do not read")
+    traversal_url = f"{MEDIA_URL_PREFIX}/../secret.txt"
+
+    assert media_url_to_data_url(traversal_url) is None
+    assert copy_media_to_tree(traversal_url, _OTHER_TREE_ID) is None
+    assert move_media_to_tree(traversal_url, _OTHER_TREE_ID) is None
+    assert media_disk_usage(traversal_url) == 0
+    delete_media(traversal_url)
+    assert secret.read_text() == "do not read"
+
+
+def test_media_symlink_outside_tree_is_rejected(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    tree_dir = settings.media_root / _TREE_ID
+    tree_dir.mkdir(parents=True)
+    secret = tmp_path / "secret.txt"
+    secret.write_text("do not read")
+    (tree_dir / "linked.txt").symlink_to(secret)
+    url = f"{MEDIA_URL_PREFIX}/{_TREE_ID}/linked.txt"
+
+    assert media_url_to_data_url(url) is None
+    assert media_disk_usage(url) == 0
+
+
+def test_originals_symlink_cannot_reach_outside_tree(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    tree_dir = settings.media_root / _TREE_ID
+    tree_dir.mkdir(parents=True)
+    display = tree_dir / "display.webp"
+    display.write_bytes(b"display")
+    outside_dir = tmp_path / "outside-originals"
+    outside_dir.mkdir()
+    outside = outside_dir / "display.png"
+    outside.write_bytes(b"private-original")
+    (tree_dir / "originals").symlink_to(outside_dir, target_is_directory=True)
+    url = f"{MEDIA_URL_PREFIX}/{_TREE_ID}/{display.name}"
+
+    assert media_disk_usage(url) == len(b"display")
+    delete_media(url)
+    assert outside.read_bytes() == b"private-original"
 
 
 # ---------------------------------------------------------------------------

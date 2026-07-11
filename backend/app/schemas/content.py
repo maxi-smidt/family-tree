@@ -5,7 +5,7 @@ because the frontend reads/writes ``imageData``, ``createdAt``, ``uploadedAt``.
 All other schemas are intentionally snake_case end-to-end.
 """
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
 
@@ -174,7 +174,7 @@ class DocumentFileCreate(BaseModel):
 
 
 class DocumentLinkCreate(BaseModel):
-    url: str
+    url: str = Field(max_length=2048)
     filename: str | None = None
 
 

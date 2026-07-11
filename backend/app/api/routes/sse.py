@@ -1,8 +1,8 @@
 """Server-Sent Events endpoint.
 
-Clients subscribe to real-time tree-change notifications here.
-Because EventSource cannot send Authorization headers, the JWT is
-accepted as a query-parameter ``token``.
+Clients subscribe to real-time tree-change notifications here. Because
+EventSource cannot send Authorization headers, an authenticated client first
+exchanges its access token for a one-purpose, short-lived SSE ticket.
 """
 
 import asyncio
@@ -13,8 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import ACCOUNT_PENDING_DELETION
-from app.core.security import decode_access_token
+from app.api.deps import ACCOUNT_PENDING_DELETION, get_current_user
+from app.core.security import create_sse_ticket_token, decode_sse_ticket_token
 from app.db.session import get_db
 from app.models import User
 from app.services.event_bus import event_bus
@@ -24,16 +24,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/sse", tags=["sse"])
 
 
-def _resolve_user_from_token(token: str, db: Session) -> str:
-    """Validate *token* using the provided *db* session and return the user_id.
+def _resolve_user_from_ticket(ticket: str, db: Session) -> str:
+    """Validate *ticket* using the provided *db* session and return the user_id.
 
     Raises ``HTTPException(401)`` on any failure.
     """
     try:
-        payload = decode_access_token(token)
-        user_id: str | None = payload.get("sub")
-        if not user_id:
-            raise ValueError("Missing sub claim")
+        user_id = decode_sse_ticket_token(ticket)
     except Exception as exc:
         raise HTTPException(status_code=401, detail="Invalid token") from exc
 
@@ -49,17 +46,22 @@ def _resolve_user_from_token(token: str, db: Session) -> str:
     return user_id
 
 
+@router.post("/ticket")
+def create_sse_ticket(user: User = Depends(get_current_user)) -> dict[str, str]:
+    return {"ticket": create_sse_ticket_token(user.id)}
+
+
 @router.get("/events")
 async def stream_events(
     request: Request,
-    token: str | None = Query(None),
+    ticket: str | None = Query(None, max_length=4096),
     db: Session = Depends(get_db),
 ) -> StreamingResponse:
     """Subscribe to tree-change events via Server-Sent Events."""
-    if not token:
-        raise HTTPException(status_code=401, detail="Token required")
+    if not ticket:
+        raise HTTPException(status_code=401, detail="Ticket required")
 
-    user_id = _resolve_user_from_token(token, db)
+    user_id = _resolve_user_from_ticket(ticket, db)
     # Close the DB session before streaming — we must NOT hold it open for the
     # lifetime of the SSE stream (which may last hours).
     db.close()

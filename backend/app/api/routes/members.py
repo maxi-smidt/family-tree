@@ -3,11 +3,13 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_current_user,
+    get_current_user_optional,
     get_readable_tree,
     get_readable_tree_public,
     get_writable_tree,
@@ -34,6 +36,7 @@ from app.schemas.family import (
     MemberSurfaceOut,
     MemberUpdate,
     NeighborhoodOut,
+    PublicMemberOut,
     RelationCreate,
     RelationOut,
 )
@@ -86,6 +89,37 @@ _MEMBER_SURFACE_COLUMNS = (
     Member.linked_tree_id,
     Member.linked_member_id,
 )
+
+_PUBLIC_MEMBER_COLUMNS = (
+    Member.id,
+    Member.gender,
+    Member.academic_title,
+    Member.first_name,
+    Member.middle_names,
+    Member.baptismal_name,
+    Member.last_name,
+    Member.maiden_name,
+    Member.image_data,
+    Member.date_of_birth,
+    Member.date_of_death,
+    Member.deceased,
+    Member.is_collapsed,
+    Member.position_x,
+    Member.position_y,
+)
+
+
+def _public_only(db: Session, tree: Tree, user: User | None) -> bool:
+    return user is None or (
+        not user.is_admin and role_for(db, tree, user) is None
+    )
+
+
+def _public_member_payloads(rows: list) -> list[dict]:
+    return [
+        PublicMemberOut(**row._mapping).model_dump(by_alias=True)
+        for row in rows
+    ]
 
 
 def _get_member(db: Session, tree: Tree, member_id: str) -> Member:
@@ -207,9 +241,18 @@ def _sync_bridge_person(
 def list_members(
     pagination: Pagination = Depends(pagination_params),
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
     surface: bool = Query(False),
 ):
+    if _public_only(db, tree, user):
+        stmt = (
+            select(*_PUBLIC_MEMBER_COLUMNS)
+            .where(Member.tree_id == tree.id)
+            .order_by(Member.id)
+        )
+        rows = db.execute(apply_pagination(stmt, pagination)).all()
+        return JSONResponse(content=_public_member_payloads(rows))
     if surface:
         stmt = (
             select(*_MEMBER_SURFACE_COLUMNS)
@@ -356,14 +399,17 @@ def search_members(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=50),
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """Full-text name search scoped to the tree.  Declared before
     ``/members/{member_id}`` so the literal ``search`` path is not captured
     as a member id."""
     pattern = f"%{q}%"
+    public_only = _public_only(db, tree, user)
+    columns = _PUBLIC_MEMBER_COLUMNS if public_only else _MEMBER_SURFACE_COLUMNS
     stmt = (
-        select(*_MEMBER_SURFACE_COLUMNS)
+        select(*columns)
         .where(
             Member.tree_id == tree.id,
             or_(
@@ -375,7 +421,10 @@ def search_members(
         .order_by(Member.last_name, Member.first_name)
         .limit(limit)
     )
-    return [MemberSurfaceOut(**row._mapping) for row in db.execute(stmt).all()]
+    rows = db.execute(stmt).all()
+    if public_only:
+        return JSONResponse(content=_public_member_payloads(rows))
+    return [MemberSurfaceOut(**row._mapping) for row in rows]
 
 
 @router.get("/members/neighborhood", response_model=NeighborhoodOut)
@@ -385,6 +434,7 @@ def get_neighborhood(
     down: int = Query(3, ge=0, le=20),
     partners: bool = Query(True),
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """Return a bounded BFS neighborhood around *root*.  Declared before
@@ -419,12 +469,19 @@ def get_neighborhood(
         db, tree.id, root_id, up, down, partners
     )
 
+    public_only = _public_only(db, tree, user)
+    columns = _PUBLIC_MEMBER_COLUMNS if public_only else _MEMBER_SURFACE_COLUMNS
     surface_stmt = (
-        select(*_MEMBER_SURFACE_COLUMNS)
+        select(*columns)
         .where(Member.tree_id == tree.id, Member.id.in_(member_ids))
         .order_by(Member.id)
     )
-    members = [MemberSurfaceOut(**row._mapping) for row in db.execute(surface_stmt).all()]
+    member_rows = db.execute(surface_stmt).all()
+    members = (
+        _public_member_payloads(member_rows)
+        if public_only
+        else [MemberSurfaceOut(**row._mapping) for row in member_rows]
+    )
 
     relations = list(
         db.scalars(
@@ -436,6 +493,19 @@ def get_neighborhood(
         )
     )
 
+    if public_only:
+        return JSONResponse(
+            content={
+                "members": members,
+                "relations": [
+                    RelationOut.model_validate(relation).model_dump()
+                    for relation in relations
+                ],
+                "root_id": root_id,
+                "truncated": truncated,
+                "total_member_count": total_count,
+            }
+        )
     return NeighborhoodOut(
         members=members,
         relations=[RelationOut.model_validate(r) for r in relations],
@@ -449,8 +519,11 @@ def get_neighborhood(
 def get_member(
     member_id: str,
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
+    if _public_only(db, tree, user):
+        raise HTTPException(status_code=404, detail="Member not found")
     return _get_member(db, tree, member_id)
 
 

@@ -25,7 +25,7 @@ def test_native_export_import_preserves_member_name_details(client, db):
     )
     assert created.status_code == 201
 
-    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
     assert exported.status_code == 200
 
     imported = client.post(
@@ -55,7 +55,7 @@ def test_export_bundle_includes_provenance(client, db):
     tree = make_tree(db, owner, "Provenance tree")
     headers = auth(owner)
 
-    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
     assert exported.status_code == 200
 
     bundle = crypto_export.decrypt_bundle(exported.content, None)
@@ -66,12 +66,32 @@ def test_export_bundle_includes_provenance(client, db):
     assert bundle["exported_at"]
 
 
+def test_native_export_password_is_sent_in_post_body(client, db):
+    owner = make_user(db, "password-export-owner")
+    tree = make_tree(db, owner, "Password export")
+    headers = auth(owner)
+
+    assert client.get(
+        f"{API}/trees/{tree.id}/export?password=leaked", headers=headers
+    ).status_code == 405
+
+    exported = client.post(
+        f"{API}/trees/{tree.id}/export",
+        headers=headers,
+        json={"password": "body-only-password"},
+    )
+    assert exported.status_code == 200
+    assert exported.headers["Cache-Control"] == "no-store"
+    bundle = crypto_export.decrypt_bundle(exported.content, "body-only-password")
+    assert bundle["tree"]["name"] == "Password export"
+
+
 def test_inspect_returns_provenance(client, db):
     owner = make_user(db, "provenance-inspect-owner")
     tree = make_tree(db, owner, "Inspect provenance")
     headers = auth(owner)
 
-    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
     result = client.post(
         f"{API}/trees/import/inspect",
         headers=headers,
@@ -161,7 +181,7 @@ def test_import_preserves_date_of_birth_sort(client, db):
     assert resp.status_code == 201
 
     # Export and re-import.
-    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
     assert exported.status_code == 200
 
     imported = client.post(
@@ -206,7 +226,7 @@ def test_import_old_bundle_without_sort_keys_recomputes_them(client, db):
     )
     assert resp.status_code == 201
 
-    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
     assert exported.status_code == 200
 
     # Simulate an older bundle by stripping the sort keys from the member dicts.
@@ -304,7 +324,7 @@ def test_document_round_trip_preserves_files_and_links(client, db):
         json={"document_ids": [document_id]},
     ).status_code == 204
 
-    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
     assert exported.status_code == 200
 
     imported = client.post(
@@ -380,7 +400,7 @@ def test_import_relations_bulk_path(client, db):
     )
     assert rel_resp.status_code == 201
 
-    exported = client.get(f"{API}/trees/{tree.id}/export", headers=headers)
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
     assert exported.status_code == 200
 
     imported = client.post(
