@@ -10,6 +10,20 @@ def test_create_tree(client, db):
     assert body["role"] == "owner"
 
 
+def test_create_tree_ignores_client_supplied_id(client, db):
+    user = make_user(db, "server-id-owner")
+    chosen_id = "attacker-controlled-tree-id"
+
+    res = client.post(
+        f"{API}/trees",
+        headers=auth(user),
+        json={"name": "Server ID", "id": chosen_id},
+    )
+
+    assert res.status_code == 201
+    assert res.json()["id"] != chosen_id
+
+
 def test_list_trees_includes_owned_and_shared(client, db):
     owner = make_user(db, "owner")
     other = make_user(db, "bob")

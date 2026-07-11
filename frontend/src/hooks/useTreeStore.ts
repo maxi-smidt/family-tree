@@ -54,11 +54,7 @@ interface DatabaseState {
   treeNavStack: TreeNavEntry[];
 
   loadTrees: () => Promise<void>;
-  createTree: (
-    name: string,
-    id?: string,
-    options?: { select?: boolean },
-  ) => Promise<Tree>;
+  createTree: (name: string, options?: { select?: boolean }) => Promise<Tree>;
   openLinkedTree: (
     treeId: string,
     focusMemberId?: string | null,
@@ -147,12 +143,8 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     }
   },
 
-  createTree: async (
-    name: string,
-    id?: string,
-    options?: { select?: boolean },
-  ) => {
-    const tree = await api.post<Tree>("/trees", { name, id });
+  createTree: async (name: string, options?: { select?: boolean }) => {
+    const tree = await api.post<Tree>("/trees", { name });
     set((s) => ({ trees: [tree, ...s.trees] }));
     // `select: false` lets callers create a tree without switching to it — used
     // by the tree-in-tree "create & link" action so the current edit context is

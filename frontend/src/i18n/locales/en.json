@@ -41,7 +41,6 @@
     "create-database": {
       "title": "Create Tree",
       "description": "Here you can create a new tree to start building your family history from scratch.",
-      "id": "ID",
       "name": "Name",
       "create": "Create",
       "cancel": "Cancel",

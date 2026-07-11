@@ -16,6 +16,47 @@ from app.core.config import settings
 # "wrong password" via timing.  The hash was produced with cost 12.
 _DUMMY_HASH = "$2b$12$KIXg6AgQTnrCFHFIGCTNBuZPTBWTMqxVl4dsBXixf1/6T6MWjFLPS"
 
+_JWT_ISSUER = "family-tree"
+_ACCESS_AUDIENCE = "family-tree-api"
+_TOTP_AUDIENCE = "family-tree-totp"
+_PUBLIC_TREE_AUDIENCE = "family-tree-public-tree"
+_SSE_AUDIENCE = "family-tree-sse"
+
+
+def _create_token(
+    subject: str,
+    *,
+    audience: str,
+    token_type: str,
+    expires_delta: timedelta,
+    extra_claims: dict[str, str | int] | None = None,
+) -> str:
+    now = datetime.now(UTC)
+    payload: dict[str, object] = {
+        "sub": subject,
+        "iss": _JWT_ISSUER,
+        "aud": audience,
+        "token_type": token_type,
+        "exp": now + expires_delta,
+        "iat": now,
+    }
+    if extra_claims:
+        payload.update(extra_claims)
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def _decode_token(token: str, *, audience: str, token_type: str) -> dict:
+    payload = jwt.decode(
+        token,
+        settings.SECRET_KEY,
+        algorithms=[settings.JWT_ALGORITHM],
+        audience=audience,
+        issuer=_JWT_ISSUER,
+    )
+    if payload.get("token_type") != token_type:
+        raise jwt.InvalidTokenError(f"Not a {token_type} token")
+    return payload
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -39,15 +80,19 @@ def run_dummy_verify(password: str) -> None:
 
 
 def create_access_token(subject: str, expires_delta: timedelta | None = None) -> str:
-    expire = datetime.now(UTC) + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return _create_token(
+        subject,
+        audience=_ACCESS_AUDIENCE,
+        token_type="access",
+        expires_delta=(
+            expires_delta
+            or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        ),
     )
-    payload = {"sub": subject, "exp": expire, "iat": datetime.now(UTC)}
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
 def decode_access_token(token: str) -> dict:
-    return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    return _decode_token(token, audience=_ACCESS_AUDIENCE, token_type="access")
 
 
 # ---------------------------------------------------------------------------
@@ -60,21 +105,19 @@ _TOTP_PHASE_CLAIM = "totp_pending"
 
 
 def create_totp_session_token(user_id: str) -> str:
-    expire = datetime.now(UTC) + timedelta(minutes=_TOTP_SESSION_MINUTES)
-    payload = {
-        "sub": user_id,
-        "exp": expire,
-        "iat": datetime.now(UTC),
-        "phase": _TOTP_PHASE_CLAIM,
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return _create_token(
+        user_id,
+        audience=_TOTP_AUDIENCE,
+        token_type=_TOTP_PHASE_CLAIM,
+        expires_delta=timedelta(minutes=_TOTP_SESSION_MINUTES),
+    )
 
 
 def decode_totp_session_token(token: str) -> str:
     """Validate a TOTP session token; return the user id or raise InvalidTokenError."""
-    data = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-    if data.get("phase") != _TOTP_PHASE_CLAIM:
-        raise jwt.InvalidTokenError("Not a TOTP session token")
+    data = _decode_token(
+        token, audience=_TOTP_AUDIENCE, token_type=_TOTP_PHASE_CLAIM
+    )
     return data["sub"]
 
 
@@ -87,22 +130,46 @@ _PUBLIC_TREE_PHASE = "public_tree"
 _PUBLIC_TREE_TOKEN_HOURS = 12
 
 
-def create_public_tree_token(tree_id: str) -> str:
-    expire = datetime.now(UTC) + timedelta(hours=_PUBLIC_TREE_TOKEN_HOURS)
-    payload = {
-        "sub": tree_id,
-        "exp": expire,
-        "iat": datetime.now(UTC),
-        "phase": _PUBLIC_TREE_PHASE,
-    }
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+def create_public_tree_token(tree_id: str, access_version: int) -> str:
+    return _create_token(
+        tree_id,
+        audience=_PUBLIC_TREE_AUDIENCE,
+        token_type=_PUBLIC_TREE_PHASE,
+        expires_delta=timedelta(hours=_PUBLIC_TREE_TOKEN_HOURS),
+        extra_claims={"access_version": access_version},
+    )
 
 
-def decode_public_tree_token(token: str) -> str:
-    """Validate a public-tree unlock token; return the tree id or raise."""
-    data = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-    if data.get("phase") != _PUBLIC_TREE_PHASE:
-        raise jwt.InvalidTokenError("Not a public-tree token")
+def decode_public_tree_token(token: str) -> tuple[str, int]:
+    """Validate a public-tree unlock token; return tree id and access version."""
+    data = _decode_token(
+        token, audience=_PUBLIC_TREE_AUDIENCE, token_type=_PUBLIC_TREE_PHASE
+    )
+    access_version = data.get("access_version")
+    if not isinstance(access_version, int):
+        raise jwt.InvalidTokenError("Missing public-tree access version")
+    return data["sub"], access_version
+
+
+# ---------------------------------------------------------------------------
+# SSE tickets. EventSource cannot attach an Authorization header, so the SPA
+# exchanges its access token for a one-purpose, one-minute query credential.
+# ---------------------------------------------------------------------------
+
+_SSE_TICKET_SECONDS = 60
+
+
+def create_sse_ticket_token(user_id: str) -> str:
+    return _create_token(
+        user_id,
+        audience=_SSE_AUDIENCE,
+        token_type="sse_ticket",
+        expires_delta=timedelta(seconds=_SSE_TICKET_SECONDS),
+    )
+
+
+def decode_sse_ticket_token(token: str) -> str:
+    data = _decode_token(token, audience=_SSE_AUDIENCE, token_type="sse_ticket")
     return data["sub"]
 
 
