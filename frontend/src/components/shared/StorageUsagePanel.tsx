@@ -1,7 +1,8 @@
 /**
- * Displays per-tree storage usage. Tree data and media each show usage against
- * their quota (the ∞ symbol when the quota is null/unlimited); the total is just
- * the reported sum of the two, with no quota of its own.
+ * Displays the selected tree owner's combined storage usage. Tree data and
+ * media each show usage against their quota (the ∞ symbol when the quota is
+ * null/unlimited); the total is just the reported sum of the two, with no
+ * quota of its own.
  */
 
 import { useEffect } from "react";

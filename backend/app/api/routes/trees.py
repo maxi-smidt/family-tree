@@ -66,7 +66,7 @@ from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMA
 from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
-from app.services.storage_usage import compute_usage, owner_quotas
+from app.services.storage_usage import compute_owner_usage, owner_quotas
 from app.services.tree_links import reachable_linked_trees
 
 router = APIRouter(prefix="/trees", tags=["trees"])
@@ -262,8 +262,8 @@ def get_storage_usage(
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
 ):
-    """Return per-tree storage usage (tree rows + media files) and quota limits."""
-    usage = compute_usage(db, tree.id)
+    """Return the tree owner's aggregate storage usage and quota limits."""
+    usage = compute_owner_usage(db, tree.owner_id)
     quotas = owner_quotas(db, tree)
     return TreeStorageUsageOut(
         tree_bytes=usage["tree_bytes"],

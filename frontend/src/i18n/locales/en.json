@@ -1876,7 +1876,7 @@
     "discard": "Discard"
   },
   "storage-usage": {
-    "title": "Storage",
+    "title": "Owner storage",
     "tree": "Tree data",
     "media": "Media files",
     "total": "Total",
@@ -1886,7 +1886,7 @@
     "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
     "toast-error-quota-tree": "Tree data quota exceeded.",
-    "quota-warning": "Media storage is almost full for this tree."
+    "quota-warning": "Media storage is almost full for this owner."
   },
   "user-settings": {
     "title": "Settings",

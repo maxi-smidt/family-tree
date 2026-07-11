@@ -161,7 +161,7 @@ class PublicTreeUnlockResult(BaseModel):
 
 
 class TreeStorageUsageOut(BaseModel):
-    """Per-tree storage usage plus the owner's effective quota limits."""
+    """Owner-wide storage usage plus the owner's effective quota limits."""
 
     tree_bytes: int
     media_bytes: int
