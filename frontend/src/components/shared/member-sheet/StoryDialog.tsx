@@ -19,6 +19,7 @@ import { useTranslation } from "react-i18next";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { getMemberOptions } from "@/utils/memberUtils";
 import { DocumentLinkField } from "./DocumentLinkField";
+import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 
 interface StoryDialogProps {
   open: boolean;
@@ -59,7 +60,11 @@ export const StoryDialog = ({
     }
     if (story) {
       const snap = {
-        formData: { title: story.title, content: story.content },
+        formData: {
+          title: story.title,
+          content: story.content,
+          date: story.date,
+        },
         selectedMemberIds: story.linkedMemberIds || [],
         selectedDocumentIds: story.documentIds || [],
       };
@@ -70,11 +75,11 @@ export const StoryDialog = ({
     } else {
       const ids = initialMemberId ? [initialMemberId] : [];
       setInitialSnapshot({
-        formData: { title: "", content: "" },
+        formData: { title: "", content: "", date: null },
         selectedMemberIds: ids,
         selectedDocumentIds: [],
       });
-      setFormData({ title: "", content: "" });
+      setFormData({ title: "", content: "", date: null });
       setSelectedMemberIds(ids);
       setSelectedDocumentIds([]);
     }
@@ -186,6 +191,18 @@ export const StoryDialog = ({
                 rows={10}
                 className="resize-none"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="date">{t("date")}</Label>
+              <PartialDatePicker
+                placeholder={t("date-placeholder")}
+                value={formData.date ?? null}
+                onChange={(date) => setFormData({ ...formData, date })}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t("date-description")}
+              </p>
             </div>
 
             <DocumentLinkField

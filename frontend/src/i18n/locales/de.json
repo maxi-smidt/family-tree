@@ -691,6 +691,9 @@
           "title-placeholder": "z.B. Frühes Leben, Kriegsjahre",
           "story": "Notizen",
           "story-placeholder": "Schreibe hier eine Geschichte, Biografie oder beliebige Notizen...",
+          "date": "Historisches Datum",
+          "date-placeholder": "z. B. 1942 oder 1942-06",
+          "date-description": "Optional. Eine datierte Geschichte erscheint auf der Zeitleiste.",
           "error-save": "Geschichte konnte nicht gespeichert werden.",
           "cancel": "Abbrechen",
           "update": "Aktualisieren",
@@ -1065,9 +1068,18 @@
       "show-details": "Details anzeigen",
       "edit-event": "Ereignis bearbeiten",
       "delete-event": "Ereignis löschen",
+      "edit-story": "Geschichte bearbeiten",
+      "delete-story": "Geschichte löschen",
+      "story-date-unknown": "Undatierte Geschichte",
       "delete-dialog": {
         "title": "Ereignis löschen",
         "description": "Bist du dir sicher, dass dieses Ereignis gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "cancel": "Abbrechen",
+        "delete": "Löschen"
+      },
+      "delete-story-dialog": {
+        "title": "Geschichte löschen",
+        "description": "Bist du dir sicher, dass diese Geschichte gelöscht werden soll? Diese Aktion kann nicht rückgängig gemacht werden.",
         "cancel": "Abbrechen",
         "delete": "Löschen"
       }

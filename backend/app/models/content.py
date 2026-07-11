@@ -68,6 +68,7 @@ class Story(Base):
     title: Mapped[str] = mapped_column(String(255))
     # Optional now: an entry may carry only linked documents and no narrative text.
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))
 

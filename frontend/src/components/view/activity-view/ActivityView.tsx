@@ -20,6 +20,8 @@ import {
   Clock,
   Activity as ActivityIcon,
   ArrowRight,
+  BookOpen,
+  CalendarDays,
   Loader2,
   X,
 } from "lucide-react";
@@ -55,8 +57,13 @@ const TARGET_KEY: Record<string, string> = {
 const TARGET_VIEW: Record<string, ViewId> = {
   member: "tree-view",
   event: "timeline-view",
-  story: "list-view",
+  story: "timeline-view",
   gallery_image: "gallery-view",
+};
+
+const TARGET_ICONS: Record<string, typeof ActivityIcon> = {
+  event: CalendarDays,
+  story: BookOpen,
 };
 
 // Fields we do not want to surface in the diff.
@@ -112,6 +119,7 @@ function ActivityItem({ item }: { item: Activity }) {
 
   const destinationView: ViewId | null = TARGET_VIEW[item.targetType] ?? null;
   const canNavigate = destinationView !== null;
+  const TargetIcon = TARGET_ICONS[item.targetType] ?? ActivityIcon;
 
   const handleNavigate = () => {
     if (canNavigate) {
@@ -142,7 +150,7 @@ function ActivityItem({ item }: { item: Activity }) {
       }
     >
       <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-        <ActivityIcon className="w-4 h-4 text-muted-foreground" />
+        <TargetIcon className="w-4 h-4 text-muted-foreground" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm leading-snug">

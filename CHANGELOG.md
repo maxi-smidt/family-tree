@@ -11,6 +11,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Stories can now carry an optional historical date and appear alongside life
+  events on the Timeline, with a consistent shared presentation in member
+  sheets and the activity log (#653).
 - The activity log now loads in pages with a page-size selector and a "showing X–Y of Z" summary, matching the list view. Actor, action, and type filters are applied server-side so paging and counts stay correct for large histories (#645).
 - An instance-wide, admin-visible audit trail for account, administrative,
   backup, virtual-view, and tree-deletion actions.

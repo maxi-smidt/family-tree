@@ -417,6 +417,11 @@ export const ViewMode = ({
                               <CollapsibleStory
                                 key={story.id}
                                 title={story.title}
+                                date={
+                                  story.date
+                                    ? formatDateWithFallback(story.date, i18n.t)
+                                    : undefined
+                                }
                                 content={story.content}
                                 className="bg-accent/50"
                               >
