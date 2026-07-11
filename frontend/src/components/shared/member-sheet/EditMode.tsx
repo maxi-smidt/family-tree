@@ -49,6 +49,7 @@ import { MemberPhotos } from "./MemberPhotos";
 import { LinkedTreeField } from "./LinkedTreeField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
+import { MemberSheetTab } from "@/utils/memberSheetState";
 
 function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   const descendants = new Set<string>();
@@ -77,6 +78,8 @@ type Props = {
   onSaved?: (data: Member) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onSaveStatusChange?: (status: SaveStatus) => void;
+  activeTab: MemberSheetTab;
+  onTabChange: (tab: MemberSheetTab) => void;
 };
 
 export const EditMode = ({
@@ -85,6 +88,8 @@ export const EditMode = ({
   onSaved,
   onDirtyChange,
   onSaveStatusChange,
+  activeTab,
+  onTabChange,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
@@ -437,8 +442,13 @@ export const EditMode = ({
         />
 
         <Tabs
-          defaultValue="identity"
+          value={
+            isNew && (activeTab === "relations" || activeTab === "records")
+              ? "identity"
+              : activeTab
+          }
           onValueChange={(v) => {
+            onTabChange(v as MemberSheetTab);
             if (v === "records") setRecordsMounted(true);
           }}
         >

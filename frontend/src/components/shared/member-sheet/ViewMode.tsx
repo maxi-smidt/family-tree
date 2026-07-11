@@ -28,13 +28,21 @@ import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MemberSheetTab } from "@/utils/memberSheetState";
 
 type Props = {
   member: Member;
   onShowLocationOnMap?: (location: string, memberId: string) => void;
+  activeTab: MemberSheetTab;
+  onTabChange: (tab: MemberSheetTab) => void;
 };
 
-export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
+export const ViewMode = ({
+  member,
+  onShowLocationOnMap,
+  activeTab,
+  onTabChange,
+}: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
   });
@@ -96,6 +104,10 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
     member.hometown ||
     member.cemetery ||
     member.placesLived.length > 0;
+  const visibleTab =
+    activeTab === "relations" || (activeTab === "life" && !hasLifeContent)
+      ? "identity"
+      : activeTab;
 
   return (
     <div className="w-full">
@@ -103,7 +115,10 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
         <FamilyNodeContent member={member} largeImage />
       </div>
 
-      <Tabs defaultValue="identity">
+      <Tabs
+        value={visibleTab}
+        onValueChange={(tab) => onTabChange(tab as MemberSheetTab)}
+      >
         <TabsList variant="line" className="w-full justify-start mb-3">
           <TabsTrigger value="identity">{t("tab-identity")}</TabsTrigger>
           {hasLifeContent && (

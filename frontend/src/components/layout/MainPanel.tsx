@@ -87,6 +87,7 @@ import {
 } from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
+import { readMemberSheetState } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
@@ -118,6 +119,7 @@ export const MainPanel = () => {
   const { t: tRoot } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
+    if (readMemberSheetState()) return TREE_VIEW;
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
     return stored && isViewId(stored) ? stored : "tree-view";
   });
