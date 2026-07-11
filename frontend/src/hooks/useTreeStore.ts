@@ -378,7 +378,10 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       relationTypes: [],
     });
 
-    useActivityStore.getState().clear();
+    // Switching directly between trees does not go through disconnect(). Clear
+    // every content store here so deferred views do not retain their previous
+    // tree's data or initialized state while they wait for their first visit.
+    clearDataStores();
 
     const virtual = isVirtualId(tree.id);
 

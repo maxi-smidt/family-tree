@@ -14,6 +14,9 @@ import { useStoryStore } from "./useStoryStore";
 import { useDocumentStore } from "./useDocumentStore";
 import { useGalleryStore } from "./useGalleryStore";
 import { useActivityStore } from "./useActivityStore";
+import { useStatisticsStore } from "./useStatisticsStore";
+import { useQualityReportStore } from "./useQualityReportStore";
+import { useStorageStore } from "./useStorageStore";
 import { useAuthStore } from "./useAuthStore";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
@@ -100,6 +103,9 @@ beforeEach(() => {
   useDocumentStore.setState({ documents: [] });
   useGalleryStore.setState({ galleryImages: [] });
   useActivityStore.setState({ activities: [] });
+  useStatisticsStore.setState({ report: null, scope: "tree" });
+  useQualityReportStore.setState({ report: null, showDismissed: false });
+  useStorageStore.setState({ usage: null, error: false });
   // All feature flags enabled (the production default) so connect() loads
   // every content store.
   useAuthStore.setState({ features: [...ALL_FEATURES] });
@@ -220,6 +226,75 @@ describe("useTreeStore — connect / selectTree", () => {
 
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
     expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
+  it("invalidates every content store when switching trees", async () => {
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_B.id, TREE_B);
+    useTreeStore.setState({ selectedTree: TREE_A, isReady: true });
+    useMemberStore.setState({ members: [{ id: "m-stale" } as never] });
+    useGalleryStore.setState({
+      galleryImages: [{ id: "g-stale" } as never],
+      initialized: true,
+    });
+    useEventStore.setState({
+      events: [{ id: "e-stale" } as never],
+      initialized: true,
+    });
+    useStoryStore.setState({
+      stories: [{ id: "s-stale" } as never],
+      initialized: true,
+    });
+    useDocumentStore.setState({
+      documents: [{ id: "d-stale" } as never],
+      initialized: true,
+    });
+    useActivityStore.setState({
+      activities: [{ id: "a-stale" } as never],
+      initialized: true,
+    });
+    useStatisticsStore.setState({ report: {} as never, scope: "linked" });
+    useQualityReportStore.setState({
+      report: {} as never,
+      showDismissed: true,
+    });
+    useStorageStore.setState({ usage: {} as never, error: true });
+
+    await useTreeStore.getState().selectTree(TREE_B);
+
+    expect(useMemberStore.getState().members).toHaveLength(0);
+    expect(useGalleryStore.getState()).toMatchObject({
+      galleryImages: [],
+      initialized: false,
+    });
+    expect(useEventStore.getState()).toMatchObject({
+      events: [],
+      initialized: false,
+    });
+    expect(useStoryStore.getState()).toMatchObject({
+      stories: [],
+      initialized: false,
+    });
+    expect(useDocumentStore.getState()).toMatchObject({
+      documents: [],
+      initialized: false,
+    });
+    expect(useActivityStore.getState()).toMatchObject({
+      activities: [],
+      initialized: false,
+    });
+    expect(useStatisticsStore.getState()).toMatchObject({
+      report: null,
+      scope: "tree",
+    });
+    expect(useQualityReportStore.getState()).toMatchObject({
+      report: null,
+      showDismissed: false,
+    });
+    expect(useStorageStore.getState()).toMatchObject({
+      usage: null,
+      error: false,
+    });
   });
 
   it("defers secondary store loads until first tab visit (connect only loads members)", async () => {

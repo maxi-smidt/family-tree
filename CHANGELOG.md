@@ -34,6 +34,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Switching directly between trees now invalidates every content view before it
+  is opened, so Activity, Timeline, Stories, Gallery, Documents, Statistics,
+  and Data Quality cannot show rows from the previously selected tree (#652).
 - Member sheets now keep the selected tab while switching between view and edit modes, and restore the same member, tab, and mode from a shareable URL after refresh (#648).
 - Timeline and Activity filters now stay visible while their long lists scroll, without nested scrollbars or obscured entries (#646).
 - Tree Management keeps its owned, shared, and virtual-view tables in equal-height panes with independent scrolling (#647).
