@@ -86,14 +86,16 @@ export const useEventStore = create<EventState>((set, get) => ({
     id: string,
     event: EventInput,
     memberIds: string[],
-    documentIds: string[] = [],
+    documentIds?: string[],
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
     await TreeService.updateEvent(treeId, id, event);
     await TreeService.setEventLinks(treeId, id, memberIds);
-    await TreeService.setEventDocuments(treeId, id, documentIds);
+    if (documentIds !== undefined) {
+      await TreeService.setEventDocuments(treeId, id, documentIds);
+    }
 
     await get().refreshEvents(treeId);
     invalidateActivityView();

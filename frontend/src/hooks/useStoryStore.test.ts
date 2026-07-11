@@ -113,6 +113,22 @@ describe("useStoryStore — updateStory", () => {
       "doc-1",
     ]);
   });
+
+  it("leaves document links unchanged when document ids are omitted", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.updateStory).mockResolvedValue(undefined);
+    vi.mocked(TreeService.setStoryLinks).mockResolvedValue(undefined);
+    vi.mocked(TreeService.getStories).mockResolvedValue([]);
+    vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+
+    await useStoryStore
+      .getState()
+      .updateStory("s1", { title: "Updated Legend", content: "Revised…" }, [
+        "m2",
+      ]);
+
+    expect(TreeService.setStoryDocuments).not.toHaveBeenCalled();
+  });
 });
 
 describe("useStoryStore — setStoryDocuments", () => {

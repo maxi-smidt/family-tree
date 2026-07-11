@@ -37,6 +37,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Editing a member's birth or death date now keeps the vital event's linked
+  documents, location, and description instead of silently clearing them
+  (#659).
 - Storage quotas now apply to the combined data and media usage of every tree
   owned by a user, rather than allowing the full quota in each individual tree
   (#654).

@@ -86,7 +86,7 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     id: string,
     story: StoryInput,
     memberIds: string[],
-    documentIds: string[] = [],
+    documentIds?: string[],
   ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
@@ -94,7 +94,9 @@ export const useStoryStore = create<StoryState>((set, get) => ({
     const now = new Date().toISOString();
     await TreeService.updateStory(treeId, id, story, now);
     await TreeService.setStoryLinks(treeId, id, memberIds);
-    await TreeService.setStoryDocuments(treeId, id, documentIds);
+    if (documentIds !== undefined) {
+      await TreeService.setStoryDocuments(treeId, id, documentIds);
+    }
 
     await get().refreshStories(treeId);
     invalidateActivityView();
