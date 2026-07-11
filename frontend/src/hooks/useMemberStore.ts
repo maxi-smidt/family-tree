@@ -36,7 +36,16 @@ async function syncVitalEvent(
 
   if (newDate) {
     if (existing && existing.date !== newDate) {
-      await updateEvent(existing.id, { eventType, date: newDate }, [memberId]);
+      await updateEvent(
+        existing.id,
+        {
+          eventType,
+          date: newDate,
+          location: existing.location,
+          description: existing.description,
+        },
+        [memberId],
+      );
     } else if (!existing) {
       await addEvent([memberId], { eventType, date: newDate });
     }

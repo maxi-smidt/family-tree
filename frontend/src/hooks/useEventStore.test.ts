@@ -135,6 +135,20 @@ describe("useEventStore — updateEvent", () => {
       "doc-1",
     ]);
   });
+
+  it("leaves document links unchanged when document ids are omitted", async () => {
+    useTreeStore.setState({ selectedTree: makeTree() });
+    vi.mocked(TreeService.updateEvent).mockResolvedValue(undefined);
+    vi.mocked(TreeService.setEventLinks).mockResolvedValue(undefined);
+    vi.mocked(TreeService.getEvents).mockResolvedValue([]);
+    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
+
+    await useEventStore
+      .getState()
+      .updateEvent("ev1", { eventType: "birth", date: "2001-01-01" }, ["m2"]);
+
+    expect(TreeService.setEventDocuments).not.toHaveBeenCalled();
+  });
 });
 
 describe("useEventStore — setEventDocuments", () => {
