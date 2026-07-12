@@ -75,12 +75,3 @@ export function attachmentError(
   if (maxBytes !== undefined && file.size > maxBytes) return "size";
   return null;
 }
-
-export function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}

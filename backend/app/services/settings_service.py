@@ -227,12 +227,16 @@ def get_media_limits(db: Session) -> MediaLimits:
         minimum=MIN_MAX_IMAGE_UPLOAD_MB,
         maximum=MAX_MAX_IMAGE_UPLOAD_MB,
     )
-    max_document_upload_mb = get_bounded_int_setting(
-        db,
-        "max_document_upload_mb",
-        DEFAULT_MAX_DOCUMENT_UPLOAD_MB,
-        minimum=MIN_MAX_DOCUMENT_UPLOAD_MB,
-        maximum=MAX_MAX_DOCUMENT_UPLOAD_MB,
+    configured_document_limit = get_int_setting(
+        db, "max_document_upload_mb", DEFAULT_MAX_DOCUMENT_UPLOAD_MB
+    )
+    # Older installations may have persisted the former 500 MiB ceiling.
+    # Preserve the nearest safe value instead of silently falling back to the
+    # 25 MiB default when the maximum is tightened.
+    max_document_upload_mb = (
+        min(configured_document_limit, MAX_MAX_DOCUMENT_UPLOAD_MB)
+        if configured_document_limit >= MIN_MAX_DOCUMENT_UPLOAD_MB
+        else DEFAULT_MAX_DOCUMENT_UPLOAD_MB
     )
     raw_mode = get_setting(db, "image_storage_mode", DEFAULT_IMAGE_STORAGE_MODE)
     image_storage_mode = (

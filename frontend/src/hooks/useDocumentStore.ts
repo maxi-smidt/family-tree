@@ -59,8 +59,8 @@ async function applyFileOps(
     await TreeService.addDocumentFile(
       treeId,
       documentId,
+      f.file,
       f.filename,
-      f.dataUrl,
     );
     onFileProgress?.(i + 1, total);
   }

@@ -3,7 +3,7 @@ import pytest
 from app.core.config import settings
 from tests.conftest import API, add_member, auth, make_tree, make_user
 
-_DOC_DATA = "data:text/plain;base64,aGVsbG8="  # "hello"
+_DOC_BYTES = b"hello"
 
 
 @pytest.fixture()
@@ -222,7 +222,8 @@ def test_document_file_upload_rename_delete(client, db, media_root):
     upload = client.post(
         f"{API}/trees/{tree.id}/documents/{document_id}/files",
         headers=auth(user),
-        json={"filename": "scan.txt", "data": _DOC_DATA},
+        data={"filename": "scan.txt"},
+        files={"file": ("scan.txt", _DOC_BYTES, "text/plain")},
     )
     assert upload.status_code == 201, upload.text
     file_body = upload.json()
@@ -250,6 +251,27 @@ def test_document_file_upload_rename_delete(client, db, media_root):
 
     doc = client.get(f"{API}/trees/{tree.id}/documents", headers=auth(user)).json()[0]
     assert doc["files"] == []
+
+
+def test_document_file_upload_rejects_bad_checksum(client, db, media_root):
+    user, tree = _setup(client, db)
+    created = client.post(
+        f"{API}/trees/{tree.id}/documents",
+        headers=auth(user),
+        json={"title": "Doc"},
+    ).json()
+
+    upload = client.post(
+        f"{API}/trees/{tree.id}/documents/{created['id']}/files",
+        headers=auth(user),
+        data={"filename": "scan.txt", "checksum": "0" * 64},
+        files={"file": ("scan.txt", _DOC_BYTES, "text/plain")},
+    )
+
+    assert upload.status_code == 400
+    assert upload.json()["detail"] == "Upload checksum does not match file data"
+    tree_dir = media_root / tree.id
+    assert not tree_dir.exists() or not list(tree_dir.iterdir())
 
 
 def test_document_link_create(client, db):
@@ -327,7 +349,8 @@ def test_delete_document_removes_files_from_disk(client, db, media_root):
     upload = client.post(
         f"{API}/trees/{tree.id}/documents/{created['id']}/files",
         headers=auth(user),
-        json={"filename": "scan.txt", "data": _DOC_DATA},
+        data={"filename": "scan.txt"},
+        files={"file": ("scan.txt", _DOC_BYTES, "text/plain")},
     ).json()
     rel_path = upload["url"][len("/api/media/"):]
     assert (media_root / rel_path).exists()
@@ -372,7 +395,8 @@ def test_document_file_upload_media_quota_exceeded(client, db, media_root):
     res = client.post(
         f"{API}/trees/{tree.id}/documents/{created['id']}/files",
         headers=auth(owner),
-        json={"filename": "scan.txt", "data": _DOC_DATA},
+        data={"filename": "scan.txt"},
+        files={"file": ("scan.txt", _DOC_BYTES, "text/plain")},
     )
     assert res.status_code == 413
     assert res.json()["detail"] == "quota_exceeded_media"

@@ -477,12 +477,15 @@ export class TreeService {
   static addDocumentFile(
     treeId: string,
     documentId: string,
+    file: File,
     filename: string,
-    data: string,
   ) {
-    return api.post<DocumentFileDB>(
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("filename", filename);
+    return api.postForm<DocumentFileDB>(
       `${base(treeId)}/documents/${documentId}/files`,
-      { filename, data },
+      formData,
     );
   }
 

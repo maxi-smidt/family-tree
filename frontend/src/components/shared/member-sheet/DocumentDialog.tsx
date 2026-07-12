@@ -34,7 +34,6 @@ import {
   ATTACHMENT_ACCEPT,
   attachmentError,
   formatFileSize,
-  readFileAsDataUrl,
 } from "@/utils/attachmentUtils";
 import { downloadMedia } from "@/hooks/useMediaUrl";
 import { Document, DocumentFileOps, DocumentInput } from "@/types/document";
@@ -60,7 +59,7 @@ interface ExistingFile {
 interface PendingFile {
   tempId: string;
   filename: string;
-  dataUrl: string;
+  file: File;
 }
 
 interface PendingLink {
@@ -171,7 +170,7 @@ export const DocumentDialog = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [document, initialMemberIdsKey, open]);
 
-  const handleFilesPicked = async (fileList: FileList | null) => {
+  const handleFilesPicked = (fileList: FileList | null) => {
     if (!fileList) return;
     setFileError(null);
     for (const file of Array.from(fileList)) {
@@ -180,10 +179,9 @@ export const DocumentDialog = ({
         setFileError(t(`files.error-${err}`, { max: maxFileSize ?? "" }));
         continue;
       }
-      const dataUrl = await readFileAsDataUrl(file);
       setAdded((prev) => [
         ...prev,
-        { tempId: crypto.randomUUID(), filename: file.name, dataUrl },
+        { tempId: crypto.randomUUID(), filename: file.name, file },
       ]);
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -220,7 +218,7 @@ export const DocumentDialog = ({
     return {
       addedFiles: added.map((a) => ({
         filename: a.filename.trim() || "file",
-        dataUrl: a.dataUrl,
+        file: a.file,
       })),
       addedLinks: addedLinks.map((l) => ({
         url: l.url,
@@ -487,7 +485,11 @@ export const DocumentDialog = ({
 
                   {added.map((a, i) => (
                     <div key={a.tempId} className="flex items-center gap-2">
-                      <FilePreview filename={a.filename} src={a.dataUrl} />
+                      <FilePreview
+                        filename={a.filename}
+                        mimeType={a.file.type}
+                        file={a.file}
+                      />
                       <Input
                         value={a.filename}
                         onChange={(e) =>

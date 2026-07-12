@@ -40,9 +40,18 @@ def test_media_limit_updates_are_range_validated(client, db):
     response = client.patch(
         f"{API}/settings",
         headers=auth(admin),
-        json={"max_document_upload_mb": 501},
+        json={"max_document_upload_mb": 101},
     )
     assert response.status_code == 422
+
+
+def test_existing_document_limit_is_clamped_to_the_worker_safe_maximum(db):
+    set_setting(db, "max_document_upload_mb", "500")
+    db.commit()
+
+    limits = get_media_limits(db)
+
+    assert limits.max_document_bytes == 100 * MEBIBYTE
 
 
 def test_invalid_stored_media_limit_falls_back_to_default(db):
