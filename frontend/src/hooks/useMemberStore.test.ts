@@ -3,7 +3,6 @@ import { useMemberStore } from "./useMemberStore";
 import { useTreeStore } from "./useTreeStore";
 import { useEventStore } from "./useEventStore";
 import { TreeService } from "@/services/TreeService";
-import { EventDB } from "@/types/event";
 import { MemberDB } from "@/types/member";
 import { Tree } from "@/types/tree";
 import { toast } from "sonner";
@@ -37,16 +36,6 @@ const MEMBER_DB_ROW: MemberDB = {
   isCollapsed: 0,
   positionX: 0,
   positionY: 0,
-};
-
-const BIRTH_EVENT_DB_ROW: EventDB = {
-  id: "birth-event",
-  event_type: "birth",
-  date: "1980-01-01",
-  location: "Vienna",
-  description: "Birth details",
-  created_at: "2024-01-01T00:00:00Z",
-  document_ids: ["birth-certificate"],
 };
 
 function makeTree(role: "owner" | "editor" | "viewer" = "owner"): Tree {
@@ -321,37 +310,26 @@ describe("useMemberStore — updateMemberPartial", () => {
     expect(useMemberStore.getState().undoStack).toHaveLength(1);
   });
 
-  it("preserves birth-event details when the birth date changes", async () => {
+  it("sends a birth-date change through the atomic member update", async () => {
     selectTree();
     mockServiceWithMember();
     await useMemberStore.getState().refreshMembers();
 
-    vi.mocked(TreeService.getEvents).mockResolvedValue([BIRTH_EVENT_DB_ROW]);
-    vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([
-      { event_id: "birth-event", member_id: "m1" },
-    ]);
-    await useEventStore.getState().refreshEvents();
-
     vi.mocked(TreeService.updateMember).mockResolvedValue(undefined);
-    vi.mocked(TreeService.updateEvent).mockResolvedValue(undefined);
-    vi.mocked(TreeService.setEventLinks).mockResolvedValue(undefined);
     mockServiceWithMember();
 
     await useMemberStore
       .getState()
       .updateMemberPartial("m1", { dateOfBirth: "1981-02-02" });
 
-    expect(TreeService.updateEvent).toHaveBeenCalledWith(
+    expect(TreeService.updateMember).toHaveBeenCalledWith(
       TREE_ID,
-      "birth-event",
+      "m1",
       expect.objectContaining({
-        eventType: "birth",
-        date: "1981-02-02",
-        location: "Vienna",
-        description: "Birth details",
+        dateOfBirth: "1981-02-02",
       }),
     );
-    expect(TreeService.setEventDocuments).not.toHaveBeenCalled();
+    expect(TreeService.updateEvent).not.toHaveBeenCalled();
   });
 });
 

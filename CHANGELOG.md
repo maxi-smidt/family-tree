@@ -56,6 +56,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Editing a member's birth or death date now keeps the vital event's linked
   documents, location, and description instead of silently clearing them
   (#659).
+- Member autosave now serializes edits and commits identity, parent, and
+  vital-event updates together, preventing late saves and partial persistence
+  when Events is unavailable (#664).
 - Storage quotas now apply to the combined data and media usage of every tree
   owned by a user, rather than allowing the full quota in each individual tree
   (#654).
