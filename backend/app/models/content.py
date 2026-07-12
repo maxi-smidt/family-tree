@@ -1,6 +1,6 @@
 """Gallery, events and stories — the rich content attached to members."""
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -143,6 +143,7 @@ class DocumentFile(Base):
     """
 
     __tablename__ = "document_files"
+    __table_args__ = (Index("ix_document_files_tree_id_url", "tree_id", "url"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tree_id: Mapped[str] = mapped_column(

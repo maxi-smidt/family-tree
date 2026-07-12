@@ -80,7 +80,7 @@ export async function downloadMedia(
   filename: string,
 ): Promise<void> {
   const isMedia = src.startsWith(MEDIA_PREFIX);
-  const url = isMedia ? await fetchMediaObjectUrl(src) : src;
+  const url = isMedia ? await fetchMediaObjectUrl(`${src}?download=true`) : src;
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
