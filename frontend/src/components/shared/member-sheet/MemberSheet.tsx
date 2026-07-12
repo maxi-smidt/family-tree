@@ -7,7 +7,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Member } from "@/types/member";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ViewMode } from "./ViewMode";
 import { EditMode, SaveStatus } from "./EditMode";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -63,6 +64,7 @@ export const MemberSheet = ({
     useGalleryStore();
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
+  const treeId = useTreeStore((s) => s.selectedTree?.id);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
@@ -70,6 +72,7 @@ export const MemberSheet = ({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [activeTab, setActiveTab] = useState<MemberSheetTab>("identity");
+  const flushAutosaveRef = useRef<() => Promise<void>>(async () => {});
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
 
@@ -130,18 +133,20 @@ export const MemberSheet = ({
 
   if (!member) return null;
 
-  const closeSheet = () => {
+  const closeSheet = async () => {
+    if (!isNewMember) await flushAutosaveRef.current();
     clearMemberSheetState();
     onClose();
   };
 
   const handleDelete = async () => {
+    await flushAutosaveRef.current();
     await removeMember(member.id);
     setIsDeleteDialogOpen(false);
-    closeSheet();
+    await closeSheet();
   };
 
-  const handleCloseRequest = () => {
+  const handleCloseRequest = async () => {
     // Existing members autosave (and flush on EditMode unmount), so there's
     // never an unsaved change to warn about there — only new members, which
     // are purely client-side until an explicit "Create member", need the
@@ -151,9 +156,9 @@ export const MemberSheet = ({
       return;
     }
     if (isNewMember && onDiscardNewMember) {
-      void onDiscardNewMember();
+      await onDiscardNewMember();
     }
-    closeSheet();
+    await closeSheet();
   };
 
   const handleDiscard = async () => {
@@ -161,7 +166,7 @@ export const MemberSheet = ({
       await onDiscardNewMember();
     }
     setIsUnsavedDialogOpen(false);
-    closeSheet();
+    await closeSheet();
   };
 
   const handleSaveAndClose = () => {
@@ -174,14 +179,29 @@ export const MemberSheet = ({
 
   // Cross-view "show on map" (#554): jump from a location field in the view
   // mode straight to the Map view, focused on that location.
-  const handleShowLocationOnMap = (location: string, memberId: string) => {
+  const handleShowLocationOnMap = async (
+    location: string,
+    memberId: string,
+  ) => {
+    await closeSheet();
     setMapFocus({ location, memberId });
     navigateTo("map-view");
-    closeSheet();
+  };
+
+  const handleModeToggle = async () => {
+    if (isViewingEditMode && !isNewMember) {
+      await flushAutosaveRef.current();
+    }
+    setIsEditMode((value) => !value);
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && handleCloseRequest()}>
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) void handleCloseRequest();
+      }}
+    >
       <SheetContent
         className="w-full max-w-full sm:w-135 sm:max-w-none"
         showCloseButton={false}
@@ -210,7 +230,7 @@ export const MemberSheet = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsEditMode((value) => !value)}
+                onClick={() => void handleModeToggle()}
               >
                 {isViewingEditMode ? <Eye /> : <Pencil />}
               </Button>
@@ -227,23 +247,29 @@ export const MemberSheet = ({
               </div>
             ) : isViewingEditMode ? (
               <EditMode
+                key={`${treeId ?? "no-tree"}:${member.id}`}
                 member={member}
                 isNew={isNewMember}
                 onSaved={async (data) => {
                   if (isNewMember && onSaveNewMember) {
                     await onSaveNewMember(data);
                   }
-                  closeSheet();
+                  await closeSheet();
                 }}
                 onDirtyChange={setIsDirty}
                 onSaveStatusChange={setSaveStatus}
+                onAutosaveFlush={(flush) => {
+                  flushAutosaveRef.current = flush;
+                }}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
               />
             ) : (
               <ViewMode
                 member={member}
-                onShowLocationOnMap={handleShowLocationOnMap}
+                onShowLocationOnMap={(location, memberId) => {
+                  void handleShowLocationOnMap(location, memberId);
+                }}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
               />

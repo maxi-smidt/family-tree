@@ -139,6 +139,11 @@ class MemberUpdate(FamilyTreeBaseModel):
     date_of_death: str | None = None
     deceased: bool | None = None
     adopted: bool | None = None
+    # Parent slots are represented by ``parent`` relation rows, not columns on
+    # Member.  They live on this update payload so identity, parent, and vital
+    # date edits can commit as one transaction.
+    paternal_parent_id: str | None = None
+    maternal_parent_id: str | None = None
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None

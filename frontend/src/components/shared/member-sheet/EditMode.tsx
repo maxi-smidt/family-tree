@@ -78,6 +78,7 @@ type Props = {
   onSaved?: (data: Member) => void;
   onDirtyChange?: (dirty: boolean) => void;
   onSaveStatusChange?: (status: SaveStatus) => void;
+  onAutosaveFlush?: (flush: () => Promise<void>) => void;
   activeTab: MemberSheetTab;
   onTabChange: (tab: MemberSheetTab) => void;
 };
@@ -88,6 +89,7 @@ export const EditMode = ({
   onSaved,
   onDirtyChange,
   onSaveStatusChange,
+  onAutosaveFlush,
   activeTab,
   onTabChange,
 }: Props) => {
@@ -120,10 +122,21 @@ export const EditMode = ({
   const [recordsMounted, setRecordsMounted] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // These identifiers are deliberately captured for the editor's lifetime.
+  // A delayed save must never resolve the currently active tree after a switch.
+  const editorTreeIdRef = useRef(currentTreeId);
+  const editorMemberIdRef = useRef(member.id);
+  const formDataRef = useRef(formData);
+  const isDirtyRef = useRef(isDirty);
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const latestSaveRevisionRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
   const lastDuplicateSignatureRef = useRef<string | null>(null);
+
+  formDataRef.current = formData;
+  isDirtyRef.current = isDirty;
 
   useEffect(() => {
     setFormData(member);
@@ -234,19 +247,23 @@ export const EditMode = ({
     handleChange("gender", value);
   };
 
-  const save = useCallback(
-    async (opts?: { autosave?: boolean }): Promise<boolean> => {
-      const snapshot = formData;
+  const persistSnapshot = useCallback(
+    async (
+      snapshot: Member,
+      revision: number,
+      opts?: { autosave?: boolean },
+    ): Promise<boolean> => {
+      const isCurrent = () => revision === latestSaveRevisionRef.current;
       const nextErrors: { firstName?: string; lastName?: string } = {};
       if (!snapshot.firstName.trim())
         nextErrors.firstName = t("error-firstname-required");
       if (!snapshot.lastName.trim())
         nextErrors.lastName = t("error-lastname-required");
-      setErrors(nextErrors);
+      if (isCurrent()) setErrors(nextErrors);
       if (Object.keys(nextErrors).length > 0) {
-        if (opts?.autosave) {
+        if (opts?.autosave && isCurrent()) {
           setSaveStatus("idle");
-        } else {
+        } else if (!opts?.autosave && isCurrent()) {
           (nextErrors.firstName ? firstNameRef : lastNameRef).current?.focus();
         }
         return false;
@@ -278,14 +295,14 @@ export const EditMode = ({
           snapshot.date.birth,
           snapshot.date.death || "",
         ].join("|");
-        if (lastDuplicateSignatureRef.current !== signature) {
+        if (isCurrent() && lastDuplicateSignatureRef.current !== signature) {
           toast.error(t("toast-error-duplicate"));
           lastDuplicateSignatureRef.current = signature;
         }
-        setSaveStatus("error");
+        if (isCurrent()) setSaveStatus("error");
         return false;
       }
-      lastDuplicateSignatureRef.current = null;
+      if (isCurrent()) lastDuplicateSignatureRef.current = null;
 
       if (isNew) {
         onSaved?.(snapshot);
@@ -294,51 +311,62 @@ export const EditMode = ({
 
       setSaveStatus("saving");
       try {
-        const result = await updateMemberPartial(member.id, {
-          academicTitle: snapshot.academicTitle || null,
-          firstName: snapshot.firstName,
-          middleNames: snapshot.middleNames || null,
-          baptismalName: snapshot.baptismalName || null,
-          lastName: snapshot.lastName,
-          maidenName: snapshot.maidenName || null,
-          gender: snapshot.gender,
-          imageData: snapshot.imageData || undefined,
-          dateOfBirth: snapshot.date.birth,
-          dateOfDeath: snapshot.date.death || null,
-          deceased: snapshot.deceased,
-          adopted: snapshot.adopted,
-          additionalData: snapshot.additionalData || null,
-          birthplace: snapshot.birthplace || null,
-          hometown: snapshot.hometown || null,
-          cemetery: snapshot.cemetery || null,
-          placesLived:
-            snapshot.placesLived.length > 0
-              ? JSON.stringify(snapshot.placesLived)
-              : null,
-          paternalParentId: snapshot.parents.paternalParent,
-          maternalParentId: snapshot.parents.maternalParent,
-          ...(snapshot.linkedTreeId !== undefined
-            ? { linkedTreeId: snapshot.linkedTreeId }
-            : {}),
-        });
-        if (!opts?.autosave) {
+        const treeId = editorTreeIdRef.current;
+        if (!treeId) return false;
+        const result = await updateMemberPartial(
+          editorMemberIdRef.current,
+          {
+            academicTitle: snapshot.academicTitle || null,
+            firstName: snapshot.firstName,
+            middleNames: snapshot.middleNames || null,
+            baptismalName: snapshot.baptismalName || null,
+            lastName: snapshot.lastName,
+            maidenName: snapshot.maidenName || null,
+            gender: snapshot.gender,
+            imageData: snapshot.imageData || undefined,
+            dateOfBirth: snapshot.date.birth,
+            dateOfDeath: snapshot.date.death || null,
+            deceased: snapshot.deceased,
+            adopted: snapshot.adopted,
+            additionalData: snapshot.additionalData || null,
+            birthplace: snapshot.birthplace || null,
+            hometown: snapshot.hometown || null,
+            cemetery: snapshot.cemetery || null,
+            placesLived:
+              snapshot.placesLived.length > 0
+                ? JSON.stringify(snapshot.placesLived)
+                : null,
+            paternalParentId: snapshot.parents.paternalParent,
+            maternalParentId: snapshot.parents.maternalParent,
+            ...(snapshot.linkedTreeId !== undefined
+              ? { linkedTreeId: snapshot.linkedTreeId }
+              : {}),
+          },
+          treeId,
+        );
+        if (!opts?.autosave && isCurrent()) {
           toast.success(t("toast-success"));
         }
         // Bridge person whose counterpart tree the editor may not write: the
         // save worked but the linked copy drifted — say so.
-        if (result?.bridgeSync === "skipped_no_access") {
+        if (isCurrent() && result?.bridgeSync === "skipped_no_access") {
           toast.info(t("toast-bridge-sync-skipped"));
         }
         // Settle the dirty baseline on the snapshot that was actually
         // persisted — if the user kept typing during the in-flight save,
         // formData has since moved on and stays (correctly) dirty.
-        setInitialData(snapshot);
-        setSaveStatus("saved");
-        if (!opts?.autosave) {
+        // Serialization prevents reordered writes; this guard also prevents an
+        // older response from replacing the status of a newer queued revision.
+        if (isCurrent()) {
+          setInitialData(snapshot);
+          setSaveStatus("saved");
+        }
+        if (!opts?.autosave && isCurrent()) {
           onSaved?.(snapshot);
         }
         return true;
       } catch (err: unknown) {
+        if (!isCurrent()) return false;
         if (err instanceof ApiError && err.status === 413) {
           const bucket = getQuotaBucket(err.message);
           if (bucket) {
@@ -355,7 +383,26 @@ export const EditMode = ({
         return false;
       }
     },
-    [formData, member, members, isNew, onSaved, t, updateMemberPartial],
+    [members, isNew, onSaved, t, updateMemberPartial],
+  );
+
+  // Saves are serialized through one chain.  The debounce below coalesces
+  // rapid form changes into one queued snapshot, and every response carries a
+  // revision so a late result cannot overwrite newer editor state.
+  const save = useCallback(
+    (opts?: { autosave?: boolean }): Promise<boolean> => {
+      const snapshot = formDataRef.current;
+      const revision = ++latestSaveRevisionRef.current;
+      const task = saveChainRef.current.then(() =>
+        persistSnapshot(snapshot, revision, opts),
+      );
+      saveChainRef.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
+      return task;
+    },
+    [persistSnapshot],
   );
 
   const handleSave = (e: FormEvent) => {
@@ -371,10 +418,22 @@ export const EditMode = ({
   const autosave = useMemo(
     () =>
       debounce(() => {
-        void saveRef.current({ autosave: true });
+        return saveRef.current({ autosave: true });
       }, 800),
     [],
   );
+
+  const flushAutosave = useCallback(async () => {
+    if (isDirtyRef.current) {
+      await autosave.flush();
+    }
+    await saveChainRef.current;
+  }, [autosave]);
+
+  useEffect(() => {
+    onAutosaveFlush?.(flushAutosave);
+    return () => onAutosaveFlush?.(async () => {});
+  }, [flushAutosave, onAutosaveFlush]);
 
   // Existing members autosave; new members are purely client-side until an
   // explicit "Create member" action, so autosave never applies to them.
@@ -392,9 +451,11 @@ export const EditMode = ({
   useEffect(() => {
     if (isNew) return;
     return () => {
-      autosave.flush();
+      // React unmount cannot await cleanup.  The request still targets the
+      // captured tree/member pair, so a tree switch cannot misdirect it.
+      void flushAutosave();
     };
-  }, [autosave, isNew]);
+  }, [flushAutosave, isNew]);
 
   // Only new members need the global unsaved-changes navigation guard —
   // existing members autosave and flush any pending change on unmount, so
