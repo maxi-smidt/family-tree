@@ -27,6 +27,29 @@ const DYNAMIC_KEY_PREFIXES = [
   "admin.features.state-",
   "admin.features.names.",
   "admin.features.descriptions.",
+  // t(`domains.${domain}`), t(`invites.status-${status}`) — ShareTreeDialog
+  "dialog.share-tree.domains.",
+  "dialog.share-tree.invites.status-",
+  // t(quotaToastKey(bucket)) — EditMode / MemberPhotos / useUploadQueue
+  "sheet.edit-mode.toast-error-quota-",
+  "storage-usage.toast-error-quota-",
+  // t(`disease-severity.${severity}`), t(`${ns}.${relation}`) — tree view
+  "tree-view.node.disease-severity.",
+  "tree-view.connection.kinship.",
+  // i18n.t(key) after a runtime condition — realtime session invalidation
+  "auth.session.invalidated-",
+  // t(`image-storage.${mode}`) — UserSettingsView
+  "user-settings.image-storage.compressed",
+  "user-settings.image-storage.original",
+  "user-settings.image-storage.both",
+  // t(`image-storage-mode-${mode}`), t(`legal-${doc}-body-label`)
+  //   — AdminView
+  "admin.image-storage-mode-compressed",
+  "admin.image-storage-mode-original",
+  "admin.image-storage-mode-both",
+  "admin.legal-",
+  // t(`lang-${locale}`) — LegalDocsDialog
+  "legal.lang-",
 ];
 
 function isDynamicKey(key) {

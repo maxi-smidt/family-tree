@@ -156,7 +156,7 @@
         "events": "Events",
         "map": "Map",
         "stories": "Stories",
-        "sources": "Sources",
+        "sources": "Documents",
         "diseases": "Diseases",
         "biography": "Biography"
       },
@@ -315,8 +315,6 @@
       "toast-update-error": "Could not update virtual view.",
       "error-no-overlap": "These trees share no overlapping members. Virtual views require at least one person in common across the selected trees.",
       "views-label": "Or include other virtual views",
-      "no-other-views": "No other virtual views available.",
-      "virtual-badge": "virtual",
       "error-cycle": "A virtual view can't include itself, directly or through another view."
     }
   },
@@ -411,7 +409,6 @@
     "mobile-management": {
       "manage": "Manage",
       "title": "Manage",
-      "selected-tree": "Selected tree",
       "no-tree-selected": "No tree selected",
       "group-sharing": "Sharing",
       "group-data": "Data",
@@ -539,7 +536,6 @@
         "unlink": "Remove link",
         "create-and-link": "Create & link new tree",
         "new-tree-fallback-name": "New tree",
-        "toast-created": "Created and linked “{{name}}”.",
         "toast-created-seeded": "Created “{{name}}” and added this person to it.",
         "create-requires-save": "Save your changes first — creating a linked tree stores this person in it right away.",
         "save-first-hint": "Save this person first — linking a tree requires it to already exist.",
@@ -577,7 +573,6 @@
       "error-firstname-required": "First name is required.",
       "error-lastname-required": "Last name is required.",
       "firstname-placeholder": "e.g. Jane",
-      "maiden-placeholder": "Maiden name",
       "academic-title-field": "Academic / Honorific Title",
       "academic-title-placeholder": "e.g. Dr., Prof., Dipl.-Ing.",
       "tab-identity": "Identity",
@@ -627,7 +622,6 @@
       "detail-title": "Member Details",
       "edit-description": "Update the member's information.",
       "detail-description": "View detailed information about this family member.",
-      "save": "Save",
       "saving": "Saving…",
       "saved": "Saved",
       "save-error": "Not saved",
@@ -852,10 +846,6 @@
       "open-error": "That tree could not be opened — it may be private or no longer exist."
     },
     "canvas-label": "Family tree canvas",
-    "a11y": {
-      "node-desc": "Press Enter to view member details.",
-      "controls": "Canvas controls"
-    },
     "search": {
       "placeholder": "Search members…",
       "no-results": "No members found",
@@ -1168,7 +1158,6 @@
   },
   "quality-report-view": {
     "title": "Data Quality",
-    "refresh": "Refresh",
     "loading": "Running checks…",
     "no-issues": "No issues found",
     "no-issues-description": "Your family tree data looks consistent.",
@@ -1440,11 +1429,8 @@
     },
     "user-menu": {
       "change-password": "Change password",
-      "customize-tabs": "Customize tabs",
       "admin": "Administration",
-      "delete-account": "Delete my account",
       "logout": "Log out",
-      "two-factor": "Two-factor authentication",
       "settings": "Settings",
       "show-tutorial": "Show tutorial"
     },
@@ -1537,7 +1523,6 @@
   },
   "admin": {
     "title": "Administration",
-    "description": "Manage users and instance settings.",
     "back": "Back",
     "users-tab": "Users",
     "settings-tab": "Settings",
@@ -1557,12 +1542,7 @@
       "action": "Action",
       "subject": "Subject",
       "details": "Details",
-      "unknown": "Unknown",
-      "actions": {
-        "create": "Created",
-        "update": "Updated",
-        "delete": "Deleted"
-      }
+      "unknown": "Unknown"
     },
     "features": {
       "hint": "Enable or disable features for this instance at runtime. \"Beta\" enables a feature only for the selected users.",
@@ -1629,11 +1609,9 @@
     "max-image-upload": "Image size (MB)",
     "max-document-upload": "Attachment size (MB)",
     "max-image-dimension": "Image side (px)",
-    "image-storage-mode": "Gallery image storage",
     "image-storage-mode-compressed": "Compressed (WebP)",
     "image-storage-mode-original": "Original only",
     "image-storage-mode-both": "Both (display + original)",
-    "image-storage-mode-hint": "Controls how gallery images are stored. \"Original\" and \"Both\" upload the full-resolution file — raise the image size limit accordingly.",
     "image-storage-mode-allowed": "Allowed storage modes",
     "image-storage-mode-allowed-hint": "Select which storage modes users may choose from.",
     "image-storage-mode-default": "Default mode",
@@ -1675,7 +1653,6 @@
       "scheduled": "Account scheduled for deletion."
     },
     "backups": {
-      "title": "Backup management",
       "back-up-now": "Back up now",
       "last-backup": "Last backup: {{date}}",
       "never": "Never",
@@ -1686,7 +1663,6 @@
       "col-trigger": "Type",
       "col-status": "Status",
       "col-size": "Size",
-      "col-actions": "Actions",
       "trigger-manual": "Manual",
       "trigger-scheduled": "Scheduled",
       "status-running": "Running",
@@ -1804,11 +1780,6 @@
   "public-tree": {
     "read-only-hint": "Read-only view — log in to explore the full interactive tree.",
     "login-button": "Log in",
-    "member-count_one": "{{count}} person",
-    "member-count_other": "{{count}} people",
-    "unnamed": "(unnamed)",
-    "gender-male": "Male",
-    "gender-female": "Female",
     "not-public": "This tree is private or the link is no longer valid.",
     "error": "Could not load this tree.",
     "password": {
@@ -1883,7 +1854,6 @@
     "used-of": "{{used}} / {{quota}}",
     "unlimited": "unlimited",
     "error": "Could not load storage usage.",
-    "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
     "toast-error-quota-tree": "Tree data quota exceeded.",
     "quota-warning": "Media storage is almost full for this owner."
@@ -1903,23 +1873,16 @@
       "both": "Both (display + original)"
     },
     "tabs": {
-      "section": "Tab layout",
-      "hint": "Choose which views are visible and reorder the tabs in the main panel.",
-      "button": "Customize tabs"
+      "section": "Tab layout"
     },
     "two-factor": {
-      "section": "Two-factor authentication",
-      "status-enabled": "Two-factor authentication is currently enabled on your account.",
-      "status-disabled": "Two-factor authentication is currently disabled.",
-      "button": "Manage 2FA"
+      "section": "Two-factor authentication"
     },
     "changelog": {
       "section": "What's new"
     },
     "delete-account": {
-      "section": "Delete account",
-      "hint": "Permanently remove your account and all associated data. This action cannot be undone.",
-      "button": "Delete my account"
+      "section": "Delete account"
     }
   },
   "tutorial": {
