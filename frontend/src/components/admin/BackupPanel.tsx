@@ -57,7 +57,10 @@ export const BackupPanel = ({
   const handleBackupNow = async () => {
     setTriggering(true);
     try {
-      await AdminService.triggerBackup();
+      const backup = await AdminService.triggerBackup();
+      if (backup.status !== "success") {
+        throw new Error(backup.error || "Backup verification failed");
+      }
       toast.success(t("created"));
       await loadBackups();
     } catch (err) {
