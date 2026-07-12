@@ -145,11 +145,6 @@ export const AdminService = {
     return api.del<void>(`/admin/backups/${id}`);
   },
 
-  downloadBackupUrl(id: string): string {
-    const base = import.meta.env.VITE_API_BASE_URL || "/api";
-    return `${base}/admin/backups/${id}/download`;
-  },
-
   listRelationTypes(): Promise<RelationTypeDB[]> {
     return api.get<RelationTypeDB[]>("/relation-types");
   },

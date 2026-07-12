@@ -26,7 +26,6 @@ async function syncVitalEvent(
   memberId: string,
   eventType: "birth" | "death",
   newDate: string | null | undefined,
-  _oldDate: string | null | undefined,
 ) {
   const { events, addEvent, updateEvent, removeEvent } =
     useEventStore.getState();
@@ -618,10 +617,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     invalidateDerivedViews();
 
     if (newMember.date.birth) {
-      await syncVitalEvent(newMember.id, "birth", newMember.date.birth, null);
+      await syncVitalEvent(newMember.id, "birth", newMember.date.birth);
     }
     if (newMember.date.death) {
-      await syncVitalEvent(newMember.id, "death", newMember.date.death, null);
+      await syncVitalEvent(newMember.id, "death", newMember.date.death);
     }
 
     const captured = newMember;
@@ -766,7 +765,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         id,
         "birth",
         changes.dateOfBirth,
-        currentMember?.date.birth,
       );
     }
     if ("dateOfDeath" in changes) {
@@ -774,7 +772,6 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         id,
         "death",
         changes.dateOfDeath ?? null,
-        currentMember?.date.death ?? null,
       );
     }
 
