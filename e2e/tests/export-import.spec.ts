@@ -133,7 +133,9 @@ test("import inspect — returns bundle metadata without committing", async ({
   expect(preview).toMatchObject({
     password_required: false,
     name: "E2E-Inspect-Src",
-    bundle_version: 2,
+    // Bumped to 3 in v1.7: the export bundle now carries the Documents model
+    // (see BUNDLE_VERSION in backend/app/api/routes/export_import.py, #661).
+    bundle_version: 3,
   });
 });
 
