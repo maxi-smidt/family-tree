@@ -1,7 +1,7 @@
-"""v1.9.0 — instance-wide administrator audit trail.
+"""Add an instance-wide administrator audit trail.
 
-Revision ID: v1_9_0_admin_audit_trail
-Revises: v1_8_0_public_tree_password
+Revision ID: 20260710_admin_audit_trail
+Revises: 20260708_public_tree_password
 Create Date: 2026-07-10 12:00:00.000000
 """
 
@@ -11,8 +11,8 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "v1_9_0_admin_audit_trail"
-down_revision: Union[str, None] = "v1_8_0_public_tree_password"
+revision: str = "20260710_admin_audit_trail"
+down_revision: Union[str, None] = "20260708_public_tree_password"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

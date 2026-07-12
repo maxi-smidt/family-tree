@@ -1,6 +1,6 @@
-"""v1.8.0 — optional password for publicly shared trees
+"""Add optional password protection for publicly shared trees.
 
-Revision ID: v1_8_0_public_tree_password
+Revision ID: 20260708_public_tree_password
 Revises: v1_7_0_documents
 Create Date: 2026-07-08 09:00:00.000000
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'v1_8_0_public_tree_password'
+revision: str = '20260708_public_tree_password'
 down_revision: Union[str, None] = 'v1_7_0_documents'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
