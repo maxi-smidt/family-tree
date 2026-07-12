@@ -1,6 +1,6 @@
-"""Data-migration tests for v1.7.0 Documents (release blocker #662).
+"""Data-migration tests for the v1.7.0 release migration (blocker #662).
 
-The Alembic migration ``v1_7_0_documents`` must *migrate* the legacy
+The Alembic migration ``v1_7_0_release`` must *migrate* the legacy
 Sources/Citations/Evidence + story-attachment rows into the Documents model —
 not drop them — and it must validate the result before removing the old tables.
 
@@ -23,9 +23,9 @@ def _load_migration_module():
         Path(__file__).resolve().parents[1]
         / "alembic"
         / "versions"
-        / "v1_7_0_documents.py"
+        / "v1_7_0_release.py"
     )
-    spec = importlib.util.spec_from_file_location("v1_7_0_documents_under_test", path)
+    spec = importlib.util.spec_from_file_location("v1_7_0_release_under_test", path)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)

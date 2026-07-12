@@ -1,6 +1,9 @@
-"""v1.7.0 — Documents (replaces Sources/Citations/Evidence + story attachments)
+"""v1.7.0 release schema.
 
-Revision ID: v1_7_0_documents
+Includes Documents, public-tree password and token invalidation support, the
+administrator audit trail, story dates, and the document-file media index.
+
+Revision ID: v1_7_0_release
 Revises: v1_5_0_linked_tree_geocode
 Create Date: 2026-07-07 12:00:00.000000
 
@@ -13,7 +16,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'v1_7_0_documents'
+revision: str = 'v1_7_0_release'
 down_revision: Union[str, None] = 'v1_5_0_linked_tree_geocode'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -431,8 +434,59 @@ def upgrade() -> None:
     op.drop_index(op.f('ix_sources_tree_id'), table_name='sources')
     op.drop_table('sources')
 
+    # --- Remaining v1.7 schema changes --------------------------------------
+    op.add_column(
+        'trees', sa.Column('public_password_hash', sa.String(length=255), nullable=True)
+    )
+    op.create_table(
+        'admin_audit_log',
+        sa.Column('id', sa.String(length=36), nullable=False),
+        sa.Column('actor_id', sa.String(length=36), nullable=True),
+        sa.Column('actor_username', sa.String(length=255), nullable=True),
+        sa.Column('action', sa.String(length=20), nullable=False),
+        sa.Column('subject_type', sa.String(length=40), nullable=False),
+        sa.Column('subject_id', sa.String(length=255), nullable=True),
+        sa.Column('subject_label', sa.String(length=255), nullable=True),
+        sa.Column('details', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.String(length=40), nullable=False),
+        sa.ForeignKeyConstraint(['actor_id'], ['users.id'], ondelete='SET NULL'),
+        sa.PrimaryKeyConstraint('id'),
+    )
+    op.create_index('ix_admin_audit_log_actor_id', 'admin_audit_log', ['actor_id'])
+    op.create_index(
+        'ix_admin_audit_log_subject_type', 'admin_audit_log', ['subject_type']
+    )
+    op.create_index(
+        'ix_admin_audit_log_created_at', 'admin_audit_log', ['created_at']
+    )
+    op.add_column(
+        'trees',
+        sa.Column(
+            'public_access_version',
+            sa.Integer(),
+            nullable=False,
+            server_default='0',
+        ),
+    )
+    op.add_column('stories', sa.Column('date', sa.String(length=40), nullable=True))
+    op.create_index(
+        'ix_document_files_tree_id_url',
+        'document_files',
+        ['tree_id', 'url'],
+        unique=False,
+    )
+
 
 def downgrade() -> None:
+    op.drop_index('ix_document_files_tree_id_url', table_name='document_files')
+    op.drop_column('stories', 'date')
+    op.drop_column('trees', 'public_access_version')
+    op.drop_index('ix_admin_audit_log_created_at', table_name='admin_audit_log')
+    op.drop_index('ix_admin_audit_log_subject_type', table_name='admin_audit_log')
+    op.drop_index('ix_admin_audit_log_actor_id', table_name='admin_audit_log')
+    op.drop_table('admin_audit_log')
+    op.drop_column('trees', 'public_password_hash')
+
     # No data restoration — this simply recreates the old, empty tables.
     op.create_table(
         'sources',

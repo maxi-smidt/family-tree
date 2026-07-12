@@ -95,7 +95,7 @@ def _bulk_insert_chunked(db: Session, model: type, mappings: list[dict]) -> None
 def _fold_source_description(source: dict, citation_lines: list[str]) -> str | None:
     """Fold a v1.6 source's extra metadata + citations into a document description.
 
-    Mirrors the on-disk Alembic migration (``v1_7_0_documents``) so importing a
+    Mirrors the on-disk v1.7 release migration (``v1_7_0_release``) so importing a
     pre-1.7 bundle preserves the same information a live upgrade would.
     """
     parts: list[str] = []
