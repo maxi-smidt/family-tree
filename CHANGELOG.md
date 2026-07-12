@@ -11,6 +11,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- In-app instance backups now include all durable state and media bytes in a
+  versioned, self-verifying encrypted manifest. A guarded command-line restore
+  path supports blank-instance recovery (or an explicit replacement) (#663).
 - Stories can now carry an optional historical date and appear alongside life
   events on the Timeline, with a consistent shared presentation in member
   sheets and the activity log (#653).

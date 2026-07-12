@@ -35,6 +35,42 @@ Your instance has **two** data locations, and you must back up **both**:
 > only file references; the image bytes live under `${DATA_PATH}/media`. Always
 > back up the media directory alongside the SQL dump.
 
+### In-app full-instance backups
+
+The Admin → Backups panel creates encrypted `.ftbackup` files under
+`${APP_DATA_PATH}/backups`. Version 2 backups contain all durable application
+rows (including sharing, legal/audit, quality, geocoding, and virtual-view
+state) plus every byte below `${DATA_PATH}/media`. Each file has an encrypted,
+versioned manifest; creation verifies all table row counts and media SHA-256
+hashes before it is marked successful. A failed or incomplete run is shown as
+failed and cannot be downloaded as a successful backup.
+
+Keep these files off-host as you would a database dump. They are encrypted with
+the instance `SECRET_KEY`, so restore them with the same key (or treat a key
+rotation as a planned migration).
+
+To restore an `.ftbackup`, stop application workers first, run migrations for
+the target version, and use the backend command against a **blank** database
+and empty `${DATA_PATH}/media` volume:
+
+```bash
+cd backend
+uv run python -m app.services.restore_backup /secure/backup.ftbackup
+```
+
+The command verifies the manifest, row counts, and media hashes before it
+writes anything. It refuses a non-empty target. For deliberate disaster
+recovery into an existing instance, stop the stack, make an independent copy
+first, then pass the explicit destructive flag:
+
+```bash
+uv run python -m app.services.restore_backup --replace /secure/backup.ftbackup
+```
+
+After the command reports completion, start the stack and verify that users can
+sign in and media loads. Do not use the regular in-app backup file as a way to
+merge data into an existing instance.
+
 ### Online backup (no downtime)
 
 Dump the database from your Postgres instance and archive the media directory.
