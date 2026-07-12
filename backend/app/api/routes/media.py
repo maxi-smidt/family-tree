@@ -1,7 +1,8 @@
-"""Authenticated media serving.
+"""Tree-authorized media serving.
 
-Replaces the bare StaticFiles mount so every media request is gated
-behind the same JWT + tree-read-access check used by all other routes.
+Replaces the bare StaticFiles mount so every media request is gated behind the
+same tree-read-access check used by all other routes, including public-tree
+access and its short-lived password-unlock token.
 """
 
 from pathlib import Path
@@ -11,7 +12,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_readable_tree
+from app.api.deps import get_readable_tree_public
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import DocumentFile, Tree
@@ -43,7 +44,7 @@ _MIME: dict[str, str] = {
 def serve_media(
     filename: str,
     download: bool = False,
-    tree: Tree = Depends(get_readable_tree),
+    tree: Tree = Depends(get_readable_tree_public),
     db: Session = Depends(get_db),
 ) -> FileResponse:
     # Reject any attempt to escape the tree directory via path components.

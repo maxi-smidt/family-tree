@@ -1,16 +1,17 @@
 """Instance-wide relation type registry.
 
-Every authenticated user can read the registry; creating, editing and deleting
-types is admin-only. Relations store the type id as a plain string, so the
-registry only controls what the UI offers — deleting a type that is still in
-use is rejected to keep existing relations selectable.
+The read-only registry is public because public tree views need its labels and
+edge styles to render custom relations. Creating, editing and deleting types is
+admin-only. Relations store the type id as a plain string, so the registry only
+controls what the UI offers — deleting a type that is still in use is rejected
+to keep existing relations selectable.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_admin
+from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models import Relation, RelationType
 from app.schemas.family import RelationTypeCreate, RelationTypeOut, RelationTypeUpdate
@@ -22,7 +23,6 @@ PARENT_RELATION_TYPE = "parent"
 router = APIRouter(
     prefix="/relation-types",
     tags=["relation-types"],
-    dependencies=[Depends(get_current_user)],
 )
 
 admin_router = APIRouter(

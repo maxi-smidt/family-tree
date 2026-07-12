@@ -28,8 +28,8 @@ def test_startup_seed_tops_up_missing_defaults(db):
     assert "child" in ids
 
 
-def test_list_requires_auth(client):
-    assert client.get(f"{API}/relation-types").status_code == 401
+def test_list_is_public_for_public_tree_relation_metadata(client):
+    assert client.get(f"{API}/relation-types").status_code == 200
 
 
 def test_crud_requires_admin(client, db):
