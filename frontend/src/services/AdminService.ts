@@ -53,6 +53,38 @@ export interface AdminAuditEntry {
   created_at: string;
 }
 
+export interface AdminAuditPage {
+  items: AdminAuditEntry[];
+  /** Total rows matching the active filters, across all pages. */
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminAuditFilters {
+  action?: string;
+  subjectType?: string;
+  actor?: string;
+  /** Inclusive lower bound; a bare `YYYY-MM-DD` covers the whole day. */
+  start?: string;
+  /** Inclusive upper bound; a bare `YYYY-MM-DD` covers the whole day. */
+  end?: string;
+}
+
+function auditParams(
+  filters: AdminAuditFilters & { limit?: number; offset?: number },
+): Record<string, string | number | undefined> {
+  return {
+    limit: filters.limit,
+    offset: filters.offset,
+    action: filters.action || undefined,
+    subject_type: filters.subjectType || undefined,
+    actor: filters.actor || undefined,
+    start: filters.start || undefined,
+    end: filters.end || undefined,
+  };
+}
+
 export type FeatureState = "on" | "off" | "beta";
 
 export interface FeatureFlag {
@@ -129,8 +161,19 @@ export const AdminService = {
     return api.patch<FeatureFlag>(`/admin/features/${name}`, changes);
   },
 
-  listAuditLog(limit = 100): Promise<AdminAuditEntry[]> {
-    return api.get<AdminAuditEntry[]>(`/admin/audit-log?limit=${limit}`);
+  listAuditLog(
+    filters: AdminAuditFilters & { limit?: number; offset?: number } = {},
+  ): Promise<AdminAuditPage> {
+    return api.get<AdminAuditPage>("/admin/audit-log", auditParams(filters));
+  },
+
+  listAuditSubjectTypes(): Promise<string[]> {
+    return api.get<string[]>("/admin/audit-log/subject-types");
+  },
+
+  async exportAuditLog(filters: AdminAuditFilters = {}): Promise<Blob> {
+    const response = await api.getRaw("/admin/audit-log/export", auditParams(filters));
+    return response.blob();
   },
 
   listBackups(): Promise<BackupRecord[]> {
