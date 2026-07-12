@@ -119,6 +119,46 @@ TLS termination at your reverse proxy, disk encryption, database credentials).
 Uploaded media (member photos, gallery images) is stored on the filesystem under
 `DATA_PATH/media` with random UUID filenames and served from `/api/media/...`.
 
+## Administrator audit trail
+
+Instance-wide, security-relevant actions are recorded in an append-only audit
+trail (`admin_audit_log`), surfaced read-only to admins under **Admin → Audit**.
+It is deliberately independent of the per-tree activity log so that account-,
+backup- and instance-level events survive even after the tree or subject they
+reference is deleted.
+
+**What is recorded.** Authentication (logins, including the 2FA step), account
+lifecycle (create / update / delete, self-service deletion and restore),
+credential changes (password changes and admin resets, 2FA enable / disable and
+admin reset), privilege changes (admin grant / revoke, activation, quota
+changes), public-access changes (a tree's public role and public password being
+set or cleared), backup creation **and failures**, feature-flag changes, and
+instance-settings / legal-document updates. Each entry stores the actor, action,
+subject, an ISO-8601 UTC timestamp, and a small JSON `details` object.
+
+**Never recorded.** Passwords, password hashes, tokens, TOTP secrets and recovery
+codes are never written to `details` — only the fact that a credential changed.
+This is enforced by convention in `record_admin_audit` and covered by tests.
+
+**Access.** Reading requires an admin session (`require_admin`); non-admins get
+`403`. There is **no create, update or delete API** for the trail — the router
+exposes only the read routes plus a CSV export — so neither an administrator nor
+a compromised request can rewrite or prune history through the application. The
+list endpoint returns a total count and supports offset paging plus actor,
+action, subject-type and time-range filters, so older entries stay discoverable
+instead of scrolling off a fixed newest-N window.
+
+**Retention & tamper-protection expectations.** Entries are retained
+indefinitely at the application layer; the app never prunes them. Their
+durability is therefore the operator's responsibility and inherits the
+guarantees of your PostgreSQL deployment and backup policy (see _Data at rest_).
+The application provides append-only semantics, **not** cryptographic
+tamper-evidence: anyone with direct database or disk access can still alter rows
+out-of-band. If you need stronger guarantees, periodically **export the trail to
+CSV** (**Admin → Audit → Export CSV**, which honours the active filters) and
+archive it to write-once / off-instance storage, and restrict direct database
+access accordingly.
+
 ## Export encryption
 
 Encryption is applied **only to exported `.treedb` files** — this is the one
