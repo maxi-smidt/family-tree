@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AdminAuditEntry,
@@ -23,9 +24,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ListPagination } from "@/components/view/list-view/ListPagination";
 import { formatDateTime } from "@/utils/dateUtils";
 
-const PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 50;
 const ACTIONS = ["create", "update", "delete"] as const;
 // Radix's Select forbids an empty-string item value, so "all" is the sentinel
 // for "no filter" and is mapped back to undefined before hitting the API.
@@ -53,7 +55,8 @@ export function AdminAuditPanel() {
 
   const [entries, setEntries] = useState<AdminAuditEntry[]>([]);
   const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [subjectTypes, setSubjectTypes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -79,7 +82,7 @@ export function AdminAuditPanel() {
 
   // Reset to the first page whenever the filters change.
   useEffect(() => {
-    setOffset(0);
+    setPage(0);
   }, [filters]);
 
   // Changing a filter while on a later page fires two loads in quick
@@ -91,14 +94,14 @@ export function AdminAuditPanel() {
     setLoading(true);
     setError(false);
     try {
-      const page = await AdminService.listAuditLog({
+      const result = await AdminService.listAuditLog({
         ...filters,
-        limit: PAGE_SIZE,
-        offset,
+        limit: pageSize,
+        offset: page * pageSize,
       });
       if (id !== requestId.current) return;
-      setEntries(page.items);
-      setTotal(page.total);
+      setEntries(result.items);
+      setTotal(result.total);
     } catch (err) {
       if (id !== requestId.current) return;
       console.error(err);
@@ -106,7 +109,7 @@ export function AdminAuditPanel() {
     } finally {
       if (id === requestId.current) setLoading(false);
     }
-  }, [filters, offset]);
+  }, [filters, page, pageSize]);
 
   useEffect(() => {
     void load();
@@ -145,17 +148,12 @@ export function AdminAuditPanel() {
     }
   };
 
-  const from = total === 0 ? 0 : offset + 1;
-  const to = Math.min(offset + PAGE_SIZE, total);
-  const canPrev = offset > 0;
-  const canNext = offset + PAGE_SIZE < total;
-
   return (
     <div className="space-y-3">
       <p className="text-sm text-muted-foreground">{t("hint")}</p>
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">
             {t("filters.actor")}
           </label>
@@ -163,15 +161,15 @@ export function AdminAuditPanel() {
             value={actor}
             onChange={(e) => setActor(e.target.value)}
             placeholder={t("filters.actor-placeholder")}
-            className="w-40"
+            className="h-8 w-40 text-xs"
           />
         </div>
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">
             {t("filters.action")}
           </label>
           <Select value={action} onValueChange={setAction}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="h-8 w-32 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -184,12 +182,12 @@ export function AdminAuditPanel() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">
             {t("filters.subject")}
           </label>
           <Select value={subjectType} onValueChange={setSubjectType}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="h-8 w-44 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -202,7 +200,7 @@ export function AdminAuditPanel() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">
             {t("filters.start")}
           </label>
@@ -210,10 +208,10 @@ export function AdminAuditPanel() {
             type="date"
             value={start}
             onChange={(e) => setStart(e.target.value)}
-            className="w-40"
+            className="h-8 w-36 text-xs"
           />
         </div>
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">
             {t("filters.end")}
           </label>
@@ -221,18 +219,25 @@ export function AdminAuditPanel() {
             type="date"
             value={end}
             onChange={(e) => setEnd(e.target.value)}
-            className="w-40"
+            className="h-8 w-36 text-xs"
           />
         </div>
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={clearFilters}>
-            {t("filters.clear")}
-          </Button>
-        )}
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-xs"
+              onClick={clearFilters}
+            >
+              <X className="h-3 w-3" />
+              {t("filters.clear")}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
+            className="h-8 text-xs"
             onClick={() => void handleExport()}
             disabled={exporting || total === 0}
           >
@@ -289,29 +294,16 @@ export function AdminAuditPanel() {
               </TableBody>
             </Table>
           </div>
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              {t("showing", { from, to, total })}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canPrev || loading}
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              >
-                {t("previous")}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!canNext || loading}
-                onClick={() => setOffset(offset + PAGE_SIZE)}
-              >
-                {t("next")}
-              </Button>
-            </div>
-          </div>
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+          />
         </>
       )}
     </div>

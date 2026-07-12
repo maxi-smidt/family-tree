@@ -1558,9 +1558,6 @@
         "clear": "Clear filters",
         "actor-placeholder": "Username…"
       },
-      "showing": "Showing {{from}}–{{to}} of {{total}}",
-      "previous": "Previous",
-      "next": "Next",
       "empty-filtered": "No audit entries match these filters.",
       "export": "Export CSV",
       "exporting": "Exporting…",

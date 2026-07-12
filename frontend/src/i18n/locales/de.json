@@ -1558,9 +1558,6 @@
         "clear": "Filter zurücksetzen",
         "actor-placeholder": "Benutzername …"
       },
-      "showing": "Zeige {{from}}–{{to}} von {{total}}",
-      "previous": "Zurück",
-      "next": "Weiter",
       "empty-filtered": "Keine Audit-Einträge entsprechen diesen Filtern.",
       "export": "CSV exportieren",
       "exporting": "Exportiere …",

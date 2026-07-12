@@ -47,7 +47,7 @@ describe("AdminAuditPanel", () => {
       expect.objectContaining({ limit: 50, offset: 0 }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
 
     await waitFor(() =>
       expect(AdminService.listAuditLog).toHaveBeenCalledWith(
