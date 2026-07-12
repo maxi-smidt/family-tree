@@ -415,6 +415,15 @@ def create_backup(
             filepath.unlink(missing_ok=True)
         record.status = "failed"
         record.error = str(exc)
+        record_admin_audit(
+            db,
+            actor=actor,
+            action="create",
+            subject_type="backup",
+            subject_id=record.id,
+            subject_label=None,
+            details={"trigger": trigger, "status": "failed", "error": str(exc)[:500]},
+        )
         db.commit()
     return record
 

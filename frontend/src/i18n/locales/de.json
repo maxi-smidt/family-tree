@@ -1542,7 +1542,29 @@
       "action": "Aktion",
       "subject": "Betreff",
       "details": "Details",
-      "unknown": "Unbekannt"
+      "unknown": "Unbekannt",
+      "actions": {
+        "create": "Erstellen",
+        "update": "Aktualisieren",
+        "delete": "Löschen"
+      },
+      "filters": {
+        "actor": "Akteur",
+        "action": "Aktion",
+        "subject": "Betrefftyp",
+        "start": "Von",
+        "end": "Bis",
+        "all": "Alle",
+        "clear": "Filter zurücksetzen",
+        "actor-placeholder": "Benutzername …"
+      },
+      "showing": "Zeige {{from}}–{{to}} von {{total}}",
+      "previous": "Zurück",
+      "next": "Weiter",
+      "empty-filtered": "Keine Audit-Einträge entsprechen diesen Filtern.",
+      "export": "CSV exportieren",
+      "exporting": "Exportiere …",
+      "export-error": "Audit-Protokoll konnte nicht exportiert werden."
     },
     "features": {
       "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",

@@ -403,6 +403,11 @@ def enable_totp(
         raise HTTPException(status_code=400, detail="Invalid code")
 
     user.totp_enabled = True
+    record_admin_audit(
+        db, actor=user, action="update", subject_type="two_factor",
+        subject_id=user.id, subject_label=user.username,
+        details={"enabled": True},
+    )
     db.commit()
     return TotpEnableResponse(totp_enabled=True)
 
@@ -430,4 +435,9 @@ def disable_totp(
     user.totp_enabled = False
     user.totp_secret = None
     user.totp_recovery_codes = None
+    record_admin_audit(
+        db, actor=user, action="update", subject_type="two_factor",
+        subject_id=user.id, subject_label=user.username,
+        details={"enabled": False},
+    )
     db.commit()

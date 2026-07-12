@@ -20,6 +20,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - The activity log now loads in pages with a page-size selector and a "showing X–Y of Z" summary, matching the list view. Actor, action, and type filters are applied server-side so paging and counts stay correct for large histories (#645).
 - An instance-wide, admin-visible audit trail for account, administrative,
   backup, virtual-view, and tree-deletion actions.
+- The admin audit trail now paginates with a total count and offset navigation,
+  adds actor / action / subject-type / time-range filters, and offers a
+  filter-aware CSV export, so older security and administrative events stay
+  discoverable instead of only the newest entries (#670).
 - Subtle horizontal ruled lines in the tree view background for vertical orientation — notebook-style, evenly spaced, and toggleable in the canvas controls (enabled by default).
 - Fast Mode: add a child directly to both parents from their union node (#595).
 - **Documents**: a reusable document bundles one or more files (or external links) with a title, date, notes, and the people it mentions, and appears on every mentioned person's profile. Events and stories can link documents directly — and create them inline — so a scan or record can be attached once and referenced from multiple places (#594).
@@ -83,6 +87,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - Hardened release boundaries by separating JWT purposes, using short-lived SSE tickets, throttling and revoking public-tree unlocks, canonicalizing stored-media paths, redacting anonymous member payloads, allowlisting external document link schemes, keeping export passwords out of URLs, generating tree IDs server-side, and rejecting placeholder production credentials.
 - **Upgrade note:** production startup now refuses to boot with a placeholder or shorter-than-32-character `SECRET_KEY`, and (for local-auth deployments) a missing, placeholder, or shorter-than-12-byte `FIRST_ADMIN_PASSWORD`. Deployments still running with weak values must set strong ones before upgrading, or the backend will exit on start. Authentik-only deployments no longer need a local admin password. This check runs only when `ENVIRONMENT=production` (which the provided compose stacks set automatically).
+- Credential and public-access changes are now audited consistently: two-factor enable/disable, a tree's public role and public password being set or cleared, and **failed** backups are recorded in the admin audit trail (previously only some of these were). Credentials themselves (passwords, tokens, TOTP secrets) are never written to the trail (#670).
 
 ## [1.6.0] - 2026-07-06
 

@@ -497,6 +497,14 @@ def set_public_access(
                 "after": {"public_role": tree.public_role},
             },
         )
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="tree_public_access",
+            subject_id=tree.id, subject_label=tree.name,
+            details={
+                "before": {"public_role": old_public_role},
+                "after": {"public_role": tree.public_role},
+            },
+        )
         logged = True
     db.commit()
     db.refresh(tree)
@@ -523,6 +531,11 @@ def set_public_password(
     password = payload.password or ""
     tree.public_password_hash = hash_password(password) if password else None
     tree.public_access_version += 1
+    record_admin_audit(
+        db, actor=user, action="update", subject_type="tree_public_access",
+        subject_id=tree.id, subject_label=tree.name,
+        details={"password_protected": bool(password)},
+    )
     db.commit()
     db.refresh(tree)
     return _tree_out(db, tree, user)

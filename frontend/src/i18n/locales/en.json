@@ -1542,7 +1542,29 @@
       "action": "Action",
       "subject": "Subject",
       "details": "Details",
-      "unknown": "Unknown"
+      "unknown": "Unknown",
+      "actions": {
+        "create": "Create",
+        "update": "Update",
+        "delete": "Delete"
+      },
+      "filters": {
+        "actor": "Actor",
+        "action": "Action",
+        "subject": "Subject type",
+        "start": "From",
+        "end": "To",
+        "all": "All",
+        "clear": "Clear filters",
+        "actor-placeholder": "Username…"
+      },
+      "showing": "Showing {{from}}–{{to}} of {{total}}",
+      "previous": "Previous",
+      "next": "Next",
+      "empty-filtered": "No audit entries match these filters.",
+      "export": "Export CSV",
+      "exporting": "Exporting…",
+      "export-error": "Could not export the audit trail."
     },
     "features": {
       "hint": "Enable or disable features for this instance at runtime. \"Beta\" enables a feature only for the selected users.",
