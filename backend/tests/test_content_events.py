@@ -113,7 +113,8 @@ def test_add_document_file_emits_content_changed(client, db, tree, headers):
     with patch("app.api.routes.documents.publish_tree_event") as m:
         res = client.post(
             f"{API}/trees/{tree.id}/documents/{document_id}/files",
-            json={"filename": "scan.txt", "data": _DOC},
+            data={"filename": "scan.txt"},
+            files={"file": ("scan.txt", b"hello", "text/plain")},
             headers=headers,
         )
         assert res.status_code == 201, res.text

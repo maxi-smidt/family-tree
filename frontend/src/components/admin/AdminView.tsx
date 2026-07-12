@@ -573,13 +573,13 @@ export const AdminView = () => {
                           id="max-document-upload"
                           type="number"
                           min={1}
-                          max={500}
+                          max={100}
                           value={settings.max_document_upload_mb}
                           onChange={(e) =>
                             setSettings({
                               ...settings,
                               max_document_upload_mb: Math.min(
-                                500,
+                                100,
                                 Math.max(1, Number(e.target.value)),
                               ),
                             })

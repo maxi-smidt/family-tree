@@ -27,6 +27,7 @@ const DOC_DB: DocumentDB = {
 };
 
 const INPUT = { title: "Birth Certificate", description: "", documentDate: "" };
+const FILE = new File(["pdf bytes"], "scan.pdf", { type: "application/pdf" });
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -118,7 +119,7 @@ describe("useDocumentStore — addDocument", () => {
 
     await useDocumentStore.getState().addDocument(INPUT, ["m1"], {
       addedFiles: [
-        { filename: "scan.pdf", dataUrl: "data:application/pdf;base64,AAA" },
+        { filename: "scan.pdf", file: FILE },
       ],
       addedLinks: [{ url: "https://example.com", label: "Record" }],
       removedIds: [],
@@ -128,8 +129,8 @@ describe("useDocumentStore — addDocument", () => {
     expect(TreeService.addDocumentFile).toHaveBeenCalledWith(
       TREE_ID,
       "d1",
+      FILE,
       "scan.pdf",
-      "data:application/pdf;base64,AAA",
     );
     expect(TreeService.addDocumentLink).toHaveBeenCalledWith(
       TREE_ID,
@@ -151,7 +152,7 @@ describe("useDocumentStore — addDocument", () => {
     await expect(
       useDocumentStore.getState().addDocument(INPUT, ["m1"], {
         addedFiles: [
-          { filename: "scan.pdf", dataUrl: "data:application/pdf;base64,AAA" },
+          { filename: "scan.pdf", file: FILE },
         ],
         addedLinks: [],
         removedIds: [],

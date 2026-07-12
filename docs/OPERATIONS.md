@@ -269,15 +269,15 @@ server {
     ssl_certificate     /etc/letsencrypt/live/family.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/family.example.com/privkey.pem;
 
-    # Uploads (photos and documents) are sent base64-encoded, so the request
-    # body is ~4/3 of the file size. Set this at least as high as the largest
-    # upload your admin settings allow (Settings → Media: max_document_upload_mb
-    # / max_image_upload_mb) times that overhead, or this proxy will reject large
-    # uploads with 413 before they reach the app — which can leave a document
-    # entry with no file attached. The bundled frontend container already allows
-    # up to 700m; size this to match the largest upload you permit (e.g. a 100 MB
-    # document limit → ~140m).
-    client_max_body_size 140m;
+    # Documents use multipart streaming. Keep this close to the app's maximum
+    # upload setting (100 MB maximum) so the proxy cannot buffer arbitrarily
+    # large bodies. The bundled frontend container uses 105m.
+    client_max_body_size 105m;
+
+    # Let slow but valid uploads finish. Choose values suitable for your
+    # expected connection speeds; do not make them unlimited.
+    client_body_timeout 10m;
+    proxy_read_timeout 10m;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -294,6 +294,14 @@ server {
     return 301 https://$host$request_uri;
 }
 ```
+
+The application accepts documents up to 100 MiB and streams them in 1 MiB
+chunks. Plan temporary-disk capacity for **at least 3× the configured document
+limit per concurrent upload**: one proxy request buffer, one FastAPI multipart
+spool, and the app's atomic destination temp file. Keep the proxy limit close
+to the application limit and choose finite body/read timeouts. A failed,
+cancelled, or checksum-mismatched upload is removed immediately; incomplete
+destination temp files are also removed when the backend starts.
 
 ### Traefik (labels on the frontend service)
 

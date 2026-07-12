@@ -8,11 +8,16 @@ relative URL (``/api/media/...``) that the browser can use directly in an
 
 import base64
 import binascii
+import hashlib
+import os
 import re
 import shutil
+import tempfile
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
+
+from fastapi import UploadFile
 
 from app.core.config import settings
 from app.schemas.setting import MediaLimits
@@ -80,6 +85,10 @@ class UnsupportedFileType(ValueError):
 
 class FileTooLarge(ValueError):
     """Raised when an attachment exceeds the configured document limit."""
+
+
+class ChecksumMismatch(ValueError):
+    """Raised when a supplied upload checksum does not match its bytes."""
 
 
 class UnsupportedImageType(ValueError):
@@ -159,48 +168,134 @@ def _safe_original_files(path: Path) -> list[Path]:
     return files
 
 
+_DOCUMENT_UPLOAD_CHUNK_SIZE = 1024 * 1024
+_DOCUMENT_UPLOAD_TEMP_PREFIX = ".document-upload-"
+_DOCUMENT_UPLOAD_TEMP_SUFFIX = ".tmp"
+
+
+def _document_type(filename: str, declared_mime: str | None) -> tuple[str, str]:
+    """Return the canonical extension and MIME for an allowed document upload."""
+    mime = (declared_mime or "").split(";", 1)[0].strip().lower()
+    name_ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+    if mime in _DOC_MIME_EXT:
+        return _DOC_MIME_EXT[mime], mime
+    if name_ext in _DOC_EXT_MIME:
+        return name_ext, _DOC_EXT_MIME[name_ext]
+    raise UnsupportedFileType("Unsupported file type")
+
+
+def _validate_checksum(checksum: str | None) -> str | None:
+    if checksum is None or checksum == "":
+        return None
+    value = checksum.lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise ValueError("Checksum must be a SHA-256 hexadecimal digest")
+    return value
+
+
 def store_document(
     tree_id: str,
     filename: str,
     data_url: str,
     limits: MediaLimits,
 ) -> tuple[str, str, int]:
-    """Persist an attachment from a base64 data URL, unmodified.
+    """Persist an attachment decoded from a trusted import/export data URL.
 
-    Validates the type against the allowlist (by declared MIME, falling back to
-    the user filename's extension) and the configured document size limit.
-    Returns ``(media_url, mime_type, size_bytes)``.
+    Browser uploads use :func:`store_document_upload`; this compatibility path
+    is only for portable backup imports, whose data URLs are already contained
+    in the import archive.
     """
     match = _DATA_URL_RE.match(data_url)
     if not match:
         raise ValueError("Invalid data URL")
-
-    mime = (match.group("mime") or "").lower()
     try:
-        raw = base64.b64decode(match.group("data"))
+        raw = base64.b64decode(match.group("data"), validate=True)
     except (binascii.Error, ValueError) as exc:
         raise ValueError("Invalid base64 file data") from exc
 
+    ext, mime = _document_type(filename, match.group("mime"))
     if len(raw) > limits.max_document_bytes:
         raise FileTooLarge(
             f"File exceeds the {limits.max_document_bytes // (1024 * 1024)} MB limit."
         )
-
-    name_ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    if mime in _DOC_MIME_EXT:
-        ext = _DOC_MIME_EXT[mime]
-    elif name_ext in _DOC_EXT_MIME:
-        ext = name_ext
-    else:
-        raise UnsupportedFileType("Unsupported file type")
-
-    # Normalize to a canonical MIME when the upload didn't declare a known one.
-    if mime not in _DOC_MIME_EXT:
-        mime = _DOC_EXT_MIME.get(ext, "application/octet-stream")
-
     stored_name = f"{uuid4().hex}.{ext}"
     (_tree_media_dir(tree_id) / stored_name).write_bytes(raw)
     return f"{MEDIA_URL_PREFIX}/{tree_id}/{stored_name}", mime, len(raw)
+
+
+async def store_document_upload(
+    tree_id: str,
+    filename: str,
+    upload: UploadFile,
+    limits: MediaLimits,
+    *,
+    checksum: str | None = None,
+) -> tuple[str, str, int]:
+    """Stream a multipart attachment to an atomic, filesystem-backed file.
+
+    Only one bounded chunk is held while copying the spooled multipart upload.
+    The optional SHA-256 checksum is calculated incrementally and verified at
+    the end. Any rejection or cancellation removes the temporary file.
+    """
+    ext, mime = _document_type(filename, upload.content_type)
+    expected_checksum = _validate_checksum(checksum)
+    stored_name = f"{uuid4().hex}.{ext}"
+    tree_dir = _tree_media_dir(tree_id)
+    temp_path: Path | None = None
+    digest = hashlib.sha256()
+    size = 0
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=_DOCUMENT_UPLOAD_TEMP_PREFIX,
+            suffix=_DOCUMENT_UPLOAD_TEMP_SUFFIX,
+            dir=tree_dir,
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+            while chunk := await upload.read(_DOCUMENT_UPLOAD_CHUNK_SIZE):
+                size += len(chunk)
+                if size > limits.max_document_bytes:
+                    raise FileTooLarge(
+                        "File exceeds the "
+                        f"{limits.max_document_bytes // (1024 * 1024)} MB limit."
+                    )
+                digest.update(chunk)
+                temp_file.write(chunk)
+
+        if expected_checksum is not None and digest.hexdigest() != expected_checksum:
+            raise ChecksumMismatch("Upload checksum does not match file data")
+
+        os.replace(temp_path, tree_dir / stored_name)
+        temp_path = None
+        return f"{MEDIA_URL_PREFIX}/{tree_id}/{stored_name}", mime, size
+    except BaseException:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
+def cleanup_document_upload_temps() -> None:
+    """Remove incomplete document-upload files left by an interrupted worker."""
+    root = settings.media_root
+    if not root.is_dir():
+        return
+    try:
+        tree_dirs = list(root.iterdir())
+    except OSError:
+        return
+    for tree_dir in tree_dirs:
+        if not tree_dir.is_dir():
+            continue
+        for temp_path in tree_dir.glob(
+            f"{_DOCUMENT_UPLOAD_TEMP_PREFIX}*{_DOCUMENT_UPLOAD_TEMP_SUFFIX}"
+        ):
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def delete_media(value: str | None) -> None:
@@ -383,7 +478,7 @@ def _normalize_image(
 
 # Document attachment types already cover the common image extensions; only
 # avif is image-gallery-specific. Reusing ``_DOC_EXT_MIME`` keeps exports
-# inlined with a MIME that ``store_document`` recognizes on re-import.
+# inlined with a MIME that the document import path recognizes on re-import.
 _EXT_MIME = {**_DOC_EXT_MIME, "avif": "image/avif"}
 
 

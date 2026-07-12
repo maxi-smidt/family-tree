@@ -6,7 +6,7 @@ import {
   FileSpreadsheet,
   FileText,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
@@ -46,15 +46,29 @@ export const FilePreview = ({
   filename,
   mimeType,
   src,
+  file,
 }: {
   filename: string;
   mimeType?: string | null;
-  src: string;
+  src?: string;
+  file?: File;
 }) => {
+  const [previewUrl, setPreviewUrl] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(undefined);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
   if (isImageAttachment({ filename, mimeType })) {
     return (
       <AuthenticatedImage
-        src={src}
+        src={src ?? previewUrl}
         alt={filename}
         className="w-9 h-9 rounded object-cover border shrink-0"
       />

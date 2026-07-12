@@ -171,11 +171,6 @@ class DocumentFileOut(BaseModel):
     created_at: str
 
 
-class DocumentFileCreate(BaseModel):
-    filename: str
-    data: str  # base64 data URL
-
-
 class DocumentLinkCreate(BaseModel):
     url: str = Field(max_length=2048)
     filename: str | None = None

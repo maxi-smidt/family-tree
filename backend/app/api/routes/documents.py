@@ -9,7 +9,7 @@ backward compatibility even though the feature is now called "Documents".
 from urllib.parse import urlsplit
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -34,7 +34,6 @@ from app.models import (
 from app.models.user import User
 from app.schemas.content import (
     DocumentCreate,
-    DocumentFileCreate,
     DocumentFileOut,
     DocumentFileUpdate,
     DocumentLinkCreate,
@@ -47,10 +46,11 @@ from app.services.content_links import replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
+    ChecksumMismatch,
     FileTooLarge,
     UnsupportedFileType,
     delete_media,
-    store_document,
+    store_document_upload,
 )
 from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
 
@@ -331,27 +331,34 @@ def set_document_members(
 
 
 @router.post("/{document_id}/files", response_model=DocumentFileOut, status_code=201)
-def add_file(
+async def add_file(
     document_id: str,
-    payload: DocumentFileCreate,
+    file: UploadFile = File(...),
+    filename: str = Form(...),
+    checksum: str | None = Form(default=None),
     tree: Tree = Depends(get_writable_tree),
     db: Session = Depends(get_db),
 ):
     document = _get_document(db, tree, document_id)
 
     try:
-        url, mime, size = store_document(
+        url, mime, size = await store_document_upload(
             tree.id,
-            payload.filename,
-            payload.data,
+            filename,
+            file,
             get_media_limits(db),
+            checksum=checksum,
         )
     except FileTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except UnsupportedFileType as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ChecksumMismatch as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        await file.close()
 
     # Write-then-verify: the file is already on disk and counted by
     # compute_usage, so pass 0 to avoid double-counting it.
@@ -366,7 +373,7 @@ def add_file(
         tree_id=tree.id,
         document_id=document.id,
         kind="file",
-        filename=payload.filename,
+        filename=filename,
         url=url,
         mime_type=mime,
         size=size,

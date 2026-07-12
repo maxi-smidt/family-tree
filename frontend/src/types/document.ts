@@ -57,10 +57,11 @@ export interface DocumentInput {
   documentDate: string;
 }
 
-/** A file the user picked but hasn't uploaded yet (base64 data URL). */
+/** A file the user picked but hasn't uploaded yet. Keeping the browser File
+ * reference avoids materialising a base64 copy in React state. */
 export interface NewDocumentFile {
   filename: string;
-  dataUrl: string;
+  file: File;
 }
 
 /** The file changes to apply when saving a document. Mirrors the old

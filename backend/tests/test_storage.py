@@ -1,6 +1,8 @@
 """Unit tests for process_image_field URL validation and image upload limits."""
 
+import asyncio
 import base64
+import hashlib
 import struct
 import zlib
 
@@ -21,6 +23,7 @@ from app.services.storage import (
     ImageTooLarge,
     InvalidImageURL,
     UnsupportedImageType,
+    cleanup_document_upload_temps,
     copy_media_to_tree,
     delete_media,
     media_disk_usage,
@@ -29,6 +32,7 @@ from app.services.storage import (
     process_image_field,
     store_data_url,
     store_document,
+    store_document_upload,
 )
 
 _TREE_ID = "tree-abc"
@@ -46,6 +50,24 @@ _PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
 )
 _DATA_URL = f"data:image/png;base64,{base64.b64encode(_PNG_BYTES).decode()}"
+
+
+class ChunkedUpload:
+    """Small UploadFile stand-in that yields bounded chunks cooperatively."""
+
+    def __init__(self, filename: str, content_type: str, data: bytes):
+        self.filename = filename
+        self.content_type = content_type
+        self._data = data
+        self._offset = 0
+
+    async def read(self, size: int) -> bytes:
+        await asyncio.sleep(0)
+        if self._offset >= len(self._data):
+            return b""
+        chunk = self._data[self._offset : self._offset + min(size, 65_536)]
+        self._offset += len(chunk)
+        return chunk
 
 
 def test_none_is_allowed():
@@ -320,3 +342,80 @@ def test_document_limit_uses_supplied_runtime_value(tmp_path, monkeypatch):
     data_url = _data_url("text/plain", b"four")
     with pytest.raises(FileTooLarge, match="File exceeds"):
         store_document(_TREE_ID, "notes.txt", data_url, limits)
+
+
+def test_streamed_documents_are_complete_under_concurrent_near_limit_uploads(
+    tmp_path, monkeypatch
+):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    payload_a = b"a" * (1024 * 1024 - 1)
+    payload_b = b"b" * (1024 * 1024 - 1)
+    limits = _LIMITS.model_copy(update={"max_document_bytes": 1024 * 1024})
+
+    async def upload_pair():
+        return await asyncio.gather(
+            store_document_upload(
+                _TREE_ID,
+                "first.txt",
+                ChunkedUpload("first.txt", "text/plain", payload_a),
+                limits,
+                checksum=hashlib.sha256(payload_a).hexdigest(),
+            ),
+            store_document_upload(
+                _TREE_ID,
+                "second.txt",
+                ChunkedUpload("second.txt", "text/plain", payload_b),
+                limits,
+                checksum=hashlib.sha256(payload_b).hexdigest(),
+            ),
+        )
+
+    uploads = asyncio.run(upload_pair())
+    stored = [
+        tmp_path / "media" / url.removeprefix(f"{MEDIA_URL_PREFIX}/")
+        for url, _, _ in uploads
+    ]
+    assert [path.read_bytes() for path in stored] == [payload_a, payload_b]
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".document-upload-*.tmp"))
+
+
+def test_streamed_document_rejects_bad_checksum_and_removes_temp_file(
+    tmp_path, monkeypatch
+):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    upload = ChunkedUpload("notes.txt", "text/plain", b"hello")
+
+    with pytest.raises(ValueError, match="checksum"):
+        asyncio.run(
+            store_document_upload(
+                _TREE_ID,
+                "notes.txt",
+                upload,
+                _LIMITS,
+                checksum="0" * 64,
+            )
+        )
+
+    tree_dir = tmp_path / "media" / _TREE_ID
+    assert not list(tree_dir.glob(".document-upload-*.tmp"))
+
+
+def test_startup_cleanup_removes_interrupted_document_uploads(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    tree_dir = tmp_path / "media" / _TREE_ID
+    tree_dir.mkdir(parents=True)
+    interrupted = tree_dir / ".document-upload-partial.tmp"
+    interrupted.write_bytes(b"partial")
+    retained = tree_dir / "record.txt"
+    retained.write_bytes(b"complete")
+
+    cleanup_document_upload_temps()
+
+    assert not interrupted.exists()
+    assert retained.read_bytes() == b"complete"

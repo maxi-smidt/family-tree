@@ -318,7 +318,8 @@ def test_document_round_trip_preserves_files_and_links(client, db):
     file_resp = client.post(
         f"{API}/trees/{tree.id}/documents/{document_id}/files",
         headers=headers,
-        json={"filename": "scan.txt", "data": "data:text/plain;base64,aGVsbG8="},
+        data={"filename": "scan.txt"},
+        files={"file": ("scan.txt", b"hello", "text/plain")},
     )
     assert file_resp.status_code == 201, file_resp.text
 

@@ -35,6 +35,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- **Documents**: file uploads now use bounded-memory multipart streaming instead
+  of base64 JSON. Interrupted, invalid, oversized, or checksum-mismatched
+  uploads clean up their temporary files; the configurable document cap is now
+  100 MB to keep concurrent upload disk use predictable (#666).
 - Renamed the member "Sources" section to **Documents** and reworked it from per-fact source citations into the simpler, reusable document model above; the "Documents & Stories" section is now just **Stories**. The admin `sources` feature flag is unchanged and now governs Documents. During the v1.7 upgrade, existing sources, citations, evidence files, and story attachments are migrated into Documents with their files, metadata, and member/story links preserved (#662).
 - Member entry sheet: core fields now autosave for existing members (with a subtle "Saving…/Saved" indicator) instead of requiring an explicit Save button, matching the records that already saved automatically. Creating a new member still uses an explicit "Create member" action. (#618)
 - **Documents**: linked documents on events and stories are now collapsed behind a compact paperclip indicator showing the count — click it to reveal the files, instead of always rendering the full list inline (#614).
