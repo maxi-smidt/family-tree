@@ -156,7 +156,7 @@
         "events": "Ereignisse",
         "map": "Karte",
         "stories": "Geschichten",
-        "sources": "Quellen",
+        "sources": "Dokumente",
         "diseases": "Krankheiten",
         "biography": "Biografie"
       },
@@ -315,8 +315,6 @@
       "toast-update-error": "Virtuelle Ansicht konnte nicht aktualisiert werden.",
       "error-no-overlap": "Diese Bäume haben keine gemeinsamen Mitglieder. Virtuelle Ansichten erfordern mindestens eine Person, die in den ausgewählten Bäumen vorkommt.",
       "views-label": "Oder andere virtuelle Ansichten einbeziehen",
-      "no-other-views": "Keine weiteren virtuellen Ansichten verfügbar.",
-      "virtual-badge": "virtuell",
       "error-cycle": "Eine virtuelle Ansicht kann sich nicht selbst enthalten – weder direkt noch über eine andere Ansicht."
     }
   },
@@ -411,7 +409,6 @@
     "mobile-management": {
       "manage": "Verwalten",
       "title": "Verwalten",
-      "selected-tree": "Ausgewählter Baum",
       "no-tree-selected": "Kein Baum ausgewählt",
       "group-sharing": "Freigabe",
       "group-data": "Daten",
@@ -539,7 +536,6 @@
         "unlink": "Verknüpfung entfernen",
         "create-and-link": "Neuen Stammbaum erstellen & verknüpfen",
         "new-tree-fallback-name": "Neuer Stammbaum",
-        "toast-created": "„{{name}}“ erstellt und verknüpft.",
         "toast-created-seeded": "„{{name}}“ erstellt und diese Person darin angelegt.",
         "create-requires-save": "Speichere zuerst deine Änderungen — beim Erstellen wird diese Person sofort im neuen Stammbaum angelegt.",
         "save-first-hint": "Speichere diese Person zuerst — zum Verknüpfen muss sie bereits existieren.",
@@ -577,7 +573,6 @@
       "error-firstname-required": "Vorname ist erforderlich.",
       "error-lastname-required": "Nachname ist erforderlich.",
       "firstname-placeholder": "z. B. Jana",
-      "maiden-placeholder": "Mädchenname",
       "academic-title-field": "Akademischer / Ehrentitel",
       "academic-title-placeholder": "z. B. Dr., Prof., Dipl.-Ing.",
       "tab-identity": "Identität",
@@ -627,7 +622,6 @@
       "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
       "detail-description": "Betrachte die Informationen über diese Person.",
-      "save": "Speichern",
       "saving": "Speichern…",
       "saved": "Gespeichert",
       "save-error": "Nicht gespeichert",
@@ -852,10 +846,6 @@
       "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise privat oder existiert nicht mehr."
     },
     "canvas-label": "Stammbaum-Leinwand",
-    "a11y": {
-      "node-desc": "Drücken Sie die Eingabetaste, um Personendetails anzuzeigen.",
-      "controls": "Leinwand-Steuerung"
-    },
     "search": {
       "placeholder": "Mitglieder suchen…",
       "no-results": "Keine Mitglieder gefunden",
@@ -1168,7 +1158,6 @@
   },
   "quality-report-view": {
     "title": "Datenqualität",
-    "refresh": "Aktualisieren",
     "loading": "Prüfungen laufen…",
     "no-issues": "Keine Probleme gefunden",
     "no-issues-description": "Die Familienbaumdaten sehen konsistent aus.",
@@ -1440,11 +1429,8 @@
     },
     "user-menu": {
       "change-password": "Passwort ändern",
-      "customize-tabs": "Tabs anpassen",
       "admin": "Verwaltung",
-      "delete-account": "Konto löschen",
       "logout": "Abmelden",
-      "two-factor": "Zwei-Faktor-Authentifizierung",
       "settings": "Einstellungen",
       "show-tutorial": "Tutorial anzeigen"
     },
@@ -1537,7 +1523,6 @@
   },
   "admin": {
     "title": "Verwaltung",
-    "description": "Benutzer und Instanzeinstellungen verwalten.",
     "back": "Zurück",
     "users-tab": "Benutzer",
     "settings-tab": "Einstellungen",
@@ -1557,12 +1542,7 @@
       "action": "Aktion",
       "subject": "Betreff",
       "details": "Details",
-      "unknown": "Unbekannt",
-      "actions": {
-        "create": "Erstellt",
-        "update": "Aktualisiert",
-        "delete": "Gelöscht"
-      }
+      "unknown": "Unbekannt"
     },
     "features": {
       "hint": "Funktionen dieser Instanz zur Laufzeit aktivieren oder deaktivieren. \"Beta\" aktiviert eine Funktion nur für die ausgewählten Benutzer.",
@@ -1629,11 +1609,9 @@
     "max-image-upload": "Bildgröße (MB)",
     "max-document-upload": "Anhangsgröße (MB)",
     "max-image-dimension": "Bildkante (px)",
-    "image-storage-mode": "Galeriebilder-Speicherung",
     "image-storage-mode-compressed": "Komprimiert (WebP)",
     "image-storage-mode-original": "Nur Original",
     "image-storage-mode-both": "Beides (Anzeige + Original)",
-    "image-storage-mode-hint": "Legt fest, wie Galeriebilder gespeichert werden. „Original“ und „Beides“ laden die volle Auflösung hoch – erhöhe das Bildgrößenlimit entsprechend.",
     "image-storage-mode-allowed": "Erlaubte Speichermodi",
     "image-storage-mode-allowed-hint": "Wähle, welche Speichermodi Benutzer auswählen dürfen.",
     "image-storage-mode-default": "Standardmodus",
@@ -1703,7 +1681,6 @@
       "error": "Beziehungstypen konnten nicht aktualisiert werden."
     },
     "backups": {
-      "title": "Backup-Verwaltung",
       "back-up-now": "Jetzt sichern",
       "last-backup": "Letztes Backup: {{date}}",
       "never": "Nie",
@@ -1714,7 +1691,6 @@
       "col-trigger": "Typ",
       "col-status": "Status",
       "col-size": "Größe",
-      "col-actions": "Aktionen",
       "trigger-manual": "Manuell",
       "trigger-scheduled": "Geplant",
       "status-running": "Läuft",
@@ -1804,11 +1780,6 @@
   "public-tree": {
     "read-only-hint": "Nur-Lese-Ansicht — melde dich an, um den interaktiven Stammbaum zu erkunden.",
     "login-button": "Anmelden",
-    "member-count_one": "{{count}} Person",
-    "member-count_other": "{{count}} Personen",
-    "unnamed": "(unbekannt)",
-    "gender-male": "Männlich",
-    "gender-female": "Weiblich",
     "not-public": "Dieser Stammbaum ist privat oder der Link ist nicht mehr gültig.",
     "error": "Dieser Stammbaum konnte nicht geladen werden.",
     "password": {
@@ -1883,7 +1854,6 @@
     "used-of": "{{used}} / {{quota}}",
     "unlimited": "unbegrenzt",
     "error": "Speichernutzung konnte nicht geladen werden.",
-    "quota-label": "Kontingent",
     "toast-error-quota-media": "Medienspeicher-Kontingent überschritten.",
     "toast-error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
     "quota-warning": "Der Medienspeicher dieses Besitzers ist fast voll."
@@ -1903,23 +1873,16 @@
       "both": "Beides (Anzeige + Original)"
     },
     "tabs": {
-      "section": "Tab-Layout",
-      "hint": "Wähle, welche Ansichten sichtbar sind, und ordne die Tabs im Hauptbereich neu an.",
-      "button": "Tabs anpassen"
+      "section": "Tab-Layout"
     },
     "two-factor": {
-      "section": "Zwei-Faktor-Authentifizierung",
-      "status-enabled": "Die Zwei-Faktor-Authentifizierung ist derzeit auf deinem Konto aktiv.",
-      "status-disabled": "Die Zwei-Faktor-Authentifizierung ist derzeit deaktiviert.",
-      "button": "2FA verwalten"
+      "section": "Zwei-Faktor-Authentifizierung"
     },
     "changelog": {
       "section": "Neuigkeiten"
     },
     "delete-account": {
-      "section": "Konto löschen",
-      "hint": "Entfernt dein Konto und alle zugehörigen Daten dauerhaft. Diese Aktion kann nicht rückgängig gemacht werden.",
-      "button": "Mein Konto löschen"
+      "section": "Konto löschen"
     }
   },
   "tutorial": {
