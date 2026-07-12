@@ -28,7 +28,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
-- Renamed the member "Sources" section to **Documents** and reworked it from per-fact source citations into the simpler, reusable document model above; the "Documents & Stories" section is now just **Stories**. The admin `sources` feature flag is unchanged and now governs Documents.
+- Renamed the member "Sources" section to **Documents** and reworked it from per-fact source citations into the simpler, reusable document model above; the "Documents & Stories" section is now just **Stories**. The admin `sources` feature flag is unchanged and now governs Documents. Existing sources, citations, evidence files, and story attachments are **migrated into Documents on upgrade** — their files, metadata, and member/story links are preserved, not dropped (#662).
 - Member entry sheet: core fields now autosave for existing members (with a subtle "Saving…/Saved" indicator) instead of requiring an explicit Save button, matching the records that already saved automatically. Creating a new member still uses an explicit "Create member" action. (#618)
 - **Documents**: linked documents on events and stories are now collapsed behind a compact paperclip indicator showing the count — click it to reveal the files, instead of always rendering the full list inline (#614).
 - Member stories are now collapsed by default across the member sheet and detail views, showing just the title with a chevron to reveal the full text and any linked documents on demand (#636).
@@ -37,6 +37,19 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Upgrading to the Documents model no longer discards existing genealogical
+  data: the database migration now maps the old Sources, Citations, Evidence,
+  and story attachments into Documents and their link tables — preserving ids,
+  metadata, citation detail, filenames, MIME types, sizes, timestamps, and the
+  on-disk file bytes — and validates that every legacy row was carried over
+  before dropping the old tables, rolling the whole upgrade back on any mismatch
+  so no data is lost. Previously the migration dropped that data outright (#662).
+- Importing a `.treedb` backup created before v1.7 no longer silently loses its
+  source citations and story attachments. The export bundle version is now `3`,
+  and a migration step maps a pre-1.7 bundle's sources/citations/evidence/
+  attachments into Documents on import. A test also guards against changing the
+  bundle's schema without bumping its version, so this class of silent data loss
+  can't recur (#661).
 - Editing a member's birth or death date now keeps the vital event's linked
   documents, location, and description instead of silently clearing them
   (#659).
