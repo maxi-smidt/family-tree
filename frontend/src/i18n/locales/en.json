@@ -226,9 +226,9 @@
           "update": "Update password",
           "remove": "Remove password",
           "protected": "Password protected",
-          "requirements": "Use at least 8 characters and at most 72 UTF-8 bytes.",
+          "requirements": "Use 8 to 72 characters.",
           "too-short": "Use at least 8 characters.",
-          "too-long": "Use at most 72 UTF-8 bytes.",
+          "too-long": "Use no more than 72 characters.",
           "saved": "Public password saved.",
           "removed": "Public password removed.",
           "error": "Could not update the public password."

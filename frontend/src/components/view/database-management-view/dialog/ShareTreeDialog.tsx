@@ -1049,6 +1049,7 @@ export const ShareTreeDialog = ({
                       value={publicPasswordInput}
                       onChange={(e) => setPublicPasswordInput(e.target.value)}
                       minLength={8}
+                      maxLength={72}
                       aria-invalid={Boolean(publicPasswordError)}
                       aria-describedby={
                         publicPasswordError

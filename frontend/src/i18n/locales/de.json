@@ -226,9 +226,9 @@
           "update": "Passwort aktualisieren",
           "remove": "Passwort entfernen",
           "protected": "Passwortgeschützt",
-          "requirements": "Mindestens 8 Zeichen und höchstens 72 UTF-8-Bytes verwenden.",
+          "requirements": "Verwende 8 bis 72 Zeichen.",
           "too-short": "Mindestens 8 Zeichen verwenden.",
-          "too-long": "Höchstens 72 UTF-8-Bytes verwenden.",
+          "too-long": "Verwende höchstens 72 Zeichen.",
           "saved": "Öffentliches Passwort gespeichert.",
           "removed": "Öffentliches Passwort entfernt.",
           "error": "Öffentliches Passwort konnte nicht aktualisiert werden."
