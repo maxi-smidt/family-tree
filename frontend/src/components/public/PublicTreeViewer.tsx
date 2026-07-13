@@ -7,8 +7,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { api, ApiError, setPublicTreeToken } from "@/services/api";
-import { Tree } from "@/types/tree";
+import { ApiError } from "@/services/api";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,6 @@ import { ThemeToggle } from "@/components/shared/ThemeToggle";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
-import { TreeSharingService } from "@/services/TreeSharingService";
 
 // Lazy so the tree-view bundle stays code-split (shared with the authenticated
 // app's lazy import) rather than being pulled into the main entry chunk.
@@ -48,6 +46,9 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
   const [password, setPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState(false);
+  const openTreeById = useTreeStore((s) => s.openTreeById);
+  const unlockPublicTree = useTreeStore((s) => s.unlockPublicTree);
+  const disconnectPublicTree = useTreeStore((s) => s.disconnectPublicTree);
   // Guards against setState after unmount / a treeId change mid-flight;
   // load() is also invoked directly on unlock (outside the mount effect), so
   // a plain effect-scoped `cancelled` closure variable isn't enough here.
@@ -55,13 +56,11 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
 
   const load = useCallback(async () => {
     try {
-      // Probe access (anonymous succeeds only for public trees) and grab the
-      // name before booting the canvas stores.
-      const tree = await api.get<Tree>(`/trees/${treeId}`);
+      // Probe access (anonymous succeeds only for public trees) and boot the
+      // domain store. The store owns request scoping and tree initialization.
+      const tree = await openTreeById(treeId);
       if (cancelledRef.current) return;
       setTreeName(tree.name);
-      await useTreeStore.getState().selectTree({ id: tree.id, name: tree.name });
-      if (cancelledRef.current) return;
       setState("loaded");
     } catch (err: unknown) {
       if (cancelledRef.current) return;
@@ -76,7 +75,7 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
       const status = (err as { status?: number })?.status;
       setState(status === 401 || status === 403 ? "not-public" : "error");
     }
-  }, [treeId]);
+  }, [treeId, openTreeById]);
 
   useEffect(() => {
     cancelledRef.current = false;
@@ -84,27 +83,28 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
     return () => {
       cancelledRef.current = true;
       // Tear the loaded tree back down so a subsequent login starts clean.
-      void useTreeStore.getState().disconnect();
-      // Drop the unlock token — a fresh visit should re-prompt.
-      setPublicTreeToken(null);
+      void disconnectPublicTree();
     };
-  }, [treeId, load]);
+  }, [treeId, load, disconnectPublicTree]);
 
   const handleUnlock = async () => {
     setUnlocking(true);
     setUnlockError(false);
     try {
-      const res = await TreeSharingService.unlockPublicTree(treeId, password);
-      setPublicTreeToken(res.token);
-      await load();
+      const tree = await unlockPublicTree(treeId, password);
+      if (!cancelledRef.current) {
+        setTreeName(tree.name);
+        setState("loaded");
+      }
     } catch (err) {
+      if (cancelledRef.current) return;
       if (err instanceof ApiError && err.status === 401) {
         setUnlockError(true);
       } else {
         setState("error");
       }
     } finally {
-      setUnlocking(false);
+      if (!cancelledRef.current) setUnlocking(false);
     }
   };
 

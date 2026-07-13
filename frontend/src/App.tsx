@@ -5,7 +5,6 @@ import { resetAnnouncementStoreForSession } from "@/hooks/useAnnouncementStore";
 import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
 import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
-import { api } from "@/services/api";
 import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -21,7 +20,6 @@ import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Tree } from "@/types/tree";
 
 export const App = () => {
   const status = useAuthStore((s) => s.status);
@@ -30,6 +28,7 @@ export const App = () => {
   const userId = user?.id;
   const pendingPublicTreeId = useAuthStore((s) => s.pendingPublicTreeId);
   const loadTrees = useTreeStore((s) => s.loadTrees);
+  const openTreeById = useTreeStore((s) => s.openTreeById);
   const [treesBootstrapped, setTreesBootstrapped] = useState(false);
   const [publicTreeFallback, setPublicTreeFallback] = useState(false);
   const adminOpen = useAdminViewStore((s) => s.open);
@@ -77,8 +76,7 @@ export const App = () => {
         const { pendingPublicTreeId: targetTreeId } = useAuthStore.getState();
         if (targetTreeId) {
           try {
-            const tree = await api.get<Tree>(`/trees/${targetTreeId}`);
-            await useTreeStore.getState().selectTree(tree);
+            await openTreeById(targetTreeId);
             useAuthStore.setState({ pendingPublicTreeId: null });
             return;
           } catch {
@@ -106,7 +104,7 @@ export const App = () => {
       cancelled = true;
       stopRealtime();
     };
-  }, [status, userId, loadTrees]);
+  }, [status, userId, loadTrees, openTreeById]);
 
   // The Toaster lives at the root so toasts are visible in every auth state —
   // including the login screen, which renders outside the authenticated Layout.

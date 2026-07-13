@@ -172,7 +172,10 @@ export const AdminService = {
   },
 
   async exportAuditLog(filters: AdminAuditFilters = {}): Promise<Blob> {
-    const response = await api.getRaw("/admin/audit-log/export", auditParams(filters));
+    const response = await api.getRaw(
+      "/admin/audit-log/export",
+      auditParams(filters),
+    );
     return response.blob();
   },
 
@@ -182,6 +185,11 @@ export const AdminService = {
 
   triggerBackup(): Promise<BackupRecord> {
     return api.post<BackupRecord>("/admin/backups");
+  },
+
+  async downloadBackup(id: string): Promise<Blob> {
+    const response = await api.getRaw(`/admin/backups/${id}/download`);
+    return response.blob();
   },
 
   deleteBackup(id: string): Promise<void> {
