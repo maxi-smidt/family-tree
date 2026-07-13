@@ -38,6 +38,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- The in-app "What's New" notice is now a simple per-user version check: each
+  version opens the notice once, and its changelog link opens Settings directly
+  on the changelog view (#705).
+
 - The initial page load is now much lighter: the graph, map, chart and Markdown
   libraries are code-split and fetched only when their view is first opened, so
   the login screen and public trees no longer download them. The shared vendor

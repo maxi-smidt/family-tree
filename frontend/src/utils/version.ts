@@ -1,5 +1,5 @@
 /**
- * Version comparison utilities for the release announcement popup.
+ * Version comparison utilities for changelog display.
  *
  * Versions are expected in semver-ish form: optional leading "v", dot-separated
  * numeric segments (e.g. "1.2.3" or "v2.0.0"). Non-numeric, empty, "dev", or
@@ -44,19 +44,4 @@ export function compareVersions(a: string, b: string): number {
     if (diff !== 0) return diff;
   }
   return 0;
-}
-
-/**
- * Returns true when `candidate` is a valid version string and is strictly
- * newer than `baseline`.
- *
- * `baseline === null` means "never acknowledged" — any valid version is newer.
- */
-export function isNewerVersion(
-  candidate: string,
-  baseline: string | null,
-): boolean {
-  if (!parseVersion(candidate)) return false;
-  if (baseline === null) return true;
-  return compareVersions(candidate, baseline) > 0;
 }

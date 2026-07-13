@@ -5,7 +5,7 @@ import { ReactNode } from "react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import { TutorialTour } from "@/components/tutorial/TutorialTour";
-import { AnnouncementDialog } from "@/components/announcement/AnnouncementDialog";
+import { WhatsNewAnnouncementDialog } from "@/components/changelog/WhatsNewAnnouncementDialog";
 import { LegalGateDialog } from "@/components/legal/LegalGateDialog";
 
 export const Layout = ({ children }: { children: ReactNode }) => {
@@ -26,7 +26,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           {children}
         </main>
         <TutorialTour />
-        <AnnouncementDialog />
+        <WhatsNewAnnouncementDialog />
         <LegalGateDialog />
       </SidebarProvider>
     </TooltipProvider>

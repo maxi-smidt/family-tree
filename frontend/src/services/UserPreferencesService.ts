@@ -14,11 +14,8 @@ export interface TutorialState {
   completed: boolean;
 }
 
-export interface Announcement {
-  title: string;
-  body: string;
-  version: string;
-  acknowledged_version: string | null;
+export interface WhatsNewState {
+  last_read_version: string | null;
 }
 
 const BASE = "/users/me/preferences";
@@ -52,16 +49,11 @@ export const UserPreferencesService = {
     return api.put<TutorialState>(`${BASE}/tutorial`, { completed });
   },
 
-  getAnnouncement(): Promise<Announcement> {
-    return api.get<Announcement>(`${BASE}/announcement/current`);
+  getWhatsNewState(): Promise<WhatsNewState> {
+    return api.get<WhatsNewState>(`${BASE}/whats-new`);
   },
 
-  acknowledgeAnnouncement(
-    version: string,
-  ): Promise<{ acknowledged_version: string | null }> {
-    return api.put<{ acknowledged_version: string | null }>(
-      `${BASE}/announcement`,
-      { acknowledged_version: version },
-    );
+  markWhatsNewAsRead(): Promise<WhatsNewState> {
+    return api.put<WhatsNewState>(`${BASE}/whats-new`);
   },
 };
