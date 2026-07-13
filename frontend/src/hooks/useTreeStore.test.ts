@@ -228,6 +228,60 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(useTreeStore.getState().isReady).toBe(true);
   });
 
+  it("resolves a tree id through the store before selecting it", async () => {
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_A.id, TREE_A);
+
+    await expect(
+      useTreeStore.getState().openTreeById(TREE_A.id),
+    ).resolves.toEqual(TREE_A);
+
+    expect(api.get).toHaveBeenCalledWith(`/trees/${TREE_A.id}`);
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+  });
+
+  it("does not select a slower tree-link response after a newer request", async () => {
+    mockEmptySubStores();
+    let resolveTreeA: (tree: Tree) => void = () => undefined;
+    const treeAResponse = new Promise<Tree>((resolve) => {
+      resolveTreeA = resolve;
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) return treeAResponse;
+      if (path === `/trees/${TREE_B.id}`) return Promise.resolve(TREE_B);
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
+    const slowOpen = useTreeStore.getState().openTreeById(TREE_A.id);
+    await useTreeStore.getState().openTreeById(TREE_B.id);
+    resolveTreeA(TREE_A);
+    await slowOpen;
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
+  });
+
+  it("continues a public tree link started during session reset", async () => {
+    mockEmptySubStores();
+    let resolveTree: (tree: Tree) => void = () => undefined;
+    const treeResponse = new Promise<Tree>((resolve) => {
+      resolveTree = resolve;
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) return treeResponse;
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
+    const opening = useTreeStore.getState().openTreeById(TREE_A.id);
+    resetTreeStoreForSession();
+    resolveTree(TREE_A);
+    await opening;
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
   it("invalidates every content store when switching trees", async () => {
     mockEmptySubStores();
     mockApiGetForConnect(TREE_B.id, TREE_B);

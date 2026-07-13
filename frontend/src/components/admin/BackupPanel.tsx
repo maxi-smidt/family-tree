@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -12,18 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { FieldLabel } from "@/components/ui/field";
-import {
-  AdminService,
-  AdminSettings,
-  BackupRecord,
-} from "@/services/AdminService";
-import { api } from "@/services/api";
+import type { AdminSettings, BackupRecord } from "@/services/AdminService";
 import { formatDateTime } from "@/utils/dateUtils";
 import { formatFileSize } from "@/utils/attachmentUtils";
 import { toast } from "sonner";
 import { Download, Loader2, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
+import { useAdminBackupStore } from "@/hooks/useAdminBackupStore";
 
 type Props = {
   settings: AdminSettings | null;
@@ -37,45 +33,36 @@ export const BackupPanel = ({
   onSaveSettings,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "admin.backups" });
-  const [backups, setBackups] = useState<BackupRecord[]>([]);
-  const [triggering, setTriggering] = useState(false);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const backupTick = useAdminViewStore((s) => s.backupTick);
-
-  const loadBackups = useCallback(async () => {
-    try {
-      setBackups(await AdminService.listBackups());
-    } catch (err) {
-      console.error(err);
-    }
-  }, []);
+  const backups = useAdminBackupStore((s) => s.backups);
+  const triggering = useAdminBackupStore((s) => s.triggering);
+  const downloadingId = useAdminBackupStore((s) => s.downloadingId);
+  const loadBackups = useAdminBackupStore((s) => s.loadBackups);
+  const triggerBackup = useAdminBackupStore((s) => s.triggerBackup);
+  const deleteBackup = useAdminBackupStore((s) => s.deleteBackup);
+  const downloadBackup = useAdminBackupStore((s) => s.downloadBackup);
 
   useEffect(() => {
-    void loadBackups();
+    void loadBackups().catch((err: unknown) => console.error(err));
   }, [loadBackups, backupTick]);
 
   const handleBackupNow = async () => {
-    setTriggering(true);
     try {
-      const backup = await AdminService.triggerBackup();
+      const backup = await triggerBackup();
       if (backup.status !== "success") {
         throw new Error(backup.error || "Backup verification failed");
       }
       toast.success(t("created"));
-      await loadBackups();
     } catch (err) {
       console.error(err);
       toast.error(t("create-error"));
-    } finally {
-      setTriggering(false);
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      await AdminService.deleteBackup(id);
+      await deleteBackup(id);
       toast.success(t("deleted"));
-      await loadBackups();
     } catch (err) {
       console.error(err);
       toast.error(t("delete-error"));
@@ -84,10 +71,8 @@ export const BackupPanel = ({
 
   const handleDownload = async (record: BackupRecord) => {
     if (!record.filename) return;
-    setDownloadingId(record.id);
     try {
-      const response = await api.getRaw(`/admin/backups/${record.id}/download`);
-      const blob = await response.blob();
+      const blob = await downloadBackup(record.id);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -97,8 +82,6 @@ export const BackupPanel = ({
     } catch (err) {
       console.error(err);
       toast.error(t("delete-error"));
-    } finally {
-      setDownloadingId(null);
     }
   };
 
