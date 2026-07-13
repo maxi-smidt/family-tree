@@ -22,6 +22,11 @@ export function setPublicTreeToken(token: string | null) {
   publicTreeToken = token;
 }
 
+/** The in-memory password-unlock token used for public-tree requests. */
+export function getPublicTreeToken(): string | null {
+  return publicTreeToken;
+}
+
 export function setAuthToken(token: string | null) {
   authToken = token;
   if (token) {

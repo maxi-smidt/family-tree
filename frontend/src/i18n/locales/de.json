@@ -212,10 +212,10 @@
       "public": {
         "title": "Öffentlicher Lesezugriff",
         "hint": "Jeder mit dem Link kann diesen Stammbaum lesen (nur Ansicht). Kein Konto erforderlich.",
-        "enable": "Öffentlich machen",
         "disable": "Privat machen",
-        "confirm-enable-title": "Stammbaum öffentlich machen?",
-        "confirm-enable-description": "Jeder mit dem Link kann diesen Stammbaum ohne Anmeldung einsehen.",
+        "confirm-enable-title": "Diesen Stammbaum öffentlich teilen?",
+        "confirm-enable-description": "Jeder mit diesem Link kann Namen, Profilbilder, Geschlecht, Geburts- und Sterbedaten sowie Familienbeziehungen ohne Konto ansehen.",
+        "confirm-enable-action": "Ich verstehe — öffentlich machen",
         "confirm-disable-title": "Stammbaum privat machen?",
         "confirm-disable-description": "Der öffentliche Link funktioniert dann nicht mehr. Bestehende Mitglieder behalten ihren Zugang.",
         "error": "Öffentlicher Zugang konnte nicht aktualisiert werden.",
@@ -226,6 +226,9 @@
           "update": "Passwort aktualisieren",
           "remove": "Passwort entfernen",
           "protected": "Passwortgeschützt",
+          "requirements": "Verwende 8 bis 72 Zeichen.",
+          "too-short": "Mindestens 8 Zeichen verwenden.",
+          "too-long": "Verwende höchstens 72 Zeichen.",
           "saved": "Öffentliches Passwort gespeichert.",
           "removed": "Öffentliches Passwort entfernt.",
           "error": "Öffentliches Passwort konnte nicht aktualisiert werden."

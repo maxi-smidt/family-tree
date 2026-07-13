@@ -5,6 +5,7 @@ import { resetAnnouncementStoreForSession } from "@/hooks/useAnnouncementStore";
 import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
 import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
+import { api } from "@/services/api";
 import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -20,6 +21,7 @@ import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Tree } from "@/types/tree";
 
 export const App = () => {
   const status = useAuthStore((s) => s.status);
@@ -29,6 +31,7 @@ export const App = () => {
   const pendingPublicTreeId = useAuthStore((s) => s.pendingPublicTreeId);
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const [treesBootstrapped, setTreesBootstrapped] = useState(false);
+  const [publicTreeFallback, setPublicTreeFallback] = useState(false);
   const adminOpen = useAdminViewStore((s) => s.open);
   const settingsOpen = useUserSettingsViewStore((s) => s.open);
 
@@ -39,6 +42,7 @@ export const App = () => {
   useEffect(() => {
     if (status !== "authenticated" || !userId) {
       setTreesBootstrapped(false);
+      setPublicTreeFallback(false);
       resetAnnouncementStoreForSession();
       resetLegalStoreForSession();
       resetTreeStoreForSession();
@@ -49,6 +53,7 @@ export const App = () => {
 
     let cancelled = false;
     setTreesBootstrapped(false);
+    setPublicTreeFallback(false);
     resetAnnouncementStoreForSession();
     resetLegalStoreForSession();
     resetTreeStoreForSession();
@@ -63,6 +68,25 @@ export const App = () => {
 
         await loadTrees();
         startRealtime();
+
+        // Public links are also useful to signed-in visitors. Resolve the
+        // linked tree directly because public trees outside the user's own
+        // membership list are intentionally absent from GET /trees. A
+        // password-protected or otherwise inaccessible target falls back to
+        // the public viewer so it can request the public password.
+        const { pendingPublicTreeId: targetTreeId } = useAuthStore.getState();
+        if (targetTreeId) {
+          try {
+            const tree = await api.get<Tree>(`/trees/${targetTreeId}`);
+            await useTreeStore.getState().selectTree(tree);
+            useAuthStore.setState({ pendingPublicTreeId: null });
+            return;
+          } catch {
+            if (!cancelled) setPublicTreeFallback(true);
+            return;
+          }
+        }
+
         // Re-open the most recently used tree (or virtual view). The API
         // returns both lists sorted by `last_opened`, newest first.
         const { selectedTree, trees, virtualViews, selectTree } =
@@ -116,6 +140,10 @@ export const App = () => {
           <Spinner className="size-8" />
         </div>
       );
+    }
+
+    if (pendingPublicTreeId && publicTreeFallback) {
+      return <PublicTreeViewer treeId={pendingPublicTreeId} />;
     }
 
     return (

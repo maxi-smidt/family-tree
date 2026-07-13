@@ -72,6 +72,51 @@ def test_unauthenticated_is_denied(client, db, media_file):
     assert resp.status_code == 401
 
 
+def test_public_tree_media_is_readable_without_auth(client, db, media_file):
+    tree_id, filename = media_file
+    owner = make_user(db, "public-owner")
+    tree = make_tree(db, owner, tree_id=tree_id)
+    client.patch(
+        f"{API}/trees/{tree.id}/public",
+        json={"public_role": "viewer"},
+        headers=auth(owner),
+    )
+
+    resp = client.get(f"{API}/media/{tree_id}/{filename}")
+    assert resp.status_code == 200
+    assert resp.content == b"fake-image-data"
+
+
+def test_password_protected_public_media_requires_unlock_token(client, db, media_file):
+    tree_id, filename = media_file
+    owner = make_user(db, "protected-public-owner")
+    tree = make_tree(db, owner, tree_id=tree_id)
+    headers = auth(owner)
+    client.patch(
+        f"{API}/trees/{tree.id}/public",
+        json={"public_role": "viewer"},
+        headers=headers,
+    )
+    client.put(
+        f"{API}/trees/{tree.id}/public/password",
+        json={"password": "public-password"},
+        headers=headers,
+    )
+
+    denied = client.get(f"{API}/media/{tree_id}/{filename}")
+    assert denied.status_code == 401
+
+    token = client.post(
+        f"{API}/trees/{tree.id}/public/unlock",
+        json={"password": "public-password"},
+    ).json()["token"]
+    allowed = client.get(
+        f"{API}/media/{tree_id}/{filename}",
+        headers={"X-Public-Tree-Token": token},
+    )
+    assert allowed.status_code == 200
+
+
 def test_missing_file_returns_404(client, db, media_file):
     tree_id, _ = media_file
     owner = make_user(db, "owner")

@@ -212,10 +212,10 @@
       "public": {
         "title": "Public read-only access",
         "hint": "Anyone with the link can view this tree (read-only). No account required.",
-        "enable": "Make public",
         "disable": "Make private",
-        "confirm-enable-title": "Make tree public?",
-        "confirm-enable-description": "Anyone with the link will be able to view this tree without logging in.",
+        "confirm-enable-title": "Share this tree publicly?",
+        "confirm-enable-description": "Anyone with this link can view names, profile photos, gender, birth and death dates, and family relationships without an account.",
+        "confirm-enable-action": "I understand — make public",
         "confirm-disable-title": "Make tree private?",
         "confirm-disable-description": "The public link will stop working. Existing members keep their access.",
         "error": "Could not update public access.",
@@ -226,6 +226,9 @@
           "update": "Update password",
           "remove": "Remove password",
           "protected": "Password protected",
+          "requirements": "Use 8 to 72 characters.",
+          "too-short": "Use at least 8 characters.",
+          "too-long": "Use no more than 72 characters.",
           "saved": "Public password saved.",
           "removed": "Public password removed.",
           "error": "Could not update the public password."

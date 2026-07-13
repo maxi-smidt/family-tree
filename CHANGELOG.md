@@ -64,6 +64,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   (quota, invalid file, network drop) leaves the previous valid document and its
   files fully intact, with no half-applied edits and no orphaned files on disk.
   Retried saves are idempotent (#665).
+- Public tree links now reliably show member photos and custom relationship
+  styles, including after entering a public-tree password; signed-in visitors
+  also open the linked tree directly when they can read it. Public sharing now
+  clearly lists the exposed details, password fields explain their requirements
+  before submission, and a missing legacy profile photo no longer hides the
+  replacement-photo control (#667).
 - Upgrading to the Documents model no longer discards existing genealogical
   data: the database migration now maps the old Sources, Citations, Evidence,
   and story attachments into Documents and their link tables — preserving ids,

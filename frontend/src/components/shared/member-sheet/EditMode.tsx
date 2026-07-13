@@ -475,6 +475,11 @@ export const EditMode = ({
               src={formData.imageData}
               className="size-24 rounded-full object-cover mx-auto bg-gray-100"
               alt="Profile"
+              fallback={
+                <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+                  <User size={48} />
+                </div>
+              }
             />
           ) : (
             <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">

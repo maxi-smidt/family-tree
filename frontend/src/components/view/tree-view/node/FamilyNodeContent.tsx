@@ -61,6 +61,14 @@ export const FamilyNodeContent = ({
             src={member.imageData}
             className={`${sizeClass} rounded-full object-cover bg-muted`}
             alt=""
+            fallback={
+              <div
+                aria-hidden="true"
+                className={`${sizeClass} flex justify-center items-center rounded-full bg-muted text-2xl font-bold text-muted-foreground`}
+              >
+                <FallbackAvatar />
+              </div>
+            }
           />
         ) : (
           <div
