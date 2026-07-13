@@ -94,73 +94,91 @@ describe("useDocumentStore — getDocumentsForMember", () => {
 });
 
 describe("useDocumentStore — addDocument", () => {
-  it("creates the document and refreshes", async () => {
+  it("creates the document in one atomic save and refreshes", async () => {
     useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.addDocument).mockResolvedValue(DOC_DB);
+    vi.mocked(TreeService.saveDocument).mockResolvedValue(DOC_DB);
     vi.mocked(TreeService.getDocuments).mockResolvedValue([DOC_DB]);
 
     const created = await useDocumentStore
       .getState()
       .addDocument(INPUT, ["m1"]);
 
-    expect(TreeService.addDocument).toHaveBeenCalledWith(TREE_ID, INPUT, [
-      "m1",
-    ]);
+    expect(TreeService.saveDocument).toHaveBeenCalledWith(
+      TREE_ID,
+      expect.any(String),
+      expect.objectContaining({
+        title: "Birth Certificate",
+        member_ids: ["m1"],
+        attached_upload_ids: [],
+        added_links: [],
+        removed_file_ids: [],
+        renamed_files: [],
+      }),
+    );
     expect(TreeService.getDocuments).toHaveBeenCalled();
     expect(created?.id).toBe("d1");
   });
 
-  it("applies queued file and link ops", async () => {
+  it("stages files first, then attaches them by id in the save", async () => {
     useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.addDocument).mockResolvedValue(DOC_DB);
-    vi.mocked(TreeService.addDocumentFile).mockResolvedValue({} as never);
-    vi.mocked(TreeService.addDocumentLink).mockResolvedValue({} as never);
+    vi.mocked(TreeService.stageDocumentUpload).mockResolvedValue({
+      id: "upload-1",
+      filename: "scan.pdf",
+      mime_type: "application/pdf",
+      size: 9,
+    });
+    vi.mocked(TreeService.saveDocument).mockResolvedValue(DOC_DB);
     vi.mocked(TreeService.getDocuments).mockResolvedValue([DOC_DB]);
 
     await useDocumentStore.getState().addDocument(INPUT, ["m1"], {
-      addedFiles: [
-        { filename: "scan.pdf", file: FILE },
-      ],
+      addedFiles: [{ filename: "scan.pdf", file: FILE }],
       addedLinks: [{ url: "https://example.com", label: "Record" }],
       removedIds: [],
       renamed: [],
     });
 
-    expect(TreeService.addDocumentFile).toHaveBeenCalledWith(
+    expect(TreeService.stageDocumentUpload).toHaveBeenCalledWith(
       TREE_ID,
-      "d1",
       FILE,
       "scan.pdf",
     );
-    expect(TreeService.addDocumentLink).toHaveBeenCalledWith(
-      TREE_ID,
-      "d1",
-      "https://example.com",
-      "Record",
-    );
+    const payload = vi.mocked(TreeService.saveDocument).mock.calls[0][2];
+    expect(payload.attached_upload_ids).toEqual(["upload-1"]);
+    expect(payload.added_links).toEqual([
+      { id: expect.any(String), url: "https://example.com", filename: "Record" },
+    ]);
+    // The save must run only after every file has finished staging.
+    const stageOrder = vi.mocked(TreeService.stageDocumentUpload).mock
+      .invocationCallOrder[0];
+    const saveOrder = vi.mocked(TreeService.saveDocument).mock
+      .invocationCallOrder[0];
+    expect(stageOrder).toBeLessThan(saveOrder);
   });
 
-  it("rolls back the orphaned document when a file upload fails", async () => {
+  it("propagates a failed save without extra cleanup calls", async () => {
     useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.addDocument).mockResolvedValue(DOC_DB);
-    vi.mocked(TreeService.addDocumentFile).mockRejectedValue(
-      new Error("upload failed"),
+    vi.mocked(TreeService.stageDocumentUpload).mockResolvedValue({
+      id: "upload-1",
+      filename: "scan.pdf",
+      mime_type: "application/pdf",
+      size: 9,
+    });
+    vi.mocked(TreeService.saveDocument).mockRejectedValue(
+      new Error("save failed"),
     );
-    vi.mocked(TreeService.removeDocument).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([]);
 
     await expect(
       useDocumentStore.getState().addDocument(INPUT, ["m1"], {
-        addedFiles: [
-          { filename: "scan.pdf", file: FILE },
-        ],
+        addedFiles: [{ filename: "scan.pdf", file: FILE }],
         addedLinks: [],
         removedIds: [],
         renamed: [],
       }),
-    ).rejects.toThrow("upload failed");
+    ).rejects.toThrow("save failed");
 
-    expect(TreeService.removeDocument).toHaveBeenCalledWith(TREE_ID, "d1");
+    // The server applies the save atomically and reaps unclaimed uploads, so
+    // there is no orphan document to delete client-side.
+    expect(TreeService.removeDocument).not.toHaveBeenCalled();
   });
 
   it("does nothing when no tree is selected", async () => {
@@ -168,17 +186,14 @@ describe("useDocumentStore — addDocument", () => {
       .getState()
       .addDocument(INPUT, ["m1"]);
     expect(created).toBeNull();
-    expect(TreeService.addDocument).not.toHaveBeenCalled();
+    expect(TreeService.saveDocument).not.toHaveBeenCalled();
   });
 });
 
 describe("useDocumentStore — updateDocument", () => {
-  it("updates the document, replaces members and applies file ops", async () => {
+  it("sends metadata, members and file ops in one save request", async () => {
     useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.updateDocument).mockResolvedValue(DOC_DB);
-    vi.mocked(TreeService.setDocumentMembers).mockResolvedValue(undefined);
-    vi.mocked(TreeService.removeDocumentFile).mockResolvedValue(undefined);
-    vi.mocked(TreeService.renameDocumentFile).mockResolvedValue({} as never);
+    vi.mocked(TreeService.saveDocument).mockResolvedValue(DOC_DB);
     vi.mocked(TreeService.getDocuments).mockResolvedValue([DOC_DB]);
 
     await useDocumentStore
@@ -190,25 +205,16 @@ describe("useDocumentStore — updateDocument", () => {
         renamed: [{ id: "f-keep", filename: "renamed.pdf" }],
       });
 
-    expect(TreeService.updateDocument).toHaveBeenCalledWith(
+    expect(TreeService.saveDocument).toHaveBeenCalledWith(
       TREE_ID,
       "d1",
-      INPUT,
-    );
-    expect(TreeService.setDocumentMembers).toHaveBeenCalledWith(TREE_ID, "d1", [
-      "m1",
-      "m2",
-    ]);
-    expect(TreeService.removeDocumentFile).toHaveBeenCalledWith(
-      TREE_ID,
-      "d1",
-      "f-old",
-    );
-    expect(TreeService.renameDocumentFile).toHaveBeenCalledWith(
-      TREE_ID,
-      "d1",
-      "f-keep",
-      "renamed.pdf",
+      expect.objectContaining({
+        title: "Birth Certificate",
+        member_ids: ["m1", "m2"],
+        attached_upload_ids: [],
+        removed_file_ids: ["f-old"],
+        renamed_files: [{ id: "f-keep", filename: "renamed.pdf" }],
+      }),
     );
   });
 });

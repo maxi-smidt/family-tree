@@ -29,7 +29,13 @@ import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
-import { DocumentDB, DocumentFileDB, DocumentInput } from "@/types/document";
+import {
+  DocumentDB,
+  DocumentFileDB,
+  DocumentInput,
+  DocumentSavePayload,
+  DocumentUploadDB,
+} from "@/types/document";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityPageDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
@@ -458,6 +464,32 @@ export class TreeService {
       description: input.description || null,
       document_date: input.documentDate || null,
     });
+  }
+
+  /** Stream a picked file into the staging area. Returns the staged upload,
+   *  whose id is later attached by `saveDocument`. */
+  static stageDocumentUpload(treeId: string, file: File, filename: string) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("filename", filename);
+    return api.postForm<DocumentUploadDB>(
+      `${base(treeId)}/documents/uploads`,
+      formData,
+    );
+  }
+
+  /** Create-or-update a document and apply every file change in one atomic
+   *  request. `documentId` is client-generated so a create that gets retried
+   *  upserts instead of duplicating. */
+  static saveDocument(
+    treeId: string,
+    documentId: string,
+    payload: DocumentSavePayload,
+  ) {
+    return api.put<DocumentDB>(
+      `${base(treeId)}/documents/${documentId}`,
+      payload,
+    );
   }
 
   static removeDocument(treeId: string, id: string) {

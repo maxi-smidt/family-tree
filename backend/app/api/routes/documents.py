@@ -6,7 +6,6 @@ a single reusable content type. The feature flag key stays ``"sources"`` for
 backward compatibility even though the feature is now called "Documents".
 """
 
-from urllib.parse import urlsplit
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -27,6 +26,7 @@ from app.models import (
     Document,
     DocumentFile,
     DocumentMemberLink,
+    DocumentUpload,
     EventDocumentLink,
     StoryDocumentLink,
     Tree,
@@ -38,11 +38,18 @@ from app.schemas.content import (
     DocumentFileUpdate,
     DocumentLinkCreate,
     DocumentOut,
+    DocumentSave,
     DocumentUpdate,
+    DocumentUploadOut,
     LinksSet,
 )
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.document_service import (
+    external_link_url,
+    prune_stale_uploads,
+    save_document,
+)
 from app.services.event_bus import publish_tree_event
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
@@ -78,28 +85,6 @@ def _get_file(db: Session, document: Document, file_id: str) -> DocumentFile:
     if file is None or file.document_id != document.id:
         raise HTTPException(status_code=404, detail="File not found")
     return file
-
-
-def _external_link_url(raw_url: str) -> str:
-    url = raw_url.strip()
-    if not url or "\\" in url or any(
-        char.isspace() or ord(char) == 127 for char in url
-    ):
-        raise HTTPException(status_code=400, detail="Invalid link URL")
-    try:
-        parsed = urlsplit(url)
-        # Accessing port performs urllib's range and syntax validation.
-        _ = parsed.port
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid link URL") from exc
-    if (
-        parsed.scheme.lower() not in {"http", "https"}
-        or not parsed.hostname
-        or parsed.username is not None
-        or parsed.password is not None
-    ):
-        raise HTTPException(status_code=400, detail="Invalid link URL")
-    return url
 
 
 def _linked_ids(db: Session, link_model, id_column, document_id: str) -> list[str]:
@@ -265,6 +250,28 @@ def update_document(
     return _document_out(db, document)
 
 
+@router.put("/{document_id}", response_model=DocumentOut)
+def save_document_route(
+    document_id: str,
+    payload: DocumentSave,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Create or update a document and apply every file change atomically.
+
+    A single request carries the metadata, people-mentioned links, staged file
+    attachments, removals and renames. They validate and commit as one unit: a
+    failure leaves the previously valid document — and its files — untouched,
+    and replaying the same request is a no-op (see
+    ``app.services.document_service.save_document``).
+    """
+    document = save_document(
+        db, tree=tree, user=user, document_id=document_id, payload=payload
+    )
+    return _document_out(db, document)
+
+
 @router.delete("/{document_id}", status_code=204)
 def delete_document(
     document_id: str,
@@ -282,11 +289,14 @@ def delete_document(
         target_id=document.id,
         target_label=document.title,
     )
-    for f in document.files:
-        if f.kind == "file":
-            delete_media(f.url)
+    # Capture the on-disk URLs before the row is gone, but only unlink the bytes
+    # *after* the DB commit succeeds. Removing them first would leave a live row
+    # pointing at a missing file if the commit then failed.
+    file_urls = [f.url for f in document.files if f.kind == "file"]
     db.delete(document)
     db.commit()
+    for url in file_urls:
+        delete_media(url)
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -328,6 +338,72 @@ def set_document_members(
 
 
 # --- Files -------------------------------------------------------------------
+
+
+@router.post("/uploads", response_model=DocumentUploadOut, status_code=201)
+async def stage_upload(
+    file: UploadFile = File(...),
+    filename: str = Form(...),
+    checksum: str | None = Form(default=None),
+    tree: Tree = Depends(get_writable_tree),
+    db: Session = Depends(get_db),
+):
+    """Stream a file into the staging area, to be attached by a document save.
+
+    The bytes are written to their final media location and recorded as a
+    staged upload; a later ``PUT /documents/{id}`` attaches it transactionally.
+    Uploads that are never attached are reaped after a TTL.
+    """
+    # Reclaim this tree's abandoned uploads opportunistically before adding one.
+    prune_stale_uploads(db, tree)
+
+    try:
+        url, mime, size = await store_document_upload(
+            tree.id,
+            filename,
+            file,
+            get_media_limits(db),
+            checksum=checksum,
+        )
+    except FileTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except UnsupportedFileType as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ChecksumMismatch as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        await file.close()
+
+    # Write-then-verify: the file is already on disk and counted by
+    # compute_usage, so pass 0 to avoid double-counting it.
+    try:
+        check_media_quota(db, tree, 0)
+    except QuotaExceeded as exc:
+        delete_media(url)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+
+    upload = DocumentUpload(
+        id=str(uuid4()),
+        tree_id=tree.id,
+        filename=filename,
+        url=url,
+        mime_type=mime,
+        size=size,
+        created_at=utcnow_iso(),
+    )
+    db.add(upload)
+    try:
+        db.commit()
+    except Exception:
+        # The bytes are already on disk; if the staging row never commits,
+        # remove them so a failed stage can't leave an orphan file behind.
+        db.rollback()
+        delete_media(url)
+        raise
+    db.refresh(upload)
+    return upload
 
 
 @router.post("/{document_id}/files", response_model=DocumentFileOut, status_code=201)
@@ -380,7 +456,14 @@ async def add_file(
         created_at=utcnow_iso(),
     )
     db.add(file)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        # The bytes are already on disk; if the row never commits, remove them
+        # so a failed upload can't leave an orphan file behind.
+        db.rollback()
+        delete_media(url)
+        raise
     db.refresh(file)
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -398,7 +481,7 @@ def add_link(
 ):
     document = _get_document(db, tree, document_id)
 
-    link_url = _external_link_url(payload.url)
+    link_url = external_link_url(payload.url)
 
     file = DocumentFile(
         id=str(uuid4()),
@@ -450,10 +533,13 @@ def delete_file(
 ):
     document = _get_document(db, tree, document_id)
     file = _get_file(db, document, file_id)
-    if file.kind == "file":
-        delete_media(file.url)
+    # Unlink the bytes only after the row is durably gone: deleting first would
+    # leave a live row pointing at a missing file if the commit then failed.
+    url = file.url if file.kind == "file" else None
     db.delete(file)
     db.commit()
+    if url is not None:
+        delete_media(url)
     publish_tree_event(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "document"},
