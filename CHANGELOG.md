@@ -59,6 +59,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - Gallery searches no longer crash when the result set is shorter than the
   full gallery, and malformed gallery-image responses are safely ignored (#708).
+- Empty tab states now use the full panel height and center their content
+  vertically (#707).
 - The activity log no longer shows stale results when you change page, page size,
   or a filter faster than the server responds: each request now supersedes the
   previous one, so an out-of-order response can't overwrite newer page or filter

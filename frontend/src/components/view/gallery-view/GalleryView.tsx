@@ -236,7 +236,7 @@ export const GalleryView = () => {
       />
       {isEmpty ? (
         <div
-          className="relative flex-1"
+          className="relative flex min-h-0 flex-1"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -248,7 +248,7 @@ export const GalleryView = () => {
               </p>
             </div>
           )}
-          <Empty className="h-full border">
+          <Empty className="flex-1 border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <ImagePlus />
@@ -266,7 +266,7 @@ export const GalleryView = () => {
         </div>
       ) : (
         <div
-          className="relative flex-1"
+          className="relative flex min-h-0 flex-1"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -278,7 +278,7 @@ export const GalleryView = () => {
               </p>
             </div>
           )}
-          <div ref={parentRef} className="h-full overflow-y-auto">
+          <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
               <UploadImageCard onClick={handleUploadImage} />
               {rowVirtualizer.getVirtualItems().map((virtualItem) => {
