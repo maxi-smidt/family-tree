@@ -3,6 +3,7 @@ import {
   Document,
   DocumentFileOps,
   DocumentInput,
+  DocumentSavePayload,
   mapDocumentFromDB,
 } from "@/types/document";
 import { TreeService } from "@/services/TreeService";
@@ -39,40 +40,48 @@ interface DocumentState {
   clear: () => void;
 }
 
-/** Apply the queued file changes (delete → rename → add). Returns true when a
- *  file was actually created or removed, so callers can refresh storage usage. */
-async function applyFileOps(
+/** Stream the picked files into the staging area (reporting per-file progress)
+ *  and build the atomic save payload referencing them. New files are staged
+ *  *before* the save runs — and the save removes old files only after it
+ *  commits — so a failed save never destroys the previous version. */
+async function stageAndBuildPayload(
   treeId: string,
-  documentId: string,
+  input: DocumentInput,
+  memberIds: string[],
   ops: DocumentFileOps,
   onFileProgress?: (uploaded: number, total: number) => void,
-): Promise<boolean> {
-  for (const id of ops.removedIds) {
-    await TreeService.removeDocumentFile(treeId, documentId, id);
-  }
-  for (const { id, filename } of ops.renamed) {
-    await TreeService.renameDocumentFile(treeId, documentId, id, filename);
-  }
+): Promise<DocumentSavePayload> {
   const total = ops.addedFiles.length;
   if (total > 0) onFileProgress?.(0, total);
+  const attachedUploadIds: string[] = [];
   for (const [i, f] of ops.addedFiles.entries()) {
-    await TreeService.addDocumentFile(
+    const staged = await TreeService.stageDocumentUpload(
       treeId,
-      documentId,
       f.file,
       f.filename,
     );
+    attachedUploadIds.push(staged.id);
     onFileProgress?.(i + 1, total);
   }
-  for (const link of ops.addedLinks) {
-    await TreeService.addDocumentLink(
-      treeId,
-      documentId,
-      link.url,
-      link.label ?? null,
-    );
-  }
-  return ops.removedIds.length > 0 || ops.addedFiles.length > 0;
+  return {
+    title: input.title,
+    description: input.description || null,
+    document_date: input.documentDate || null,
+    member_ids: memberIds,
+    attached_upload_ids: attachedUploadIds,
+    added_links: ops.addedLinks.map((l) => ({
+      id: crypto.randomUUID(),
+      url: l.url,
+      filename: l.label ?? null,
+    })),
+    removed_file_ids: ops.removedIds,
+    renamed_files: ops.renamed,
+  };
+}
+
+/** Whether a save changes on-disk media, so callers can refresh storage usage. */
+function touchesMedia(ops: DocumentFileOps): boolean {
+  return ops.addedFiles.length > 0 || ops.removedIds.length > 0;
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
@@ -105,33 +114,22 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return null;
 
-    const row = await TreeService.addDocument(treeId, input, memberIds);
-    let filesChanged: boolean;
-    try {
-      filesChanged = await applyFileOps(
-        treeId,
-        row.id,
-        fileOps,
-        onFileProgress,
-      );
-    } catch (err) {
-      // The metadata row is already committed, but a file upload failed (e.g. a
-      // reverse proxy rejected an oversized body with 413). Roll the new
-      // document back so a failed attachment never leaves a fileless orphan;
-      // deleting it also cleans up any files that did upload. Best-effort — the
-      // original error is surfaced to the caller regardless.
-      try {
-        await TreeService.removeDocument(treeId, row.id);
-      } catch {
-        // ignore cleanup failure; re-throw the original upload error
-      }
-      await get().refreshDocuments(treeId);
-      invalidateActivityView();
-      throw err;
-    }
+    // Stage the files, then create the document with its metadata, people
+    // links and attachments in one atomic request. A client-generated id makes
+    // a retried create upsert instead of duplicating; a failure leaves nothing
+    // behind, so there is no orphaned row to roll back.
+    const documentId = crypto.randomUUID();
+    const payload = await stageAndBuildPayload(
+      treeId,
+      input,
+      memberIds,
+      fileOps,
+      onFileProgress,
+    );
+    const row = await TreeService.saveDocument(treeId, documentId, payload);
 
     await get().refreshDocuments(treeId);
-    if (filesChanged) useStorageStore.getState().refreshStorageUsage();
+    if (touchesMedia(fileOps)) useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
     return mapDocumentFromDB(row);
   },
@@ -146,17 +144,20 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     const treeId = activeTreeId();
     if (!treeId) return;
 
-    await TreeService.updateDocument(treeId, id, input);
-    await TreeService.setDocumentMembers(treeId, id, memberIds);
-    const filesChanged = await applyFileOps(
+    // Stage new files first, then apply the metadata, member and file changes
+    // in one atomic request; old files are removed only once it commits, so a
+    // failed edit leaves the previous valid document untouched.
+    const payload = await stageAndBuildPayload(
       treeId,
-      id,
+      input,
+      memberIds,
       fileOps,
       onFileProgress,
     );
+    await TreeService.saveDocument(treeId, id, payload);
 
     await get().refreshDocuments(treeId);
-    if (filesChanged) useStorageStore.getState().refreshStorageUsage();
+    if (touchesMedia(fileOps)) useStorageStore.getState().refreshStorageUsage();
     invalidateActivityView();
   },
 

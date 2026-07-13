@@ -162,6 +162,30 @@ class DocumentFile(Base):
     document: Mapped["Document"] = relationship(back_populates="files")
 
 
+class DocumentUpload(Base):
+    """A streamed file staged for attachment to a document but not yet committed.
+
+    The bytes are written to their final media location by the streaming upload
+    endpoint; this row records the staged file so an atomic document save can
+    attach it (turning it into a :class:`DocumentFile`) as one transaction, and
+    so uploads that are never claimed can be reaped. A row is consumed on a
+    successful save or swept after a TTL — either way its bytes are accounted
+    for, so a staged-but-uncommitted upload is never an untracked orphan.
+    """
+
+    __tablename__ = "document_uploads"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    )
+    filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    url: Mapped[str] = mapped_column(Text)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40), index=True)
+
+
 class DocumentMemberLink(Base):
     """People mentioned by a document — a pure link table."""
 

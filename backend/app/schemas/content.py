@@ -206,3 +206,52 @@ class DocumentUpdate(BaseModel):
     title: str
     description: str | None = None
     document_date: str | None = None
+
+
+# --- Documents: staged upload + atomic composite save ------------------------
+class DocumentUploadOut(BaseModel):
+    """A file streamed to the staging area, ready to attach in a save."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    filename: str | None = None
+    mime_type: str | None = None
+    size: int | None = None
+
+
+class DocumentLinkAdd(BaseModel):
+    """A new external link in a composite save.
+
+    ``id`` is a client-generated UUID reused as the ``DocumentFile`` primary
+    key, so replaying the same save neither duplicates nor re-validates it.
+    """
+
+    id: str
+    url: str = Field(max_length=2048)
+    filename: str | None = None
+
+
+class DocumentFileRename(BaseModel):
+    id: str
+    filename: str
+
+
+class DocumentSave(BaseModel):
+    """The full set of changes to apply to a document in one transaction.
+
+    Files are uploaded to the staging area first (streamed, memory-bounded) and
+    referenced here by ``attached_upload_ids``; the save attaches them alongside
+    the metadata, people links, removals and renames so the whole edit commits
+    or fails as a unit. Every change is keyed by a client-supplied id, so
+    replaying the request is a no-op.
+    """
+
+    title: str
+    description: str | None = None
+    document_date: str | None = None
+    member_ids: list[str] = []
+    attached_upload_ids: list[str] = []
+    added_links: list[DocumentLinkAdd] = []
+    removed_file_ids: list[str] = []
+    renamed_files: list[DocumentFileRename] = []

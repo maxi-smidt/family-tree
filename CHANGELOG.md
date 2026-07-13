@@ -48,6 +48,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- **Documents**: saving a document now applies its metadata, people, file
+  attachments, external links, removals and renames as a single atomic request
+  instead of a sequence of separate ones. Picked files stream to a staging area
+  first and are attached only when the save commits, so replacing a file no
+  longer removes the original before its replacement is in place: a failed save
+  (quota, invalid file, network drop) leaves the previous valid document and its
+  files fully intact, with no half-applied edits and no orphaned files on disk.
+  Retried saves are idempotent (#665).
 - Upgrading to the Documents model no longer discards existing genealogical
   data: the database migration now maps the old Sources, Citations, Evidence,
   and story attachments into Documents and their link tables — preserving ids,

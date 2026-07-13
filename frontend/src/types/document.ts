@@ -73,6 +73,30 @@ export interface DocumentFileOps {
   renamed: { id: string; filename: string }[];
 }
 
+/** A file streamed to the staging area, returned by the upload endpoint and
+ *  referenced by id when the document save attaches it. */
+export interface DocumentUploadDB {
+  id: string;
+  filename: string | null;
+  mime_type: string | null;
+  size: number | null;
+}
+
+/** The full, atomic document change sent to the backend in one request. Files
+ *  are streamed to staging first and referenced here by `attached_upload_ids`.
+ *  Every add carries a client-generated `id` so a replayed request applies at
+ *  most once — retries are idempotent. */
+export interface DocumentSavePayload {
+  title: string;
+  description: string | null;
+  document_date: string | null;
+  member_ids: string[];
+  attached_upload_ids: string[];
+  added_links: { id: string; url: string; filename: string | null }[];
+  removed_file_ids: string[];
+  renamed_files: { id: string; filename: string }[];
+}
+
 export function mapDocumentFileFromDB(row: DocumentFileDB): DocumentFile {
   return {
     id: row.id,
