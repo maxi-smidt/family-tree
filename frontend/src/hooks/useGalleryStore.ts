@@ -1,9 +1,25 @@
 import { create } from "zustand";
-import { GalleryImage } from "@/types/gallery";
+import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
+
+/** Runtime guard for data received from the gallery API. */
+function isGalleryImageDB(image: unknown): image is GalleryImageDB {
+  return (
+    typeof image === "object" &&
+    image !== null &&
+    typeof (image as GalleryImageDB).id === "string" &&
+    typeof (image as GalleryImageDB).imageData === "string" &&
+    ((image as GalleryImageDB).title === null ||
+      typeof (image as GalleryImageDB).title === "string") &&
+    ((image as GalleryImageDB).description === null ||
+      typeof (image as GalleryImageDB).description === "string") &&
+    typeof (image as GalleryImageDB).createdAt === "string" &&
+    typeof (image as GalleryImageDB).uploadedAt === "string"
+  );
+}
 
 export interface AddGalleryImageOptions {
   /** When false, skip the post-add refreshGalleryImages / refreshStorageUsage /
@@ -53,7 +69,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       );
     }
 
-    const images = imagesResult.map((row) => {
+    const images = imagesResult.filter(isGalleryImageDB).map((row) => {
       const linkedMemberIds = linksByImage.get(row.id) ?? [];
       return {
         ...row,

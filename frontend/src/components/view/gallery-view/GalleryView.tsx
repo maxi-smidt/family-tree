@@ -92,13 +92,6 @@ export const GalleryView = () => {
     isActive,
   } = useUploadQueue();
 
-  const rowVirtualizer = useVirtualizer({
-    count: galleryImages.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 150,
-    overscan: 5,
-  });
-
   const handleUploadImage = () => {
     fileInputRef.current?.click();
   };
@@ -162,6 +155,16 @@ export const GalleryView = () => {
         : (bValue as string).localeCompare(aValue as string);
     });
   }, [galleryImages, sortKey, sortDirection, searchTerm]);
+
+  const rowVirtualizer = useVirtualizer({
+    // The virtualized indexes address the filtered list, not the complete
+    // gallery. Otherwise a search result can be shorter than this count and
+    // yield an undefined image at render time.
+    count: filteredAndSortedImages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 150,
+    overscan: 5,
+  });
 
   const toggleSortDirection = () => {
     setSortDirection(sortDirection === "asc" ? "desc" : "asc");
