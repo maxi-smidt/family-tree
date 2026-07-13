@@ -24,6 +24,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   adds actor / action / subject-type / time-range filters, and offers a
   filter-aware CSV export, so older security and administrative events stay
   discoverable instead of only the newest entries (#670).
+- The activity log now surfaces document changes: creating, updating, or deleting
+  a document appears with a translated **document** label and a file icon, and the
+  type filter can isolate document activity like any other content type (#668).
 - Subtle horizontal ruled lines in the tree view background for vertical orientation — notebook-style, evenly spaced, and toggleable in the canvas controls (enabled by default).
 - Fast Mode: add a child directly to both parents from their union node (#595).
 - **Documents**: a reusable document bundles one or more files (or external links) with a title, date, notes, and the people it mentions, and appears on every mentioned person's profile. Events and stories can link documents directly — and create them inline — so a scan or record can be attached once and referenced from multiple places (#594).
@@ -48,6 +51,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The activity log no longer shows stale results when you change page, page size,
+  or a filter faster than the server responds: each request now supersedes the
+  previous one, so an out-of-order response can't overwrite newer page or filter
+  state, and the loading and error indicators always reflect the current request
+  (#668).
 - Upgrading to the Documents model no longer discards existing genealogical
   data: the database migration now maps the old Sources, Citations, Evidence,
   and story attachments into Documents and their link tables — preserving ids,

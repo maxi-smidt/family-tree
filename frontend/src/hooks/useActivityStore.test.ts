@@ -28,6 +28,20 @@ function page(ids: string[], total: number, actors: string[] = ["Ada"]) {
   };
 }
 
+type ActivityPage = Awaited<ReturnType<typeof TreeService.getActivity>>;
+
+// A promise whose settlement we control, so a test can force responses to
+// arrive out of order relative to the order the requests were issued.
+function deferred() {
+  let resolve!: (value: ActivityPage) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<ActivityPage>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   useActivityStore.getState().clear();
@@ -107,6 +121,160 @@ describe("useActivityStore", () => {
       loading: false,
       error: null,
       activities: [{ id: "a1" }],
+    });
+  });
+
+  it("ignores a stale page response that settles after a newer page request", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(TreeService.getActivity)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    const p1 = useActivityStore.getState().setPage(1);
+    const p2 = useActivityStore.getState().setPage(2);
+
+    // The newer request (page 2) resolves first and is applied.
+    second.resolve(page(["p2"], 100));
+    await p2;
+    expect(useActivityStore.getState()).toMatchObject({
+      page: 2,
+      loading: false,
+      activities: [{ id: "p2" }],
+    });
+
+    // The superseded page-1 response arrives late and must be discarded.
+    first.resolve(page(["p1"], 100));
+    await p1;
+    expect(useActivityStore.getState()).toMatchObject({
+      page: 2,
+      activities: [{ id: "p2" }],
+    });
+  });
+
+  it("keeps loading while a stale response settles before the newest page-size request", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(TreeService.getActivity)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    const p1 = useActivityStore.getState().setPageSize(10);
+    const p2 = useActivityStore.getState().setPageSize(50);
+    expect(useActivityStore.getState().loading).toBe(true);
+
+    // The stale response settles first; loading must stay tied to the latest request.
+    first.resolve(page(["stale"], 1));
+    await p1;
+    expect(useActivityStore.getState().loading).toBe(true);
+
+    second.resolve(page(["fresh"], 1));
+    await p2;
+    expect(useActivityStore.getState()).toMatchObject({
+      loading: false,
+      pageSize: 50,
+      activities: [{ id: "fresh" }],
+    });
+  });
+
+  it("ignores a stale response when the actor filter changes rapidly", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(TreeService.getActivity)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    const p1 = useActivityStore.getState().setFilter("filterActor", "Ada");
+    const p2 = useActivityStore.getState().setFilter("filterActor", "Bob");
+
+    second.resolve(page(["bob"], 5, ["Ada", "Bob"]));
+    await p2;
+    first.resolve(page(["ada"], 9, ["Ada", "Bob"]));
+    await p1;
+
+    expect(useActivityStore.getState()).toMatchObject({
+      filterActor: "Bob",
+      total: 5,
+      activities: [{ id: "bob" }],
+    });
+  });
+
+  it("ignores a stale response when the action filter changes rapidly", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(TreeService.getActivity)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    const p1 = useActivityStore.getState().setFilter("filterAction", "create");
+    const p2 = useActivityStore.getState().setFilter("filterAction", "delete");
+
+    second.resolve(page(["del"], 2));
+    await p2;
+    first.resolve(page(["cre"], 7));
+    await p1;
+
+    expect(useActivityStore.getState()).toMatchObject({
+      filterAction: "delete",
+      total: 2,
+      activities: [{ id: "del" }],
+    });
+  });
+
+  it("ignores a stale response when the target-type filter changes rapidly", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(TreeService.getActivity)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    const p1 = useActivityStore
+      .getState()
+      .setFilter("filterTargetType", "member");
+    const p2 = useActivityStore
+      .getState()
+      .setFilter("filterTargetType", "document");
+
+    // The newest request carries the newly supported "document" target type.
+    expect(TreeService.getActivity).toHaveBeenLastCalledWith(
+      "tree-1",
+      expect.objectContaining({ target_type: "document" }),
+    );
+
+    second.resolve(page(["doc"], 3));
+    await p2;
+    first.resolve(page(["mem"], 8));
+    await p1;
+
+    expect(useActivityStore.getState()).toMatchObject({
+      filterTargetType: "document",
+      total: 3,
+      activities: [{ id: "doc" }],
+    });
+  });
+
+  it("does not let a stale failure overwrite a newer successful response", async () => {
+    const first = deferred();
+    const second = deferred();
+    vi.mocked(TreeService.getActivity)
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise);
+
+    const p1 = useActivityStore.getState().setPage(1);
+    const p2 = useActivityStore.getState().setPage(2);
+
+    second.resolve(page(["fresh"], 4));
+    await p2;
+
+    // The superseded request rejects late; its error must be swallowed.
+    first.reject(new Error("stale offline"));
+    await p1;
+
+    expect(useActivityStore.getState()).toMatchObject({
+      error: null,
+      loading: false,
+      page: 2,
+      activities: [{ id: "fresh" }],
     });
   });
 });

@@ -1021,6 +1021,7 @@
     "target-event": "event",
     "target-story": "story",
     "target-gallery_image": "image",
+    "target-document": "document",
     "target-disease": "condition",
     "target-tree": "tree",
     "target-share": "share",

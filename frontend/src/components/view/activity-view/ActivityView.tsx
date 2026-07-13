@@ -22,6 +22,7 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
+  FileText,
   Loader2,
   X,
 } from "lucide-react";
@@ -47,6 +48,7 @@ const TARGET_KEY: Record<string, string> = {
   event: "target-event",
   story: "target-story",
   gallery_image: "target-gallery_image",
+  document: "target-document",
   disease: "target-disease",
   tree: "target-tree",
   share: "target-share",
@@ -64,6 +66,7 @@ const TARGET_VIEW: Record<string, ViewId> = {
 const TARGET_ICONS: Record<string, typeof ActivityIcon> = {
   event: CalendarDays,
   story: BookOpen,
+  document: FileText,
 };
 
 // Fields we do not want to surface in the diff.
@@ -192,6 +195,7 @@ const ALL_TARGET_TYPES = [
   "event",
   "story",
   "gallery_image",
+  "document",
   "disease",
   "tree",
   "share",

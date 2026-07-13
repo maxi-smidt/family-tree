@@ -44,70 +44,87 @@ const initialState = {
   error: null as string | null,
 };
 
-export const useActivityStore = create<ActivityState>((set, get) => ({
-  ...initialState,
+export const useActivityStore = create<ActivityState>((set, get) => {
+  // Monotonic request counter guarding against out-of-order responses. When the
+  // user changes page, page size, or a filter faster than the server responds,
+  // several loads for the same tree are in flight at once; only the most recent
+  // one may write results, loading, or error into the store. Kept in the store
+  // closure (not in state) so bumping it never triggers a re-render.
+  let requestId = 0;
 
-  load: async (treeId: string, page: number) => {
-    const { pageSize, filterActor, filterAction, filterTargetType } = get();
-    set({ loading: true, error: null });
-    try {
-      const result = await TreeService.getActivity(treeId, {
-        offset: page * pageSize,
-        limit: pageSize,
-        actor: filterActor || undefined,
-        action: filterAction || undefined,
-        target_type: filterTargetType || undefined,
-      });
-      if (!isActiveTree(treeId)) return; // tree switched mid-flight — drop stale data
-      set({
-        activities: result.entries.map(mapActivityFromDB),
-        actors: result.actors,
-        total: result.total,
-        page,
-        initialized: true,
-        loading: false,
-      });
-    } catch (error) {
-      if (!isActiveTree(treeId)) return;
-      set({ loading: false, error: String(error) });
-    }
-  },
+  return {
+    ...initialState,
 
-  refreshActivity: async (treeId = activeTreeId()) => {
-    if (!treeId) {
-      set({ activities: [], actors: [], total: 0, initialized: false });
-      return;
-    }
-    await get().load(treeId, get().page);
-  },
+    load: async (treeId: string, page: number) => {
+      const { pageSize, filterActor, filterAction, filterTargetType } = get();
+      const reqId = ++requestId;
+      set({ loading: true, error: null });
+      try {
+        const result = await TreeService.getActivity(treeId, {
+          offset: page * pageSize,
+          limit: pageSize,
+          actor: filterActor || undefined,
+          action: filterAction || undefined,
+          target_type: filterTargetType || undefined,
+        });
+        // Drop the response if a newer request superseded it, or the tree
+        // switched mid-flight — stale data must never overwrite newer state.
+        if (reqId !== requestId || !isActiveTree(treeId)) return;
+        set({
+          activities: result.entries.map(mapActivityFromDB),
+          actors: result.actors,
+          total: result.total,
+          page,
+          initialized: true,
+          loading: false,
+        });
+      } catch (error) {
+        if (reqId !== requestId || !isActiveTree(treeId)) return;
+        set({ loading: false, error: String(error) });
+      }
+    },
 
-  setPage: async (page, treeId = activeTreeId()) => {
-    if (!treeId) return;
-    await get().load(treeId, page);
-  },
+    refreshActivity: async (treeId = activeTreeId()) => {
+      if (!treeId) {
+        set({ activities: [], actors: [], total: 0, initialized: false });
+        return;
+      }
+      await get().load(treeId, get().page);
+    },
 
-  setPageSize: async (size, treeId = activeTreeId()) => {
-    set({ pageSize: size });
-    if (!treeId) return;
-    await get().load(treeId, 0);
-  },
+    setPage: async (page, treeId = activeTreeId()) => {
+      if (!treeId) return;
+      await get().load(treeId, page);
+    },
 
-  setFilter: async (key, val, treeId = activeTreeId()) => {
-    set({ [key]: val });
-    if (!treeId) return;
-    await get().load(treeId, 0);
-  },
+    setPageSize: async (size, treeId = activeTreeId()) => {
+      set({ pageSize: size });
+      if (!treeId) return;
+      await get().load(treeId, 0);
+    },
 
-  clearFilters: async (treeId = activeTreeId()) => {
-    set({ filterActor: "", filterAction: "", filterTargetType: "" });
-    if (!treeId) return;
-    await get().load(treeId, 0);
-  },
+    setFilter: async (key, val, treeId = activeTreeId()) => {
+      set({ [key]: val });
+      if (!treeId) return;
+      await get().load(treeId, 0);
+    },
 
-  retry: async (treeId = activeTreeId()) => {
-    if (!treeId) return;
-    await get().load(treeId, get().page);
-  },
+    clearFilters: async (treeId = activeTreeId()) => {
+      set({ filterActor: "", filterAction: "", filterTargetType: "" });
+      if (!treeId) return;
+      await get().load(treeId, 0);
+    },
 
-  clear: () => set({ ...initialState }),
-}));
+    retry: async (treeId = activeTreeId()) => {
+      if (!treeId) return;
+      await get().load(treeId, get().page);
+    },
+
+    // Invalidate any in-flight request so its late response can't repopulate a
+    // store that has since been reset (e.g. tree switch or logout).
+    clear: () => {
+      requestId++;
+      set({ ...initialState });
+    },
+  };
+});
