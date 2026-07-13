@@ -57,6 +57,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Sessions now renew automatically before their access token expires. A failed
+  renewal has a direct in-app sign-in path, and the warning banner no longer
+  obscures the sidebar toggle (#706).
 - Gallery searches no longer crash when the result set is shorter than the
   full gallery, and malformed gallery-image responses are safely ignored (#708).
 - Empty tab states now use the full panel height and center their content

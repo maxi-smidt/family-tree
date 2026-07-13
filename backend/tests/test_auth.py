@@ -53,6 +53,21 @@ def test_me_requires_authentication(client):
     assert client.get(f"{API}/auth/me").status_code == 401
 
 
+def test_refresh_renews_an_authenticated_session(client, db):
+    user = make_user(db, "alice", password="pw123456")
+
+    res = client.post(f"{API}/auth/refresh", headers=auth(user))
+
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload["access_token"]
+    assert payload["user"]["id"] == user.id
+
+
+def test_refresh_requires_an_authenticated_session(client):
+    assert client.post(f"{API}/auth/refresh").status_code == 401
+
+
 def test_change_password(client, db):
     user = make_user(db, "alice", password="pw123456")
     res = client.post(
