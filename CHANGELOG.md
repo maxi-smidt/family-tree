@@ -66,7 +66,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   Retried saves are idempotent (#665).
 - Public tree links now reliably show member photos and custom relationship
   styles, including after entering a public-tree password; signed-in visitors
-  also open the linked tree directly when they can read it (#667).
+  also open the linked tree directly when they can read it. Public sharing now
+  clearly lists the exposed details, and password fields explain their
+  requirements before submission (#667).
 - Upgrading to the Documents model no longer discards existing genealogical
   data: the database migration now maps the old Sources, Citations, Evidence,
   and story attachments into Documents and their link tables — preserving ids,

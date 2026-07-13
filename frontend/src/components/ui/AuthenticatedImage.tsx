@@ -1,12 +1,13 @@
-import { ImgHTMLAttributes } from "react";
+import { ImgHTMLAttributes, ReactNode } from "react";
 import { useMediaUrl } from "@/hooks/useMediaUrl";
 
 type Props = Omit<ImgHTMLAttributes<HTMLImageElement>, "src"> & {
   src: string | null | undefined;
+  fallback?: ReactNode;
 };
 
-export const AuthenticatedImage = ({ src, ...props }: Props) => {
+export const AuthenticatedImage = ({ src, fallback = null, ...props }: Props) => {
   const resolvedSrc = useMediaUrl(src);
-  if (!resolvedSrc) return null;
+  if (!resolvedSrc) return <>{fallback}</>;
   return <img src={resolvedSrc} {...props} />;
 };

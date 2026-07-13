@@ -123,6 +123,16 @@ export const ShareTreeDialog = ({
   const [publicPasswordProtected, setPublicPasswordProtected] =
     useState<boolean>(tree.public_password_protected ?? false);
   const [publicPasswordInput, setPublicPasswordInput] = useState("");
+  const publicPasswordError = useMemo(() => {
+    if (!publicPasswordInput) return null;
+    if (publicPasswordInput.length < 8) {
+      return t("public.password.too-short");
+    }
+    if (new TextEncoder().encode(publicPasswordInput).length > 72) {
+      return t("public.password.too-long");
+    }
+    return null;
+  }, [publicPasswordInput, t]);
 
   // Linked trees (issue #537): grant/revoke access on linked trees together
   // with the anchor tree, as a convenience batch operation.
@@ -549,6 +559,7 @@ export const ShareTreeDialog = ({
   };
 
   const handleSetPublicPassword = async () => {
+    if (publicPasswordError) return;
     try {
       const updated = await TreeSharingService.setPublicPassword(
         tree.id,
@@ -1037,10 +1048,17 @@ export const ShareTreeDialog = ({
                       placeholder={t("public.password.placeholder")}
                       value={publicPasswordInput}
                       onChange={(e) => setPublicPasswordInput(e.target.value)}
+                      minLength={8}
+                      aria-invalid={Boolean(publicPasswordError)}
+                      aria-describedby={
+                        publicPasswordError
+                          ? "public-password-error"
+                          : undefined
+                      }
                     />
                     <Button
                       variant="outline"
-                      disabled={!publicPasswordInput}
+                      disabled={!publicPasswordInput || !!publicPasswordError}
                       onClick={handleSetPublicPassword}
                     >
                       {publicPasswordProtected
@@ -1048,6 +1066,18 @@ export const ShareTreeDialog = ({
                         : t("public.password.set")}
                     </Button>
                   </div>
+                  {publicPasswordError ? (
+                    <p
+                      id="public-password-error"
+                      className="text-xs text-destructive"
+                    >
+                      {publicPasswordError}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {t("public.password.requirements")}
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -1176,7 +1206,7 @@ export const ShareTreeDialog = ({
             </AlertDialogCancel>
             <AlertDialogAction onClick={handlePublicConfirm}>
               {pendingPublicRole === "viewer"
-                ? t("public.enable")
+                ? t("public.confirm-enable-action")
                 : t("public.disable")}
             </AlertDialogAction>
           </AlertDialogFooter>
