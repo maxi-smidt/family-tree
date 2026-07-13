@@ -511,7 +511,6 @@ export const isActiveTree = (treeId: string | undefined): boolean =>
   treeId !== undefined && activeTreeId() === treeId;
 
 export const resetTreeStoreForSession = () => {
-  treeRequestVersion += 1;
   useTreeStore.setState({
     trees: [],
     virtualViews: [],

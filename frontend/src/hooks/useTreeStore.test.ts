@@ -261,6 +261,27 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
   });
 
+  it("continues a public tree link started during session reset", async () => {
+    mockEmptySubStores();
+    let resolveTree: (tree: Tree) => void = () => undefined;
+    const treeResponse = new Promise<Tree>((resolve) => {
+      resolveTree = resolve;
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) return treeResponse;
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
+    const opening = useTreeStore.getState().openTreeById(TREE_A.id);
+    resetTreeStoreForSession();
+    resolveTree(TREE_A);
+    await opening;
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
   it("invalidates every content store when switching trees", async () => {
     mockEmptySubStores();
     mockApiGetForConnect(TREE_B.id, TREE_B);
