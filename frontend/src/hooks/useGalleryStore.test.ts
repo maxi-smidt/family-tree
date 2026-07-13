@@ -51,6 +51,21 @@ describe("useGalleryStore — refreshGalleryImages", () => {
     expect(images[0].linkedMemberIds).toEqual(["m1", "m2"]);
     expect(images[0].title).toBe("Test Photo");
   });
+
+  it("drops missing gallery-image entries returned by the API", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([
+      IMAGE_DB,
+      undefined as never,
+    ]);
+    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+
+    await useGalleryStore.getState().refreshGalleryImages();
+
+    expect(useGalleryStore.getState().galleryImages).toEqual([
+      expect.objectContaining({ id: IMAGE_DB.id }),
+    ]);
+  });
 });
 
 describe("useGalleryStore — addGalleryImage", () => {
