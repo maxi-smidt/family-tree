@@ -1,6 +1,13 @@
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import rehypeSanitize from "rehype-sanitize";
+import { lazy, Suspense } from "react";
+
+// The react-markdown/remark/rehype pipeline is heavy (~40 kB gzip) and only
+// needed when Markdown is actually shown, so it loads on demand. Keeping it out
+// of the eager bundle spares login, the public tree and other lightweight
+// routes from downloading it. React.lazy caches the module, so the renderer is
+// synchronous after its first use in a session.
+const MarkdownRenderer = lazy(() =>
+  import("./MarkdownRenderer").then((m) => ({ default: m.MarkdownRenderer })),
+);
 
 type Props = {
   content: string;
@@ -11,6 +18,9 @@ type Props = {
  * Sanitized Markdown renderer.
  * All biography content MUST flow through this component — rehype-sanitize
  * is the single XSS choke-point for user-supplied Markdown.
+ *
+ * The styling wrapper below stays eager so surrounding layout is stable while
+ * the on-demand renderer chunk loads.
  */
 export function MarkdownContent({ content, className }: Props) {
   return (
@@ -36,12 +46,9 @@ export function MarkdownContent({ content, className }: Props) {
         .join(" ")
         .trim()}
     >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize]}
-      >
-        {content}
-      </ReactMarkdown>
+      <Suspense fallback={null}>
+        <MarkdownRenderer content={content} />
+      </Suspense>
     </div>
   );
 }
