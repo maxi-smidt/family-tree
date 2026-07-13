@@ -24,6 +24,10 @@ def _load_migration_module():
 migration = _load_migration_module()
 
 
+def test_revision_id_fits_the_alembic_version_column():
+    assert len(migration.revision) <= 32
+
+
 @pytest.fixture()
 def engine():
     engine = sa.create_engine("sqlite://")

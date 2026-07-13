@@ -1,6 +1,6 @@
 """Remove obsolete release-announcement settings.
 
-Revision ID: v1_7_2_remove_announcement_settings
+Revision ID: v1_7_2_remove_announcement
 Revises: v1_7_1_document_uploads
 Create Date: 2026-07-13 23:40:00.000000
 
@@ -12,7 +12,7 @@ from alembic import op
 from sqlalchemy.engine import Connection
 
 # revision identifiers, used by Alembic.
-revision: str = "v1_7_2_remove_announcement_settings"
+revision: str = "v1_7_2_remove_announcement"
 down_revision: str | None = "v1_7_1_document_uploads"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
