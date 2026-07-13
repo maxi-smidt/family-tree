@@ -1379,8 +1379,10 @@
   "auth": {
     "session": {
       "expiring-title": "Ihre Sitzung läuft bald ab",
-      "expiring-description": "Bitte speichern Sie Ihre Arbeit. Sie müssen sich in Kürze erneut anmelden.",
+      "expiring-description": "Wir erneuern Ihre Sitzung automatisch. Bitte lassen Sie diesen Tab geöffnet.",
       "expiring-dismiss": "Schließen",
+      "refresh-failed-description": "Ihre Sitzung konnte nicht erneuert werden. Melden Sie sich erneut an, um weiterzuarbeiten.",
+      "refresh-failed-relogin": "Jetzt anmelden",
       "relogin-title": "Sitzung abgelaufen",
       "relogin-description": "Ihre Sitzung ist abgelaufen. Geben Sie Ihr Passwort ein, um fortzufahren.",
       "relogin-password": "Passwort",

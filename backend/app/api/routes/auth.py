@@ -218,6 +218,15 @@ def me(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return _current_user_out(db, user)
 
 
+@router.post("/refresh", response_model=Token)
+def refresh_access_token(
+    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """Issue a new access token while the current session is still valid."""
+    token = create_access_token(user.id)
+    return Token(access_token=token, user=_current_user_out(db, user))
+
+
 @router.post("/delete-account", response_model=UserOut)
 def delete_account(
     payload: AccountSelfDelete,

@@ -1379,8 +1379,10 @@
   "auth": {
     "session": {
       "expiring-title": "Your session is expiring soon",
-      "expiring-description": "Please save your work. You will need to sign in again shortly.",
+      "expiring-description": "We will renew your session automatically. Please keep this tab open.",
       "expiring-dismiss": "Dismiss",
+      "refresh-failed-description": "We could not renew your session. Sign in again to keep working.",
+      "refresh-failed-relogin": "Sign in now",
       "relogin-title": "Session expired",
       "relogin-description": "Your session has expired. Enter your password to continue.",
       "relogin-password": "Password",

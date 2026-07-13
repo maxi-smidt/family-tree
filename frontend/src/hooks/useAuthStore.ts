@@ -19,6 +19,7 @@ interface AuthState {
   features: string[];
   config: AuthConfig | null;
   sessionExpiringSoon: boolean;
+  sessionRefreshFailed: boolean;
   reloginRequired: boolean;
   /** Token stored from an #invite= URL hash; consumed after login/register. */
   pendingInviteToken: string | null;
@@ -34,6 +35,8 @@ interface AuthState {
   cancelTotp: () => void;
   logout: () => void;
   refreshMe: () => Promise<void>;
+  refreshSession: () => Promise<void>;
+  requireRelogin: () => void;
   deleteAccount: (
     password: string | null,
     confirmUsername: string | null,
@@ -47,31 +50,58 @@ interface AuthState {
   acceptPendingInvite: () => Promise<string | null>;
 }
 
-let expiryCheckInterval: ReturnType<typeof setInterval> | null = null;
+const SESSION_WARNING_MS = 60 * 60 * 1000;
+const SESSION_REFRESH_AHEAD_MS = 5 * 60 * 1000;
+const SESSION_REFRESH_RETRY_MS = 60 * 1000;
+const MAX_SESSION_REFRESH_RETRIES = 1;
 
-function startExpiryCheck() {
-  if (expiryCheckInterval) clearInterval(expiryCheckInterval);
-  expiryCheckInterval = setInterval(() => {
-    const token = getAuthToken();
-    if (!token) return;
-    const exp = decodeJwtExp(token);
-    if (exp === null) return;
-    const msTillExpiry = exp * 1000 - Date.now();
-    useAuthStore.setState({
-      sessionExpiringSoon: msTillExpiry > 0 && msTillExpiry < 60 * 60 * 1000,
-    });
-  }, 60_000);
-  // Run immediately too
+let sessionWarningTimeout: ReturnType<typeof setTimeout> | null = null;
+let sessionRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
+let sessionRefreshRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+let sessionRefreshRetries = 0;
+
+function clearSessionTimers() {
+  if (sessionWarningTimeout) clearTimeout(sessionWarningTimeout);
+  if (sessionRefreshTimeout) clearTimeout(sessionRefreshTimeout);
+  if (sessionRefreshRetryTimeout) clearTimeout(sessionRefreshRetryTimeout);
+  sessionWarningTimeout = null;
+  sessionRefreshTimeout = null;
+  sessionRefreshRetryTimeout = null;
+  sessionRefreshRetries = 0;
+}
+
+function startSessionMaintenance() {
+  clearSessionTimers();
   const token = getAuthToken();
-  if (token) {
-    const exp = decodeJwtExp(token);
-    if (exp !== null) {
-      const msTillExpiry = exp * 1000 - Date.now();
-      useAuthStore.setState({
-        sessionExpiringSoon: msTillExpiry > 0 && msTillExpiry < 60 * 60 * 1000,
-      });
-    }
+  const exp = token ? decodeJwtExp(token) : null;
+  if (exp === null) return;
+
+  const millisecondsUntilExpiry = exp * 1000 - Date.now();
+  if (millisecondsUntilExpiry <= 0) {
+    useAuthStore.getState().requireRelogin();
+    return;
   }
+
+  const showWarning = () => {
+    useAuthStore.setState({ sessionExpiringSoon: true });
+  };
+  const refresh = () => {
+    void useAuthStore.getState().refreshSession();
+  };
+
+  if (millisecondsUntilExpiry <= SESSION_WARNING_MS) {
+    showWarning();
+  } else {
+    sessionWarningTimeout = setTimeout(
+      showWarning,
+      millisecondsUntilExpiry - SESSION_WARNING_MS,
+    );
+  }
+
+  sessionRefreshTimeout = setTimeout(
+    refresh,
+    Math.max(0, millisecondsUntilExpiry - SESSION_REFRESH_AHEAD_MS),
+  );
 }
 
 function applyToken(res: TokenResponse) {
@@ -82,10 +112,11 @@ function applyToken(res: TokenResponse) {
     status: "authenticated",
     reloginRequired: false,
     sessionExpiringSoon: false,
+    sessionRefreshFailed: false,
     totpRequired: false,
     totpSessionToken: null,
   });
-  startExpiryCheck();
+  startSessionMaintenance();
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -94,6 +125,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   features: [],
   config: null,
   sessionExpiringSoon: false,
+  sessionRefreshFailed: false,
   reloginRequired: false,
   pendingInviteToken: null,
   pendingPublicTreeId: null,
@@ -137,8 +169,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         status: "authenticated",
         reloginRequired: false,
         sessionExpiringSoon: false,
+        sessionRefreshFailed: false,
       });
-      startExpiryCheck();
+      startSessionMaintenance();
     } catch {
       setAuthToken(null);
       set({ user: null, features: [], status: "unauthenticated" });
@@ -172,16 +205,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    if (expiryCheckInterval) {
-      clearInterval(expiryCheckInterval);
-      expiryCheckInterval = null;
-    }
+    clearSessionTimers();
     setAuthToken(null);
     set({
       user: null,
       features: [],
       status: "unauthenticated",
       sessionExpiringSoon: false,
+      sessionRefreshFailed: false,
       reloginRequired: false,
       totpRequired: false,
       totpSessionToken: null,
@@ -191,6 +222,47 @@ export const useAuthStore = create<AuthState>((set) => ({
   refreshMe: async () => {
     const user = await api.get<User>("/auth/me");
     set({ user, features: user.features ?? [] });
+  },
+
+  refreshSession: async () => {
+    const tokenBeforeRefresh = getAuthToken();
+    if (!tokenBeforeRefresh) return;
+
+    try {
+      const response = await api.post<TokenResponse>("/auth/refresh");
+      // A logout or a manual re-login may have completed while this request was
+      // in flight. Never overwrite that newer session with a stale response.
+      if (getAuthToken() !== tokenBeforeRefresh) return;
+      applyToken(response);
+    } catch {
+      if (
+        getAuthToken() !== tokenBeforeRefresh ||
+        useAuthStore.getState().status !== "authenticated"
+      ) {
+        return;
+      }
+
+      set({ sessionExpiringSoon: true, sessionRefreshFailed: true });
+      const exp = decodeJwtExp(tokenBeforeRefresh);
+      const millisecondsUntilExpiry = exp ? exp * 1000 - Date.now() : 0;
+      if (
+        sessionRefreshRetries < MAX_SESSION_REFRESH_RETRIES &&
+        millisecondsUntilExpiry > 0
+      ) {
+        sessionRefreshRetries += 1;
+        sessionRefreshRetryTimeout = setTimeout(
+          () => void useAuthStore.getState().refreshSession(),
+          Math.min(SESSION_REFRESH_RETRY_MS, millisecondsUntilExpiry),
+        );
+      }
+    }
+  },
+
+  requireRelogin: () => {
+    const { status, reloginRequired } = useAuthStore.getState();
+    if (status === "authenticated" && !reloginRequired) {
+      set({ reloginRequired: true });
+    }
   },
 
   deleteAccount: async (
