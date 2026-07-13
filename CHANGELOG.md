@@ -38,6 +38,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- The initial page load is now much lighter: the graph, map, chart and Markdown
+  libraries are code-split and fetched only when their view is first opened, so
+  the login screen and public trees no longer download them. The shared vendor
+  bundle drops from ~1.63 MB to ~0.51 MB (≈490 KB → ≈157 KB gzipped) and the
+  initial JavaScript payload is roughly halved. A build-time budget check guards
+  against regressions (#673).
 - **Documents**: file uploads now use bounded-memory multipart streaming instead
   of base64 JSON. Interrupted, invalid, oversized, or checksum-mismatched
   uploads clean up their temporary files; the configurable document cap is now

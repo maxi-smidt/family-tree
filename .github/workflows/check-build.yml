@@ -71,6 +71,9 @@ jobs:
       - name: "Type-check & build"
         run: npm run build
 
+      - name: "Bundle size budget"
+        run: npm run check-bundle-size
+
       - name: "Unit tests"
         run: npx vitest run
 
