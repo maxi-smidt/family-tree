@@ -235,12 +235,12 @@ export const QualityReportView = () => {
       )}
 
       {isLoading && !report ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
           <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
           <p className="text-sm text-muted-foreground">{t("loading")}</p>
         </div>
       ) : displayedIssues.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
           <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
             {report ? (
               <CheckCircle2 className="w-7 h-7 text-green-500" />

@@ -20,7 +20,7 @@ export const ViewLayout = ({
   contentClassName,
 }: ViewLayoutProps) => {
   return (
-    <div className="h-full min-h-0 flex flex-col p-4 overflow-hidden">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-4">
       <div className="flex-none flex items-center justify-between mb-6 h-5">
         <h1 className="text-xl font-semibold leading-none">{title}</h1>
         {action && <div>{action}</div>}
@@ -28,7 +28,12 @@ export const ViewLayout = ({
       {toolbar && (
         <div className={cn("flex-none", toolbarClassName)}>{toolbar}</div>
       )}
-      <div className={cn("min-h-0 flex-1 overflow-auto", contentClassName)}>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col overflow-auto",
+          contentClassName,
+        )}
+      >
         {children}
       </div>
     </div>

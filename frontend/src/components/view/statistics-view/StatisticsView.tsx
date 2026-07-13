@@ -39,7 +39,7 @@ function StatCard({ icon, label, value }: StatCardProps) {
 
 function LoadingState({ t }: { t: (k: string) => string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
       <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
       <p className="text-sm text-muted-foreground">{t("loading")}</p>
     </div>
@@ -48,7 +48,7 @@ function LoadingState({ t }: { t: (k: string) => string }) {
 
 function EmptyState({ t }: { t: (k: string) => string }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-center">
       <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
         <Users className="w-7 h-7 text-muted-foreground opacity-40" />
       </div>

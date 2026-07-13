@@ -1366,7 +1366,7 @@ export const MapView = () => {
 
   return (
     <ViewLayout title={t("title")}>
-      <div className="flex flex-col h-full min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Filters + legend row */}
         <div className="flex gap-2 mb-4 p-1 pb-2 items-center flex-wrap">
           <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>

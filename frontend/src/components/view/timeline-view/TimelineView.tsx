@@ -429,9 +429,15 @@ export const TimelineView = () => {
       }
       toolbarClassName="mb-6"
     >
-      <div className="space-y-4 pb-4">
+      <div
+        className={
+          timelineItems.length === 0
+            ? "flex min-h-0 flex-1 flex-col"
+            : "space-y-4 pb-4"
+        }
+      >
         {timelineItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
             <Calendar className="w-16 h-16 mb-4 opacity-50" />
             <p className="text-lg">{t("no-events")}</p>
             <p className="text-sm">

@@ -319,9 +319,9 @@ export const ActivityView = () => {
       toolbarClassName="mb-4"
       contentClassName="flex min-h-0 flex-col overflow-hidden"
     >
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         {error && activities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <ActivityIcon className="w-10 h-10 text-destructive opacity-60" />
             <div>
               <p className="font-medium">{t("error")}</p>
@@ -331,12 +331,12 @@ export const ActivityView = () => {
             </div>
           </div>
         ) : loading && !initialized ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t("loading")}</p>
           </div>
         ) : total === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-3 py-16">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <ActivityIcon className="w-10 h-10 text-muted-foreground opacity-40" />
             <div>
               <p className="font-medium">
