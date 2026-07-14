@@ -19,6 +19,7 @@
     "check-i18n": "node scripts/check-i18n.mjs",
     "check-bundle-size": "node scripts/check-bundle-size.mjs",
     "check-no-any": "node scripts/check-no-any.mjs",
+    "check-transport-boundary": "node scripts/check-transport-boundary.mjs",
     "gen-changelog": "node scripts/gen-changelog.mjs",
     "check-changelog": "node scripts/gen-changelog.mjs --check"
   },
