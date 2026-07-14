@@ -55,6 +55,7 @@ from app.services.activity import record_activity
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
+from app.services.member_subtrees import create_linked_subtree
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
@@ -872,7 +873,6 @@ def create_member_subtree(
     so navigation works in both directions and lands on the counterpart.
     """
     from app.services import feature_service  # noqa: PLC0415
-    from app.services.merge import _clone_member, _wire_bridge  # noqa: PLC0415
 
     if not feature_service.is_enabled(db, "tree_links", user):
         raise HTTPException(status_code=404, detail="Not found")
@@ -883,47 +883,8 @@ def create_member_subtree(
     if not name:
         raise HTTPException(status_code=400, detail="A name is required")
 
-    new_tree = Tree(
-        id=str(uuid4()),
-        name=name,
-        owner_id=user.id,
-        created_at=utcnow_iso(),
-        last_opened=utcnow_iso(),
-    )
-    db.add(new_tree)
-    db.flush()
-
-    counterpart = _clone_member(member, new_tree.id, str(uuid4()))
-    # The seed starts fresh in the new tree: the origin's canvas position and
-    # collapse state carry no meaning there.
-    counterpart.position_x = 0
-    counterpart.position_y = 0
-    counterpart.is_collapsed = False
-    db.add(counterpart)
-    db.flush()
-
-    _wire_bridge(member, counterpart)
-
-    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="update",
-        target_type="member",
-        target_id=member.id,
-        target_label=label,
-        details={"after": {"linked_tree_id": new_tree.id}},
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    db.refresh(member)
-    db.refresh(new_tree)
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
+    new_tree = create_linked_subtree(
+        db, source_tree=tree, member=member, owner=user, name=name
     )
     return MemberSubtreeOut(
         tree=TreeOut.model_validate(new_tree),
