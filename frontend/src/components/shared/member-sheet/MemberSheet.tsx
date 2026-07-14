@@ -22,14 +22,10 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  clearMemberSheetState,
-  MemberSheetTab,
-  readMemberSheetState,
-  writeMemberSheetState,
-} from "@/utils/memberSheetState";
+import { MemberSheetTab } from "@/utils/memberSheetState";
 
 type Props = {
   isOpen: boolean;
@@ -65,37 +61,46 @@ export const MemberSheet = ({
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
   const treeId = useTreeStore((s) => s.selectedTree?.id);
+  const savedSheetState = useMemberSheetStore((s) =>
+    treeId ? s.openSheets[treeId] : undefined,
+  );
+  const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
+  const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [activeTab, setActiveTab] = useState<MemberSheetTab>("identity");
   const flushAutosaveRef = useRef<() => Promise<void>>(async () => {});
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
+  const activeTab: MemberSheetTab =
+    savedSheetState && savedSheetState.memberId === member?.id
+      ? savedSheetState.tab
+      : "identity";
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
 
   useEffect(() => {
-    if (!isOpen || !member || isNewMember) return;
-    const savedState = readMemberSheetState();
-    setActiveTab(
-      savedState?.memberId === member.id ? savedState.tab : "identity",
-    );
-  }, [isOpen, member?.id, isNewMember]);
-
-  useEffect(() => {
-    if (!isOpen || !member || isNewMember) return;
-    writeMemberSheetState({
+    if (!isOpen || !member || isNewMember || !treeId) return;
+    setOpenSheet(treeId, {
       memberId: member.id,
-      tab: activeTab,
+      tab: savedSheetState?.memberId === member.id ? activeTab : "identity",
       mode: isViewingEditMode ? "edit" : "view",
     });
-  }, [activeTab, isNewMember, isOpen, isViewingEditMode, member?.id]);
+  }, [
+    activeTab,
+    isNewMember,
+    isOpen,
+    isViewingEditMode,
+    member?.id,
+    savedSheetState?.memberId,
+    setOpenSheet,
+    treeId,
+  ]);
 
   // Fetch full member detail when the sheet opens for an existing member.
   // Skip the spinner entirely when detail is already cached for this member.
@@ -133,9 +138,18 @@ export const MemberSheet = ({
 
   if (!member) return null;
 
+  const handleTabChange = (tab: MemberSheetTab) => {
+    if (!treeId || isNewMember) return;
+    setOpenSheet(treeId, {
+      memberId: member.id,
+      tab,
+      mode: isViewingEditMode ? "edit" : "view",
+    });
+  };
+
   const closeSheet = async () => {
     if (!isNewMember) await flushAutosaveRef.current();
-    clearMemberSheetState();
+    if (treeId) clearOpenSheet(treeId);
     onClose();
   };
 
@@ -262,7 +276,7 @@ export const MemberSheet = ({
                   flushAutosaveRef.current = flush;
                 }}
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
               />
             ) : (
               <ViewMode
@@ -271,7 +285,7 @@ export const MemberSheet = ({
                   void handleShowLocationOnMap(location, memberId);
                 }}
                 activeTab={activeTab}
-                onTabChange={setActiveTab}
+                onTabChange={handleTabChange}
               />
             )}
           </div>

@@ -86,8 +86,9 @@ import {
   filterViewsByRestrictions,
 } from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
-import { readMemberSheetState } from "@/utils/memberSheetState";
+import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
@@ -119,7 +120,7 @@ export const MainPanel = () => {
   const { t: tRoot } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
-    if (readMemberSheetState()) return TREE_VIEW;
+    if (readMemberSheetDeepLink()) return TREE_VIEW;
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
     return stored && isViewId(stored) ? stored : "tree-view";
   });
@@ -144,6 +145,14 @@ export const MainPanel = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingView]);
+
+  const selectedTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const hasOpenMemberSheet = useMemberSheetStore((s) =>
+    selectedTreeId ? Boolean(s.openSheets[selectedTreeId]) : false,
+  );
+  useEffect(() => {
+    if (hasOpenMemberSheet && activeTab !== TREE_VIEW) applyTab(TREE_VIEW);
+  }, [activeTab, hasOpenMemberSheet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const user = useAuthStore((s) => s.user);
   const features = useAuthStore((s) => s.features);
