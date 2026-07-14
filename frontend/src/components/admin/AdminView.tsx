@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -46,15 +46,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  AdminService,
-  AdminSettings,
-  AdminUserUpdate,
-} from "@/services/AdminService";
+import { AdminSettings, AdminUserUpdate } from "@/services/AdminService";
 import { User, ImageStorageMode } from "@/types/user";
 import { formatDate } from "@/utils/dateUtils";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
+import { useAdminSettings } from "@/hooks/useAdminSettings";
+import { useAdminUsers } from "@/hooks/useAdminUsers";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -67,7 +65,22 @@ export const AdminView = () => {
   const closeAdmin = useAdminViewStore((s) => s.closeAdmin);
   const purgeTick = useAdminViewStore((s) => s.purgeTick);
 
-  const [users, setUsers] = useState<User[]>([]);
+  const {
+    users,
+    loadUsers,
+    createUser,
+    updateUser,
+    scheduleDeletion: scheduleUserDeletion,
+    cancelDeletion: cancelUserDeletion,
+    resetPassword: resetPasswordForUser,
+    resetTotp: resetTotpForUser,
+  } = useAdminUsers();
+  const {
+    settings,
+    setSettings,
+    loadSettings,
+    saveSettings: persistSettings,
+  } = useAdminSettings();
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToReset, setUserToReset] = useState<User | null>(null);
   const [resetPassword, setResetPassword] = useState("");
@@ -77,7 +90,6 @@ export const AdminView = () => {
     tree: "",
     media: "",
   });
-  const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [legalLocale, setLegalLocale] = useState<LegalLocale>("de");
   const [newUser, setNewUser] = useState({
     username: "",
@@ -86,14 +98,6 @@ export const AdminView = () => {
     is_admin: false,
   });
 
-  const loadUsers = useCallback(async () => {
-    setUsers(await AdminService.listUsers());
-  }, []);
-
-  const loadSettings = useCallback(async () => {
-    setSettings(await AdminService.getSettings());
-  }, []);
-
   useEffect(() => {
     void loadUsers();
     void loadSettings();
@@ -101,14 +105,13 @@ export const AdminView = () => {
 
   const handleCreateUser = async () => {
     try {
-      await AdminService.createUser({
+      await createUser({
         username: newUser.username,
         password: newUser.password,
         email: newUser.email || null,
         is_admin: newUser.is_admin,
       });
       setNewUser({ username: "", password: "", email: "", is_admin: false });
-      await loadUsers();
       toast.success(t("user-created"));
     } catch (err) {
       console.error(err);
@@ -118,8 +121,7 @@ export const AdminView = () => {
 
   const patchUser = async (user: User, changes: AdminUserUpdate) => {
     try {
-      await AdminService.updateUser(user.id, changes);
-      await loadUsers();
+      await updateUser(user.id, changes);
     } catch (err) {
       console.error(err);
       toast.error(t("user-update-error"));
@@ -166,8 +168,7 @@ export const AdminView = () => {
   const scheduleDeletion = async () => {
     if (!userToDelete) return;
     try {
-      await AdminService.scheduleUserDeletion(userToDelete.id);
-      await loadUsers();
+      await scheduleUserDeletion(userToDelete.id);
       toast.success(t("delete-dialog.scheduled"));
     } catch (err) {
       console.error(err);
@@ -179,8 +180,7 @@ export const AdminView = () => {
 
   const cancelDeletion = async (user: User) => {
     try {
-      await AdminService.cancelUserDeletion(user.id);
-      await loadUsers();
+      await cancelUserDeletion(user.id);
       toast.success(t("deletion-canceled"));
     } catch (err) {
       console.error(err);
@@ -191,8 +191,7 @@ export const AdminView = () => {
   const resetUserPassword = async () => {
     if (!userToReset || !resetPassword) return;
     try {
-      await AdminService.resetUserPassword(userToReset.id, resetPassword);
-      await loadUsers();
+      await resetPasswordForUser(userToReset.id, resetPassword);
       toast.success(t("password-reset-success"));
       setUserToReset(null);
       setResetPassword("");
@@ -205,8 +204,7 @@ export const AdminView = () => {
   const resetUserTotp = async () => {
     if (!userToResetTotp) return;
     try {
-      await AdminService.resetUserTotp(userToResetTotp.id);
-      await loadUsers();
+      await resetTotpForUser(userToResetTotp.id);
       toast.success(t("totp-reset-success"));
       setUserToResetTotp(null);
     } catch (err) {
@@ -218,8 +216,7 @@ export const AdminView = () => {
   const saveSettings = async () => {
     if (!settings) return;
     try {
-      const updated = await AdminService.updateSettings(settings);
-      setSettings(updated);
+      await persistSettings(settings);
       try {
         await refreshConfig();
       } catch (configError) {
