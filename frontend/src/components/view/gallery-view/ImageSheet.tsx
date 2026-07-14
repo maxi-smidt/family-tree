@@ -203,10 +203,13 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
   };
 
   const handleAddWholeImageLink = () => {
-    if (
-      !newMemberId ||
-      memberLinks.some((link) => link.memberId === newMemberId)
-    ) {
+    if (!newMemberId) {
+      return;
+    }
+    if (memberLinks.some((link) => link.memberId === newMemberId)) {
+      toast.info(
+        t("toast-member-already-linked", { name: memberName(newMemberId) }),
+      );
       return;
     }
     setMemberLinks([

@@ -7,6 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Added
+
+- Gallery photos can now be annotated with manual, normalized face regions
+  linked to people in the tree. Face tags remain accurate at every display
+  size, and existing whole-image links continue to work unchanged (#728).
+
+### Fixed
+
+- Linking a person who is already attached to a gallery image now confirms that
+  existing link instead of failing without feedback (#728).
+
 ## [1.7.1] - 2026-07-14
 
 ### Fixed
@@ -17,9 +30,6 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
-- Gallery photos can now be annotated with manual, normalized face regions
-  linked to people in the tree. Face tags remain accurate at every display
-  size, and existing whole-image links continue to work unchanged (#728).
 - In-app instance backups now include all durable state and media bytes in a
   versioned, self-verifying encrypted manifest. A guarded command-line restore
   path supports blank-instance recovery (or an explicit replacement) (#663).

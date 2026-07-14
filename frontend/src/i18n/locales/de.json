@@ -365,6 +365,7 @@
     "image-sheet": {
       "toast-success": "Details gespeichert",
       "toast-error": "Details konnten nicht gespeichert werden",
+      "toast-member-already-linked": "{{name}} ist bereits mit diesem Bild verlinkt.",
       "title": "Bild Details",
       "title-field": "Titel",
       "title-placeholder": "Bild Titel",

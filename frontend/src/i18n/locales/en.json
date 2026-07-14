@@ -365,6 +365,7 @@
     "image-sheet": {
       "toast-success": "Image details saved",
       "toast-error": "Failed to save image details",
+      "toast-member-already-linked": "{{name}} is already linked to this image.",
       "title": "Image Details",
       "title-field": "Title",
       "title-placeholder": "Image Title",
