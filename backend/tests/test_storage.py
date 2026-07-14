@@ -24,6 +24,7 @@ from app.services.storage import (
     InvalidImageURL,
     UnsupportedImageType,
     cleanup_document_upload_temps,
+    cleanup_image_upload_temps,
     copy_media_to_tree,
     delete_media,
     media_disk_usage,
@@ -33,6 +34,7 @@ from app.services.storage import (
     store_data_url,
     store_document,
     store_document_upload,
+    store_image_upload,
 )
 
 _TREE_ID = "tree-abc"
@@ -416,6 +418,181 @@ def test_startup_cleanup_removes_interrupted_document_uploads(tmp_path, monkeypa
     retained.write_bytes(b"complete")
 
     cleanup_document_upload_temps()
+
+    assert not interrupted.exists()
+    assert retained.read_bytes() == b"complete"
+
+
+# ---------------------------------------------------------------------------
+# Streamed image uploads (issue #692): no base64 buffering, temp cleanup
+# ---------------------------------------------------------------------------
+
+
+def _image_upload(filename: str, mime: str, data: bytes) -> ChunkedUpload:
+    return ChunkedUpload(filename, mime, data)
+
+
+def test_streamed_image_is_normalized_to_webp(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(8, 8)
+    url = asyncio.run(
+        store_image_upload(_TREE_ID, _image_upload("p.png", "image/png", png), _LIMITS)
+    )
+    assert url.startswith(f"{MEDIA_URL_PREFIX}/{_TREE_ID}/")
+    assert url.endswith(".webp")
+    # The streamed temp file is consumed, never left behind.
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+
+
+def test_streamed_image_original_mode_preserves_bytes(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    limits = _LIMITS.model_copy(update={"image_storage_mode": "original"})
+    png = _make_png(6, 6)
+    url = asyncio.run(
+        store_image_upload(
+            _TREE_ID, _image_upload("p.png", "image/png", png), limits, mode="original"
+        )
+    )
+    assert url.endswith(".png")
+    rel = url[len(MEDIA_URL_PREFIX) + 1 :]
+    assert (settings.media_root / rel).read_bytes() == png
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+
+
+def test_streamed_image_both_mode_keeps_display_and_original(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(6, 6)
+    url = asyncio.run(
+        store_image_upload(
+            _TREE_ID, _image_upload("p.png", "image/png", png), _LIMITS, mode="both"
+        )
+    )
+    assert url.endswith(".webp")
+    stem = url.rsplit("/", 1)[-1].removesuffix(".webp")
+    orig = settings.media_root / _TREE_ID / "originals" / f"{stem}.png"
+    assert orig.is_file()
+    assert orig.read_bytes() == png
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+
+
+def test_streamed_oversized_image_rejected_and_temp_removed(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    limits = _LIMITS.model_copy(update={"max_image_bytes": 8})
+    with pytest.raises(ImageTooLarge):
+        asyncio.run(
+            store_image_upload(
+                _TREE_ID,
+                _image_upload("p.png", "image/png", b"x" * 64),
+                limits,
+            )
+        )
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+
+
+def test_streamed_unsupported_mime_rejected(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    with pytest.raises(UnsupportedImageType):
+        asyncio.run(
+            store_image_upload(
+                _TREE_ID,
+                _image_upload("doc.pdf", "application/pdf", b"%PDF-1.4"),
+                _LIMITS,
+            )
+        )
+
+
+def test_streamed_oversized_dimensions_rejected_and_temp_removed(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(
+        _LIMITS.max_image_dimension + 1,
+        _LIMITS.max_image_dimension + 1,
+    )
+    with pytest.raises(UnsupportedImageType):
+        asyncio.run(
+            store_image_upload(
+                _TREE_ID, _image_upload("p.png", "image/png", png), _LIMITS
+            )
+        )
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+
+
+def test_streamed_unparseable_image_rejected_and_temp_removed(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    with pytest.raises(UnsupportedImageType):
+        asyncio.run(
+            store_image_upload(
+                _TREE_ID,
+                _image_upload("p.png", "image/png", b"not-a-real-image"),
+                _LIMITS,
+            )
+        )
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+
+
+def test_streamed_images_complete_under_concurrent_near_limit_uploads(
+    tmp_path, monkeypatch
+):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png_a = _make_png(4, 4)
+    png_b = _make_png(5, 5)
+    # The larger image sits exactly on the byte limit — the size guard admits it
+    # (only a strictly larger body is rejected), exercising the boundary.
+    limits = _LIMITS.model_copy(
+        update={
+            "max_image_bytes": max(len(png_a), len(png_b)),
+            "image_storage_mode": "original",
+        }
+    )
+
+    async def upload_pair():
+        return await asyncio.gather(
+            store_image_upload(
+                _TREE_ID, _image_upload("a.png", "image/png", png_a), limits,
+                mode="original",
+            ),
+            store_image_upload(
+                _TREE_ID, _image_upload("b.png", "image/png", png_b), limits,
+                mode="original",
+            ),
+        )
+
+    url_a, url_b = asyncio.run(upload_pair())
+    stored = {
+        (tmp_path / "media" / url.removeprefix(f"{MEDIA_URL_PREFIX}/")).read_bytes()
+        for url in (url_a, url_b)
+    }
+    assert stored == {png_a, png_b}
+    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+
+
+def test_startup_cleanup_removes_interrupted_image_uploads(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    tree_dir = tmp_path / "media" / _TREE_ID
+    tree_dir.mkdir(parents=True)
+    interrupted = tree_dir / ".image-upload-partial.tmp"
+    interrupted.write_bytes(b"partial")
+    retained = tree_dir / "keep.webp"
+    retained.write_bytes(b"complete")
+
+    cleanup_image_upload_temps()
 
     assert not interrupted.exists()
     assert retained.read_bytes() == b"complete"

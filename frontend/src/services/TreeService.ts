@@ -250,21 +250,34 @@ export class TreeService {
     );
   }
 
-  static addGalleryImage(
+  /** Stream a picked image file to the gallery as multipart form-data. The
+   *  bytes never become a base64 data URL in JS state or the request body; the
+   *  backend streams them to disk and applies all image safeguards. */
+  static uploadGalleryImage(
     treeId: string,
     id: string,
-    image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    file: File,
+    meta: {
+      title: string | null;
+      description: string | null;
+      memberIds: string[];
+    },
     now: string,
   ) {
-    return api.post(`${base(treeId)}/gallery/images`, {
-      id,
-      imageData: image.imageData,
-      title: image.title,
-      description: image.description,
-      createdAt: now,
-      uploadedAt: now,
-      member_ids: image.linkedMemberIds ?? [],
-    });
+    const formData = new FormData();
+    formData.append("id", id);
+    formData.append("image", file);
+    if (meta.title !== null) formData.append("title", meta.title);
+    if (meta.description !== null)
+      formData.append("description", meta.description);
+    formData.append("created_at", now);
+    formData.append("uploaded_at", now);
+    for (const memberId of meta.memberIds)
+      formData.append("member_ids", memberId);
+    return api.postForm<GalleryImageDB>(
+      `${base(treeId)}/gallery/images`,
+      formData,
+    );
   }
 
   static setGalleryImageLinks(
@@ -282,8 +295,10 @@ export class TreeService {
     id: string,
     changes: Partial<GalleryImage>,
   ) {
+    // Only metadata is editable — image bytes are immutable after upload, so
+    // imageData is intentionally never sent back (it only carries the stored
+    // media URL).
     const body: Record<string, unknown> = {};
-    if (changes.imageData !== undefined) body.imageData = changes.imageData;
     if (changes.title !== undefined) body.title = changes.title;
     if (changes.description !== undefined)
       body.description = changes.description;

@@ -269,9 +269,10 @@ server {
     ssl_certificate     /etc/letsencrypt/live/family.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/family.example.com/privkey.pem;
 
-    # Documents use multipart streaming. Keep this close to the app's maximum
-    # upload setting (100 MB maximum) so the proxy cannot buffer arbitrarily
-    # large bodies. The bundled frontend container uses 105m.
+    # Documents and gallery images both use multipart streaming. Keep this
+    # close to the app's largest upload setting (100 MB maximum for either) so
+    # the proxy cannot buffer arbitrarily large bodies. The bundled frontend
+    # container uses 105m.
     client_max_body_size 105m;
 
     # Let slow but valid uploads finish. Choose values suitable for your
@@ -295,13 +296,18 @@ server {
 }
 ```
 
-The application accepts documents up to 100 MiB and streams them in 1 MiB
-chunks. Plan temporary-disk capacity for **at least 3× the configured document
-limit per concurrent upload**: one proxy request buffer, one FastAPI multipart
-spool, and the app's atomic destination temp file. Keep the proxy limit close
-to the application limit and choose finite body/read timeouts. A failed,
-cancelled, or checksum-mismatched upload is removed immediately; incomplete
-destination temp files are also removed when the backend starts.
+Both documents (up to 100 MiB) and gallery images / member photos (up to the
+`max_image_upload_mb` setting — default 10 MiB, 100 MiB maximum) are streamed to
+disk in 1 MiB chunks rather than buffered as base64 JSON. Plan temporary-disk
+capacity for **at least 3× the larger configured limit per concurrent upload**:
+one proxy request buffer, one FastAPI multipart spool, and the app's atomic
+destination temp file. An image is briefly held as a decoded bitmap while it is
+re-encoded — size it against `max_image_dimension` (default 4096 px/side), which
+also bounds the decompression-bomb surface. Keep the proxy limit close to the
+application limit and choose finite body/read timeouts. A failed, cancelled,
+rejected, or checksum-mismatched upload is removed immediately; incomplete
+destination temp files (both `.document-upload-*` and `.image-upload-*`) are
+also removed when the backend starts.
 
 ### Traefik (labels on the frontend service)
 

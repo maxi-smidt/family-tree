@@ -23,7 +23,11 @@ from app.db.session import engine
 from app.services.authentik import init_oauth
 from app.services.backup_scheduler import backup_schedule_loop
 from app.services.deletion_sweeper import deletion_sweep_loop
-from app.services.storage import InvalidImageURL, cleanup_document_upload_temps
+from app.services.storage import (
+    InvalidImageURL,
+    cleanup_document_upload_temps,
+    cleanup_image_upload_temps,
+)
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -69,6 +73,7 @@ async def lifespan(app: FastAPI):
 
     init_oauth()
     cleanup_document_upload_temps()
+    cleanup_image_upload_temps()
     _init_db_with_retry()
     sweeper = asyncio.create_task(deletion_sweep_loop())
     backup_scheduler = asyncio.create_task(backup_schedule_loop())

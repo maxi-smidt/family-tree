@@ -1,9 +1,12 @@
 """Filesystem-backed media storage for member photos and gallery images.
 
-Images arrive from the SPA as ``data:`` URLs (base64). We persist the decoded
-bytes to ``DATA_PATH/media/<tree_id>/<uuid>.<ext>`` and hand back a stable,
-relative URL (``/api/media/...``) that the browser can use directly in an
-``<img src>``. Filenames are random UUIDs, so the URLs are unguessable.
+Gallery images are streamed from the SPA as multipart ``UploadFile`` bytes and
+persisted by :func:`store_image_upload`, which keeps transport memory bounded.
+The trusted import/export path and the member-photo avatar field still decode
+``data:`` URLs via :func:`store_data_url`. Either way the bytes land at
+``DATA_PATH/media/<tree_id>/<uuid>.<ext>`` and we hand back a stable, relative
+URL (``/api/media/...``) that the browser can use directly in an ``<img src>``.
+Filenames are random UUIDs, so the URLs are unguessable.
 """
 
 import base64
@@ -172,6 +175,10 @@ _DOCUMENT_UPLOAD_CHUNK_SIZE = 1024 * 1024
 _DOCUMENT_UPLOAD_TEMP_PREFIX = ".document-upload-"
 _DOCUMENT_UPLOAD_TEMP_SUFFIX = ".tmp"
 
+_IMAGE_UPLOAD_CHUNK_SIZE = 1024 * 1024
+_IMAGE_UPLOAD_TEMP_PREFIX = ".image-upload-"
+_IMAGE_UPLOAD_TEMP_SUFFIX = ".tmp"
+
 
 def _document_type(filename: str, declared_mime: str | None) -> tuple[str, str]:
     """Return the canonical extension and MIME for an allowed document upload."""
@@ -277,8 +284,8 @@ async def store_document_upload(
         raise
 
 
-def cleanup_document_upload_temps() -> None:
-    """Remove incomplete document-upload files left by an interrupted worker."""
+def _cleanup_upload_temps(prefix: str, suffix: str) -> None:
+    """Remove ``<prefix>*<suffix>`` temp files under every tree's media dir."""
     root = settings.media_root
     if not root.is_dir():
         return
@@ -289,13 +296,23 @@ def cleanup_document_upload_temps() -> None:
     for tree_dir in tree_dirs:
         if not tree_dir.is_dir():
             continue
-        for temp_path in tree_dir.glob(
-            f"{_DOCUMENT_UPLOAD_TEMP_PREFIX}*{_DOCUMENT_UPLOAD_TEMP_SUFFIX}"
-        ):
+        for temp_path in tree_dir.glob(f"{prefix}*{suffix}"):
             try:
                 temp_path.unlink(missing_ok=True)
             except OSError:
                 pass
+
+
+def cleanup_document_upload_temps() -> None:
+    """Remove incomplete document-upload files left by an interrupted worker."""
+    _cleanup_upload_temps(
+        _DOCUMENT_UPLOAD_TEMP_PREFIX, _DOCUMENT_UPLOAD_TEMP_SUFFIX
+    )
+
+
+def cleanup_image_upload_temps() -> None:
+    """Remove incomplete image-upload files left by an interrupted worker."""
+    _cleanup_upload_temps(_IMAGE_UPLOAD_TEMP_PREFIX, _IMAGE_UPLOAD_TEMP_SUFFIX)
 
 
 def delete_media(value: str | None) -> None:
@@ -419,16 +436,115 @@ def store_data_url(
     return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
 
 
-def _validate_image_dimensions(raw: bytes, limits: MediaLimits) -> None:
+async def store_image_upload(
+    tree_id: str,
+    upload: UploadFile,
+    limits: MediaLimits,
+    *,
+    mode: str = "compressed",
+) -> str:
+    """Stream a multipart image upload to disk, normalize it, and store it.
+
+    The browser sends the picked image as multipart ``UploadFile`` bytes rather
+    than a base64 ``data:`` URL, so only one bounded chunk is held while the
+    body is copied to a temporary file — transport memory stays bounded no
+    matter how large the image is. Every existing safeguard is preserved, it
+    just reads from the streamed temp file instead of an in-memory payload:
+    MIME allowlist, byte-size limit, dimension cap, Pillow decompression-bomb
+    protection, WebP re-encode, and the ``image_storage_mode`` branches. Any
+    rejection or cancellation removes the temporary file.
+
+    ``mode`` mirrors :func:`store_data_url`:
+    - ``"compressed"`` (default): resize + re-encode as WebP.
+    - ``"original"``: store the streamed bytes as-is under their extension.
+    - ``"both"``: store a display WebP and keep the original as a sibling in
+      the ``originals/`` subdirectory.
+    """
+    mime = (upload.content_type or "").split(";", 1)[0].strip().lower()
+    if mime not in _MIME_EXT:
+        raise UnsupportedImageType(
+            f"Unsupported image type '{mime}'. "
+            f"Allowed types: {', '.join(sorted(_MIME_EXT))}."
+        )
+    orig_ext = _MIME_EXT[mime]
+    tree_dir = _tree_media_dir(tree_id)
+    stem = uuid4().hex
+    temp_path: Path | None = None
+    size = 0
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=_IMAGE_UPLOAD_TEMP_PREFIX,
+            suffix=_IMAGE_UPLOAD_TEMP_SUFFIX,
+            dir=tree_dir,
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+            while chunk := await upload.read(_IMAGE_UPLOAD_CHUNK_SIZE):
+                size += len(chunk)
+                if size > limits.max_image_bytes:
+                    raise ImageTooLarge(
+                        "Image exceeds the "
+                        f"{limits.max_image_bytes // (1024 * 1024)} MB limit."
+                    )
+                temp_file.write(chunk)
+
+        if mode == "original":
+            _validate_image_dimensions(temp_path, limits)
+            filename = f"{stem}.{orig_ext}"
+            os.replace(temp_path, tree_dir / filename)
+            temp_path = None
+            return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+
+        if mode == "both":
+            display_raw, display_ext = _normalize_image(temp_path, orig_ext, limits)
+            display_filename = f"{stem}.{display_ext}"
+            (tree_dir / display_filename).write_bytes(display_raw)
+            # Move the streamed original into the originals/ subdir under the
+            # same stem, so delete/copy/move helpers keep the pair together.
+            os.replace(temp_path, _originals_dir(tree_id) / f"{stem}.{orig_ext}")
+            temp_path = None
+            return f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}"
+
+        # Default: "compressed". The display WebP is a fresh file, so the
+        # streamed original temp file is no longer needed — remove it.
+        display_raw, display_ext = _normalize_image(temp_path, orig_ext, limits)
+        filename = f"{stem}.{display_ext}"
+        (tree_dir / filename).write_bytes(display_raw)
+        temp_path.unlink(missing_ok=True)
+        temp_path = None
+        return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+    except BaseException:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _open_image_source(source: bytes | Path):
+    """Open an image from raw bytes or an on-disk path.
+
+    The streaming upload path passes a temp-file ``Path`` so the encoded bytes
+    are read from disk by Pillow instead of held in memory as one base64 copy;
+    the trusted import path still passes decoded ``bytes``.
+    """
+    from PIL import Image
+
+    if isinstance(source, Path):
+        return Image.open(source)
+    return Image.open(BytesIO(source))
+
+
+def _validate_image_dimensions(source: bytes | Path, limits: MediaLimits) -> None:
     """Parse image and reject it if either dimension exceeds the configured cap.
 
     Raises ``UnsupportedImageType`` when Pillow cannot parse the payload or
     either dimension exceeds ``limits.max_image_dimension``.
     """
-    from PIL import Image, UnidentifiedImageError
+    from PIL import UnidentifiedImageError
 
     try:
-        with Image.open(BytesIO(raw)) as img:
+        with _open_image_source(source) as img:
             w, h = img.size
             if w > limits.max_image_dimension or h > limits.max_image_dimension:
                 raise UnsupportedImageType(
@@ -444,7 +560,7 @@ def _validate_image_dimensions(raw: bytes, limits: MediaLimits) -> None:
 
 
 def _normalize_image(
-    raw: bytes,
+    source: bytes | Path,
     ext: str,
     limits: MediaLimits,
 ) -> tuple[bytes, str]:
@@ -453,10 +569,10 @@ def _normalize_image(
     Raises ``UnsupportedImageType`` when Pillow cannot parse the payload or
     either image dimension exceeds the configured limit before resizing.
     """
-    from PIL import Image, UnidentifiedImageError
+    from PIL import UnidentifiedImageError
 
     try:
-        with Image.open(BytesIO(raw)) as img:
+        with _open_image_source(source) as img:
             w, h = img.size
             if w > limits.max_image_dimension or h > limits.max_image_dimension:
                 raise UnsupportedImageType(
