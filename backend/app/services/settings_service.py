@@ -68,9 +68,6 @@ DEFAULTS: dict[str, str] = {
     "default_media_quota_mb": str(DEFAULT_MEDIA_QUOTA_MB),
     "image_storage_mode": DEFAULT_IMAGE_STORAGE_MODE,
     "image_storage_allowed_modes": ",".join(IMAGE_STORAGE_MODES),
-    "announcement_title": "",
-    "announcement_body": "",
-    "announcement_version": "",
     "legal_acceptance_required": "true",
     "legal_version": DEFAULT_LEGAL_VERSION,
     **{
@@ -320,9 +317,6 @@ def get_settings_out(db: Session) -> SettingsOut:
         ),
         image_storage_mode=media_limits.image_storage_mode,
         image_storage_allowed_modes=media_limits.image_storage_allowed_modes,
-        announcement_title=get_setting(db, "announcement_title", "") or "",
-        announcement_body=get_setting(db, "announcement_body", "") or "",
-        announcement_version=get_setting(db, "announcement_version", "") or "",
         legal_acceptance_required=get_bool_setting(
             db, "legal_acceptance_required", True
         ),
@@ -417,12 +411,6 @@ def update_settings(
             else current_allowed[0]
         )
         set_setting(db, "image_storage_mode", mode)
-    if payload.announcement_title is not None:
-        set_setting(db, "announcement_title", payload.announcement_title.strip())
-    if payload.announcement_body is not None:
-        set_setting(db, "announcement_body", payload.announcement_body.strip())
-    if payload.announcement_version is not None:
-        set_setting(db, "announcement_version", payload.announcement_version.strip())
     if payload.legal_acceptance_required is not None:
         set_setting(
             db,

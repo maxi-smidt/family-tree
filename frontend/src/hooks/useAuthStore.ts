@@ -6,11 +6,20 @@ import {
   setAuthToken,
 } from "@/services/api";
 import { TreeSharingService } from "@/services/TreeSharingService";
+import { AuthService, TwoFactorSetup } from "@/services/AuthService";
+import { Tree } from "@/types/tree";
 import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
 import { FeatureName } from "@/lib/features";
 import { decodeJwtExp } from "@/lib/utils";
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+type AccountOperation =
+  | "idle"
+  | "setting-up-two-factor"
+  | "enabling-two-factor"
+  | "disabling-two-factor"
+  | "changing-password"
+  | "deleting-account";
 
 interface AuthState {
   status: AuthStatus;
@@ -28,6 +37,10 @@ interface AuthState {
   /** Set after password check when the account has TOTP enabled. */
   totpRequired: boolean;
   totpSessionToken: string | null;
+  /** Account-management mutation currently in flight. */
+  accountOperation: AccountOperation;
+  /** Last account-management operation failure, cleared when a new one begins. */
+  accountError: string | null;
   init: () => Promise<void>;
   refreshConfig: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
@@ -41,6 +54,15 @@ interface AuthState {
     password: string | null,
     confirmUsername: string | null,
   ) => Promise<User>;
+  setupTwoFactor: () => Promise<TwoFactorSetup>;
+  enableTwoFactor: (code: string) => Promise<void>;
+  disableTwoFactor: (password: string, code: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  loadOwnedTrees: () => Promise<Tree[]>;
+  loadOwnershipTransferTargets: (
+    treeId: string,
+  ) => Promise<Array<{ user_id: string; username: string }>>;
+  transferTreeOwnership: (treeId: string, username: string) => Promise<void>;
   register: (
     username: string,
     password: string,
@@ -131,6 +153,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   pendingPublicTreeId: null,
   totpRequired: false,
   totpSessionToken: null,
+  accountOperation: "idle",
+  accountError: null,
 
   refreshConfig: async () => {
     const config = await api.get<AuthConfig>("/auth/config");
@@ -220,7 +244,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   refreshMe: async () => {
+    const tokenBeforeRefresh = getAuthToken();
     const user = await api.get<User>("/auth/me");
+    if (
+      getAuthToken() !== tokenBeforeRefresh ||
+      useAuthStore.getState().status !== "authenticated"
+    ) {
+      return;
+    }
     set({ user, features: user.features ?? [] });
   },
 
@@ -269,11 +300,44 @@ export const useAuthStore = create<AuthState>((set) => ({
     password: string | null,
     confirmUsername: string | null,
   ) => {
-    return await api.post<User>("/auth/delete-account", {
-      password,
-      confirm_username: confirmUsername,
-    });
+    return runAccountOperation(set, "deleting-account", () =>
+      AuthService.deleteAccount(password, confirmUsername),
+    );
   },
+
+  setupTwoFactor: () =>
+    runAccountOperation(set, "setting-up-two-factor", () =>
+      AuthService.setupTwoFactor(),
+    ),
+
+  enableTwoFactor: async (code: string) => {
+    await runAccountOperation(set, "enabling-two-factor", () =>
+      AuthService.enableTwoFactor(code),
+    );
+    await useAuthStore.getState().refreshMe();
+  },
+
+  disableTwoFactor: async (password: string, code: string) => {
+    await runAccountOperation(set, "disabling-two-factor", () =>
+      AuthService.disableTwoFactor(password, code),
+    );
+    await useAuthStore.getState().refreshMe();
+  },
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    runAccountOperation(set, "changing-password", () =>
+      AuthService.changePassword(currentPassword, newPassword),
+    ),
+
+  loadOwnedTrees: () => AuthService.getOwnedTrees(),
+
+  loadOwnershipTransferTargets: (treeId: string) =>
+    AuthService.getOwnershipTransferTargets(treeId),
+
+  transferTreeOwnership: (treeId: string, username: string) =>
+    runAccountOperation(set, "deleting-account", () =>
+      AuthService.transferOwnership(treeId, username),
+    ),
 
   register: async (
     username: string,
@@ -309,6 +373,23 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 }));
+
+async function runAccountOperation<T>(
+  set: (partial: Partial<AuthState>) => void,
+  operation: Exclude<AccountOperation, "idle">,
+  action: () => Promise<T>,
+): Promise<T> {
+  set({ accountOperation: operation, accountError: null });
+  try {
+    return await action();
+  } catch (error) {
+    const accountError = error instanceof Error ? error.message : "Unknown error";
+    set({ accountError });
+    throw error;
+  } finally {
+    set({ accountOperation: "idle" });
+  }
+}
 
 /** Reactive hook: is the feature enabled for the current user? */
 export const useFeature = (feature: FeatureName): boolean =>
