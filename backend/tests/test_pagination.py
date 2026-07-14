@@ -137,7 +137,16 @@ def test_content_collection_endpoints_support_pagination(client, db):
     ) == ["g1"]
     assert client.get(
         f"{API}/trees/{tree.id}/gallery/links", headers=headers, params=params
-    ).json() == [{"gallery_image_id": "g1", "member_id": "m1"}]
+    ).json() == [
+        {
+            "gallery_image_id": "g1",
+            "member_id": "m1",
+            "x": None,
+            "y": None,
+            "w": None,
+            "h": None,
+        }
+    ]
     assert _ids(
         client.get(f"{API}/trees/{tree.id}/events", headers=headers, params=params)
     ) == ["e1"]

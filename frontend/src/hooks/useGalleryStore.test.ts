@@ -39,8 +39,22 @@ describe("useGalleryStore — refreshGalleryImages", () => {
     useTreeStore.setState({ selectedTree: TREE });
     vi.mocked(TreeService.getGalleryImages).mockResolvedValue([IMAGE_DB]);
     vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([
-      { gallery_image_id: "img1", member_id: "m1" },
-      { gallery_image_id: "img1", member_id: "m2" },
+      {
+        gallery_image_id: "img1",
+        member_id: "m1",
+        x: null,
+        y: null,
+        w: null,
+        h: null,
+      },
+      {
+        gallery_image_id: "img1",
+        member_id: "m2",
+        x: 0.1,
+        y: 0.2,
+        w: 0.3,
+        h: 0.4,
+      },
     ]);
 
     await useGalleryStore.getState().refreshGalleryImages();
@@ -49,6 +63,10 @@ describe("useGalleryStore — refreshGalleryImages", () => {
     expect(images).toHaveLength(1);
     expect(images[0].id).toBe("img1");
     expect(images[0].linkedMemberIds).toEqual(["m1", "m2"]);
+    expect(images[0].memberLinks).toEqual([
+      { memberId: "m1", x: null, y: null, w: null, h: null },
+      { memberId: "m2", x: 0.1, y: 0.2, w: 0.3, h: 0.4 },
+    ]);
     expect(images[0].title).toBe("Test Photo");
   });
 
@@ -120,7 +138,7 @@ describe("useGalleryStore — updateGalleryImage", () => {
 
     await useGalleryStore.getState().updateGalleryImage("img1", {
       title: "Renamed",
-      linkedMemberIds: ["m4"],
+      memberLinks: [{ memberId: "m4", x: 0.1, y: 0.2, w: 0.3, h: 0.4 }],
     });
 
     expect(TreeService.updateGalleryImage).toHaveBeenCalledWith(
@@ -131,7 +149,7 @@ describe("useGalleryStore — updateGalleryImage", () => {
     expect(TreeService.setGalleryImageLinks).toHaveBeenCalledWith(
       TREE_ID,
       "img1",
-      ["m4"],
+      [{ memberId: "m4", x: 0.1, y: 0.2, w: 0.3, h: 0.4 }],
     );
   });
 

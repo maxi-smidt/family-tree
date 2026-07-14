@@ -20,10 +20,13 @@ from app.schemas.content import (
     GalleryImageOut,
     GalleryImageUpdate,
     GalleryLinkOut,
-    LinksSet,
+    GalleryLinksSet,
 )
 from app.services.activity import record_activity
-from app.services.content_links import replace_member_links
+from app.services.content_links import (
+    replace_gallery_member_links,
+    replace_member_links,
+)
 from app.services.event_bus import event_bus, publish_tree_event
 from app.services.settings_service import effective_storage_mode, get_media_limits
 from app.services.storage import (
@@ -226,20 +229,18 @@ def delete_image(
 @router.put("/images/{image_id}/links", status_code=204)
 def set_links(
     image_id: str,
-    payload: LinksSet,
+    payload: GalleryLinksSet,
     tree: Tree = Depends(get_writable_tree),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Replace the full set of members linked to this image."""
+    """Replace the full set of members and optional face regions on an image."""
     image = _get_image(db, tree, image_id)
-    replace_member_links(
+    replace_gallery_member_links(
         db,
-        link_model=GalleryMemberLink,
-        parent_fk=GalleryMemberLink.gallery_image_id,
-        parent_id=image_id,
+        image_id=image_id,
         tree=tree,
-        member_ids=payload.member_ids,
+        links=payload.links,
     )
     record_activity(
         db, tree_id=tree.id, actor=user, action="update",

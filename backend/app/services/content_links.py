@@ -34,6 +34,45 @@ def replace_member_links(
         db.add(link_model(**{parent_fk.key: parent_id, "member_id": mid}))
 
 
+def replace_gallery_member_links(
+    db: Session,
+    *,
+    image_id: str,
+    tree: Tree,
+    links: list,
+) -> None:
+    """Replace gallery links while retaining each optional normalized region."""
+    from app.models.content import GalleryMemberLink
+
+    db.query(GalleryMemberLink).filter(
+        GalleryMemberLink.gallery_image_id == image_id
+    ).delete()
+    if not links:
+        return
+
+    valid_ids = set(
+        db.scalars(
+            select(Member.id).where(
+                Member.tree_id == tree.id,
+                Member.id.in_({link.member_id for link in links}),
+            )
+        ).all()
+    )
+    for link in links:
+        if link.member_id not in valid_ids:
+            continue
+        db.add(
+            GalleryMemberLink(
+                gallery_image_id=image_id,
+                member_id=link.member_id,
+                x=link.x,
+                y=link.y,
+                w=link.w,
+                h=link.h,
+            )
+        )
+
+
 def replace_document_links(
     db: Session,
     *,

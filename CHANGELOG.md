@@ -17,6 +17,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Gallery photos can now be annotated with manual, normalized face regions
+  linked to people in the tree. Face tags remain accurate at every display
+  size, and existing whole-image links continue to work unchanged (#728).
 - In-app instance backups now include all durable state and media bytes in a
   versioned, self-verifying encrypted manifest. A guarded command-line restore
   path supports blank-instance recovery (or an explicit replacement) (#663).

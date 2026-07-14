@@ -1,7 +1,9 @@
 import io
 
+from sqlalchemy import select
+
 from app.api.routes.export_import import BUNDLE_VERSION
-from app.models import Member
+from app.models import GalleryImage, GalleryMemberLink, Member
 from app.services import crypto_export
 from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 
@@ -12,6 +14,15 @@ from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 # silently drop the added data. This guard is what would have caught #661.
 EXPECTED_BUNDLE_KEYS = {
     3: {
+        "version", "app_version", "exported_at", "tree",
+        "members", "relations", "relation_types", "diseases",
+        "gallery_images", "gallery_links",
+        "events", "event_links",
+        "stories", "story_links",
+        "documents", "document_files",
+        "document_member_links", "event_document_links", "story_document_links",
+    },
+    4: {
         "version", "app_version", "exported_at", "tree",
         "members", "relations", "relation_types", "diseases",
         "gallery_images", "gallery_links",
@@ -65,6 +76,55 @@ def test_native_export_import_preserves_member_name_details(client, db):
     assert len(members) == 1
     assert members[0]["middleNames"] == "Maria Theresia"
     assert members[0]["baptismalName"] == "Maria"
+
+
+def test_native_export_import_preserves_gallery_face_regions(client, db):
+    owner = make_user(db, "face-tag-export-owner")
+    tree = make_tree(db, owner, "Face tag export")
+    headers = auth(owner)
+    member = Member(id="member-1", tree_id=tree.id, first_name="Anna")
+    image = GalleryImage(id="image-1", tree_id=tree.id, title="Portrait")
+    link = GalleryMemberLink(
+        gallery_image_id=image.id,
+        member_id=member.id,
+        x=0.1,
+        y=0.2,
+        w=0.3,
+        h=0.4,
+    )
+    db.add_all([member, image])
+    db.commit()
+    db.add(link)
+    db.commit()
+
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
+    assert exported.status_code == 200
+    imported = client.post(
+        f"{API}/trees/import",
+        headers=headers,
+        files={
+            "file": (
+                "face-tags.treedb",
+                io.BytesIO(exported.content),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert imported.status_code == 202, imported.text
+    imported_tree_id = wait_for_job(client, headers, imported.json()["job_id"])
+
+    imported_link = db.scalar(
+        select(GalleryMemberLink)
+        .join(GalleryImage, GalleryImage.id == GalleryMemberLink.gallery_image_id)
+        .where(GalleryImage.tree_id == imported_tree_id)
+    )
+    assert imported_link is not None
+    assert (imported_link.x, imported_link.y, imported_link.w, imported_link.h) == (
+        0.1,
+        0.2,
+        0.3,
+        0.4,
+    )
 
 
 def test_export_bundle_includes_provenance(client, db):

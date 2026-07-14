@@ -900,13 +900,32 @@ def list_virtual_gallery_links(
     db: Session = Depends(get_db),
 ) -> list[GalleryLinkOut]:
     view = _resolve_view(db, view_id, user)
-    pairs = _remap_member_links(
-        db, view, GalleryMemberLink, "member_id", "gallery_image_id"
-    )
-    return [
-        GalleryLinkOut(gallery_image_id=other, member_id=node)
-        for other, node in pairs
-    ]
+    source_ids = flatten_tree_ids(db, view)
+    id_map = _build_id_map(db, view)
+    rows = db.scalars(
+        select(GalleryMemberLink)
+        .join(Member, Member.id == GalleryMemberLink.member_id)
+        .where(Member.tree_id.in_(source_ids))
+    ).all()
+    seen: set[tuple[str, str]] = set()
+    links: list[GalleryLinkOut] = []
+    for link in rows:
+        member_id = id_map.get(link.member_id, link.member_id)
+        key = (link.gallery_image_id, member_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        links.append(
+            GalleryLinkOut(
+                gallery_image_id=link.gallery_image_id,
+                member_id=member_id,
+                x=link.x,
+                y=link.y,
+                w=link.w,
+                h=link.h,
+            )
+        )
+    return links
 
 
 @router.get("/{view_id}/events", response_model=list[EventOut])
