@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
-import { api } from "@/services/api";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -26,6 +26,8 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  const changePassword = useAuthStore((s) => s.changePassword);
+  const isSaving = useAuthStore((s) => s.accountOperation === "changing-password");
 
   const resetFields = () => {
     setCurrent("");
@@ -44,10 +46,7 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
       return;
     }
     try {
-      await api.post("/auth/password", {
-        current_password: current,
-        new_password: next,
-      });
+      await changePassword(current, next);
       toast.success(t("success"));
       resetFields();
       onClose();
@@ -103,7 +102,7 @@ export const ChangePasswordDialog = ({ isOpen, onClose }: Props) => {
           <Button
             size="sm"
             onClick={handleSave}
-            disabled={!current || !next || !confirm}
+            disabled={!current || !next || !confirm || isSaving}
           >
             {t("save")}
           </Button>
