@@ -3,12 +3,14 @@ import { ImagePlus, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AccountAvatar } from "@/components/auth/AccountAvatar";
+import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { Button } from "@/components/ui/button";
 import { FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { getQuotaBucket } from "@/lib/quotaError";
 import { ApiError } from "@/services/api";
+import { dataUrlToFile } from "@/utils/canvasUtils";
 
 export function ProfileSettingsPanel() {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.profile" });
@@ -20,6 +22,7 @@ export function ProfileSettingsPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [firstName, setFirstName] = useState(user?.first_name ?? "");
   const [lastName, setLastName] = useState(user?.last_name ?? "");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
     setFirstName(user?.first_name ?? "");
@@ -44,12 +47,24 @@ export function ProfileSettingsPanel() {
     }
   };
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (loadEvent) => {
+      const imageData = loadEvent.target?.result;
+      if (typeof imageData === "string") setSelectedImage(imageData);
+    };
+    reader.onerror = () => toast.error(t("upload-error"));
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropConfirm = async (imageData: string) => {
     try {
-      await uploadProfileImage(file);
+      await uploadProfileImage(dataUrlToFile(imageData, "profile.jpg"));
+      setSelectedImage(null);
       toast.success(t("upload-success"));
     } catch (error) {
       if (error instanceof ApiError && error.status === 413) {
@@ -91,7 +106,7 @@ export function ProfileSettingsPanel() {
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={(event) => void handleFileChange(event)}
+            onChange={handleFileChange}
           />
           <Button
             type="button"
@@ -117,6 +132,13 @@ export function ProfileSettingsPanel() {
           )}
         </div>
       </div>
+
+      <ImageCropDialog
+        isOpen={!!selectedImage}
+        imageData={selectedImage}
+        onConfirm={(imageData) => void handleCropConfirm(imageData)}
+        onCancel={() => setSelectedImage(null)}
+      />
 
       <div className="space-y-4">
         <div className="space-y-2">
