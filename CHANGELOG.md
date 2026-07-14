@@ -7,6 +7,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Fixed
+
+- The gallery upload progress panel now dismisses itself automatically once
+  every image has uploaded successfully, instead of lingering after the uploads
+  complete. It stays open when an upload fails so the failure can be reviewed
+  and retried (#731).
+
 ## [1.7.1] - 2026-07-14
 
 ### Fixed
