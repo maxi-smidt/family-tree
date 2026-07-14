@@ -1,0 +1,69 @@
+import { api } from "@/services/api";
+import { ShareCandidate, Tree, TreeAccess } from "@/types/tree";
+import { TotpSetupResponse, User } from "@/types/user";
+
+export interface TwoFactorSetup {
+  setup: TotpSetupResponse;
+  qrDataUrl: string;
+}
+
+/** Focused transport client for authenticated account-management workflows. */
+export const AuthService = {
+  async setupTwoFactor(): Promise<TwoFactorSetup> {
+    const setup = await api.post<TotpSetupResponse>("/auth/2fa/setup");
+    const qr = await api.get<{ data_url: string }>("/auth/2fa/qr-code");
+    return { setup, qrDataUrl: qr.data_url };
+  },
+
+  enableTwoFactor(code: string): Promise<void> {
+    return api.post<void>("/auth/2fa/enable", { code });
+  },
+
+  disableTwoFactor(password: string, code: string): Promise<void> {
+    return api.post<void>("/auth/2fa/disable", { password, code });
+  },
+
+  changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    return api.post<void>("/auth/password", {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  },
+
+  deleteAccount(
+    password: string | null,
+    confirmUsername: string | null,
+  ): Promise<User> {
+    return api.post<User>("/auth/delete-account", {
+      password,
+      confirm_username: confirmUsername,
+    });
+  },
+
+  async getOwnedTrees(): Promise<Tree[]> {
+    const trees = await api.get<Tree[]>("/trees");
+    return trees.filter((tree) => tree.role === "owner");
+  },
+
+  async getOwnershipTransferTargets(
+    treeId: string,
+  ): Promise<Array<{ user_id: string; username: string }>> {
+    const [accessList, candidates] = await Promise.all([
+      api.get<TreeAccess[]>(`/trees/${treeId}/access`),
+      api.get<ShareCandidate[]>(`/trees/${treeId}/access/candidates`),
+    ]);
+    return [
+      ...accessList
+        .filter((access) => access.role !== "owner")
+        .map((access) => ({
+          user_id: access.user_id,
+          username: access.username,
+        })),
+      ...candidates,
+    ].sort((left, right) => left.username.localeCompare(right.username));
+  },
+
+  transferOwnership(treeId: string, username: string): Promise<void> {
+    return api.post<void>(`/trees/${treeId}/transfer`, { username });
+  },
+};
