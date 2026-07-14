@@ -12,7 +12,7 @@ def _load_migration_module():
         Path(__file__).resolve().parents[1]
         / "alembic"
         / "versions"
-        / "v1_7_2_remove_announcement_settings.py"
+        / "v1_7_0_release.py"
     )
     spec = importlib.util.spec_from_file_location("remove_announcement_settings", path)
     assert spec and spec.loader

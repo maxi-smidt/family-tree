@@ -1,7 +1,13 @@
 """v1.7.0 release schema.
 
 Includes Documents, public-tree password and token invalidation support, the
-administrator audit trail, story dates, and the document-file media index.
+administrator audit trail, story dates, the document-file media index, the
+document-upload staging table, and the cleanup of the obsolete
+release-announcement settings.
+
+This single migration is the whole v1.7.0 delta over v1.6.0 (whose head was
+``v1_5_0_linked_tree_geocode``); the pre-release ``v1_7_1`` / ``v1_7_2`` steps
+were squashed into it before the release was cut.
 
 Revision ID: v1_7_0_release
 Revises: v1_5_0_linked_tree_geocode
@@ -136,6 +142,28 @@ _story_document_link = sa.table(
     sa.column("story_id"),
     sa.column("document_id"),
 )
+
+
+# ---------------------------------------------------------------------------
+# Data cleanup: drop the retired release-announcement settings
+# ---------------------------------------------------------------------------
+# The old admin-managed announcement banner was superseded by the version-based
+# "What's New" check, so its ``app_settings`` rows are removed here.
+_OBSOLETE_ANNOUNCEMENT_SETTING_KEYS = (
+    "announcement_title",
+    "announcement_body",
+    "announcement_version",
+)
+
+
+def remove_obsolete_announcement_settings(bind) -> None:
+    """Delete the obsolete release-announcement rows from ``app_settings``."""
+    app_settings = sa.table("app_settings", sa.column("key", sa.String))
+    bind.execute(
+        sa.delete(app_settings).where(
+            app_settings.c.key.in_(_OBSOLETE_ANNOUNCEMENT_SETTING_KEYS)
+        )
+    )
 
 
 def _compose_source_description(source, citation_lines: list[str]) -> str | None:
@@ -476,8 +504,41 @@ def upgrade() -> None:
         unique=False,
     )
 
+    # Document-upload staging table: streamed document files land here first
+    # (bytes already on disk) and are then attached to a document as one atomic
+    # save, so a failed edit never destroys the previous version and unclaimed
+    # uploads can be reaped.
+    op.create_table(
+        'document_uploads',
+        sa.Column('id', sa.String(length=36), primary_key=True),
+        sa.Column(
+            'tree_id',
+            sa.String(length=36),
+            sa.ForeignKey('trees.id', ondelete='CASCADE'),
+            nullable=False,
+        ),
+        sa.Column('filename', sa.String(length=255), nullable=True),
+        sa.Column('url', sa.Text(), nullable=False),
+        sa.Column('mime_type', sa.String(length=100), nullable=True),
+        sa.Column('size', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.String(length=40), nullable=False),
+    )
+    op.create_index(
+        'ix_document_uploads_tree_id', 'document_uploads', ['tree_id']
+    )
+    op.create_index(
+        'ix_document_uploads_created_at', 'document_uploads', ['created_at']
+    )
+
+    # Remove the retired release-announcement settings.
+    remove_obsolete_announcement_settings(bind)
+
 
 def downgrade() -> None:
+    # The retired announcement settings are intentionally not restored.
+    op.drop_index('ix_document_uploads_created_at', table_name='document_uploads')
+    op.drop_index('ix_document_uploads_tree_id', table_name='document_uploads')
+    op.drop_table('document_uploads')
     op.drop_index('ix_document_files_tree_id_url', table_name='document_files')
     op.drop_column('stories', 'date')
     op.drop_column('trees', 'public_access_version')
