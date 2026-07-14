@@ -52,10 +52,11 @@ import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useFeature } from "@/hooks/useAuthStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import {
-  clearMemberSheetState,
-  readMemberSheetState,
+  clearMemberSheetDeepLink,
+  readMemberSheetDeepLink,
 } from "@/utils/memberSheetState";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
@@ -78,6 +79,11 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
   const treeLinksEnabled = useFeature("tree_links");
   const activeTree = useTreeStore((s) => s.selectedTree);
+  const savedMemberSheetState = useMemberSheetStore((s) =>
+    activeTree?.id ? s.openSheets[activeTree.id] : undefined,
+  );
+  const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
+  const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
   const availableTreeCount = useTreeStore(
     (s) => s.trees.length + s.virtualViews.length,
   );
@@ -219,36 +225,58 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const pending = usePendingMember({
     onHorizontalRelationReady: relation.startHorizontalRelation,
   });
+  const memberSheetDeepLink = useMemo(readMemberSheetDeepLink, []);
+  const consumedMemberSheetDeepLinkRef = useRef(false);
   const attemptedMemberSheetRestoreRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const savedState = readMemberSheetState();
-    if (publicView || !savedState || pending.editingMemberId) return;
+    const deepLinkState = consumedMemberSheetDeepLinkRef.current
+      ? undefined
+      : memberSheetDeepLink;
+    const requestedState = deepLinkState ?? savedMemberSheetState;
+    const treeId = activeTree?.id;
+    if (publicView || !requestedState || !treeId || pending.editingMemberId) {
+      return;
+    }
 
     const savedMember = members.find(
-      (member) => member.id === savedState.memberId,
+      (member) => member.id === requestedState.memberId,
     );
     if (savedMember) {
       attemptedMemberSheetRestoreRef.current = null;
+      setOpenSheet(treeId, requestedState);
+      if (deepLinkState) {
+        consumedMemberSheetDeepLinkRef.current = true;
+        clearMemberSheetDeepLink();
+      }
       pending.setEditingMemberId(savedMember.id);
-      pending.setIsEditMode(savedState.mode === "edit");
+      pending.setIsEditMode(requestedState.mode === "edit");
     } else if (
       isReady &&
       windowed &&
-      attemptedMemberSheetRestoreRef.current !== savedState.memberId
+      attemptedMemberSheetRestoreRef.current !== requestedState.memberId
     ) {
-      attemptedMemberSheetRestoreRef.current = savedState.memberId;
-      void setFocusRoot(savedState.memberId);
+      attemptedMemberSheetRestoreRef.current = requestedState.memberId;
+      void setFocusRoot(requestedState.memberId);
     } else if (isReady) {
-      clearMemberSheetState();
+      clearOpenSheet(treeId);
+      if (deepLinkState) {
+        consumedMemberSheetDeepLinkRef.current = true;
+        clearMemberSheetDeepLink();
+      }
     }
   }, [
+    activeTree?.id,
+    clearOpenSheet,
     isReady,
+    memberSheetDeepLink,
     members,
     pending.editingMemberId,
     pending.setEditingMemberId,
     pending.setIsEditMode,
     publicView,
+    savedMemberSheetState,
+    setOpenSheet,
     setFocusRoot,
     windowed,
   ]);

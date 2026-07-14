@@ -57,6 +57,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Reloading a previously open member sheet now restores its member, tab, and
+  mode from tree-scoped local state instead of mutable URL parameters. Legacy
+  member links are validated and safely fall back when stale or inaccessible
+  (#704).
 - Sessions now renew automatically before their access token expires. A failed
   renewal has a direct in-app sign-in path, and the warning banner no longer
   obscures the sidebar toggle (#706).

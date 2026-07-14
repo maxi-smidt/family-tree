@@ -18,38 +18,32 @@ const MEMBER_PARAM = "member";
 const TAB_PARAM = "memberTab";
 const MODE_PARAM = "memberMode";
 
-export function readMemberSheetState(
+/**
+ * Reads the former member-sheet query parameters as a one-time deep-link
+ * request. The Zustand member-sheet store is the source of truth; callers
+ * validate this request against the active tree before restoring it.
+ */
+export function readMemberSheetDeepLink(
   search = window.location.search,
 ): MemberSheetState | null {
   const params = new URLSearchParams(search);
-  const memberId = params.get(MEMBER_PARAM);
+  const memberId = params.get(MEMBER_PARAM)?.trim();
   const tab = params.get(TAB_PARAM);
   const mode = params.get(MODE_PARAM);
 
-  if (!memberId || !tab || !MEMBER_SHEET_TABS.includes(tab as MemberSheetTab)) {
-    return null;
-  }
+  if (!memberId) return null;
 
   return {
     memberId,
-    tab: tab as MemberSheetTab,
+    tab: MEMBER_SHEET_TABS.includes(tab as MemberSheetTab)
+      ? (tab as MemberSheetTab)
+      : "identity",
     mode: mode === "edit" ? "edit" : "view",
   };
 }
 
-export function writeMemberSheetState(state: MemberSheetState): void {
-  const url = new URL(window.location.href);
-  url.searchParams.set(MEMBER_PARAM, state.memberId);
-  url.searchParams.set(TAB_PARAM, state.tab);
-  url.searchParams.set(MODE_PARAM, state.mode);
-  window.history.replaceState(
-    null,
-    "",
-    `${url.pathname}${url.search}${url.hash}`,
-  );
-}
-
-export function clearMemberSheetState(): void {
+/** Removes consumed or invalid member-sheet deep-link parameters. */
+export function clearMemberSheetDeepLink(): void {
   const url = new URL(window.location.href);
   url.searchParams.delete(MEMBER_PARAM);
   url.searchParams.delete(TAB_PARAM);
