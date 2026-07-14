@@ -16,7 +16,7 @@ const STORY_DB: StoryDB = {
   content: "Once upon a time…",
   created_at: "2024-03-01T00:00:00Z",
   updated_at: "2024-03-01T00:00:00Z",
-  attachments: [],
+  document_ids: [],
 };
 
 beforeEach(() => {
@@ -83,7 +83,38 @@ describe("useStoryStore — addStory", () => {
 });
 
 describe("useStoryStore — updateStory", () => {
-  it("calls TreeService.updateStory and setStoryLinks then refreshes", async () => {
+  it("calls TreeService.updateStory, setStoryLinks and setStoryDocuments then refreshes", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.updateStory).mockResolvedValue(undefined);
+    vi.mocked(TreeService.setStoryLinks).mockResolvedValue(undefined);
+    vi.mocked(TreeService.setStoryDocuments).mockResolvedValue(undefined);
+    vi.mocked(TreeService.getStories).mockResolvedValue([]);
+    vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+
+    await useStoryStore
+      .getState()
+      .updateStory(
+        "s1",
+        { title: "Updated Legend", content: "Revised…" },
+        ["m2"],
+        ["doc-1"],
+      );
+
+    expect(TreeService.updateStory).toHaveBeenCalledWith(
+      TREE_ID,
+      "s1",
+      expect.objectContaining({ title: "Updated Legend" }),
+      expect.any(String),
+    );
+    expect(TreeService.setStoryLinks).toHaveBeenCalledWith(TREE_ID, "s1", [
+      "m2",
+    ]);
+    expect(TreeService.setStoryDocuments).toHaveBeenCalledWith(TREE_ID, "s1", [
+      "doc-1",
+    ]);
+  });
+
+  it("leaves document links unchanged when document ids are omitted", async () => {
     useTreeStore.setState({ selectedTree: TREE });
     vi.mocked(TreeService.updateStory).mockResolvedValue(undefined);
     vi.mocked(TreeService.setStoryLinks).mockResolvedValue(undefined);
@@ -96,15 +127,24 @@ describe("useStoryStore — updateStory", () => {
         "m2",
       ]);
 
-    expect(TreeService.updateStory).toHaveBeenCalledWith(
-      TREE_ID,
-      "s1",
-      expect.objectContaining({ title: "Updated Legend" }),
-      expect.any(String),
-    );
-    expect(TreeService.setStoryLinks).toHaveBeenCalledWith(TREE_ID, "s1", [
-      "m2",
+    expect(TreeService.setStoryDocuments).not.toHaveBeenCalled();
+  });
+});
+
+describe("useStoryStore — setStoryDocuments", () => {
+  it("calls TreeService.setStoryDocuments then refreshes", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.setStoryDocuments).mockResolvedValue(undefined);
+    vi.mocked(TreeService.getStories).mockResolvedValue([]);
+    vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
+
+    await useStoryStore.getState().setStoryDocuments("s1", ["doc-1", "doc-2"]);
+
+    expect(TreeService.setStoryDocuments).toHaveBeenCalledWith(TREE_ID, "s1", [
+      "doc-1",
+      "doc-2",
     ]);
+    expect(TreeService.getStories).toHaveBeenCalled();
   });
 });
 

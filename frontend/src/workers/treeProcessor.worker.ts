@@ -26,7 +26,7 @@ const COUPLE_RELATIONS = new Set(["married", "partner", "divorced"]);
 
 const unionKey = (a: string, b: string) => `union-${[a, b].sort().join("-")}`;
 
-function buildUnions(members: Member[]): WorkerUnionInfo[] {
+export function buildUnions(members: Member[]): WorkerUnionInfo[] {
   const memberIds = new Set(members.map((m) => m.id));
   const unions = new Map<string, WorkerUnionInfo>();
 
@@ -76,6 +76,24 @@ function buildUnions(members: Member[]): WorkerUnionInfo[] {
     }
   }
 
+  // 3. Custom (non-built-in) relation types between two co-parents: a
+  // parent-derived union already exists for the pair but has no colour driver
+  // yet (only built-in couple types are handled above). Adopt the custom
+  // relationship so the union dot and its union→child connectors match the
+  // relationship's colour. We only *augment* existing unions here — a custom
+  // relation never spawns a new union dot, which would be spurious for
+  // sibling/godparent-style links between people who are not co-parents.
+  for (const member of members) {
+    if (!member.relations) continue;
+    for (const rel of member.relations) {
+      if (rel.relationType === "parent") continue;
+      if (COUPLE_RELATIONS.has(rel.relationType)) continue;
+      if (!memberIds.has(rel.toMemberId)) continue;
+      const u = unions.get(unionKey(member.id, rel.toMemberId));
+      if (u && !u.relationType) u.relationType = rel.relationType;
+    }
+  }
+
   return Array.from(unions.values());
 }
 
@@ -94,6 +112,19 @@ export function buildEdges(
   const childCoveredByUnion = new Set<string>();
   for (const u of unions) {
     for (const cId of u.childIds) childCoveredByUnion.add(cId);
+  }
+
+  // Pairs whose relationship is already drawn as the couple line feeding a
+  // union dot (a built-in couple type, or a custom type adopted by a
+  // parent-derived union). The plain horizontal relation edge would draw the
+  // same bond a second time, so skip it for these exact pair+type combos.
+  const unionDrivenPairKeys = new Set<string>();
+  for (const u of unions) {
+    if (u.relationType) {
+      unionDrivenPairKeys.add(
+        `${memberPairKey(u.partner1Id, u.partner2Id)}:${u.relationType}`,
+      );
+    }
   }
 
   const memberPositionX = new Map(members.map((m) => [m.id, m.position.x]));
@@ -211,6 +242,14 @@ export function buildEdges(
       if (COUPLE_RELATIONS.has(rel.relationType)) continue;
       if (!visibleTypesSet.has(rel.relationType)) continue;
       if (!memberIds.has(rel.toMemberId)) continue;
+
+      if (
+        unionDrivenPairKeys.has(
+          `${memberPairKey(m.id, rel.toMemberId)}:${rel.relationType}`,
+        )
+      ) {
+        continue;
+      }
 
       const pairKey = [m.id, rel.toMemberId].sort().join("-");
       const edgeId = `rel:${pairKey}:${rel.relationType}`;

@@ -11,9 +11,12 @@ import { resetTreeStoreForSession, useTreeStore } from "./useTreeStore";
 import { useMemberStore } from "./useMemberStore";
 import { useEventStore } from "./useEventStore";
 import { useStoryStore } from "./useStoryStore";
-import { useSourceStore } from "./useSourceStore";
+import { useDocumentStore } from "./useDocumentStore";
 import { useGalleryStore } from "./useGalleryStore";
 import { useActivityStore } from "./useActivityStore";
+import { useStatisticsStore } from "./useStatisticsStore";
+import { useQualityReportStore } from "./useQualityReportStore";
+import { useStorageStore } from "./useStorageStore";
 import { useAuthStore } from "./useAuthStore";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
@@ -47,9 +50,12 @@ function mockEmptySubStores() {
   vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getStories).mockResolvedValue([]);
   vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
-  vi.mocked(TreeService.getSources).mockResolvedValue([]);
-  vi.mocked(TreeService.getCitations).mockResolvedValue([]);
-  vi.mocked(TreeService.getActivity).mockResolvedValue([]);
+  vi.mocked(TreeService.getDocuments).mockResolvedValue([]);
+  vi.mocked(TreeService.getActivity).mockResolvedValue({
+    entries: [],
+    total: 0,
+    actors: [],
+  });
   vi.mocked(TreeService.getRelationTypes).mockResolvedValue([]);
   vi.mocked(TreeService.listVirtualViews).mockResolvedValue([]);
 }
@@ -94,9 +100,12 @@ beforeEach(() => {
   useMemberStore.setState({ members: [], undoStack: [], redoStack: [] });
   useEventStore.setState({ events: [] });
   useStoryStore.setState({ stories: [] });
-  useSourceStore.setState({ sources: [], citations: [] });
+  useDocumentStore.setState({ documents: [] });
   useGalleryStore.setState({ galleryImages: [] });
   useActivityStore.setState({ activities: [] });
+  useStatisticsStore.setState({ report: null, scope: "tree" });
+  useQualityReportStore.setState({ report: null, showDismissed: false });
+  useStorageStore.setState({ usage: null, error: false });
   // All feature flags enabled (the production default) so connect() loads
   // every content store.
   useAuthStore.setState({ features: [...ALL_FEATURES] });
@@ -217,6 +226,129 @@ describe("useTreeStore — connect / selectTree", () => {
 
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
     expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
+  it("resolves a tree id through the store before selecting it", async () => {
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_A.id, TREE_A);
+
+    await expect(
+      useTreeStore.getState().openTreeById(TREE_A.id),
+    ).resolves.toEqual(TREE_A);
+
+    expect(api.get).toHaveBeenCalledWith(`/trees/${TREE_A.id}`);
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+  });
+
+  it("does not select a slower tree-link response after a newer request", async () => {
+    mockEmptySubStores();
+    let resolveTreeA: (tree: Tree) => void = () => undefined;
+    const treeAResponse = new Promise<Tree>((resolve) => {
+      resolveTreeA = resolve;
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) return treeAResponse;
+      if (path === `/trees/${TREE_B.id}`) return Promise.resolve(TREE_B);
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
+    const slowOpen = useTreeStore.getState().openTreeById(TREE_A.id);
+    await useTreeStore.getState().openTreeById(TREE_B.id);
+    resolveTreeA(TREE_A);
+    await slowOpen;
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
+  });
+
+  it("continues a public tree link started during session reset", async () => {
+    mockEmptySubStores();
+    let resolveTree: (tree: Tree) => void = () => undefined;
+    const treeResponse = new Promise<Tree>((resolve) => {
+      resolveTree = resolve;
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) return treeResponse;
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
+    const opening = useTreeStore.getState().openTreeById(TREE_A.id);
+    resetTreeStoreForSession();
+    resolveTree(TREE_A);
+    await opening;
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
+  it("invalidates every content store when switching trees", async () => {
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_B.id, TREE_B);
+    useTreeStore.setState({ selectedTree: TREE_A, isReady: true });
+    useMemberStore.setState({ members: [{ id: "m-stale" } as never] });
+    useGalleryStore.setState({
+      galleryImages: [{ id: "g-stale" } as never],
+      initialized: true,
+    });
+    useEventStore.setState({
+      events: [{ id: "e-stale" } as never],
+      initialized: true,
+    });
+    useStoryStore.setState({
+      stories: [{ id: "s-stale" } as never],
+      initialized: true,
+    });
+    useDocumentStore.setState({
+      documents: [{ id: "d-stale" } as never],
+      initialized: true,
+    });
+    useActivityStore.setState({
+      activities: [{ id: "a-stale" } as never],
+      initialized: true,
+    });
+    useStatisticsStore.setState({ report: {} as never, scope: "linked" });
+    useQualityReportStore.setState({
+      report: {} as never,
+      showDismissed: true,
+    });
+    useStorageStore.setState({ usage: {} as never, error: true });
+
+    await useTreeStore.getState().selectTree(TREE_B);
+
+    expect(useMemberStore.getState().members).toHaveLength(0);
+    expect(useGalleryStore.getState()).toMatchObject({
+      galleryImages: [],
+      initialized: false,
+    });
+    expect(useEventStore.getState()).toMatchObject({
+      events: [],
+      initialized: false,
+    });
+    expect(useStoryStore.getState()).toMatchObject({
+      stories: [],
+      initialized: false,
+    });
+    expect(useDocumentStore.getState()).toMatchObject({
+      documents: [],
+      initialized: false,
+    });
+    expect(useActivityStore.getState()).toMatchObject({
+      activities: [],
+      initialized: false,
+    });
+    expect(useStatisticsStore.getState()).toMatchObject({
+      report: null,
+      scope: "tree",
+    });
+    expect(useQualityReportStore.getState()).toMatchObject({
+      report: null,
+      showDismissed: false,
+    });
+    expect(useStorageStore.getState()).toMatchObject({
+      usage: null,
+      error: false,
+    });
   });
 
   it("defers secondary store loads until first tab visit (connect only loads members)", async () => {
@@ -497,7 +629,11 @@ describe("useTreeStore — stale-write guard / fast switching", () => {
     vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
     vi.mocked(TreeService.getStories).mockResolvedValue([]);
     vi.mocked(TreeService.getStoryMemberLinks).mockResolvedValue([]);
-    vi.mocked(TreeService.getActivity).mockResolvedValue([]);
+    vi.mocked(TreeService.getActivity).mockResolvedValue({
+      entries: [],
+      total: 0,
+      actors: [],
+    });
     vi.mocked(TreeService.getRelationTypes).mockResolvedValue([]);
     mockApiGetForConnect(TREE_A.id, TREE_A);
 

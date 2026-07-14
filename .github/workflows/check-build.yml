@@ -71,6 +71,9 @@ jobs:
       - name: "Type-check & build"
         run: npm run build
 
+      - name: "Bundle size budget"
+        run: npm run check-bundle-size
+
       - name: "Unit tests"
         run: npx vitest run
 
@@ -167,8 +170,10 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             TAG_VERSION="${GITHUB_REF_NAME#v}"
             echo "Release tag:                $TAG_VERSION"
-            if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
-              echo "Release tag v$TAG_VERSION does not match frontend/package.json version $PACKAGE_VERSION."
+            if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ] || [ "$TAG_VERSION" != "$LOCK_VERSION" ] \
+              || [ "$TAG_VERSION" != "$LOCK_ROOT_VERSION" ] || [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ] \
+              || [ "$TAG_VERSION" != "$UV_LOCK_VERSION" ]; then
+              echo "Release tag v$TAG_VERSION does not match all release metadata."
               exit 1
             fi
           else

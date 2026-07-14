@@ -244,6 +244,117 @@ test("public tree — unauthenticated visitor can read members", async ({
   void browser;
 });
 
+test("public tree link — anonymous visitor loads photos and custom relations", async ({
+  adminApi,
+  page,
+  seedTree,
+}) => {
+  const tree = await seedTree("E2E-PublicTreeMedia");
+  const customRelationId = `public-e2e-${randomUUID().slice(0, 8)}`;
+  const imageData =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC";
+  const first = await createMember(adminApi, tree.id, {
+    firstName: "PublicPhoto",
+    lastName: "Person",
+    imageData,
+  });
+  const second = await createMember(adminApi, tree.id, {
+    firstName: "PublicRelation",
+    lastName: "Person",
+  });
+  await adminApi.post("/admin/relation-types", {
+    id: customRelationId,
+    label: "Public E2E relation",
+    color: "#123456",
+  });
+  await adminApi.post(`/trees/${tree.id}/relations`, {
+    from_member_id: first.id,
+    to_member_id: second.id,
+    relation_type: customRelationId,
+  });
+  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: "viewer" });
+
+  const relationTypesResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/api/relation-types"),
+  );
+  const mediaResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes(`/api/media/${tree.id}/`) &&
+      response.status() === 200,
+  );
+  await page.goto(`/#public=${tree.id}`);
+
+  await expect(page.getByRole("heading", { name: tree.name })).toBeVisible();
+  const relationTypes = await relationTypesResponse;
+  expect(relationTypes.status()).toBe(200);
+  expect(
+    (await relationTypes.json()) as Array<{ id: string }>,
+  ).toContainEqual(expect.objectContaining({ id: customRelationId }));
+  await mediaResponse;
+
+  // Remove the custom registry entry before fixture teardown deletes the tree.
+  await adminApi.delete(
+    `/trees/${tree.id}/relations?from_member_id=${first.id}&to_member_id=${second.id}&relation_type=${customRelationId}`,
+  );
+  await adminApi.delete(`/admin/relation-types/${customRelationId}`);
+});
+
+test("public tree link — password-protected anonymous visitor can unlock", async ({
+  adminApi,
+  page,
+  seedTree,
+}) => {
+  const tree = await seedTree("E2E-ProtectedPublicTree");
+  await createMember(adminApi, tree.id, {
+    firstName: "ProtectedPublicPerson",
+    lastName: "X",
+  });
+  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: "viewer" });
+  const passwordResponse = await fetch(
+    `${API_URL}/trees/${tree.id}/public/password`,
+    {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${adminApi.token}`,
+      },
+      body: JSON.stringify({ password: "public-password" }),
+    },
+  );
+  expect(passwordResponse.ok).toBe(true);
+
+  await page.goto(`/#public=${tree.id}`);
+  await expect(page.getByText("Password required")).toBeVisible();
+  await page.locator('input[type="password"]').fill("public-password");
+  await page.getByRole("button", { name: "Unlock" }).click();
+
+  await expect(page.getByRole("heading", { name: tree.name })).toBeVisible();
+});
+
+test("public tree link — signed-in visitor opens the linked tree normally", async ({
+  adminApi,
+  adminPage,
+  seedTree,
+}) => {
+  const tree = await seedTree("E2E-SignedInPublicTree");
+  await createMember(adminApi, tree.id, {
+    firstName: "SignedInPublicPerson",
+    lastName: "X",
+  });
+  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: "viewer" });
+
+  // The fixture has already loaded the SPA while signing in. Navigate away so
+  // the public URL is handled as a fresh link visit rather than a hash-only
+  // in-page navigation.
+  await adminPage.goto("about:blank");
+  await adminPage.goto(`/#public=${tree.id}`);
+
+  await expect(adminPage.getByText("SignedInPublicPerson")).toBeVisible();
+  await expect(
+    adminPage.getByText("Read-only view — log in to explore the full interactive tree."),
+  ).not.toBeVisible();
+});
+
 test("public tree disabled — unauthenticated read returns 403", async ({
   adminApi,
   seedTree,

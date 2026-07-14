@@ -3,11 +3,13 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_current_user,
+    get_current_user_optional,
     get_readable_tree,
     get_readable_tree_public,
     get_writable_tree,
@@ -17,7 +19,16 @@ from app.api.deps import (
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Member, MemberDisease, Relation, RelationType, Tree
+from app.models import (
+    Event,
+    EventMemberLink,
+    Member,
+    MemberDisease,
+    Relation,
+    RelationType,
+    Tree,
+    TreeMembership,
+)
 from app.models.user import User
 from app.schemas.family import (
     BridgeSyncRequest,
@@ -34,6 +45,7 @@ from app.schemas.family import (
     MemberSurfaceOut,
     MemberUpdate,
     NeighborhoodOut,
+    PublicMemberOut,
     RelationCreate,
     RelationOut,
 )
@@ -43,6 +55,7 @@ from app.services.activity import record_activity
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
+from app.services.member_subtrees import create_linked_subtree
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.settings_service import get_media_limits
 from app.services.storage import (
@@ -86,6 +99,32 @@ _MEMBER_SURFACE_COLUMNS = (
     Member.linked_tree_id,
     Member.linked_member_id,
 )
+
+_PUBLIC_MEMBER_COLUMNS = (
+    Member.id,
+    Member.gender,
+    Member.academic_title,
+    Member.first_name,
+    Member.middle_names,
+    Member.baptismal_name,
+    Member.last_name,
+    Member.maiden_name,
+    Member.image_data,
+    Member.date_of_birth,
+    Member.date_of_death,
+    Member.deceased,
+    Member.is_collapsed,
+    Member.position_x,
+    Member.position_y,
+)
+
+
+def _public_only(db: Session, tree: Tree, user: User | None) -> bool:
+    return user is None or (not user.is_admin and role_for(db, tree, user) is None)
+
+
+def _public_member_payloads(rows: list) -> list[dict]:
+    return [PublicMemberOut(**row._mapping).model_dump(by_alias=True) for row in rows]
 
 
 def _get_member(db: Session, tree: Tree, member_id: str) -> Member:
@@ -145,9 +184,7 @@ def _validate_linked_member(
             detail="A linked member requires a linked tree",
         )
     if linked_member_id == member_id:
-        raise HTTPException(
-            status_code=400, detail="A member cannot link to itself"
-        )
+        raise HTTPException(status_code=400, detail="A member cannot link to itself")
     target = db.get(Member, linked_member_id)
     if target is None or target.tree_id != linked_tree_id:
         raise HTTPException(
@@ -207,9 +244,18 @@ def _sync_bridge_person(
 def list_members(
     pagination: Pagination = Depends(pagination_params),
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
     surface: bool = Query(False),
 ):
+    if _public_only(db, tree, user):
+        stmt = (
+            select(*_PUBLIC_MEMBER_COLUMNS)
+            .where(Member.tree_id == tree.id)
+            .order_by(Member.id)
+        )
+        rows = db.execute(apply_pagination(stmt, pagination)).all()
+        return JSONResponse(content=_public_member_payloads(rows))
     if surface:
         stmt = (
             select(*_MEMBER_SURFACE_COLUMNS)
@@ -280,13 +326,22 @@ def create_member(
     label = (
         " ".join(filter(None, [data.get("first_name"), data.get("last_name")])) or None
     )
-    record_activity(db, tree_id=tree.id, actor=user, action="create",
-                    target_type="member", target_id=member.id, target_label=label)
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="create",
+        target_type="member",
+        target_id=member.id,
+        target_label=label,
+    )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(member)
     publish_tree_event(
-        db, tree, "tree.content_changed",
+        db,
+        tree,
+        "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)
@@ -319,9 +374,7 @@ def update_member_positions(
             member.position_x = p.position_x
             member.position_y = p.position_y
     db.commit()
-    publish_tree_event(
-        db, tree, "tree.layout_changed", {"tree_id": tree.id}
-    )
+    publish_tree_event(db, tree, "tree.layout_changed", {"tree_id": tree.id})
 
 
 @router.patch("/members/collapsed", status_code=204)
@@ -356,14 +409,17 @@ def search_members(
     q: str = Query(..., min_length=1, max_length=200),
     limit: int = Query(20, ge=1, le=50),
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """Full-text name search scoped to the tree.  Declared before
     ``/members/{member_id}`` so the literal ``search`` path is not captured
     as a member id."""
     pattern = f"%{q}%"
+    public_only = _public_only(db, tree, user)
+    columns = _PUBLIC_MEMBER_COLUMNS if public_only else _MEMBER_SURFACE_COLUMNS
     stmt = (
-        select(*_MEMBER_SURFACE_COLUMNS)
+        select(*columns)
         .where(
             Member.tree_id == tree.id,
             or_(
@@ -375,7 +431,10 @@ def search_members(
         .order_by(Member.last_name, Member.first_name)
         .limit(limit)
     )
-    return [MemberSurfaceOut(**row._mapping) for row in db.execute(stmt).all()]
+    rows = db.execute(stmt).all()
+    if public_only:
+        return JSONResponse(content=_public_member_payloads(rows))
+    return [MemberSurfaceOut(**row._mapping) for row in rows]
 
 
 @router.get("/members/neighborhood", response_model=NeighborhoodOut)
@@ -385,6 +444,7 @@ def get_neighborhood(
     down: int = Query(3, ge=0, le=20),
     partners: bool = Query(True),
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """Return a bounded BFS neighborhood around *root*.  Declared before
@@ -393,9 +453,9 @@ def get_neighborhood(
 
     When *root* is omitted the most-connected member is chosen automatically.
     """
-    total_count: int = db.scalar(
-        select(func.count(Member.id)).where(Member.tree_id == tree.id)
-    ) or 0
+    total_count: int = (
+        db.scalar(select(func.count(Member.id)).where(Member.tree_id == tree.id)) or 0
+    )
 
     if total_count == 0:
         return NeighborhoodOut(
@@ -410,21 +470,31 @@ def get_neighborhood(
             members=[], relations=[], root_id="", truncated=False, total_member_count=0
         )
 
-    if db.scalar(
-        select(Member.id).where(Member.id == root_id, Member.tree_id == tree.id)
-    ) is None:
+    if (
+        db.scalar(
+            select(Member.id).where(Member.id == root_id, Member.tree_id == tree.id)
+        )
+        is None
+    ):
         raise HTTPException(status_code=404, detail="Root member not found")
 
     member_ids, truncated = collect_neighborhood_ids(
         db, tree.id, root_id, up, down, partners
     )
 
+    public_only = _public_only(db, tree, user)
+    columns = _PUBLIC_MEMBER_COLUMNS if public_only else _MEMBER_SURFACE_COLUMNS
     surface_stmt = (
-        select(*_MEMBER_SURFACE_COLUMNS)
+        select(*columns)
         .where(Member.tree_id == tree.id, Member.id.in_(member_ids))
         .order_by(Member.id)
     )
-    members = [MemberSurfaceOut(**row._mapping) for row in db.execute(surface_stmt).all()]
+    member_rows = db.execute(surface_stmt).all()
+    members = (
+        _public_member_payloads(member_rows)
+        if public_only
+        else [MemberSurfaceOut(**row._mapping) for row in member_rows]
+    )
 
     relations = list(
         db.scalars(
@@ -436,6 +506,19 @@ def get_neighborhood(
         )
     )
 
+    if public_only:
+        return JSONResponse(
+            content={
+                "members": members,
+                "relations": [
+                    RelationOut.model_validate(relation).model_dump()
+                    for relation in relations
+                ],
+                "root_id": root_id,
+                "truncated": truncated,
+                "total_member_count": total_count,
+            }
+        )
     return NeighborhoodOut(
         members=members,
         relations=[RelationOut.model_validate(r) for r in relations],
@@ -449,9 +532,156 @@ def get_neighborhood(
 def get_member(
     member_id: str,
     tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
+    if _public_only(db, tree, user):
+        raise HTTPException(status_code=404, detail="Member not found")
     return _get_member(db, tree, member_id)
+
+
+def _event_updates_allowed(db: Session, tree: Tree, user: User) -> bool:
+    """Whether this editor can update the derived vital-event mirror.
+
+    Member dates are core data, while Events is optional and can be hidden for
+    an editor.  A disabled/restricted Events domain must therefore never turn a
+    member save into a partial failure.
+    """
+    from app.services import feature_service  # noqa: PLC0415
+
+    if not feature_service.is_enabled(db, "events", user):
+        return False
+    membership = db.get(TreeMembership, (tree.id, user.id))
+    return not (
+        membership and membership.restrictions and "events" in membership.restrictions
+    )
+
+
+def _sync_parent_slots(
+    db: Session,
+    tree: Tree,
+    member: Member,
+    paternal_changed: bool,
+    paternal_parent_id: str | None,
+    maternal_changed: bool,
+    maternal_parent_id: str | None,
+) -> None:
+    """Apply explicit parent-slot changes without touching extra parent rows.
+
+    The persisted relation model has no slot column.  We reconstruct the two
+    slots with the same gender-first rule as the frontend, then replace only a
+    slot the request explicitly changed.  Replaying the same payload is a
+    no-op, which keeps retries idempotent.
+    """
+    relations = list(
+        db.scalars(
+            select(Relation).where(
+                Relation.tree_id == tree.id,
+                Relation.from_member_id == member.id,
+                Relation.relation_type == "parent",
+            )
+        ).all()
+    )
+    parent_ids = [relation.to_member_id for relation in relations]
+    parents = {
+        parent.id: parent
+        for parent in db.scalars(
+            select(Member).where(Member.tree_id == tree.id, Member.id.in_(parent_ids))
+        ).all()
+    }
+
+    paternal_current: str | None = None
+    maternal_current: str | None = None
+    for parent_id in parent_ids:
+        gender = parents.get(parent_id).gender if parent_id in parents else None
+        if gender == "m" and paternal_current is None:
+            paternal_current = parent_id
+        elif gender == "f" and maternal_current is None:
+            maternal_current = parent_id
+    for parent_id in parent_ids:
+        if parent_id in {paternal_current, maternal_current}:
+            continue
+        if paternal_current is None:
+            paternal_current = parent_id
+        elif maternal_current is None:
+            maternal_current = parent_id
+
+    for changed, previous, replacement in (
+        (paternal_changed, paternal_current, paternal_parent_id),
+        (maternal_changed, maternal_current, maternal_parent_id),
+    ):
+        if not changed:
+            continue
+        if replacement == previous:
+            continue
+        if previous is not None:
+            relation = db.get(Relation, (tree.id, member.id, previous, "parent"))
+            if relation is not None:
+                db.delete(relation)
+        if replacement is None:
+            continue
+        parent = parents.get(replacement)
+        if parent is None:
+            parent = db.scalar(
+                select(Member).where(
+                    Member.id == replacement,
+                    Member.tree_id == tree.id,
+                )
+            )
+        if parent is None:
+            raise HTTPException(
+                status_code=404, detail="parent_id not found in this tree"
+            )
+        if db.get(Relation, (tree.id, member.id, replacement, "parent")) is None:
+            db.add(
+                Relation(
+                    tree_id=tree.id,
+                    from_member_id=member.id,
+                    to_member_id=replacement,
+                    relation_type="parent",
+                )
+            )
+
+
+def _sync_vital_event(
+    db: Session,
+    tree: Tree,
+    member: Member,
+    event_type: str,
+    date: str | None,
+) -> None:
+    """Keep one member's birth/death event aligned without losing documents."""
+    events = list(
+        db.scalars(
+            select(Event)
+            .join(EventMemberLink, EventMemberLink.event_id == Event.id)
+            .where(
+                Event.tree_id == tree.id,
+                Event.event_type == event_type,
+                EventMemberLink.member_id == member.id,
+            )
+            .order_by(Event.id)
+        ).all()
+    )
+    existing = events[0] if events else None
+    if date:
+        if existing is not None:
+            # Do not replace the row: its location, description, and linked
+            # documents are user-authored details preserved by #659.
+            existing.date = date
+            return
+        event = Event(
+            id=str(uuid4()),
+            tree_id=tree.id,
+            event_type=event_type,
+            date=date,
+            created_at=utcnow_iso(),
+        )
+        db.add(event)
+        db.flush()
+        db.add(EventMemberLink(event_id=event.id, member_id=member.id))
+    elif existing is not None:
+        db.delete(existing)
 
 
 @router.patch("/members/{member_id}", response_model=MemberOut)
@@ -464,14 +694,15 @@ def update_member(
 ):
     member = _get_member(db, tree, member_id)
     changes = payload.model_dump(exclude_unset=True)
+    paternal_changed = "paternal_parent_id" in changes
+    maternal_changed = "maternal_parent_id" in changes
+    paternal_parent_id = changes.pop("paternal_parent_id", None)
+    maternal_parent_id = changes.pop("maternal_parent_id", None)
     # The member form re-sends the link fields unchanged on every save. Only an
     # actual change is a link edit — an unchanged value must not re-run the
     # feature/access checks, otherwise ordinary edits fail once the tree_links
     # flag is turned off (or for editors without access to the linked tree).
-    if (
-        "linked_tree_id" in changes
-        and changes["linked_tree_id"] == member.linked_tree_id
-    ):
+    if "linked_tree_id" in changes and changes["linked_tree_id"] == member.linked_tree_id:
         del changes["linked_tree_id"]
     if (
         "linked_member_id" in changes
@@ -540,6 +771,24 @@ def update_member(
     before = {k: getattr(member, k) for k in changes if k not in _SKIP_DIFF}
     for key, value in changes.items():
         setattr(member, key, value)
+    if paternal_changed or maternal_changed:
+        _sync_parent_slots(
+            db,
+            tree,
+            member,
+            paternal_changed,
+            paternal_parent_id,
+            maternal_changed,
+            maternal_parent_id,
+        )
+    vital_events_changed = _event_updates_allowed(db, tree, user) and (
+        "date_of_birth" in changes or "date_of_death" in changes
+    )
+    if vital_events_changed:
+        if "date_of_birth" in changes:
+            _sync_vital_event(db, tree, member, "birth", changes["date_of_birth"])
+        if "date_of_death" in changes:
+            _sync_vital_event(db, tree, member, "death", changes["date_of_death"])
     after = {k: getattr(member, k) for k in before}
     # Bridge person: mirror identity edits onto the counterpart row so the
     # same human stays consistent on both sides of a tree-in-tree link.
@@ -556,26 +805,46 @@ def update_member(
             "after": {k: v["after"] for k, v in changed.items()},
         }
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="member", target_id=member.id, target_label=label,
-                    details=diff_details)
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="update",
+        target_type="member",
+        target_id=member.id,
+        target_label=label,
+        details=diff_details,
+    )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(member)
     publish_tree_event(
-        db, tree, "tree.content_changed",
+        db,
+        tree,
+        "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
+    if vital_events_changed:
+        publish_tree_event(
+            db,
+            tree,
+            "tree.content_changed",
+            {"tree_id": tree.id, "domain": "event"},
+        )
     invalidate_stats(tree.id)
     if synced_tree is not None:
         publish_tree_event(
-            db, synced_tree, "tree.content_changed",
+            db,
+            synced_tree,
+            "tree.content_changed",
             {"tree_id": synced_tree.id, "domain": "member"},
         )
         invalidate_stats(synced_tree.id)
     if unlinked_counterpart_tree is not None:
         publish_tree_event(
-            db, unlinked_counterpart_tree, "tree.content_changed",
+            db,
+            unlinked_counterpart_tree,
+            "tree.content_changed",
             {"tree_id": unlinked_counterpart_tree.id, "domain": "member"},
         )
         invalidate_stats(unlinked_counterpart_tree.id)
@@ -604,51 +873,18 @@ def create_member_subtree(
     so navigation works in both directions and lands on the counterpart.
     """
     from app.services import feature_service  # noqa: PLC0415
-    from app.services.merge import _clone_member, _wire_bridge  # noqa: PLC0415
 
     if not feature_service.is_enabled(db, "tree_links", user):
         raise HTTPException(status_code=404, detail="Not found")
     member = _get_member(db, tree, member_id)
     if member.linked_tree_id is not None:
-        raise HTTPException(
-            status_code=409, detail="Member is already linked to a tree"
-        )
+        raise HTTPException(status_code=409, detail="Member is already linked to a tree")
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="A name is required")
 
-    new_tree = Tree(
-        id=str(uuid4()),
-        name=name,
-        owner_id=user.id,
-        created_at=utcnow_iso(),
-        last_opened=utcnow_iso(),
-    )
-    db.add(new_tree)
-    db.flush()
-
-    counterpart = _clone_member(member, new_tree.id, str(uuid4()))
-    # The seed starts fresh in the new tree: the origin's canvas position and
-    # collapse state carry no meaning there.
-    counterpart.position_x = 0
-    counterpart.position_y = 0
-    counterpart.is_collapsed = False
-    db.add(counterpart)
-    db.flush()
-
-    _wire_bridge(member, counterpart)
-
-    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="member", target_id=member.id, target_label=label,
-                    details={"after": {"linked_tree_id": new_tree.id}})
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    db.refresh(member)
-    db.refresh(new_tree)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
+    new_tree = create_linked_subtree(
+        db, source_tree=tree, member=member, owner=user, name=name
     )
     return MemberSubtreeOut(
         tree=TreeOut.model_validate(new_tree),
@@ -696,16 +932,12 @@ def get_link_candidates(
     # Candidates are only useful if the caller can actually link one, which
     # requires write access to the target (same check the link endpoint uses).
     if not user.is_admin and role_for(db, target, user) not in ("owner", "editor"):
-        raise HTTPException(
-            status_code=403, detail="No write access to the linked tree"
-        )
+        raise HTTPException(status_code=403, detail="No write access to the linked tree")
 
     source_name_key = member_name_key(member)
     source_exact_key = member_key(member)
     candidates: list[DuplicatePair] = []
-    for candidate in db.scalars(
-        select(Member).where(Member.tree_id == target.id)
-    ):
+    for candidate in db.scalars(select(Member).where(Member.tree_id == target.id)):
         if candidate.id == member.id:
             continue
         if candidate.linked_tree_id is not None:
@@ -753,9 +985,7 @@ def link_member_to_tree(
         raise HTTPException(status_code=404, detail="Not found")
     member = _get_member(db, tree, member_id)
     if member.linked_tree_id is not None:
-        raise HTTPException(
-            status_code=409, detail="Member is already linked to a tree"
-        )
+        raise HTTPException(status_code=409, detail="Member is already linked to a tree")
 
     _validate_linked_tree(db, tree, user, payload.linked_tree_id)
     target = db.get(Tree, payload.linked_tree_id)
@@ -764,9 +994,7 @@ def link_member_to_tree(
     # Establishing a bridge writes the counterpart row too, so read access to
     # the target (already checked by _validate_linked_tree) is not enough.
     if not user.is_admin and role_for(db, target, user) not in ("owner", "editor"):
-        raise HTTPException(
-            status_code=403, detail="No write access to the linked tree"
-        )
+        raise HTTPException(status_code=403, detail="No write access to the linked tree")
 
     if payload.mode == "create":
         counterpart = _clone_member(member, target.id, str(uuid4()))
@@ -788,9 +1016,7 @@ def link_member_to_tree(
                 detail="Counterpart member is not part of the linked tree",
             )
         if counterpart.id == member.id:
-            raise HTTPException(
-                status_code=400, detail="A member cannot link to itself"
-            )
+            raise HTTPException(status_code=400, detail="A member cannot link to itself")
         if counterpart.linked_tree_id is not None:
             raise HTTPException(
                 status_code=400,
@@ -809,22 +1035,37 @@ def link_member_to_tree(
         reconcile_bridge_fields(member, counterpart, payload.field_choices)
 
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="member", target_id=member.id, target_label=label,
-                    details={"after": {"linked_tree_id": target.id}})
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="update",
+        target_type="member",
+        target_id=member.id,
+        target_label=label,
+        details={"after": {"linked_tree_id": target.id}},
+    )
     counterpart_label = (
         " ".join(filter(None, [counterpart.first_name, counterpart.last_name])) or None
     )
     if payload.mode == "create":
         record_activity(
-            db, tree_id=target.id, actor=user, action="create",
-            target_type="member", target_id=counterpart.id,
+            db,
+            tree_id=target.id,
+            actor=user,
+            action="create",
+            target_type="member",
+            target_id=counterpart.id,
             target_label=counterpart_label,
         )
     else:
         record_activity(
-            db, tree_id=target.id, actor=user, action="update",
-            target_type="member", target_id=counterpart.id,
+            db,
+            tree_id=target.id,
+            actor=user,
+            action="update",
+            target_type="member",
+            target_id=counterpart.id,
             target_label=counterpart_label,
             details={"after": {"linked_tree_id": tree.id}},
         )
@@ -834,12 +1075,16 @@ def link_member_to_tree(
     db.refresh(member)
     db.refresh(target)
     publish_tree_event(
-        db, tree, "tree.content_changed",
+        db,
+        tree,
+        "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)
     publish_tree_event(
-        db, target, "tree.content_changed",
+        db,
+        target,
+        "tree.content_changed",
         {"tree_id": target.id, "domain": "member"},
     )
     invalidate_stats(target.id)
@@ -886,15 +1131,24 @@ def resolve_bridge_drift(
     copy_bridge_fields(src, dst)
 
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="member", target_id=member.id, target_label=label,
-                    details={"after": {"bridge_sync": payload.direction}})
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="update",
+        target_type="member",
+        target_id=member.id,
+        target_label=label,
+        details={"after": {"bridge_sync": payload.direction}},
+    )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(member)
     for t in (tree, other_tree):
         publish_tree_event(
-            db, t, "tree.content_changed",
+            db,
+            t,
+            "tree.content_changed",
             {"tree_id": t.id, "domain": "member"},
         )
         invalidate_stats(t.id)
@@ -921,19 +1175,30 @@ def delete_member(
             counterpart.linked_member_id = None
             counterpart_tree = db.get(Tree, counterpart.tree_id)
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(db, tree_id=tree.id, actor=user, action="delete",
-                    target_type="member", target_id=member.id, target_label=label)
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="delete",
+        target_type="member",
+        target_id=member.id,
+        target_label=label,
+    )
     db.delete(member)
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
-        db, tree, "tree.content_changed",
+        db,
+        tree,
+        "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)
     if counterpart_tree is not None:
         publish_tree_event(
-            db, counterpart_tree, "tree.content_changed",
+            db,
+            counterpart_tree,
+            "tree.content_changed",
             {"tree_id": counterpart_tree.id, "domain": "member"},
         )
         invalidate_stats(counterpart_tree.id)
@@ -975,14 +1240,10 @@ def add_relation(
             status_code=404, detail="from_member_id not found in this tree"
         )
     to_member = db.scalar(
-        select(Member).where(
-            Member.id == payload.to_member_id, Member.tree_id == tree.id
-        )
+        select(Member).where(Member.id == payload.to_member_id, Member.tree_id == tree.id)
     )
     if to_member is None:
-        raise HTTPException(
-            status_code=404, detail="to_member_id not found in this tree"
-        )
+        raise HTTPException(status_code=404, detail="to_member_id not found in this tree")
     if db.get(RelationType, payload.relation_type) is None:
         raise HTTPException(status_code=404, detail="Unknown relation_type")
 
@@ -996,15 +1257,22 @@ def add_relation(
         relation = Relation(tree_id=tree.id, **payload.model_dump())
         db.add(relation)
         label = (
-            f"{payload.from_member_id} → "
-            f"{payload.to_member_id} ({payload.relation_type})"
+            f"{payload.from_member_id} → {payload.to_member_id} ({payload.relation_type})"
         )
-        record_activity(db, tree_id=tree.id, actor=user, action="create",
-                        target_type="relation", target_label=label)
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="create",
+            target_type="relation",
+            target_label=label,
+        )
         db.commit()
         publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
         publish_tree_event(
-            db, tree, "tree.content_changed",
+            db,
+            tree,
+            "tree.content_changed",
             {"tree_id": tree.id, "domain": "member"},
         )
         invalidate_stats(tree.id)
@@ -1020,18 +1288,24 @@ def remove_relation(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    relation = db.get(
-        Relation, (tree.id, from_member_id, to_member_id, relation_type)
-    )
+    relation = db.get(Relation, (tree.id, from_member_id, to_member_id, relation_type))
     if relation is not None:
         label = f"{from_member_id} → {to_member_id} ({relation_type})"
-        record_activity(db, tree_id=tree.id, actor=user, action="delete",
-                        target_type="relation", target_label=label)
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="delete",
+            target_type="relation",
+            target_label=label,
+        )
         db.delete(relation)
         db.commit()
         publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
         publish_tree_event(
-            db, tree, "tree.content_changed",
+            db,
+            tree,
+            "tree.content_changed",
             {"tree_id": tree.id, "domain": "member"},
         )
         invalidate_stats(tree.id)
@@ -1075,13 +1349,21 @@ def add_disease(
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     disease = MemberDisease(tree_id=tree.id, **payload.model_dump())
     db.add(disease)
-    record_activity(db, tree_id=tree.id, actor=user, action="create",
-                    target_type="disease", target_label=payload.name)
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="create",
+        target_type="disease",
+        target_label=payload.name,
+    )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(disease)
     publish_tree_event(
-        db, tree, "tree.content_changed",
+        db,
+        tree,
+        "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)
@@ -1106,14 +1388,21 @@ def update_disease(
     for key, value in payload.model_dump().items():
         setattr(disease, key, value)
     record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="disease", target_id=disease_id, target_label=disease.name,
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="update",
+        target_type="disease",
+        target_id=disease_id,
+        target_label=disease.name,
     )
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(disease)
     publish_tree_event(
-        db, tree, "tree.content_changed",
+        db,
+        tree,
+        "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)
@@ -1135,14 +1424,21 @@ def delete_disease(
     if disease is None or disease.tree_id != tree.id:
         raise HTTPException(status_code=404, detail="Disease not found")
     record_activity(
-        db, tree_id=tree.id, actor=user, action="delete",
-        target_type="disease", target_id=disease_id, target_label=disease.name,
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="delete",
+        target_type="disease",
+        target_id=disease_id,
+        target_label=disease.name,
     )
     db.delete(disease)
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
-        db, tree, "tree.content_changed",
+        db,
+        tree,
+        "tree.content_changed",
         {"tree_id": tree.id, "domain": "member"},
     )
     invalidate_stats(tree.id)

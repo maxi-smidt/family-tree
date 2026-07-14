@@ -21,6 +21,7 @@ vi.mock("@/services/TreeSharingService", () => ({
     getSharingData: vi.fn(),
     listInvitations: vi.fn(),
     setPublicAccess: vi.fn(),
+    setPublicPassword: vi.fn(),
     grantAccess: vi.fn(),
     revokeAccess: vi.fn(),
     transferOwnership: vi.fn(),
@@ -113,7 +114,14 @@ describe("ShareTreeDialog", () => {
     fireEvent.click(publicSwitch);
 
     // Confirm in the nested alert dialog.
-    fireEvent.click(await screen.findByRole("button", { name: "Make public" }));
+    expect(
+      await screen.findByText(
+        "Anyone with this link can view names, profile photos, gender, birth and death dates, and family relationships without an account.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "I understand — make public" }),
+    );
 
     await waitFor(() => {
       expect(TreeSharingService.setPublicAccess).toHaveBeenCalledWith(
@@ -127,7 +135,7 @@ describe("ShareTreeDialog", () => {
       ...TREE,
       public_role: "viewer",
     });
-    expect(screen.getByText(/#public=tree-1$/)).toBeInTheDocument();
+    expect(await screen.findByText(/#public=tree-1$/)).toBeInTheDocument();
   });
 
   it("does not reload sharing data when the tree's public role changes while open", async () => {
@@ -157,6 +165,24 @@ describe("ShareTreeDialog", () => {
     );
 
     expect(TreeSharingService.getSharingData).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the public password requirement before submitting", async () => {
+    render(
+      <ShareTreeDialog
+        tree={{ ...TREE, public_role: "viewer" }}
+        isOpen
+        onClose={vi.fn()}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
+
+    const passwordInput = await screen.findByPlaceholderText("New password");
+    fireEvent.change(passwordInput, { target: { value: "short" } });
+
+    expect(screen.getByText("Use at least 8 characters.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Set password" })).toBeDisabled();
+    expect(TreeSharingService.setPublicPassword).not.toHaveBeenCalled();
   });
 
   it("keeps the share dialog open when public access confirmation is canceled", async () => {

@@ -16,3 +16,15 @@ class ActivityOut(BaseModel):
     target_label: str | None = None
     created_at: str
     details: str | None = None
+
+
+class ActivityPageOut(BaseModel):
+    """A bounded, newest-first page of activity entries.
+
+    ``total`` counts the entries matching the current filters (for paging);
+    ``actors`` lists the distinct actor usernames for the filter dropdown.
+    """
+
+    entries: list[ActivityOut]
+    total: int
+    actors: list[str]

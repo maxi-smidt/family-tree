@@ -1,17 +1,26 @@
 """Filesystem-backed media storage for member photos and gallery images.
 
-Images arrive from the SPA as ``data:`` URLs (base64). We persist the decoded
-bytes to ``DATA_PATH/media/<tree_id>/<uuid>.<ext>`` and hand back a stable,
-relative URL (``/api/media/...``) that the browser can use directly in an
-``<img src>``. Filenames are random UUIDs, so the URLs are unguessable.
+Gallery images are streamed from the SPA as multipart ``UploadFile`` bytes and
+persisted by :func:`store_image_upload`, which keeps transport memory bounded.
+The trusted import/export path and the member-photo avatar field still decode
+``data:`` URLs via :func:`store_data_url`. Either way the bytes land at
+``DATA_PATH/media/<tree_id>/<uuid>.<ext>`` and we hand back a stable, relative
+URL (``/api/media/...``) that the browser can use directly in an ``<img src>``.
+Filenames are random UUIDs, so the URLs are unguessable.
 """
 
 import base64
 import binascii
+import hashlib
+import os
 import re
 import shutil
+import tempfile
 from io import BytesIO
+from pathlib import Path
 from uuid import uuid4
+
+from fastapi import UploadFile
 
 from app.core.config import settings
 from app.schemas.setting import MediaLimits
@@ -19,6 +28,7 @@ from app.schemas.setting import MediaLimits
 MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
 
 _DATA_URL_RE = re.compile(r"^data:(?P<mime>[\w/+.-]+)?;base64,(?P<data>.+)$", re.DOTALL)
+_SAFE_PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 _MIME_EXT = {
     "image/jpeg": "jpg",
@@ -80,6 +90,10 @@ class FileTooLarge(ValueError):
     """Raised when an attachment exceeds the configured document limit."""
 
 
+class ChecksumMismatch(ValueError):
+    """Raised when a supplied upload checksum does not match its bytes."""
+
+
 class UnsupportedImageType(ValueError):
     """Raised when an image upload has an unsupported or unparseable MIME type."""
 
@@ -92,48 +106,213 @@ class InvalidImageURL(ValueError):
     """Raised when an image field contains an external or cross-tree URL."""
 
 
+def _safe_tree_dir(tree_id: str, *, create: bool = False) -> Path:
+    """Return a canonical direct child of media_root for a safe tree id."""
+    if not _SAFE_PATH_SEGMENT_RE.fullmatch(tree_id) or tree_id in {".", ".."}:
+        raise ValueError("Invalid tree id for media storage")
+    root = settings.media_root.resolve()
+    path = (root / tree_id).resolve()
+    if path.parent != root:
+        raise ValueError("Invalid tree id for media storage")
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _safe_media_path(
+    value: str | None,
+    *,
+    expected_tree_id: str | None = None,
+) -> Path | None:
+    """Resolve a canonical ``/api/media/<tree>/<file>`` URL safely.
+
+    Media URLs intentionally address one direct file in one direct tree
+    directory. Encoded or nested path syntax is not decoded or accepted.
+    """
+    prefix = f"{MEDIA_URL_PREFIX}/"
+    if not value or not value.startswith(prefix):
+        return None
+    relative = value[len(prefix) :]
+    if "\\" in relative:
+        return None
+    parts = relative.split("/")
+    if len(parts) != 2:
+        return None
+    tree_id, filename = parts
+    if expected_tree_id is not None and tree_id != expected_tree_id:
+        return None
+    if (
+        not _SAFE_PATH_SEGMENT_RE.fullmatch(tree_id)
+        or not _SAFE_PATH_SEGMENT_RE.fullmatch(filename)
+        or tree_id in {".", ".."}
+        or filename in {".", ".."}
+    ):
+        return None
+    try:
+        tree_dir = _safe_tree_dir(tree_id)
+    except ValueError:
+        return None
+    path = (tree_dir / filename).resolve()
+    if path.parent != tree_dir:
+        return None
+    return path
+
+
+def _safe_original_files(path: Path) -> list[Path]:
+    """Return only canonical, regular original siblings contained in-tree."""
+    originals_dir = (path.parent / "originals").resolve()
+    if originals_dir.parent != path.parent or not originals_dir.is_dir():
+        return []
+    files: list[Path] = []
+    for candidate in originals_dir.glob(f"{path.stem}.*"):
+        resolved = candidate.resolve()
+        if resolved.parent == originals_dir and resolved.is_file():
+            files.append(resolved)
+    return files
+
+
+_DOCUMENT_UPLOAD_CHUNK_SIZE = 1024 * 1024
+_DOCUMENT_UPLOAD_TEMP_PREFIX = ".document-upload-"
+_DOCUMENT_UPLOAD_TEMP_SUFFIX = ".tmp"
+
+_IMAGE_UPLOAD_CHUNK_SIZE = 1024 * 1024
+_IMAGE_UPLOAD_TEMP_PREFIX = ".image-upload-"
+_IMAGE_UPLOAD_TEMP_SUFFIX = ".tmp"
+
+
+def _document_type(filename: str, declared_mime: str | None) -> tuple[str, str]:
+    """Return the canonical extension and MIME for an allowed document upload."""
+    mime = (declared_mime or "").split(";", 1)[0].strip().lower()
+    name_ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+
+    if mime in _DOC_MIME_EXT:
+        return _DOC_MIME_EXT[mime], mime
+    if name_ext in _DOC_EXT_MIME:
+        return name_ext, _DOC_EXT_MIME[name_ext]
+    raise UnsupportedFileType("Unsupported file type")
+
+
+def _validate_checksum(checksum: str | None) -> str | None:
+    if checksum is None or checksum == "":
+        return None
+    value = checksum.lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", value):
+        raise ValueError("Checksum must be a SHA-256 hexadecimal digest")
+    return value
+
+
 def store_document(
     tree_id: str,
     filename: str,
     data_url: str,
     limits: MediaLimits,
 ) -> tuple[str, str, int]:
-    """Persist an attachment from a base64 data URL, unmodified.
+    """Persist an attachment decoded from a trusted import/export data URL.
 
-    Validates the type against the allowlist (by declared MIME, falling back to
-    the user filename's extension) and the configured document size limit.
-    Returns ``(media_url, mime_type, size_bytes)``.
+    Browser uploads use :func:`store_document_upload`; this compatibility path
+    is only for portable backup imports, whose data URLs are already contained
+    in the import archive.
     """
     match = _DATA_URL_RE.match(data_url)
     if not match:
         raise ValueError("Invalid data URL")
-
-    mime = (match.group("mime") or "").lower()
     try:
-        raw = base64.b64decode(match.group("data"))
+        raw = base64.b64decode(match.group("data"), validate=True)
     except (binascii.Error, ValueError) as exc:
         raise ValueError("Invalid base64 file data") from exc
 
+    ext, mime = _document_type(filename, match.group("mime"))
     if len(raw) > limits.max_document_bytes:
         raise FileTooLarge(
             f"File exceeds the {limits.max_document_bytes // (1024 * 1024)} MB limit."
         )
-
-    name_ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    if mime in _DOC_MIME_EXT:
-        ext = _DOC_MIME_EXT[mime]
-    elif name_ext in _DOC_EXT_MIME:
-        ext = name_ext
-    else:
-        raise UnsupportedFileType("Unsupported file type")
-
-    # Normalize to a canonical MIME when the upload didn't declare a known one.
-    if mime not in _DOC_MIME_EXT:
-        mime = _DOC_EXT_MIME.get(ext, "application/octet-stream")
-
     stored_name = f"{uuid4().hex}.{ext}"
     (_tree_media_dir(tree_id) / stored_name).write_bytes(raw)
     return f"{MEDIA_URL_PREFIX}/{tree_id}/{stored_name}", mime, len(raw)
+
+
+async def store_document_upload(
+    tree_id: str,
+    filename: str,
+    upload: UploadFile,
+    limits: MediaLimits,
+    *,
+    checksum: str | None = None,
+) -> tuple[str, str, int]:
+    """Stream a multipart attachment to an atomic, filesystem-backed file.
+
+    Only one bounded chunk is held while copying the spooled multipart upload.
+    The optional SHA-256 checksum is calculated incrementally and verified at
+    the end. Any rejection or cancellation removes the temporary file.
+    """
+    ext, mime = _document_type(filename, upload.content_type)
+    expected_checksum = _validate_checksum(checksum)
+    stored_name = f"{uuid4().hex}.{ext}"
+    tree_dir = _tree_media_dir(tree_id)
+    temp_path: Path | None = None
+    digest = hashlib.sha256()
+    size = 0
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=_DOCUMENT_UPLOAD_TEMP_PREFIX,
+            suffix=_DOCUMENT_UPLOAD_TEMP_SUFFIX,
+            dir=tree_dir,
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+            while chunk := await upload.read(_DOCUMENT_UPLOAD_CHUNK_SIZE):
+                size += len(chunk)
+                if size > limits.max_document_bytes:
+                    raise FileTooLarge(
+                        "File exceeds the "
+                        f"{limits.max_document_bytes // (1024 * 1024)} MB limit."
+                    )
+                digest.update(chunk)
+                temp_file.write(chunk)
+
+        if expected_checksum is not None and digest.hexdigest() != expected_checksum:
+            raise ChecksumMismatch("Upload checksum does not match file data")
+
+        os.replace(temp_path, tree_dir / stored_name)
+        temp_path = None
+        return f"{MEDIA_URL_PREFIX}/{tree_id}/{stored_name}", mime, size
+    except BaseException:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _cleanup_upload_temps(prefix: str, suffix: str) -> None:
+    """Remove ``<prefix>*<suffix>`` temp files under every tree's media dir."""
+    root = settings.media_root
+    if not root.is_dir():
+        return
+    try:
+        tree_dirs = list(root.iterdir())
+    except OSError:
+        return
+    for tree_dir in tree_dirs:
+        if not tree_dir.is_dir():
+            continue
+        for temp_path in tree_dir.glob(f"{prefix}*{suffix}"):
+            try:
+                temp_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def cleanup_document_upload_temps() -> None:
+    """Remove incomplete document-upload files left by an interrupted worker."""
+    _cleanup_upload_temps(
+        _DOCUMENT_UPLOAD_TEMP_PREFIX, _DOCUMENT_UPLOAD_TEMP_SUFFIX
+    )
+
+
+def cleanup_image_upload_temps() -> None:
+    """Remove incomplete image-upload files left by an interrupted worker."""
+    _cleanup_upload_temps(_IMAGE_UPLOAD_TEMP_PREFIX, _IMAGE_UPLOAD_TEMP_SUFFIX)
 
 
 def delete_media(value: str | None) -> None:
@@ -143,28 +322,20 @@ def delete_media(value: str | None) -> None:
     in ``"both"`` mode. No-op for non-media URLs or missing files; never
     raises, so a failed cleanup can't break a delete request.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    path = _safe_media_path(value)
+    if path is None:
         return
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
     try:
-        path = (settings.media_root / rel).resolve()
-        # Guard against path traversal via a malformed stored URL.
-        if settings.media_root.resolve() not in path.parents:
-            return
         path.unlink(missing_ok=True)
         # Remove the original stored in the originals/ subdir by "both" mode.
-        originals_dir = path.parent / "originals"
-        if originals_dir.is_dir():
-            for orig in originals_dir.glob(f"{path.stem}.*"):
-                orig.unlink(missing_ok=True)
+        for orig in _safe_original_files(path):
+            orig.unlink(missing_ok=True)
     except OSError:
         pass
 
 
-def _tree_media_dir(tree_id: str):
-    path = settings.media_root / tree_id
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+def _tree_media_dir(tree_id: str) -> Path:
+    return _safe_tree_dir(tree_id, create=True)
 
 
 def _originals_dir(tree_id: str):
@@ -174,7 +345,10 @@ def _originals_dir(tree_id: str):
     ``<uuid>.<ext>`` so they share the same stem as the display WebP in the
     parent directory but are kept in their own namespace.
     """
-    path = _tree_media_dir(tree_id) / "originals"
+    tree_dir = _tree_media_dir(tree_id)
+    path = (tree_dir / "originals").resolve()
+    if path.parent != tree_dir:
+        raise ValueError("Invalid originals directory")
     path.mkdir(exist_ok=True)
     return path
 
@@ -189,12 +363,9 @@ def delete_tree_media(tree_id: str) -> None:
     if not tree_id:
         return
     try:
-        path = (settings.media_root / tree_id).resolve()
-        # Guard against escaping the media root via a malformed tree id.
-        if path.parent != settings.media_root.resolve():
-            return
+        path = _safe_tree_dir(tree_id)
         shutil.rmtree(path, ignore_errors=True)
-    except OSError:
+    except (OSError, ValueError):
         pass
 
 
@@ -265,16 +436,115 @@ def store_data_url(
     return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
 
 
-def _validate_image_dimensions(raw: bytes, limits: MediaLimits) -> None:
+async def store_image_upload(
+    tree_id: str,
+    upload: UploadFile,
+    limits: MediaLimits,
+    *,
+    mode: str = "compressed",
+) -> str:
+    """Stream a multipart image upload to disk, normalize it, and store it.
+
+    The browser sends the picked image as multipart ``UploadFile`` bytes rather
+    than a base64 ``data:`` URL, so only one bounded chunk is held while the
+    body is copied to a temporary file — transport memory stays bounded no
+    matter how large the image is. Every existing safeguard is preserved, it
+    just reads from the streamed temp file instead of an in-memory payload:
+    MIME allowlist, byte-size limit, dimension cap, Pillow decompression-bomb
+    protection, WebP re-encode, and the ``image_storage_mode`` branches. Any
+    rejection or cancellation removes the temporary file.
+
+    ``mode`` mirrors :func:`store_data_url`:
+    - ``"compressed"`` (default): resize + re-encode as WebP.
+    - ``"original"``: store the streamed bytes as-is under their extension.
+    - ``"both"``: store a display WebP and keep the original as a sibling in
+      the ``originals/`` subdirectory.
+    """
+    mime = (upload.content_type or "").split(";", 1)[0].strip().lower()
+    if mime not in _MIME_EXT:
+        raise UnsupportedImageType(
+            f"Unsupported image type '{mime}'. "
+            f"Allowed types: {', '.join(sorted(_MIME_EXT))}."
+        )
+    orig_ext = _MIME_EXT[mime]
+    tree_dir = _tree_media_dir(tree_id)
+    stem = uuid4().hex
+    temp_path: Path | None = None
+    size = 0
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=_IMAGE_UPLOAD_TEMP_PREFIX,
+            suffix=_IMAGE_UPLOAD_TEMP_SUFFIX,
+            dir=tree_dir,
+            delete=False,
+        ) as temp_file:
+            temp_path = Path(temp_file.name)
+            while chunk := await upload.read(_IMAGE_UPLOAD_CHUNK_SIZE):
+                size += len(chunk)
+                if size > limits.max_image_bytes:
+                    raise ImageTooLarge(
+                        "Image exceeds the "
+                        f"{limits.max_image_bytes // (1024 * 1024)} MB limit."
+                    )
+                temp_file.write(chunk)
+
+        if mode == "original":
+            _validate_image_dimensions(temp_path, limits)
+            filename = f"{stem}.{orig_ext}"
+            os.replace(temp_path, tree_dir / filename)
+            temp_path = None
+            return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+
+        if mode == "both":
+            display_raw, display_ext = _normalize_image(temp_path, orig_ext, limits)
+            display_filename = f"{stem}.{display_ext}"
+            (tree_dir / display_filename).write_bytes(display_raw)
+            # Move the streamed original into the originals/ subdir under the
+            # same stem, so delete/copy/move helpers keep the pair together.
+            os.replace(temp_path, _originals_dir(tree_id) / f"{stem}.{orig_ext}")
+            temp_path = None
+            return f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}"
+
+        # Default: "compressed". The display WebP is a fresh file, so the
+        # streamed original temp file is no longer needed — remove it.
+        display_raw, display_ext = _normalize_image(temp_path, orig_ext, limits)
+        filename = f"{stem}.{display_ext}"
+        (tree_dir / filename).write_bytes(display_raw)
+        temp_path.unlink(missing_ok=True)
+        temp_path = None
+        return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+    except BaseException:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
+        raise
+
+
+def _open_image_source(source: bytes | Path):
+    """Open an image from raw bytes or an on-disk path.
+
+    The streaming upload path passes a temp-file ``Path`` so the encoded bytes
+    are read from disk by Pillow instead of held in memory as one base64 copy;
+    the trusted import path still passes decoded ``bytes``.
+    """
+    from PIL import Image
+
+    if isinstance(source, Path):
+        return Image.open(source)
+    return Image.open(BytesIO(source))
+
+
+def _validate_image_dimensions(source: bytes | Path, limits: MediaLimits) -> None:
     """Parse image and reject it if either dimension exceeds the configured cap.
 
     Raises ``UnsupportedImageType`` when Pillow cannot parse the payload or
     either dimension exceeds ``limits.max_image_dimension``.
     """
-    from PIL import Image, UnidentifiedImageError
+    from PIL import UnidentifiedImageError
 
     try:
-        with Image.open(BytesIO(raw)) as img:
+        with _open_image_source(source) as img:
             w, h = img.size
             if w > limits.max_image_dimension or h > limits.max_image_dimension:
                 raise UnsupportedImageType(
@@ -290,7 +560,7 @@ def _validate_image_dimensions(raw: bytes, limits: MediaLimits) -> None:
 
 
 def _normalize_image(
-    raw: bytes,
+    source: bytes | Path,
     ext: str,
     limits: MediaLimits,
 ) -> tuple[bytes, str]:
@@ -299,10 +569,10 @@ def _normalize_image(
     Raises ``UnsupportedImageType`` when Pillow cannot parse the payload or
     either image dimension exceeds the configured limit before resizing.
     """
-    from PIL import Image, UnidentifiedImageError
+    from PIL import UnidentifiedImageError
 
     try:
-        with Image.open(BytesIO(raw)) as img:
+        with _open_image_source(source) as img:
             w, h = img.size
             if w > limits.max_image_dimension or h > limits.max_image_dimension:
                 raise UnsupportedImageType(
@@ -324,7 +594,7 @@ def _normalize_image(
 
 # Document attachment types already cover the common image extensions; only
 # avif is image-gallery-specific. Reusing ``_DOC_EXT_MIME`` keeps exports
-# inlined with a MIME that ``store_document`` recognizes on re-import.
+# inlined with a MIME that the document import path recognizes on re-import.
 _EXT_MIME = {**_DOC_EXT_MIME, "avif": "image/avif"}
 
 
@@ -334,11 +604,10 @@ def media_url_to_data_url(value: str | None) -> str | None:
     Returns the input unchanged when it isn't one of our media URLs, and
     ``None`` if the file is missing.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return value
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]  # strip "/<prefix>/"
-    path = settings.media_root / rel
-    if not path.is_file():
+    path = _safe_media_path(value)
+    if path is None or not path.is_file():
         return None
     ext = path.suffix.lstrip(".").lower()
     mime = _EXT_MIME.get(ext, "application/octet-stream")
@@ -354,11 +623,10 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     the input unchanged when it isn't one of our media URLs, or ``None`` if
     the source file is missing.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return value
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
-    src = settings.media_root / rel
-    if not src.is_file():
+    src = _safe_media_path(value)
+    if src is None or not src.is_file():
         return None
     ext = src.suffix.lstrip(".") or "bin"
     new_stem = uuid4().hex
@@ -366,12 +634,10 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     dest_dir = _tree_media_dir(new_tree_id)
     shutil.copyfile(src, dest_dir / filename)
     # Copy the original stored in the originals/ subdir by "both" mode.
-    src_originals = src.parent / "originals"
-    if src_originals.is_dir():
-        for orig_src in src_originals.glob(f"{src.stem}.*"):
-            orig_ext = orig_src.suffix.lstrip(".") or "bin"
-            dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
-            shutil.copyfile(orig_src, dest)
+    for orig_src in _safe_original_files(src):
+        orig_ext = orig_src.suffix.lstrip(".") or "bin"
+        dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
+        shutil.copyfile(orig_src, dest)
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
@@ -383,11 +649,10 @@ def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     instead of copying it. Returns the new media URL, the input unchanged when
     it isn't one of our media URLs, or ``None`` if the source file is missing.
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return value
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
-    src = settings.media_root / rel
-    if not src.is_file():
+    src = _safe_media_path(value)
+    if src is None or not src.is_file():
         return None
     ext = src.suffix.lstrip(".") or "bin"
     new_stem = uuid4().hex
@@ -395,12 +660,10 @@ def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     dest_dir = _tree_media_dir(new_tree_id)
     shutil.move(src, dest_dir / filename)
     # Move the original stored in the originals/ subdir by "both" mode.
-    src_originals = src.parent / "originals"
-    if src_originals.is_dir():
-        for orig_src in src_originals.glob(f"{src.stem}.*"):
-            orig_ext = orig_src.suffix.lstrip(".") or "bin"
-            dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
-            shutil.move(orig_src, dest)
+    for orig_src in _safe_original_files(src):
+        orig_ext = orig_src.suffix.lstrip(".") or "bin"
+        dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
+        shutil.move(orig_src, dest)
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
 
 
@@ -408,18 +671,17 @@ def media_disk_usage(value: str | None) -> int:
     """Total on-disk bytes backing a media URL, including any ``originals/``
     siblings. Returns 0 for non-media URLs and missing files (never raises).
     """
-    if not value or not value.startswith(MEDIA_URL_PREFIX):
+    if not value or not value.startswith(f"{MEDIA_URL_PREFIX}/"):
         return 0
-    rel = value[len(MEDIA_URL_PREFIX) + 1 :]
-    path = settings.media_root / rel
+    path = _safe_media_path(value)
+    if path is None:
+        return 0
     total = 0
     try:
         if path.is_file():
             total += path.stat().st_size
-        originals_dir = path.parent / "originals"
-        if originals_dir.is_dir():
-            for orig in originals_dir.glob(f"{path.stem}.*"):
-                total += orig.stat().st_size
+        for orig in _safe_original_files(path):
+            total += orig.stat().st_size
     except OSError:
         pass
     return total
@@ -439,8 +701,7 @@ def process_gallery_image_field(
         return None
     if is_data_url(value):
         return store_data_url(tree_id, value, limits, mode=limits.image_storage_mode)
-    own_prefix = f"{MEDIA_URL_PREFIX}/{tree_id}/"
-    if value.startswith(own_prefix):
+    if _safe_media_path(value, expected_tree_id=tree_id) is not None:
         return value
     raise InvalidImageURL(
         "Image field must be null, a data URL, or a media URL owned by this tree"
@@ -466,8 +727,7 @@ def process_image_field(
         return None
     if is_data_url(value):
         return store_data_url(tree_id, value, limits)
-    own_prefix = f"{MEDIA_URL_PREFIX}/{tree_id}/"
-    if value.startswith(own_prefix):
+    if _safe_media_path(value, expected_tree_id=tree_id) is not None:
         return value
     raise InvalidImageURL(
         "Image field must be null, a data URL, or a media URL owned by this tree"

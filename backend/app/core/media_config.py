@@ -8,7 +8,9 @@ MAX_MAX_IMAGE_UPLOAD_MB = 100
 
 DEFAULT_MAX_DOCUMENT_UPLOAD_MB = 25
 MIN_MAX_DOCUMENT_UPLOAD_MB = 1
-MAX_MAX_DOCUMENT_UPLOAD_MB = 500
+# Documents are streamed after multipart parsing, but capping this at 100 MiB
+# keeps temporary disk consumption and concurrent-upload capacity predictable.
+MAX_MAX_DOCUMENT_UPLOAD_MB = 100
 
 DEFAULT_MAX_IMAGE_DIMENSION = 4096
 MIN_MAX_IMAGE_DIMENSION = 256

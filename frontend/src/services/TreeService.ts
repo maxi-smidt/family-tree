@@ -27,11 +27,17 @@ import {
 } from "@/types/merge";
 import { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
-import { StoryAttachmentDB, StoryDB, StoryInput } from "@/types/story";
+import { StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
-import { CitationDB, EvidenceOps, SourceDB, SourceInput } from "@/types/source";
+import {
+  DocumentDB,
+  DocumentFileDB,
+  DocumentInput,
+  DocumentSavePayload,
+  DocumentUploadDB,
+} from "@/types/document";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
-import { ActivityDB } from "@/types/activity";
+import { ActivityPageDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import { CombinedStatisticsReport, StatisticsReport } from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
@@ -171,7 +177,7 @@ export class TreeService {
   static updateMember(
     treeId: string,
     id: string,
-    changes: Omit<MemberUpdate, "paternalParentId" | "maternalParentId">,
+    changes: MemberUpdate,
   ): Promise<MemberDB | undefined> {
     if (Object.keys(changes).length === 0) return Promise.resolve(undefined);
     return api.patch<MemberDB>(`${base(treeId)}/members/${id}`, changes);
@@ -244,21 +250,34 @@ export class TreeService {
     );
   }
 
-  static addGalleryImage(
+  /** Stream a picked image file to the gallery as multipart form-data. The
+   *  bytes never become a base64 data URL in JS state or the request body; the
+   *  backend streams them to disk and applies all image safeguards. */
+  static uploadGalleryImage(
     treeId: string,
     id: string,
-    image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    file: File,
+    meta: {
+      title: string | null;
+      description: string | null;
+      memberIds: string[];
+    },
     now: string,
   ) {
-    return api.post(`${base(treeId)}/gallery/images`, {
-      id,
-      imageData: image.imageData,
-      title: image.title,
-      description: image.description,
-      createdAt: now,
-      uploadedAt: now,
-      member_ids: image.linkedMemberIds ?? [],
-    });
+    const formData = new FormData();
+    formData.append("id", id);
+    formData.append("image", file);
+    if (meta.title !== null) formData.append("title", meta.title);
+    if (meta.description !== null)
+      formData.append("description", meta.description);
+    formData.append("created_at", now);
+    formData.append("uploaded_at", now);
+    for (const memberId of meta.memberIds)
+      formData.append("member_ids", memberId);
+    return api.postForm<GalleryImageDB>(
+      `${base(treeId)}/gallery/images`,
+      formData,
+    );
   }
 
   static setGalleryImageLinks(
@@ -276,8 +295,10 @@ export class TreeService {
     id: string,
     changes: Partial<GalleryImage>,
   ) {
+    // Only metadata is editable — image bytes are immutable after upload, so
+    // imageData is intentionally never sent back (it only carries the stored
+    // media URL).
     const body: Record<string, unknown> = {};
-    if (changes.imageData !== undefined) body.imageData = changes.imageData;
     if (changes.title !== undefined) body.title = changes.title;
     if (changes.description !== undefined)
       body.description = changes.description;
@@ -337,6 +358,16 @@ export class TreeService {
     return api.del(`${base(treeId)}/events/${id}`);
   }
 
+  static setEventDocuments(
+    treeId: string,
+    eventId: string,
+    documentIds: string[],
+  ) {
+    return api.put(`${base(treeId)}/events/${eventId}/documents`, {
+      document_ids: documentIds,
+    });
+  }
+
   // --- Geocode -------------------------------------------------------------
   static geocodeLocations(treeId: string, locations: string[]) {
     return api.post<GeocodeDB[]>(`${base(treeId)}/geocode`, { locations });
@@ -383,6 +414,7 @@ export class TreeService {
       id,
       title: story.title,
       content: story.content,
+      date: story.date ?? null,
       created_at: now,
       updated_at: now,
       member_ids: memberIds,
@@ -404,6 +436,7 @@ export class TreeService {
     return api.patch(`${base(treeId)}/stories/${id}`, {
       title: story.title,
       content: story.content,
+      date: story.date ?? null,
       updated_at: updatedAt,
     });
   }
@@ -412,205 +445,127 @@ export class TreeService {
     return api.del(`${base(treeId)}/stories/${id}`);
   }
 
-  static addStoryAttachment(
+  static setStoryDocuments(
     treeId: string,
     storyId: string,
-    filename: string,
-    data: string,
+    documentIds: string[],
   ) {
-    return api.post<StoryAttachmentDB>(
-      `${base(treeId)}/stories/${storyId}/attachments`,
-      { filename, data },
-    );
+    return api.put(`${base(treeId)}/stories/${storyId}/documents`, {
+      document_ids: documentIds,
+    });
   }
 
-  static updateStoryAttachment(
+  // --- Documents -----------------------------------------------------------
+  static getDocuments(treeId: string) {
+    return api.get<DocumentDB[]>(`${base(treeId)}/documents`);
+  }
+
+  static addDocument(
     treeId: string,
-    storyId: string,
-    attachmentId: string,
-    filename: string,
+    input: DocumentInput,
+    memberIds: string[],
   ) {
-    return api.patch(
-      `${base(treeId)}/stories/${storyId}/attachments/${attachmentId}`,
-      { filename },
-    );
-  }
-
-  static removeStoryAttachment(
-    treeId: string,
-    storyId: string,
-    attachmentId: string,
-  ) {
-    return api.del(
-      `${base(treeId)}/stories/${storyId}/attachments/${attachmentId}`,
-    );
-  }
-
-  // --- Sources -------------------------------------------------------------
-  static getSources(treeId: string) {
-    return api.get<SourceDB[]>(`${base(treeId)}/sources`);
-  }
-
-  static getCitations(treeId: string) {
-    return api.get<CitationDB[]>(`${base(treeId)}/sources/citations`);
-  }
-
-  static addSource(
-    treeId: string,
-    id: string,
-    input: SourceInput,
-    now: string,
-  ) {
-    return api.post<SourceDB>(`${base(treeId)}/sources`, {
-      id,
+    return api.post<DocumentDB>(`${base(treeId)}/documents`, {
       title: input.title,
-      author: input.author || null,
-      publication_info: input.publicationInfo || null,
-      repository: input.repository || null,
-      source_date: input.sourceDate || null,
-      notes: input.notes || null,
-      created_at: now,
-      updated_at: now,
+      description: input.description || null,
+      document_date: input.documentDate || null,
+      member_ids: memberIds,
     });
   }
 
-  static updateSource(treeId: string, id: string, input: SourceInput) {
-    return api.patch<SourceDB>(`${base(treeId)}/sources/${id}`, {
+  static updateDocument(treeId: string, id: string, input: DocumentInput) {
+    return api.patch<DocumentDB>(`${base(treeId)}/documents/${id}`, {
       title: input.title,
-      author: input.author || null,
-      publication_info: input.publicationInfo || null,
-      repository: input.repository || null,
-      source_date: input.sourceDate || null,
-      notes: input.notes || null,
+      description: input.description || null,
+      document_date: input.documentDate || null,
     });
   }
 
-  static removeSource(treeId: string, id: string) {
-    return api.del(`${base(treeId)}/sources/${id}`);
+  /** Stream a picked file into the staging area. Returns the staged upload,
+   *  whose id is later attached by `saveDocument`. */
+  static stageDocumentUpload(treeId: string, file: File, filename: string) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("filename", filename);
+    return api.postForm<DocumentUploadDB>(
+      `${base(treeId)}/documents/uploads`,
+      formData,
+    );
   }
 
-  static addSourceEvidenceFile(
+  /** Create-or-update a document and apply every file change in one atomic
+   *  request. `documentId` is client-generated so a create that gets retried
+   *  upserts instead of duplicating. */
+  static saveDocument(
     treeId: string,
-    sourceId: string,
-    filename: string,
-    data: string,
+    documentId: string,
+    payload: DocumentSavePayload,
   ) {
-    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
-      kind: "file",
-      filename,
-      data,
+    return api.put<DocumentDB>(
+      `${base(treeId)}/documents/${documentId}`,
+      payload,
+    );
+  }
+
+  static removeDocument(treeId: string, id: string) {
+    return api.del(`${base(treeId)}/documents/${id}`);
+  }
+
+  static setDocumentMembers(
+    treeId: string,
+    documentId: string,
+    memberIds: string[],
+  ) {
+    return api.put(`${base(treeId)}/documents/${documentId}/members`, {
+      member_ids: memberIds,
     });
   }
 
-  static addSourceEvidenceLink(
+  static addDocumentFile(
     treeId: string,
-    sourceId: string,
+    documentId: string,
+    file: File,
+    filename: string,
+  ) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("filename", filename);
+    return api.postForm<DocumentFileDB>(
+      `${base(treeId)}/documents/${documentId}/files`,
+      formData,
+    );
+  }
+
+  static addDocumentLink(
+    treeId: string,
+    documentId: string,
     url: string,
-    label: string | null,
+    filename: string | null,
   ) {
-    return api.post(`${base(treeId)}/sources/${sourceId}/evidence`, {
-      kind: "link",
-      url,
-      filename: label,
-    });
+    return api.post<DocumentFileDB>(
+      `${base(treeId)}/documents/${documentId}/links`,
+      { url, filename },
+    );
   }
 
-  static renameSourceEvidence(
+  static renameDocumentFile(
     treeId: string,
-    sourceId: string,
-    evidenceId: string,
+    documentId: string,
+    fileId: string,
     filename: string,
   ) {
-    return api.patch(
-      `${base(treeId)}/sources/${sourceId}/evidence/${evidenceId}`,
+    return api.patch<DocumentFileDB>(
+      `${base(treeId)}/documents/${documentId}/files/${fileId}`,
       { filename },
     );
   }
 
-  static removeSourceEvidence(
+  static removeDocumentFile(
     treeId: string,
-    sourceId: string,
-    evidenceId: string,
+    documentId: string,
+    fileId: string,
   ) {
-    return api.del(
-      `${base(treeId)}/sources/${sourceId}/evidence/${evidenceId}`,
-    );
-  }
-
-  static addCitation(
-    treeId: string,
-    id: string,
-    sourceId: string,
-    memberId: string,
-    factType: string,
-    page: string | null,
-    detail: string | null,
-    now: string,
-  ) {
-    return api.post<CitationDB>(`${base(treeId)}/sources/citations`, {
-      id,
-      source_id: sourceId,
-      member_id: memberId,
-      fact_type: factType,
-      page: page || null,
-      detail: detail || null,
-      created_at: now,
-    });
-  }
-
-  static updateCitation(
-    treeId: string,
-    id: string,
-    factType: string,
-    page: string | null,
-    detail: string | null,
-  ) {
-    return api.patch(`${base(treeId)}/sources/citations/${id}`, {
-      fact_type: factType,
-      page: page || null,
-      detail: detail || null,
-    });
-  }
-
-  static removeCitation(treeId: string, id: string) {
-    return api.del(`${base(treeId)}/sources/citations/${id}`);
-  }
-
-  static applyEvidenceOps(
-    treeId: string,
-    sourceId: string,
-    ops: EvidenceOps,
-  ): Promise<unknown>[] {
-    const tasks: Promise<unknown>[] = [];
-    for (const id of ops.removedIds) {
-      tasks.push(TreeService.removeSourceEvidence(treeId, sourceId, id));
-    }
-    for (const { id, filename } of ops.renamed) {
-      tasks.push(
-        TreeService.renameSourceEvidence(treeId, sourceId, id, filename),
-      );
-    }
-    for (const f of ops.addedFiles) {
-      tasks.push(
-        TreeService.addSourceEvidenceFile(
-          treeId,
-          sourceId,
-          f.filename,
-          f.dataUrl,
-        ),
-      );
-    }
-    for (const link of ops.addedLinks) {
-      tasks.push(
-        TreeService.addSourceEvidenceLink(
-          treeId,
-          sourceId,
-          link.url,
-          link.label,
-        ),
-      );
-    }
-    return tasks;
+    return api.del(`${base(treeId)}/documents/${documentId}/files/${fileId}`);
   }
 
   // --- Diseases ------------------------------------------------------------
@@ -663,8 +618,17 @@ export class TreeService {
   }
 
   // --- Activity log ---------------------------------------------------------
-  static getActivity(treeId: string) {
-    return api.get<ActivityDB[]>(`${base(treeId)}/activity`);
+  static getActivity(
+    treeId: string,
+    params: {
+      offset?: number;
+      limit?: number;
+      actor?: string;
+      action?: string;
+      target_type?: string;
+    } = {},
+  ) {
+    return api.get<ActivityPageDB>(`${base(treeId)}/activity`, params);
   }
 
   // --- Quality report -------------------------------------------------------

@@ -9,7 +9,7 @@ export const TabWrapper = ({
   children: ReactNode;
   value: string;
 }) => (
-  <TabsContent value={value} className="flex-1 min-h-0 m-0">
+  <TabsContent value={value} className="m-0 flex min-h-0 flex-1 flex-col">
     <Suspense
       fallback={
         <div className="flex h-full w-full items-center justify-center">

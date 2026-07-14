@@ -1,4 +1,4 @@
-/** Per-tree storage usage and quota limits returned by GET /trees/{id}/storage */
+/** Owner-wide storage usage and quotas returned by GET /trees/{id}/storage. */
 export interface TreeStorageUsageDB {
   tree_bytes: number;
   media_bytes: number;

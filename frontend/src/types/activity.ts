@@ -4,7 +4,7 @@ export interface Activity {
   actorId: string | null;
   actorUsername: string | null;
   action: string; // "create" | "update" | "delete"
-  targetType: string; // "member" | "relation" | "event" | "story" | "gallery_image" | "disease" | "tree" | "share" | "import" | "merge"
+  targetType: string; // "member" | "relation" | "event" | "story" | "gallery_image" | "document" | "disease" | "tree" | "share" | "import" | "merge"
   targetId: string | null;
   targetLabel: string | null;
   createdAt: string;
@@ -22,6 +22,12 @@ export interface ActivityDB {
   target_label: string | null;
   created_at: string;
   details?: string | null;
+}
+
+export interface ActivityPageDB {
+  entries: ActivityDB[];
+  total: number;
+  actors: string[];
 }
 
 export function mapActivityFromDB(row: ActivityDB): Activity {

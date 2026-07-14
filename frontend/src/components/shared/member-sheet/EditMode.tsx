@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { LocationInput } from "@/components/shared/LocationInput";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
@@ -27,6 +28,7 @@ import {
 import { Gender, Member } from "@/types/member";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
 import { toast } from "sonner";
+import debounce from "lodash.debounce";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   Field,
@@ -41,12 +43,13 @@ import { comparePartialDates } from "@/utils/dateUtils";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
-import { MemberSources } from "./MemberSources";
+import { MemberDocuments } from "./MemberDocuments";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
 import { LinkedTreeField } from "./LinkedTreeField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
+import { MemberSheetTab } from "@/utils/memberSheetState";
 
 function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   const descendants = new Set<string>();
@@ -67,11 +70,17 @@ function getDescendants(memberId: string, allMembers: Member[]): Set<string> {
   return descendants;
 }
 
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 type Props = {
   member: Member;
   isNew?: boolean;
   onSaved?: (data: Member) => void;
   onDirtyChange?: (dirty: boolean) => void;
+  onSaveStatusChange?: (status: SaveStatus) => void;
+  onAutosaveFlush?: (flush: () => Promise<void>) => void;
+  activeTab: MemberSheetTab;
+  onTabChange: (tab: MemberSheetTab) => void;
 };
 
 export const EditMode = ({
@@ -79,6 +88,10 @@ export const EditMode = ({
   isNew = false,
   onSaved,
   onDirtyChange,
+  onSaveStatusChange,
+  onAutosaveFlush,
+  activeTab,
+  onTabChange,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode",
@@ -91,7 +104,7 @@ export const EditMode = ({
     useFeature("events") && !restrictions.includes("events");
   const storiesEnabled =
     useFeature("stories") && !restrictions.includes("stories");
-  const sourcesEnabled =
+  const documentsEnabled =
     useFeature("sources") && !restrictions.includes("sources");
   const galleryEnabled =
     useFeature("gallery") && !restrictions.includes("gallery");
@@ -108,9 +121,22 @@ export const EditMode = ({
   }>({});
   const [recordsMounted, setRecordsMounted] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  // These identifiers are deliberately captured for the editor's lifetime.
+  // A delayed save must never resolve the currently active tree after a switch.
+  const editorTreeIdRef = useRef(currentTreeId);
+  const editorMemberIdRef = useRef(member.id);
+  const formDataRef = useRef(formData);
+  const isDirtyRef = useRef(isDirty);
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const latestSaveRevisionRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
+  const lastDuplicateSignatureRef = useRef<string | null>(null);
+
+  formDataRef.current = formData;
+  isDirtyRef.current = isDirty;
 
   useEffect(() => {
     setFormData(member);
@@ -118,7 +144,15 @@ export const EditMode = ({
     setErrors({});
     setIsDirty(false);
     onDirtyChange?.(false);
-  }, [member]);
+    // Autosave (for existing members) persists in place and updates the
+    // `member` prop identity without the user switching members — only reset
+    // the form when a genuinely different member is opened.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [member.id]);
+
+  useEffect(() => {
+    onSaveStatusChange?.(saveStatus);
+  }, [saveStatus, onSaveStatusChange]);
 
   useEffect(() => {
     const dirty =
@@ -213,103 +247,224 @@ export const EditMode = ({
     handleChange("gender", value);
   };
 
-  const save = useCallback(async (): Promise<boolean> => {
-    const nextErrors: { firstName?: string; lastName?: string } = {};
-    if (!formData.firstName.trim())
-      nextErrors.firstName = t("error-firstname-required");
-    if (!formData.lastName.trim())
-      nextErrors.lastName = t("error-lastname-required");
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
-      (nextErrors.firstName ? firstNameRef : lastNameRef).current?.focus();
-      return false;
-    }
-
-    // Same-named people are only treated as duplicates once a birth date has
-    // been entered; without one we allow namesakes to be created freely.
-    const duplicate = formData.date.birth
-      ? members.find(
-          (m) =>
-            m.id !== member.id &&
-            m.firstName === formData.firstName &&
-            (m.middleNames || "") === (formData.middleNames || "") &&
-            (m.baptismalName || "") === (formData.baptismalName || "") &&
-            m.lastName === formData.lastName &&
-            m.gender === formData.gender &&
-            m.date.birth === formData.date.birth &&
-            m.date.death === formData.date.death,
-        )
-      : undefined;
-
-    if (duplicate) {
-      toast.error(t("toast-error-duplicate"));
-      return false;
-    }
-
-    if (isNew) {
-      onSaved?.(formData);
-      return true;
-    }
-
-    try {
-      const result = await updateMemberPartial(member.id, {
-        academicTitle: formData.academicTitle || null,
-        firstName: formData.firstName,
-        middleNames: formData.middleNames || null,
-        baptismalName: formData.baptismalName || null,
-        lastName: formData.lastName,
-        maidenName: formData.maidenName || null,
-        gender: formData.gender,
-        imageData: formData.imageData || undefined,
-        dateOfBirth: formData.date.birth,
-        dateOfDeath: formData.date.death || null,
-        deceased: formData.deceased,
-        adopted: formData.adopted,
-        additionalData: formData.additionalData || null,
-        birthplace: formData.birthplace || null,
-        hometown: formData.hometown || null,
-        cemetery: formData.cemetery || null,
-        placesLived:
-          formData.placesLived.length > 0
-            ? JSON.stringify(formData.placesLived)
-            : null,
-        paternalParentId: formData.parents.paternalParent,
-        maternalParentId: formData.parents.maternalParent,
-        ...(formData.linkedTreeId !== undefined
-          ? { linkedTreeId: formData.linkedTreeId }
-          : {}),
-      });
-      toast.success(t("toast-success"));
-      // Bridge person whose counterpart tree the editor may not write: the
-      // save worked but the linked copy drifted — say so.
-      if (result?.bridgeSync === "skipped_no_access") {
-        toast.info(t("toast-bridge-sync-skipped"));
-      }
-      onSaved?.(formData);
-      return true;
-    } catch (err: unknown) {
-      if (err instanceof ApiError && err.status === 413) {
-        const bucket = getQuotaBucket(err.message);
-        if (bucket) {
-          toast.error(t(quotaToastKey(bucket)));
-        } else {
-          toast.error(t("toast-error-image-too-large"));
+  const persistSnapshot = useCallback(
+    async (
+      snapshot: Member,
+      revision: number,
+      opts?: { autosave?: boolean },
+    ): Promise<boolean> => {
+      const isCurrent = () => revision === latestSaveRevisionRef.current;
+      const nextErrors: { firstName?: string; lastName?: string } = {};
+      if (!snapshot.firstName.trim())
+        nextErrors.firstName = t("error-firstname-required");
+      if (!snapshot.lastName.trim())
+        nextErrors.lastName = t("error-lastname-required");
+      if (isCurrent()) setErrors(nextErrors);
+      if (Object.keys(nextErrors).length > 0) {
+        if (opts?.autosave && isCurrent()) {
+          setSaveStatus("idle");
+        } else if (!opts?.autosave && isCurrent()) {
+          (nextErrors.firstName ? firstNameRef : lastNameRef).current?.focus();
         }
-      } else if (err instanceof ApiError && err.status === 400) {
-        toast.error(t("toast-error-image-unsupported"));
-      } else {
-        toast.error(t("toast-error-save"));
+        return false;
       }
-      return false;
-    }
-  }, [formData, member, members, isNew, onSaved, t, updateMemberPartial]);
+
+      // Same-named people are only treated as duplicates once a birth date has
+      // been entered; without one we allow namesakes to be created freely.
+      const duplicate = snapshot.date.birth
+        ? members.find(
+            (m) =>
+              m.id !== member.id &&
+              m.firstName === snapshot.firstName &&
+              (m.middleNames || "") === (snapshot.middleNames || "") &&
+              (m.baptismalName || "") === (snapshot.baptismalName || "") &&
+              m.lastName === snapshot.lastName &&
+              m.gender === snapshot.gender &&
+              m.date.birth === snapshot.date.birth &&
+              m.date.death === snapshot.date.death,
+          )
+        : undefined;
+
+      if (duplicate) {
+        const signature = [
+          snapshot.firstName,
+          snapshot.middleNames || "",
+          snapshot.baptismalName || "",
+          snapshot.lastName,
+          snapshot.gender,
+          snapshot.date.birth,
+          snapshot.date.death || "",
+        ].join("|");
+        if (isCurrent() && lastDuplicateSignatureRef.current !== signature) {
+          toast.error(t("toast-error-duplicate"));
+          lastDuplicateSignatureRef.current = signature;
+        }
+        if (isCurrent()) setSaveStatus("error");
+        return false;
+      }
+      if (isCurrent()) lastDuplicateSignatureRef.current = null;
+
+      if (isNew) {
+        onSaved?.(snapshot);
+        return true;
+      }
+
+      setSaveStatus("saving");
+      try {
+        const treeId = editorTreeIdRef.current;
+        if (!treeId) return false;
+        const result = await updateMemberPartial(
+          editorMemberIdRef.current,
+          {
+            academicTitle: snapshot.academicTitle || null,
+            firstName: snapshot.firstName,
+            middleNames: snapshot.middleNames || null,
+            baptismalName: snapshot.baptismalName || null,
+            lastName: snapshot.lastName,
+            maidenName: snapshot.maidenName || null,
+            gender: snapshot.gender,
+            imageData: snapshot.imageData || undefined,
+            dateOfBirth: snapshot.date.birth,
+            dateOfDeath: snapshot.date.death || null,
+            deceased: snapshot.deceased,
+            adopted: snapshot.adopted,
+            additionalData: snapshot.additionalData || null,
+            birthplace: snapshot.birthplace || null,
+            hometown: snapshot.hometown || null,
+            cemetery: snapshot.cemetery || null,
+            placesLived:
+              snapshot.placesLived.length > 0
+                ? JSON.stringify(snapshot.placesLived)
+                : null,
+            paternalParentId: snapshot.parents.paternalParent,
+            maternalParentId: snapshot.parents.maternalParent,
+            ...(snapshot.linkedTreeId !== undefined
+              ? { linkedTreeId: snapshot.linkedTreeId }
+              : {}),
+          },
+          treeId,
+        );
+        if (!opts?.autosave && isCurrent()) {
+          toast.success(t("toast-success"));
+        }
+        // Bridge person whose counterpart tree the editor may not write: the
+        // save worked but the linked copy drifted — say so.
+        if (isCurrent() && result?.bridgeSync === "skipped_no_access") {
+          toast.info(t("toast-bridge-sync-skipped"));
+        }
+        // Settle the dirty baseline on the snapshot that was actually
+        // persisted — if the user kept typing during the in-flight save,
+        // formData has since moved on and stays (correctly) dirty.
+        // Serialization prevents reordered writes; this guard also prevents an
+        // older response from replacing the status of a newer queued revision.
+        if (isCurrent()) {
+          setInitialData(snapshot);
+          setSaveStatus("saved");
+        }
+        if (!opts?.autosave && isCurrent()) {
+          onSaved?.(snapshot);
+        }
+        return true;
+      } catch (err: unknown) {
+        if (!isCurrent()) return false;
+        if (err instanceof ApiError && err.status === 413) {
+          const bucket = getQuotaBucket(err.message);
+          if (bucket) {
+            toast.error(t(quotaToastKey(bucket)));
+          } else {
+            toast.error(t("toast-error-image-too-large"));
+          }
+        } else if (err instanceof ApiError && err.status === 400) {
+          toast.error(t("toast-error-image-unsupported"));
+        } else {
+          toast.error(t("toast-error-save"));
+        }
+        setSaveStatus("error");
+        return false;
+      }
+    },
+    [members, isNew, onSaved, t, updateMemberPartial],
+  );
+
+  // Saves are serialized through one chain.  The debounce below coalesces
+  // rapid form changes into one queued snapshot, and every response carries a
+  // revision so a late result cannot overwrite newer editor state.
+  const save = useCallback(
+    (opts?: { autosave?: boolean }): Promise<boolean> => {
+      const snapshot = formDataRef.current;
+      const revision = ++latestSaveRevisionRef.current;
+      const task = saveChainRef.current.then(() =>
+        persistSnapshot(snapshot, revision, opts),
+      );
+      saveChainRef.current = task.then(
+        () => undefined,
+        () => undefined,
+      );
+      return task;
+    },
+    [persistSnapshot],
+  );
 
   const handleSave = (e: FormEvent) => {
     e.preventDefault();
     void save();
   };
 
-  useUnsavedGuard("member-edit", isDirty, save);
+  // Keep a stable debounced trigger that always calls the freshest `save`
+  // (via a ref) so the debounce doesn't need to be recreated on every
+  // keystroke, which would otherwise reset its timer.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  const autosave = useMemo(
+    () =>
+      debounce(() => {
+        return saveRef.current({ autosave: true });
+      }, 800),
+    [],
+  );
+
+  const flushAutosave = useCallback(async () => {
+    if (isDirtyRef.current) {
+      await autosave.flush();
+    }
+    await saveChainRef.current;
+  }, [autosave]);
+
+  useEffect(() => {
+    onAutosaveFlush?.(flushAutosave);
+    return () => onAutosaveFlush?.(async () => {});
+  }, [flushAutosave, onAutosaveFlush]);
+
+  // Existing members autosave; new members are purely client-side until an
+  // explicit "Create member" action, so autosave never applies to them.
+  useEffect(() => {
+    if (isNew) return;
+    if (isDirty) {
+      setSaveStatus("saving");
+      autosave();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData, isDirty, isNew, autosave]);
+
+  // Flush a pending autosave on unmount (sheet closing, switching members)
+  // so an in-progress debounce never silently loses the last edit.
+  useEffect(() => {
+    if (isNew) return;
+    return () => {
+      // React unmount cannot await cleanup.  The request still targets the
+      // captured tree/member pair, so a tree switch cannot misdirect it.
+      void flushAutosave();
+    };
+  }, [flushAutosave, isNew]);
+
+  // Only new members need the global unsaved-changes navigation guard —
+  // existing members autosave and flush any pending change on unmount, so
+  // there's never an unsaved change to interrupt navigation for.
+  useUnsavedGuard(
+    "member-edit",
+    isNew && isDirty,
+    useCallback(() => save(), [save]),
+  );
 
   return (
     <form id="edit-member-form" onSubmit={handleSave} className="flex flex-col">
@@ -320,6 +475,11 @@ export const EditMode = ({
               src={formData.imageData}
               className="size-24 rounded-full object-cover mx-auto bg-gray-100"
               alt="Profile"
+              fallback={
+                <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+                  <User size={48} />
+                </div>
+              }
             />
           ) : (
             <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
@@ -348,8 +508,13 @@ export const EditMode = ({
         />
 
         <Tabs
-          defaultValue="identity"
+          value={
+            isNew && (activeTab === "relations" || activeTab === "records")
+              ? "identity"
+              : activeTab
+          }
           onValueChange={(v) => {
+            onTabChange(v as MemberSheetTab);
             if (v === "records") setRecordsMounted(true);
           }}
         >
@@ -545,12 +710,13 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("birthplace-field")}
                   </FieldLabel>
-                  <Input
+                  <LocationInput
                     id="birthplace"
-                    value={formData.birthplace || ""}
+                    value={formData.birthplace}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("location-placeholder")}
-                    onChange={(e) => handleChange("birthplace", e.target.value)}
+                    geocodeEnabled={mapEnabled}
+                    onChange={(value) => handleChange("birthplace", value)}
                   />
                 </Field>
               </div>
@@ -609,14 +775,12 @@ export const EditMode = ({
                       <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                         {t("hometown-field")}
                       </FieldLabel>
-                      <Input
+                      <LocationInput
                         id="hometown"
-                        value={formData.hometown || ""}
+                        value={formData.hometown}
                         className="h-7 text-xs! shadow-none"
                         placeholder={t("location-placeholder")}
-                        onChange={(e) =>
-                          handleChange("hometown", e.target.value)
-                        }
+                        onChange={(value) => handleChange("hometown", value)}
                       />
                     </Field>
                   )}
@@ -628,12 +792,12 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("cemetery-field")}
                   </FieldLabel>
-                  <Input
+                  <LocationInput
                     id="cemetery"
-                    value={formData.cemetery || ""}
+                    value={formData.cemetery}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("location-placeholder")}
-                    onChange={(e) => handleChange("cemetery", e.target.value)}
+                    onChange={(value) => handleChange("cemetery", value)}
                   />
                 </Field>
               )}
@@ -643,12 +807,12 @@ export const EditMode = ({
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("hometown-field")}
                   </FieldLabel>
-                  <Input
+                  <LocationInput
                     id="hometown"
-                    value={formData.hometown || ""}
+                    value={formData.hometown}
                     className="h-7 text-xs! shadow-none"
                     placeholder={t("location-placeholder")}
-                    onChange={(e) => handleChange("hometown", e.target.value)}
+                    onChange={(value) => handleChange("hometown", value)}
                   />
                 </Field>
               )}
@@ -677,37 +841,35 @@ export const EditMode = ({
                     {formData.placesLived.map((place, idx) => (
                       <div
                         key={idx}
-                        className="flex flex-col gap-1 border rounded p-2"
+                        className="flex flex-col gap-1 border rounded-md p-2"
                       >
-                        <div className="flex items-center gap-1">
-                          <Input
-                            value={place.location}
-                            className="h-7 text-xs! shadow-none flex-1"
-                            placeholder={t("location-placeholder")}
-                            onChange={(e) => {
-                              const next = formData.placesLived.map((p, i) =>
-                                i === idx
-                                  ? { ...p, location: e.target.value }
-                                  : p,
-                              );
-                              handleChange("placesLived", next);
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className="text-muted-foreground hover:text-destructive transition-colors"
-                            onClick={() => {
-                              handleChange(
-                                "placesLived",
-                                formData.placesLived.filter(
-                                  (_, i) => i !== idx,
-                                ),
-                              );
-                            }}
-                          >
-                            <Trash2 className="size-3.5" />
-                          </button>
-                        </div>
+                        <LocationInput
+                          value={place.location}
+                          className="h-7 text-xs! shadow-none"
+                          placeholder={t("location-placeholder")}
+                          onChange={(value) => {
+                            const next = formData.placesLived.map((p, i) =>
+                              i === idx ? { ...p, location: value } : p,
+                            );
+                            handleChange("placesLived", next);
+                          }}
+                          trailing={
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-destructive transition-colors"
+                              onClick={() => {
+                                handleChange(
+                                  "placesLived",
+                                  formData.placesLived.filter(
+                                    (_, i) => i !== idx,
+                                  ),
+                                );
+                              }}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          }
+                        />
                         <div className="flex gap-1">
                           <Input
                             value={place.from || ""}
@@ -782,7 +944,6 @@ export const EditMode = ({
                     }
                     placeholder={t("parent-placeholder")}
                     noResultsText={t("parent-no-results")}
-                    showBirthDate
                   />
                 </Field>
 
@@ -801,7 +962,6 @@ export const EditMode = ({
                     }
                     placeholder={t("parent-placeholder")}
                     noResultsText={t("parent-no-results")}
-                    showBirthDate
                   />
                 </Field>
 
@@ -812,9 +972,7 @@ export const EditMode = ({
                     memberName={`${formData.firstName} ${formData.lastName}`}
                     memberId={isNew ? undefined : formData.id}
                     formDirty={isDirty}
-                    onChange={(treeId) =>
-                      handleChange("linkedTreeId", treeId)
-                    }
+                    onChange={(treeId) => handleChange("linkedTreeId", treeId)}
                   />
                 )}
               </FieldGroup>
@@ -829,7 +987,7 @@ export const EditMode = ({
                   {galleryEnabled && <MemberPhotos member={member} />}
                   {eventsEnabled && <MemberEvents member={member} />}
                   {storiesEnabled && <MemberStories member={member} />}
-                  {sourcesEnabled && <MemberSources member={member} />}
+                  {documentsEnabled && <MemberDocuments member={member} />}
                   {diseasesEnabled && <MemberDiseases member={member} />}
                 </div>
               )}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getAuthToken } from "@/services/api";
+import { getAuthToken, getPublicTreeToken } from "@/services/api";
 
 const MEDIA_PREFIX = "/api/media/";
 
@@ -11,8 +11,8 @@ const _cache = new Map<string, string>();
 /**
  * Resolves a media URL to one the browser can load without an Authorization
  * header. Non-media URLs (data: URLs, nullish values) are returned unchanged.
- * Media URLs are fetched once with the Bearer token and replaced with a
- * blob URL.
+ * Media URLs are fetched once with the Bearer or public-tree unlock token and
+ * replaced with a blob URL.
  */
 export function useMediaUrl(
   src: string | null | undefined,
@@ -33,9 +33,9 @@ export function useMediaUrl(
     }
 
     let cancelled = false;
-    const token = getAuthToken();
+    const headers = mediaHeaders();
     fetch(src, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers,
     })
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));
@@ -62,12 +62,20 @@ export function useMediaUrl(
 /** Fetch a media URL with the Bearer token and return a fresh object URL.
  *  Caller owns the returned URL and is responsible for revoking it. */
 async function fetchMediaObjectUrl(src: string): Promise<string> {
-  const token = getAuthToken();
   const r = await fetch(src, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: mediaHeaders(),
   });
   if (!r.ok) throw new Error(String(r.status));
   return URL.createObjectURL(await r.blob());
+}
+
+function mediaHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const token = getAuthToken();
+  const publicToken = getPublicTreeToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (publicToken) headers["X-Public-Tree-Token"] = publicToken;
+  return headers;
 }
 
 /**
@@ -80,7 +88,7 @@ export async function downloadMedia(
   filename: string,
 ): Promise<void> {
   const isMedia = src.startsWith(MEDIA_PREFIX);
-  const url = isMedia ? await fetchMediaObjectUrl(src) : src;
+  const url = isMedia ? await fetchMediaObjectUrl(`${src}?download=true`) : src;
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;

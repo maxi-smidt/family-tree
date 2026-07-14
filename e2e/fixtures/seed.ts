@@ -21,6 +21,7 @@ export interface MemberRecord {
   dateOfDeath?: string | null;
   deceased?: boolean;
   additionalData?: string | null;
+  imageData?: string | null;
   birthplace?: string | null;
   hometown?: string | null;
   isCollapsed?: boolean;

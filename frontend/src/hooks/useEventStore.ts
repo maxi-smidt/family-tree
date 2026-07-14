@@ -9,13 +9,19 @@ interface EventState {
   initialized: boolean;
   refreshEvents: (treeId?: string) => Promise<void>;
   getEventsByMember: (memberId: string) => Event[];
-  addEvent: (memberIds: string[], event: EventInput) => Promise<void>;
+  addEvent: (
+    memberIds: string[],
+    event: EventInput,
+    documentIds?: string[],
+  ) => Promise<void>;
   updateEvent: (
     id: string,
     event: EventInput,
     memberIds: string[],
+    documentIds?: string[],
   ) => Promise<void>;
   removeEvent: (id: string) => Promise<void>;
+  setEventDocuments: (id: string, documentIds: string[]) => Promise<void>;
   clear: () => void;
 }
 
@@ -56,7 +62,11 @@ export const useEventStore = create<EventState>((set, get) => ({
     return get().events.filter((e) => e.linkedMemberIds.includes(memberId));
   },
 
-  addEvent: async (memberIds: string[], event: EventInput) => {
+  addEvent: async (
+    memberIds: string[],
+    event: EventInput,
+    documentIds: string[] = [],
+  ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
@@ -64,17 +74,28 @@ export const useEventStore = create<EventState>((set, get) => ({
     const now = new Date().toISOString();
 
     await TreeService.addEvent(treeId, id, event, now, memberIds);
+    if (documentIds.length > 0) {
+      await TreeService.setEventDocuments(treeId, id, documentIds);
+    }
 
     await get().refreshEvents(treeId);
     invalidateActivityView();
   },
 
-  updateEvent: async (id: string, event: EventInput, memberIds: string[]) => {
+  updateEvent: async (
+    id: string,
+    event: EventInput,
+    memberIds: string[],
+    documentIds?: string[],
+  ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
     await TreeService.updateEvent(treeId, id, event);
     await TreeService.setEventLinks(treeId, id, memberIds);
+    if (documentIds !== undefined) {
+      await TreeService.setEventDocuments(treeId, id, documentIds);
+    }
 
     await get().refreshEvents(treeId);
     invalidateActivityView();
@@ -85,6 +106,15 @@ export const useEventStore = create<EventState>((set, get) => ({
     if (!treeId) return;
 
     await TreeService.removeEvent(treeId, id);
+    await get().refreshEvents(treeId);
+    invalidateActivityView();
+  },
+
+  setEventDocuments: async (id: string, documentIds: string[]) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    await TreeService.setEventDocuments(treeId, id, documentIds);
     await get().refreshEvents(treeId);
     invalidateActivityView();
   },

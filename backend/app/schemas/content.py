@@ -5,9 +5,7 @@ because the frontend reads/writes ``imageData``, ``createdAt``, ``uploadedAt``.
 All other schemas are intentionally snake_case end-to-end.
 """
 
-from typing import Literal
-
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
 
@@ -20,17 +18,6 @@ class GalleryImageOut(FamilyTreeOrmBaseModel):
     description: str | None = None
     created_at: str | None = None
     uploaded_at: str | None = None
-
-
-class GalleryImageCreate(FamilyTreeBaseModel):
-    id: str
-    image_data: str | None = None
-    title: str | None = None
-    description: str | None = None
-    created_at: str | None = None
-    uploaded_at: str | None = None
-    # Members to link the new image to, in a single request.
-    member_ids: list[str] = []
 
 
 class GalleryImageUpdate(FamilyTreeBaseModel):
@@ -55,6 +42,7 @@ class EventOut(BaseModel):
     location: str | None = None
     description: str | None = None
     created_at: str
+    document_ids: list[str] = []
 
 
 class EventCreate(BaseModel):
@@ -75,41 +63,23 @@ class EventUpdate(BaseModel):
 
 
 # --- Stories ---------------------------------------------------------------
-class AttachmentOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    filename: str
-    url: str
-    mime_type: str | None = None
-    size: int | None = None
-    created_at: str
-
-
-class AttachmentCreate(BaseModel):
-    filename: str
-    data: str  # base64 data URL
-
-
-class AttachmentUpdate(BaseModel):
-    filename: str
-
-
 class StoryOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     title: str
     content: str | None = None
+    date: str | None = None
     created_at: str
     updated_at: str
-    attachments: list[AttachmentOut] = []
+    document_ids: list[str] = []
 
 
 class StoryCreate(BaseModel):
     id: str
     title: str
     content: str | None = None
+    date: str | None = None
     created_at: str
     updated_at: str
     member_ids: list[str] = []
@@ -118,7 +88,14 @@ class StoryCreate(BaseModel):
 class StoryUpdate(BaseModel):
     title: str
     content: str | None = None
+    date: str | None = None
     updated_at: str
+
+
+class DocumentIdsSet(BaseModel):
+    """Replace the full set of documents linked to an event or story."""
+
+    document_ids: list[str] = []
 
 
 # --- Geocode ---------------------------------------------------------------
@@ -170,14 +147,8 @@ class StoryLinkOut(BaseModel):
     member_id: str
 
 
-# --- Sources ---------------------------------------------------------------
-FactType = Literal[
-    "name", "birth", "death", "birthplace", "hometown", "residence", "cemetery",
-    "general"
-]
-
-
-class EvidenceOut(BaseModel):
+# --- Documents ---------------------------------------------------------------
+class DocumentFileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -189,76 +160,87 @@ class EvidenceOut(BaseModel):
     created_at: str
 
 
-class EvidenceCreate(BaseModel):
-    kind: Literal["file", "link"]
+class DocumentLinkCreate(BaseModel):
+    url: str = Field(max_length=2048)
     filename: str | None = None
-    data: str | None = None  # base64 data URL when kind == "file"
-    url: str | None = None   # external link when kind == "link"
 
 
-class EvidenceUpdate(BaseModel):
+class DocumentFileUpdate(BaseModel):
     filename: str
 
 
-class SourceOut(BaseModel):
+class DocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     title: str
-    author: str | None = None
-    publication_info: str | None = None
-    repository: str | None = None
-    source_date: str | None = None
-    notes: str | None = None
+    description: str | None = None
+    document_date: str | None = None
     created_at: str
     updated_at: str
-    evidence: list[EvidenceOut] = []
+    files: list[DocumentFileOut] = []
+    member_ids: list[str] = []
+    event_ids: list[str] = []
+    story_ids: list[str] = []
 
 
-class SourceCreate(BaseModel):
-    id: str
+class DocumentCreate(BaseModel):
     title: str
-    author: str | None = None
-    publication_info: str | None = None
-    repository: str | None = None
-    source_date: str | None = None
-    notes: str | None = None
-    created_at: str
-    updated_at: str
+    description: str | None = None
+    document_date: str | None = None
+    member_ids: list[str] = []
 
 
-class SourceUpdate(BaseModel):
+class DocumentUpdate(BaseModel):
     title: str
-    author: str | None = None
-    publication_info: str | None = None
-    repository: str | None = None
-    source_date: str | None = None
-    notes: str | None = None
+    description: str | None = None
+    document_date: str | None = None
 
 
-class CitationOut(BaseModel):
+# --- Documents: staged upload + atomic composite save ------------------------
+class DocumentUploadOut(BaseModel):
+    """A file streamed to the staging area, ready to attach in a save."""
+
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    source_id: str
-    member_id: str
-    fact_type: str
-    page: str | None = None
-    detail: str | None = None
-    created_at: str
+    filename: str | None = None
+    mime_type: str | None = None
+    size: int | None = None
 
 
-class CitationCreate(BaseModel):
+class DocumentLinkAdd(BaseModel):
+    """A new external link in a composite save.
+
+    ``id`` is a client-generated UUID reused as the ``DocumentFile`` primary
+    key, so replaying the same save neither duplicates nor re-validates it.
+    """
+
     id: str
-    source_id: str
-    member_id: str
-    fact_type: FactType
-    page: str | None = None
-    detail: str | None = None
-    created_at: str
+    url: str = Field(max_length=2048)
+    filename: str | None = None
 
 
-class CitationUpdate(BaseModel):
-    fact_type: FactType
-    page: str | None = None
-    detail: str | None = None
+class DocumentFileRename(BaseModel):
+    id: str
+    filename: str
+
+
+class DocumentSave(BaseModel):
+    """The full set of changes to apply to a document in one transaction.
+
+    Files are uploaded to the staging area first (streamed, memory-bounded) and
+    referenced here by ``attached_upload_ids``; the save attaches them alongside
+    the metadata, people links, removals and renames so the whole edit commits
+    or fails as a unit. Every change is keyed by a client-supplied id, so
+    replaying the request is a no-op.
+    """
+
+    title: str
+    description: str | None = None
+    document_date: str | None = None
+    member_ids: list[str] = []
+    attached_upload_ids: list[str] = []
+    added_links: list[DocumentLinkAdd] = []
+    removed_file_ids: list[str] = []
+    renamed_files: list[DocumentFileRename] = []

@@ -24,7 +24,7 @@ import {
  * the current Terms of Service + Privacy Policy. There is no close button,
  * and ESC / overlay-click / programmatic close are all suppressed — the only
  * way out is clicking Accept once the checkbox is ticked. Takes priority over
- * the announcement/tutorial dialogs (mounted before them in `Layout`).
+ * the What's New/tutorial dialogs (mounted before them in `Layout`).
  */
 export function LegalGateDialog() {
   const { t } = useTranslation(undefined, { keyPrefix: "legal" });

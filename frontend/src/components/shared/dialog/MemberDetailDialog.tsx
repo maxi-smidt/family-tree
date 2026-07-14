@@ -20,21 +20,16 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { ImageLightbox } from "@/components/shared/member-sheet/ImageLightbox";
+import { CollapsibleStory } from "@/components/shared/member-sheet/CollapsibleStory";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
-import { StoryAttachments } from "@/components/shared/member-sheet/StoryAttachments";
-import {
-  Calendar,
-  MapPin,
-  BookOpen,
-  Users,
-  Images,
-  Activity,
-} from "lucide-react";
+import { Calendar, BookOpen, Users, Images, Activity } from "lucide-react";
+import { Location } from "@/components/shared/Location";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { getEventTypeLabel, getEventTypeInfo } from "@/types/eventTypes";
 import { Badge } from "@/components/ui/badge";
+import { CollapsibleEvent } from "@/components/shared/member-sheet/CollapsibleEvent";
 
 type Props = {
   member: Member | null;
@@ -244,52 +239,41 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   <ItemTitle>{t("locations")}</ItemTitle>
                   <div className="space-y-2 mt-1">
                     {currentMember.birthplace && (
-                      <div className="flex items-start gap-2 text-sm">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                        <span>
-                          <span className="text-muted-foreground">
-                            {t("birthplace")}:{" "}
-                          </span>
-                          {currentMember.birthplace}
-                        </span>
-                      </div>
+                      <Location
+                        align="start"
+                        label={t("birthplace")}
+                        location={currentMember.birthplace}
+                      />
                     )}
                     {currentMember.hometown && (
-                      <div className="flex items-start gap-2 text-sm">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                        <span>
-                          <span className="text-muted-foreground">
-                            {t("hometown")}:{" "}
-                          </span>
-                          {currentMember.hometown}
-                        </span>
-                      </div>
+                      <Location
+                        align="start"
+                        label={t("hometown")}
+                        location={currentMember.hometown}
+                      />
                     )}
                     {currentMember.cemetery && (
-                      <div className="flex items-start gap-2 text-sm">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                        <span>
-                          <span className="text-muted-foreground">
-                            {t("cemetery")}:{" "}
-                          </span>
-                          {currentMember.cemetery}
-                        </span>
-                      </div>
+                      <Location
+                        align="start"
+                        label={t("cemetery")}
+                        location={currentMember.cemetery}
+                      />
                     )}
                     {currentMember.placesLived.map((place, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-sm">
-                        <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                        <span>
-                          {place.location}
-                          {(place.from || place.to) && (
+                      <Location
+                        key={idx}
+                        align="start"
+                        location={place.location}
+                        trailing={
+                          (place.from || place.to) && (
                             <span className="text-muted-foreground">
                               {" "}
                               ({place.from ?? "?"}
                               {place.to ? ` – ${place.to}` : ""})
                             </span>
-                          )}
-                        </span>
-                      </div>
+                          )
+                        }
+                      />
                     ))}
                   </div>
                 </ItemContent>
@@ -378,34 +362,15 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                         event.eventType,
                       );
                       return (
-                        <div
+                        <CollapsibleEvent
                           key={event.id}
-                          className="border rounded-lg p-4 bg-accent/30 hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex items-center gap-2 font-semibold mb-2">
-                            <EventIcon className="size-4 text-muted-foreground shrink-0" />
-                            {getEventTypeLabel(event.eventType, i18n.t)}
-                          </div>
-                          <div className="flex flex-col gap-1.5 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
-                              <Calendar className="size-3.5 shrink-0" />
-                              <span>
-                                {formatDateWithFallback(event.date, i18n.t)}
-                              </span>
-                            </div>
-                            {event.location && (
-                              <div className="flex items-center gap-1.5">
-                                <MapPin className="size-3.5 shrink-0" />
-                                <span>{event.location}</span>
-                              </div>
-                            )}
-                          </div>
-                          {event.description && (
-                            <p className="text-sm mt-2 text-foreground leading-relaxed">
-                              {event.description}
-                            </p>
-                          )}
-                        </div>
+                          icon={EventIcon}
+                          typeLabel={getEventTypeLabel(event.eventType, i18n.t)}
+                          date={formatDateWithFallback(event.date, i18n.t)}
+                          location={event.location}
+                          description={event.description}
+                          className="p-4 bg-accent/30"
+                        />
                       );
                     })}
                   </div>
@@ -423,20 +388,12 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
                   </h3>
                   <div className="grid grid-cols-1 gap-4">
                     {memberStories.map((story) => (
-                      <div
+                      <CollapsibleStory
                         key={story.id}
-                        className="border rounded-lg p-5 bg-accent/30 hover:bg-accent/50 transition-colors"
-                      >
-                        <h4 className="font-semibold text-lg mb-3">
-                          {story.title}
-                        </h4>
-                        {story.content && (
-                          <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                            {story.content}
-                          </div>
-                        )}
-                        <StoryAttachments attachments={story.attachments} />
-                      </div>
+                        title={story.title}
+                        content={story.content}
+                        className="p-5 bg-accent/30"
+                      />
                     ))}
                   </div>
                 </div>

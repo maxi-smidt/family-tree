@@ -43,7 +43,7 @@ The backend seeds these keys on startup when they are missing:
 | ------------------------ | ------: | -----------: |
 | `max_image_upload_mb`    |   10 MB |     1-100 MB |
 | `max_image_dimension`    | 4096 px | 256-16384 px |
-| `max_document_upload_mb` |   25 MB |     1-500 MB |
+| `max_document_upload_mb` |   25 MB |     1-100 MB |
 
 Stored values are range-checked when read as well as when updated. Invalid
 database values fall back to the documented defaults.

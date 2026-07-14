@@ -1,67 +1,28 @@
-export interface StoryAttachment {
-  id: string;
-  filename: string;
-  url: string;
-  mimeType: string | null;
-  size: number | null;
-  createdAt: string;
-}
-
-export interface StoryAttachmentDB {
-  id: string;
-  filename: string;
-  url: string;
-  mime_type: string | null;
-  size: number | null;
-  created_at: string;
-}
-
 export interface Story {
   id: string;
   linkedMemberIds: string[];
   title: string;
   content: string;
+  date: string | null;
   createdAt: string;
   updatedAt: string;
-  attachments: StoryAttachment[];
+  documentIds: string[];
 }
 
 export interface StoryDB {
   id: string;
   title: string;
   content: string | null;
+  date?: string | null;
   created_at: string;
   updated_at: string;
-  attachments?: StoryAttachmentDB[];
+  document_ids?: string[];
 }
 
 export interface StoryInput {
   title: string;
   content: string;
-}
-
-/** A file the user picked but hasn't uploaded yet (base64 data URL). */
-export interface NewAttachment {
-  filename: string;
-  dataUrl: string;
-}
-
-/** The attachment changes to apply when saving a story. */
-export interface AttachmentOps {
-  added: NewAttachment[];
-  removedIds: string[];
-  renamed: { id: string; filename: string }[];
-}
-
-export function mapAttachmentFromDB(a: StoryAttachmentDB): StoryAttachment {
-  return {
-    id: a.id,
-    filename: a.filename,
-    url: a.url,
-    mimeType: a.mime_type ?? null,
-    size: a.size ?? null,
-    createdAt: a.created_at,
-  };
+  date?: string | null;
 }
 
 export function mapStoryFromDB(row: StoryDB, linkedMemberIds: string[]): Story {
@@ -70,9 +31,10 @@ export function mapStoryFromDB(row: StoryDB, linkedMemberIds: string[]): Story {
     linkedMemberIds,
     title: row.title,
     content: row.content ?? "",
+    date: row.date ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
-    attachments: (row.attachments ?? []).map(mapAttachmentFromDB),
+    documentIds: row.document_ids ?? [],
   };
 }
 
@@ -81,15 +43,9 @@ export function mapStoryToDB(story: Story): StoryDB {
     id: story.id,
     title: story.title,
     content: story.content,
+    date: story.date,
     created_at: story.createdAt,
     updated_at: story.updatedAt,
-    attachments: story.attachments.map((a) => ({
-      id: a.id,
-      filename: a.filename,
-      url: a.url,
-      mime_type: a.mimeType,
-      size: a.size,
-      created_at: a.createdAt,
-    })),
+    document_ids: story.documentIds,
   };
 }

@@ -1,6 +1,6 @@
 """Gallery, events and stories — the rich content attached to members."""
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -66,42 +66,11 @@ class Story(Base):
         String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str] = mapped_column(String(255))
-    # Optional now: an entry may carry only file attachments and no narrative text.
+    # Optional now: an entry may carry only linked documents and no narrative text.
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))
-
-    attachments: Mapped[list["StoryAttachment"]] = relationship(
-        back_populates="story",
-        cascade="all, delete-orphan",
-        order_by="StoryAttachment.created_at",
-    )
-
-
-class StoryAttachment(Base):
-    """A file (image, pdf, document, ...) attached to a story.
-
-    The bytes live on disk under ``DATA_PATH/media/<tree_id>/`` and ``url`` is
-    the stable ``/api/media/...`` reference; ``filename`` is the user-facing,
-    settable display/download name.
-    """
-
-    __tablename__ = "story_attachments"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
-    )
-    story_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("stories.id", ondelete="CASCADE"), index=True
-    )
-    filename: Mapped[str] = mapped_column(String(255))
-    url: Mapped[str] = mapped_column(Text)
-    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    created_at: Mapped[str] = mapped_column(String(40))
-
-    story: Mapped["Story"] = relationship(back_populates="attachments")
 
 
 class StoryMemberLink(Base):
@@ -136,38 +105,52 @@ class GeocodeCache(Base):
     updated_at: Mapped[str] = mapped_column(String(40))
 
 
-class Source(Base):
-    __tablename__ = "sources"
+class Document(Base):
+    """A reusable file/link record ("Documents" feature).
+
+    Documents are standalone content items that can be linked to any number of
+    members (people mentioned), events, and stories — unlike the old
+    Source/Citation/StoryAttachment model, a document is never owned by a
+    single story or event.
+    """
+
+    __tablename__ = "documents"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tree_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str] = mapped_column(String(255))
-    author: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    publication_info: Mapped[str | None] = mapped_column(Text, nullable=True)
-    repository: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    source_date: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    document_date: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))
 
-    evidence: Mapped[list["SourceEvidence"]] = relationship(
-        back_populates="source",
+    files: Mapped[list["DocumentFile"]] = relationship(
+        back_populates="document",
         cascade="all, delete-orphan",
-        order_by="SourceEvidence.created_at",
+        order_by="DocumentFile.created_at",
     )
 
 
-class SourceEvidence(Base):
-    __tablename__ = "source_evidence"
+class DocumentFile(Base):
+    """A file (image, pdf, ...) or external link attached to a Document.
+
+    The bytes live on disk under ``DATA_PATH/media/<tree_id>/`` and ``url`` is
+    the stable ``/api/media/...`` reference for ``kind == "file"``, or the raw
+    external URL for ``kind == "link"``; ``filename`` is the user-facing,
+    settable display/download name.
+    """
+
+    __tablename__ = "document_files"
+    __table_args__ = (Index("ix_document_files_tree_id_url", "tree_id", "url"),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tree_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
     )
-    source_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
     kind: Mapped[str] = mapped_column(String(10))  # "file" | "link"
     filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -176,23 +159,63 @@ class SourceEvidence(Base):
     size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
 
-    source: Mapped["Source"] = relationship(back_populates="evidence")
+    document: Mapped["Document"] = relationship(back_populates="files")
 
 
-class Citation(Base):
-    __tablename__ = "citations"
+class DocumentUpload(Base):
+    """A streamed file staged for attachment to a document but not yet committed.
+
+    The bytes are written to their final media location by the streaming upload
+    endpoint; this row records the staged file so an atomic document save can
+    attach it (turning it into a :class:`DocumentFile`) as one transaction, and
+    so uploads that are never claimed can be reaped. A row is consumed on a
+    successful save or swept after a TTL — either way its bytes are accounted
+    for, so a staged-but-uncommitted upload is never an untracked orphan.
+    """
+
+    __tablename__ = "document_uploads"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     tree_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
     )
-    source_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    url: Mapped[str] = mapped_column(Text)
+    mime_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[str] = mapped_column(String(40), index=True)
+
+
+class DocumentMemberLink(Base):
+    """People mentioned by a document — a pure link table."""
+
+    __tablename__ = "document_member_link"
+
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
     )
     member_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("members.id", ondelete="CASCADE"), index=True
+        String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
     )
-    fact_type: Mapped[str] = mapped_column(String(40))
-    page: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[str] = mapped_column(String(40))
+
+
+class EventDocumentLink(Base):
+    __tablename__ = "event_document_link"
+
+    event_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("events.id", ondelete="CASCADE"), primary_key=True
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class StoryDocumentLink(Base):
+    __tablename__ = "story_document_link"
+
+    story_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("stories.id", ondelete="CASCADE"), primary_key=True
+    )
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("documents.id", ondelete="CASCADE"), primary_key=True
+    )

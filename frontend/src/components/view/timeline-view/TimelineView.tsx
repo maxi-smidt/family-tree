@@ -1,9 +1,9 @@
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
 import {
   Popover,
   PopoverContent,
@@ -20,16 +20,17 @@ import {
 } from "@/components/ui/command";
 import {
   Calendar,
-  MapPin,
   Plus,
   Pencil,
   Trash2,
   Search,
   Check,
   ChevronsUpDown,
+  BookOpen,
 } from "lucide-react";
 import { EventDialog } from "./EventDialog";
 import { Event } from "@/types/event";
+import { Story } from "@/types/story";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { Member } from "@/types/member";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
@@ -43,6 +44,8 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useTimelineSettings } from "@/hooks/useTimelineSettings";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { StoryDialog } from "@/components/shared/member-sheet/StoryDialog";
+import { ContentCard } from "@/components/shared/content/ContentCard";
 
 interface VitalEvent {
   kind: "vital";
@@ -97,11 +100,18 @@ export const TimelineView = () => {
     refreshEvents,
     initialized: eventsInitialized,
   } = useEventStore();
+  const {
+    stories,
+    removeStory,
+    refreshStories,
+    initialized: storiesInitialized,
+  } = useStoryStore();
   const isReady = useTreeStore((state) => state.isReady);
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
 
   useDeferredStoreLoad(eventsInitialized, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized, refreshStories);
   const [selectedMemberId, setSelectedMemberId] = useState<string | "all">(
     "all",
   );
@@ -110,6 +120,9 @@ export const TimelineView = () => {
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+  const [editingStory, setEditingStory] = useState<Story | null>(null);
+  const [isStoryDialogOpen, setIsStoryDialogOpen] = useState(false);
+  const [storyToDelete, setStoryToDelete] = useState<Story | null>(null);
   const [showVitalEvents, setShowVitalEvents] = useState(true);
   const { showDetails, setShowDetails } = useTimelineSettings();
 
@@ -191,8 +204,30 @@ export const TimelineView = () => {
     return filtered;
   }, [members, events, selectedMemberId, searchQuery, t]);
 
+  const filteredStories = useMemo(() => {
+    let filtered = stories;
+
+    if (selectedMemberId !== "all") {
+      filtered = filtered.filter((story) =>
+        story.linkedMemberIds.includes(selectedMemberId),
+      );
+    }
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (story) =>
+          story.title.toLowerCase().includes(query) ||
+          story.content.toLowerCase().includes(query),
+      );
+    }
+
+    return filtered;
+  }, [stories, selectedMemberId, searchQuery]);
+
   type TimelineItem =
     | { kind: "event"; data: Event }
+    | { kind: "story"; data: Story }
     | { kind: "vital"; data: VitalEvent };
 
   const timelineItems = useMemo((): TimelineItem[] => {
@@ -200,16 +235,20 @@ export const TimelineView = () => {
       kind: "event",
       data: e,
     }));
+    const storyItems: TimelineItem[] = filteredStories.map((story) => ({
+      kind: "story",
+      data: story,
+    }));
     const vitalItems: TimelineItem[] = showVitalEvents
       ? filteredVitalEvents.map((v) => ({
           kind: "vital",
           data: v,
         }))
       : [];
-    return [...eventItems, ...vitalItems].sort((a, b) =>
+    return [...eventItems, ...storyItems, ...vitalItems].sort((a, b) =>
       comparePartialDates(b.data.date, a.data.date),
     );
-  }, [filteredEvents, filteredVitalEvents, showVitalEvents]);
+  }, [filteredEvents, filteredStories, filteredVitalEvents, showVitalEvents]);
 
   const getMemberName = (memberId: string) => {
     const member = members.find((m) => m.id === memberId);
@@ -252,6 +291,18 @@ export const TimelineView = () => {
     }
   };
 
+  const handleEditStory = (story: Story) => {
+    setEditingStory(story);
+    setIsStoryDialogOpen(true);
+  };
+
+  const handleDeleteStory = async () => {
+    if (storyToDelete) {
+      await removeStory(storyToDelete.id);
+      setStoryToDelete(null);
+    }
+  };
+
   if (!isReady) {
     return (
       <ViewLayout title={t("title")} action={<Skeleton className="h-8 w-28" />}>
@@ -269,116 +320,124 @@ export const TimelineView = () => {
           {t("add-event")}
         </Button>
       }
-    >
-      <div className="flex gap-4 mb-6 p-1 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={t("search-placeholder")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+      toolbar={
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative min-w-52 flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("search-placeholder")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-vital-events"
-            checked={showVitalEvents}
-            onCheckedChange={setShowVitalEvents}
-          />
-          <label
-            htmlFor="show-vital-events"
-            className="text-sm text-muted-foreground cursor-pointer select-none"
-          >
-            {t("show-vital-events")}
-          </label>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Switch
-            id="show-details"
-            checked={showDetails}
-            onCheckedChange={setShowDetails}
-          />
-          <label
-            htmlFor="show-details"
-            className="text-sm text-muted-foreground cursor-pointer select-none"
-          >
-            {t("show-details")}
-          </label>
-        </div>
-
-        <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              role="combobox"
-              aria-expanded={memberSelectOpen}
-              className="w-62.5 justify-between"
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-vital-events"
+              checked={showVitalEvents}
+              onCheckedChange={setShowVitalEvents}
+            />
+            <label
+              htmlFor="show-vital-events"
+              className="text-sm text-muted-foreground cursor-pointer select-none"
             >
-              {selectedMemberId === "all"
-                ? t("all-members")
-                : members.find((m) => m.id === selectedMemberId)
-                  ? `${members.find((m) => m.id === selectedMemberId)?.firstName} ${members.find((m) => m.id === selectedMemberId)?.lastName}`
-                  : t("member-place-holder")}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-62.5 p-0">
-            <Command>
-              <CommandInput placeholder={t("member-search-placeholder")} />
-              <CommandList>
-                <CommandEmpty>{t("no-member")}</CommandEmpty>
-                <CommandGroup>
-                  <CommandItem
-                    value="all"
-                    onSelect={() => {
-                      setSelectedMemberId("all");
-                      setMemberSelectOpen(false);
-                    }}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        selectedMemberId === "all"
-                          ? "opacity-100"
-                          : "opacity-0",
-                      )}
-                    />
-                    {t("all-members")}
-                  </CommandItem>
-                  <CommandSeparator />
-                  {members.map((member) => (
+              {t("show-vital-events")}
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-details"
+              checked={showDetails}
+              onCheckedChange={setShowDetails}
+            />
+            <label
+              htmlFor="show-details"
+              className="text-sm text-muted-foreground cursor-pointer select-none"
+            >
+              {t("show-details")}
+            </label>
+          </div>
+
+          <Popover open={memberSelectOpen} onOpenChange={setMemberSelectOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={memberSelectOpen}
+                className="w-62.5 max-w-full justify-between"
+              >
+                {selectedMemberId === "all"
+                  ? t("all-members")
+                  : members.find((m) => m.id === selectedMemberId)
+                    ? `${members.find((m) => m.id === selectedMemberId)?.firstName} ${members.find((m) => m.id === selectedMemberId)?.lastName}`
+                    : t("member-place-holder")}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-62.5 max-w-[calc(100vw-2rem)] p-0">
+              <Command>
+                <CommandInput placeholder={t("member-search-placeholder")} />
+                <CommandList>
+                  <CommandEmpty>{t("no-member")}</CommandEmpty>
+                  <CommandGroup>
                     <CommandItem
-                      key={member.id}
-                      value={`${member.firstName} ${member.lastName}`}
+                      value="all"
                       onSelect={() => {
-                        setSelectedMemberId(member.id);
+                        setSelectedMemberId("all");
                         setMemberSelectOpen(false);
                       }}
                     >
                       <Check
                         className={cn(
                           "mr-2 h-4 w-4",
-                          selectedMemberId === member.id
+                          selectedMemberId === "all"
                             ? "opacity-100"
                             : "opacity-0",
                         )}
                       />
-                      {member.firstName} {member.lastName}
+                      {t("all-members")}
                     </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </div>
-
-      <div className="flex-1 overflow-y-auto space-y-4">
+                    <CommandSeparator />
+                    {members.map((member) => (
+                      <CommandItem
+                        key={member.id}
+                        value={`${member.firstName} ${member.lastName}`}
+                        onSelect={() => {
+                          setSelectedMemberId(member.id);
+                          setMemberSelectOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedMemberId === member.id
+                              ? "opacity-100"
+                              : "opacity-0",
+                          )}
+                        />
+                        {member.firstName} {member.lastName}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+      }
+      toolbarClassName="mb-6"
+    >
+      <div
+        className={
+          timelineItems.length === 0
+            ? "flex min-h-0 flex-1 flex-col"
+            : "space-y-4 pb-4"
+        }
+      >
         {timelineItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+          <div className="flex flex-1 flex-col items-center justify-center text-muted-foreground">
             <Calendar className="w-16 h-16 mb-4 opacity-50" />
             <p className="text-lg">{t("no-events")}</p>
             <p className="text-sm">
@@ -395,130 +454,117 @@ export const TimelineView = () => {
             />
 
             <div role="list">
-              {timelineItems.map((item) =>
-                item.kind === "event" ? (
-                  <Card
+              {timelineItems.map((item) => {
+                const isStory = item.kind === "story";
+                const markerClass = isStory
+                  ? "bg-violet-500"
+                  : item.kind === "event"
+                    ? "bg-primary"
+                    : "bg-muted-foreground";
+
+                return (
+                  <div
                     key={item.data.id}
                     role="listitem"
-                    className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
+                    className="relative ml-16 mb-4"
                   >
                     <div
                       aria-hidden="true"
-                      className="absolute top-6 w-4 h-4 rounded-full bg-primary border-4 border-background"
+                      className={`absolute top-6 h-4 w-4 rounded-full border-4 border-background ${markerClass}`}
                       style={{ left: "-40px" }}
                     />
-
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          {(() => {
-                            const { icon: Icon } = getEventTypeInfo(
-                              item.data.eventType,
-                            );
-                            return (
-                              <Icon
-                                aria-hidden="true"
-                                className="w-5 h-5 text-muted-foreground shrink-0"
-                              />
-                            );
-                          })()}
-                          <h3 className="font-semibold text-lg">
-                            {getEventTypeLabel(item.data.eventType, i18n.t)}
-                          </h3>
-                          <span className="text-sm text-muted-foreground">
+                    {item.kind === "event" ? (
+                      <ContentCard
+                        icon={getEventTypeInfo(item.data.eventType).icon}
+                        title={getEventTypeLabel(item.data.eventType, i18n.t)}
+                        metadata={
+                          <span className="truncate text-sm text-muted-foreground">
                             · {getMemberNames(item.data.linkedMemberIds)}
                           </span>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                          <div className="flex items-center gap-1">
-                            <Calendar aria-hidden="true" className="w-4 h-4" />
-                            <span>
-                              {formatDateWithFallback(item.data.date, i18n.t)}
-                            </span>
-                          </div>
-                          {item.data.location && (
-                            <div className="flex items-center gap-1">
-                              <MapPin aria-hidden="true" className="w-4 h-4" />
-                              <span>{item.data.location}</span>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5"
-                                aria-label={t("show-on-map")}
-                                title={t("show-on-map")}
-                                onClick={() => handleShowEventOnMap(item.data)}
-                              >
-                                <MapPin
-                                  aria-hidden="true"
-                                  className="h-3 w-3"
-                                />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        {showDetails && item.data.description && (
-                          <p className="text-sm">{item.data.description}</p>
-                        )}
-                      </div>
-
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label={t("edit-event")}
-                          onClick={() => handleEditEvent(item.data)}
-                        >
-                          <Pencil aria-hidden="true" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          aria-label={t("delete-event")}
-                          onClick={() => setEventToDelete(item.data)}
-                        >
-                          <Trash2 aria-hidden="true" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ) : (
-                  <Card
-                    key={item.data.id}
-                    role="listitem"
-                    className="relative ml-16 mb-4 p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div
-                      aria-hidden="true"
-                      className="absolute top-6 w-4 h-4 rounded-full bg-muted-foreground border-4 border-background"
-                      style={{ left: "-40px" }}
-                    />
-
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-lg">
-                            {t(item.data.type)}
-                          </h3>
-                          <span className="text-sm text-muted-foreground">
+                        }
+                        date={formatDateWithFallback(item.data.date, i18n.t)}
+                        location={item.data.location}
+                        onShowLocationOnMap={() =>
+                          handleShowEventOnMap(item.data)
+                        }
+                        description={item.data.description}
+                        expanded={showDetails}
+                        className="p-4 shadow-sm hover:shadow-md"
+                        actions={
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t("edit-event")}
+                              onClick={() => handleEditEvent(item.data)}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t("delete-event")}
+                              onClick={() => setEventToDelete(item.data)}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
+                          </>
+                        }
+                      />
+                    ) : item.kind === "story" ? (
+                      <ContentCard
+                        icon={BookOpen}
+                        title={item.data.title}
+                        metadata={
+                          <span className="truncate text-sm text-muted-foreground">
+                            · {getMemberNames(item.data.linkedMemberIds)}
+                          </span>
+                        }
+                        date={
+                          item.data.date
+                            ? formatDateWithFallback(item.data.date, i18n.t)
+                            : t("story-date-unknown")
+                        }
+                        description={item.data.content}
+                        expanded={showDetails}
+                        className="p-4 shadow-sm hover:shadow-md"
+                        actions={
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t("edit-story")}
+                              onClick={() => handleEditStory(item.data)}
+                            >
+                              <Pencil aria-hidden="true" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={t("delete-story")}
+                              onClick={() => setStoryToDelete(item.data)}
+                            >
+                              <Trash2 aria-hidden="true" />
+                            </Button>
+                          </>
+                        }
+                      />
+                    ) : (
+                      <ContentCard
+                        icon={Calendar}
+                        title={t(item.data.type)}
+                        metadata={
+                          <span className="truncate text-sm text-muted-foreground">
                             · {getMemberName(item.data.member.id)}
                           </span>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Calendar aria-hidden="true" className="w-4 h-4" />
-                            <span>
-                              {formatDateWithFallback(item.data.date, i18n.t)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ),
-              )}
+                        }
+                        date={formatDateWithFallback(item.data.date, i18n.t)}
+                        className="p-4 shadow-sm hover:shadow-md"
+                      />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -537,6 +583,12 @@ export const TimelineView = () => {
         }
       />
 
+      <StoryDialog
+        open={isStoryDialogOpen}
+        onOpenChange={setIsStoryDialogOpen}
+        story={editingStory}
+      />
+
       <ConfirmDeleteDialog
         open={!!eventToDelete}
         onOpenChange={() => setEventToDelete(null)}
@@ -545,6 +597,16 @@ export const TimelineView = () => {
         description={t("delete-dialog.description")}
         cancelText={t("delete-dialog.cancel")}
         confirmText={t("delete-dialog.delete")}
+      />
+
+      <ConfirmDeleteDialog
+        open={!!storyToDelete}
+        onOpenChange={() => setStoryToDelete(null)}
+        onConfirm={handleDeleteStory}
+        title={t("delete-story-dialog.title")}
+        description={t("delete-story-dialog.description")}
+        cancelText={t("delete-story-dialog.cancel")}
+        confirmText={t("delete-story-dialog.delete")}
       />
     </ViewLayout>
   );

@@ -53,8 +53,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { ApiError } from "@/services/api";
-import { TreeSharingService } from "@/services/TreeSharingService";
+import { useTreeSharingStore } from "@/hooks/useTreeSharingStore";
 import { cn } from "@/lib/utils";
 import {
   LinkedShareTree,
@@ -96,8 +95,29 @@ export const ShareTreeDialog = ({
   const treeRef = useRef(tree);
   treeRef.current = tree;
 
-  const [access, setAccess] = useState<TreeAccess[]>([]);
-  const [candidates, setCandidates] = useState<ShareCandidate[]>([]);
+  const access = useTreeSharingStore((state) => state.access);
+  const candidates = useTreeSharingStore((state) => state.candidates);
+  const invitations = useTreeSharingStore((state) => state.invitations);
+  const linkedTrees = useTreeSharingStore((state) => state.linkedTrees);
+  const loadSharing = useTreeSharingStore((state) => state.load);
+  const grantAccess = useTreeSharingStore((state) => state.grantAccess);
+  const revokeAccess = useTreeSharingStore((state) => state.revokeAccess);
+  const updateMemberRestrictions = useTreeSharingStore(
+    (state) => state.updateMemberRestrictions,
+  );
+  const transferOwnership = useTreeSharingStore((state) => state.transferOwnership);
+  const revertTransfer = useTreeSharingStore((state) => state.revertTransfer);
+  const createInvitation = useTreeSharingStore((state) => state.createInvitation);
+  const revokeInvitation = useTreeSharingStore((state) => state.revokeInvitation);
+  const setPublicAccess = useTreeSharingStore((state) => state.setPublicAccess);
+  const setPublicPassword = useTreeSharingStore((state) => state.setPublicPassword);
+  const getLinkedShareTrees = useTreeSharingStore(
+    (state) => state.getLinkedShareTrees,
+  );
+  const grantAccessBatch = useTreeSharingStore((state) => state.grantAccessBatch);
+  const revokeAccessBatch = useTreeSharingStore(
+    (state) => state.revokeAccessBatch,
+  );
   const [staged, setStaged] = useState<StagedUser[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [transferTo, setTransferTo] = useState("");
@@ -106,7 +126,6 @@ export const ShareTreeDialog = ({
   const [retainRole, setRetainRole] = useState<ShareRole>("viewer");
 
   // Invitations state
-  const [invitations, setInvitations] = useState<TreeInvitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<ShareRole>("editor");
   const [inviteExpiry, setInviteExpiry] = useState<string>("never");
@@ -120,10 +139,22 @@ export const ShareTreeDialog = ({
   const [pendingPublicRole, setPendingPublicRole] = useState<"viewer" | null>(
     null,
   );
+  const [publicPasswordProtected, setPublicPasswordProtected] =
+    useState<boolean>(tree.public_password_protected ?? false);
+  const [publicPasswordInput, setPublicPasswordInput] = useState("");
+  const publicPasswordError = useMemo(() => {
+    if (!publicPasswordInput) return null;
+    if (publicPasswordInput.length < 8) {
+      return t("public.password.too-short");
+    }
+    if (new TextEncoder().encode(publicPasswordInput).length > 72) {
+      return t("public.password.too-long");
+    }
+    return null;
+  }, [publicPasswordInput, t]);
 
   // Linked trees (issue #537): grant/revoke access on linked trees together
   // with the anchor tree, as a convenience batch operation.
-  const [linkedTrees, setLinkedTrees] = useState<LinkedShareTree[]>([]);
   const [shareLinkedToo, setShareLinkedToo] = useState(false);
   const [selectedLinkedIds, setSelectedLinkedIds] = useState<Set<string>>(
     new Set(),
@@ -163,33 +194,11 @@ export const ShareTreeDialog = ({
   );
 
   const reload = useCallback(async () => {
-    const data = await TreeSharingService.getSharingData(tree.id);
-    setAccess(data.access);
-    setCandidates(data.candidates);
-
-    if (sharingInvitesEnabled && isOwner) {
-      const invs = await TreeSharingService.listInvitations(tree.id);
-      setInvitations(invs);
-    }
-
-    if (treeLinksEnabled && isOwner) {
-      try {
-        const linked = await TreeSharingService.getLinkedShareTrees(tree.id);
-        setLinkedTrees(linked);
-      } catch (err) {
-        // The feature flag may be off server-side even though the client
-        // thinks it's on (e.g. stale feature list) — treat a 404 as "no
-        // linked trees" rather than surfacing an error.
-        if (err instanceof ApiError && err.status === 404) {
-          setLinkedTrees([]);
-        } else {
-          throw err;
-        }
-      }
-    } else {
-      setLinkedTrees([]);
-    }
-  }, [tree.id, sharingInvitesEnabled, isOwner, treeLinksEnabled]);
+    await loadSharing(tree.id, {
+      includeInvitations: sharingInvitesEnabled && isOwner,
+      includeLinkedTrees: treeLinksEnabled && isOwner,
+    });
+  }, [tree.id, sharingInvitesEnabled, isOwner, treeLinksEnabled, loadSharing]);
 
   useEffect(() => {
     if (isOpen) {
@@ -201,6 +210,10 @@ export const ShareTreeDialog = ({
       setInviteRole("editor");
       setInviteExpiry("never");
       setPublicRole(treeRef.current.public_role ?? null);
+      setPublicPasswordProtected(
+        treeRef.current.public_password_protected ?? false,
+      );
+      setPublicPasswordInput("");
       setShareLinkedToo(false);
       setSelectedLinkedIds(new Set());
       setRevokeLinkedOpen(false);
@@ -237,14 +250,14 @@ export const ShareTreeDialog = ({
     try {
       for (const s of staged) {
         if (includeLinked) {
-          await TreeSharingService.grantAccessBatch(
+          await grantAccessBatch(
             tree.id,
             s.username,
             s.role,
             [tree.id, ...selectedLinkedIds],
           );
         } else {
-          await TreeSharingService.grantAccess(tree.id, s.username, s.role);
+          await grantAccess(tree.id, s.username, s.role);
         }
       }
       setStaged([]);
@@ -259,12 +272,12 @@ export const ShareTreeDialog = ({
 
   const handleRoleChange = async (member: TreeAccess, role: ShareRole) => {
     try {
-      const updated = await TreeSharingService.grantAccess(
+      const updated = await grantAccess(
         tree.id,
         member.username,
         role,
       );
-      setAccess(updated);
+      useTreeSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
       toast.error(t("share-error"));
@@ -281,12 +294,12 @@ export const ShareTreeDialog = ({
       ? current.filter((d) => d !== domain)
       : [...new Set([...current, domain])];
     try {
-      const updated = await TreeSharingService.updateMemberRestrictions(
+      const updated = await updateMemberRestrictions(
         tree.id,
         member.user_id,
         next,
       );
-      setAccess(updated);
+      useTreeSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
       toast.error(t("restrictions-error"));
@@ -296,7 +309,7 @@ export const ShareTreeDialog = ({
   const handleRevoke = async (userId: string, username: string) => {
     if (treeLinksEnabled && manageableLinkedTrees.length > 0) {
       try {
-        const linked = await TreeSharingService.getLinkedShareTrees(
+        const linked = await getLinkedShareTrees(
           tree.id,
           username,
         );
@@ -325,7 +338,7 @@ export const ShareTreeDialog = ({
 
   const revokeAnchorOnly = async (userId: string) => {
     try {
-      await TreeSharingService.revokeAccess(tree.id, userId);
+      await revokeAccess(tree.id, userId);
       await reload();
     } catch (err) {
       console.error(err);
@@ -336,7 +349,7 @@ export const ShareTreeDialog = ({
   const handleRevokeLinkedConfirm = async () => {
     if (!revokeTarget) return;
     try {
-      await TreeSharingService.revokeAccessBatch(tree.id, revokeTarget.userId, [
+      await revokeAccessBatch(tree.id, revokeTarget.userId, [
         tree.id,
         ...revokeLinkedSelectedIds,
       ]);
@@ -421,7 +434,7 @@ export const ShareTreeDialog = ({
           label: t("transfer-undo-button", { seconds: remaining }),
           onClick: () => {
             cancelled = true;
-            void TreeSharingService.revertTransfer(treeId)
+            void revertTransfer(treeId)
               .then(() => {
                 toast.dismiss(toastId);
                 toast.success(t("transfer-reverted"));
@@ -441,7 +454,7 @@ export const ShareTreeDialog = ({
 
   const handleTransfer = async () => {
     try {
-      const result = await TreeSharingService.transferOwnership(
+      const result = await transferOwnership(
         tree.id,
         transferTo,
         retainAccess ? retainRole : undefined,
@@ -471,7 +484,7 @@ export const ShareTreeDialog = ({
     try {
       const expiresInDays =
         inviteExpiry === "never" ? undefined : inviteExpiry === "7" ? 7 : 30;
-      await TreeSharingService.createInvitation(tree.id, {
+      await createInvitation(tree.id, {
         email: inviteEmail || undefined,
         role: inviteRole,
         expiresInDays,
@@ -490,7 +503,7 @@ export const ShareTreeDialog = ({
 
   const handleRevokeInvite = async (invitationId: string) => {
     try {
-      await TreeSharingService.revokeInvitation(tree.id, invitationId);
+      await revokeInvitation(tree.id, invitationId);
       await reload();
     } catch (err) {
       console.error(err);
@@ -525,17 +538,52 @@ export const ShareTreeDialog = ({
 
   const handlePublicConfirm = async () => {
     try {
-      const updated = await TreeSharingService.setPublicAccess(
+      const updated = await setPublicAccess(
         tree.id,
         pendingPublicRole,
       );
       setPublicRole(updated.public_role ?? null);
+      // Disabling public access clears the password server-side.
+      setPublicPasswordProtected(updated.public_password_protected ?? false);
       onTreeUpdated?.(updated);
       setConfirmPublicOpen(false);
     } catch (err) {
       console.error(err);
       toast.error(t("public.error"));
       setConfirmPublicOpen(false);
+    }
+  };
+
+  const handleSetPublicPassword = async () => {
+    if (publicPasswordError) return;
+    try {
+      const updated = await setPublicPassword(
+        tree.id,
+        publicPasswordInput,
+      );
+      setPublicPasswordProtected(updated.public_password_protected ?? false);
+      setPublicPasswordInput("");
+      onTreeUpdated?.(updated);
+      toast.success(t("public.password.saved"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("public.password.error"));
+    }
+  };
+
+  const handleRemovePublicPassword = async () => {
+    try {
+      const updated = await setPublicPassword(
+        tree.id,
+        null,
+      );
+      setPublicPasswordProtected(updated.public_password_protected ?? false);
+      setPublicPasswordInput("");
+      onTreeUpdated?.(updated);
+      toast.success(t("public.password.removed"));
+    } catch (err) {
+      console.error(err);
+      toast.error(t("public.password.error"));
     }
   };
 
@@ -955,21 +1003,80 @@ export const ShareTreeDialog = ({
             </div>
             <p className="text-xs text-muted-foreground">{t("public.hint")}</p>
             {publicRole === "viewer" && (
-              <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
-                <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
-                  {publicLink}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    void navigator.clipboard.writeText(publicLink);
-                    toast.success(t("invites.link-copied"));
-                  }}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
+              <>
+                <div className="flex w-full items-center gap-2 rounded-md border bg-muted/50 p-2">
+                  <span className="flex-1 min-w-0 truncate text-xs text-muted-foreground">
+                    {publicLink}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(publicLink);
+                      toast.success(t("invites.link-copied"));
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {t("public.password.hint")}
+                  </p>
+                  {publicPasswordProtected && (
+                    <div className="flex items-center justify-between rounded-md border bg-muted/50 p-2">
+                      <span className="text-xs font-medium">
+                        {t("public.password.protected")}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemovePublicPassword}
+                      >
+                        {t("public.password.remove")}
+                      </Button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      placeholder={t("public.password.placeholder")}
+                      value={publicPasswordInput}
+                      onChange={(e) => setPublicPasswordInput(e.target.value)}
+                      minLength={8}
+                      maxLength={72}
+                      aria-invalid={Boolean(publicPasswordError)}
+                      aria-describedby={
+                        publicPasswordError
+                          ? "public-password-error"
+                          : undefined
+                      }
+                    />
+                    <Button
+                      variant="outline"
+                      disabled={!publicPasswordInput || !!publicPasswordError}
+                      onClick={handleSetPublicPassword}
+                    >
+                      {publicPasswordProtected
+                        ? t("public.password.update")
+                        : t("public.password.set")}
+                    </Button>
+                  </div>
+                  {publicPasswordError ? (
+                    <p
+                      id="public-password-error"
+                      className="text-xs text-destructive"
+                    >
+                      {publicPasswordError}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {t("public.password.requirements")}
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -1096,7 +1203,7 @@ export const ShareTreeDialog = ({
             </AlertDialogCancel>
             <AlertDialogAction onClick={handlePublicConfirm}>
               {pendingPublicRole === "viewer"
-                ? t("public.enable")
+                ? t("public.confirm-enable-action")
                 : t("public.disable")}
             </AlertDialogAction>
           </AlertDialogFooter>

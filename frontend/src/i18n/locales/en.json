@@ -41,7 +41,6 @@
     "create-database": {
       "title": "Create Tree",
       "description": "Here you can create a new tree to start building your family history from scratch.",
-      "id": "ID",
       "name": "Name",
       "create": "Create",
       "cancel": "Cancel",
@@ -124,7 +123,7 @@
       "children": "Children",
       "siblings": "Siblings",
       "life-events": "Life Events",
-      "stories": "Documents & Stories",
+      "stories": "Stories",
       "diseases": "Genetic Conditions",
       "images": "Linked Images"
     },
@@ -157,7 +156,7 @@
         "events": "Events",
         "map": "Map",
         "stories": "Stories",
-        "sources": "Sources",
+        "sources": "Documents",
         "diseases": "Diseases",
         "biography": "Biography"
       },
@@ -213,13 +212,27 @@
       "public": {
         "title": "Public read-only access",
         "hint": "Anyone with the link can view this tree (read-only). No account required.",
-        "enable": "Make public",
         "disable": "Make private",
-        "confirm-enable-title": "Make tree public?",
-        "confirm-enable-description": "Anyone with the link will be able to view this tree without logging in.",
+        "confirm-enable-title": "Share this tree publicly?",
+        "confirm-enable-description": "Anyone with this link can view names, profile photos, gender, birth and death dates, and family relationships without an account.",
+        "confirm-enable-action": "I understand — make public",
         "confirm-disable-title": "Make tree private?",
         "confirm-disable-description": "The public link will stop working. Existing members keep their access.",
-        "error": "Could not update public access."
+        "error": "Could not update public access.",
+        "password": {
+          "hint": "Optionally require a password before anonymous visitors can view this tree.",
+          "placeholder": "New password",
+          "set": "Set password",
+          "update": "Update password",
+          "remove": "Remove password",
+          "protected": "Password protected",
+          "requirements": "Use 8 to 72 characters.",
+          "too-short": "Use at least 8 characters.",
+          "too-long": "Use no more than 72 characters.",
+          "saved": "Public password saved.",
+          "removed": "Public password removed.",
+          "error": "Could not update the public password."
+        }
       },
       "invitation-received": "You've been invited to \"{{name}}\""
     },
@@ -305,8 +318,6 @@
       "toast-update-error": "Could not update virtual view.",
       "error-no-overlap": "These trees share no overlapping members. Virtual views require at least one person in common across the selected trees.",
       "views-label": "Or include other virtual views",
-      "no-other-views": "No other virtual views available.",
-      "virtual-badge": "virtual",
       "error-cycle": "A virtual view can't include itself, directly or through another view."
     }
   },
@@ -401,7 +412,6 @@
     "mobile-management": {
       "manage": "Manage",
       "title": "Manage",
-      "selected-tree": "Selected tree",
       "no-tree-selected": "No tree selected",
       "group-sharing": "Sharing",
       "group-data": "Data",
@@ -529,7 +539,6 @@
         "unlink": "Remove link",
         "create-and-link": "Create & link new tree",
         "new-tree-fallback-name": "New tree",
-        "toast-created": "Created and linked “{{name}}”.",
         "toast-created-seeded": "Created “{{name}}” and added this person to it.",
         "create-requires-save": "Save your changes first — creating a linked tree stores this person in it right away.",
         "save-first-hint": "Save this person first — linking a tree requires it to already exist.",
@@ -567,7 +576,6 @@
       "error-firstname-required": "First name is required.",
       "error-lastname-required": "Last name is required.",
       "firstname-placeholder": "e.g. Jane",
-      "maiden-placeholder": "Maiden name",
       "academic-title-field": "Academic / Honorific Title",
       "academic-title-placeholder": "e.g. Dr., Prof., Dipl.-Ing.",
       "tab-identity": "Identity",
@@ -596,16 +604,15 @@
       "linked-images-fallback": "No images linked to this person yet.",
       "life-events": "Life Events",
       "no-events": "No events recorded",
-      "stories": "Documents & Stories",
+      "stories": "Stories",
       "no-stories": "Nothing stored yet",
       "genetic-conditions": "Genetic Conditions",
       "no-conditions": "No conditions recorded",
-      "sources": "Source Citations",
+      "documents": "Documents",
       "locations-section": "Locations",
       "birthplace-label": "Birthplace",
       "hometown-label": "Hometown",
       "cemetery-label": "Cemetery",
-      "show-on-map": "Show on map",
       "dod-deceased-no-date": "Deceased (date unknown)",
       "academic-title-item": "Academic / Honorific Title",
       "tab-identity": "Identity",
@@ -618,7 +625,10 @@
       "detail-title": "Member Details",
       "edit-description": "Update the member's information.",
       "detail-description": "View detailed information about this family member.",
-      "save": "Save",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "save-error": "Not saved",
+      "create": "Create member",
       "delete": "Delete",
       "delete-confirm-title": "Delete Member",
       "delete-confirm-description": "Are you sure you want to delete this member? You can undo this for a few seconds afterward.",
@@ -655,25 +665,16 @@
           "update": "Update",
           "add": "Add",
           "custom": "Custom...",
-          "custom-placeholder": "e.g., Graduation, Migration, Confirmation",
-          "location-checking": "Checking address...",
-          "location-found": "Address found",
-          "location-not-found": "Address not found — won't appear on map"
+          "custom-placeholder": "e.g., Graduation, Migration, Confirmation"
         }
       },
       "stories": {
-        "title": "Documents & Stories",
+        "title": "Stories",
         "add": "Add",
         "no-stories": "Nothing stored yet",
-        "show-less": "Show less",
-        "read-more": "Read more",
-        "attachments": {
-          "download": "Download",
-          "error-open": "Could not open the file."
-        },
         "delete-dialog": {
           "title": "Delete Entry",
-          "description": "Are you sure you want to delete this entry and its files? This action cannot be undone.",
+          "description": "Are you sure you want to delete this entry? This action cannot be undone.",
           "cancel": "Cancel",
           "delete": "Delete"
         },
@@ -684,17 +685,70 @@
           "linked-members-placeholder": "Select members...",
           "linked-members-description": "Select one or more family members this entry is about",
           "title": "Title",
-          "title-placeholder": "e.g., Early Life, Birth Certificate, War Years",
+          "title-placeholder": "e.g., Early Life, War Years",
           "story": "Notes",
           "story-placeholder": "Write a story, biography or any notes here...",
-          "attachments": {
+          "date": "Historical date",
+          "date-placeholder": "e.g., 1942 or 1942-06",
+          "date-description": "Optional. A dated story appears on the timeline.",
+          "error-save": "Could not save the story.",
+          "cancel": "Cancel",
+          "update": "Update",
+          "add": "Add"
+        }
+      },
+      "documents": {
+        "title": "Documents",
+        "add": "Add",
+        "no-documents": "No documents yet",
+        "open-hint": "Double-click to open",
+        "delete-dialog": {
+          "title": "Delete Document",
+          "description": "Are you sure you want to delete this document and its files? This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "file": {
+          "download": "Download",
+          "error-open": "Could not open the file."
+        },
+        "linked": {
+          "label": "Linked documents",
+          "placeholder": "Select documents...",
+          "create": "Create document",
+          "empty": "No documents yet",
+          "count_one": "{{count}} document",
+          "count_other": "{{count}} documents",
+          "show": "Show linked documents",
+          "hide": "Hide linked documents"
+        },
+        "dialog": {
+          "add-title": "Add Document",
+          "edit-title": "Edit Document",
+          "title": "Title",
+          "title-placeholder": "e.g., Birth Certificate, 1920 US Census",
+          "description": "Description",
+          "description-placeholder": "Notes about this document...",
+          "date": "Date",
+          "date-placeholder": "e.g., 1920 or 1920-05",
+          "people-mentioned": "People mentioned",
+          "people-mentioned-placeholder": "Select people...",
+          "people-mentioned-description": "Select one or more people this document is about",
+          "files": {
             "heading": "Files",
-            "add": "Add file",
-            "empty": "No files attached yet",
+            "add-file": "Add file",
+            "add-link": "Add link",
+            "empty": "No files yet",
             "new": "New",
+            "uploading": "Uploading {{done}} of {{total}}…",
+            "status-done": "Uploaded",
+            "status-queued": "Queued",
             "download": "Download",
-            "remove": "Remove file",
+            "remove": "Remove",
             "filename": "File name",
+            "link-url-placeholder": "https://...",
+            "link-label-placeholder": "Label (optional)",
+            "link-add": "Add",
             "hint": "Images, PDF and documents up to {{max}}.",
             "hint-without-limit": "Images, PDF and documents.",
             "error-type": "Unsupported file type",
@@ -702,65 +756,11 @@
             "error-quota-media": "Media storage quota exceeded.",
             "error-quota-tree": "Tree data quota exceeded.",
             "error-quota-total": "Total storage quota exceeded.",
-            "error-save": "Could not save the story.",
             "error-open": "Could not open the file."
           },
           "cancel": "Cancel",
-          "update": "Update",
-          "add": "Add"
-        }
-      },
-      "sources": {
-        "title": "Source Citations",
-        "add": "Add",
-        "no-citations": "No source citations yet",
-        "delete-dialog": {
-          "title": "Remove Citation",
-          "description": "Are you sure you want to remove this citation? The source record itself is not deleted.",
-          "cancel": "Cancel",
-          "delete": "Remove"
-        },
-        "fact": {
-          "name": "Name",
-          "birth": "Birth",
-          "death": "Death",
-          "birthplace": "Birthplace",
-          "hometown": "Hometown",
-          "residence": "Residence",
-          "cemetery": "Cemetery",
-          "general": "General"
-        },
-        "dialog": {
-          "add-title": "Add Source Citation",
-          "edit-title": "Edit Citation",
-          "source-label": "Source",
-          "source-placeholder": "Select a source...",
-          "source-search-placeholder": "Search sources...",
-          "source-empty": "No sources found",
-          "source-new": "Create new source...",
-          "source-title": "Title",
-          "source-title-placeholder": "e.g., 1920 US Census, Birth certificate",
-          "author": "Author",
-          "author-placeholder": "e.g., John Smith",
-          "repository": "Repository / Archive",
-          "repository-placeholder": "e.g., National Archives",
-          "source-date": "Date",
-          "notes": "Notes",
-          "notes-placeholder": "Additional notes about this source",
-          "fact-type": "Cited fact",
-          "page": "Page / Folio",
-          "page-placeholder": "e.g., p. 42, roll 123",
-          "detail": "Transcription / Detail",
-          "detail-placeholder": "Quote the relevant passage or add context",
-          "evidence": "Evidence",
-          "evidence-hint": "Attach the actual record this citation is based on — e.g. a scanned certificate, census image, or URL to an online database entry.",
-          "add-file": "Attach file",
-          "add-link": "Add link",
-          "link-url-placeholder": "https://...",
-          "link-label-placeholder": "Label (optional)",
-          "link-add": "Add",
           "save": "Save",
-          "cancel": "Cancel"
+          "error-save": "Could not save the document."
         }
       },
       "diseases": {
@@ -849,10 +849,6 @@
       "open-error": "That tree could not be opened — it may be private or no longer exist."
     },
     "canvas-label": "Family tree canvas",
-    "a11y": {
-      "node-desc": "Press Enter to view member details.",
-      "controls": "Canvas controls"
-    },
     "search": {
       "placeholder": "Search members…",
       "no-results": "No members found",
@@ -884,6 +880,8 @@
       "enable-quick-add": "Enable quick add",
       "disable-disease-mode": "Disable disease mode",
       "enable-disease-mode": "Enable disease mode",
+      "show-generation-lines": "Show generation lines",
+      "hide-generation-lines": "Hide generation lines",
       "enable-connection-mode": "Find connection",
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",
@@ -909,7 +907,8 @@
     },
     "selection": {
       "selected-count": "{{count}} selected",
-      "clear": "Clear"
+      "clear": "Clear",
+      "hint": "Click a person to add or remove them"
     },
     "connection": {
       "kinship": {
@@ -1025,6 +1024,7 @@
     "target-event": "event",
     "target-story": "story",
     "target-gallery_image": "image",
+    "target-document": "document",
     "target-disease": "condition",
     "target-tree": "tree",
     "target-share": "share",
@@ -1035,6 +1035,10 @@
     "filter-all-actions": "All actions",
     "filter-all-types": "All types",
     "filter-clear": "Clear filters",
+    "filter-no-matches": "No activity matches these filters.",
+    "loading": "Loading activity…",
+    "error": "Could not load activity.",
+    "retry": "Retry",
     "navigate-hint": "Go to item",
     "diff-changed": "Changed:",
     "diff-arrow": "→"
@@ -1058,10 +1062,18 @@
       "show-details": "Show details",
       "edit-event": "Edit event",
       "delete-event": "Delete event",
-      "show-on-map": "Show on map",
+      "edit-story": "Edit story",
+      "delete-story": "Delete story",
+      "story-date-unknown": "Undated story",
       "delete-dialog": {
         "title": "Delete Event",
         "description": "Are you sure you want to delete this event? This action cannot be undone.",
+        "cancel": "Cancel",
+        "delete": "Delete"
+      },
+      "delete-story-dialog": {
+        "title": "Delete Story",
+        "description": "Are you sure you want to delete this story? This action cannot be undone.",
         "cancel": "Cancel",
         "delete": "Delete"
       }
@@ -1150,7 +1162,6 @@
   },
   "quality-report-view": {
     "title": "Data Quality",
-    "refresh": "Refresh",
     "loading": "Running checks…",
     "no-issues": "No issues found",
     "no-issues-description": "Your family tree data looks consistent.",
@@ -1355,13 +1366,23 @@
     "date-unknown": "unknown",
     "clear-date": "Clear date",
     "date-input-hint": "MM/DD/YYYY",
-    "open-date-picker": "Open date picker"
+    "open-date-picker": "Open date picker",
+    "nee": "née {{name}}",
+    "location-input": { "placeholder": "City, region, country…" },
+    "location": { "show-on-map": "Show on map" },
+    "geocode": {
+      "checking": "Checking address...",
+      "found": "Address found",
+      "not-found": "Address not found — won't appear on map"
+    }
   },
   "auth": {
     "session": {
       "expiring-title": "Your session is expiring soon",
-      "expiring-description": "Please save your work. You will need to sign in again shortly.",
+      "expiring-description": "We will renew your session automatically. Please keep this tab open.",
       "expiring-dismiss": "Dismiss",
+      "refresh-failed-description": "We could not renew your session. Sign in again to keep working.",
+      "refresh-failed-relogin": "Sign in now",
       "relogin-title": "Session expired",
       "relogin-description": "Your session has expired. Enter your password to continue.",
       "relogin-password": "Password",
@@ -1414,11 +1435,8 @@
     },
     "user-menu": {
       "change-password": "Change password",
-      "customize-tabs": "Customize tabs",
       "admin": "Administration",
-      "delete-account": "Delete my account",
       "logout": "Log out",
-      "two-factor": "Two-factor authentication",
       "settings": "Settings",
       "show-tutorial": "Show tutorial"
     },
@@ -1511,7 +1529,6 @@
   },
   "admin": {
     "title": "Administration",
-    "description": "Manage users and instance settings.",
     "back": "Back",
     "users-tab": "Users",
     "settings-tab": "Settings",
@@ -1519,6 +1536,39 @@
     "relation-types-tab": "Relation types",
     "legal-tab": "Legal documents",
     "backups-tab": "Backups",
+    "audit-tab": "Audit trail",
+    "audit": {
+      "hint": "Instance-wide security and administration events. Entries are retained indefinitely; manage database retention through your normal backup and data-governance policy.",
+      "loading": "Loading audit trail…",
+      "error": "Could not load the audit trail.",
+      "retry": "Retry",
+      "empty": "No audit entries yet.",
+      "date": "Date",
+      "actor": "Actor",
+      "action": "Action",
+      "subject": "Subject",
+      "details": "Details",
+      "unknown": "Unknown",
+      "actions": {
+        "create": "Create",
+        "update": "Update",
+        "delete": "Delete"
+      },
+      "filters": {
+        "actor": "Actor",
+        "action": "Action",
+        "subject": "Subject type",
+        "start": "From",
+        "end": "To",
+        "all": "All",
+        "clear": "Clear filters",
+        "actor-placeholder": "Username…"
+      },
+      "empty-filtered": "No audit entries match these filters.",
+      "export": "Export CSV",
+      "exporting": "Exporting…",
+      "export-error": "Could not export the audit trail."
+    },
     "features": {
       "hint": "Enable or disable features for this instance at runtime. \"Beta\" enables a feature only for the selected users.",
       "state-on": "On",
@@ -1538,13 +1588,13 @@
         "gedcom": "GEDCOM import/export",
         "sharing_invites": "Share invitations",
         "map": "Map view",
-        "sources": "Sources & Citations",
+        "sources": "Documents",
         "onboarding_tour": "Onboarding tour",
         "tree_links": "Tree-in-tree links"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
-        "stories": "Stories and attachments on members.",
+        "stories": "Stories and biographies on members.",
         "events": "Life events and the timeline view.",
         "activity_log": "Recent-changes log per tree.",
         "quality_report": "Data-quality checks per tree.",
@@ -1553,7 +1603,7 @@
         "gedcom": "Import and export trees as GEDCOM files.",
         "sharing_invites": "Invite links, expiring tokens, and public read-only tree mode.",
         "map": "Interactive map of timeline events by location.",
-        "sources": "Source citations and evidence records for member facts.",
+        "sources": "Reusable documents — files and links — linked to people, events and stories.",
         "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features.",
         "tree_links": "Link a member to another tree that details their own family, and navigate between them."
       }
@@ -1584,11 +1634,9 @@
     "max-image-upload": "Image size (MB)",
     "max-document-upload": "Attachment size (MB)",
     "max-image-dimension": "Image side (px)",
-    "image-storage-mode": "Gallery image storage",
     "image-storage-mode-compressed": "Compressed (WebP)",
     "image-storage-mode-original": "Original only",
     "image-storage-mode-both": "Both (display + original)",
-    "image-storage-mode-hint": "Controls how gallery images are stored. \"Original\" and \"Both\" upload the full-resolution file — raise the image size limit accordingly.",
     "image-storage-mode-allowed": "Allowed storage modes",
     "image-storage-mode-allowed-hint": "Select which storage modes users may choose from.",
     "image-storage-mode-default": "Default mode",
@@ -1630,7 +1678,6 @@
       "scheduled": "Account scheduled for deletion."
     },
     "backups": {
-      "title": "Backup management",
       "back-up-now": "Back up now",
       "last-backup": "Last backup: {{date}}",
       "never": "Never",
@@ -1641,7 +1688,6 @@
       "col-trigger": "Type",
       "col-status": "Status",
       "col-size": "Size",
-      "col-actions": "Actions",
       "trigger-manual": "Manual",
       "trigger-scheduled": "Scheduled",
       "status-running": "Running",
@@ -1693,11 +1739,6 @@
       "cancel": "Cancel",
       "confirm": "Remove 2FA"
     },
-    "announcement-section-title": "Release announcement",
-    "announcement-hint": "Shown once to returning users after a new version is released. Leave the title and message empty to disable it. Leave the version blank to use the current app version.",
-    "announcement-title-label": "Title",
-    "announcement-body-label": "Message (Markdown)",
-    "announcement-version-label": "Version",
     "legal-section-title": "Legal documents",
     "legal-section-hint": "Terms of Service, Privacy Policy, and Impressum shown to users. Bumping the version forces every user to re-accept before they can make changes.",
     "legal-acceptance-required": "Require legal acceptance",
@@ -1720,8 +1761,10 @@
     "legal-history-view": "View",
     "legal-history-detail-title": "Version {{version}}"
   },
-  "announcement": {
-    "default-title": "What's new",
+  "whats-new": {
+    "title": "What's new in v{{version}}",
+    "description": "A new version of Family Tree is available.",
+    "view-changelog": "View changelog",
     "dismiss": "Got it"
   },
   "changelog": {
@@ -1759,13 +1802,14 @@
   "public-tree": {
     "read-only-hint": "Read-only view — log in to explore the full interactive tree.",
     "login-button": "Log in",
-    "member-count_one": "{{count}} person",
-    "member-count_other": "{{count}} people",
-    "unnamed": "(unnamed)",
-    "gender-male": "Male",
-    "gender-female": "Female",
     "not-public": "This tree is private or the link is no longer valid.",
-    "error": "Could not load this tree."
+    "error": "Could not load this tree.",
+    "password": {
+      "title": "Password required",
+      "description": "This tree is password protected. Enter the password to view it.",
+      "submit": "Unlock",
+      "error": "Incorrect password. Please try again."
+    }
   },
   "map-view": {
     "view": {
@@ -1825,17 +1869,16 @@
     "discard": "Discard"
   },
   "storage-usage": {
-    "title": "Storage",
+    "title": "Owner storage",
     "tree": "Tree data",
     "media": "Media files",
     "total": "Total",
     "used-of": "{{used}} / {{quota}}",
     "unlimited": "unlimited",
     "error": "Could not load storage usage.",
-    "quota-label": "Quota",
     "toast-error-quota-media": "Media storage quota exceeded.",
     "toast-error-quota-tree": "Tree data quota exceeded.",
-    "quota-warning": "Media storage is almost full for this tree."
+    "quota-warning": "Media storage is almost full for this owner."
   },
   "user-settings": {
     "title": "Settings",
@@ -1852,23 +1895,16 @@
       "both": "Both (display + original)"
     },
     "tabs": {
-      "section": "Tab layout",
-      "hint": "Choose which views are visible and reorder the tabs in the main panel.",
-      "button": "Customize tabs"
+      "section": "Tab layout"
     },
     "two-factor": {
-      "section": "Two-factor authentication",
-      "status-enabled": "Two-factor authentication is currently enabled on your account.",
-      "status-disabled": "Two-factor authentication is currently disabled.",
-      "button": "Manage 2FA"
+      "section": "Two-factor authentication"
     },
     "changelog": {
       "section": "What's new"
     },
     "delete-account": {
-      "section": "Delete account",
-      "hint": "Permanently remove your account and all associated data. This action cannot be undone.",
-      "button": "Delete my account"
+      "section": "Delete account"
     }
   },
   "tutorial": {

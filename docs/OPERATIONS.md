@@ -35,6 +35,42 @@ Your instance has **two** data locations, and you must back up **both**:
 > only file references; the image bytes live under `${DATA_PATH}/media`. Always
 > back up the media directory alongside the SQL dump.
 
+### In-app full-instance backups
+
+The Admin → Backups panel creates encrypted `.ftbackup` files under
+`${APP_DATA_PATH}/backups`. Version 2 backups contain all durable application
+rows (including sharing, legal/audit, quality, geocoding, and virtual-view
+state) plus every byte below `${DATA_PATH}/media`. Each file has an encrypted,
+versioned manifest; creation verifies all table row counts and media SHA-256
+hashes before it is marked successful. A failed or incomplete run is shown as
+failed and cannot be downloaded as a successful backup.
+
+Keep these files off-host as you would a database dump. They are encrypted with
+the instance `SECRET_KEY`, so restore them with the same key (or treat a key
+rotation as a planned migration).
+
+To restore an `.ftbackup`, stop application workers first, run migrations for
+the target version, and use the backend command against a **blank** database
+and empty `${DATA_PATH}/media` volume:
+
+```bash
+cd backend
+uv run python -m app.services.restore_backup /secure/backup.ftbackup
+```
+
+The command verifies the manifest, row counts, and media hashes before it
+writes anything. It refuses a non-empty target. For deliberate disaster
+recovery into an existing instance, stop the stack, make an independent copy
+first, then pass the explicit destructive flag:
+
+```bash
+uv run python -m app.services.restore_backup --replace /secure/backup.ftbackup
+```
+
+After the command reports completion, start the stack and verify that users can
+sign in and media loads. Do not use the regular in-app backup file as a way to
+merge data into an existing instance.
+
 ### Online backup (no downtime)
 
 Dump the database from your Postgres instance and archive the media directory.
@@ -233,8 +269,16 @@ server {
     ssl_certificate     /etc/letsencrypt/live/family.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/family.example.com/privkey.pem;
 
-    # Media uploads (photos) can exceed nginx's 1m default.
-    client_max_body_size 50m;
+    # Documents and gallery images both use multipart streaming. Keep this
+    # close to the app's largest upload setting (100 MB maximum for either) so
+    # the proxy cannot buffer arbitrarily large bodies. The bundled frontend
+    # container uses 105m.
+    client_max_body_size 105m;
+
+    # Let slow but valid uploads finish. Choose values suitable for your
+    # expected connection speeds; do not make them unlimited.
+    client_body_timeout 10m;
+    proxy_read_timeout 10m;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -251,6 +295,19 @@ server {
     return 301 https://$host$request_uri;
 }
 ```
+
+Both documents (up to 100 MiB) and gallery images / member photos (up to the
+`max_image_upload_mb` setting — default 10 MiB, 100 MiB maximum) are streamed to
+disk in 1 MiB chunks rather than buffered as base64 JSON. Plan temporary-disk
+capacity for **at least 3× the larger configured limit per concurrent upload**:
+one proxy request buffer, one FastAPI multipart spool, and the app's atomic
+destination temp file. An image is briefly held as a decoded bitmap while it is
+re-encoded — size it against `max_image_dimension` (default 4096 px/side), which
+also bounds the decompression-bomb surface. Keep the proxy limit close to the
+application limit and choose finite body/read timeouts. A failed, cancelled,
+rejected, or checksum-mismatched upload is removed immediately; incomplete
+destination temp files (both `.document-upload-*` and `.image-upload-*`) are
+also removed when the backend starts.
 
 ### Traefik (labels on the frontend service)
 

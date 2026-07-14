@@ -80,6 +80,26 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     linked_member_id: str | None = None
 
 
+class PublicMemberOut(FamilyTreeOrmBaseModel):
+    """Anonymous projection: enough to render a tree, without private detail."""
+
+    id: str
+    gender: str | None = None
+    academic_title: str | None = None
+    first_name: str | None = None
+    middle_names: str | None = None
+    baptismal_name: str | None = None
+    last_name: str | None = None
+    maiden_name: str | None = None
+    image_data: str | None = None
+    date_of_birth: str | None = None
+    date_of_death: str | None = None
+    deceased: bool = False
+    is_collapsed: bool = False
+    position_x: float = 0
+    position_y: float = 0
+
+
 class MemberCreate(FamilyTreeBaseModel):
     id: str
     gender: str | None = None
@@ -119,6 +139,11 @@ class MemberUpdate(FamilyTreeBaseModel):
     date_of_death: str | None = None
     deceased: bool | None = None
     adopted: bool | None = None
+    # Parent slots are represented by ``parent`` relation rows, not columns on
+    # Member.  They live on this update payload so identity, parent, and vital
+    # date edits can commit as one transaction.
+    paternal_parent_id: str | None = None
+    maternal_parent_id: str | None = None
     additional_data: str | None = None
     birthplace: str | None = None
     hometown: str | None = None

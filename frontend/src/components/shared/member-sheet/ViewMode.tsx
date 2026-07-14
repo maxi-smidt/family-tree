@@ -7,66 +7,42 @@ import {
   ItemTitle,
 } from "@/components/ui/item";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
-import { openMedia } from "@/hooks/useMediaUrl";
-import { toast } from "sonner";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
-import { StoryAttachments } from "./StoryAttachments";
+import { LinkedDocumentList } from "./LinkedDocumentList";
+import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
-import {
-  Calendar,
-  MapPin,
-  BookOpen,
-  Activity,
-  BookMarked,
-  File,
-  Link,
-} from "lucide-react";
+import { CollapsibleEvent } from "./CollapsibleEvent";
+import { Activity, FileText } from "lucide-react";
+import { CollapsibleStory } from "./CollapsibleStory";
+import { Location } from "@/components/shared/Location";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
 import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
+import { MemberSheetTab } from "@/utils/memberSheetState";
 
 type Props = {
   member: Member;
   onShowLocationOnMap?: (location: string, memberId: string) => void;
+  activeTab: MemberSheetTab;
+  onTabChange: (tab: MemberSheetTab) => void;
 };
 
-// Small ghost icon-button next to a location field/row (#554), jumping the
-// user to the Map view focused on that location. Only rendered when the
-// caller wired up `onShowLocationOnMap` (i.e. the map is enabled).
-function ShowOnMapButton({
-  label,
-  onClick,
-}: {
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon"
-      className="h-5 w-5 shrink-0 ml-auto"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-    >
-      <MapPin className="h-3 w-3" />
-    </Button>
-  );
-}
-
-export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
+export const ViewMode = ({
+  member,
+  onShowLocationOnMap,
+  activeTab,
+  onTabChange,
+}: Props) => {
   const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.view-mode",
   });
@@ -80,7 +56,7 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
     useFeature("events") && !restrictions.includes("events");
   const storiesEnabled =
     useFeature("stories") && !restrictions.includes("stories");
-  const sourcesEnabled =
+  const documentsEnabled =
     useFeature("sources") && !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
@@ -95,15 +71,14 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
     return linkedIds.includes(member.id);
   });
 
-  const { getCitationsByMember, getSourcesForMember } = useSourceStore();
+  const { getDocumentsForMember } = useDocumentStore();
 
   const memberEvents = getEventsByMember(member.id).sort((a, b) => {
     return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
   const memberStories = getStoriesByMember(member.id);
-  const memberCitations = getCitationsByMember(member.id);
-  const memberSources = getSourcesForMember(member.id);
+  const memberDocuments = getDocumentsForMember(member.id);
 
   const memberDiseases = member.diseases || [];
 
@@ -129,6 +104,10 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
     member.hometown ||
     member.cemetery ||
     member.placesLived.length > 0;
+  const visibleTab =
+    activeTab === "relations" || (activeTab === "life" && !hasLifeContent)
+      ? "identity"
+      : activeTab;
 
   return (
     <div className="w-full">
@@ -136,7 +115,10 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
         <FamilyNodeContent member={member} largeImage />
       </div>
 
-      <Tabs defaultValue="identity">
+      <Tabs
+        value={visibleTab}
+        onValueChange={(tab) => onTabChange(tab as MemberSheetTab)}
+      >
         <TabsList variant="line" className="w-full justify-start mb-3">
           <TabsTrigger value="identity">{t("tab-identity")}</TabsTrigger>
           {hasLifeContent && (
@@ -249,91 +231,78 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                     <ItemTitle>{t("locations-section")}</ItemTitle>
                     <div className="space-y-2 mt-1">
                       {member.birthplace && (
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <span>
-                            <span className="text-muted-foreground">
-                              {t("birthplace-label")}:{" "}
-                            </span>
-                            {member.birthplace}
-                          </span>
-                          {mapEnabled && onShowLocationOnMap && (
-                            <ShowOnMapButton
-                              label={t("show-on-map")}
-                              onClick={() =>
-                                onShowLocationOnMap(
-                                  member.birthplace!,
-                                  member.id,
-                                )
-                              }
-                            />
-                          )}
-                        </div>
+                        <Location
+                          align="start"
+                          label={t("birthplace-label")}
+                          location={member.birthplace}
+                          onShowOnMap={
+                            mapEnabled && onShowLocationOnMap
+                              ? () =>
+                                  onShowLocationOnMap(
+                                    member.birthplace!,
+                                    member.id,
+                                  )
+                              : undefined
+                          }
+                        />
                       )}
                       {mapEnabled && member.hometown && (
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <span>
-                            <span className="text-muted-foreground">
-                              {t("hometown-label")}:{" "}
-                            </span>
-                            {member.hometown}
-                          </span>
-                          {onShowLocationOnMap && (
-                            <ShowOnMapButton
-                              label={t("show-on-map")}
-                              onClick={() =>
-                                onShowLocationOnMap(member.hometown!, member.id)
-                              }
-                            />
-                          )}
-                        </div>
+                        <Location
+                          align="start"
+                          label={t("hometown-label")}
+                          location={member.hometown}
+                          onShowOnMap={
+                            onShowLocationOnMap
+                              ? () =>
+                                  onShowLocationOnMap(
+                                    member.hometown!,
+                                    member.id,
+                                  )
+                              : undefined
+                          }
+                        />
                       )}
                       {mapEnabled && member.cemetery && (
-                        <div className="flex items-start gap-2 text-sm">
-                          <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                          <span>
-                            <span className="text-muted-foreground">
-                              {t("cemetery-label")}:{" "}
-                            </span>
-                            {member.cemetery}
-                          </span>
-                          {onShowLocationOnMap && (
-                            <ShowOnMapButton
-                              label={t("show-on-map")}
-                              onClick={() =>
-                                onShowLocationOnMap(member.cemetery!, member.id)
-                              }
-                            />
-                          )}
-                        </div>
+                        <Location
+                          align="start"
+                          label={t("cemetery-label")}
+                          location={member.cemetery}
+                          onShowOnMap={
+                            onShowLocationOnMap
+                              ? () =>
+                                  onShowLocationOnMap(
+                                    member.cemetery!,
+                                    member.id,
+                                  )
+                              : undefined
+                          }
+                        />
                       )}
                       {mapEnabled &&
                         member.placesLived.map((place, idx) => (
-                          <div
+                          <Location
                             key={idx}
-                            className="flex items-start gap-2 text-sm"
-                          >
-                            <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0 text-muted-foreground" />
-                            <span>
-                              {place.location}
-                              {(place.from || place.to) && (
+                            align="start"
+                            location={place.location}
+                            trailing={
+                              (place.from || place.to) && (
                                 <span className="text-muted-foreground">
                                   {" "}
                                   ({place.from || "?"}
                                   {place.to ? ` – ${place.to}` : ""})
                                 </span>
-                              )}
-                            </span>
-                            {onShowLocationOnMap && place.location && (
-                              <ShowOnMapButton
-                                label={t("show-on-map")}
-                                onClick={() =>
-                                  onShowLocationOnMap(place.location, member.id)
-                                }
-                              />
-                            )}
-                          </div>
+                              )
+                            }
+                            onShowOnMap={
+                              onShowLocationOnMap && place.location
+                                ? () =>
+                                    onShowLocationOnMap(
+                                      place.location,
+                                      member.id,
+                                    )
+                                : undefined
+                            }
+                          />
                         ))}
                     </div>
                   </ItemContent>
@@ -393,46 +362,32 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                         <div className="space-y-3 mt-2">
                           {memberEvents
                             .slice(0, showAll ? memberEvents.length : 3)
-                            .map((event) => (
-                              <div
-                                key={event.id}
-                                className="border rounded-lg p-3 bg-accent/50"
-                              >
-                                <div className="flex items-center gap-2 font-medium mb-1">
-                                  {(() => {
-                                    const { icon: Icon } = getEventTypeInfo(
-                                      event.eventType,
-                                    );
-                                    return (
-                                      <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                                    );
-                                  })()}
-                                  {getEventTypeLabel(event.eventType, i18n.t)}
-                                </div>
-                                <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="w-3 h-3" />
-                                    <span>
-                                      {formatDateWithFallback(
-                                        event.date,
-                                        i18n.t,
-                                      )}
-                                    </span>
-                                  </div>
-                                  {event.location && (
-                                    <div className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3" />
-                                      <span>{event.location}</span>
-                                    </div>
+                            .map((event) => {
+                              const { icon: Icon } = getEventTypeInfo(
+                                event.eventType,
+                              );
+                              return (
+                                <CollapsibleEvent
+                                  key={event.id}
+                                  icon={Icon}
+                                  typeLabel={getEventTypeLabel(
+                                    event.eventType,
+                                    i18n.t,
                                   )}
-                                </div>
-                                {event.description && (
-                                  <p className="text-sm mt-2">
-                                    {event.description}
-                                  </p>
-                                )}
-                              </div>
-                            ))}
+                                  date={formatDateWithFallback(
+                                    event.date,
+                                    i18n.t,
+                                  )}
+                                  location={event.location}
+                                  description={event.description}
+                                  className="bg-accent/50"
+                                >
+                                  <LinkedDocumentList
+                                    documentIds={event.documentIds}
+                                  />
+                                </CollapsibleEvent>
+                              );
+                            })}
                         </div>
                       )}
                     </CollapsibleSection>
@@ -459,23 +414,21 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
                           {memberStories
                             .slice(0, showAll ? memberStories.length : 3)
                             .map((story) => (
-                              <div
+                              <CollapsibleStory
                                 key={story.id}
-                                className="border rounded-lg p-3 bg-accent/50"
+                                title={story.title}
+                                date={
+                                  story.date
+                                    ? formatDateWithFallback(story.date, i18n.t)
+                                    : undefined
+                                }
+                                content={story.content}
+                                className="bg-accent/50"
                               >
-                                <div className="flex items-center gap-2 mb-2">
-                                  <BookOpen className="w-4 h-4 text-muted-foreground" />
-                                  <h4 className="font-medium">{story.title}</h4>
-                                </div>
-                                {story.content && (
-                                  <div className="text-sm whitespace-pre-wrap line-clamp-3">
-                                    {story.content}
-                                  </div>
-                                )}
-                                <StoryAttachments
-                                  attachments={story.attachments}
+                                <LinkedDocumentList
+                                  documentIds={story.documentIds}
                                 />
-                              </div>
+                              </CollapsibleStory>
                             ))}
                         </div>
                       )}
@@ -489,86 +442,44 @@ export const ViewMode = ({ member, onShowLocationOnMap }: Props) => {
               </Item>
             )}
 
-            {sourcesEnabled && memberCitations.length > 0 && (
+            {documentsEnabled && memberDocuments.length > 0 && (
               <Item variant="muted">
                 <ItemContent>
-                  <ItemTitle>{t("sources")}</ItemTitle>
+                  <ItemTitle>{t("documents")}</ItemTitle>
                   <CollapsibleSection
-                    totalCount={memberCitations.length}
+                    totalCount={memberDocuments.length}
                     collapsedCount={3}
                   >
                     {(showAll) => (
                       <div className="space-y-2 mt-2">
-                        {memberCitations
-                          .slice(0, showAll ? memberCitations.length : 3)
-                          .map((cit) => {
-                            const src = memberSources.find(
-                              (s) => s.id === cit.sourceId,
-                            );
-                            return (
-                              <div
-                                key={cit.id}
-                                className="border rounded-lg p-3 bg-accent/50"
-                              >
-                                <div className="flex items-start gap-2">
-                                  <BookMarked className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm">
-                                      {src?.title ?? cit.sourceId}
-                                    </p>
+                        {memberDocuments
+                          .slice(0, showAll ? memberDocuments.length : 3)
+                          .map((doc) => (
+                            <div
+                              key={doc.id}
+                              className="border rounded-lg p-3 bg-accent/50"
+                            >
+                              <div className="flex items-start gap-2">
+                                <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm">
+                                    {doc.title}
+                                  </p>
+                                  {doc.documentDate && (
                                     <p className="text-xs text-muted-foreground">
-                                      {i18n.t(
-                                        `sheet.member-sheet.sources.fact.${cit.factType}`,
-                                      )}
-                                      {cit.page && ` · ${cit.page}`}
+                                      {formatDate(doc.documentDate)}
                                     </p>
-                                    {cit.detail && (
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        {cit.detail}
-                                      </p>
-                                    )}
-                                    {src && src.evidence.length > 0 && (
-                                      <div className="flex flex-wrap gap-2 mt-1.5">
-                                        {src.evidence.map((ev) =>
-                                          ev.kind === "link" ? (
-                                            <a
-                                              key={ev.id}
-                                              href={ev.url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
-                                            >
-                                              <Link className="w-2.5 h-2.5" />
-                                              {ev.filename ?? ev.url}
-                                            </a>
-                                          ) : (
-                                            <button
-                                              type="button"
-                                              key={ev.id}
-                                              onClick={() =>
-                                                void openMedia(ev.url).catch(
-                                                  () =>
-                                                    toast.error(
-                                                      i18n.t(
-                                                        "sheet.member-sheet.stories.attachments.error-open",
-                                                      ),
-                                                    ),
-                                                )
-                                              }
-                                              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                                            >
-                                              <File className="w-2.5 h-2.5" />
-                                              {ev.filename ?? ev.url}
-                                            </button>
-                                          ),
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
+                                  )}
+                                  {doc.description && (
+                                    <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                                      {doc.description}
+                                    </p>
+                                  )}
+                                  <DocumentFileList files={doc.files} />
                                 </div>
                               </div>
-                            );
-                          })}
+                            </div>
+                          ))}
                       </div>
                     )}
                   </CollapsibleSection>

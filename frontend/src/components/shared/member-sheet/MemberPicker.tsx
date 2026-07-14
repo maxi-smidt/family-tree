@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Member } from "@/types/member";
-import { formatDate } from "@/utils/dateUtils";
+import { getMemberSearchText, formatMemberSubLabel } from "@/utils/memberUtils";
 
 type Props = {
   members: Member[];
@@ -24,8 +25,6 @@ type Props = {
   onChange: (id: string | null) => void;
   placeholder: string;
   noResultsText: string;
-  /** Show each member's birth date next to their name for easier identification. */
-  showBirthDate?: boolean;
   /** "sm" matches the compact member sheet; "default" matches Input/SelectTrigger (h-9). */
   size?: "sm" | "default";
 };
@@ -36,9 +35,9 @@ export const MemberPicker = ({
   onChange,
   placeholder,
   noResultsText,
-  showBirthDate = false,
   size = "sm",
 }: Props) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [portalContainer, setPortalContainer] = useState<HTMLElement>();
   const triggerContainerRef = useRef<HTMLDivElement>(null);
@@ -109,13 +108,16 @@ export const MemberPicker = ({
               </CommandEmpty>
               <CommandGroup>
                 {members.map((m) => {
-                  const birthDate = showBirthDate
-                    ? formatDate(m.date.birth)
-                    : "";
+                  const sublabel = formatMemberSubLabel(
+                    m.maidenName,
+                    m.date.birth,
+                    (name) => t("common.nee", { name }),
+                  );
                   return (
                     <CommandItem
                       key={m.id}
-                      value={`${m.firstName} ${m.lastName} ${m.date.birth} ${m.id}`}
+                      value={m.id}
+                      keywords={[getMemberSearchText(m)]}
                       onSelect={() => {
                         onChange(m.id === value ? null : m.id);
                         setOpen(false);
@@ -128,14 +130,16 @@ export const MemberPicker = ({
                           value === m.id ? "opacity-100" : "opacity-0",
                         )}
                       />
-                      <span className="truncate">
-                        {m.firstName} {m.lastName}
-                      </span>
-                      {birthDate && (
-                        <span className="ml-auto pl-2 shrink-0 text-muted-foreground tabular-nums">
-                          {birthDate}
+                      <div className="flex flex-col min-w-0">
+                        <span className="truncate">
+                          {m.firstName} {m.lastName}
                         </span>
-                      )}
+                        {sublabel && (
+                          <span className="truncate text-muted-foreground">
+                            {sublabel}
+                          </span>
+                        )}
+                      </div>
                     </CommandItem>
                   );
                 })}

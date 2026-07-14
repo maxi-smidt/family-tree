@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
 from app.db.session import get_db
+from app.models import User
 from app.schemas.setting import SettingsOut, SettingsUpdate
 from app.services import settings_service
 
@@ -19,5 +20,9 @@ def read_settings(db: Session = Depends(get_db)):
 
 
 @router.patch("", response_model=SettingsOut)
-def update_settings(payload: SettingsUpdate, db: Session = Depends(get_db)):
-    return settings_service.update_settings(db, payload)
+def update_settings(
+    payload: SettingsUpdate,
+    user: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    return settings_service.update_settings(db, payload, actor=user)

@@ -8,7 +8,7 @@
   `AUTHENTIK_*` environment variables are set. New users can be auto-provisioned;
   `AUTHENTIK_ADMIN_GROUP` membership is **synced on every Authentik login** —
   admin is granted when the user is in the group and **revoked** when they are
-  not. Local accounts (``auth_provider="local"``) are not affected by OIDC
+  not. Local accounts (`auth_provider="local"`) are not affected by OIDC
   logins, even if they share an email address with an Authentik user.
 - **Admin-managed users**: self-registration is off by default. The first
   account (seeded from `FIRST_ADMIN_*`) is an admin; admins create further users
@@ -28,10 +28,11 @@
   `409 Username already taken` — this is an acceptable trade-off because
   self-registration is disabled by default, and when it is enabled the actionable
   error message is required for usability.
-- **Initial admin password**: `FIRST_ADMIN_PASSWORD` is **required** by the
-  production `docker-compose.yml`. If the seed ever runs with the placeholder
-  value `admin`, a warning is logged — set a strong password and change it after
-  first login.
+- **Initial admin password**: local-auth production deployments require
+  `FIRST_ADMIN_PASSWORD`. Production startup rejects missing or known placeholder
+  values and passwords shorter than 12 UTF-8 bytes. It also rejects a placeholder
+  or shorter-than-32-character `SECRET_KEY`. Authentik-only deployments do not
+  require a local initial-admin password.
 
 ### Token storage (known trade-off)
 
@@ -117,6 +118,46 @@ TLS termination at your reverse proxy, disk encryption, database credentials).
 
 Uploaded media (member photos, gallery images) is stored on the filesystem under
 `DATA_PATH/media` with random UUID filenames and served from `/api/media/...`.
+
+## Administrator audit trail
+
+Instance-wide, security-relevant actions are recorded in an append-only audit
+trail (`admin_audit_log`), surfaced read-only to admins under **Admin → Audit**.
+It is deliberately independent of the per-tree activity log so that account-,
+backup- and instance-level events survive even after the tree or subject they
+reference is deleted.
+
+**What is recorded.** Authentication (logins, including the 2FA step), account
+lifecycle (create / update / delete, self-service deletion and restore),
+credential changes (password changes and admin resets, 2FA enable / disable and
+admin reset), privilege changes (admin grant / revoke, activation, quota
+changes), public-access changes (a tree's public role and public password being
+set or cleared), backup creation **and failures**, feature-flag changes, and
+instance-settings / legal-document updates. Each entry stores the actor, action,
+subject, an ISO-8601 UTC timestamp, and a small JSON `details` object.
+
+**Never recorded.** Passwords, password hashes, tokens, TOTP secrets and recovery
+codes are never written to `details` — only the fact that a credential changed.
+This is enforced by convention in `record_admin_audit` and covered by tests.
+
+**Access.** Reading requires an admin session (`require_admin`); non-admins get
+`403`. There is **no create, update or delete API** for the trail — the router
+exposes only the read routes plus a CSV export — so neither an administrator nor
+a compromised request can rewrite or prune history through the application. The
+list endpoint returns a total count and supports offset paging plus actor,
+action, subject-type and time-range filters, so older entries stay discoverable
+instead of scrolling off a fixed newest-N window.
+
+**Retention & tamper-protection expectations.** Entries are retained
+indefinitely at the application layer; the app never prunes them. Their
+durability is therefore the operator's responsibility and inherits the
+guarantees of your PostgreSQL deployment and backup policy (see _Data at rest_).
+The application provides append-only semantics, **not** cryptographic
+tamper-evidence: anyone with direct database or disk access can still alter rows
+out-of-band. If you need stronger guarantees, periodically **export the trail to
+CSV** (**Admin → Audit → Export CSV**, which honours the active filters) and
+archive it to write-once / off-instance storage, and restrict direct database
+access accordingly.
 
 ## Export encryption
 

@@ -70,7 +70,7 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
-import { useAnnouncementStore } from "@/hooks/useAnnouncementStore";
+import { useWhatsNewStore } from "@/hooks/useWhatsNewStore";
 import { useLegalStore } from "@/hooks/useLegalStore";
 import { LEGAL_DEFAULT_LOCALE } from "@/lib/legalLocale";
 import {
@@ -86,7 +86,9 @@ import {
   filterViewsByRestrictions,
 } from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
+import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
 
@@ -118,6 +120,7 @@ export const MainPanel = () => {
   const { t: tRoot } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
+    if (readMemberSheetDeepLink()) return TREE_VIEW;
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
     return stored && isViewId(stored) ? stored : "tree-view";
   });
@@ -143,6 +146,14 @@ export const MainPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingView]);
 
+  const selectedTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const hasOpenMemberSheet = useMemberSheetStore((s) =>
+    selectedTreeId ? Boolean(s.openSheets[selectedTreeId]) : false,
+  );
+  useEffect(() => {
+    if (hasOpenMemberSheet && activeTab !== TREE_VIEW) applyTab(TREE_VIEW);
+  }, [activeTab, hasOpenMemberSheet]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const user = useAuthStore((s) => s.user);
   const features = useAuthStore((s) => s.features);
   const { order, hidden, loaded, load } = useTabPreferences();
@@ -152,7 +163,9 @@ export const MainPanel = () => {
   const tutorialRunning = useTutorialStore((s) => s.isRunning);
   const startTutorial = useTutorialStore((s) => s.start);
   const tutorialEnabled = features.includes("onboarding_tour");
-  const loadAnnouncement = useAnnouncementStore((s) => s.load);
+  const legalGateOpen =
+    !!user?.legal_acceptance_required && !user?.legal_accepted;
+  const loadWhatsNew = useWhatsNewStore((s) => s.load);
   const loadLegalDocuments = useLegalStore((s) => s.load);
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
@@ -166,15 +179,15 @@ export const MainPanel = () => {
     if (user) void loadTutorial();
   }, [user, loadTutorial]);
 
-  // Only fetch the release announcement once onboarding is complete, so
+  // Only fetch the What's New state once onboarding is complete, so
   // brand-new users mid-tutorial never trigger or flash the popup.
   useEffect(() => {
     if (user && tutorialLoaded && tutorialCompleted) {
-      void loadAnnouncement();
+      void loadWhatsNew();
     }
-  }, [user, tutorialLoaded, tutorialCompleted, loadAnnouncement]);
+  }, [user, tutorialLoaded, tutorialCompleted, loadWhatsNew]);
 
-  // Unlike the announcement, the legal gate must take priority over
+  // Unlike What's New, the legal gate must take priority over
   // onboarding — it's a compliance requirement, not a UX nicety — so it loads
   // as soon as a user is present, regardless of tutorial state.
   useEffect(() => {
@@ -183,12 +196,16 @@ export const MainPanel = () => {
     }
   }, [user, loadLegalDocuments]);
 
+  // Hold the tutorial until the blocking legal gate is accepted; otherwise the
+  // tour highlights elements hidden behind the legal dialog (#615). Accepting
+  // terms flips user.legal_accepted (via refreshMe), which re-runs this effect.
   useEffect(() => {
     if (
       tutorialLoaded &&
       !tutorialCompleted &&
       tutorialEnabled &&
-      !tutorialRunning
+      !tutorialRunning &&
+      !legalGateOpen
     ) {
       startTutorial();
     }
@@ -197,6 +214,7 @@ export const MainPanel = () => {
     tutorialCompleted,
     tutorialEnabled,
     tutorialRunning,
+    legalGateOpen,
     startTutorial,
   ]);
 

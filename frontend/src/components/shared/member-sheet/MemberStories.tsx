@@ -2,24 +2,24 @@ import { Member } from "@/types/member";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
-import { BookOpen, Plus, Pencil, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { StoryDialog } from "./StoryDialog";
-import { StoryAttachments } from "./StoryAttachments";
+import { LinkedDocumentList } from "./LinkedDocumentList";
+import { CollapsibleStory } from "./CollapsibleStory";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { formatDateWithFallback } from "@/utils/dateUtils";
 
 type Props = {
   member: Member;
 };
 
 export const MemberStories = ({ member }: Props) => {
-  const { t } = useTranslation(undefined, {
+  const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.stories",
   });
   const { getStoriesByMember, removeStory } = useStoryStore();
-  const [expandedStoryId, setExpandedStoryId] = useState<string | null>(null);
 
   const {
     items: stories,
@@ -38,11 +38,6 @@ export const MemberStories = ({ member }: Props) => {
     memberId: member.id,
   });
 
-  const truncateText = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
   return (
     <Item variant="muted">
       <ItemContent>
@@ -60,64 +55,40 @@ export const MemberStories = ({ member }: Props) => {
           </p>
         ) : (
           <div className="space-y-3 mt-2">
-            {stories.map((story) => {
-              const isExpanded = expandedStoryId === story.id;
-              const shouldTruncate = story.content.length > 200;
-
-              return (
-                <div
-                  key={story.id}
-                  className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-1">
-                      <BookOpen className="w-4 h-4 text-muted-foreground" />
-                      <h4 className="font-medium">{story.title}</h4>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        type="button"
-                        onClick={() => handleEdit(story)}
-                      >
-                        <Pencil />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        type="button"
-                        onClick={() => openDeleteDialog(story)}
-                      >
-                        <Trash2 />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="text-sm whitespace-pre-wrap">
-                    {isExpanded || !shouldTruncate
-                      ? story.content
-                      : truncateText(story.content, 200)}
-                  </div>
-
-                  {shouldTruncate && (
+            {stories.map((story) => (
+              <CollapsibleStory
+                key={story.id}
+                title={story.title}
+                date={
+                  story.date
+                    ? formatDateWithFallback(story.date, i18n.t)
+                    : undefined
+                }
+                content={story.content}
+                actions={
+                  <>
                     <Button
-                      variant="link"
                       size="sm"
+                      variant="ghost"
                       type="button"
-                      className="mt-1 p-0 h-auto"
-                      onClick={() =>
-                        setExpandedStoryId(isExpanded ? null : story.id)
-                      }
+                      onClick={() => handleEdit(story)}
                     >
-                      {isExpanded ? t("show-less") : t("read-more")}
+                      <Pencil />
                     </Button>
-                  )}
-
-                  <StoryAttachments attachments={story.attachments} />
-                </div>
-              );
-            })}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      onClick={() => openDeleteDialog(story)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </>
+                }
+              >
+                <LinkedDocumentList documentIds={story.documentIds} />
+              </CollapsibleStory>
+            ))}
           </div>
         )}
       </ItemContent>

@@ -1,4 +1,4 @@
-"""Per-tree storage usage calculation and quota enforcement.
+"""Per-owner storage usage calculation and quota enforcement.
 
 Usage is computed on read (no cached counters) so it stays consistent after
 all delete/cascade paths. Quotas are stored on the User as nullable BigInteger
@@ -19,18 +19,20 @@ from app.core.media_config import (
     MEBIBYTE,
 )
 from app.models.content import (
-    Citation,
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
-    Source,
-    SourceEvidence,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
+from app.models.tree import Tree
 from app.services.settings_service import get_int_setting
 
 # ---------------------------------------------------------------------------
@@ -56,19 +58,23 @@ def _row_bytes(obj: object) -> int:
     return total
 
 
-def _tree_model_bytes(db: Session, tree_id: str) -> int:
-    """Sum the estimated byte footprint of all structured rows for *tree_id*.
+def _tree_model_bytes_for_tree_ids(db: Session, tree_ids: list[str]) -> int:
+    """Sum structured-row bytes for the supplied tree IDs in batched queries.
 
     Covers every model that carries ``tree_id``:
     Member, Relation, MemberDisease, GalleryImage, GalleryMemberLink,
-    Event, EventMemberLink, Story, StoryAttachment, StoryMemberLink,
-    Source, SourceEvidence, Citation.
+    Event, EventMemberLink, Story, StoryMemberLink,
+    Document, DocumentFile, DocumentMemberLink, EventDocumentLink,
+    StoryDocumentLink.
     """
+    if not tree_ids:
+        return 0
+
     total = 0
 
     def _sum_model(model_cls, filter_col):
         rows = db.scalars(
-            sa.select(model_cls).where(filter_col == tree_id)
+            sa.select(model_cls).where(filter_col.in_(tree_ids))
         ).all()
         return sum(_row_bytes(r) for r in rows)
 
@@ -83,7 +89,7 @@ def _tree_model_bytes(db: Session, tree_id: str) -> int:
     links = db.execute(
         sa.select(GalleryMemberLink).join(
             GalleryImage, GalleryImage.id == GalleryMemberLink.gallery_image_id
-        ).where(GalleryImage.tree_id == tree_id)
+        ).where(GalleryImage.tree_id.in_(tree_ids))
     ).scalars().all()
     total += sum(_row_bytes(r) for r in links)
 
@@ -92,26 +98,49 @@ def _tree_model_bytes(db: Session, tree_id: str) -> int:
     ev_links = db.execute(
         sa.select(EventMemberLink).join(
             Event, Event.id == EventMemberLink.event_id
-        ).where(Event.tree_id == tree_id)
+        ).where(Event.tree_id.in_(tree_ids))
     ).scalars().all()
     total += sum(_row_bytes(r) for r in ev_links)
 
     # Stories
     total += _sum_model(Story, Story.tree_id)
-    total += _sum_model(StoryAttachment, StoryAttachment.tree_id)
     story_links = db.execute(
         sa.select(StoryMemberLink).join(
             Story, Story.id == StoryMemberLink.story_id
-        ).where(Story.tree_id == tree_id)
+        ).where(Story.tree_id.in_(tree_ids))
     ).scalars().all()
     total += sum(_row_bytes(r) for r in story_links)
 
-    # Sources
-    total += _sum_model(Source, Source.tree_id)
-    total += _sum_model(SourceEvidence, SourceEvidence.tree_id)
-    total += _sum_model(Citation, Citation.tree_id)
+    # Documents
+    total += _sum_model(Document, Document.tree_id)
+    total += _sum_model(DocumentFile, DocumentFile.tree_id)
+    # The three document link tables have no tree_id column — traverse via
+    # Document, which always carries one.
+    doc_member_links = db.execute(
+        sa.select(DocumentMemberLink).join(
+            Document, Document.id == DocumentMemberLink.document_id
+        ).where(Document.tree_id.in_(tree_ids))
+    ).scalars().all()
+    total += sum(_row_bytes(r) for r in doc_member_links)
+    event_doc_links = db.execute(
+        sa.select(EventDocumentLink).join(
+            Document, Document.id == EventDocumentLink.document_id
+        ).where(Document.tree_id.in_(tree_ids))
+    ).scalars().all()
+    total += sum(_row_bytes(r) for r in event_doc_links)
+    story_doc_links = db.execute(
+        sa.select(StoryDocumentLink).join(
+            Document, Document.id == StoryDocumentLink.document_id
+        ).where(Document.tree_id.in_(tree_ids))
+    ).scalars().all()
+    total += sum(_row_bytes(r) for r in story_doc_links)
 
     return total
+
+
+def _tree_model_bytes(db: Session, tree_id: str) -> int:
+    """Sum the estimated byte footprint of all structured rows for *tree_id*."""
+    return _tree_model_bytes_for_tree_ids(db, [tree_id])
 
 
 def _media_bytes(tree_id: str) -> int:
@@ -141,6 +170,21 @@ def compute_usage(db: Session, tree_id: str) -> dict[str, int]:
     """Return ``{tree_bytes, media_bytes, total_bytes}`` for *tree_id*."""
     tb = _tree_model_bytes(db, tree_id)
     mb = _media_bytes(tree_id)
+    return {"tree_bytes": tb, "media_bytes": mb, "total_bytes": tb + mb}
+
+
+def compute_owner_usage(db: Session, owner_id: str) -> dict[str, int]:
+    """Return combined usage for every tree owned by *owner_id*.
+
+    Structured rows are summed using one query per model across all owned tree
+    IDs. Media files remain filesystem-backed, so their directories are walked
+    once each.
+    """
+    tree_ids = list(
+        db.scalars(sa.select(Tree.id).where(Tree.owner_id == owner_id))
+    )
+    tb = _tree_model_bytes_for_tree_ids(db, tree_ids)
+    mb = sum(_media_bytes(tree_id) for tree_id in tree_ids)
     return {"tree_bytes": tb, "media_bytes": mb, "total_bytes": tb + mb}
 
 
@@ -227,24 +271,24 @@ def _check_bucket(
 
 
 def check_media_quota(db: Session, tree, incoming_bytes: int) -> None:
-    """Raise QuotaExceeded if adding *incoming_bytes* of media would exceed quota."""
+    """Raise QuotaExceeded if media would exceed the owner's total quota."""
     quotas = owner_quotas(db, tree)
     if quotas["media_quota_bytes"] is None:
         return  # unlimited — fast path
 
-    usage = compute_usage(db, tree.id)
+    usage = compute_owner_usage(db, tree.owner_id)
     _check_bucket(
         "media", quotas["media_quota_bytes"], usage["media_bytes"], incoming_bytes
     )
 
 
 def check_tree_quota(db: Session, tree, incoming_bytes: int) -> None:
-    """Raise QuotaExceeded if adding *incoming_bytes* of tree data would exceed quota."""
+    """Raise QuotaExceeded if data would exceed the owner's total quota."""
     quotas = owner_quotas(db, tree)
     if quotas["tree_quota_bytes"] is None:
         return  # unlimited — fast path
 
-    usage = compute_usage(db, tree.id)
+    usage = compute_owner_usage(db, tree.owner_id)
     _check_bucket(
         "tree", quotas["tree_quota_bytes"], usage["tree_bytes"], incoming_bytes
     )
@@ -254,7 +298,7 @@ _WARNING_THRESHOLD = 0.9
 
 
 def media_warning(db: Session, tree) -> dict | None:
-    """Return a warning payload when media usage >= 90 % of quota, else None.
+    """Return a warning when owner media usage reaches 90 % of quota.
 
     Returns None when the quota is unlimited or usage is below the threshold.
     """
@@ -262,7 +306,7 @@ def media_warning(db: Session, tree) -> dict | None:
     quota = quotas["media_quota_bytes"]
     if quota is None:
         return None  # unlimited
-    usage = compute_usage(db, tree.id)
+    usage = compute_owner_usage(db, tree.owner_id)
     used = usage["media_bytes"]
     if used >= quota * _WARNING_THRESHOLD:
         return {"tree_id": tree.id, "used_bytes": used, "quota_bytes": quota}
@@ -270,7 +314,7 @@ def media_warning(db: Session, tree) -> dict | None:
 
 
 def check_full_usage_quota(db: Session, tree) -> None:
-    """Raise QuotaExceeded if the tree's *current* usage already exceeds quota.
+    """Raise QuotaExceeded if the owner's current usage exceeds a quota.
 
     Unlike check_tree_quota/check_media_quota (which project an additional
     increment before a row is added), this verifies the fully-materialised
@@ -282,7 +326,6 @@ def check_full_usage_quota(db: Session, tree) -> None:
     if all(v is None for v in quotas.values()):
         return  # everything unlimited — fast path
 
-    usage = compute_usage(db, tree.id)
+    usage = compute_owner_usage(db, tree.owner_id)
     _check_bucket("tree", quotas["tree_quota_bytes"], usage["tree_bytes"], 0)
     _check_bucket("media", quotas["media_quota_bytes"], usage["media_bytes"], 0)
-

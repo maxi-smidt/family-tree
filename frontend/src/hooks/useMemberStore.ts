@@ -16,32 +16,41 @@ import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
 import i18n from "@/i18n/i18n";
 import { toast } from "sonner";
+import {
+  applyCollapsedState,
+  applyPositionState,
+  captureCollapsedState,
+  capturePositions,
+} from "@/hooks/memberStoreLayout";
 
 const WINDOWED_MODE_THRESHOLD = 2_000;
 
-type CollapseUpdate = { id: string; isCollapsed: boolean };
-type PositionUpdate = { id: string; x: number; y: number };
 
-async function syncVitalEvent(
+// New-member creation still has its own relationship setup flow. Existing
+// member edits use the atomic member PATCH endpoint instead.
+async function syncVitalEventAfterCreate(
   memberId: string,
   eventType: "birth" | "death",
-  newDate: string | null | undefined,
-  _oldDate: string | null | undefined,
+  date: string,
 ) {
-  const { events, addEvent, updateEvent, removeEvent } =
-    useEventStore.getState();
+  const { events, addEvent, updateEvent } = useEventStore.getState();
   const existing = events.find(
-    (e) => e.eventType === eventType && e.linkedMemberIds.includes(memberId),
+    (event) =>
+      event.eventType === eventType && event.linkedMemberIds.includes(memberId),
   );
-
-  if (newDate) {
-    if (existing && existing.date !== newDate) {
-      await updateEvent(existing.id, { eventType, date: newDate }, [memberId]);
-    } else if (!existing) {
-      await addEvent([memberId], { eventType, date: newDate });
-    }
-  } else if (!newDate && existing) {
-    await removeEvent(existing.id);
+  if (!existing) {
+    await addEvent([memberId], { eventType, date });
+  } else if (existing.date !== date) {
+    await updateEvent(
+      existing.id,
+      {
+        eventType,
+        date,
+        location: existing.location,
+        description: existing.description,
+      },
+      [memberId],
+    );
   }
 }
 
@@ -171,37 +180,6 @@ async function buildAppMembersOffThread(
   return filterPendingDeletions(mapped, treeId);
 }
 
-function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
-  const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
-  return members.map((m) => {
-    const collapsed = byId.get(m.id);
-    return collapsed !== undefined ? { ...m, isCollapsed: collapsed } : m;
-  });
-}
-
-function applyPositionState(members: Member[], positions: PositionUpdate[]) {
-  const byId = new Map(positions.map((p) => [p.id, p]));
-  return members.map((m) => {
-    const position = byId.get(m.id);
-    return position ? { ...m, position: { x: position.x, y: position.y } } : m;
-  });
-}
-
-function captureCollapsedState(members: Member[], updates: CollapseUpdate[]) {
-  return updates.flatMap((u) => {
-    const existing = members.find((m) => m.id === u.id);
-    return existing ? [{ id: u.id, isCollapsed: existing.isCollapsed }] : [];
-  });
-}
-
-function capturePositions(members: Member[], positions: PositionUpdate[]) {
-  return positions.flatMap((p) => {
-    const existing = members.find((m) => m.id === p.id);
-    return existing
-      ? [{ id: p.id, x: existing.position.x, y: existing.position.y }]
-      : [];
-  });
-}
 
 async function refreshAfterOptimisticFailure(
   refreshMembers: (treeId?: string) => Promise<void>,
@@ -248,7 +226,10 @@ interface MemberState {
   updateMemberPartial: (
     id: string,
     changes: MemberUpdate,
-  ) => Promise<{ bridgeSync?: "synced" | "skipped_no_access" | null } | undefined>;
+    treeId?: string,
+  ) => Promise<
+    { bridgeSync?: "synced" | "skipped_no_access" | null } | undefined
+  >;
   batchSetCollapsed: (
     updates: { id: string; isCollapsed: boolean }[],
   ) => Promise<void>;
@@ -609,10 +590,18 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     invalidateDerivedViews();
 
     if (newMember.date.birth) {
-      await syncVitalEvent(newMember.id, "birth", newMember.date.birth, null);
+      await syncVitalEventAfterCreate(
+        newMember.id,
+        "birth",
+        newMember.date.birth,
+      );
     }
     if (newMember.date.death) {
-      await syncVitalEvent(newMember.id, "death", newMember.date.death, null);
+      await syncVitalEventAfterCreate(
+        newMember.id,
+        "death",
+        newMember.date.death,
+      );
     }
 
     const captured = newMember;
@@ -697,129 +686,72 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     });
   },
 
-  updateMemberPartial: async (id: string, changes: MemberUpdate) => {
-    const treeId = activeTreeId();
+  updateMemberPartial: async (
+    id: string,
+    changes: MemberUpdate,
+    requestedTreeId?: string,
+  ) => {
+    const treeId = requestedTreeId ?? activeTreeId();
     if (!treeId) return;
 
     const currentMember = get().members.find((m) => m.id === id);
-
-    const { paternalParentId, maternalParentId, ...otherChanges } = changes;
-
-    const updated = await TreeService.updateMember(treeId, id, otherChanges);
+    const updated = await TreeService.updateMember(treeId, id, changes);
     // Transient outcome of the bridge-person mirror — surfaced to callers so
     // the member form can tell the editor when the counterpart didn't follow.
     const result = { bridgeSync: updated?.bridgeSync ?? null };
 
-    // Re-point one parent slot: drop the previous "parent" relation (if it
-    // changed) and add the new one. A no-op when old and new are the same.
-    const syncParentSlot = async (
-      oldParent: string | null | undefined,
-      newParent: string | null,
-    ) => {
-      if (oldParent && oldParent !== newParent) {
-        await TreeService.removeRelation(
-          treeId,
-          id,
-          oldParent,
-          "parent" as RelationType,
-        );
-      }
-      if (newParent && newParent !== oldParent) {
-        await TreeService.addRelation(
-          treeId,
-          id,
-          newParent,
-          "parent" as RelationType,
-        );
-      }
-    };
-
-    if (paternalParentId !== undefined) {
-      await syncParentSlot(
-        currentMember?.parents.paternalParent,
-        paternalParentId,
-      );
-    }
-    if (maternalParentId !== undefined) {
-      await syncParentSlot(
-        currentMember?.parents.maternalParent,
-        maternalParentId,
-      );
-    }
-
     await get().refreshMembers(treeId);
-    invalidateDerivedViews();
-    if ("imageData" in otherChanges)
+    if (isActiveTree(treeId)) invalidateDerivedViews();
+    if ("imageData" in changes && isActiveTree(treeId))
       useStorageStore.getState().refreshStorageUsage();
-
-    if ("dateOfBirth" in changes) {
-      await syncVitalEvent(
-        id,
-        "birth",
-        changes.dateOfBirth,
-        currentMember?.date.birth,
-      );
-    }
-    if ("dateOfDeath" in changes) {
-      await syncVitalEvent(
-        id,
-        "death",
-        changes.dateOfDeath ?? null,
-        currentMember?.date.death ?? null,
-      );
-    }
 
     if (!currentMember) return result;
 
-    const oldPaternal = currentMember.parents.paternalParent;
-    const oldMaternal = currentMember.parents.maternalParent;
+    const previous: MemberUpdate = {
+      gender: currentMember.gender,
+      academicTitle: currentMember.academicTitle,
+      firstName: currentMember.firstName,
+      middleNames: currentMember.middleNames,
+      baptismalName: currentMember.baptismalName,
+      lastName: currentMember.lastName,
+      maidenName: currentMember.maidenName,
+      imageData: currentMember.imageData ?? undefined,
+      dateOfBirth: currentMember.date.birth,
+      dateOfDeath: currentMember.date.death,
+      deceased: currentMember.deceased,
+      adopted: currentMember.adopted,
+      paternalParentId: currentMember.parents.paternalParent,
+      maternalParentId: currentMember.parents.maternalParent,
+      additionalData: currentMember.additionalData,
+      birthplace: currentMember.birthplace,
+      hometown: currentMember.hometown,
+      cemetery: currentMember.cemetery,
+      placesLived:
+        currentMember.placesLived.length > 0
+          ? JSON.stringify(currentMember.placesLived)
+          : null,
+      isCollapsed: currentMember.isCollapsed,
+      positionX: currentMember.position.x,
+      positionY: currentMember.position.y,
+      linkedTreeId: currentMember.linkedTreeId ?? null,
+    };
+    const reverseChanges: MemberUpdate = {};
+    for (const key of Object.keys(changes) as (keyof MemberUpdate)[]) {
+      reverseChanges[key] = previous[key] as never;
+    }
 
-    const reverseChanges: Omit<
-      MemberUpdate,
-      "paternalParentId" | "maternalParentId"
-    > = {};
-    if ("gender" in otherChanges) reverseChanges.gender = currentMember.gender;
-    if ("firstName" in otherChanges)
-      reverseChanges.firstName = currentMember.firstName;
-    if ("lastName" in otherChanges)
-      reverseChanges.lastName = currentMember.lastName;
-    if ("maidenName" in otherChanges)
-      reverseChanges.maidenName = currentMember.maidenName;
-    if ("imageData" in otherChanges)
-      reverseChanges.imageData = currentMember.imageData ?? undefined;
-    if ("dateOfBirth" in otherChanges)
-      reverseChanges.dateOfBirth = currentMember.date.birth;
-    if ("dateOfDeath" in otherChanges)
-      reverseChanges.dateOfDeath = currentMember.date.death;
-    if ("additionalData" in otherChanges)
-      reverseChanges.additionalData = currentMember.additionalData;
-    if ("isCollapsed" in otherChanges)
-      reverseChanges.isCollapsed = currentMember.isCollapsed;
-    if ("positionX" in otherChanges)
-      reverseChanges.positionX = currentMember.position.x;
-    if ("positionY" in otherChanges)
-      reverseChanges.positionY = currentMember.position.y;
+    const restore = async (update: MemberUpdate) => {
+      await TreeService.updateMember(treeId, id, update);
+      await get().refreshMembers(treeId);
+      if (isActiveTree(treeId)) invalidateDerivedViews();
+    };
 
     get()._pushHistory({
       undo: async () => {
-        await TreeService.updateMember(treeId, id, reverseChanges);
-        if (paternalParentId !== undefined) {
-          await syncParentSlot(paternalParentId, oldPaternal);
-        }
-        if (maternalParentId !== undefined) {
-          await syncParentSlot(maternalParentId, oldMaternal);
-        }
-        await get().refreshMembers(treeId);
+        await restore(reverseChanges);
       },
       redo: async () => {
-        await TreeService.updateMember(treeId, id, otherChanges);
-        if (paternalParentId !== undefined) {
-          await syncParentSlot(oldPaternal, paternalParentId);
-        }
-        if (maternalParentId !== undefined) {
-          await syncParentSlot(oldMaternal, maternalParentId);
-        }
-        await get().refreshMembers(treeId);
+        await restore(changes);
       },
     });
     return result;

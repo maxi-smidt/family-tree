@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemberStore } from "./useMemberStore";
 import { useTreeStore } from "./useTreeStore";
+import { useEventStore } from "./useEventStore";
 import { TreeService } from "@/services/TreeService";
 import { MemberDB } from "@/types/member";
 import { Tree } from "@/types/tree";
@@ -65,6 +66,7 @@ beforeEach(() => {
     undoStack: [],
     redoStack: [],
   });
+  useEventStore.setState({ events: [], initialized: false });
   useTreeStore.setState({ selectedTree: undefined });
   // syncVitalEvent calls the event store which uses these service methods
   vi.mocked(TreeService.getEvents).mockResolvedValue([]);
@@ -306,6 +308,28 @@ describe("useMemberStore — updateMemberPartial", () => {
       .updateMemberPartial("m1", { lastName: "Smith" });
 
     expect(useMemberStore.getState().undoStack).toHaveLength(1);
+  });
+
+  it("sends a birth-date change through the atomic member update", async () => {
+    selectTree();
+    mockServiceWithMember();
+    await useMemberStore.getState().refreshMembers();
+
+    vi.mocked(TreeService.updateMember).mockResolvedValue(undefined);
+    mockServiceWithMember();
+
+    await useMemberStore
+      .getState()
+      .updateMemberPartial("m1", { dateOfBirth: "1981-02-02" });
+
+    expect(TreeService.updateMember).toHaveBeenCalledWith(
+      TREE_ID,
+      "m1",
+      expect.objectContaining({
+        dateOfBirth: "1981-02-02",
+      }),
+    );
+    expect(TreeService.updateEvent).not.toHaveBeenCalled();
   });
 });
 

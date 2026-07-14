@@ -15,7 +15,7 @@ from sqlalchemy.exc import OperationalError
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.router import api_router
-from app.core.config import settings
+from app.core.config import settings, validate_production_credentials
 from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
@@ -23,7 +23,11 @@ from app.db.session import engine
 from app.services.authentik import init_oauth
 from app.services.backup_scheduler import backup_schedule_loop
 from app.services.deletion_sweeper import deletion_sweep_loop
-from app.services.storage import InvalidImageURL
+from app.services.storage import (
+    InvalidImageURL,
+    cleanup_document_upload_temps,
+    cleanup_image_upload_temps,
+)
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -50,6 +54,8 @@ async def lifespan(app: FastAPI):
     from app.core import runtime
     from app.services.event_bus import event_bus
 
+    validate_production_credentials()
+
     loop = asyncio.get_running_loop()
     event_bus.set_loop(loop)
     runtime.set_loop(loop)
@@ -66,6 +72,8 @@ async def lifespan(app: FastAPI):
         )
 
     init_oauth()
+    cleanup_document_upload_temps()
+    cleanup_image_upload_temps()
     _init_db_with_retry()
     sweeper = asyncio.create_task(deletion_sweep_loop())
     backup_scheduler = asyncio.create_task(backup_schedule_loop())

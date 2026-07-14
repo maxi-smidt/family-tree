@@ -5,18 +5,21 @@ so that table creation / migrations see the full schema.
 """
 
 from app.models.activity import ActivityLog
+from app.models.admin_audit import AdminAuditLog
 from app.models.backup import BackupRecord
 from app.models.content import (
-    Citation,
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
+    DocumentUpload,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
     GeocodeCache,
-    Source,
-    SourceEvidence,
     Story,
-    StoryAttachment,
+    StoryDocumentLink,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation, RelationType
@@ -36,6 +39,7 @@ from app.models.virtual_view import (
 
 __all__ = [
     "ActivityLog",
+    "AdminAuditLog",
     "BackgroundJob",
     "User",
     "Tree",
@@ -55,11 +59,13 @@ __all__ = [
     "Event",
     "EventMemberLink",
     "GeocodeCache",
-    "Source",
-    "SourceEvidence",
-    "Citation",
+    "Document",
+    "DocumentFile",
+    "DocumentMemberLink",
+    "DocumentUpload",
+    "EventDocumentLink",
     "Story",
-    "StoryAttachment",
+    "StoryDocumentLink",
     "StoryMemberLink",
     "AppSetting",
     "FeatureFlagOverride",

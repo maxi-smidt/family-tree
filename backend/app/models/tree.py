@@ -1,4 +1,4 @@
-from sqlalchemy import JSON, ForeignKey, String
+from sqlalchemy import JSON, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, new_uuid, utcnow_iso
@@ -16,6 +16,12 @@ class Tree(Base):
     last_opened: Mapped[str | None] = mapped_column(String(40), nullable=True)
     # null = private; "viewer" = anyone with the link can read.
     public_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # bcrypt hash of the optional password gating anonymous public read access;
+    # null = no password (open public link). Only meaningful when public_role is set.
+    public_password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Incremented whenever public access or its password changes so previously
+    # issued unlock tokens are revoked immediately.
+    public_access_version: Mapped[int] = mapped_column(Integer, default=0)
     # Set on ownership transfer; cleared on revert or next transfer.
     previous_owner_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True

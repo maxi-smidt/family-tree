@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Member } from "@/types/member";
-import { buildEdges } from "@/workers/treeProcessor.worker";
+import { buildEdges, buildUnions } from "@/workers/treeProcessor.worker";
 import type { WorkerUnionInfo } from "@/workers/treeProcessor.types";
 
 function member(
@@ -125,5 +125,48 @@ describe("treeProcessor worker edge styles", () => {
       strokeDasharray: "0",
       strokeWidth: 3,
     });
+  });
+
+  it("adopts a custom relation type as the colour driver for co-parents", () => {
+    const members = [
+      member("a", 0, [
+        { fromMemberId: "a", toMemberId: "b", relationType: "engaged" },
+      ]),
+      member("b", 300, [
+        { fromMemberId: "b", toMemberId: "a", relationType: "engaged" },
+      ]),
+      member("kid", 150, [], { paternalParent: "a", maternalParent: "b" }),
+    ];
+
+    const unions = buildUnions(members);
+    const union = unions.find((u) => u.childIds.includes("kid"));
+    expect(union?.relationType).toBe("engaged");
+  });
+
+  it("colours union→child connectors with a custom couple relation and does not duplicate the bond as a horizontal edge", () => {
+    const members = [
+      member("a", 0, [
+        { fromMemberId: "a", toMemberId: "b", relationType: "engaged" },
+      ]),
+      member("b", 300, [
+        { fromMemberId: "b", toMemberId: "a", relationType: "engaged" },
+      ]),
+      member("kid", 150, [], { paternalParent: "a", maternalParent: "b" }),
+    ];
+
+    const unions = buildUnions(members);
+    const edges = buildEdges(members, unions, ["parent", "engaged"], "step", {
+      engaged: { color: "#ff00ff", strokeDasharray: "0", strokeWidth: 3 },
+    });
+
+    const childEdge = edges.find((edge) => edge.id.includes(":child:"));
+    expect(childEdge?.baseStyle).toEqual({
+      stroke: "#ff00ff",
+      strokeDasharray: "0",
+      strokeWidth: 3,
+    });
+    // The couple bond is drawn as the union couple line, so there must be no
+    // separate horizontal "relation" edge duplicating it.
+    expect(edges.some((edge) => edge.type === "relation")).toBe(false);
   });
 });

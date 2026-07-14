@@ -18,6 +18,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
+import GenerationLines from "@/components/view/tree-view/GenerationLines";
 import { CanvasSearch } from "@/components/view/tree-view/CanvasSearch";
 import { EmptyTreeState } from "@/components/view/tree-view/EmptyTreeState";
 import { MemberControls } from "@/components/view/tree-view/MemberControls";
@@ -45,12 +46,18 @@ import { fitViewToAllNodes } from "@/utils/flowFit";
 import { useMemberLocator } from "@/hooks/useMemberLocator";
 import { useConnectionMode } from "@/hooks/useConnectionMode";
 import { useSelectionMode } from "@/hooks/useSelectionMode";
+import { SelectionModeController } from "@/components/view/tree-view/SelectionModeController";
 import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useFeature } from "@/hooks/useAuthStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
+import {
+  clearMemberSheetDeepLink,
+  readMemberSheetDeepLink,
+} from "@/utils/memberSheetState";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
@@ -72,6 +79,11 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
   const treeLinksEnabled = useFeature("tree_links");
   const activeTree = useTreeStore((s) => s.selectedTree);
+  const savedMemberSheetState = useMemberSheetStore((s) =>
+    activeTree?.id ? s.openSheets[activeTree.id] : undefined,
+  );
+  const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
+  const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
   const availableTreeCount = useTreeStore(
     (s) => s.trees.length + s.virtualViews.length,
   );
@@ -103,6 +115,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     visibleRelationTypes,
     viewports,
     setViewport,
+    showGenerationLines,
   } = useFamilyTreeSettings();
   const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
   const viewport = (activeTree && viewports[activeTree.id]) ?? DEFAULT_VIEWPORT;
@@ -212,6 +225,61 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const pending = usePendingMember({
     onHorizontalRelationReady: relation.startHorizontalRelation,
   });
+  const memberSheetDeepLink = useMemo(readMemberSheetDeepLink, []);
+  const consumedMemberSheetDeepLinkRef = useRef(false);
+  const attemptedMemberSheetRestoreRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const deepLinkState = consumedMemberSheetDeepLinkRef.current
+      ? undefined
+      : memberSheetDeepLink;
+    const requestedState = deepLinkState ?? savedMemberSheetState;
+    const treeId = activeTree?.id;
+    if (publicView || !requestedState || !treeId || pending.editingMemberId) {
+      return;
+    }
+
+    const savedMember = members.find(
+      (member) => member.id === requestedState.memberId,
+    );
+    if (savedMember) {
+      attemptedMemberSheetRestoreRef.current = null;
+      setOpenSheet(treeId, requestedState);
+      if (deepLinkState) {
+        consumedMemberSheetDeepLinkRef.current = true;
+        clearMemberSheetDeepLink();
+      }
+      pending.setEditingMemberId(savedMember.id);
+      pending.setIsEditMode(requestedState.mode === "edit");
+    } else if (
+      isReady &&
+      windowed &&
+      attemptedMemberSheetRestoreRef.current !== requestedState.memberId
+    ) {
+      attemptedMemberSheetRestoreRef.current = requestedState.memberId;
+      void setFocusRoot(requestedState.memberId);
+    } else if (isReady) {
+      clearOpenSheet(treeId);
+      if (deepLinkState) {
+        consumedMemberSheetDeepLinkRef.current = true;
+        clearMemberSheetDeepLink();
+      }
+    }
+  }, [
+    activeTree?.id,
+    clearOpenSheet,
+    isReady,
+    memberSheetDeepLink,
+    members,
+    pending.editingMemberId,
+    pending.setEditingMemberId,
+    pending.setIsEditMode,
+    publicView,
+    savedMemberSheetState,
+    setOpenSheet,
+    setFocusRoot,
+    windowed,
+  ]);
 
   // --- Unions, edges & visibility — computed off the main thread ---
   const { unions, baseEdges, hiddenNodeIds } = useDerivedFlowView(
@@ -303,6 +371,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 connection.isConnectionMode &&
                 connection.hasConnectionPath &&
                 !isUnionConnectionPath,
+              onAddChildToUnion: pending.onAddChildToUnion,
+              isReadOnly: isCanvasReadOnly,
             },
             draggable: false,
             selectable: false,
@@ -353,6 +423,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       connection.hasConnectionPath,
       connection.isConnectionMode,
       hiddenNodeIds,
+      pending.onAddChildToUnion,
+      isCanvasReadOnly,
     ],
   );
 
@@ -580,6 +652,14 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         selectionOnDrag={inSelectionMode}
         panOnDrag={inSelectionMode ? [1, 2] : undefined}
         selectionMode={inSelectionMode ? SelectionMode.Partial : undefined}
+        // In selection mode every click toggles a member (see
+        // SelectionModeController); disabling the modifier key stops the
+        // built-in handler from turning multi-selection back off.
+        multiSelectionKeyCode={inSelectionMode ? null : undefined}
+        // With multi-selection forced on, selecting on drag-start would toggle
+        // (deselect) the node you grab to move; select on click instead so
+        // dragging a selected member keeps the selection intact.
+        selectNodesOnDrag={inSelectionMode ? false : undefined}
         onInit={setRfInstance}
         defaultViewport={viewport}
         onMoveEnd={(_, vp) => activeTree && setViewport(activeTree.id, vp)}
@@ -589,7 +669,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
           "controls.fitView.ariaLabel": t("tree-view.controls.fit-view"),
         }}
       >
+        <SelectionModeController active={inSelectionMode} />
         <Background />
+        <GenerationLines visible={showGenerationLines} />
         {members.length === 0 && !isCanvasReadOnly && (
           <Panel
             position="top-center"
@@ -647,6 +729,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 {t("tree-view.selection.selected-count", {
                   count: selectedNodes.length,
                 })}
+              </span>
+              <span className="text-muted-foreground">
+                {t("tree-view.selection.hint")}
               </span>
               <Button
                 variant="ghost"
@@ -721,12 +806,20 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   );
 
   function initializeFlow() {
-    const newNodes = members.map((member) => ({
-      id: member.id,
-      type: "familyMember",
-      position: member.position,
-      data: member,
-    }));
-    setNodes(newNodes);
+    // Rebuilt on every `members` change (incl. drag-position persistence), so
+    // carry the current selection over — otherwise moving a selected member
+    // would clear the selection once its new position is saved.
+    setNodes((prevNodes) => {
+      const selectedIds = new Set(
+        prevNodes.filter((n) => n.selected).map((n) => n.id),
+      );
+      return members.map((member) => ({
+        id: member.id,
+        type: "familyMember",
+        position: member.position,
+        data: member,
+        selected: selectedIds.has(member.id),
+      }));
+    });
   }
 };

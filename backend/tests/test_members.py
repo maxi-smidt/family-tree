@@ -1,12 +1,12 @@
-from tests.conftest import API, auth, make_tree, make_user
+from app.models import Event, EventMemberLink, Relation
+from app.services import feature_service
+from tests.conftest import API, add_member, auth, make_tree, make_user
 
 
 def _create_member(client, tree, user, member_id, **kw):
     payload = {"id": member_id, "firstName": "Jo", "lastName": "Doe", "gender": "f"}
     payload.update(kw)
-    return client.post(
-        f"{API}/trees/{tree.id}/members", headers=auth(user), json=payload
-    )
+    return client.post(f"{API}/trees/{tree.id}/members", headers=auth(user), json=payload)
 
 
 def test_member_crud_roundtrip(client, db):
@@ -45,9 +45,7 @@ def test_member_crud_roundtrip(client, db):
     assert len(listed) == 1
     assert listed[0]["middleNames"] == "Augusta Byron"
 
-    deleted = client.delete(
-        f"{API}/trees/{tree.id}/members/m1", headers=auth(user)
-    )
+    deleted = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(user))
     assert deleted.status_code == 204
     assert client.get(f"{API}/trees/{tree.id}/members", headers=auth(user)).json() == []
 
@@ -66,6 +64,127 @@ def test_members_are_scoped_to_their_tree(client, db):
     )
     assert cross.status_code == 404
     assert client.get(f"{API}/trees/{tree_b.id}/members", headers=auth(user)).json() == []
+
+
+def test_member_update_atomically_replaces_parent_and_vital_event(client, db):
+    user = make_user(db, "atomic")
+    tree = make_tree(db, user)
+    child = add_member(db, tree, "child", first_name="Before", last_name="Child")
+    old_parent = add_member(db, tree, "old-parent", gender="m")
+    new_parent = add_member(db, tree, "new-parent", gender="m")
+    db.add(
+        Relation(
+            tree_id=tree.id,
+            from_member_id=child.id,
+            to_member_id=old_parent.id,
+            relation_type="parent",
+        )
+    )
+    event = Event(
+        id="birth-event",
+        tree_id=tree.id,
+        event_type="birth",
+        date="1900",
+        location="Vienna",
+        description="Certificate details",
+        created_at="2024-01-01T00:00:00Z",
+    )
+    db.add(event)
+    db.add(EventMemberLink(event_id=event.id, member_id=child.id))
+    db.commit()
+
+    payload = {
+        "lastName": "Updated",
+        "paternalParentId": new_parent.id,
+        "dateOfBirth": "1901-02-03",
+    }
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{child.id}",
+        headers=auth(user),
+        json=payload,
+    )
+    assert response.status_code == 200
+
+    db.expire_all()
+    assert db.get(type(child), child.id).last_name == "Updated"
+    relations = (
+        db.query(Relation).filter_by(tree_id=tree.id, relation_type="parent").all()
+    )
+    assert [
+        (relation.from_member_id, relation.to_member_id) for relation in relations
+    ] == [(child.id, new_parent.id)]
+    saved_event = db.get(Event, event.id)
+    assert saved_event.date == "1901-02-03"
+    assert saved_event.location == "Vienna"
+    assert saved_event.description == "Certificate details"
+
+    # Retrying the same autosave is idempotent.
+    assert (
+        client.patch(
+            f"{API}/trees/{tree.id}/members/{child.id}",
+            headers=auth(user),
+            json=payload,
+        ).status_code
+        == 200
+    )
+    assert (
+        db.query(Relation).filter_by(tree_id=tree.id, relation_type="parent").count() == 1
+    )
+    assert db.query(Event).filter_by(tree_id=tree.id, event_type="birth").count() == 1
+
+
+def test_member_update_rolls_back_when_a_parent_is_invalid(client, db):
+    user = make_user(db, "rollback")
+    tree = make_tree(db, user)
+    child = add_member(db, tree, "child", last_name="Before")
+    old_parent = add_member(db, tree, "old-parent", gender="m")
+    db.add(
+        Relation(
+            tree_id=tree.id,
+            from_member_id=child.id,
+            to_member_id=old_parent.id,
+            relation_type="parent",
+        )
+    )
+    db.commit()
+
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{child.id}",
+        headers=auth(user),
+        json={
+            "lastName": "Must not persist",
+            "paternalParentId": "missing-parent",
+            "dateOfBirth": "1901",
+        },
+    )
+    assert response.status_code == 404
+
+    db.expire_all()
+    assert db.get(type(child), child.id).last_name == "Before"
+    assert (
+        db.query(Relation)
+        .filter_by(tree_id=tree.id, from_member_id=child.id, to_member_id=old_parent.id)
+        .count()
+        == 1
+    )
+    assert db.query(Event).filter_by(tree_id=tree.id, event_type="birth").count() == 0
+
+
+def test_member_update_succeeds_when_events_are_disabled(client, db):
+    user = make_user(db, "events-off")
+    tree = make_tree(db, user)
+    child = add_member(db, tree, "child", last_name="Before")
+    feature_service.set_state(db, "events", "off")
+    db.commit()
+
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{child.id}",
+        headers=auth(user),
+        json={"lastName": "After", "dateOfBirth": "1901"},
+    )
+    assert response.status_code == 200
+    assert response.json()["lastName"] == "After"
+    assert db.query(Event).filter_by(tree_id=tree.id).count() == 0
 
 
 def test_bulk_position_update(client, db):
@@ -87,9 +206,7 @@ def test_bulk_position_update(client, db):
 
     by_id = {
         m["id"]: m
-        for m in client.get(
-            f"{API}/trees/{tree.id}/members", headers=auth(user)
-        ).json()
+        for m in client.get(f"{API}/trees/{tree.id}/members", headers=auth(user)).json()
     }
     assert (by_id["m1"]["positionX"], by_id["m1"]["positionY"]) == (100, 200)
     assert (by_id["m2"]["positionX"], by_id["m2"]["positionY"]) == (-50, 75)
@@ -114,9 +231,7 @@ def test_relations_are_idempotent(client, db):
     )
     # Adding the same relation again must not create a duplicate.
     client.post(f"{API}/trees/{tree.id}/relations", headers=auth(user), json=body)
-    relations = client.get(
-        f"{API}/trees/{tree.id}/relations", headers=auth(user)
-    ).json()
+    relations = client.get(f"{API}/trees/{tree.id}/relations", headers=auth(user)).json()
     assert len(relations) == 1
 
 
@@ -200,9 +315,7 @@ def test_surface_list_omits_detail_fields(client, db):
     # With surface=true, the heavy detail field (additionalData) is omitted,
     # but birthplace/hometown/cemetery ride along so the List view can render
     # them.
-    res = client.get(
-        f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
-    )
+    res = client.get(f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user))
     assert res.status_code == 200
     data = res.json()
     assert len(data) == 1
@@ -215,9 +328,7 @@ def test_surface_list_omits_detail_fields(client, db):
     assert data[0]["firstName"] == "Jo"
 
     # Without surface param, detail fields should be present
-    res2 = client.get(
-        f"{API}/trees/{tree.id}/members", headers=auth(user)
-    )
+    res2 = client.get(f"{API}/trees/{tree.id}/members", headers=auth(user))
     assert res2.status_code == 200
     data2 = res2.json()
     assert len(data2) == 1
@@ -231,13 +342,17 @@ def test_surface_list_omits_detail_fields(client, db):
 # Date sort-column tests
 # ---------------------------------------------------------------------------
 
+
 def test_create_member_populates_date_sort_columns(client, db):
     """Creating a member with dates must populate the *Sort columns in the response."""
     user = make_user(db, "alice-ds")
     tree = make_tree(db, user)
 
     res = _create_member(
-        client, tree, user, "m-sort-1",
+        client,
+        tree,
+        user,
+        "m-sort-1",
         dateOfBirth="1950-06-15",
         dateOfDeath="2020-03",
     )
@@ -253,7 +368,10 @@ def test_create_member_fuzzy_birth_date(client, db):
     tree = make_tree(db, user)
 
     res = _create_member(
-        client, tree, user, "m-sort-2",
+        client,
+        tree,
+        user,
+        "m-sort-2",
         dateOfBirth="about 1850",
     )
     assert res.status_code == 201
@@ -287,9 +405,7 @@ def test_surface_list_includes_date_sort_columns(client, db):
 
     _create_member(client, tree, user, "m-sort-4", dateOfBirth="15 JUN 1930")
 
-    res = client.get(
-        f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user)
-    )
+    res = client.get(f"{API}/trees/{tree.id}/members?surface=true", headers=auth(user))
     assert res.status_code == 200
     data = res.json()
     assert len(data) == 1
@@ -321,9 +437,7 @@ def test_member_detail_endpoint(client, db):
         cemetery="Ohlsdorf Cemetery",
     )
 
-    res = client.get(
-        f"{API}/trees/{tree.id}/members/m1", headers=auth(user)
-    )
+    res = client.get(f"{API}/trees/{tree.id}/members/m1", headers=auth(user))
     assert res.status_code == 200
     data = res.json()
     assert data["id"] == "m1"
@@ -401,9 +515,7 @@ def test_surface_list_includes_linked_tree_id(client, db):
     )
     assert linked.status_code == 201
 
-    res = client.get(
-        f"{API}/trees/{main.id}/members?surface=true", headers=auth(user)
-    )
+    res = client.get(f"{API}/trees/{main.id}/members?surface=true", headers=auth(user))
     assert res.status_code == 200
     data = res.json()
     assert len(data) == 1
@@ -465,8 +577,13 @@ def test_create_member_subtree_seeds_bridge_person(client, db):
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
     _create_member(
-        client, main, user, "m1",
-        academicTitle="Dr.", deceased=True, birthplace="Vienna",
+        client,
+        main,
+        user,
+        "m1",
+        academicTitle="Dr.",
+        deceased=True,
+        birthplace="Vienna",
     )
 
     res = client.post(
@@ -484,9 +601,7 @@ def test_create_member_subtree_seeds_bridge_person(client, db):
 
     # The new tree holds exactly one member: the cloned bridge person, linked
     # back to the origin row.
-    members = client.get(
-        f"{API}/trees/{new_tree_id}/members", headers=auth(user)
-    ).json()
+    members = client.get(f"{API}/trees/{new_tree_id}/members", headers=auth(user)).json()
     assert len(members) == 1
     counterpart = members[0]
     assert counterpart["id"] == anchor["linkedMemberId"]
@@ -539,8 +654,13 @@ def test_link_mode_create_seeds_and_wires_bridge(client, db):
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
     _create_member(
-        client, main, user, "m1",
-        academicTitle="Dr.", deceased=True, birthplace="Vienna",
+        client,
+        main,
+        user,
+        "m1",
+        academicTitle="Dr.",
+        deceased=True,
+        birthplace="Vienna",
     )
 
     res = client.post(
@@ -555,9 +675,7 @@ def test_link_mode_create_seeds_and_wires_bridge(client, db):
     assert anchor["linkedTreeId"] == other.id
     assert anchor["linkedMemberId"] is not None
 
-    members = client.get(
-        f"{API}/trees/{other.id}/members", headers=auth(user)
-    ).json()
+    members = client.get(f"{API}/trees/{other.id}/members", headers=auth(user)).json()
     assert len(members) == 1
     counterpart = members[0]
     assert counterpart["id"] == anchor["linkedMemberId"]
@@ -764,12 +882,8 @@ def test_link_endpoint_pairwise_chain_is_independent(client, db):
     )
     assert bc.status_code == 201
 
-    a1 = client.get(
-        f"{API}/trees/{tree_a.id}/members/a1", headers=auth(user)
-    ).json()
-    b1 = client.get(
-        f"{API}/trees/{tree_b.id}/members/b1", headers=auth(user)
-    ).json()
+    a1 = client.get(f"{API}/trees/{tree_a.id}/members/a1", headers=auth(user)).json()
+    b1 = client.get(f"{API}/trees/{tree_b.id}/members/b1", headers=auth(user)).json()
     assert a1["linkedTreeId"] == tree_b.id
     assert b1["linkedTreeId"] == tree_c.id
     # b1 is now a bridge counterpart for A→B and cannot be reused as a
@@ -876,9 +990,7 @@ def test_deleting_bridge_person_unlinks_counterpart(client, db):
     )
     assert res.status_code == 204
 
-    origin = client.get(
-        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
-    ).json()
+    origin = client.get(f"{API}/trees/{main.id}/members/m1", headers=auth(user)).json()
     assert origin["linkedTreeId"] is None
     assert origin["linkedMemberId"] is None
 
@@ -898,9 +1010,7 @@ def test_deleting_origin_unlinks_bridge_in_subtree(client, db):
     sub_id = created.json()["tree"]["id"]
     counterpart_id = created.json()["anchor"]["linkedMemberId"]
 
-    res = client.delete(
-        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
-    )
+    res = client.delete(f"{API}/trees/{main.id}/members/m1", headers=auth(user))
     assert res.status_code == 204
 
     counterpart = client.get(
@@ -979,9 +1089,7 @@ def test_bridge_person_edits_sync_to_counterpart(client, db):
         json={"lastName": "Smith"},
     )
     assert res.status_code == 200
-    anchor = client.get(
-        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
-    ).json()
+    anchor = client.get(f"{API}/trees/{main.id}/members/m1", headers=auth(user)).json()
     assert anchor["lastName"] == "Smith"
     # View-level state is NOT mirrored.
     res = client.patch(
@@ -1075,16 +1183,19 @@ def test_link_candidates_returns_only_same_name_unlinked_members(client, db):
     _create_member(client, main, user, "m1", firstName="Jo", lastName="Doe")
     # Same name+gender, different dates -> possible match.
     _create_member(
-        client, other, user, "same-name",
-        firstName="Jo", lastName="Doe", dateOfBirth="1950-01-01",
+        client,
+        other,
+        user,
+        "same-name",
+        firstName="Jo",
+        lastName="Doe",
+        dateOfBirth="1950-01-01",
     )
     # Different name entirely -> excluded.
     _create_member(client, other, user, "diff-name", firstName="Someone", lastName="Else")
     # Same name but already linked elsewhere -> excluded.
     third = make_tree(db, user, "Third")
-    _create_member(
-        client, other, user, "already-linked", firstName="Jo", lastName="Doe"
-    )
+    _create_member(client, other, user, "already-linked", firstName="Jo", lastName="Doe")
     client.post(
         f"{API}/trees/{other.id}/members/already-linked/link",
         headers=auth(user),
@@ -1111,11 +1222,21 @@ def test_link_candidates_exact_match_has_no_date_conflict(client, db):
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
     _create_member(
-        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        client,
+        main,
+        user,
+        "m1",
+        firstName="Jo",
+        lastName="Doe",
         dateOfBirth="1950-01-01",
     )
     _create_member(
-        client, other, user, "twin", firstName="Jo", lastName="Doe",
+        client,
+        other,
+        user,
+        "twin",
+        firstName="Jo",
+        lastName="Doe",
         dateOfBirth="1950-01-01",
     )
 
@@ -1194,11 +1315,21 @@ def test_link_existing_without_choices_unions_empties_into_both_rows(client, db)
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
     _create_member(
-        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        client,
+        main,
+        user,
+        "m1",
+        firstName="Jo",
+        lastName="Doe",
         birthplace="Vienna",
     )
     _create_member(
-        client, other, user, "counterpart", firstName="Jo", lastName="Doe",
+        client,
+        other,
+        user,
+        "counterpart",
+        firstName="Jo",
+        lastName="Doe",
         cemetery="Ohlsdorf",
     )
 
@@ -1213,9 +1344,7 @@ def test_link_existing_without_choices_unions_empties_into_both_rows(client, db)
     )
     assert res.status_code == 201
 
-    anchor = client.get(
-        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
-    ).json()
+    anchor = client.get(f"{API}/trees/{main.id}/members/m1", headers=auth(user)).json()
     counterpart = client.get(
         f"{API}/trees/{other.id}/members/counterpart", headers=auth(user)
     ).json()
@@ -1232,12 +1361,26 @@ def test_link_existing_field_choices_reconcile_both_rows(client, db):
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
     _create_member(
-        client, main, user, "m1", firstName="Jo", lastName="Doe",
-        birthplace="Vienna", hometown="Salzburg", cemetery="A",
+        client,
+        main,
+        user,
+        "m1",
+        firstName="Jo",
+        lastName="Doe",
+        birthplace="Vienna",
+        hometown="Salzburg",
+        cemetery="A",
     )
     _create_member(
-        client, other, user, "counterpart", firstName="Jo", lastName="Doe",
-        birthplace="Graz", hometown="Linz", cemetery="B",
+        client,
+        other,
+        user,
+        "counterpart",
+        firstName="Jo",
+        lastName="Doe",
+        birthplace="Graz",
+        hometown="Linz",
+        cemetery="B",
     )
 
     res = client.post(
@@ -1256,9 +1399,7 @@ def test_link_existing_field_choices_reconcile_both_rows(client, db):
     )
     assert res.status_code == 201
 
-    anchor = client.get(
-        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
-    ).json()
+    anchor = client.get(f"{API}/trees/{main.id}/members/m1", headers=auth(user)).json()
     counterpart = client.get(
         f"{API}/trees/{other.id}/members/counterpart", headers=auth(user)
     ).json()
@@ -1277,11 +1418,21 @@ def test_link_existing_field_choices_combine_text_field(client, db):
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
     _create_member(
-        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        client,
+        main,
+        user,
+        "m1",
+        firstName="Jo",
+        lastName="Doe",
         additionalData="Loved gardening.",
     )
     _create_member(
-        client, other, user, "counterpart", firstName="Jo", lastName="Doe",
+        client,
+        other,
+        user,
+        "counterpart",
+        firstName="Jo",
+        lastName="Doe",
         additionalData="Played the violin.",
     )
 
@@ -1297,9 +1448,7 @@ def test_link_existing_field_choices_combine_text_field(client, db):
     )
     assert res.status_code == 201
 
-    anchor = client.get(
-        f"{API}/trees/{main.id}/members/m1", headers=auth(user)
-    ).json()
+    anchor = client.get(f"{API}/trees/{main.id}/members/m1", headers=auth(user)).json()
     counterpart = client.get(
         f"{API}/trees/{other.id}/members/counterpart", headers=auth(user)
     ).json()
@@ -1316,7 +1465,12 @@ def test_link_mode_create_ignores_field_choices(client, db):
     main = make_tree(db, user, "Main")
     other = make_tree(db, user, "Other")
     _create_member(
-        client, main, user, "m1", firstName="Jo", lastName="Doe",
+        client,
+        main,
+        user,
+        "m1",
+        firstName="Jo",
+        lastName="Doe",
         birthplace="Vienna",
     )
 
@@ -1330,7 +1484,5 @@ def test_link_mode_create_ignores_field_choices(client, db):
         },
     )
     assert res.status_code == 201
-    members = client.get(
-        f"{API}/trees/{other.id}/members", headers=auth(user)
-    ).json()
+    members = client.get(f"{API}/trees/{other.id}/members", headers=auth(user)).json()
     assert members[0]["birthplace"] == "Vienna"

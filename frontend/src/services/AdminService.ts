@@ -18,9 +18,6 @@ export interface AdminSettings {
   default_media_quota_mb: number;
   image_storage_mode: ImageStorageMode;
   image_storage_allowed_modes: ImageStorageMode[];
-  announcement_title: string;
-  announcement_body: string;
-  announcement_version: string;
   legal_acceptance_required: boolean;
   legal_version: string;
   legal_terms_body_de: string;
@@ -39,6 +36,50 @@ export interface BackupRecord {
   filename: string | null;
   size_bytes: number | null;
   error: string | null;
+}
+
+export interface AdminAuditEntry {
+  id: string;
+  actor_id: string | null;
+  actor_username: string | null;
+  action: "create" | "update" | "delete";
+  subject_type: string;
+  subject_id: string | null;
+  subject_label: string | null;
+  details: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface AdminAuditPage {
+  items: AdminAuditEntry[];
+  /** Total rows matching the active filters, across all pages. */
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AdminAuditFilters {
+  action?: string;
+  subjectType?: string;
+  actor?: string;
+  /** Inclusive lower bound; a bare `YYYY-MM-DD` covers the whole day. */
+  start?: string;
+  /** Inclusive upper bound; a bare `YYYY-MM-DD` covers the whole day. */
+  end?: string;
+}
+
+function auditParams(
+  filters: AdminAuditFilters & { limit?: number; offset?: number },
+): Record<string, string | number | undefined> {
+  return {
+    limit: filters.limit,
+    offset: filters.offset,
+    action: filters.action || undefined,
+    subject_type: filters.subjectType || undefined,
+    actor: filters.actor || undefined,
+    start: filters.start || undefined,
+    end: filters.end || undefined,
+  };
 }
 
 export type FeatureState = "on" | "off" | "beta";
@@ -117,6 +158,24 @@ export const AdminService = {
     return api.patch<FeatureFlag>(`/admin/features/${name}`, changes);
   },
 
+  listAuditLog(
+    filters: AdminAuditFilters & { limit?: number; offset?: number } = {},
+  ): Promise<AdminAuditPage> {
+    return api.get<AdminAuditPage>("/admin/audit-log", auditParams(filters));
+  },
+
+  listAuditSubjectTypes(): Promise<string[]> {
+    return api.get<string[]>("/admin/audit-log/subject-types");
+  },
+
+  async exportAuditLog(filters: AdminAuditFilters = {}): Promise<Blob> {
+    const response = await api.getRaw(
+      "/admin/audit-log/export",
+      auditParams(filters),
+    );
+    return response.blob();
+  },
+
   listBackups(): Promise<BackupRecord[]> {
     return api.get<BackupRecord[]>("/admin/backups");
   },
@@ -125,13 +184,13 @@ export const AdminService = {
     return api.post<BackupRecord>("/admin/backups");
   },
 
-  deleteBackup(id: string): Promise<void> {
-    return api.del<void>(`/admin/backups/${id}`);
+  async downloadBackup(id: string): Promise<Blob> {
+    const response = await api.getRaw(`/admin/backups/${id}/download`);
+    return response.blob();
   },
 
-  downloadBackupUrl(id: string): string {
-    const base = import.meta.env.VITE_API_BASE_URL || "/api";
-    return `${base}/admin/backups/${id}/download`;
+  deleteBackup(id: string): Promise<void> {
+    return api.del<void>(`/admin/backups/${id}`);
   },
 
   listRelationTypes(): Promise<RelationTypeDB[]> {

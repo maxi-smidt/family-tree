@@ -22,10 +22,9 @@ function importForm(file: File, values: { password?: string; name?: string }) {
 
 export const TreeFileService = {
   async exportDatabase(treeId: string, password?: string): Promise<Blob> {
-    const response = await api.getRaw(
-      `/trees/${treeId}/export`,
-      password ? { password } : undefined,
-    );
+    const response = await api.postRaw(`/trees/${treeId}/export`, {
+      password: password || null,
+    });
     return response.blob();
   },
 

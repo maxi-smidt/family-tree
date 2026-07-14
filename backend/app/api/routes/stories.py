@@ -1,10 +1,8 @@
-"""Stories and their links to members, plus file attachments."""
-
-from uuid import uuid4
+"""Stories and their links to members and documents."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_current_user,
@@ -14,14 +12,11 @@ from app.api.deps import (
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
-from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Story, StoryAttachment, StoryMemberLink, Tree
+from app.models import Story, StoryDocumentLink, StoryMemberLink, Tree
 from app.models.user import User
 from app.schemas.content import (
-    AttachmentCreate,
-    AttachmentOut,
-    AttachmentUpdate,
+    DocumentIdsSet,
     LinksSet,
     StoryCreate,
     StoryLinkOut,
@@ -29,16 +24,9 @@ from app.schemas.content import (
     StoryUpdate,
 )
 from app.services.activity import record_activity
-from app.services.content_links import replace_member_links
+from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
-from app.services.settings_service import get_media_limits
-from app.services.storage import (
-    FileTooLarge,
-    UnsupportedFileType,
-    delete_media,
-    store_document,
-)
-from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
+from app.services.storage_usage import QuotaExceeded, check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/stories",
@@ -57,11 +45,41 @@ def _get_story(db: Session, tree: Tree, story_id: str) -> Story:
     return story
 
 
-def _get_attachment(db: Session, story: Story, attachment_id: str) -> StoryAttachment:
-    att = db.get(StoryAttachment, attachment_id)
-    if att is None or att.story_id != story.id:
-        raise HTTPException(status_code=404, detail="Attachment not found")
-    return att
+def _document_ids(db: Session, story_id: str) -> list[str]:
+    return list(
+        db.scalars(
+            select(StoryDocumentLink.document_id).where(
+                StoryDocumentLink.story_id == story_id
+            )
+        ).all()
+    )
+
+
+def _story_out(db: Session, story: Story) -> StoryOut:
+    return StoryOut.model_validate(story).model_copy(
+        update={"document_ids": _document_ids(db, story.id)}
+    )
+
+
+def _stories_out(db: Session, stories: list[Story]) -> list[StoryOut]:
+    if not stories:
+        return []
+    story_ids = [s.id for s in stories]
+    rows = db.execute(
+        select(StoryDocumentLink.story_id, StoryDocumentLink.document_id).where(
+            StoryDocumentLink.story_id.in_(story_ids)
+        )
+    ).all()
+    doc_map: dict[str, list[str]] = {}
+    for sid, did in rows:
+        doc_map.setdefault(sid, []).append(did)
+    return [
+        StoryOut.model_validate(s).model_copy(
+            update={"document_ids": doc_map.get(s.id, [])}
+        )
+        for s in stories
+    ]
+
 
 @router.get("", response_model=list[StoryOut])
 def list_stories(
@@ -70,12 +88,10 @@ def list_stories(
     db: Session = Depends(get_db),
 ):
     statement = (
-        select(Story)
-        .where(Story.tree_id == tree.id)
-        .order_by(Story.created_at, Story.id)
-        .options(selectinload(Story.attachments))
+        select(Story).where(Story.tree_id == tree.id).order_by(Story.created_at, Story.id)
     )
-    return db.scalars(apply_pagination(statement, pagination)).all()
+    stories = db.scalars(apply_pagination(statement, pagination)).all()
+    return _stories_out(db, list(stories))
 
 
 @router.get("/links", response_model=list[StoryLinkOut])
@@ -126,7 +142,7 @@ def create_story(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "story"},
     )
-    return story
+    return _story_out(db, story)
 
 
 @router.patch("/{story_id}", response_model=StoryOut)
@@ -149,7 +165,7 @@ def update_story(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "story"},
     )
-    return story
+    return _story_out(db, story)
 
 
 @router.delete("/{story_id}", status_code=204)
@@ -162,9 +178,6 @@ def delete_story(
     story = _get_story(db, tree, story_id)
     record_activity(db, tree_id=tree.id, actor=user, action="delete",
                     target_type="story", target_id=story.id, target_label=story.title)
-    # Remove the on-disk files before the rows cascade away.
-    for att in story.attachments:
-        delete_media(att.url)
     db.delete(story)
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
@@ -204,91 +217,30 @@ def set_links(
     )
 
 
-# --- Attachments -----------------------------------------------------------
-@router.post("/{story_id}/attachments", response_model=AttachmentOut, status_code=201)
-def add_attachment(
+@router.put("/{story_id}/documents", status_code=204)
+def set_documents(
     story_id: str,
-    payload: AttachmentCreate,
+    payload: DocumentIdsSet,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    """Replace the full set of documents linked to this story."""
     story = _get_story(db, tree, story_id)
-    try:
-        url, mime, size = store_document(
-            tree.id,
-            payload.filename,
-            payload.data,
-            get_media_limits(db),
-        )
-    except FileTooLarge as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
-    except UnsupportedFileType as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # Write-then-verify: the file is already on disk and counted by
-    # compute_usage, so pass 0 to avoid double-counting it.
-    try:
-        check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
-        delete_media(url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
-
-    att = StoryAttachment(
-        id=str(uuid4()),
-        tree_id=tree.id,
-        story_id=story.id,
-        filename=payload.filename,
-        url=url,
-        mime_type=mime,
-        size=size,
-        created_at=utcnow_iso(),
+    replace_document_links(
+        db,
+        link_model=StoryDocumentLink,
+        parent_fk=StoryDocumentLink.story_id,
+        parent_id=story_id,
+        tree=tree,
+        document_ids=payload.document_ids,
     )
-    db.add(att)
-    db.commit()
-    db.refresh(att)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "story"},
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="story", target_id=story.id, target_label=story.title,
     )
-    return att
-
-
-@router.patch(
-    "/{story_id}/attachments/{attachment_id}", response_model=AttachmentOut
-)
-def rename_attachment(
-    story_id: str,
-    attachment_id: str,
-    payload: AttachmentUpdate,
-    tree: Tree = Depends(get_writable_tree),
-    db: Session = Depends(get_db),
-):
-    story = _get_story(db, tree, story_id)
-    att = _get_attachment(db, story, attachment_id)
-    att.filename = payload.filename
     db.commit()
-    db.refresh(att)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "story"},
-    )
-    return att
-
-
-@router.delete("/{story_id}/attachments/{attachment_id}", status_code=204)
-def delete_attachment(
-    story_id: str,
-    attachment_id: str,
-    tree: Tree = Depends(get_writable_tree),
-    db: Session = Depends(get_db),
-):
-    story = _get_story(db, tree, story_id)
-    att = _get_attachment(db, story, attachment_id)
-    delete_media(att.url)
-    db.delete(att)
-    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "story"},

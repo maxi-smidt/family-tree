@@ -92,13 +92,6 @@ export const GalleryView = () => {
     isActive,
   } = useUploadQueue();
 
-  const rowVirtualizer = useVirtualizer({
-    count: galleryImages.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 150,
-    overscan: 5,
-  });
-
   const handleUploadImage = () => {
     fileInputRef.current?.click();
   };
@@ -162,6 +155,16 @@ export const GalleryView = () => {
         : (bValue as string).localeCompare(aValue as string);
     });
   }, [galleryImages, sortKey, sortDirection, searchTerm]);
+
+  const rowVirtualizer = useVirtualizer({
+    // The virtualized indexes address the filtered list, not the complete
+    // gallery. Otherwise a search result can be shorter than this count and
+    // yield an undefined image at render time.
+    count: filteredAndSortedImages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 150,
+    overscan: 5,
+  });
 
   const toggleSortDirection = () => {
     setSortDirection(sortDirection === "asc" ? "desc" : "asc");
@@ -233,7 +236,7 @@ export const GalleryView = () => {
       />
       {isEmpty ? (
         <div
-          className="relative flex-1"
+          className="relative flex min-h-0 flex-1"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -245,7 +248,7 @@ export const GalleryView = () => {
               </p>
             </div>
           )}
-          <Empty className="h-full border">
+          <Empty className="flex-1 border">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <ImagePlus />
@@ -263,7 +266,7 @@ export const GalleryView = () => {
         </div>
       ) : (
         <div
-          className="relative flex-1"
+          className="relative flex min-h-0 flex-1"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -275,7 +278,7 @@ export const GalleryView = () => {
               </p>
             </div>
           )}
-          <div ref={parentRef} className="h-full overflow-y-auto">
+          <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 auto-rows-[300px]">
               <UploadImageCard onClick={handleUploadImage} />
               {rowVirtualizer.getVirtualItems().map((virtualItem) => {

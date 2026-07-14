@@ -4,8 +4,9 @@ import {
   SubtreeExtractPreview,
   Tree,
 } from "@/types/tree";
-import { api } from "@/services/api";
+import { api, setPublicTreeToken } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
+import { TreeSharingService } from "@/services/TreeSharingService";
 import {
   Member,
   MemberDB,
@@ -18,7 +19,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
@@ -26,6 +27,10 @@ import { useStorageStore } from "@/hooks/useStorageStore";
 import { hasFeature } from "@/hooks/useAuthStore";
 
 export const isVirtualId = (id: string) => id.startsWith("vv_");
+
+// Incremented for every explicit tree transition so a slower link resolution
+// cannot select a tree after a newer selection or disconnect has won.
+let treeRequestVersion = 0;
 
 interface DatabaseMetaData {
   id?: string;
@@ -54,11 +59,9 @@ interface DatabaseState {
   treeNavStack: TreeNavEntry[];
 
   loadTrees: () => Promise<void>;
-  createTree: (
-    name: string,
-    id?: string,
-    options?: { select?: boolean },
-  ) => Promise<Tree>;
+  openTreeById: (treeId: string) => Promise<Tree>;
+  unlockPublicTree: (treeId: string, password: string) => Promise<Tree>;
+  createTree: (name: string, options?: { select?: boolean }) => Promise<Tree>;
   openLinkedTree: (
     treeId: string,
     focusMemberId?: string | null,
@@ -101,6 +104,7 @@ interface DatabaseState {
   selectTree: (tree: Tree | undefined) => Promise<void>;
   connect: (tree: Tree) => Promise<void>;
   disconnect: () => Promise<void>;
+  disconnectPublicTree: () => Promise<void>;
   refreshMetadata: (treeId?: string) => Promise<void>;
   refreshRelationTypes: () => Promise<void>;
 }
@@ -110,7 +114,7 @@ const clearDataStores = () => {
   useGalleryStore.getState().clear();
   useEventStore.getState().clear();
   useStoryStore.getState().clear();
-  useSourceStore.getState().clear();
+  useDocumentStore.getState().clear();
   useActivityStore.getState().clear();
   useStatisticsStore.getState().clear();
   useQualityReportStore.getState().clear();
@@ -147,12 +151,28 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     }
   },
 
-  createTree: async (
-    name: string,
-    id?: string,
-    options?: { select?: boolean },
-  ) => {
-    const tree = await api.post<Tree>("/trees", { name, id });
+  // Resolve a tree before selecting it. This keeps link routing, including
+  // public-tree links that are absent from a user's normal tree list, inside
+  // the tree domain rather than making view components call the API directly.
+  openTreeById: async (treeId: string) => {
+    const requestVersion = ++treeRequestVersion;
+    const tree = await api.get<Tree>(`/trees/${treeId}`);
+    if (requestVersion !== treeRequestVersion) return tree;
+    await get().selectTree(tree);
+    return tree;
+  },
+
+  unlockPublicTree: async (treeId: string, password: string) => {
+    const { token } = await TreeSharingService.unlockPublicTree(
+      treeId,
+      password,
+    );
+    setPublicTreeToken(token);
+    return get().openTreeById(treeId);
+  },
+
+  createTree: async (name: string, options?: { select?: boolean }) => {
+    const tree = await api.post<Tree>("/trees", { name });
     set((s) => ({ trees: [tree, ...s.trees] }));
     // `select: false` lets callers create a tree without switching to it — used
     // by the tree-in-tree "create & link" action so the current edit context is
@@ -367,6 +387,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
   },
 
   selectTree: async (tree: Tree | undefined) => {
+    treeRequestVersion += 1;
     // Picking a tree directly (e.g. from the database selector) resets the
     // tree-in-tree breadcrumb; only link-following keeps the ancestor chain.
     set({ treeNavStack: [] });
@@ -386,7 +407,10 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       relationTypes: [],
     });
 
-    useActivityStore.getState().clear();
+    // Switching directly between trees does not go through disconnect(). Clear
+    // every content store here so deferred views do not retain their previous
+    // tree's data or initialized state while they wait for their first visit.
+    clearDataStores();
 
     const virtual = isVirtualId(tree.id);
 
@@ -396,6 +420,9 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       const fresh = await api.get<Tree>(
         virtual ? `/virtual-views/${tree.id}` : `/trees/${tree.id}`,
       );
+      // A later selection or disconnect supersedes this request. Do not let
+      // its response restore a stale tree after the newer transition wins.
+      if (!isActiveTree(tree.id)) return;
       set((s) => ({
         selectedTree: fresh,
         trees: virtual
@@ -407,6 +434,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       }));
     } catch {
       // non-fatal; continue with what we have
+      if (!isActiveTree(tree.id)) return;
     }
 
     const loads = [
@@ -415,6 +443,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       useMemberStore.getState().refreshMembers(tree.id),
     ];
     await Promise.allSettled(loads);
+    if (!isActiveTree(tree.id)) return;
 
     // Virtual trees are read-only composites: auto-arrange the layout only
     // until the user saves an alignment overlay, then respect it.
@@ -436,10 +465,11 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
         await useMemberStore.getState().updateLayout();
       }
     }
-    set({ isReady: true });
+    if (isActiveTree(tree.id)) set({ isReady: true });
   },
 
   disconnect: async () => {
+    treeRequestVersion += 1;
     set({
       selectedTree: undefined,
       isReady: false,
@@ -447,6 +477,13 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       relationTypes: [],
     });
     clearDataStores();
+  },
+
+  disconnectPublicTree: async () => {
+    await get().disconnect();
+    // Public unlock tokens are in-memory only and must not survive leaving a
+    // public view, including a later switch to an authenticated session.
+    setPublicTreeToken(null);
   },
 
   refreshMetadata: async (treeId = activeTreeId()) => {

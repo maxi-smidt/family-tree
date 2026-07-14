@@ -30,6 +30,7 @@ from app.core.media_config import (
 )
 from app.models import AppSetting, LegalAcceptance, LegalDocumentVersion, User
 from app.schemas.setting import MediaLimits, SettingsOut, SettingsUpdate
+from app.services.admin_audit import record_admin_audit
 from app.services.legal_defaults import (
     DEFAULT_LEGAL_BODIES,
     LEGAL_DEFAULT_LOCALE,
@@ -67,9 +68,6 @@ DEFAULTS: dict[str, str] = {
     "default_media_quota_mb": str(DEFAULT_MEDIA_QUOTA_MB),
     "image_storage_mode": DEFAULT_IMAGE_STORAGE_MODE,
     "image_storage_allowed_modes": ",".join(IMAGE_STORAGE_MODES),
-    "announcement_title": "",
-    "announcement_body": "",
-    "announcement_version": "",
     "legal_acceptance_required": "true",
     "legal_version": DEFAULT_LEGAL_VERSION,
     **{
@@ -226,12 +224,16 @@ def get_media_limits(db: Session) -> MediaLimits:
         minimum=MIN_MAX_IMAGE_UPLOAD_MB,
         maximum=MAX_MAX_IMAGE_UPLOAD_MB,
     )
-    max_document_upload_mb = get_bounded_int_setting(
-        db,
-        "max_document_upload_mb",
-        DEFAULT_MAX_DOCUMENT_UPLOAD_MB,
-        minimum=MIN_MAX_DOCUMENT_UPLOAD_MB,
-        maximum=MAX_MAX_DOCUMENT_UPLOAD_MB,
+    configured_document_limit = get_int_setting(
+        db, "max_document_upload_mb", DEFAULT_MAX_DOCUMENT_UPLOAD_MB
+    )
+    # Older installations may have persisted the former 500 MiB ceiling.
+    # Preserve the nearest safe value instead of silently falling back to the
+    # 25 MiB default when the maximum is tightened.
+    max_document_upload_mb = (
+        min(configured_document_limit, MAX_MAX_DOCUMENT_UPLOAD_MB)
+        if configured_document_limit >= MIN_MAX_DOCUMENT_UPLOAD_MB
+        else DEFAULT_MAX_DOCUMENT_UPLOAD_MB
     )
     raw_mode = get_setting(db, "image_storage_mode", DEFAULT_IMAGE_STORAGE_MODE)
     image_storage_mode = (
@@ -315,9 +317,6 @@ def get_settings_out(db: Session) -> SettingsOut:
         ),
         image_storage_mode=media_limits.image_storage_mode,
         image_storage_allowed_modes=media_limits.image_storage_allowed_modes,
-        announcement_title=get_setting(db, "announcement_title", "") or "",
-        announcement_body=get_setting(db, "announcement_body", "") or "",
-        announcement_version=get_setting(db, "announcement_version", "") or "",
         legal_acceptance_required=get_bool_setting(
             db, "legal_acceptance_required", True
         ),
@@ -345,7 +344,10 @@ def get_settings_out(db: Session) -> SettingsOut:
     )
 
 
-def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
+def update_settings(
+    db: Session, payload: SettingsUpdate, *, actor: User | None = None
+) -> SettingsOut:
+    before = get_settings_out(db).model_dump()
     if payload.allow_self_registration is not None:
         set_setting(
             db,
@@ -409,12 +411,6 @@ def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
             else current_allowed[0]
         )
         set_setting(db, "image_storage_mode", mode)
-    if payload.announcement_title is not None:
-        set_setting(db, "announcement_title", payload.announcement_title.strip())
-    if payload.announcement_body is not None:
-        set_setting(db, "announcement_body", payload.announcement_body.strip())
-    if payload.announcement_version is not None:
-        set_setting(db, "announcement_version", payload.announcement_version.strip())
     if payload.legal_acceptance_required is not None:
         set_setting(
             db,
@@ -445,8 +441,27 @@ def update_settings(db: Session, payload: SettingsUpdate) -> SettingsOut:
         except ValueError:
             next_version = "1"
         set_setting(db, "legal_version", next_version)
+    db.flush()
+    result = get_settings_out(db)
+    changed = {
+        key: {"before": before[key], "after": value}
+        for key, value in result.model_dump().items()
+        if before[key] != value
+    }
+    if changed:
+        record_admin_audit(
+            db,
+            actor=actor,
+            action="update",
+            subject_type="legal_document" if legal_body_changed else "app_settings",
+            subject_id="legal" if legal_body_changed else None,
+            subject_label=(
+                "Legal documents" if legal_body_changed else "Instance settings"
+            ),
+            details={"changes": changed},
+        )
     db.commit()
     if legal_body_changed:
         # Immutably snapshot the now-live text under the freshly bumped version.
         snapshot_current_legal_versions(db)
-    return get_settings_out(db)
+    return result

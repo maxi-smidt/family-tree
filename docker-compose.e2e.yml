@@ -27,7 +27,7 @@ services:
       timeout: 5s
       retries: 10
     tmpfs:
-      - /var/lib/postgresql/data  # ephemeral: wiped on every compose down
+      - /var/lib/postgresql/data # ephemeral: wiped on every compose down
 
   backend:
     build: ./backend
@@ -37,6 +37,7 @@ services:
       redis:
         condition: service_healthy
     environment:
+      ENVIRONMENT: test
       SECRET_KEY: e2e-secret-not-for-production
       POSTGRES_HOST: db
       REDIS_URL: redis://redis:6379/0

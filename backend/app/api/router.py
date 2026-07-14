@@ -4,8 +4,10 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     activity,
+    admin_audit,
     auth,
     backups,
+    documents,
     events,
     export_import,
     features,
@@ -22,7 +24,6 @@ from app.api.routes import (
     quality,
     relation_types,
     settings,
-    sources,
     sse,
     statistics,
     stories,
@@ -33,6 +34,7 @@ from app.api.routes import (
 
 api_router = APIRouter()
 api_router.include_router(auth.router)
+api_router.include_router(admin_audit.router)
 api_router.include_router(oauth.router)
 api_router.include_router(users.router)
 api_router.include_router(preferences.router)
@@ -53,7 +55,7 @@ api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)
 api_router.include_router(stories.router)
-api_router.include_router(sources.router)
+api_router.include_router(documents.router)
 api_router.include_router(activity.router)
 api_router.include_router(quality.router)
 api_router.include_router(statistics.router)

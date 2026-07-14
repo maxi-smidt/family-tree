@@ -32,6 +32,8 @@ import { toast } from "sonner";
 export const UserSettingsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "user-settings" });
   const closeSettings = useUserSettingsViewStore((s) => s.closeSettings);
+  const activeSection = useUserSettingsViewStore((s) => s.activeSection);
+  const setActiveSection = useUserSettingsViewStore((s) => s.setActiveSection);
   const user = useAuthStore((s) => s.user);
   const refreshMe = useAuthStore((s) => s.refreshMe);
 
@@ -68,7 +70,8 @@ export const UserSettingsView = () => {
 
   return (
     <Tabs
-      defaultValue="gallery"
+      value={activeSection}
+      onValueChange={setActiveSection}
       orientation="vertical"
       className="w-screen h-screen flex flex-col bg-background overflow-hidden"
     >

@@ -1,6 +1,8 @@
 """Tree lifecycle, sharing and metadata."""
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+import math
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,13 @@ from app.api.deps import (
     get_readable_tree_public,
     get_writable_tree,
     role_for,
+)
+from app.core.rate_limit import public_unlock_rate_limiter
+from app.core.security import (
+    create_public_tree_token,
+    hash_password,
+    run_dummy_verify,
+    verify_password,
 )
 from app.db.base import new_uuid, utcnow_iso
 from app.db.session import SessionLocal, get_db
@@ -28,6 +37,9 @@ from app.schemas.tree import (
     LinkGraphOut,
     MemberRestrictionsUpdate,
     PublicAccessUpdate,
+    PublicPasswordUpdate,
+    PublicTreeUnlock,
+    PublicTreeUnlockResult,
     ShareCandidate,
     TreeAccessBatchRevoke,
     TreeCreate,
@@ -43,6 +55,7 @@ from app.schemas.tree import (
 )
 from app.services import feature_service, friendships
 from app.services.activity import record_activity
+from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus, publish_tree_event, tree_audience
 from app.services.extract import (
     compute_subtree_preview,
@@ -53,7 +66,7 @@ from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMA
 from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
-from app.services.storage_usage import compute_usage, owner_quotas
+from app.services.storage_usage import compute_owner_usage, owner_quotas
 from app.services.tree_links import reachable_linked_trees
 
 router = APIRouter(prefix="/trees", tags=["trees"])
@@ -74,6 +87,7 @@ def _tree_out(
     if user is not None and out.role not in ("owner",) and not user.is_admin:
         membership = db.get(TreeMembership, (tree.id, user.id))
         out.restrictions = list(membership.restrictions or []) if membership else []
+    out.public_password_protected = tree.public_password_hash is not None
     return out
 
 
@@ -107,7 +121,7 @@ def create_tree(
     db: Session = Depends(get_db),
 ):
     tree = Tree(
-        id=payload.id or new_uuid(),
+        id=new_uuid(),
         name=payload.name,
         owner_id=user.id,
         created_at=utcnow_iso(),
@@ -248,8 +262,8 @@ def get_storage_usage(
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
 ):
-    """Return per-tree storage usage (tree rows + media files) and quota limits."""
-    usage = compute_usage(db, tree.id)
+    """Return the tree owner's aggregate storage usage and quota limits."""
+    usage = compute_owner_usage(db, tree.owner_id)
     quotas = owner_quotas(db, tree)
     return TreeStorageUsageOut(
         tree_bytes=usage["tree_bytes"],
@@ -437,10 +451,14 @@ def delete_tree(
         )
     tree_id = tree.id
     audience = tree_audience(db, tree)
-    # Intentionally not logged: ActivityLog.tree_id cascades on tree deletion,
-    # so any row written here would be deleted along with the tree itself
-    # (self-erasing audit trail). Durable tree-deletion audit is out of scope
-    # for the per-tree log — see docs/ACTIVITY_AUDIT.md.
+    record_admin_audit(
+        db,
+        actor=user,
+        action="delete",
+        subject_type="tree",
+        subject_id=tree.id,
+        subject_label=tree.name,
+    )
     db.delete(tree)
     db.commit()
     # The DB cascade clears the rows; remove the backing media files too.
@@ -466,11 +484,22 @@ def set_public_access(
         )
     old_public_role = tree.public_role
     tree.public_role = payload.public_role
+    if tree.public_role is None:
+        tree.public_password_hash = None
     logged = False
     if old_public_role != tree.public_role:
+        tree.public_access_version += 1
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
             target_type="tree", target_id=tree.id, target_label=tree.name,
+            details={
+                "before": {"public_role": old_public_role},
+                "after": {"public_role": tree.public_role},
+            },
+        )
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="tree_public_access",
+            subject_id=tree.id, subject_label=tree.name,
             details={
                 "before": {"public_role": old_public_role},
                 "after": {"public_role": tree.public_role},
@@ -482,6 +511,73 @@ def set_public_access(
     if logged:
         publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return _tree_out(db, tree, user)
+
+
+@router.put("/{tree_id}/public/password", response_model=TreeOut)
+def set_public_password(
+    payload: PublicPasswordUpdate,
+    tree: Tree = Depends(get_readable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if tree.owner_id != user.id and not user.is_admin:
+        raise HTTPException(
+            status_code=403, detail="Only the owner can change public access"
+        )
+    if tree.public_role != "viewer":
+        raise HTTPException(
+            status_code=400, detail="Tree is not publicly shared"
+        )
+    password = payload.password or ""
+    tree.public_password_hash = hash_password(password) if password else None
+    tree.public_access_version += 1
+    record_admin_audit(
+        db, actor=user, action="update", subject_type="tree_public_access",
+        subject_id=tree.id, subject_label=tree.name,
+        details={"password_protected": bool(password)},
+    )
+    db.commit()
+    db.refresh(tree)
+    return _tree_out(db, tree, user)
+
+
+@router.post("/{tree_id}/public/unlock", response_model=PublicTreeUnlockResult)
+def unlock_public_tree(
+    tree_id: str,
+    payload: PublicTreeUnlock,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """Anonymous: verify a public tree's password and return a short-lived
+    unlock token to be sent as the X-Public-Tree-Token header."""
+    client_ip = request.client.host if request.client else "unknown"
+    limiter_key = f"{client_ip}:{tree_id}"
+    retry_after = public_unlock_rate_limiter.retry_after(limiter_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many public unlock attempts",
+            headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+        )
+
+    tree = db.get(Tree, tree_id)
+    if (
+        tree is None
+        or tree.public_role != "viewer"
+        or tree.public_password_hash is None
+    ):
+        # Run a dummy bcrypt verify so timing does not reveal whether the tree
+        # exists / is protected, then answer uniformly.
+        run_dummy_verify(payload.password)
+        public_unlock_rate_limiter.record_failure(limiter_key)
+        raise HTTPException(status_code=404, detail="Not found")
+    if not verify_password(payload.password, tree.public_password_hash):
+        public_unlock_rate_limiter.record_failure(limiter_key)
+        raise HTTPException(status_code=401, detail="invalid_public_password")
+    public_unlock_rate_limiter.reset(limiter_key)
+    return PublicTreeUnlockResult(
+        token=create_public_tree_token(tree.id, tree.public_access_version)
+    )
 
 
 # --- Sharing ---------------------------------------------------------------
@@ -1027,4 +1123,3 @@ def revert_transfer(
         access=list_access(tree=tree, db=db),
         undo_available_until=None,
     )
-

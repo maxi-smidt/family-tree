@@ -47,7 +47,9 @@ class FakeEventSource {
 // ---------------------------------------------------------------------------
 
 vi.mock("@/services/api", () => ({
-  getAuthToken: vi.fn(() => "test-token"),
+  api: {
+    post: vi.fn().mockResolvedValue({ ticket: "test-sse-ticket" }),
+  },
 }));
 
 vi.mock("@/hooks/useTreeStore", () => {
@@ -88,6 +90,11 @@ vi.mock("sonner", () => ({
 // Tests
 // ---------------------------------------------------------------------------
 
+async function waitForEventSource(): Promise<FakeEventSource> {
+  await vi.waitFor(() => expect(FakeEventSource.instance).not.toBeNull());
+  return FakeEventSource.instance!;
+}
+
 describe("realtime", () => {
   beforeEach(() => {
     // Install the fake EventSource globally before each test.
@@ -103,13 +110,13 @@ describe("realtime", () => {
     vi.clearAllMocks();
   });
 
-  it("startRealtime opens an EventSource with the token in the URL", async () => {
+  it("startRealtime opens an EventSource with an SSE ticket in the URL", async () => {
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
 
-    expect(FakeEventSource.instance).not.toBeNull();
-    expect(FakeEventSource.instance!.url).toContain("/sse/events?token=");
-    expect(FakeEventSource.instance!.url).toContain("test-token");
+    const eventSource = await waitForEventSource();
+    expect(eventSource.url).toContain("/sse/events?ticket=");
+    expect(eventSource.url).toContain("test-sse-ticket");
 
     stopRealtime();
   });
@@ -120,6 +127,7 @@ describe("realtime", () => {
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
+    await waitForEventSource();
 
     FakeEventSource.instance!.dispatch("tree.ownership_changed", {
       tree_id: "t1",
@@ -135,6 +143,7 @@ describe("realtime", () => {
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
+    await waitForEventSource();
 
     FakeEventSource.instance!.dispatch("tree.access_changed", {
       tree_id: "t1",
@@ -150,6 +159,7 @@ describe("realtime", () => {
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
+    await waitForEventSource();
 
     FakeEventSource.instance!.dispatch("tree.deleted", { tree_id: "t1" });
 
@@ -161,7 +171,7 @@ describe("realtime", () => {
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
 
-    const es = FakeEventSource.instance!;
+    const es = await waitForEventSource();
     stopRealtime();
 
     expect(es.closed).toBe(true);
@@ -173,7 +183,7 @@ describe("realtime", () => {
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
-    const es = FakeEventSource.instance!;
+    const es = await waitForEventSource();
 
     es.dispatch("session.invalidate", { reason: "deactivated" });
 
@@ -185,7 +195,7 @@ describe("realtime", () => {
   it("startRealtime is idempotent (does not open a second connection)", async () => {
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
-    const first = FakeEventSource.instance;
+    const first = await waitForEventSource();
 
     // Replace instance so we can detect if a new one is created.
     FakeEventSource.instance = null;
@@ -203,6 +213,7 @@ describe("realtime", () => {
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
+    await waitForEventSource();
 
     FakeEventSource.instance!.dispatch("job.progress", {
       job_id: "job-1",
@@ -219,6 +230,7 @@ describe("realtime", () => {
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
+    await waitForEventSource();
 
     FakeEventSource.instance!.dispatch("job.done", {
       job_id: "job-1",
@@ -235,6 +247,7 @@ describe("realtime", () => {
 
     const { startRealtime, stopRealtime } = await import("./realtime");
     startRealtime();
+    await waitForEventSource();
 
     FakeEventSource.instance!.dispatch("job.failed", {
       job_id: "job-1",

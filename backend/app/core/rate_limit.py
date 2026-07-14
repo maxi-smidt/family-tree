@@ -113,3 +113,8 @@ class RateLimiter:
 login_rate_limiter = RateLimiter(
     settings.LOGIN_MAX_ATTEMPTS, settings.LOGIN_RATE_LIMIT_WINDOW_SECONDS
 )
+
+public_unlock_rate_limiter = RateLimiter(
+    settings.PUBLIC_UNLOCK_MAX_ATTEMPTS,
+    settings.PUBLIC_UNLOCK_RATE_LIMIT_WINDOW_SECONDS,
+)

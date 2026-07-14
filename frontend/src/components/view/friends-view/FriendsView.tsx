@@ -205,7 +205,11 @@ export const FriendsView = () => {
     <ViewLayout title={t("title")}>
       {/* px-1 keeps focus rings (e.g. the search box) from being clipped by the
           ViewLayout scroll container's left edge. */}
-      <Tabs value={tab} onValueChange={setTab} className="h-full px-1">
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="flex h-full min-h-0 flex-1 flex-col px-1"
+      >
         <TabsList>
           <TabsTrigger value="friends">
             {t("tab-friends")}
@@ -221,9 +225,12 @@ export const FriendsView = () => {
         </TabsList>
 
         {/* Accepted friends */}
-        <TabsContent value="friends" className="mt-4">
+        <TabsContent
+          value="friends"
+          className="mt-4 flex min-h-0 flex-1 flex-col"
+        >
           {friends.length === 0 ? (
-            <Empty className="border">
+            <Empty className="flex-1 border">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <Users />
@@ -262,7 +269,7 @@ export const FriendsView = () => {
         </TabsContent>
 
         {/* Incoming + outgoing pending requests */}
-        <TabsContent value="requests" className="mt-4 space-y-6">
+        <TabsContent value="requests" className="mt-4 flex-1 space-y-6">
           <section className="space-y-3">
             <h2 className="text-sm font-semibold text-muted-foreground">
               {t("incoming")}
@@ -352,7 +359,7 @@ export const FriendsView = () => {
         </TabsContent>
 
         {/* Search & add */}
-        <TabsContent value="add" className="mt-4 space-y-4">
+        <TabsContent value="add" className="mt-4 flex-1 space-y-4">
           <div className="relative max-w-md">
             <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input

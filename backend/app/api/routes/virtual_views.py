@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.api.activity_query import activity_page
 from app.api.deps import (
     accessible_tree_ids,
     get_current_user,
@@ -14,17 +15,18 @@ from app.api.routes.statistics import compute_statistics
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
-    ActivityLog,
-    Citation,
+    Document,
+    DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
     Member,
     MemberDisease,
     Relation,
-    Source,
     Story,
+    StoryDocumentLink,
     StoryMemberLink,
     Tree,
     User,
@@ -35,16 +37,15 @@ from app.models.virtual_view import (
     VirtualViewPosition,
     VirtualViewSource,
 )
-from app.schemas.activity import ActivityOut
+from app.schemas.activity import ActivityPageOut
 from app.schemas.content import (
-    CitationOut,
+    DocumentOut,
     EventLinkOut,
     EventOut,
     GalleryImageOut,
     GalleryLinkOut,
     GeocodeOut,
     GeocodeRequest,
-    SourceOut,
     StoryLinkOut,
     StoryOut,
 )
@@ -59,6 +60,7 @@ from app.schemas.virtual_view import (
     VirtualViewSourceOut,
     VirtualViewUpdate,
 )
+from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus
 from app.services.geocoding import resolve_batch, resolve_single
 from app.services.quality_checks import run_quality_checks
@@ -473,6 +475,11 @@ def create_virtual_view(
     _persist_sources(db, view, resolved)
     db.flush()
     persist_matches(db, view)
+    record_admin_audit(
+        db, actor=user, action="create", subject_type="virtual_view",
+        subject_id=view.id, subject_label=view.name,
+        details={"source_ids": payload.source_tree_ids},
+    )
     db.commit()
     db.refresh(view)
     return _view_out(db, view, user)
@@ -500,6 +507,10 @@ def update_virtual_view(
     view = _resolve_view(db, view_id, user)
     if view.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can update a view")
+    before = {
+        "name": view.name,
+        "source_ids": [src.tree_id or src.source_view_id for src in view.sources],
+    }
     if payload.name is not None:
         if not payload.name.strip():
             raise HTTPException(status_code=400, detail="A name is required")
@@ -523,6 +534,20 @@ def update_virtual_view(
         # collection (otherwise matches are computed against the old trees).
         db.expire(view, ["sources"])
         persist_matches(db, view)
+    if payload.name is not None or payload.source_tree_ids is not None:
+        after = {
+            "name": view.name,
+            "source_ids": (
+                payload.source_tree_ids
+                if payload.source_tree_ids is not None
+                else before["source_ids"]
+            ),
+        }
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="virtual_view",
+            subject_id=view.id, subject_label=view.name,
+            details={"before": before, "after": after},
+        )
     db.commit()
     db.refresh(view)
     return _view_out(db, view, user)
@@ -539,6 +564,10 @@ def delete_virtual_view(
         raise HTTPException(status_code=404, detail="Virtual view not found")
     if view.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete a view")
+    record_admin_audit(
+        db, actor=user, action="delete", subject_type="virtual_view",
+        subject_id=view.id, subject_label=view.name,
+    )
     db.delete(view)
     db.commit()
 
@@ -889,7 +918,23 @@ def list_virtual_events(
 ) -> list[EventOut]:
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
-    return [EventOut.model_validate(e) for e in _aggregate(db, source_ids, Event)]
+    events = _aggregate(db, source_ids, Event)
+    event_ids = [e.id for e in events]
+    doc_map: dict[str, list[str]] = {}
+    if event_ids:
+        rows = db.execute(
+            select(EventDocumentLink.event_id, EventDocumentLink.document_id).where(
+                EventDocumentLink.event_id.in_(event_ids)
+            )
+        ).all()
+        for eid, did in rows:
+            doc_map.setdefault(eid, []).append(did)
+    return [
+        EventOut.model_validate(e).model_copy(
+            update={"document_ids": doc_map.get(e.id, [])}
+        )
+        for e in events
+    ]
 
 
 @router.get("/{view_id}/events/links", response_model=list[EventLinkOut])
@@ -916,11 +961,24 @@ def list_virtual_stories(
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
     stories = db.scalars(
-        select(Story)
-        .where(Story.tree_id.in_(source_ids))
-        .options(selectinload(Story.attachments))
+        select(Story).where(Story.tree_id.in_(source_ids))
     ).all()
-    return [StoryOut.model_validate(s) for s in stories]
+    story_ids = [s.id for s in stories]
+    doc_map: dict[str, list[str]] = {}
+    if story_ids:
+        rows = db.execute(
+            select(StoryDocumentLink.story_id, StoryDocumentLink.document_id).where(
+                StoryDocumentLink.story_id.in_(story_ids)
+            )
+        ).all()
+        for sid, did in rows:
+            doc_map.setdefault(sid, []).append(did)
+    return [
+        StoryOut.model_validate(s).model_copy(
+            update={"document_ids": doc_map.get(s.id, [])}
+        )
+        for s in stories
+    ]
 
 
 @router.get("/{view_id}/stories/links", response_model=list[StoryLinkOut])
@@ -937,57 +995,64 @@ def list_virtual_story_links(
     return [StoryLinkOut(story_id=other, member_id=node) for other, node in pairs]
 
 
-@router.get("/{view_id}/sources", response_model=list[SourceOut])
-def list_virtual_sources(
+@router.get("/{view_id}/documents", response_model=list[DocumentOut])
+def list_virtual_documents(
     view_id: str,
+    # The flag/domain key is kept as "sources" for backward compatibility; the
+    # feature is now presented as "Documents".
     _: None = Depends(require_feature("sources")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[SourceOut]:
-    view = _resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
-    sources = db.scalars(
-        select(Source)
-        .where(Source.tree_id.in_(source_ids))
-        .options(selectinload(Source.evidence))
-    ).all()
-    return [SourceOut.model_validate(s) for s in sources]
-
-
-@router.get("/{view_id}/sources/citations", response_model=list[CitationOut])
-def list_virtual_citations(
-    view_id: str,
-    _: None = Depends(require_feature("sources")),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-) -> list[CitationOut]:
+) -> list[DocumentOut]:
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
     id_map = _build_id_map(db, view)
-    result: list[CitationOut] = []
-    for c in _aggregate(db, source_ids, Citation):
-        out = CitationOut.model_validate(c)
-        node_id = id_map.get(c.member_id, c.member_id)
-        result.append(out.model_copy(update={"member_id": node_id}))
-    return result
+    documents = db.scalars(
+        select(Document)
+        .where(Document.tree_id.in_(source_ids))
+        .options(selectinload(Document.files))
+    ).all()
+    doc_ids = [d.id for d in documents]
+    member_map: dict[str, list[str]] = {}
+    if doc_ids:
+        rows = db.execute(
+            select(DocumentMemberLink.document_id, DocumentMemberLink.member_id).where(
+                DocumentMemberLink.document_id.in_(doc_ids)
+            )
+        ).all()
+        for did, mid in rows:
+            member_map.setdefault(did, []).append(id_map.get(mid, mid))
+    return [
+        DocumentOut.model_validate(d).model_copy(
+            update={"member_ids": member_map.get(d.id, [])}
+        )
+        for d in documents
+    ]
 
 
-@router.get("/{view_id}/activity", response_model=list[ActivityOut])
+@router.get("/{view_id}/activity", response_model=ActivityPageOut)
 def list_virtual_activity(
     view_id: str,
     _: None = Depends(require_feature("activity_log")),
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    actor: str | None = Query(default=None),
+    action: str | None = Query(default=None),
+    target_type: str | None = Query(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> list[ActivityOut]:
+) -> ActivityPageOut:
     view = _resolve_view(db, view_id, user)
     source_ids = flatten_tree_ids(db, view)
-    rows = db.scalars(
-        select(ActivityLog)
-        .where(ActivityLog.tree_id.in_(source_ids))
-        .order_by(ActivityLog.created_at.desc())
-        .limit(200)
-    ).all()
-    return [ActivityOut.model_validate(r) for r in rows]
+    return activity_page(
+        db,
+        source_ids,
+        limit=limit,
+        offset=offset,
+        actor=actor,
+        action=action,
+        target_type=target_type,
+    )
 
 
 @router.post("/{view_id}/geocode", response_model=list[GeocodeOut])

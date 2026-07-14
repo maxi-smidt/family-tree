@@ -14,6 +14,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { getMemberOptions } from "@/utils/memberUtils";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useTranslation } from "react-i18next";
@@ -36,7 +37,7 @@ type Props = {
 };
 
 export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
-  const { t } = useTranslation(undefined, {
+  const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "gallery-view.image-sheet",
   });
   const { members } = useMemberStore();
@@ -48,12 +49,8 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
   }, [image]);
 
   const memberOptions = useMemo(
-    () =>
-      members.map((member) => ({
-        value: member.id,
-        label: `${member.firstName} ${member.lastName}`,
-      })),
-    [members],
+    () => getMemberOptions(members, (name) => i18n.t("common.nee", { name })),
+    [members, i18n],
   );
 
   const handleSave = () => {

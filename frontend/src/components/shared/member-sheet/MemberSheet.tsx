@@ -7,22 +7,25 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Member } from "@/types/member";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ViewMode } from "./ViewMode";
-import { EditMode } from "./EditMode";
+import { EditMode, SaveStatus } from "./EditMode";
 import { Button } from "@/components/ui/button";
-import { Eye, Pencil } from "lucide-react";
+import { Check, CircleAlert, Eye, Pencil } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useSourceStore } from "@/hooks/useSourceStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
+import { MemberSheetTab } from "@/utils/memberSheetState";
 
 type Props = {
   isOpen: boolean;
@@ -51,22 +54,53 @@ export const MemberSheet = ({
   const { removeMember, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
-  const { refreshSources, initialized: sourcesInitialized } = useSourceStore();
+  const { refreshDocuments, initialized: documentsInitialized } =
+    useDocumentStore();
   const { refreshGalleryImages, initialized: galleryInitialized } =
     useGalleryStore();
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
+  const treeId = useTreeStore((s) => s.selectedTree?.id);
+  const savedSheetState = useMemberSheetStore((s) =>
+    treeId ? s.openSheets[treeId] : undefined,
+  );
+  const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
+  const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
   const [isEditMode, setIsEditMode] = useState(initialEditMode);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const flushAutosaveRef = useRef<() => Promise<void>>(async () => {});
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
+  const activeTab: MemberSheetTab =
+    savedSheetState && savedSheetState.memberId === member?.id
+      ? savedSheetState.tab
+      : "identity";
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !member || isNewMember || !treeId) return;
+    setOpenSheet(treeId, {
+      memberId: member.id,
+      tab: savedSheetState?.memberId === member.id ? activeTab : "identity",
+      mode: isViewingEditMode ? "edit" : "view",
+    });
+  }, [
+    activeTab,
+    isNewMember,
+    isOpen,
+    isViewingEditMode,
+    member?.id,
+    savedSheetState?.memberId,
+    setOpenSheet,
+    treeId,
+  ]);
 
   // Fetch full member detail when the sheet opens for an existing member.
   // Skip the spinner entirely when detail is already cached for this member.
@@ -94,8 +128,8 @@ export const MemberSheet = ({
     refreshStories,
   );
   useDeferredStoreLoad(
-    sourcesInitialized || !isOpen || isNewMember,
-    refreshSources,
+    documentsInitialized || !isOpen || isNewMember,
+    refreshDocuments,
   );
   useDeferredStoreLoad(
     galleryInitialized || !isOpen || isNewMember,
@@ -104,21 +138,41 @@ export const MemberSheet = ({
 
   if (!member) return null;
 
-  const handleDelete = async () => {
-    await removeMember(member.id);
-    setIsDeleteDialogOpen(false);
+  const handleTabChange = (tab: MemberSheetTab) => {
+    if (!treeId || isNewMember) return;
+    setOpenSheet(treeId, {
+      memberId: member.id,
+      tab,
+      mode: isViewingEditMode ? "edit" : "view",
+    });
+  };
+
+  const closeSheet = async () => {
+    if (!isNewMember) await flushAutosaveRef.current();
+    if (treeId) clearOpenSheet(treeId);
     onClose();
   };
 
-  const handleCloseRequest = () => {
-    if (isDirty && isViewingEditMode) {
+  const handleDelete = async () => {
+    await flushAutosaveRef.current();
+    await removeMember(member.id);
+    setIsDeleteDialogOpen(false);
+    await closeSheet();
+  };
+
+  const handleCloseRequest = async () => {
+    // Existing members autosave (and flush on EditMode unmount), so there's
+    // never an unsaved change to warn about there — only new members, which
+    // are purely client-side until an explicit "Create member", need the
+    // discard/save/stay prompt.
+    if (isNewMember && isDirty && isViewingEditMode) {
       setIsUnsavedDialogOpen(true);
       return;
     }
     if (isNewMember && onDiscardNewMember) {
-      void onDiscardNewMember();
+      await onDiscardNewMember();
     }
-    onClose();
+    await closeSheet();
   };
 
   const handleDiscard = async () => {
@@ -126,7 +180,7 @@ export const MemberSheet = ({
       await onDiscardNewMember();
     }
     setIsUnsavedDialogOpen(false);
-    onClose();
+    await closeSheet();
   };
 
   const handleSaveAndClose = () => {
@@ -139,14 +193,29 @@ export const MemberSheet = ({
 
   // Cross-view "show on map" (#554): jump from a location field in the view
   // mode straight to the Map view, focused on that location.
-  const handleShowLocationOnMap = (location: string, memberId: string) => {
+  const handleShowLocationOnMap = async (
+    location: string,
+    memberId: string,
+  ) => {
+    await closeSheet();
     setMapFocus({ location, memberId });
     navigateTo("map-view");
-    onClose();
+  };
+
+  const handleModeToggle = async () => {
+    if (isViewingEditMode && !isNewMember) {
+      await flushAutosaveRef.current();
+    }
+    setIsEditMode((value) => !value);
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && handleCloseRequest()}>
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) void handleCloseRequest();
+      }}
+    >
       <SheetContent
         className="w-full max-w-full sm:w-135 sm:max-w-none"
         showCloseButton={false}
@@ -175,7 +244,7 @@ export const MemberSheet = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setIsEditMode((value) => !value)}
+                onClick={() => void handleModeToggle()}
               >
                 {isViewingEditMode ? <Eye /> : <Pencil />}
               </Button>
@@ -192,20 +261,31 @@ export const MemberSheet = ({
               </div>
             ) : isViewingEditMode ? (
               <EditMode
+                key={`${treeId ?? "no-tree"}:${member.id}`}
                 member={member}
                 isNew={isNewMember}
                 onSaved={async (data) => {
                   if (isNewMember && onSaveNewMember) {
                     await onSaveNewMember(data);
                   }
-                  onClose();
+                  await closeSheet();
                 }}
                 onDirtyChange={setIsDirty}
+                onSaveStatusChange={setSaveStatus}
+                onAutosaveFlush={(flush) => {
+                  flushAutosaveRef.current = flush;
+                }}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
               />
             ) : (
               <ViewMode
                 member={member}
-                onShowLocationOnMap={handleShowLocationOnMap}
+                onShowLocationOnMap={(location, memberId) => {
+                  void handleShowLocationOnMap(location, memberId);
+                }}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
               />
             )}
           </div>
@@ -213,25 +293,56 @@ export const MemberSheet = ({
 
         {isViewingEditMode && (
           <SheetFooter className="mt-auto p-4 border-t bg-background gap-2">
-            <div className="grid grid-cols-2 gap-4">
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="flex-1"
-                onClick={() => setIsDeleteDialogOpen(true)}
-              >
-                {t("delete")}
-              </Button>
-              <Button
-                type="submit"
-                form="edit-member-form"
-                className="flex-1"
-                size="sm"
-              >
-                {t("save")}
-              </Button>
-            </div>
+            {isNewMember ? (
+              <div className="grid grid-cols-2 gap-4">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  {t("delete")}
+                </Button>
+                <Button
+                  type="submit"
+                  form="edit-member-form"
+                  className="flex-1"
+                  size="sm"
+                >
+                  {t("create")}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  {t("delete")}
+                </Button>
+                {saveStatus === "saving" && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Spinner className="size-3.5" />
+                    {t("saving")}
+                  </span>
+                )}
+                {saveStatus === "saved" && (
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Check className="size-3.5" />
+                    {t("saved")}
+                  </span>
+                )}
+                {saveStatus === "error" && (
+                  <span className="flex items-center gap-1.5 text-xs text-destructive">
+                    <CircleAlert className="size-3.5" />
+                    {t("save-error")}
+                  </span>
+                )}
+              </div>
+            )}
           </SheetFooter>
         )}
       </SheetContent>
