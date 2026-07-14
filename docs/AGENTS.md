@@ -120,6 +120,17 @@ Application state is split across per-domain Zustand stores in `frontend/src/hoo
    const members = useMemberStore((state) => state.members);
    ```
 
+### Member-sheet navigation state
+
+The currently open member sheet, its tab, and its mode are ephemeral UI state.
+`useMemberSheetStore` is the source of truth and persists it in local storage
+per tree so a reload can restore the user’s work without leaking a member from
+one tree into another. The former `member`, `memberTab`, and `memberMode` URL
+parameters remain supported only as a one-time deep-link input. `FlowPanel`
+validates them against the readable members in the active tree, consumes valid
+links, and removes invalid, stale, or unauthorized requests. Do not write these
+values back to the URL or treat them as live application state.
+
 ---
 
 ## Backend & Persistence
