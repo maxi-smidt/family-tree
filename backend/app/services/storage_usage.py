@@ -184,7 +184,18 @@ def compute_owner_usage(db: Session, owner_id: str) -> dict[str, int]:
         db.scalars(sa.select(Tree.id).where(Tree.owner_id == owner_id))
     )
     tb = _tree_model_bytes_for_tree_ids(db, tree_ids)
+    # Profile media is private rather than tree-owned, but it is still the
+    # account owner's media and therefore belongs in the same quota bucket.
+    # Skip the directory entirely for accounts without a stored profile image:
+    # besides avoiding needless disk work, this preserves the tree-only quota
+    # projection used by existing gallery writes.
+    from app.models.user import User
+    from app.services.storage import profile_storage_id
+
     mb = sum(_media_bytes(tree_id) for tree_id in tree_ids)
+    owner = db.get(User, owner_id)
+    if owner is not None and owner.profile_image:
+        mb += _media_bytes(profile_storage_id(owner_id))
     return {"tree_bytes": tb, "media_bytes": mb, "total_bytes": tb + mb}
 
 
@@ -203,17 +214,9 @@ def _instance_quota_bytes(db: Session, key_mb: str, default_mb: int) -> int | No
     return mb * MEBIBYTE
 
 
-def owner_quotas(db: Session, tree) -> dict[str, int | None]:
-    """Resolve effective quota limits for *tree*'s owner.
-
-    Reads the three quota columns from the owner User row; falls back to the
-    instance-default settings when a column is NULL; returns None when the
-    effective value is 0 (= unlimited).
-    """
-    from app.models.user import User  # avoid circular at module level
-
-    owner = db.get(User, tree.owner_id)
-    if owner is None:
+def user_quotas(db: Session, user) -> dict[str, int | None]:
+    """Resolve the effective tree and media quotas for one account."""
+    if user is None:
         return {
             "tree_quota_bytes": None,
             "media_quota_bytes": None,
@@ -226,12 +229,19 @@ def owner_quotas(db: Session, tree) -> dict[str, int | None]:
 
     return {
         "tree_quota_bytes": _resolve(
-            owner.tree_quota_bytes, "default_tree_quota_mb", DEFAULT_TREE_QUOTA_MB
+            user.tree_quota_bytes, "default_tree_quota_mb", DEFAULT_TREE_QUOTA_MB
         ),
         "media_quota_bytes": _resolve(
-            owner.media_quota_bytes, "default_media_quota_mb", DEFAULT_MEDIA_QUOTA_MB
+            user.media_quota_bytes, "default_media_quota_mb", DEFAULT_MEDIA_QUOTA_MB
         ),
     }
+
+
+def owner_quotas(db: Session, tree) -> dict[str, int | None]:
+    """Resolve effective quota limits for *tree*'s owner."""
+    from app.models.user import User  # avoid circular at module level
+
+    return user_quotas(db, db.get(User, tree.owner_id))
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +289,31 @@ def check_media_quota(db: Session, tree, incoming_bytes: int) -> None:
     usage = compute_owner_usage(db, tree.owner_id)
     _check_bucket(
         "media", quotas["media_quota_bytes"], usage["media_bytes"], incoming_bytes
+    )
+
+
+def check_user_media_quota(
+    db: Session,
+    user,
+    incoming_bytes: int,
+    *,
+    replacing_bytes: int = 0,
+) -> None:
+    """Apply a user's media quota to private profile media.
+
+    Uploads are write-then-verified like gallery images. During a replacement,
+    the old profile image remains until the new row update commits, so subtract
+    its bytes when projecting the final post-replacement usage.
+    """
+    quotas = user_quotas(db, user)
+    if quotas["media_quota_bytes"] is None:
+        return
+    usage = compute_owner_usage(db, user.id)
+    _check_bucket(
+        "media",
+        quotas["media_quota_bytes"],
+        max(0, usage["media_bytes"] - replacing_bytes),
+        incoming_bytes,
     )
 
 

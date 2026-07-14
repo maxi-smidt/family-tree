@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { getAuthToken, getPublicTreeToken } from "@/services/api";
 
-const MEDIA_PREFIX = "/api/media/";
+const PROTECTED_MEDIA_PREFIXES = ["/api/media/", "/api/auth/profile/image/"];
+
+function isProtectedMediaUrl(src: string): boolean {
+  return PROTECTED_MEDIA_PREFIXES.some((prefix) => src.startsWith(prefix));
+}
 
 // Module-level cache: media URL -> blob URL. Avoids re-fetching the same file
 // during a session. Blob URLs are document-scoped so this is effectively
@@ -18,12 +22,12 @@ export function useMediaUrl(
   src: string | null | undefined,
 ): string | null | undefined {
   const [resolved, setResolved] = useState<string | null | undefined>(() => {
-    if (!src || !src.startsWith(MEDIA_PREFIX)) return src;
+    if (!src || !isProtectedMediaUrl(src)) return src;
     return _cache.get(src) ?? undefined;
   });
 
   useEffect(() => {
-    if (!src || !src.startsWith(MEDIA_PREFIX)) {
+    if (!src || !isProtectedMediaUrl(src)) {
       setResolved(src);
       return;
     }
@@ -87,7 +91,7 @@ export async function downloadMedia(
   src: string,
   filename: string,
 ): Promise<void> {
-  const isMedia = src.startsWith(MEDIA_PREFIX);
+  const isMedia = isProtectedMediaUrl(src);
   const url = isMedia ? await fetchMediaObjectUrl(`${src}?download=true`) : src;
   const a = document.createElement("a");
   a.href = url;
@@ -103,8 +107,6 @@ export async function downloadMedia(
  * Non-media sources (data:/blob: URLs) are opened directly.
  */
 export async function openMedia(src: string): Promise<void> {
-  const url = src.startsWith(MEDIA_PREFIX)
-    ? await fetchMediaObjectUrl(src)
-    : src;
+  const url = isProtectedMediaUrl(src) ? await fetchMediaObjectUrl(src) : src;
   window.open(url, "_blank", "noopener");
 }

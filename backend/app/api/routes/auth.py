@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+import mimetypes
+
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -39,6 +42,7 @@ from app.schemas.user import (
     PasswordChange,
     UserCreate,
     UserOut,
+    UserProfileUpdate,
 )
 from app.services import feature_service
 from app.services.admin_audit import record_admin_audit
@@ -48,6 +52,15 @@ from app.services.settings_service import (
     get_media_limits,
     user_has_accepted_legal,
 )
+from app.services.storage import (
+    ImageTooLarge,
+    UnsupportedImageType,
+    delete_profile_image,
+    profile_image_path,
+    profile_image_size,
+    store_profile_image_upload,
+)
+from app.services.storage_usage import QuotaExceeded, check_user_media_quota
 from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -66,6 +79,10 @@ def _current_user_out(db: Session, user: User) -> CurrentUserOut:
         db, "legal_acceptance_required", True
     )
     out.legal_accepted = user_has_accepted_legal(db, user)
+    if user.profile_image:
+        out.profile_image_url = (
+            f"{settings.API_PREFIX}/auth/profile/image/{user.profile_image}"
+        )
     return out
 
 
@@ -225,6 +242,97 @@ def refresh_access_token(
     """Issue a new access token while the current session is still valid."""
     token = create_access_token(user.id)
     return Token(access_token=token, user=_current_user_out(db, user))
+
+
+@router.patch("/profile", response_model=CurrentUserOut)
+def update_profile(
+    payload: UserProfileUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update only the calling user's profile names."""
+    changes = payload.model_dump(exclude_unset=True)
+    for field, value in changes.items():
+        setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
+    return _current_user_out(db, user)
+
+
+@router.post("/profile/image", response_model=CurrentUserOut)
+async def upload_profile_image(
+    image: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stream, validate and persist a private profile image for the caller."""
+    old_filename = user.profile_image
+    try:
+        filename = await store_profile_image_upload(
+            user.id, image, get_media_limits(db)
+        )
+    except ImageTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except (UnsupportedImageType, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        await image.close()
+
+    try:
+        check_user_media_quota(
+            db,
+            user,
+            profile_image_size(user.id, filename),
+            replacing_bytes=profile_image_size(user.id, old_filename),
+        )
+    except QuotaExceeded as exc:
+        delete_profile_image(user.id, filename)
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+
+    user.profile_image = filename
+    try:
+        db.commit()
+        db.refresh(user)
+    except Exception:
+        db.rollback()
+        delete_profile_image(user.id, filename)
+        raise
+
+    delete_profile_image(user.id, old_filename)
+    return _current_user_out(db, user)
+
+
+@router.get("/profile/image/{filename}")
+def get_profile_image(
+    filename: str,
+    user: User = Depends(get_current_user),
+):
+    """Serve only the caller's current profile image.
+
+    The route intentionally has no user id: it cannot be used to enumerate or
+    read another account's media, even by an administrator.
+    """
+    if user.profile_image != filename:
+        raise HTTPException(status_code=404, detail="Profile image not found")
+    path = profile_image_path(user.id, filename)
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="Profile image not found")
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    return FileResponse(path, media_type=media_type)
+
+
+@router.delete("/profile/image", response_model=CurrentUserOut)
+def remove_profile_image(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Clear the caller's profile image and remove its private media bytes."""
+    filename = user.profile_image
+    user.profile_image = None
+    db.commit()
+    db.refresh(user)
+    delete_profile_image(user.id, filename)
+    return _current_user_out(db, user)
 
 
 @router.post("/delete-account", response_model=UserOut)
