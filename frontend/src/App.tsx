@@ -1,7 +1,7 @@
 import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { resetAnnouncementStoreForSession } from "@/hooks/useAnnouncementStore";
+import { resetWhatsNewStoreForSession } from "@/hooks/useWhatsNewStore";
 import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
 import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
@@ -42,7 +42,7 @@ export const App = () => {
     if (status !== "authenticated" || !userId) {
       setTreesBootstrapped(false);
       setPublicTreeFallback(false);
-      resetAnnouncementStoreForSession();
+      resetWhatsNewStoreForSession();
       resetLegalStoreForSession();
       resetTreeStoreForSession();
       resetTutorialStoreForSession();
@@ -53,7 +53,7 @@ export const App = () => {
     let cancelled = false;
     setTreesBootstrapped(false);
     setPublicTreeFallback(false);
-    resetAnnouncementStoreForSession();
+    resetWhatsNewStoreForSession();
     resetLegalStoreForSession();
     resetTreeStoreForSession();
     resetTutorialStoreForSession();

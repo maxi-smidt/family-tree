@@ -55,9 +55,6 @@ class SettingsOut(BaseModel):
     image_storage_allowed_modes: list[ImageStorageMode] = Field(
         default_factory=lambda: ["compressed", "original", "both"]
     )
-    announcement_title: str = ""
-    announcement_body: str = ""
-    announcement_version: str = ""
     legal_acceptance_required: bool = True
     legal_version: str = "1"
     legal_terms_body_de: str = ""
@@ -95,9 +92,6 @@ class SettingsUpdate(BaseModel):
     default_media_quota_mb: int | None = Field(default=None, ge=0)
     image_storage_mode: ImageStorageMode | None = None
     image_storage_allowed_modes: list[ImageStorageMode] | None = None
-    announcement_title: str | None = Field(default=None, max_length=200)
-    announcement_body: str | None = Field(default=None, max_length=20000)
-    announcement_version: str | None = Field(default=None, max_length=50)
     legal_acceptance_required: bool | None = None
     # legal_version is intentionally not settable here — it is bumped
     # automatically whenever a legal document body changes (see update_settings).

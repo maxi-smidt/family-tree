@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
-import { useAnnouncementStore } from "@/hooks/useAnnouncementStore";
+import { useWhatsNewStore } from "@/hooks/useWhatsNewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -101,8 +101,8 @@ describe("MainPanel", () => {
       loaded: false,
       isRunning: false,
     });
-    useAnnouncementStore.setState({
-      announcement: null,
+    useWhatsNewStore.setState({
+      lastReadVersion: null,
       loaded: false,
       dismissed: false,
       load: vi.fn().mockResolvedValue(undefined),
@@ -189,7 +189,11 @@ describe("MainPanel", () => {
 
     act(() => {
       useAuthStore.setState({
-        user: { ...USER, legal_acceptance_required: true, legal_accepted: true },
+        user: {
+          ...USER,
+          legal_acceptance_required: true,
+          legal_accepted: true,
+        },
       });
     });
 
@@ -198,7 +202,7 @@ describe("MainPanel", () => {
     });
   });
 
-  it("does not load release announcements before onboarding is complete", async () => {
+  it("does not load What's New before onboarding is complete", async () => {
     const loadIncomingFriends = vi.fn().mockResolvedValue(undefined);
     useAuthStore.setState({
       user: USER,
@@ -212,18 +216,18 @@ describe("MainPanel", () => {
       loaded: true,
       isRunning: false,
     });
-    const loadAnnouncement = vi.fn().mockResolvedValue(undefined);
-    useAnnouncementStore.setState({ load: loadAnnouncement });
+    const loadWhatsNew = vi.fn().mockResolvedValue(undefined);
+    useWhatsNewStore.setState({ load: loadWhatsNew });
 
     render(<MainPanel />);
 
     await waitFor(() => {
       expect(loadIncomingFriends).toHaveBeenCalled();
     });
-    expect(loadAnnouncement).not.toHaveBeenCalled();
+    expect(loadWhatsNew).not.toHaveBeenCalled();
   });
 
-  it("loads release announcements after onboarding is complete", async () => {
+  it("loads What's New after onboarding is complete", async () => {
     useAuthStore.setState({
       user: USER,
       features: [],
@@ -233,13 +237,13 @@ describe("MainPanel", () => {
       loaded: true,
       isRunning: false,
     });
-    const loadAnnouncement = vi.fn().mockResolvedValue(undefined);
-    useAnnouncementStore.setState({ load: loadAnnouncement });
+    const loadWhatsNew = vi.fn().mockResolvedValue(undefined);
+    useWhatsNewStore.setState({ load: loadWhatsNew });
 
     render(<MainPanel />);
 
     await waitFor(() => {
-      expect(loadAnnouncement).toHaveBeenCalledTimes(1);
+      expect(loadWhatsNew).toHaveBeenCalledTimes(1);
     });
   });
 });
