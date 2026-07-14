@@ -16,11 +16,15 @@ import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
 import i18n from "@/i18n/i18n";
 import { toast } from "sonner";
+import {
+  applyCollapsedState,
+  applyPositionState,
+  captureCollapsedState,
+  capturePositions,
+} from "@/hooks/memberStoreLayout";
 
 const WINDOWED_MODE_THRESHOLD = 2_000;
 
-type CollapseUpdate = { id: string; isCollapsed: boolean };
-type PositionUpdate = { id: string; x: number; y: number };
 
 // New-member creation still has its own relationship setup flow. Existing
 // member edits use the atomic member PATCH endpoint instead.
@@ -176,37 +180,6 @@ async function buildAppMembersOffThread(
   return filterPendingDeletions(mapped, treeId);
 }
 
-function applyCollapsedState(members: Member[], updates: CollapseUpdate[]) {
-  const byId = new Map(updates.map((u) => [u.id, u.isCollapsed]));
-  return members.map((m) => {
-    const collapsed = byId.get(m.id);
-    return collapsed !== undefined ? { ...m, isCollapsed: collapsed } : m;
-  });
-}
-
-function applyPositionState(members: Member[], positions: PositionUpdate[]) {
-  const byId = new Map(positions.map((p) => [p.id, p]));
-  return members.map((m) => {
-    const position = byId.get(m.id);
-    return position ? { ...m, position: { x: position.x, y: position.y } } : m;
-  });
-}
-
-function captureCollapsedState(members: Member[], updates: CollapseUpdate[]) {
-  return updates.flatMap((u) => {
-    const existing = members.find((m) => m.id === u.id);
-    return existing ? [{ id: u.id, isCollapsed: existing.isCollapsed }] : [];
-  });
-}
-
-function capturePositions(members: Member[], positions: PositionUpdate[]) {
-  return positions.flatMap((p) => {
-    const existing = members.find((m) => m.id === p.id);
-    return existing
-      ? [{ id: p.id, x: existing.position.x, y: existing.position.y }]
-      : [];
-  });
-}
 
 async function refreshAfterOptimisticFailure(
   refreshMembers: (treeId?: string) => Promise<void>,
