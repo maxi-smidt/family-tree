@@ -20,11 +20,11 @@ import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Trash2 } from "lucide-react";
-import { api, ApiError } from "@/services/api";
+import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { ShareCandidate, Tree, TreeAccess } from "@/types/tree";
+import { Tree } from "@/types/tree";
 
 type Props = {
   isOpen: boolean;
@@ -54,6 +54,11 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
   const user = useAuthStore((s) => s.user);
   const deleteAccount = useAuthStore((s) => s.deleteAccount);
   const logout = useAuthStore((s) => s.logout);
+  const loadOwnedTrees = useAuthStore((s) => s.loadOwnedTrees);
+  const loadOwnershipTransferTargets = useAuthStore(
+    (s) => s.loadOwnershipTransferTargets,
+  );
+  const transferTreeOwnership = useAuthStore((s) => s.transferTreeOwnership);
 
   const [ownedTrees, setOwnedTrees] = useState<Tree[]>([]);
   const [transferStates, setTransferStates] = useState<
@@ -76,29 +81,19 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
 
   useEffect(() => {
     if (!isOpen) return;
-    api.get<Tree[]>("/trees").then((trees) => {
-      const owned = trees.filter((t) => t.role === "owner");
+    loadOwnedTrees().then((owned) => {
       setOwnedTrees(owned);
       setTransferStates(
         Object.fromEntries(owned.map((t) => [t.id, defaultTransferState()])),
       );
     });
-  }, [isOpen]);
+  }, [isOpen, loadOwnedTrees]);
 
   const loadTargets = async (treeId: string) => {
     const state = transferStates[treeId];
     if (!state || state.targetsLoaded) return;
 
-    const [accessList, candidates] = await Promise.all([
-      api.get<TreeAccess[]>(`/trees/${treeId}/access`),
-      api.get<ShareCandidate[]>(`/trees/${treeId}/access/candidates`),
-    ]);
-    const targets = [
-      ...accessList
-        .filter((a) => a.role !== "owner")
-        .map((a) => ({ user_id: a.user_id, username: a.username })),
-      ...candidates,
-    ].sort((a, b) => a.username.localeCompare(b.username));
+    const targets = await loadOwnershipTransferTargets(treeId);
 
     setTransferStates((prev) => ({
       ...prev,
@@ -114,7 +109,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
       [treeId]: { ...prev[treeId], transferring: true },
     }));
     try {
-      await api.post(`/trees/${treeId}/transfer`, { username: state.selected });
+      await transferTreeOwnership(treeId, state.selected);
       setTransferStates((prev) => ({
         ...prev,
         [treeId]: {
