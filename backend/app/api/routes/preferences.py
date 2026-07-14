@@ -6,13 +6,12 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import (
-    AnnouncementAck,
-    AnnouncementOut,
     TabPreferences,
     TutorialPreferences,
     UserPreferences,
+    WhatsNewState,
 )
-from app.services.settings_service import get_media_limits, get_setting
+from app.services.settings_service import get_media_limits
 
 router = APIRouter(prefix="/users/me/preferences", tags=["preferences"])
 
@@ -92,38 +91,19 @@ def put_user_preferences(
     return UserPreferences(image_storage_mode=prefs.get("image_storage_mode"))
 
 
-@router.get("/announcement", response_model=AnnouncementAck)
-def get_announcement_ack(user: User = Depends(get_current_user)):
+@router.get("/whats-new", response_model=WhatsNewState)
+def get_whats_new_state(user: User = Depends(get_current_user)):
     prefs = user.preferences or {}
-    return AnnouncementAck(acknowledged_version=prefs.get("announcement_ack_version"))
+    return WhatsNewState(last_read_version=prefs.get("whats_new_last_read_version"))
 
 
-@router.put("/announcement", response_model=AnnouncementAck)
-def put_announcement_ack(
-    payload: AnnouncementAck,
+@router.put("/whats-new", response_model=WhatsNewState)
+def put_whats_new_state(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     prefs = dict(user.preferences or {})
-    prefs["announcement_ack_version"] = payload.acknowledged_version
+    prefs["whats_new_last_read_version"] = settings.APP_VERSION
     user.preferences = prefs
     db.commit()
-    return AnnouncementAck(acknowledged_version=payload.acknowledged_version)
-
-
-@router.get("/announcement/current", response_model=AnnouncementOut)
-def get_current_announcement(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    title = get_setting(db, "announcement_title", "") or ""
-    body = get_setting(db, "announcement_body", "") or ""
-    raw_ver = (get_setting(db, "announcement_version", "") or "").strip()
-    version = raw_ver or settings.APP_VERSION
-    acked = (user.preferences or {}).get("announcement_ack_version")
-    return AnnouncementOut(
-        title=title,
-        body=body,
-        version=version,
-        acknowledged_version=acked,
-    )
+    return WhatsNewState(last_read_version=prefs.get("whats_new_last_read_version"))
