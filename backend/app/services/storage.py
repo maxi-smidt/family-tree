@@ -402,13 +402,6 @@ def profile_image_path(user_id: str, filename: str) -> Path | None:
     )
 
 
-def profile_image_size(user_id: str, filename: str | None) -> int:
-    """Return stored profile image bytes, including any safe original sibling."""
-    if not filename:
-        return 0
-    return media_disk_usage(_profile_media_url(user_id, filename))
-
-
 def delete_profile_image(user_id: str, filename: str | None) -> None:
     """Best-effort cleanup for a user's private profile image."""
     if filename:

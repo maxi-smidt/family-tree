@@ -57,10 +57,8 @@ from app.services.storage import (
     UnsupportedImageType,
     delete_profile_image,
     profile_image_path,
-    profile_image_size,
     store_profile_image_upload,
 )
-from app.services.storage_usage import QuotaExceeded, check_user_media_quota
 from app.services.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -277,17 +275,6 @@ async def upload_profile_image(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         await image.close()
-
-    try:
-        check_user_media_quota(
-            db,
-            user,
-            profile_image_size(user.id, filename),
-            replacing_bytes=profile_image_size(user.id, old_filename),
-        )
-    except QuotaExceeded as exc:
-        delete_profile_image(user.id, filename)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
 
     user.profile_image = filename
     try:

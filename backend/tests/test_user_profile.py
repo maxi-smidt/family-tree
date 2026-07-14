@@ -93,15 +93,16 @@ def test_profile_image_is_private_replaceable_and_removable(
     assert not [path for path in profile_media_root.rglob("*") if path.is_file()]
 
 
-def test_profile_image_uses_existing_validation_and_media_quota(client, db):
+def test_profile_image_uses_validation_without_consuming_media_quota(client, db):
     alice = make_user(db, "alice")
     alice.media_quota_bytes = 1
     db.commit()
 
-    over_quota = _upload(client, alice)
-    assert over_quota.status_code == 413
-    assert over_quota.json()["detail"] == "quota_exceeded_media"
-    assert db.get(type(alice), alice.id).profile_image is None
+    uploaded = _upload(client, alice)
+    assert uploaded.status_code == 200, uploaded.text
+    db.expire_all()
+    assert db.get(type(alice), alice.id).profile_image is not None
+    # Profile images are account metadata, not user-quota media.
     assert compute_owner_usage(db, alice.id)["media_bytes"] == 0
 
     unsupported = client.post(
