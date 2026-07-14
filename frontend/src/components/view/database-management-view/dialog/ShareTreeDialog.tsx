@@ -53,8 +53,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { ApiError } from "@/services/api";
-import { TreeSharingService } from "@/services/TreeSharingService";
+import { useTreeSharingStore } from "@/hooks/useTreeSharingStore";
 import { cn } from "@/lib/utils";
 import {
   LinkedShareTree,
@@ -96,8 +95,29 @@ export const ShareTreeDialog = ({
   const treeRef = useRef(tree);
   treeRef.current = tree;
 
-  const [access, setAccess] = useState<TreeAccess[]>([]);
-  const [candidates, setCandidates] = useState<ShareCandidate[]>([]);
+  const access = useTreeSharingStore((state) => state.access);
+  const candidates = useTreeSharingStore((state) => state.candidates);
+  const invitations = useTreeSharingStore((state) => state.invitations);
+  const linkedTrees = useTreeSharingStore((state) => state.linkedTrees);
+  const loadSharing = useTreeSharingStore((state) => state.load);
+  const grantAccess = useTreeSharingStore((state) => state.grantAccess);
+  const revokeAccess = useTreeSharingStore((state) => state.revokeAccess);
+  const updateMemberRestrictions = useTreeSharingStore(
+    (state) => state.updateMemberRestrictions,
+  );
+  const transferOwnership = useTreeSharingStore((state) => state.transferOwnership);
+  const revertTransfer = useTreeSharingStore((state) => state.revertTransfer);
+  const createInvitation = useTreeSharingStore((state) => state.createInvitation);
+  const revokeInvitation = useTreeSharingStore((state) => state.revokeInvitation);
+  const setPublicAccess = useTreeSharingStore((state) => state.setPublicAccess);
+  const setPublicPassword = useTreeSharingStore((state) => state.setPublicPassword);
+  const getLinkedShareTrees = useTreeSharingStore(
+    (state) => state.getLinkedShareTrees,
+  );
+  const grantAccessBatch = useTreeSharingStore((state) => state.grantAccessBatch);
+  const revokeAccessBatch = useTreeSharingStore(
+    (state) => state.revokeAccessBatch,
+  );
   const [staged, setStaged] = useState<StagedUser[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [transferTo, setTransferTo] = useState("");
@@ -106,7 +126,6 @@ export const ShareTreeDialog = ({
   const [retainRole, setRetainRole] = useState<ShareRole>("viewer");
 
   // Invitations state
-  const [invitations, setInvitations] = useState<TreeInvitation[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<ShareRole>("editor");
   const [inviteExpiry, setInviteExpiry] = useState<string>("never");
@@ -136,7 +155,6 @@ export const ShareTreeDialog = ({
 
   // Linked trees (issue #537): grant/revoke access on linked trees together
   // with the anchor tree, as a convenience batch operation.
-  const [linkedTrees, setLinkedTrees] = useState<LinkedShareTree[]>([]);
   const [shareLinkedToo, setShareLinkedToo] = useState(false);
   const [selectedLinkedIds, setSelectedLinkedIds] = useState<Set<string>>(
     new Set(),
@@ -176,33 +194,11 @@ export const ShareTreeDialog = ({
   );
 
   const reload = useCallback(async () => {
-    const data = await TreeSharingService.getSharingData(tree.id);
-    setAccess(data.access);
-    setCandidates(data.candidates);
-
-    if (sharingInvitesEnabled && isOwner) {
-      const invs = await TreeSharingService.listInvitations(tree.id);
-      setInvitations(invs);
-    }
-
-    if (treeLinksEnabled && isOwner) {
-      try {
-        const linked = await TreeSharingService.getLinkedShareTrees(tree.id);
-        setLinkedTrees(linked);
-      } catch (err) {
-        // The feature flag may be off server-side even though the client
-        // thinks it's on (e.g. stale feature list) — treat a 404 as "no
-        // linked trees" rather than surfacing an error.
-        if (err instanceof ApiError && err.status === 404) {
-          setLinkedTrees([]);
-        } else {
-          throw err;
-        }
-      }
-    } else {
-      setLinkedTrees([]);
-    }
-  }, [tree.id, sharingInvitesEnabled, isOwner, treeLinksEnabled]);
+    await loadSharing(tree.id, {
+      includeInvitations: sharingInvitesEnabled && isOwner,
+      includeLinkedTrees: treeLinksEnabled && isOwner,
+    });
+  }, [tree.id, sharingInvitesEnabled, isOwner, treeLinksEnabled, loadSharing]);
 
   useEffect(() => {
     if (isOpen) {
@@ -254,14 +250,14 @@ export const ShareTreeDialog = ({
     try {
       for (const s of staged) {
         if (includeLinked) {
-          await TreeSharingService.grantAccessBatch(
+          await grantAccessBatch(
             tree.id,
             s.username,
             s.role,
             [tree.id, ...selectedLinkedIds],
           );
         } else {
-          await TreeSharingService.grantAccess(tree.id, s.username, s.role);
+          await grantAccess(tree.id, s.username, s.role);
         }
       }
       setStaged([]);
@@ -276,12 +272,12 @@ export const ShareTreeDialog = ({
 
   const handleRoleChange = async (member: TreeAccess, role: ShareRole) => {
     try {
-      const updated = await TreeSharingService.grantAccess(
+      const updated = await grantAccess(
         tree.id,
         member.username,
         role,
       );
-      setAccess(updated);
+      useTreeSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
       toast.error(t("share-error"));
@@ -298,12 +294,12 @@ export const ShareTreeDialog = ({
       ? current.filter((d) => d !== domain)
       : [...new Set([...current, domain])];
     try {
-      const updated = await TreeSharingService.updateMemberRestrictions(
+      const updated = await updateMemberRestrictions(
         tree.id,
         member.user_id,
         next,
       );
-      setAccess(updated);
+      useTreeSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
       toast.error(t("restrictions-error"));
@@ -313,7 +309,7 @@ export const ShareTreeDialog = ({
   const handleRevoke = async (userId: string, username: string) => {
     if (treeLinksEnabled && manageableLinkedTrees.length > 0) {
       try {
-        const linked = await TreeSharingService.getLinkedShareTrees(
+        const linked = await getLinkedShareTrees(
           tree.id,
           username,
         );
@@ -342,7 +338,7 @@ export const ShareTreeDialog = ({
 
   const revokeAnchorOnly = async (userId: string) => {
     try {
-      await TreeSharingService.revokeAccess(tree.id, userId);
+      await revokeAccess(tree.id, userId);
       await reload();
     } catch (err) {
       console.error(err);
@@ -353,7 +349,7 @@ export const ShareTreeDialog = ({
   const handleRevokeLinkedConfirm = async () => {
     if (!revokeTarget) return;
     try {
-      await TreeSharingService.revokeAccessBatch(tree.id, revokeTarget.userId, [
+      await revokeAccessBatch(tree.id, revokeTarget.userId, [
         tree.id,
         ...revokeLinkedSelectedIds,
       ]);
@@ -438,7 +434,7 @@ export const ShareTreeDialog = ({
           label: t("transfer-undo-button", { seconds: remaining }),
           onClick: () => {
             cancelled = true;
-            void TreeSharingService.revertTransfer(treeId)
+            void revertTransfer(treeId)
               .then(() => {
                 toast.dismiss(toastId);
                 toast.success(t("transfer-reverted"));
@@ -458,7 +454,7 @@ export const ShareTreeDialog = ({
 
   const handleTransfer = async () => {
     try {
-      const result = await TreeSharingService.transferOwnership(
+      const result = await transferOwnership(
         tree.id,
         transferTo,
         retainAccess ? retainRole : undefined,
@@ -488,7 +484,7 @@ export const ShareTreeDialog = ({
     try {
       const expiresInDays =
         inviteExpiry === "never" ? undefined : inviteExpiry === "7" ? 7 : 30;
-      await TreeSharingService.createInvitation(tree.id, {
+      await createInvitation(tree.id, {
         email: inviteEmail || undefined,
         role: inviteRole,
         expiresInDays,
@@ -507,7 +503,7 @@ export const ShareTreeDialog = ({
 
   const handleRevokeInvite = async (invitationId: string) => {
     try {
-      await TreeSharingService.revokeInvitation(tree.id, invitationId);
+      await revokeInvitation(tree.id, invitationId);
       await reload();
     } catch (err) {
       console.error(err);
@@ -542,7 +538,7 @@ export const ShareTreeDialog = ({
 
   const handlePublicConfirm = async () => {
     try {
-      const updated = await TreeSharingService.setPublicAccess(
+      const updated = await setPublicAccess(
         tree.id,
         pendingPublicRole,
       );
@@ -561,7 +557,7 @@ export const ShareTreeDialog = ({
   const handleSetPublicPassword = async () => {
     if (publicPasswordError) return;
     try {
-      const updated = await TreeSharingService.setPublicPassword(
+      const updated = await setPublicPassword(
         tree.id,
         publicPasswordInput,
       );
@@ -577,7 +573,7 @@ export const ShareTreeDialog = ({
 
   const handleRemovePublicPassword = async () => {
     try {
-      const updated = await TreeSharingService.setPublicPassword(
+      const updated = await setPublicPassword(
         tree.id,
         null,
       );
