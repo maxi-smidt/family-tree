@@ -8,7 +8,6 @@ import { ImagePlus } from "lucide-react";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { toast } from "sonner";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "@/utils/dateUtils";
 
@@ -19,7 +18,6 @@ type Props = {
 export const MemberPhotos = ({ member }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "sheet.edit-mode" });
   const { galleryImages, addGalleryImage } = useGalleryStore();
-  const mediaLimits = useAuthStore((state) => state.config?.media_limits);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const linkedImages = galleryImages.filter((img) =>
@@ -29,67 +27,35 @@ export const MemberPhotos = ({ member }: Props) => {
   const handleUpload = () => fileInputRef.current?.click();
 
   const uploadFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64String = event.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let width = img.width;
-        let height = img.height;
-
-        if (mediaLimits && width > height) {
-          if (width > mediaLimits.stored_image_width) {
-            height *= mediaLimits.stored_image_width / width;
-            width = mediaLimits.stored_image_width;
+    // The file streams to the backend as multipart form-data — it is never read
+    // into a base64 data URL here. Resizing/normalization happens server-side.
+    addGalleryImage({
+      file,
+      title: formatDateTime(new Date()),
+      description: null,
+      linkedMemberIds: [member.id],
+    })
+      .then(() => toast.success(t("toast-success-photo-upload")))
+      .catch((err: unknown) => {
+        if (err instanceof ApiError && err.status === 413) {
+          const bucket = getQuotaBucket(err.message);
+          if (bucket) {
+            toast.error(t(quotaToastKey(bucket)));
+          } else {
+            toast.error(t("toast-error-image-too-large"));
           }
-        } else if (mediaLimits) {
-          if (height > mediaLimits.stored_image_height) {
-            width *= mediaLimits.stored_image_height / height;
-            height = mediaLimits.stored_image_height;
-          }
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
+        } else if (err instanceof ApiError && err.status === 400) {
+          toast.error(t("toast-error-image-unsupported"));
+        } else {
           toast.error(t("toast-error-photo-upload"));
-          return;
         }
-        ctx.drawImage(img, 0, 0, width, height);
-        const compressed = canvas.toDataURL("image/jpeg", 0.8);
-
-        addGalleryImage({
-          imageData: compressed,
-          title: formatDateTime(new Date()),
-          description: null,
-          linkedMemberIds: [member.id],
-        })
-          .then(() => toast.success(t("toast-success-photo-upload")))
-          .catch((err: unknown) => {
-            if (err instanceof ApiError && err.status === 413) {
-              const bucket = getQuotaBucket(err.message);
-              if (bucket) {
-                toast.error(t(quotaToastKey(bucket)));
-              } else {
-                toast.error(t("toast-error-image-too-large"));
-              }
-            } else if (err instanceof ApiError && err.status === 400) {
-              toast.error(t("toast-error-image-unsupported"));
-            } else {
-              toast.error(t("toast-error-photo-upload"));
-            }
-          });
-      };
-      img.onerror = () => toast.error(t("toast-error-photo-upload"));
-      img.src = base64String;
-    };
-    reader.onerror = () => toast.error(t("toast-error-file"));
-    reader.readAsDataURL(file);
+      });
   };
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
+    const files = Array.from(e.target.files ?? []).filter((f) =>
+      f.type.startsWith("image/"),
+    );
     e.target.value = "";
     files.forEach(uploadFile);
   };

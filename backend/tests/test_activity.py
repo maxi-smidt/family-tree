@@ -1,10 +1,17 @@
 """Tests for the activity-log feature (issue #125, extended for #564)."""
 
+import base64
+
 from sqlalchemy import select
 
 from app.models.activity import ActivityLog
 from app.services.merge import merge_trees
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
+
+# Minimal 1×1 PNG streamed as a multipart gallery upload.
+_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -457,7 +464,10 @@ def test_story_set_links_writes_activity(client, db):
     assert rows[-1].target_id == story_id
 
 
-def test_gallery_set_links_writes_activity(client, db):
+def test_gallery_set_links_writes_activity(client, db, tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
     add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
@@ -465,12 +475,8 @@ def test_gallery_set_links_writes_activity(client, db):
     created = client.post(
         f"{API}/trees/{tree.id}/gallery/images",
         headers=auth(owner),
-        json={
-            "id": "img1",
-            "title": "A Photo",
-            "uploaded_at": "2000-01-01T00:00:00Z",
-            "member_ids": [],
-        },
+        data={"id": "img1", "title": "A Photo", "uploaded_at": "2000-01-01T00:00:00Z"},
+        files={"image": ("a.png", _PNG_BYTES, "image/png")},
     )
     assert created.status_code == 201
     image_id = created.json()["id"]

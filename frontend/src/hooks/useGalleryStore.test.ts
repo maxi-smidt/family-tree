@@ -69,23 +69,30 @@ describe("useGalleryStore — refreshGalleryImages", () => {
 });
 
 describe("useGalleryStore — addGalleryImage", () => {
-  it("calls TreeService.addGalleryImage then refreshes", async () => {
+  const FILE = new File([new Uint8Array([1, 2, 3])], "photo.png", {
+    type: "image/png",
+  });
+
+  it("streams the file via TreeService.uploadGalleryImage then refreshes", async () => {
     useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.addGalleryImage).mockResolvedValue(undefined);
+    vi.mocked(TreeService.uploadGalleryImage).mockResolvedValue(
+      undefined as never,
+    );
     vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
     vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
 
     await useGalleryStore.getState().addGalleryImage({
-      imageData: "data:image/png;base64,xyz",
+      file: FILE,
       title: "New Photo",
       description: null,
       linkedMemberIds: ["m3"],
     });
 
-    expect(TreeService.addGalleryImage).toHaveBeenCalledWith(
+    expect(TreeService.uploadGalleryImage).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String),
-      expect.objectContaining({ title: "New Photo" }),
+      FILE,
+      expect.objectContaining({ title: "New Photo", memberIds: ["m3"] }),
       expect.any(String),
     );
     expect(TreeService.getGalleryImages).toHaveBeenCalled();
@@ -93,13 +100,13 @@ describe("useGalleryStore — addGalleryImage", () => {
 
   it("does nothing when no tree is selected", async () => {
     await useGalleryStore.getState().addGalleryImage({
-      imageData: "data:image/png;base64,xyz",
+      file: FILE,
       title: null,
       description: null,
       linkedMemberIds: [],
     });
 
-    expect(TreeService.addGalleryImage).not.toHaveBeenCalled();
+    expect(TreeService.uploadGalleryImage).not.toHaveBeenCalled();
   });
 });
 

@@ -38,6 +38,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- Gallery images and member photos now upload as streamed multipart requests
+  instead of base64 data URLs in JSON. The browser keeps a `File` reference and
+  sends the raw bytes, which the backend streams to a temporary file in bounded
+  chunks before normalizing — cutting the whole-file memory copies on both ends
+  and cleaning up temporary files on cancellation, rejection, quota failure, or
+  restart. Image type, size, dimension, decompression-bomb, quota, and
+  storage-mode safeguards are unchanged (#692).
+
 - The in-app "What's New" notice is now a simple per-user version check: each
   version opens the notice once, and its changelog link opens Settings directly
   on the changelog view (#705).

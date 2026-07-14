@@ -28,12 +28,21 @@ export interface AddGalleryImageOptions {
   refresh?: boolean;
 }
 
+/** The raw picked file plus metadata for a new gallery image. The file is
+ *  streamed as multipart form-data — no base64 is retained in store state. */
+export interface NewGalleryImage {
+  file: File;
+  title: string | null;
+  description: string | null;
+  linkedMemberIds: string[];
+}
+
 interface GalleryState {
   galleryImages: GalleryImage[];
   initialized: boolean;
   refreshGalleryImages: (treeId?: string) => Promise<void>;
   addGalleryImage: (
-    image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    image: NewGalleryImage,
     opts?: AddGalleryImageOptions,
   ) => Promise<void>;
   updateGalleryImage: (
@@ -81,7 +90,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
   },
 
   addGalleryImage: async (
-    image: Omit<GalleryImage, "id" | "createdAt" | "uploadedAt">,
+    image: NewGalleryImage,
     opts?: AddGalleryImageOptions,
   ) => {
     const treeId = activeTreeId();
@@ -89,8 +98,19 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
-    // Member links are created in the same request (image.linkedMemberIds).
-    await TreeService.addGalleryImage(treeId, id, image, now);
+    // The file streams as multipart; member links are created in the same
+    // request (image.linkedMemberIds).
+    await TreeService.uploadGalleryImage(
+      treeId,
+      id,
+      image.file,
+      {
+        title: image.title,
+        description: image.description,
+        memberIds: image.linkedMemberIds ?? [],
+      },
+      now,
+    );
 
     if (opts?.refresh !== false) {
       await get().refreshGalleryImages(treeId);
@@ -112,8 +132,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     }
 
     await get().refreshGalleryImages(treeId);
-    if ("imageData" in changes)
-      useStorageStore.getState().refreshStorageUsage();
+    // Editing only touches metadata/links — image bytes (and therefore storage
+    // usage) can't change here, so no storage refresh is needed.
     invalidateActivityView();
   },
 

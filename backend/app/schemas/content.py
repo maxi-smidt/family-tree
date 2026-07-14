@@ -20,17 +20,6 @@ class GalleryImageOut(FamilyTreeOrmBaseModel):
     uploaded_at: str | None = None
 
 
-class GalleryImageCreate(FamilyTreeBaseModel):
-    id: str
-    image_data: str | None = None
-    title: str | None = None
-    description: str | None = None
-    created_at: str | None = None
-    uploaded_at: str | None = None
-    # Members to link the new image to, in a single request.
-    member_ids: list[str] = []
-
-
 class GalleryImageUpdate(FamilyTreeBaseModel):
     image_data: str | None = None
     title: str | None = None

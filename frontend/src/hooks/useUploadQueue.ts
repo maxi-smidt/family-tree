@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { processGalleryFile } from "@/lib/galleryUpload";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { formatDateTime } from "@/utils/dateUtils";
@@ -47,11 +45,6 @@ function mapErrorToKey(err: unknown): string {
       return "toast-error-image-unsupported";
     }
   }
-  if (err instanceof Error) {
-    if (err.message === "read-error") return "toast-error-read-file";
-    if (err.message === "canvas-context") return "toast-error-canvas-context";
-    if (err.message === "canvas-load") return "toast-error-image-upload";
-  }
   return "toast-error-image-upload";
 }
 
@@ -75,11 +68,6 @@ export function useUploadQueue(): UploadQueueState {
     [],
   );
 
-  const mediaLimits = useAuthStore((state) => state.config?.media_limits);
-  const userStorageMode = useAuthStore(
-    (state) => state.user?.image_storage_mode,
-  );
-
   // Revoke a set of object URLs
   const revokeUrls = useCallback((urls: string[]) => {
     for (const url of urls) {
@@ -101,8 +89,6 @@ export function useUploadQueue(): UploadQueueState {
   const runWorker = useCallback(async () => {
     if (workerRunningRef.current) return;
     workerRunningRef.current = true;
-
-    const storageMode = userStorageMode ?? mediaLimits?.image_storage_mode;
 
     try {
       while (true) {
@@ -170,14 +156,9 @@ export function useUploadQueue(): UploadQueueState {
         for (const item of toStart) {
           (async () => {
             try {
-              const dataUrl = await processGalleryFile(
-                item.file,
-                storageMode,
-                mediaLimits,
-              );
               await useGalleryStore.getState().addGalleryImage(
                 {
-                  imageData: dataUrl,
+                  file: item.file,
                   title: formatDateTime(new Date()),
                   description: null,
                   linkedMemberIds: [],
@@ -205,7 +186,7 @@ export function useUploadQueue(): UploadQueueState {
     } finally {
       workerRunningRef.current = false;
     }
-  }, [mediaLimits, userStorageMode, t, setItems]);
+  }, [t, setItems]);
 
   const enqueue = useCallback(
     (files: File[]) => {
