@@ -402,6 +402,15 @@
       "toast-delete-success": "Bild wurde erfolgreich gelöscht.",
       "toast-delete-error": "Das Bild konnte nicht gelöscht werden."
     },
+    "image-lightbox": {
+      "image-alt": "Galeriebild",
+      "close": "Bild schließen",
+      "previous": "Vorheriges Bild",
+      "next": "Nächstes Bild",
+      "linked-people": "Verlinkte Personen",
+      "face-tag": "Gesichtsmarkierung für {{name}}",
+      "unknown-member": "Unbekannte Person"
+    },
     "upload-image-card": "Bild hochladen"
   },
   "layout": {

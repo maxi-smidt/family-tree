@@ -402,6 +402,15 @@
       "toast-delete-success": "Image deleted successfully.",
       "toast-delete-error": "The image could not be deleted."
     },
+    "image-lightbox": {
+      "image-alt": "Gallery image",
+      "close": "Close image",
+      "previous": "Previous image",
+      "next": "Next image",
+      "linked-people": "Linked people",
+      "face-tag": "Face tag for {{name}}",
+      "unknown-member": "Unknown member"
+    },
     "upload-image-card": "Upload Image"
   },
   "layout": {

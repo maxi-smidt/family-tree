@@ -40,6 +40,7 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   image: GalleryImage;
+  initialTagMode?: boolean;
 };
 
 interface FaceRegion {
@@ -71,7 +72,12 @@ function regionFromPoints(
   };
 }
 
-export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
+export const ImageSheet = ({
+  isOpen,
+  onClose,
+  image,
+  initialTagMode = false,
+}: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "gallery-view.image-sheet",
   });
@@ -90,13 +96,13 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
 
   useEffect(() => {
     setFormData(image);
-    setTagMode(false);
+    setTagMode(initialTagMode);
     setDraftRegion(null);
     setDraftMemberId(null);
     setNewMemberId(null);
     setEditingMemberId(null);
     setHoveredMemberId(null);
-  }, [image]);
+  }, [image, initialTagMode]);
 
   const memberLinks = formData.memberLinks ?? image.memberLinks;
   const editingTag = memberLinks.find(

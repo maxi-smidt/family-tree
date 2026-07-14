@@ -19,6 +19,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - Linking a person who is already attached to a gallery image now confirms that
   existing link instead of failing without feedback (#728).
+- Gallery images opened from a member's detail view now show linked people and
+  their face-tag regions (#728).
+- Uploading photos from a member's edit view now opens face tagging for each
+  new image, so a face can be marked immediately (#728).
 
 ## [1.7.1] - 2026-07-14
 

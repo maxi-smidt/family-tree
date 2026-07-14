@@ -99,16 +99,17 @@ describe("useGalleryStore — addGalleryImage", () => {
     vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
     vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
 
-    await useGalleryStore.getState().addGalleryImage({
+    const imageId = await useGalleryStore.getState().addGalleryImage({
       file: FILE,
       title: "New Photo",
       description: null,
       linkedMemberIds: ["m3"],
     });
 
+    expect(imageId).toEqual(expect.any(String));
     expect(TreeService.uploadGalleryImage).toHaveBeenCalledWith(
       TREE_ID,
-      expect.any(String),
+      imageId,
       FILE,
       expect.objectContaining({ title: "New Photo", memberIds: ["m3"] }),
       expect.any(String),
@@ -117,13 +118,14 @@ describe("useGalleryStore — addGalleryImage", () => {
   });
 
   it("does nothing when no tree is selected", async () => {
-    await useGalleryStore.getState().addGalleryImage({
+    const imageId = await useGalleryStore.getState().addGalleryImage({
       file: FILE,
       title: null,
       description: null,
       linkedMemberIds: [],
     });
 
+    expect(imageId).toBeUndefined();
     expect(TreeService.uploadGalleryImage).not.toHaveBeenCalled();
   });
 });

@@ -48,7 +48,7 @@ interface GalleryState {
   addGalleryImage: (
     image: NewGalleryImage,
     opts?: AddGalleryImageOptions,
-  ) => Promise<void>;
+  ) => Promise<string | undefined>;
   updateGalleryImage: (
     id: string,
     changes: Partial<GalleryImage>,
@@ -105,7 +105,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     opts?: AddGalleryImageOptions,
   ) => {
     const treeId = activeTreeId();
-    if (!treeId) return;
+    if (!treeId) return undefined;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -128,6 +128,8 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       useStorageStore.getState().refreshStorageUsage();
       invalidateActivityView();
     }
+
+    return id;
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
