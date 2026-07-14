@@ -1739,11 +1739,6 @@
       "cancel": "Abbrechen",
       "confirm": "2FA entfernen"
     },
-    "announcement-section-title": "Versionsankündigung",
-    "announcement-hint": "Wird wiederkehrenden Nutzern nach einer neuen Version einmalig angezeigt. Titel und Nachricht leer lassen, um sie zu deaktivieren. Version leer lassen, um die aktuelle App-Version zu verwenden.",
-    "announcement-title-label": "Titel",
-    "announcement-body-label": "Nachricht (Markdown)",
-    "announcement-version-label": "Version",
     "legal-section-title": "Rechtliche Dokumente",
     "legal-section-hint": "Nutzungsbedingungen, Datenschutzerklärung und Impressum, die Nutzern angezeigt werden. Eine Erhöhung der Version zwingt alle Nutzer, erneut zuzustimmen, bevor sie Änderungen vornehmen können.",
     "legal-acceptance-required": "Zustimmung erforderlich",
@@ -1766,8 +1761,10 @@
     "legal-history-view": "Ansehen",
     "legal-history-detail-title": "Version {{version}}"
   },
-  "announcement": {
-    "default-title": "Neuigkeiten",
+  "whats-new": {
+    "title": "Neuigkeiten in v{{version}}",
+    "description": "Eine neue Version von Family Tree ist verfügbar.",
+    "view-changelog": "Änderungsprotokoll anzeigen",
     "dismiss": "Verstanden"
   },
   "changelog": {

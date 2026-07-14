@@ -1739,11 +1739,6 @@
       "cancel": "Cancel",
       "confirm": "Remove 2FA"
     },
-    "announcement-section-title": "Release announcement",
-    "announcement-hint": "Shown once to returning users after a new version is released. Leave the title and message empty to disable it. Leave the version blank to use the current app version.",
-    "announcement-title-label": "Title",
-    "announcement-body-label": "Message (Markdown)",
-    "announcement-version-label": "Version",
     "legal-section-title": "Legal documents",
     "legal-section-hint": "Terms of Service, Privacy Policy, and Impressum shown to users. Bumping the version forces every user to re-accept before they can make changes.",
     "legal-acceptance-required": "Require legal acceptance",
@@ -1766,8 +1761,10 @@
     "legal-history-view": "View",
     "legal-history-detail-title": "Version {{version}}"
   },
-  "announcement": {
-    "default-title": "What's new",
+  "whats-new": {
+    "title": "What's new in v{{version}}",
+    "description": "A new version of Family Tree is available.",
+    "view-changelog": "View changelog",
     "dismiss": "Got it"
   },
   "changelog": {

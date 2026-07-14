@@ -34,7 +34,7 @@ def _member_payload() -> dict:
 
 
 def test_public_legal_documents_no_auth_empty_when_unseeded(client, db):
-    # Mirrors the announcement tests: without ensure_defaults() having run
+    # Mirrors other settings tests: without ensure_defaults() having run
     # (as it does on real app startup), settings rows simply don't exist yet.
     res = client.get(f"{API}/legal/public")
     assert res.status_code == 200
