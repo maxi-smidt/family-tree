@@ -7,7 +7,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
-## [Unreleased]
+## [1.7.1] - 2026-07-14
+
+### Fixed
+
+- released changelog
+
+## [1.7.0] - 2026-07-14
 
 ### Added
 
