@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
+import { type VariantProps } from "class-variance-authority";
 import {
   CheckIcon,
   XCircle,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { multiSelectVariants } from "@/components/ui/multi-select-variants";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,31 +47,6 @@ export interface AnimationConfig {
  * Variants for the multi-select component to handle different styles.
  * Uses class-variance-authority (cva) to define different styles based on "variant" prop.
  */
-const multiSelectVariants = cva("m-1 transition-all duration-300 ease-in-out", {
-  variants: {
-    variant: {
-      default: "border-foreground/10 text-foreground bg-card hover:bg-card/80",
-      secondary:
-        "border-foreground/10 bg-secondary text-secondary-foreground hover:bg-secondary/80",
-      destructive:
-        "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-      inverted: "inverted",
-    },
-    badgeAnimation: {
-      bounce: "hover:-translate-y-px hover:scale-[1.02]",
-      pulse: "hover:animate-pulse",
-      wiggle: "hover:animate-wiggle",
-      fade: "hover:opacity-80",
-      slide: "hover:translate-x-1",
-      none: "",
-    },
-  },
-  defaultVariants: {
-    variant: "default",
-    badgeAnimation: "bounce",
-  },
-});
-
 /**
  * Option interface for MultiSelect component
  */
