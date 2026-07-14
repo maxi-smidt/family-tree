@@ -9,6 +9,7 @@ import base64
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.core.media_config import MEBIBYTE
 from tests.conftest import API, add_member, auth, make_tree, make_user
@@ -106,3 +107,21 @@ def test_over_quota_upload_deletes_streamed_bytes(client, db, _media_root):
         == []
     )
     assert _tree_media_files(_media_root, tree.id) == []
+
+
+def test_duplicate_image_id_deletes_streamed_bytes(client, db, _media_root):
+    """A failed flush must not leave the newly streamed media file behind."""
+    owner = make_user(db, "owner")
+    tree = make_tree(db, owner)
+
+    first = _post_image(client, tree.id, auth(owner))
+    assert first.status_code == 201
+
+    with pytest.raises(IntegrityError):
+        _post_image(client, tree.id, auth(owner))
+
+    # The original image remains, but the duplicate request's streamed file was
+    # deleted when inserting its row failed.
+    assert len(_tree_media_files(_media_root, tree.id)) == 1
+    tree_dir = _media_root / "media" / tree.id
+    assert not list(tree_dir.glob(".image-upload-*.tmp"))

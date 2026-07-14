@@ -134,26 +134,26 @@ async def create_image(
         created_at=created_at or now,
         uploaded_at=uploaded_at or now,
     )
-    db.add(image_row)
-    db.flush()  # image row must exist before its links reference it
-    replace_member_links(
-        db,
-        link_model=GalleryMemberLink,
-        parent_fk=GalleryMemberLink.gallery_image_id,
-        parent_id=image_row.id,
-        tree=tree,
-        member_ids=member_ids,
-    )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="create",
-        target_type="gallery_image", target_id=image_row.id,
-        target_label=image_row.title,
-    )
     try:
+        db.add(image_row)
+        db.flush()  # image row must exist before its links reference it
+        replace_member_links(
+            db,
+            link_model=GalleryMemberLink,
+            parent_fk=GalleryMemberLink.gallery_image_id,
+            parent_id=image_row.id,
+            tree=tree,
+            member_ids=member_ids,
+        )
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="create",
+            target_type="gallery_image", target_id=image_row.id,
+            target_label=image_row.title,
+        )
         db.commit()
     except Exception:
-        # The bytes are already on disk; if the row never commits, remove them
-        # so a failed create can't leave an orphan file behind.
+        # The bytes are already on disk; if any persistence step fails, remove
+        # them so a failed create cannot leave an orphan file behind.
         db.rollback()
         delete_media(new_image_url)
         raise
