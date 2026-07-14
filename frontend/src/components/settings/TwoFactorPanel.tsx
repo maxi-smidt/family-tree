@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldLabel } from "@/components/ui/field";
-import { api } from "@/services/api";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { TotpSetupResponse } from "@/types/user";
 import { toast } from "sonner";
@@ -14,7 +13,10 @@ type Step = "idle" | "setup" | "verify" | "recovery" | "disable";
 export function TwoFactorPanel() {
   const { t } = useTranslation(undefined, { keyPrefix: "auth.two-factor" });
   const user = useAuthStore((s) => s.user);
-  const refreshMe = useAuthStore((s) => s.refreshMe);
+  const setupTwoFactor = useAuthStore((s) => s.setupTwoFactor);
+  const enableTwoFactor = useAuthStore((s) => s.enableTwoFactor);
+  const disableTwoFactor = useAuthStore((s) => s.disableTwoFactor);
+  const loading = useAuthStore((s) => s.accountOperation !== "idle");
 
   const [step, setStep] = useState<Step>("idle");
   const [setup, setSetup] = useState<TotpSetupResponse | null>(null);
@@ -22,7 +24,6 @@ export function TwoFactorPanel() {
   const [code, setCode] = useState("");
   const [disablePassword, setDisablePassword] = useState("");
   const [disableCode, setDisableCode] = useState("");
-  const [loading, setLoading] = useState(false);
   const [copiedSecret, setCopiedSecret] = useState(false);
   const [copiedCodes, setCopiedCodes] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +37,6 @@ export function TwoFactorPanel() {
     setCode("");
     setDisablePassword("");
     setDisableCode("");
-    setLoading(false);
     setCopiedSecret(false);
     setCopiedCodes(false);
   };
@@ -48,45 +48,32 @@ export function TwoFactorPanel() {
   }, [step]);
 
   const handleSetup = async () => {
-    setLoading(true);
     try {
-      const res = await api.post<TotpSetupResponse>("/auth/2fa/setup");
-      setSetup(res);
-      const qr = await api.get<{ data_url: string }>("/auth/2fa/qr-code");
-      setQrDataUrl(qr.data_url);
+      const result = await setupTwoFactor();
+      setSetup(result.setup);
+      setQrDataUrl(result.qrDataUrl);
       setStep("setup");
     } catch {
       toast.error(t("setup-error"));
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleEnable = async () => {
     if (!code) return;
-    setLoading(true);
     try {
-      await api.post("/auth/2fa/enable", { code });
-      await refreshMe();
+      await enableTwoFactor(code);
       setStep("recovery");
       toast.success(t("enabled-success"));
     } catch {
       toast.error(t("enable-error"));
       setCode("");
       setTimeout(() => codeInputRef.current?.focus(), 50);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleDisable = async () => {
-    setLoading(true);
     try {
-      await api.post("/auth/2fa/disable", {
-        password: disablePassword,
-        code: disableCode,
-      });
-      await refreshMe();
+      await disableTwoFactor(disablePassword, disableCode);
       toast.success(t("disabled-success"));
       reset();
     } catch (err) {
@@ -96,8 +83,6 @@ export function TwoFactorPanel() {
       } else {
         toast.error(t("disable-error"));
       }
-    } finally {
-      setLoading(false);
     }
   };
 
