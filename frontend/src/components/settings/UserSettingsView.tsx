@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   ShieldCheck,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import { TabSettingsPanel } from "@/components/settings/TabSettingsPanel";
 import { TwoFactorPanel } from "@/components/settings/TwoFactorPanel";
 import { DeleteAccountPanel } from "@/components/settings/DeleteAccountPanel";
+import { ProfileSettingsPanel } from "@/components/settings/ProfileSettingsPanel";
 import { ChangelogList } from "@/components/changelog/ChangelogList";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -96,6 +98,13 @@ export const UserSettingsView = () => {
         <div className="shrink-0 border-r p-3 flex flex-col gap-1">
           <TabsList className="flex flex-col h-auto w-full items-stretch gap-1 bg-transparent p-0">
             <TabsTrigger
+              value="profile"
+              className="justify-start data-[state=active]:bg-muted"
+            >
+              <UserRound className="h-4 w-4 mr-2" />
+              {t("profile.section")}
+            </TabsTrigger>
+            <TabsTrigger
               value="gallery"
               className="justify-start data-[state=active]:bg-muted"
             >
@@ -137,6 +146,10 @@ export const UserSettingsView = () => {
 
         {/* Content area */}
         <div className="flex-1 overflow-auto p-6">
+          <TabsContent value="profile" className="mt-0">
+            <ProfileSettingsPanel />
+          </TabsContent>
+
           <TabsContent value="gallery" className="mt-0 max-w-md space-y-4">
             <div>
               <p className="font-medium text-sm">{t("image-storage.label")}</p>

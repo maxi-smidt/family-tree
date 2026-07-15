@@ -1462,6 +1462,25 @@
       "mismatch": "Die neuen Passwörter stimmen nicht überein.",
       "error": "Passwort konnte nicht geändert werden."
     },
+    "profile": {
+      "title": "Profil",
+      "description": "Lege den Namen und das Bild fest, die für dein Konto angezeigt werden.",
+      "first-name": "Vorname",
+      "last-name": "Nachname",
+      "save": "Profil speichern",
+      "save-success": "Profil gespeichert.",
+      "save-error": "Profil konnte nicht gespeichert werden.",
+      "upload-image": "Bild hochladen",
+      "replace-image": "Bild ersetzen",
+      "remove-image": "Bild entfernen",
+      "upload-success": "Profilbild aktualisiert.",
+      "upload-error": "Profilbild konnte nicht hochgeladen werden.",
+      "upload-too-large": "Das Profilbild ist zu groß.",
+      "upload-unsupported": "Dieser Bildtyp wird nicht unterstützt.",
+      "remove-success": "Profilbild entfernt.",
+      "remove-error": "Profilbild konnte nicht entfernt werden.",
+      "toast-error-quota-media": "Medienspeicher-Kontingent überschritten."
+    },
     "user-menu": {
       "change-password": "Passwort ändern",
       "admin": "Verwaltung",
@@ -1915,6 +1934,9 @@
     "save": "Speichern",
     "toast-saved": "Einstellungen gespeichert.",
     "toast-error": "Einstellungen konnten nicht gespeichert werden.",
+    "profile": {
+      "section": "Profil"
+    },
     "image-storage": {
       "section": "Galeriebilder-Speicherung",
       "label": "Speichermodus",

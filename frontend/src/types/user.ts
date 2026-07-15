@@ -5,6 +5,8 @@ export interface User {
   username: string;
   email: string | null;
   full_name: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   is_admin: boolean;
   is_active: boolean;
   auth_provider: string;
@@ -27,6 +29,8 @@ export interface User {
   legal_acceptance_required?: boolean;
   /** Whether this user has accepted the currently published legal version. */
   legal_accepted?: boolean;
+  /** Protected, self-only profile image URL from login/me responses. */
+  profile_image_url?: string | null;
 }
 
 export interface AuthConfig {

@@ -1462,6 +1462,25 @@
       "mismatch": "The new passwords do not match.",
       "error": "Could not change password."
     },
+    "profile": {
+      "title": "Profile",
+      "description": "Set the name and picture shown for your account.",
+      "first-name": "First name",
+      "last-name": "Last name",
+      "save": "Save profile",
+      "save-success": "Profile saved.",
+      "save-error": "Could not save profile.",
+      "upload-image": "Upload picture",
+      "replace-image": "Replace picture",
+      "remove-image": "Remove picture",
+      "upload-success": "Profile picture updated.",
+      "upload-error": "Could not upload profile picture.",
+      "upload-too-large": "Profile picture is too large.",
+      "upload-unsupported": "This image type is not supported.",
+      "remove-success": "Profile picture removed.",
+      "remove-error": "Could not remove profile picture.",
+      "toast-error-quota-media": "Media storage quota exceeded."
+    },
     "user-menu": {
       "change-password": "Change password",
       "admin": "Administration",
@@ -1915,6 +1934,9 @@
     "save": "Save",
     "toast-saved": "Settings saved.",
     "toast-error": "Could not save settings.",
+    "profile": {
+      "section": "Profile"
+    },
     "image-storage": {
       "section": "Gallery image storage",
       "label": "Storage mode",

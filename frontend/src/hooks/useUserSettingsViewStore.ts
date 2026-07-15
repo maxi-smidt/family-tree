@@ -11,8 +11,8 @@ interface UserSettingsViewState {
 export const useUserSettingsViewStore = create<UserSettingsViewState>(
   (set) => ({
     open: false,
-    activeSection: "gallery",
-    openSettings: (section = "gallery") =>
+    activeSection: "profile",
+    openSettings: (section = "profile") =>
       set({ open: true, activeSection: section }),
     setActiveSection: (section) => set({ activeSection: section }),
     closeSettings: () => set({ open: false }),
