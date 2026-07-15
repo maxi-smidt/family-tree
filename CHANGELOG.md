@@ -9,6 +9,13 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Fixed
+
+- The gallery upload progress panel now dismisses itself automatically once
+  every image has uploaded successfully, instead of lingering after the uploads
+  complete. It stays open when an upload fails so the failure can be reviewed
+  and retried (#731).
+  
 ### Added
 
 - Users can now set first and last profile names and select an adjustable crop
