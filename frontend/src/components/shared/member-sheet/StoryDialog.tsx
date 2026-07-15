@@ -160,6 +160,7 @@ export const StoryDialog = ({
                 placeholder={t("linked-members-placeholder")}
                 variant="inverted"
                 maxCount={5}
+                hideSelectedOptions
               />
               <p className="text-xs text-muted-foreground">
                 {t("linked-members-description")}

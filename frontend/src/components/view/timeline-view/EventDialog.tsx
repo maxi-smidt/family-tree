@@ -153,6 +153,7 @@ export const EventDialog = ({
                 placeholder={tDialog("linked-members-placeholder")}
                 variant="inverted"
                 maxCount={5}
+                hideSelectedOptions
               />
               <p className="text-xs text-muted-foreground">
                 {tDialog("linked-members-description")}

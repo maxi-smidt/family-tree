@@ -134,6 +134,7 @@ export const ImageSheet = ({ isOpen, onClose, image }: Props) => {
                   maxCount={25}
                   popoverSide="left"
                   hideSelectAll={true}
+                  hideSelectedOptions
                 />
               </Field>
             </FieldGroup>

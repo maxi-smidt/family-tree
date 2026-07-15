@@ -7,6 +7,16 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Changed
+
+- Member-selection lists (gallery image links, and the people selectors in the
+  document, story, and event dialogs) no longer offer people who are already
+  linked. Selected people remain visible as removable chips, but the dropdown
+  and its search results only show candidates that can still be added. The same
+  filtering applies to the linked-documents selector (#735).
+
 ## [1.7.1] - 2026-07-14
 
 ### Fixed

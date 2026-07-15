@@ -154,6 +154,15 @@ interface MultiSelectProps
   hideSelectAll?: boolean;
 
   /**
+   * If true, options that are already selected are removed from the dropdown
+   * candidate list (and from search results). They stay visible as removable
+   * badges in the trigger, so nothing is hidden from review — this only stops
+   * re-offering people/items that are already linked. Purely presentational:
+   * it never changes the selected values. Optional, defaults to false.
+   */
+  hideSelectedOptions?: boolean;
+
+  /**
    * If true, shows search functionality in the popover.
    * If false, hides the search input completely.
    * Optional, defaults to true.
@@ -302,6 +311,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
       asChild = false,
       className,
       hideSelectAll = false,
+      hideSelectedOptions = false,
       searchable = true,
       emptyIndicator,
       autoSize = false,
@@ -565,26 +575,39 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
     );
 
     const filteredOptions = React.useMemo(() => {
-      if (!searchable || !searchValue) return options;
-      if (options.length === 0) return [];
+      const query = searchable ? searchValue : "";
+      // Fast path: with neither a search query nor selected-option hiding,
+      // there is nothing to filter, so preserve the original list reference.
+      if (!query && !hideSelectedOptions) return options;
+      if (options.length === 0) return options;
+      const hiddenValues = hideSelectedOptions ? new Set(selectedValues) : null;
+      const lowerQuery = query.toLowerCase();
+      const matches = (option: MultiSelectOption) => {
+        // Already-selected options stay visible as badges in the trigger; they
+        // are only dropped from the candidate list, never re-offered.
+        if (hiddenValues?.has(option.value)) return false;
+        if (!lowerQuery) return true;
+        return (option.searchValue ?? option.label)
+          .toLowerCase()
+          .includes(lowerQuery);
+      };
       if (isGroupedOptions(options)) {
         return options
           .map((group) => ({
             ...group,
-            options: group.options.filter((option) =>
-              (option.searchValue ?? option.label)
-                .toLowerCase()
-                .includes(searchValue.toLowerCase()),
-            ),
+            options: group.options.filter(matches),
           }))
           .filter((group) => group.options.length > 0);
       }
-      return options.filter((option) =>
-        (option.searchValue ?? option.label)
-          .toLowerCase()
-          .includes(searchValue.toLowerCase()),
-      );
-    }, [options, searchValue, searchable, isGroupedOptions]);
+      return options.filter(matches);
+    }, [
+      options,
+      searchValue,
+      searchable,
+      isGroupedOptions,
+      hideSelectedOptions,
+      selectedValues,
+    ]);
 
     const handleInputKeyDown = (
       event: React.KeyboardEvent<HTMLInputElement>,
