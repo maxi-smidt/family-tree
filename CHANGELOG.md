@@ -11,11 +11,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The in-app changelog is now generated from this source file while every
+  frontend image is built, so published images cannot display a stale committed
+  copy (#745).
 - The gallery upload progress panel now dismisses itself automatically once
   every image has uploaded successfully, instead of lingering after the uploads
   complete. It stays open when an upload fails so the failure can be reviewed
   and retried (#731).
-  
+
 ### Added
 
 - Linking a person who is already attached to a gallery image now confirms that
