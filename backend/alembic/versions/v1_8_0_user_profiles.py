@@ -1,7 +1,7 @@
 """Add self-managed account profile fields and private profile image storage.
 
 Revision ID: v1_8_0_user_profiles
-Revises: v1_7_0_release
+Revises: v1_8_0_gallery_face_tags
 Create Date: 2026-07-14 22:00:00.000000
 """
 
