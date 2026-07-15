@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 revision: str = "v1_8_0_user_profiles"
-down_revision: Union[str, None] = "v1_7_0_release"
+down_revision: Union[str, None] = "v1_8_0_gallery_face_tags"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

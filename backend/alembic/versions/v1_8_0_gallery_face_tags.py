@@ -1,6 +1,6 @@
 """Add normalized face regions to gallery-member links.
 
-Revision ID: v1_7_1_gallery_face_tags
+Revision ID: v1_8_0_gallery_face_tags
 Revises: v1_7_0_release
 Create Date: 2026-07-14 12:00:00.000000
 
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision: str = "v1_7_1_gallery_face_tags"
+revision: str = "v1_8_0_gallery_face_tags"
 down_revision: Union[str, None] = "v1_7_0_release"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
