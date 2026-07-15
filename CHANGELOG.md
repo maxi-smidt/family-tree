@@ -15,6 +15,13 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   every image has uploaded successfully, instead of lingering after the uploads
   complete. It stays open when an upload fails so the failure can be reviewed
   and retried (#731).
+  
+### Added
+
+- Users can now set first and last profile names and select an adjustable crop
+  when uploading, replacing, or removing a private profile picture. Account
+  avatars consistently prefer the picture, then name initials, then a generic
+  user icon (#737).
 
 ## [1.7.1] - 2026-07-14
 
