@@ -596,7 +596,16 @@ def test_composite_gallery_and_events_remap_member_links(
     glinks = client.get(
         f"{API}/virtual-views/{view_id}/gallery/links", headers=auth(alice)
     ).json()
-    assert glinks == [{"gallery_image_id": "img1", "member_id": merged_id}]
+    assert glinks == [
+        {
+            "gallery_image_id": "img1",
+            "member_id": merged_id,
+            "x": None,
+            "y": None,
+            "w": None,
+            "h": None,
+        }
+    ]
 
     evs = client.get(
         f"{API}/virtual-views/{view_id}/events", headers=auth(alice)
