@@ -87,7 +87,9 @@ import {
 } from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
+import { usePresence } from "@/hooks/usePresence";
 import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
+import { PresenceChips } from "@/components/layout/PresenceChips";
 import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
@@ -118,6 +120,9 @@ export const MainPanel = () => {
     keyPrefix: "layout.main-panel",
   });
   const { t: tRoot } = useTranslation();
+
+  // Announce this client's presence and track who else is in the tree.
+  usePresence();
 
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
     if (readMemberSheetDeepLink()) return TREE_VIEW;
@@ -267,6 +272,7 @@ export const MainPanel = () => {
       className="h-full flex flex-col"
     >
       <TreeBreadcrumb />
+      {selectedTree && <PresenceChips />}
       <div
         className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2"
         data-tutorial="views-tabs-mobile"

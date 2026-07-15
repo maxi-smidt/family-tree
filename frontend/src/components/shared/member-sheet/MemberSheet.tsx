@@ -23,6 +23,7 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
+import { useMemberEditors } from "@/hooks/usePresenceStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
 import { MemberSheetTab } from "@/utils/memberSheetState";
@@ -79,6 +80,7 @@ export const MemberSheet = ({
     savedSheetState && savedSheetState.memberId === member?.id
       ? savedSheetState.tab
       : "identity";
+  const editors = useMemberEditors(member?.id);
 
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
@@ -238,6 +240,16 @@ export const MemberSheet = ({
                 ? t("edit-description")
                 : t("detail-description")}
             </SheetDescription>
+            {editors.length > 0 && (
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-500">
+                <Pencil className="size-3 shrink-0" />
+                <span className="truncate">
+                  {t("presence-editing", {
+                    name: editors.map((e) => e.displayName).join(", "),
+                  })}
+                </span>
+              </div>
+            )}
           </div>
           {effectiveCanEdit && (
             <div className="absolute top-4 right-4">

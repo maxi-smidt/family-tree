@@ -389,6 +389,12 @@
       "aria-label": "Navigation verknüpfter Stammbäume",
       "untitled": "Unbenannter Stammbaum"
     },
+    "presence": {
+      "aria-label_one": "{{count}} weitere Person betrachtet diesen Stammbaum",
+      "aria-label_other": "{{count}} weitere Personen betrachten diesen Stammbaum",
+      "editing-tooltip": "{{name}} (bearbeitet)",
+      "more": "{{count}} weitere"
+    },
     "main-panel": {
       "tree": "Stammbaum",
       "list": "Liste",
@@ -625,6 +631,7 @@
       "detail-title": "Person Übersicht",
       "edit-description": "Bearbeite die Informationen der Person.",
       "detail-description": "Betrachte die Informationen über diese Person.",
+      "presence-editing": "{{name}} bearbeitet gerade…",
       "saving": "Speichern…",
       "saved": "Gespeichert",
       "save-error": "Nicht gespeichert",
@@ -1590,7 +1597,8 @@
         "map": "Kartenansicht",
         "sources": "Dokumente",
         "onboarding_tour": "Onboarding-Tour",
-        "tree_links": "Baum-im-Baum-Verknüpfungen"
+        "tree_links": "Baum-im-Baum-Verknüpfungen",
+        "presence": "Live-Anwesenheit"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1605,7 +1613,8 @@
         "map": "Interaktive Karte der Zeitleistenereignisse nach Ort.",
         "sources": "Wiederverwendbare Dokumente – Dateien und Links – verknüpft mit Personen, Ereignissen und Geschichten.",
         "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt.",
-        "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen."
+        "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen.",
+        "presence": "Zeigt an, wer den Stammbaum gerade betrachtet oder bearbeitet – mit Live-Avataren und einer Bearbeitungsanzeige."
       }
     },
     "col-username": "Benutzername",

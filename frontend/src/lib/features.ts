@@ -19,6 +19,7 @@ export const ALL_FEATURES = [
   "sharing_invites",
   "onboarding_tour",
   "tree_links",
+  "presence",
 ] as const;
 
 export type FeatureName = (typeof ALL_FEATURES)[number];
