@@ -11,6 +11,12 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(150), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
     full_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Account profile fields are deliberately separate from ``full_name``.
+    # ``full_name`` is legacy/OIDC display metadata; users control these fields.
+    first_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    last_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Random stored filename; the protected API constructs the public URL.
+    profile_image: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     # Null for accounts that authenticate exclusively through an OAuth provider.
     hashed_password: Mapped[str | None] = mapped_column(String(255), nullable=True)

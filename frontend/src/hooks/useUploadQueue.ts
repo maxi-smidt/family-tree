@@ -32,6 +32,10 @@ interface UploadQueueState {
 
 const MAX_CONCURRENT = 3;
 
+// How long the panel lingers after every upload finishes successfully before
+// it dismisses itself, giving the user a moment to see the completed state.
+const AUTO_DISMISS_MS = 2500;
+
 function mapErrorToKey(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.status === 413) {
@@ -250,6 +254,17 @@ export function useUploadQueue(): UploadQueueState {
       return prev.filter((i) => i.status !== "done" && i.status !== "failed");
     });
   }, [revokeUrls, setItems]);
+
+  // Auto-dismiss the panel once every upload has completed successfully. If any
+  // upload failed we keep the panel open so the user can review and retry it.
+  useEffect(() => {
+    if (items.length === 0) return;
+    const allDone = items.every((i) => i.status === "done");
+    if (!allDone) return;
+
+    const timeout = setTimeout(clearCompleted, AUTO_DISMISS_MS);
+    return () => clearTimeout(timeout);
+  }, [items, clearCompleted]);
 
   const total = items.length;
   const doneCount = items.filter(

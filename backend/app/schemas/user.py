@@ -20,6 +20,8 @@ class UserOut(BaseModel):
     username: str
     email: str | None = None
     full_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
     is_admin: bool
     is_active: bool
     auth_provider: str
@@ -47,6 +49,23 @@ class CurrentUserOut(UserOut):
     # so the frontend can show the blocking gate immediately on login/`/me`.
     legal_acceptance_required: bool = True
     legal_accepted: bool = False
+    # Only present for the signed-in user; profile media cannot be read by
+    # other accounts.
+    profile_image_url: str | None = None
+
+
+class UserProfileUpdate(BaseModel):
+    """Self-service profile fields. Empty form values clear the stored name."""
+
+    first_name: str | None = Field(default=None, max_length=255)
+    last_name: str | None = Field(default=None, max_length=255)
+
+    @field_validator("first_name", "last_name")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None
 
 
 class UserPreferences(BaseModel):

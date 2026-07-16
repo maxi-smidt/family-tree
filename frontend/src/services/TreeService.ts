@@ -25,7 +25,12 @@ import {
   MergeFieldChoice,
   MergePreviewResult,
 } from "@/types/merge";
-import { GalleryImage, GalleryImageDB } from "@/types/gallery";
+import {
+  GalleryImage,
+  GalleryImageDB,
+  GalleryMemberLink,
+  GalleryMemberLinkDB,
+} from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryDB, StoryInput } from "@/types/story";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
@@ -245,9 +250,7 @@ export class TreeService {
   }
 
   static getGalleryMemberLinks(treeId: string) {
-    return api.get<{ gallery_image_id: string; member_id: string }[]>(
-      `${base(treeId)}/gallery/links`,
-    );
+    return api.get<GalleryMemberLinkDB[]>(`${base(treeId)}/gallery/links`);
   }
 
   /** Stream a picked image file to the gallery as multipart form-data. The
@@ -283,10 +286,16 @@ export class TreeService {
   static setGalleryImageLinks(
     treeId: string,
     imageId: string,
-    memberIds: string[],
+    links: GalleryMemberLink[],
   ) {
     return api.put(`${base(treeId)}/gallery/images/${imageId}/links`, {
-      member_ids: memberIds,
+      links: links.map((link) => ({
+        member_id: link.memberId,
+        x: link.x,
+        y: link.y,
+        w: link.w,
+        h: link.h,
+      })),
     });
   }
 

@@ -7,6 +7,34 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
+## [Unreleased]
+
+### Fixed
+
+- The in-app changelog is now generated from this source file while every
+  frontend image is built, so published images cannot display a stale committed
+  copy (#745).
+- The gallery upload progress panel now dismisses itself automatically once
+  every image has uploaded successfully, instead of lingering after the uploads
+  complete. It stays open when an upload fails so the failure can be reviewed
+  and retried (#731).
+
+### Added
+
+- Linking a person who is already attached to a gallery image now confirms that
+  existing link instead of failing without feedback (#728).
+- Gallery images opened from a member's detail view now show linked people and
+  their face-tag regions (#728).
+- Uploading photos from a member's edit view now opens face tagging for each
+  new image, so a face can be marked immediately (#728).
+- Users can now set first and last profile names and select an adjustable crop
+  when uploading, replacing, or removing a private profile picture. Account
+  avatars consistently prefer the picture, then name initials, then a generic
+  user icon (#737).
+- Gallery photos can now be annotated with manual, normalized face regions
+  linked to people in the tree. Face tags remain accurate at every display
+  size, and existing whole-image links continue to work unchanged (#728).
+
 ## [1.7.1] - 2026-07-14
 
 ### Fixed
@@ -51,11 +79,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   and cleaning up temporary files on cancellation, rejection, quota failure, or
   restart. Image type, size, dimension, decompression-bomb, quota, and
   storage-mode safeguards are unchanged (#692).
-
 - The in-app "What's New" notice is now a simple per-user version check: each
   version opens the notice once, and its changelog link opens Settings directly
   on the changelog view (#705).
-
 - The initial page load is now much lighter: the graph, map, chart and Markdown
   libraries are code-split and fetched only when their view is first opened, so
   the login screen and public trees no longer download them. The shared vendor

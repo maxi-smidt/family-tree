@@ -69,7 +69,7 @@ router = APIRouter(prefix="/trees", tags=["export"])
 # which is exactly what let a v1.6 bundle silently drop data — see #661).
 #   v2 (<= v1.6): sources / source_evidence / citations / story_attachments
 #   v3 (v1.7+):   documents / document_files / *_document_links
-BUNDLE_VERSION = 3
+BUNDLE_VERSION = 4
 
 # Number of rows to write per bulk-insert batch.
 _BULK_CHUNK = 1000
@@ -237,6 +237,16 @@ def migrate_bundle(bundle: dict) -> dict:
         # become Documents. ``.get(..., [])`` defaults make it safe for a v1
         # bundle that never had these keys.
         bundle = _migrate_v2_to_v3(bundle)
+    if bundle.get("version", 1) < 4:
+        # v3 → v4: gallery member links gained optional normalized face
+        # regions. Existing whole-image links deliberately remain null.
+        migrated = dict(bundle)
+        migrated["gallery_links"] = [
+            {"x": None, "y": None, "w": None, "h": None, **link}
+            for link in bundle.get("gallery_links", [])
+        ]
+        migrated["version"] = 4
+        bundle = migrated
     return bundle
 
 
@@ -608,18 +618,17 @@ def _import_links(db, links, model, parent_key, parent_map, member_map):
     # Make sure the parent rows added just before this call are inserted, so the
     # link rows that reference them don't violate the foreign key.
     db.flush()
+    model_columns = {column.name for column in model.__table__.columns}
     for row in links:
         parent_old = row[parent_key]
         member_old = row["member_id"]
         if parent_old in parent_map and member_old in member_map:
-            db.add(
-                model(
-                    **{
-                        parent_key: parent_map[parent_old],
-                        "member_id": member_map[member_old],
-                    }
-                )
-            )
+            data = {
+                key: value for key, value in row.items() if key in model_columns
+            }
+            data[parent_key] = parent_map[parent_old]
+            data["member_id"] = member_map[member_old]
+            db.add(model(**data))
 
 
 def _import_doc_links(db, links, model, parent_key, parent_map, document_map):

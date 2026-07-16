@@ -19,6 +19,9 @@ type AccountOperation =
   | "enabling-two-factor"
   | "disabling-two-factor"
   | "changing-password"
+  | "saving-profile"
+  | "uploading-profile-image"
+  | "removing-profile-image"
   | "deleting-account";
 
 interface AuthState {
@@ -57,7 +60,13 @@ interface AuthState {
   setupTwoFactor: () => Promise<TwoFactorSetup>;
   enableTwoFactor: (code: string) => Promise<void>;
   disableTwoFactor: (password: string, code: string) => Promise<void>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  changePassword: (
+    currentPassword: string,
+    newPassword: string,
+  ) => Promise<void>;
+  updateProfile: (firstName: string, lastName: string) => Promise<void>;
+  uploadProfileImage: (file: File) => Promise<void>;
+  removeProfileImage: () => Promise<void>;
   loadOwnedTrees: () => Promise<Tree[]>;
   loadOwnershipTransferTargets: (
     treeId: string,
@@ -329,6 +338,27 @@ export const useAuthStore = create<AuthState>((set) => ({
       AuthService.changePassword(currentPassword, newPassword),
     ),
 
+  updateProfile: async (firstName: string, lastName: string) => {
+    const user = await runAccountOperation(set, "saving-profile", () =>
+      AuthService.updateProfile(firstName, lastName),
+    );
+    set({ user, features: user.features ?? [] });
+  },
+
+  uploadProfileImage: async (file: File) => {
+    const user = await runAccountOperation(set, "uploading-profile-image", () =>
+      AuthService.uploadProfileImage(file),
+    );
+    set({ user, features: user.features ?? [] });
+  },
+
+  removeProfileImage: async () => {
+    const user = await runAccountOperation(set, "removing-profile-image", () =>
+      AuthService.removeProfileImage(),
+    );
+    set({ user, features: user.features ?? [] });
+  },
+
   loadOwnedTrees: () => AuthService.getOwnedTrees(),
 
   loadOwnershipTransferTargets: (treeId: string) =>
@@ -383,7 +413,8 @@ async function runAccountOperation<T>(
   try {
     return await action();
   } catch (error) {
-    const accountError = error instanceof Error ? error.message : "Unknown error";
+    const accountError =
+      error instanceof Error ? error.message : "Unknown error";
     set({ accountError });
     throw error;
   } finally {

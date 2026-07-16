@@ -14,13 +14,13 @@ import {
   LogOut,
   Settings,
   Shield,
-  UserIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { ChangePasswordDialog } from "@/components/auth/ChangePasswordDialog";
+import { AccountAvatar } from "@/components/auth/AccountAvatar";
 import { useTranslation } from "react-i18next";
 
 export const UserMenu = () => {
@@ -36,6 +36,11 @@ export const UserMenu = () => {
 
   if (!user) return null;
 
+  const profileName =
+    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+    user.full_name ||
+    user.username;
+
   return (
     <>
       <DropdownMenu>
@@ -45,13 +50,13 @@ export const UserMenu = () => {
             size="sm"
             className="w-full justify-start gap-2"
           >
-            <UserIcon className="h-4 w-4" />
+            <AccountAvatar user={user} className="h-5 w-5 text-[9px]" />
             <span className="truncate">{user.username}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
           <DropdownMenuLabel className="truncate">
-            {user.full_name || user.username}
+            {profileName}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {user.auth_provider === "local" && (

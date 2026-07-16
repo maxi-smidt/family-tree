@@ -365,6 +365,7 @@
     "image-sheet": {
       "toast-success": "Details gespeichert",
       "toast-error": "Details konnten nicht gespeichert werden",
+      "toast-member-already-linked": "{{name}} ist bereits mit diesem Bild verlinkt.",
       "title": "Bild Details",
       "title-field": "Titel",
       "title-placeholder": "Bild Titel",
@@ -373,6 +374,25 @@
       "date-field": "Datum aufgenommen",
       "members-field": "Verlinkte Personen",
       "members-placeholder": "Verlinke Personen mit diesem Bild",
+      "members-empty": "Noch keine Personen verlinkt.",
+      "members-no-results": "Keine Personen gefunden.",
+      "add-member": "Person verlinken",
+      "remove-member": "{{name}} entfernen",
+      "whole-image-link": "Ganzes Bild",
+      "unknown-member": "Unbekannte Person",
+      "image-alt": "Galeriebild",
+      "tag-mode": "Gesichter markieren",
+      "tag-mode-done": "Markieren beenden",
+      "face-tags-title": "Gesichtsmarkierungen",
+      "face-tags-draw-hint": "Zeichne ein Rechteck um ein Gesicht und wähle dann eine Person aus.",
+      "face-tags-assign-hint": "Wähle die Person aus, die in der markierten Region zu sehen ist.",
+      "face-tags-replace-hint": "Zeichne ein neues Rechteck, um die Markierung von {{name}} zu verschieben, oder wähle unten eine andere Person aus.",
+      "face-tags-member-placeholder": "Person für dieses Gesicht auswählen",
+      "face-tag": "Gesichtsmarkierung",
+      "face-tag-aria": "Gesichtsmarkierung für {{name}}",
+      "add-face-tag": "Gesichtsmarkierung hinzufügen",
+      "edit-face-tag": "Gesichtsmarkierung für {{name}} bearbeiten",
+      "cancel-tag-edit": "Bearbeitung abbrechen",
       "save": "Speichern",
       "delete": "Löschen",
       "delete-confirm-title": "Löschen bestätigen",
@@ -381,6 +401,15 @@
       "delete-confirm-confirm": "Bestätigen",
       "toast-delete-success": "Bild wurde erfolgreich gelöscht.",
       "toast-delete-error": "Das Bild konnte nicht gelöscht werden."
+    },
+    "image-lightbox": {
+      "image-alt": "Galeriebild",
+      "close": "Bild schließen",
+      "previous": "Vorheriges Bild",
+      "next": "Nächstes Bild",
+      "linked-people": "Verlinkte Personen",
+      "face-tag": "Gesichtsmarkierung für {{name}}",
+      "unknown-member": "Unbekannte Person"
     },
     "upload-image-card": "Bild hochladen"
   },
@@ -1433,6 +1462,25 @@
       "mismatch": "Die neuen Passwörter stimmen nicht überein.",
       "error": "Passwort konnte nicht geändert werden."
     },
+    "profile": {
+      "title": "Profil",
+      "description": "Lege den Namen und das Bild fest, die für dein Konto angezeigt werden.",
+      "first-name": "Vorname",
+      "last-name": "Nachname",
+      "save": "Profil speichern",
+      "save-success": "Profil gespeichert.",
+      "save-error": "Profil konnte nicht gespeichert werden.",
+      "upload-image": "Bild hochladen",
+      "replace-image": "Bild ersetzen",
+      "remove-image": "Bild entfernen",
+      "upload-success": "Profilbild aktualisiert.",
+      "upload-error": "Profilbild konnte nicht hochgeladen werden.",
+      "upload-too-large": "Das Profilbild ist zu groß.",
+      "upload-unsupported": "Dieser Bildtyp wird nicht unterstützt.",
+      "remove-success": "Profilbild entfernt.",
+      "remove-error": "Profilbild konnte nicht entfernt werden.",
+      "toast-error-quota-media": "Medienspeicher-Kontingent überschritten."
+    },
     "user-menu": {
       "change-password": "Passwort ändern",
       "admin": "Verwaltung",
@@ -1886,6 +1934,9 @@
     "save": "Speichern",
     "toast-saved": "Einstellungen gespeichert.",
     "toast-error": "Einstellungen konnten nicht gespeichert werden.",
+    "profile": {
+      "section": "Profil"
+    },
     "image-storage": {
       "section": "Galeriebilder-Speicherung",
       "label": "Speichermodus",
