@@ -911,6 +911,8 @@
       "enable-disease-mode": "Enable disease mode",
       "show-generation-lines": "Show generation lines",
       "hide-generation-lines": "Hide generation lines",
+      "generation-line-spacing": "Generation line spacing",
+      "generation-line-spacing-value": "{{gap}} px",
       "enable-connection-mode": "Find connection",
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",

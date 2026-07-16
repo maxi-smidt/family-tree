@@ -911,6 +911,8 @@
       "enable-disease-mode": "Krankheitsmodus aktivieren",
       "show-generation-lines": "Generationslinien anzeigen",
       "hide-generation-lines": "Generationslinien ausblenden",
+      "generation-line-spacing": "Abstand der Generationslinien",
+      "generation-line-spacing-value": "{{gap}} px",
       "enable-connection-mode": "Verbindung finden",
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",

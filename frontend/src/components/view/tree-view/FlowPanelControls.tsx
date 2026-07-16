@@ -6,6 +6,13 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   ImageDown,
   Lock,
   LockOpen,
@@ -23,8 +30,13 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useReactFlow } from "@xyflow/react";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { useTreeExport } from "@/hooks/useTreeExport";
 import { fitViewToAllNodes } from "@/utils/flowFit";
+import {
+  GENERATION_LINE_GAPS,
+  getGenerationLineGap,
+} from "@/utils/generationLineSpacing";
 
 type Props = {
   navigationOnly?: boolean;
@@ -55,7 +67,13 @@ export const FlowPanelControls = ({
     setIsLockedScreen,
     showGenerationLines,
     setShowGenerationLines,
+    generationLineGaps,
+    setGenerationLineGap,
   } = useFamilyTreeSettings();
+  const activeTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const generationLineGap = getGenerationLineGap(
+    activeTreeId ? generationLineGaps[activeTreeId] : undefined,
+  );
   const reactFlow = useReactFlow();
   const undo = useMemberStore((s) => s.undo);
   const redo = useMemberStore((s) => s.redo);
@@ -157,6 +175,29 @@ export const FlowPanelControls = ({
             : t("show-generation-lines")}
         </TooltipContent>
       </Tooltip>
+      <Select
+        value={String(generationLineGap)}
+        onValueChange={(value) => {
+          if (activeTreeId) {
+            setGenerationLineGap(activeTreeId, Number(value));
+          }
+        }}
+        disabled={!activeTreeId}
+      >
+        <SelectTrigger
+          className="h-9 w-24 bg-secondary px-2 text-xs"
+          aria-label={t("generation-line-spacing")}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {GENERATION_LINE_GAPS.map((gap) => (
+            <SelectItem key={gap} value={String(gap)}>
+              {t("generation-line-spacing-value", { gap })}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

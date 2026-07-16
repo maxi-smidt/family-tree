@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { isGenerationLineGap } from "@/utils/generationLineSpacing";
 
 export type EdgeType = "default" | "straight" | "step" | "smoothstep";
 
@@ -22,6 +23,8 @@ interface FamilyTreeSettingsState {
   setIsDiseaseMode: (val: boolean) => void;
   showGenerationLines: boolean;
   setShowGenerationLines: (val: boolean) => void;
+  generationLineGaps: Record<string, number>;
+  setGenerationLineGap: (treeId: string, gap: number) => void;
   visibleRelationTypes: string[];
   toggleRelationType: (type: string) => void;
   viewports: Record<string, Viewport>;
@@ -36,6 +39,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       isFastMode: false,
       isDiseaseMode: false,
       showGenerationLines: true,
+      generationLineGaps: {},
       sidebarOpen: true,
       visibleRelationTypes: ["parent"],
       viewports: {},
@@ -46,6 +50,12 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       setIsDiseaseMode: (val: boolean) => set({ isDiseaseMode: val }),
       setShowGenerationLines: (val: boolean) =>
         set({ showGenerationLines: val }),
+      setGenerationLineGap: (treeId, gap) => {
+        if (!isGenerationLineGap(gap)) return;
+        set((s) => ({
+          generationLineGaps: { ...s.generationLineGaps, [treeId]: gap },
+        }));
+      },
       toggleRelationType: (type) =>
         set((state) => {
           if (type === "parent") return state;

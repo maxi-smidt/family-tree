@@ -3,6 +3,11 @@ import {
   getRuledLinePattern,
   GENERATION_LINE_GAP,
 } from "@/components/view/tree-view/GenerationLines";
+import {
+  GENERATION_LINE_GAPS,
+  GENERATION_LINE_GAP_STEP,
+  getGenerationLineGap,
+} from "@/utils/generationLineSpacing";
 
 describe("getRuledLinePattern", () => {
   it("scales the gap by the zoom level", () => {
@@ -28,5 +33,13 @@ describe("getRuledLinePattern", () => {
 
   it("exposes a doubled default generation gap", () => {
     expect(GENERATION_LINE_GAP).toBe(500);
+  });
+
+  it("limits spacing choices to snap-grid multiples", () => {
+    expect(GENERATION_LINE_GAPS).toContain(500);
+    expect(
+      GENERATION_LINE_GAPS.every((gap) => gap % GENERATION_LINE_GAP_STEP === 0),
+    ).toBe(true);
+    expect(getGenerationLineGap(510)).toBe(GENERATION_LINE_GAP);
   });
 });
