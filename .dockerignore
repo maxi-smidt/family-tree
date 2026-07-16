@@ -1,0 +1,12 @@
+# The frontend image needs only its source tree and the canonical changelog.
+*
+!CHANGELOG.md
+!frontend/
+!frontend/**
+
+# frontend/.dockerignore is not read when the build context is the repo root.
+frontend/node_modules
+frontend/dist
+frontend/dist-ssr
+frontend/.env
+frontend/src/data/changelog.json
