@@ -10,6 +10,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { EdgeTypeSelector } from "@/components/sidebar/EdgeTypeSelector.tsx";
+import { GenerationLineSpacingSelector } from "@/components/sidebar/GenerationLineSpacingSelector.tsx";
 import { DatabaseSelector } from "@/components/sidebar/DatabaseSelector.tsx";
 import { LanguageSelector } from "@/components/sidebar/LanguageSelector.tsx";
 import { ThemeSelector } from "@/components/sidebar/ThemeSelector.tsx";
@@ -44,6 +45,9 @@ export function FamilyTreeSidebar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <EdgeTypeSelector />
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <GenerationLineSpacingSelector />
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <LanguageSelector />

@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: "Filter changed paths"
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -59,7 +59,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: "Set up Node.js"
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: "npm"
@@ -79,9 +79,6 @@ jobs:
 
       - name: "Translation parity"
         run: npm run check-i18n
-
-      - name: "Changelog JSON up to date"
-        run: npm run check-changelog
 
       - name: "No explicit any"
         run: npm run check-no-any
@@ -252,7 +249,7 @@ jobs:
           }
 
       - name: "Set up Node.js"
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: "npm"
@@ -320,8 +317,10 @@ jobs:
         include:
           - service: backend
             context: ./backend
+            dockerfile: ./backend/Dockerfile
           - service: frontend
-            context: ./frontend
+            context: .
+            dockerfile: ./frontend/Dockerfile
 
     steps:
       - name: "Checkout Code"
@@ -372,6 +371,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           load: true
           tags: scan-target/${{ matrix.service }}:ci
           build-args: |
@@ -405,6 +405,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

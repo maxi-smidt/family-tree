@@ -608,7 +608,16 @@ def merge_trees(
             mid = member_map.get(link.member_id)
             if gi and mid and (gi, mid) not in seen_gallery_links:
                 seen_gallery_links.add((gi, mid))
-                db.add(GalleryMemberLink(gallery_image_id=gi, member_id=mid))
+                db.add(
+                    GalleryMemberLink(
+                        gallery_image_id=gi,
+                        member_id=mid,
+                        x=link.x,
+                        y=link.y,
+                        w=link.w,
+                        h=link.h,
+                    )
+                )
 
     _progress(70)
 

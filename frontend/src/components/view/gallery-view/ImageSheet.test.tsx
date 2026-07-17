@@ -2,8 +2,9 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { createMember, type Member } from "@/types/member";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import type { GalleryImage } from "@/types/gallery";
+import type { Member } from "@/types/member";
 import { ImageSheet } from "./ImageSheet";
 
 class MockResizeObserver {
@@ -12,55 +13,75 @@ class MockResizeObserver {
   disconnect() {}
 }
 
-const member = (id: string, firstName: string, lastName: string): Member => ({
-  ...createMember({ x: 0, y: 0 }),
-  id,
-  firstName,
-  lastName,
-});
+// @ts-expect-error -- test-only polyfill for Radix popovers
+global.ResizeObserver = MockResizeObserver;
 
-const ada = member("ada", "Ada", "Lovelace");
-const alan = member("alan", "Alan", "Turing");
+const MEMBER: Member = {
+  id: "member-1",
+  gender: "f",
+  academicTitle: null,
+  firstName: "Ada",
+  middleNames: null,
+  baptismalName: null,
+  lastName: "Lovelace",
+  maidenName: null,
+  imageData: null,
+  deceased: false,
+  adopted: false,
+  date: { birth: "1815-12-10", death: null },
+  parents: { paternalParent: null, maternalParent: null },
+  additionalData: null,
+  birthplace: null,
+  hometown: null,
+  cemetery: null,
+  placesLived: [],
+  isCollapsed: false,
+  position: { x: 0, y: 0 },
+};
 
-const image: GalleryImage = {
-  id: "img-1",
-  imageData: "/api/media/img-1.jpg",
-  title: "Group photo",
+const UNLINKED_MEMBER: Member = {
+  ...MEMBER,
+  id: "member-2",
+  firstName: "Alan",
+  lastName: "Turing",
+};
+
+const IMAGE: GalleryImage = {
+  id: "image-1",
+  imageData: "data:image/png;base64,abc",
+  title: "Portrait",
   description: null,
-  // Ada is already linked to this image.
-  linkedMemberIds: ["ada"],
+  linkedMemberIds: [MEMBER.id],
+  memberLinks: [{ memberId: MEMBER.id, x: null, y: null, w: null, h: null }],
   createdAt: "2024-01-01T00:00:00Z",
   uploadedAt: "2024-01-01T00:00:00Z",
 };
 
-describe("ImageSheet linked-member selection", () => {
+describe("ImageSheet", () => {
   beforeEach(async () => {
-    // @ts-expect-error -- test-only polyfill
-    global.ResizeObserver = MockResizeObserver;
+    vi.clearAllMocks();
     Element.prototype.scrollIntoView = vi.fn();
     Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
     Element.prototype.releasePointerCapture = vi.fn();
     await i18n.changeLanguage("en");
-    useMemberStore.setState({ members: [ada, alan] });
+    useMemberStore.setState({ members: [MEMBER, UNLINKED_MEMBER] });
+    useTreeStore.setState({
+      selectedTree: { id: "tree-1", name: "Tree", role: "owner" },
+    });
   });
 
-  it("hides the already-linked member from the candidate list but keeps their chip", async () => {
-    render(<ImageSheet isOpen onClose={vi.fn()} image={image} />);
+  it("hides already-linked people from candidates while keeping their link visible", async () => {
+    render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
-    // The already-linked member stays visible as a removable chip.
     expect(
-      screen.getByRole("button", { name: /Remove Ada Lovelace/ }),
+      screen.getByRole("button", { name: "Remove Ada Lovelace" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("combobox", { name: /Link members to this image/ }),
-    );
+    fireEvent.click(screen.getByRole("combobox"));
 
-    // ...but Alan, who is not linked, remains selectable.
     expect(
       await screen.findByRole("option", { name: /Alan Turing/ }),
     ).toBeInTheDocument();
-    // Ada is already linked, so she is not offered again in the candidate list.
     expect(
       screen.queryByRole("option", { name: /Ada Lovelace/ }),
     ).not.toBeInTheDocument();
