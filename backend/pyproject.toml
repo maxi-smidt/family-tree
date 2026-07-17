@@ -4,7 +4,7 @@ version = "1.7.1"
 description = "FastAPI backend for the Family Tree web application"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi[standard]>=0.139.0",
+    "fastapi[standard]>=0.139.2",
     "uvicorn[standard]>=0.51.0",
     "sqlalchemy>=2.0.51",
     "psycopg2-binary>=2.9.10",
@@ -28,8 +28,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
-    "ruff>=0.15.21",
-    "httpx2>=2.5.0",
+    "ruff>=0.15.22",
+    "httpx2>=2.7.0",
     "pytest-xdist>=3.8.0",
 ]
 

@@ -58,6 +58,7 @@ import {
   clearMemberSheetDeepLink,
   readMemberSheetDeepLink,
 } from "@/utils/memberSheetState";
+import { getGenerationLineGap } from "@/utils/generationLineSpacing";
 
 const nodeTypes = { familyMember: FamilyNode, unionNode: UnionNode };
 const edgeTypes = { relation: RelationEdge };
@@ -115,10 +116,13 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     visibleRelationTypes,
     viewports,
     setViewport,
-    showGenerationLines,
+    generationLineGaps,
   } = useFamilyTreeSettings();
   const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
   const viewport = (activeTree && viewports[activeTree.id]) ?? DEFAULT_VIEWPORT;
+  const generationLineGap = getGenerationLineGap(
+    activeTree ? generationLineGaps[activeTree.id] : undefined,
+  );
   const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -671,7 +675,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       >
         <SelectionModeController active={inSelectionMode} />
         <Background />
-        <GenerationLines visible={showGenerationLines} />
+        <GenerationLines
+          visible={generationLineGap !== null}
+          gap={generationLineGap ?? undefined}
+        />
         {members.length === 0 && !isCanvasReadOnly && (
           <Panel
             position="top-center"
