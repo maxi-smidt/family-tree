@@ -17,6 +17,11 @@ class FriendOut(BaseModel):
     user_id: str
     username: str
     full_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    # Present only for accepted friends. The URL is served by a friendship-
+    # scoped, authenticated endpoint rather than the general media route.
+    profile_image_url: str | None = None
     status: str
     direction: str
     created_at: str

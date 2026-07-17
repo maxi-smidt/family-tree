@@ -23,6 +23,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Friends can now see an accepted friend's profile picture in the Friends view;
+  images continue to be served through an authenticated friendship-only route
+  (#739).
 - The Statistics view now has an “On this day” widget for upcoming birthdays,
   death anniversaries, dated events, and stories, with direct links to people
   in the tree (#727).
