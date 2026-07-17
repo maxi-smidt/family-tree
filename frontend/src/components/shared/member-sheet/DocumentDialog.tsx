@@ -374,6 +374,7 @@ export const DocumentDialog = ({
                 placeholder={t("people-mentioned-placeholder")}
                 variant="inverted"
                 maxCount={5}
+                hideSelectedOptions
               />
               <p className="text-xs text-muted-foreground">
                 {t("people-mentioned-description")}
