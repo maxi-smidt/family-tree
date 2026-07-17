@@ -78,6 +78,7 @@ export interface OnThisDayItem {
   member?: Member;
   linkedMembers: Member[];
   age?: number;
+  sourceYear?: number;
   eventType?: string;
   title?: string;
   description?: string | null;
@@ -156,12 +157,9 @@ export function buildOnThisDayItems(
     const birthdayDate = birthdayMonthDay
       ? datesByMonthDay.get(birthdayMonthDay)
       : undefined;
+    const birthYear = genealogyYear(member.date.birth, member.date.birthSort);
     if (birthdayDate) {
       if (isDeceased(member)) {
-        const birthYear = genealogyYear(
-          member.date.birth,
-          member.date.birthSort,
-        );
         if (birthYear !== null) {
           items.push({
             id: `would-turn:${member.id}:${birthdayDate.dayOffset}`,
@@ -171,6 +169,7 @@ export function buildOnThisDayItems(
             member,
             linkedMembers: [],
             age: birthdayDate.date.getFullYear() - birthYear,
+            sourceYear: birthYear,
           });
         }
       } else {
@@ -181,6 +180,7 @@ export function buildOnThisDayItems(
           dayOffset: birthdayDate.dayOffset,
           member,
           linkedMembers: [],
+          sourceYear: birthYear ?? undefined,
         });
       }
     }
@@ -202,6 +202,7 @@ export function buildOnThisDayItems(
         member,
         linkedMembers: [],
         age: deathDate.date.getFullYear() - deathYear,
+        sourceYear: deathYear,
       });
     }
   }
@@ -223,6 +224,7 @@ export function buildOnThisDayItems(
         .filter((member): member is Member => member !== undefined),
       eventType: event.eventType,
       description: event.description,
+      sourceYear: getYear(event.date) ?? undefined,
     });
   }
 
@@ -240,6 +242,7 @@ export function buildOnThisDayItems(
         .filter((member): member is Member => member !== undefined),
       title: story.title,
       description: story.content,
+      sourceYear: getYear(story.date) ?? undefined,
     });
   }
 
@@ -267,7 +270,8 @@ function OnThisDayWidget({
   onOpenMember,
   t,
 }: StatisticsWidgetProps) {
-  const items = buildOnThisDayItems(members, events, stories);
+  const today = new Date();
+  const items = buildOnThisDayItems(members, events, stories, today);
   const groupedItems = items.reduce((groups, item) => {
     const group = groups.get(item.dayOffset) ?? [];
     group.push(item);
@@ -276,29 +280,28 @@ function OnThisDayWidget({
   }, new Map<number, OnThisDayItem[]>());
 
   return (
-    <Card className="p-4">
-      <h2 className="mb-4 text-sm font-medium">{t("on-this-day-title")}</h2>
-      {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {t("on-this-day-empty")}
+    <Card className="flex h-[320px] flex-col p-4">
+      <div className="mb-4 shrink-0">
+        <h2 className="text-sm font-medium">{t("on-this-day-title")}</h2>
+        <p className="text-xs text-muted-foreground">
+          {new Intl.DateTimeFormat(resolveDateLocale(), {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          }).format(today)}
         </p>
-      ) : (
-        <div className="space-y-4">
-          {[...groupedItems].map(([dayOffset, dayItems]) => {
-            const date = dayItems[0].date;
-            const label =
-              dayOffset === 0
-                ? t("on-this-day-today")
-                : new Intl.DateTimeFormat(resolveDateLocale(), {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  }).format(date);
-            return (
-              <section key={dayOffset}>
-                <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
-                  {label}
-                </h3>
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            {t("on-this-day-empty")}
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {[...groupedItems].map(([dayOffset, dayItems]) => {
+              const date = dayItems[0].date;
+              const entries = (
                 <div className="space-y-1">
                   {dayItems.map((item) => {
                     const Icon =
@@ -321,6 +324,9 @@ function OnThisDayWidget({
                             : item.kind === "event"
                               ? getEventTypeLabel(item.eventType ?? "", i18n.t)
                               : item.title;
+                    const sourceYear = item.sourceYear
+                      ? ` · ${item.sourceYear}`
+                      : "";
                     return (
                       <div
                         key={item.id}
@@ -339,11 +345,13 @@ function OnThisDayWidget({
                               </button>{" "}
                               <span className="text-muted-foreground">
                                 — {detail}
+                                {sourceYear}
                               </span>
                             </p>
                           ) : (
                             <p className="truncate font-medium leading-5">
                               {detail}
+                              {sourceYear}
                             </p>
                           )}
                           {item.description && (
@@ -370,11 +378,27 @@ function OnThisDayWidget({
                     );
                   })}
                 </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
+              );
+              if (dayOffset === 0) {
+                return <div key={dayOffset}>{entries}</div>;
+              }
+              return (
+                <section key={dayOffset}>
+                  <h3 className="mb-1.5 text-xs font-medium text-muted-foreground">
+                    {new Intl.DateTimeFormat(resolveDateLocale(), {
+                      weekday: "short",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    }).format(date)}
+                  </h3>
+                  {entries}
+                </section>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </Card>
   );
 }

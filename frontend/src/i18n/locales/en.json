@@ -1241,7 +1241,6 @@
     "stat-avg-lifespan-value": "{{years}} yrs",
     "on-this-day-title": "On this day",
     "on-this-day-empty": "Nothing is coming up in the next 7 days.",
-    "on-this-day-today": "Today",
     "on-this-day-birthday": "Birthday",
     "on-this-day-would-turn": "Would have turned {{age}}",
     "on-this-day-death-anniversary_one": "Died {{count}} year ago",

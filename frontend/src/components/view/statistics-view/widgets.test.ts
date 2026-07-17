@@ -70,18 +70,25 @@ describe("buildOnThisDayItems", () => {
     );
 
     expect(items).toMatchObject([
-      { kind: "birthday", dayOffset: 0, member: { id: "living" } },
+      {
+        kind: "birthday",
+        dayOffset: 0,
+        member: { id: "living" },
+        sourceYear: 1990,
+      },
       {
         kind: "would-turn",
         dayOffset: 1,
         member: { id: "deceased" },
         age: 76,
+        sourceYear: 1950,
       },
       {
         kind: "death-anniversary",
         dayOffset: 2,
         member: { id: "deceased" },
         age: 6,
+        sourceYear: 2020,
       },
     ]);
   });
@@ -131,12 +138,14 @@ describe("buildOnThisDayItems", () => {
         kind: "event",
         dayOffset: 6,
         eventType: "marriage",
+        sourceYear: 2010,
         linkedMembers: [{ id: "member-1" }],
       },
       {
         kind: "story",
         dayOffset: 7,
         title: "A family memory",
+        sourceYear: 2010,
         linkedMembers: [{ id: "member-1" }],
       },
     ]);
