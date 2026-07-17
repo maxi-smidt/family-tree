@@ -30,6 +30,23 @@ export const AuthService = {
     });
   },
 
+  updateProfile(firstName: string, lastName: string): Promise<User> {
+    return api.patch<User>("/auth/profile", {
+      first_name: firstName,
+      last_name: lastName,
+    });
+  },
+
+  uploadProfileImage(file: File): Promise<User> {
+    const form = new FormData();
+    form.append("image", file);
+    return api.postForm<User>("/auth/profile/image", form);
+  },
+
+  removeProfileImage(): Promise<User> {
+    return api.del<User>("/auth/profile/image");
+  },
+
   deleteAccount(
     password: string | null,
     confirmUsername: string | null,

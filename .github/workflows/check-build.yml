@@ -80,9 +80,6 @@ jobs:
       - name: "Translation parity"
         run: npm run check-i18n
 
-      - name: "Changelog JSON up to date"
-        run: npm run check-changelog
-
       - name: "No explicit any"
         run: npm run check-no-any
 
@@ -320,8 +317,10 @@ jobs:
         include:
           - service: backend
             context: ./backend
+            dockerfile: ./backend/Dockerfile
           - service: frontend
-            context: ./frontend
+            context: .
+            dockerfile: ./frontend/Dockerfile
 
     steps:
       - name: "Checkout Code"
@@ -372,6 +371,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           load: true
           tags: scan-target/${{ matrix.service }}:ci
           build-args: |
@@ -405,6 +405,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -31,6 +31,13 @@ class GalleryMemberLink(Base):
     member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
     )
+    # A null region keeps the original whole-image association.  A complete
+    # x/y/w/h set is a face tag expressed as fractions of the source image,
+    # making it independent of the image's displayed size.
+    x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    w: Mapped[float | None] = mapped_column(Float, nullable=True)
+    h: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class Event(Base):

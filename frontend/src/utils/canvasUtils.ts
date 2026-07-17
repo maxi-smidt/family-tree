@@ -1,5 +1,16 @@
 import { PixelCrop } from "react-image-crop";
 
+/** Convert a base64 data URL (such as a canvas crop) into an uploadable file. */
+export function dataUrlToFile(dataUrl: string, filename: string): File {
+  const match = /^data:([^;,]+);base64,(.+)$/.exec(dataUrl);
+  if (!match) throw new Error("Invalid image data URL");
+
+  const [, type, encoded] = match;
+  const binary = atob(encoded);
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new File([bytes], filename, { type });
+}
+
 export function getCroppedImg(
   image: HTMLImageElement,
   crop: PixelCrop,

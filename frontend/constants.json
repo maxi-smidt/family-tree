@@ -1,4 +1,5 @@
 {
   "NODE_HEIGHT": 145,
-  "NODE_WIDTH": 250
+  "NODE_WIDTH": 250,
+  "GRID_SIZE": 50
 }

@@ -1,5 +1,9 @@
 import { create } from "zustand";
-import { GalleryImage, GalleryImageDB } from "@/types/gallery";
+import {
+  GalleryImage,
+  GalleryImageDB,
+  GalleryMemberLink,
+} from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
@@ -44,7 +48,7 @@ interface GalleryState {
   addGalleryImage: (
     image: NewGalleryImage,
     opts?: AddGalleryImageOptions,
-  ) => Promise<void>;
+  ) => Promise<string | undefined>;
   updateGalleryImage: (
     id: string,
     changes: Partial<GalleryImage>,
@@ -70,19 +74,26 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
 
-    const linksByImage = new Map<string, string[]>();
+    const linksByImage = new Map<string, GalleryMemberLink[]>();
     for (const link of linksResult) {
       linksByImage.set(
         link.gallery_image_id,
-        (linksByImage.get(link.gallery_image_id) ?? []).concat(link.member_id),
+        (linksByImage.get(link.gallery_image_id) ?? []).concat({
+          memberId: link.member_id,
+          x: link.x,
+          y: link.y,
+          w: link.w,
+          h: link.h,
+        }),
       );
     }
 
     const images = imagesResult.filter(isGalleryImageDB).map((row) => {
-      const linkedMemberIds = linksByImage.get(row.id) ?? [];
+      const memberLinks = linksByImage.get(row.id) ?? [];
       return {
         ...row,
-        linkedMemberIds,
+        linkedMemberIds: memberLinks.map((link) => link.memberId),
+        memberLinks,
       };
     });
 
@@ -94,7 +105,7 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     opts?: AddGalleryImageOptions,
   ) => {
     const treeId = activeTreeId();
-    if (!treeId) return;
+    if (!treeId) return undefined;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -117,18 +128,32 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       useStorageStore.getState().refreshStorageUsage();
       invalidateActivityView();
     }
+
+    return id;
   },
 
   updateGalleryImage: async (id: string, changes: Partial<GalleryImage>) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
-    const { linkedMemberIds } = changes;
+    const { linkedMemberIds, memberLinks } = changes;
 
     await TreeService.updateGalleryImage(treeId, id, changes);
 
-    if (linkedMemberIds) {
-      await TreeService.setGalleryImageLinks(treeId, id, linkedMemberIds);
+    if (memberLinks) {
+      await TreeService.setGalleryImageLinks(treeId, id, memberLinks);
+    } else if (linkedMemberIds) {
+      await TreeService.setGalleryImageLinks(
+        treeId,
+        id,
+        linkedMemberIds.map((memberId) => ({
+          memberId,
+          x: null,
+          y: null,
+          w: null,
+          h: null,
+        })),
+      );
     }
 
     await get().refreshGalleryImages(treeId);
