@@ -1818,7 +1818,8 @@
   "changelog": {
     "title": "Neuigkeiten",
     "trigger-label": "Änderungsprotokoll anzeigen",
-    "empty": "Keine Einträge im Änderungsprotokoll verfügbar."
+    "empty": "Keine Einträge im Änderungsprotokoll verfügbar.",
+    "load-more": "Mehr laden"
   },
   "legal": {
     "legal-link": "AGB · Datenschutz · Impressum",

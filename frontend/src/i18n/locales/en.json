@@ -1818,7 +1818,8 @@
   "changelog": {
     "title": "What's new",
     "trigger-label": "View changelog",
-    "empty": "No changelog entries available."
+    "empty": "No changelog entries available.",
+    "load-more": "Load more"
   },
   "legal": {
     "legal-link": "Terms · Privacy · Impressum",

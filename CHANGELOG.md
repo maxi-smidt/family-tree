@@ -11,6 +11,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The in-app changelog now renders release notes in small, on-demand windows,
+  avoiding a full-history Markdown render as releases accumulate (#746).
 - The in-app changelog is now generated from this source file while every
   frontend image is built, so published images cannot display a stale committed
   copy (#745).
