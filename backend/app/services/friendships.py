@@ -8,6 +8,7 @@ the request.
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.models import Friendship, Tree, TreeMembership, User
 from app.schemas.friendship import FriendOut
@@ -80,10 +81,19 @@ def to_friend_out(db: Session, friendship: Friendship, viewer_id: str) -> Friend
     other = db.get(User, other_id)
     # "incoming" when the still-pending request was sent *to* the viewer.
     direction = "incoming" if friendship.addressee_id == viewer_id else "outgoing"
+    profile_image_url = None
+    if friendship.status == "accepted" and other and other.profile_image:
+        profile_image_url = (
+            f"{settings.API_PREFIX}/friends/{other.id}/profile-image/"
+            f"{other.profile_image}"
+        )
     return FriendOut(
         user_id=other_id,
         username=other.username if other else "",
         full_name=other.full_name if other else None,
+        first_name=other.first_name if other else None,
+        last_name=other.last_name if other else None,
+        profile_image_url=profile_image_url,
         status=friendship.status,
         direction=direction,
         created_at=friendship.created_at,

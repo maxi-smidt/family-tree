@@ -5,6 +5,10 @@ export interface Friend {
   user_id: string;
   username: string;
   full_name: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  /** Protected, accepted-friend-only profile image URL. */
+  profile_image_url?: string | null;
   status: FriendStatus;
   /** "incoming" = they sent me a pending request; "outgoing" = I sent it. */
   direction: "incoming" | "outgoing";

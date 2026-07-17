@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { getAuthToken, getPublicTreeToken } from "@/services/api";
 
-const PROTECTED_MEDIA_PREFIXES = ["/api/media/", "/api/auth/profile/image/"];
+const PROTECTED_MEDIA_PREFIXES = [
+  "/api/media/",
+  "/api/auth/profile/image/",
+  "/api/friends/",
+];
 
 function isProtectedMediaUrl(src: string): boolean {
   return PROTECTED_MEDIA_PREFIXES.some((prefix) => src.startsWith(prefix));

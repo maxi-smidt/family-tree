@@ -22,35 +22,29 @@ import {
   X,
 } from "lucide-react";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
+import { AccountAvatar } from "@/components/auth/AccountAvatar";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { Friend, UserSearchResult } from "@/types/friend";
+import type { User } from "@/types/user";
 import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  const first = parts[0][0];
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
-}
-
 /** Avatar + name/subtitle row with trailing actions, used across all tabs. */
 function PersonCard({
+  avatar,
   name,
   subtitle,
   actions,
 }: {
+  avatar: Pick<User, "first_name" | "last_name" | "profile_image_url">;
   name: string;
   subtitle?: string | null;
   actions: ReactNode;
 }) {
   return (
     <Card className="flex-row items-center gap-3 p-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
-        {initials(subtitle || name)}
-      </span>
+      <AccountAvatar user={avatar} className="size-10 text-sm" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{name}</p>
         {subtitle && (
@@ -248,6 +242,7 @@ export const FriendsView = () => {
               {friends.map((f) => (
                 <PersonCard
                   key={f.user_id}
+                  avatar={f}
                   name={f.username}
                   subtitle={f.full_name}
                   actions={
@@ -283,6 +278,7 @@ export const FriendsView = () => {
                 {incoming.map((f) => (
                   <PersonCard
                     key={f.user_id}
+                    avatar={f}
                     name={f.username}
                     subtitle={f.full_name}
                     actions={
@@ -330,6 +326,7 @@ export const FriendsView = () => {
                 {outgoing.map((f) => (
                   <PersonCard
                     key={f.user_id}
+                    avatar={f}
                     name={f.username}
                     subtitle={f.full_name}
                     actions={
@@ -376,6 +373,11 @@ export const FriendsView = () => {
               {results.map((r) => (
                 <PersonCard
                   key={r.user_id}
+                  avatar={{
+                    first_name: null,
+                    last_name: null,
+                    profile_image_url: null,
+                  }}
                   name={r.username}
                   subtitle={r.full_name}
                   actions={searchAction(r)}
