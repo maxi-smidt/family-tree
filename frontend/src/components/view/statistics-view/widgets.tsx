@@ -77,8 +77,7 @@ export interface OnThisDayItem {
   dayOffset: number;
   member?: Member;
   linkedMembers: Member[];
-  age?: number;
-  sourceYear?: number;
+  years?: number;
   eventType?: string;
   title?: string;
   description?: string | null;
@@ -168,8 +167,7 @@ export function buildOnThisDayItems(
             dayOffset: birthdayDate.dayOffset,
             member,
             linkedMembers: [],
-            age: birthdayDate.date.getFullYear() - birthYear,
-            sourceYear: birthYear,
+            years: birthdayDate.date.getFullYear() - birthYear,
           });
         }
       } else {
@@ -180,7 +178,10 @@ export function buildOnThisDayItems(
           dayOffset: birthdayDate.dayOffset,
           member,
           linkedMembers: [],
-          sourceYear: birthYear ?? undefined,
+          years:
+            birthYear === null
+              ? undefined
+              : birthdayDate.date.getFullYear() - birthYear,
         });
       }
     }
@@ -201,8 +202,7 @@ export function buildOnThisDayItems(
         dayOffset: deathDate.dayOffset,
         member,
         linkedMembers: [],
-        age: deathDate.date.getFullYear() - deathYear,
-        sourceYear: deathYear,
+        years: deathDate.date.getFullYear() - deathYear,
       });
     }
   }
@@ -213,6 +213,7 @@ export function buildOnThisDayItems(
     if (["birth", "death"].includes(event.eventType.toLowerCase())) continue;
     const monthDay = monthDayFromGenealogyDate(event.date);
     const date = monthDay ? datesByMonthDay.get(monthDay) : undefined;
+    const eventYear = getYear(event.date);
     if (!date) continue;
     items.push({
       id: `event:${event.id}:${date.dayOffset}`,
@@ -224,13 +225,15 @@ export function buildOnThisDayItems(
         .filter((member): member is Member => member !== undefined),
       eventType: event.eventType,
       description: event.description,
-      sourceYear: getYear(event.date) ?? undefined,
+      years:
+        eventYear === null ? undefined : date.date.getFullYear() - eventYear,
     });
   }
 
   for (const story of stories) {
     const monthDay = monthDayFromGenealogyDate(story.date);
     const date = monthDay ? datesByMonthDay.get(monthDay) : undefined;
+    const storyYear = getYear(story.date);
     if (!date) continue;
     items.push({
       id: `story:${story.id}:${date.dayOffset}`,
@@ -242,7 +245,8 @@ export function buildOnThisDayItems(
         .filter((member): member is Member => member !== undefined),
       title: story.title,
       description: story.content,
-      sourceYear: getYear(story.date) ?? undefined,
+      years:
+        storyYear === null ? undefined : date.date.getFullYear() - storyYear,
     });
   }
 
@@ -281,7 +285,7 @@ function OnThisDayWidget({
 
   return (
     <Card className="flex h-[320px] flex-col p-4">
-      <div className="mb-4 shrink-0">
+      <div className="mb-2 shrink-0">
         <h2 className="text-sm font-medium">{t("on-this-day-title")}</h2>
         <p className="text-xs text-muted-foreground">
           {new Intl.DateTimeFormat(resolveDateLocale(), {
@@ -314,19 +318,16 @@ function OnThisDayWidget({
                             : BookOpen;
                     const detail =
                       item.kind === "birthday"
-                        ? t("on-this-day-birthday")
+                        ? t("on-this-day-birthday", { age: item.years })
                         : item.kind === "would-turn"
-                          ? t("on-this-day-would-turn", { age: item.age })
+                          ? t("on-this-day-would-turn", { age: item.years })
                           : item.kind === "death-anniversary"
                             ? t("on-this-day-death-anniversary", {
-                                count: item.age,
+                                count: item.years,
                               })
                             : item.kind === "event"
-                              ? getEventTypeLabel(item.eventType ?? "", i18n.t)
-                              : item.title;
-                    const sourceYear = item.sourceYear
-                      ? ` · ${item.sourceYear}`
-                      : "";
+                              ? `${getEventTypeLabel(item.eventType ?? "", i18n.t)} · ${t("on-this-day-years-ago", { count: item.years })}`
+                              : `${item.title} · ${t("on-this-day-years-ago", { count: item.years })}`;
                     return (
                       <div
                         key={item.id}
@@ -345,13 +346,11 @@ function OnThisDayWidget({
                               </button>{" "}
                               <span className="text-muted-foreground">
                                 — {detail}
-                                {sourceYear}
                               </span>
                             </p>
                           ) : (
                             <p className="truncate font-medium leading-5">
                               {detail}
-                              {sourceYear}
                             </p>
                           )}
                           {item.description && (
