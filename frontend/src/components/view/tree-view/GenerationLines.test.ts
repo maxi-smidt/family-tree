@@ -4,9 +4,11 @@ import {
   GENERATION_LINE_GAP,
 } from "@/components/view/tree-view/GenerationLines";
 import {
-  GENERATION_LINE_GAPS,
   GENERATION_LINE_GAP_STEP,
   getGenerationLineGap,
+  getGenerationLineGapForSpacing,
+  getGenerationLineSpacing,
+  GENERATION_LINE_SPACING_OPTIONS,
 } from "@/utils/generationLineSpacing";
 
 describe("getRuledLinePattern", () => {
@@ -35,10 +37,15 @@ describe("getRuledLinePattern", () => {
     expect(GENERATION_LINE_GAP).toBe(500);
   });
 
-  it("limits spacing choices to snap-grid multiples", () => {
-    expect(GENERATION_LINE_GAPS).toContain(500);
+  it("limits named spacing choices to snap-grid multiples", () => {
+    expect(GENERATION_LINE_SPACING_OPTIONS).toHaveLength(6);
+    expect(getGenerationLineSpacing(undefined)).toBe("s");
+    expect(getGenerationLineGap(null)).toBeNull();
+    expect(getGenerationLineGapForSpacing("none")).toBeNull();
     expect(
-      GENERATION_LINE_GAPS.every((gap) => gap % GENERATION_LINE_GAP_STEP === 0),
+      GENERATION_LINE_SPACING_OPTIONS.filter(
+        (option) => option.gap !== null,
+      ).every((option) => option.gap % GENERATION_LINE_GAP_STEP === 0),
     ).toBe(true);
     expect(getGenerationLineGap(510)).toBe(GENERATION_LINE_GAP);
   });

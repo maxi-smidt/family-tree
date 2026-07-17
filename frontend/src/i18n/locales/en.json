@@ -3,6 +3,15 @@
     "appearance": "Appearance",
     "dataManagement": "Data Management",
     "edge-type": "Edge Type",
+    "generation-line-spacing": "Generation line spacing",
+    "generation-line-spacing-options": {
+      "none": "None",
+      "xs": "XS (250 px)",
+      "s": "S (500 px)",
+      "m": "M (750 px)",
+      "l": "L (1000 px)",
+      "xl": "XL (1250 px)"
+    },
     "edge-type-placeholder": "Select type",
     "step-type": {
       "default": "Default",
@@ -909,10 +918,6 @@
       "enable-quick-add": "Enable quick add",
       "disable-disease-mode": "Disable disease mode",
       "enable-disease-mode": "Enable disease mode",
-      "show-generation-lines": "Show generation lines",
-      "hide-generation-lines": "Hide generation lines",
-      "generation-line-spacing": "Generation line spacing",
-      "generation-line-spacing-value": "{{gap}} px",
       "enable-connection-mode": "Find connection",
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",

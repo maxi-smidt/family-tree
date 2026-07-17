@@ -10,11 +10,11 @@ describe("useFamilyTreeSettings", () => {
     const { setGenerationLineGap } = useFamilyTreeSettings.getState();
 
     setGenerationLineGap("tree-one", 250);
-    setGenerationLineGap("tree-two", 750);
+    setGenerationLineGap("tree-two", null);
 
     expect(useFamilyTreeSettings.getState().generationLineGaps).toEqual({
       "tree-one": 250,
-      "tree-two": 750,
+      "tree-two": null,
     });
   });
 

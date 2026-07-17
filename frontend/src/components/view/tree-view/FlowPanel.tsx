@@ -116,7 +116,6 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     visibleRelationTypes,
     viewports,
     setViewport,
-    showGenerationLines,
     generationLineGaps,
   } = useFamilyTreeSettings();
   const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
@@ -677,8 +676,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
         <SelectionModeController active={inSelectionMode} />
         <Background />
         <GenerationLines
-          visible={showGenerationLines}
-          gap={generationLineGap}
+          visible={generationLineGap !== null}
+          gap={generationLineGap ?? undefined}
         />
         {members.length === 0 && !isCanvasReadOnly && (
           <Panel
