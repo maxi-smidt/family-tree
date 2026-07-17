@@ -5,7 +5,7 @@ because the frontend reads/writes ``imageData``, ``createdAt``, ``uploadedAt``.
 All other schemas are intentionally snake_case end-to-end.
 """
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
 
@@ -30,6 +30,50 @@ class LinksSet(BaseModel):
     """Replace the full set of members linked to a content item."""
 
     member_ids: list[str] = []
+
+
+class GalleryLinkIn(BaseModel):
+    """A person link, optionally narrowed to a normalized image region."""
+
+    member_id: str
+    x: float | None = Field(default=None, ge=0, le=1)
+    y: float | None = Field(default=None, ge=0, le=1)
+    w: float | None = Field(default=None, gt=0, le=1)
+    h: float | None = Field(default=None, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_region(self) -> "GalleryLinkIn":
+        values = (self.x, self.y, self.w, self.h)
+        if any(value is None for value in values):
+            if not all(value is None for value in values):
+                raise ValueError("A gallery region requires x, y, w, and h")
+            return self
+        if self.x + self.w > 1 or self.y + self.h > 1:
+            raise ValueError("A gallery region must fit within the image")
+        return self
+
+
+class GalleryLinksSet(BaseModel):
+    """Replace an image's member links, including optional face regions."""
+
+    links: list[GalleryLinkIn] | None = None
+    # Kept for clients that only know whole-image associations. New clients
+    # should send ``links`` so they can retain face regions.
+    member_ids: list[str] | None = None
+
+    @model_validator(mode="after")
+    def validate_unique_members(self) -> "GalleryLinksSet":
+        if self.links is not None and self.member_ids is not None:
+            raise ValueError("Send either links or member_ids, not both")
+        if self.links is None:
+            self.links = [
+                GalleryLinkIn(member_id=member_id)
+                for member_id in self.member_ids or []
+            ]
+        member_ids = [link.member_id for link in self.links]
+        if len(member_ids) != len(set(member_ids)):
+            raise ValueError("A member can have only one tag per image")
+        return self
 
 
 # --- Events ----------------------------------------------------------------
@@ -131,6 +175,10 @@ class GalleryLinkOut(BaseModel):
 
     gallery_image_id: str
     member_id: str
+    x: float | None = None
+    y: float | None = None
+    w: float | None = None
+    h: float | None = None
 
 
 class EventLinkOut(BaseModel):

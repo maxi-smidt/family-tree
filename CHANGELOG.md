@@ -9,6 +9,18 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ## [Unreleased]
 
+### Fixed
+
+- The in-app changelog now renders release notes in small, on-demand windows,
+  avoiding a full-history Markdown render as releases accumulate (#746).
+- The in-app changelog is now generated from this source file while every
+  frontend image is built, so published images cannot display a stale committed
+  copy (#745).
+- The gallery upload progress panel now dismisses itself automatically once
+  every image has uploaded successfully, instead of lingering after the uploads
+  complete. It stays open when an upload fails so the failure can be reviewed
+  and retried (#731).
+
 ### Added
 
 - Live collaboration presence: avatar chips show who else is currently viewing
@@ -16,6 +28,33 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   open in edit mode. Backed by heartbeats with TTL expiry, works single-worker
   (in-process) and multi-worker (`REDIS_URL`), and is gated behind a new
   admin-toggleable `presence` feature flag (#723).
+- The Statistics view now has an “On this day” widget for upcoming birthdays,
+  death anniversaries, dated events, and stories, with direct links to people
+  in the tree (#727).
+- Generation lines can now be adjusted per tree from the sidebar with None and
+  four snap-aligned spacing presets, while preserving node-center alignment
+  (#743).
+- Linking a person who is already attached to a gallery image now confirms that
+  existing link instead of failing without feedback (#728).
+- Gallery images opened from a member's detail view now show linked people and
+  their face-tag regions (#728).
+- Uploading photos from a member's edit view now opens face tagging for each
+  new image, so a face can be marked immediately (#728).
+- Users can now set first and last profile names and select an adjustable crop
+  when uploading, replacing, or removing a private profile picture. Account
+  avatars consistently prefer the picture, then name initials, then a generic
+  user icon (#737).
+- Gallery photos can now be annotated with manual, normalized face regions
+  linked to people in the tree. Face tags remain accurate at every display
+  size, and existing whole-image links continue to work unchanged (#728).
+
+### Changed
+
+- Member-selection lists (gallery image links, and the people selectors in the
+  document, story, and event dialogs) no longer offer people who are already
+  linked. Selected people remain visible and removable, while the dropdown and
+  its search results only show candidates that can still be added. The same
+  filtering applies to the linked-documents selector (#735).
 
 ## [1.7.1] - 2026-07-14
 
@@ -61,11 +100,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   and cleaning up temporary files on cancellation, rejection, quota failure, or
   restart. Image type, size, dimension, decompression-bomb, quota, and
   storage-mode safeguards are unchanged (#692).
-
 - The in-app "What's New" notice is now a simple per-user version check: each
   version opens the notice once, and its changelog link opens Settings directly
   on the changelog view (#705).
-
 - The initial page load is now much lighter: the graph, map, chart and Markdown
   libraries are code-split and fetched only when their view is first opened, so
   the login screen and public trees no longer download them. The shared vendor

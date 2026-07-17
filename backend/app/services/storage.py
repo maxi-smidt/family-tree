@@ -27,6 +27,12 @@ from app.schemas.setting import MediaLimits
 
 MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
 
+
+def profile_storage_id(user_id: str) -> str:
+    """Return the isolated media-directory identifier for a user profile."""
+    return f"profile-{user_id}"
+
+
 _DATA_URL_RE = re.compile(r"^data:(?P<mime>[\w/+.-]+)?;base64,(?P<data>.+)$", re.DOTALL)
 _SAFE_PATH_SEGMENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -367,6 +373,44 @@ def delete_tree_media(tree_id: str) -> None:
         shutil.rmtree(path, ignore_errors=True)
     except (OSError, ValueError):
         pass
+
+
+def _profile_media_url(user_id: str, filename: str) -> str:
+    return f"{MEDIA_URL_PREFIX}/{profile_storage_id(user_id)}/{filename}"
+
+
+async def store_profile_image_upload(
+    user_id: str,
+    upload: UploadFile,
+    limits: MediaLimits,
+) -> str:
+    """Store a profile image using the standard streamed image safeguards.
+
+    Profile images are always stored as compact WebP display images rather than
+    retaining gallery originals. They live in an isolated directory which is
+    never exposed by the tree-media route.
+    """
+    url = await store_image_upload(profile_storage_id(user_id), upload, limits)
+    return url.rsplit("/", 1)[-1]
+
+
+def profile_image_path(user_id: str, filename: str) -> Path | None:
+    """Resolve a profile image filename to its canonical private media path."""
+    return _safe_media_path(
+        _profile_media_url(user_id, filename),
+        expected_tree_id=profile_storage_id(user_id),
+    )
+
+
+def delete_profile_image(user_id: str, filename: str | None) -> None:
+    """Best-effort cleanup for a user's private profile image."""
+    if filename:
+        delete_media(_profile_media_url(user_id, filename))
+
+
+def delete_user_profile_media(user_id: str) -> None:
+    """Remove all profile-media files when an account is permanently purged."""
+    delete_tree_media(profile_storage_id(user_id))
 
 
 def is_data_url(value: str | None) -> bool:

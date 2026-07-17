@@ -3,6 +3,14 @@
     "appearance": "Appearance",
     "dataManagement": "Data Management",
     "edge-type": "Edge Type",
+    "generation-line-spacing": "Generation line spacing",
+    "generation-line-spacing-options": {
+      "none": "None",
+      "xs": "XS",
+      "s": "S",
+      "m": "M",
+      "l": "L"
+    },
     "edge-type-placeholder": "Select type",
     "step-type": {
       "default": "Default",
@@ -365,6 +373,7 @@
     "image-sheet": {
       "toast-success": "Image details saved",
       "toast-error": "Failed to save image details",
+      "toast-member-already-linked": "{{name}} is already linked to this image.",
       "title": "Image Details",
       "title-field": "Title",
       "title-placeholder": "Image Title",
@@ -373,6 +382,25 @@
       "date-field": "Date Taken",
       "members-field": "Linked Members",
       "members-placeholder": "Link members to this image",
+      "members-empty": "No members linked yet.",
+      "members-no-results": "No members found.",
+      "add-member": "Link member",
+      "remove-member": "Remove {{name}}",
+      "whole-image-link": "Whole image",
+      "unknown-member": "Unknown member",
+      "image-alt": "Gallery image",
+      "tag-mode": "Tag faces",
+      "tag-mode-done": "Done tagging",
+      "face-tags-title": "Face tags",
+      "face-tags-draw-hint": "Draw a rectangle around a face, then choose a member.",
+      "face-tags-assign-hint": "Choose the member shown in the selected region.",
+      "face-tags-replace-hint": "Draw a new rectangle to move {{name}}'s tag, or choose another member below.",
+      "face-tags-member-placeholder": "Choose a member for this face",
+      "face-tag": "Face tag",
+      "face-tag-aria": "Face tag for {{name}}",
+      "add-face-tag": "Add face tag",
+      "edit-face-tag": "Edit face tag for {{name}}",
+      "cancel-tag-edit": "Cancel tag edit",
       "save": "Save",
       "delete": "Delete",
       "delete-confirm-title": "Confirm deletion",
@@ -381,6 +409,15 @@
       "delete-confirm-confirm": "Confirm",
       "toast-delete-success": "Image deleted successfully.",
       "toast-delete-error": "The image could not be deleted."
+    },
+    "image-lightbox": {
+      "image-alt": "Gallery image",
+      "close": "Close image",
+      "previous": "Previous image",
+      "next": "Next image",
+      "linked-people": "Linked people",
+      "face-tag": "Face tag for {{name}}",
+      "unknown-member": "Unknown member"
     },
     "upload-image-card": "Upload Image"
   },
@@ -887,8 +924,6 @@
       "enable-quick-add": "Enable quick add",
       "disable-disease-mode": "Disable disease mode",
       "enable-disease-mode": "Enable disease mode",
-      "show-generation-lines": "Show generation lines",
-      "hide-generation-lines": "Hide generation lines",
       "enable-connection-mode": "Find connection",
       "disable-connection-mode": "Exit connection finder",
       "connection-path-not-found": "No connection path found between the selected members.",
@@ -1211,6 +1246,14 @@
     "stat-with-death": "Known Deaths",
     "stat-avg-lifespan": "Avg. Lifespan",
     "stat-avg-lifespan-value": "{{years}} yrs",
+    "on-this-day-title": "On this day",
+    "on-this-day-empty": "Nothing is coming up in the next 7 days.",
+    "on-this-day-birthday": "Turns {{age}}",
+    "on-this-day-would-turn": "Would have turned {{age}}",
+    "on-this-day-death-anniversary_one": "Died {{count}} year ago",
+    "on-this-day-death-anniversary_other": "Died {{count}} years ago",
+    "on-this-day-years-ago_one": "{{count}} year ago",
+    "on-this-day-years-ago_other": "{{count}} years ago",
     "gender-title": "Gender Distribution",
     "gender-male": "Male",
     "gender-female": "Female",
@@ -1439,6 +1482,25 @@
       "success": "Password changed.",
       "mismatch": "The new passwords do not match.",
       "error": "Could not change password."
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Set the name and picture shown for your account.",
+      "first-name": "First name",
+      "last-name": "Last name",
+      "save": "Save profile",
+      "save-success": "Profile saved.",
+      "save-error": "Could not save profile.",
+      "upload-image": "Upload picture",
+      "replace-image": "Replace picture",
+      "remove-image": "Remove picture",
+      "upload-success": "Profile picture updated.",
+      "upload-error": "Could not upload profile picture.",
+      "upload-too-large": "Profile picture is too large.",
+      "upload-unsupported": "This image type is not supported.",
+      "remove-success": "Profile picture removed.",
+      "remove-error": "Could not remove profile picture.",
+      "toast-error-quota-media": "Media storage quota exceeded."
     },
     "user-menu": {
       "change-password": "Change password",
@@ -1779,7 +1841,8 @@
   "changelog": {
     "title": "What's new",
     "trigger-label": "View changelog",
-    "empty": "No changelog entries available."
+    "empty": "No changelog entries available.",
+    "load-more": "Load more"
   },
   "legal": {
     "legal-link": "Terms · Privacy · Impressum",
@@ -1895,6 +1958,9 @@
     "save": "Save",
     "toast-saved": "Settings saved.",
     "toast-error": "Could not save settings.",
+    "profile": {
+      "section": "Profile"
+    },
     "image-storage": {
       "section": "Gallery image storage",
       "label": "Storage mode",

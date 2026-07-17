@@ -8,12 +8,12 @@ on:
     # e.g. docs-only PRs. Safe to gate at the workflow level because E2E is
     # not a required check.
     paths:
-      - 'frontend/**'
-      - 'backend/**'
-      - 'e2e/**'
-      - 'docker-compose.e2e.yml'
-      - '.github/workflows/e2e.yml'
-      - '.github/workflows/check-build.yml'
+      - "frontend/**"
+      - "backend/**"
+      - "e2e/**"
+      - "docker-compose.e2e.yml"
+      - ".github/workflows/e2e.yml"
+      - ".github/workflows/check-build.yml"
   workflow_dispatch:
 
 # Day-to-day PRs run E2E alongside CI when app/test-stack files change. Release
@@ -69,7 +69,7 @@ jobs:
           }
 
       - name: "Set up Node.js"
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "24"
           cache: "npm"

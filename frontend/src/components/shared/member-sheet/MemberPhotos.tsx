@@ -1,6 +1,7 @@
-import { ChangeEvent, useRef } from "react";
+import { ChangeEvent, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { GalleryImage } from "@/types/gallery";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
@@ -10,6 +11,7 @@ import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { formatDateTime } from "@/utils/dateUtils";
+import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 
 type Props = {
   member: Member;
@@ -19,6 +21,7 @@ export const MemberPhotos = ({ member }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "sheet.edit-mode" });
   const { galleryImages, addGalleryImage } = useGalleryStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [faceTagQueue, setFaceTagQueue] = useState<GalleryImage[]>([]);
 
   const linkedImages = galleryImages.filter((img) =>
     img.linkedMemberIds.includes(member.id),
@@ -26,38 +29,51 @@ export const MemberPhotos = ({ member }: Props) => {
 
   const handleUpload = () => fileInputRef.current?.click();
 
-  const uploadFile = (file: File) => {
+  const uploadFile = async (file: File) => {
     // The file streams to the backend as multipart form-data — it is never read
     // into a base64 data URL here. Resizing/normalization happens server-side.
-    addGalleryImage({
-      file,
-      title: formatDateTime(new Date()),
-      description: null,
-      linkedMemberIds: [member.id],
-    })
-      .then(() => toast.success(t("toast-success-photo-upload")))
-      .catch((err: unknown) => {
-        if (err instanceof ApiError && err.status === 413) {
-          const bucket = getQuotaBucket(err.message);
-          if (bucket) {
-            toast.error(t(quotaToastKey(bucket)));
-          } else {
-            toast.error(t("toast-error-image-too-large"));
-          }
-        } else if (err instanceof ApiError && err.status === 400) {
-          toast.error(t("toast-error-image-unsupported"));
-        } else {
-          toast.error(t("toast-error-photo-upload"));
-        }
+    try {
+      const imageId = await addGalleryImage({
+        file,
+        title: formatDateTime(new Date()),
+        description: null,
+        linkedMemberIds: [member.id],
       });
+      toast.success(t("toast-success-photo-upload"));
+      return imageId;
+    } catch (err: unknown) {
+      if (err instanceof ApiError && err.status === 413) {
+        const bucket = getQuotaBucket(err.message);
+        if (bucket) {
+          toast.error(t(quotaToastKey(bucket)));
+        } else {
+          toast.error(t("toast-error-image-too-large"));
+        }
+      } else if (err instanceof ApiError && err.status === 400) {
+        toast.error(t("toast-error-image-unsupported"));
+      } else {
+        toast.error(t("toast-error-photo-upload"));
+      }
+      return undefined;
+    }
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []).filter((f) =>
       f.type.startsWith("image/"),
     );
     e.target.value = "";
-    files.forEach(uploadFile);
+    const imageIds = await Promise.all(files.map(uploadFile));
+    const imagesById = new Map(
+      useGalleryStore
+        .getState()
+        .galleryImages.map((image) => [image.id, image]),
+    );
+    const uploadedImages = imageIds.flatMap((imageId) => {
+      const image = imageId ? imagesById.get(imageId) : undefined;
+      return image ? [image] : [];
+    });
+    setFaceTagQueue((queue) => [...queue, ...uploadedImages]);
   };
 
   return (
@@ -98,6 +114,14 @@ export const MemberPhotos = ({ member }: Props) => {
           <p className="text-xs text-muted-foreground">{t("photos-empty")}</p>
         )}
       </ItemContent>
+      {faceTagQueue[0] && (
+        <ImageSheet
+          isOpen
+          onClose={() => setFaceTagQueue((queue) => queue.slice(1))}
+          image={faceTagQueue[0]}
+          initialTagMode
+        />
+      )}
     </Item>
   );
 };

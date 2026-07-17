@@ -66,7 +66,16 @@ def test_streamed_upload_creates_image_and_links(client, db, _media_root):
     links = client.get(
         f"{API}/trees/{tree.id}/gallery/links", headers=auth(owner)
     ).json()
-    assert links == [{"gallery_image_id": "img-1", "member_id": "m1"}]
+    assert links == [
+        {
+            "gallery_image_id": "img-1",
+            "member_id": "m1",
+            "x": None,
+            "y": None,
+            "w": None,
+            "h": None,
+        }
+    ]
 
     # Exactly one persisted image file exists on disk.
     assert len(_tree_media_files(_media_root, tree.id)) == 1
