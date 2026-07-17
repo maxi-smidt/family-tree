@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,12 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
 import { useFeature } from "@/hooks/useAuthStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import {
   useStatisticsSettings,
   normalizeOrder,
@@ -68,11 +73,22 @@ export const StatisticsView = () => {
     useStatisticsStore();
   const { order, hidden, customWidgets } = useStatisticsSettings();
   const members = useMemberStore((s) => s.members);
+  const events = useEventStore((s) => s.events);
+  const eventsInitialized = useEventStore((s) => s.initialized);
+  const refreshEvents = useEventStore((s) => s.refreshEvents);
+  const stories = useStoryStore((s) => s.stories);
+  const storiesInitialized = useStoryStore((s) => s.initialized);
+  const refreshStories = useStoryStore((s) => s.refreshStories);
+  const selectedTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const treeLinksEnabled = useFeature("tree_links");
   const hasLinkedMembers = members.some((m) => m.linkedTreeId);
   const showScopeToggle = treeLinksEnabled && hasLinkedMembers;
   const combinedReport =
     scope === "linked" ? (report as CombinedStatisticsReport | null) : null;
+
+  useDeferredStoreLoad(eventsInitialized, refreshEvents);
+  useDeferredStoreLoad(storiesInitialized, refreshStories);
 
   useEffect(() => {
     if (!report) {
@@ -84,6 +100,17 @@ export const StatisticsView = () => {
   const customIds = customWidgets.map((w) => w.id);
   const visibleIds = normalizeOrder(order, customIds).filter(
     (id) => !hidden.includes(id),
+  );
+  const handleOpenMember = useCallback(
+    (memberId: string) => {
+      if (!selectedTreeId) return;
+      setOpenSheet(selectedTreeId, {
+        memberId,
+        tab: "identity",
+        mode: "view",
+      });
+    },
+    [selectedTreeId, setOpenSheet],
   );
 
   const actions = (
@@ -154,11 +181,10 @@ export const StatisticsView = () => {
           </div>
 
           {/* Customizable charts grid.
-              Note: custom widgets are rendered from the raw `members` store,
-              which only ever holds the active tree's members — they do not
-              pick up the combined ("linked") scope. Only the report-driven
-              widgets (WIDGET_MAP) and the overview cards above reflect
-              combined statistics. */}
+              Note: custom widgets and the On this day widget use the raw,
+              active-tree stores, so they do not pick up the combined
+              ("linked") scope. The remaining report-driven widgets and the
+              overview cards above reflect combined statistics. */}
           {visibleIds.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               {t("all-hidden")}
@@ -180,7 +206,17 @@ export const StatisticsView = () => {
                 const Widget =
                   WIDGET_MAP[id as keyof typeof WIDGET_MAP]?.Component;
                 if (!Widget) return null;
-                return <Widget key={id} report={report} t={t} />;
+                return (
+                  <Widget
+                    key={id}
+                    report={report}
+                    t={t}
+                    members={members}
+                    events={events}
+                    stories={stories}
+                    onOpenMember={handleOpenMember}
+                  />
+                );
               })}
             </div>
           )}

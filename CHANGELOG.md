@@ -23,6 +23,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- The Statistics view now has an “On this day” widget for upcoming birthdays,
+  death anniversaries, dated events, and stories, with direct links to people
+  in the tree (#727).
 - Generation lines can now be adjusted per tree from the sidebar with None and
   four snap-aligned spacing presets, while preserving node-center alignment
   (#743).
