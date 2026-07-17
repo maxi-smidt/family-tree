@@ -15,7 +15,6 @@ import {
   Plus,
   Redo2,
   Route,
-  Rows3,
   SquareDashedMousePointer,
   Undo2,
 } from "lucide-react";
@@ -50,12 +49,7 @@ export const FlowPanelControls = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.controls",
   });
-  const {
-    isLockedScreen,
-    setIsLockedScreen,
-    showGenerationLines,
-    setShowGenerationLines,
-  } = useFamilyTreeSettings();
+  const { isLockedScreen, setIsLockedScreen } = useFamilyTreeSettings();
   const reactFlow = useReactFlow();
   const undo = useMemberStore((s) => s.undo);
   const redo = useMemberStore((s) => s.redo);
@@ -135,27 +129,6 @@ export const FlowPanelControls = ({
           </Button>
         </TooltipTrigger>
         <TooltipContent side="right">{t("fit-view")}</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={showGenerationLines ? "default" : "secondary"}
-            size="icon"
-            onClick={() => setShowGenerationLines(!showGenerationLines)}
-            aria-label={
-              showGenerationLines
-                ? t("hide-generation-lines")
-                : t("show-generation-lines")
-            }
-          >
-            <Rows3 />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="right">
-          {showGenerationLines
-            ? t("hide-generation-lines")
-            : t("show-generation-lines")}
-        </TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>

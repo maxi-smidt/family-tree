@@ -11,6 +11,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The in-app changelog now renders release notes in small, on-demand windows,
+  avoiding a full-history Markdown render as releases accumulate (#746).
 - The in-app changelog is now generated from this source file while every
   frontend image is built, so published images cannot display a stale committed
   copy (#745).
@@ -21,6 +23,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Generation lines can now be adjusted per tree from the sidebar with None and
+  four snap-aligned spacing presets, while preserving node-center alignment
+  (#743).
 - Linking a person who is already attached to a gallery image now confirms that
   existing link instead of failing without feedback (#728).
 - Gallery images opened from a member's detail view now show linked people and
