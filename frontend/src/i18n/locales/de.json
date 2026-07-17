@@ -3,6 +3,14 @@
     "appearance": "Erscheinung",
     "dataManagement": "Datenmanagement",
     "edge-type": "Kanten Typ",
+    "generation-line-spacing": "Abstand der Generationslinien",
+    "generation-line-spacing-options": {
+      "none": "Keine",
+      "xs": "XS",
+      "s": "S",
+      "m": "M",
+      "l": "L"
+    },
     "edge-type-placeholder": "Wähle Typ",
     "step-type": {
       "default": "Standard",
@@ -909,8 +917,6 @@
       "enable-quick-add": "Schnellhinzufügen aktivieren",
       "disable-disease-mode": "Krankheitsmodus deaktivieren",
       "enable-disease-mode": "Krankheitsmodus aktivieren",
-      "show-generation-lines": "Generationslinien anzeigen",
-      "hide-generation-lines": "Generationslinien ausblenden",
       "enable-connection-mode": "Verbindung finden",
       "disable-connection-mode": "Verbindungssuche beenden",
       "connection-path-not-found": "Zwischen den ausgewählten Personen wurde kein Verbindungspfad gefunden.",
