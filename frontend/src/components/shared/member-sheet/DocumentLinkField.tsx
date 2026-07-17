@@ -57,6 +57,7 @@ export const DocumentLinkField = ({
         emptyIndicator={t("empty")}
         variant="inverted"
         maxCount={5}
+        hideSelectedOptions
       />
 
       <DocumentDialog

@@ -108,6 +108,13 @@ export const ImageSheet = ({
   const editingTag = memberLinks.find(
     (link) => link.memberId === editingMemberId && hasFaceRegion(link),
   );
+  const unlinkedMembers = useMemo(
+    () =>
+      members.filter(
+        (member) => !memberLinks.some((link) => link.memberId === member.id),
+      ),
+    [memberLinks, members],
+  );
 
   const memberName = (memberId: string) => {
     const member = members.find((candidate) => candidate.id === memberId);
@@ -456,7 +463,7 @@ export const ImageSheet = ({
                   <div className="flex items-end gap-2">
                     <div className="min-w-0 flex-1">
                       <MemberPicker
-                        members={members}
+                        members={unlinkedMembers}
                         value={newMemberId}
                         onChange={setNewMemberId}
                         placeholder={t("members-placeholder")}

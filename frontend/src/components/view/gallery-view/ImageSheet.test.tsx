@@ -5,16 +5,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
-import { toast } from "sonner";
 import { ImageSheet } from "./ImageSheet";
-
-vi.mock("sonner", () => ({
-  toast: {
-    error: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-  },
-}));
 
 class MockResizeObserver {
   observe() {}
@@ -48,6 +39,13 @@ const MEMBER: Member = {
   position: { x: 0, y: 0 },
 };
 
+const UNLINKED_MEMBER: Member = {
+  ...MEMBER,
+  id: "member-2",
+  firstName: "Alan",
+  lastName: "Turing",
+};
+
 const IMAGE: GalleryImage = {
   id: "image-1",
   imageData: "data:image/png;base64,abc",
@@ -66,23 +64,26 @@ describe("ImageSheet", () => {
     Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
     Element.prototype.releasePointerCapture = vi.fn();
     await i18n.changeLanguage("en");
-    useMemberStore.setState({ members: [MEMBER] });
+    useMemberStore.setState({ members: [MEMBER, UNLINKED_MEMBER] });
     useTreeStore.setState({
       selectedTree: { id: "tree-1", name: "Tree", role: "owner" },
     });
   });
 
-  it("explains when a selected person is already linked to the image", async () => {
+  it("hides already-linked people from candidates while keeping their link visible", async () => {
     render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
-    fireEvent.click(screen.getByRole("combobox"));
-    fireEvent.click(
-      await screen.findByRole("option", { name: /Ada Lovelace/ }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: "Link member" }));
+    expect(
+      screen.getByRole("button", { name: "Remove Ada Lovelace" }),
+    ).toBeInTheDocument();
 
-    expect(toast.info).toHaveBeenCalledWith(
-      "Ada Lovelace is already linked to this image.",
-    );
+    fireEvent.click(screen.getByRole("combobox"));
+
+    expect(
+      await screen.findByRole("option", { name: /Alan Turing/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: /Ada Lovelace/ }),
+    ).not.toBeInTheDocument();
   });
 });

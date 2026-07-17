@@ -43,6 +43,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   linked to people in the tree. Face tags remain accurate at every display
   size, and existing whole-image links continue to work unchanged (#728).
 
+### Changed
+
+- Member-selection lists (gallery image links, and the people selectors in the
+  document, story, and event dialogs) no longer offer people who are already
+  linked. Selected people remain visible and removable, while the dropdown and
+  its search results only show candidates that can still be added. The same
+  filtering applies to the linked-documents selector (#735).
+
 ## [1.7.1] - 2026-07-14
 
 ### Fixed
