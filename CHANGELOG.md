@@ -23,11 +23,13 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
-- Live collaboration presence: avatar chips show who else is currently viewing
-  the open tree, and a member sheet shows an indicator when someone else has it
-  open in edit mode. Backed by heartbeats with TTL expiry, works single-worker
-  (in-process) and multi-worker (`REDIS_URL`), and is gated behind a new
-  admin-toggleable `presence` feature flag (#723).
+- Live collaboration presence: avatar chips in the tree canvas show who else is
+  currently viewing the open tree — including yourself, with your profile
+  picture and initials/icon fallback — and highlight anyone editing; a member
+  sheet also shows an indicator when someone else has it open in edit mode.
+  Backed by heartbeats with TTL expiry, works single-worker (in-process) and
+  multi-worker (`REDIS_URL`), and is gated behind a new admin-toggleable
+  `presence` feature flag (#723).
 - The Statistics view now has an “On this day” widget for upcoming birthdays,
   death anniversaries, dated events, and stories, with direct links to people
   in the tree (#727).

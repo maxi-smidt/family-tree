@@ -17,10 +17,17 @@ class PresenceHeartbeat(BaseModel):
 
 
 class PresenceUser(BaseModel):
-    """One active user in a tree's roster."""
+    """One active user in a tree's roster.
+
+    ``first_name`` / ``last_name`` let the shared account avatar render initials
+    consistently. Profile *images* are deliberately not exposed here: they are
+    self-only (see ``auth`` routes), so a client can only ever show its own.
+    """
 
     user_id: str
     display_name: str
+    first_name: str | None = None
+    last_name: str | None = None
     editing_member_id: str | None = None
 
 

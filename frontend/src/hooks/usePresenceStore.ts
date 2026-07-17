@@ -27,13 +27,6 @@ export const usePresenceStore = create<PresenceState>((set) => ({
   clear: () => set({ roster: [] }),
 }));
 
-/** Present users other than the current one — the collaborators to surface. */
-export const useOtherPresences = (): PresenceUser[] => {
-  const roster = usePresenceStore((s) => s.roster);
-  const myId = useAuthStore((s) => s.user?.id);
-  return roster.filter((u) => u.userId !== myId);
-};
-
 /** Other users currently editing `memberId` (empty when nobody else is). */
 export const useMemberEditors = (
   memberId: string | undefined,

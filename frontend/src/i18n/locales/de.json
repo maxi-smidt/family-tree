@@ -427,8 +427,8 @@
       "untitled": "Unbenannter Stammbaum"
     },
     "presence": {
-      "aria-label_one": "{{count}} weitere Person betrachtet diesen Stammbaum",
-      "aria-label_other": "{{count}} weitere Personen betrachten diesen Stammbaum",
+      "aria-label_one": "{{count}} Person betrachtet diesen Stammbaum",
+      "aria-label_other": "{{count}} Personen betrachten diesen Stammbaum",
       "editing-tooltip": "{{name}} (bearbeitet)",
       "more": "{{count}} weitere"
     },

@@ -427,8 +427,8 @@
       "untitled": "Untitled tree"
     },
     "presence": {
-      "aria-label_one": "{{count}} other person is viewing this tree",
-      "aria-label_other": "{{count}} other people are viewing this tree",
+      "aria-label_one": "{{count}} person is viewing this tree",
+      "aria-label_other": "{{count}} people are viewing this tree",
       "editing-tooltip": "{{name}} (editing)",
       "more": "{{count}} more"
     },

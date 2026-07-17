@@ -1,10 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { renderHook } from "@testing-library/react";
-import {
-  useMemberEditors,
-  useOtherPresences,
-  usePresenceStore,
-} from "./usePresenceStore";
+import { useMemberEditors, usePresenceStore } from "./usePresenceStore";
 import { useTreeStore } from "./useTreeStore";
 import { useAuthStore } from "./useAuthStore";
 import { PresenceUserDB } from "@/types/presence";
@@ -14,8 +10,20 @@ import { User } from "@/types/user";
 const TREE: Tree = { id: "t1", name: "Tree", role: "owner" };
 
 const ROWS: PresenceUserDB[] = [
-  { user_id: "me", display_name: "Me", editing_member_id: null },
-  { user_id: "u2", display_name: "Anna", editing_member_id: "m5" },
+  {
+    user_id: "me",
+    display_name: "Me",
+    first_name: "Me",
+    last_name: null,
+    editing_member_id: null,
+  },
+  {
+    user_id: "u2",
+    display_name: "Anna",
+    first_name: "Anna",
+    last_name: "Smith",
+    editing_member_id: "m5",
+  },
 ];
 
 beforeEach(() => {
@@ -30,8 +38,20 @@ describe("usePresenceStore — setRoster", () => {
 
     const roster = usePresenceStore.getState().roster;
     expect(roster).toEqual([
-      { userId: "me", displayName: "Me", editingMemberId: null },
-      { userId: "u2", displayName: "Anna", editingMemberId: "m5" },
+      {
+        userId: "me",
+        displayName: "Me",
+        firstName: "Me",
+        lastName: null,
+        editingMemberId: null,
+      },
+      {
+        userId: "u2",
+        displayName: "Anna",
+        firstName: "Anna",
+        lastName: "Smith",
+        editingMemberId: "m5",
+      },
     ]);
   });
 
@@ -47,15 +67,6 @@ describe("usePresenceStore — setRoster", () => {
   });
 });
 
-describe("useOtherPresences", () => {
-  it("excludes the current user from the roster", () => {
-    usePresenceStore.getState().setRoster("t1", ROWS);
-
-    const { result } = renderHook(() => useOtherPresences());
-    expect(result.current.map((u) => u.userId)).toEqual(["u2"]);
-  });
-});
-
 describe("useMemberEditors", () => {
   it("returns other users editing the given member", () => {
     usePresenceStore.getState().setRoster("t1", ROWS);
@@ -66,7 +77,13 @@ describe("useMemberEditors", () => {
 
   it("does not report the current user as an editor of their own member", () => {
     usePresenceStore.getState().setRoster("t1", [
-      { user_id: "me", display_name: "Me", editing_member_id: "m9" },
+      {
+        user_id: "me",
+        display_name: "Me",
+        first_name: "Me",
+        last_name: null,
+        editing_member_id: "m9",
+      },
     ]);
 
     const { result } = renderHook(() => useMemberEditors("m9"));

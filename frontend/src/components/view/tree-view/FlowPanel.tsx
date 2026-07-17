@@ -54,6 +54,7 @@ import { toast } from "sonner";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
+import { PresenceChips } from "@/components/layout/PresenceChips";
 import {
   clearMemberSheetDeepLink,
   readMemberSheetDeepLink,
@@ -675,6 +676,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       >
         <SelectionModeController active={inSelectionMode} />
         <Background />
+        <Panel position="top-right" className="pt-2 pr-2">
+          <PresenceChips />
+        </Panel>
         <GenerationLines
           visible={generationLineGap !== null}
           gap={generationLineGap ?? undefined}

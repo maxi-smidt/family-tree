@@ -39,22 +39,39 @@ def _resolve_and_publish(
     Users that no longer exist are dropped from the roster.
     """
     user_ids = [e["user_id"] for e in entries]
-    names: dict[str, str] = {}
+    info: dict[str, tuple[str | None, str | None, str | None, str]] = {}
     if user_ids:
         rows = db.execute(
-            select(User.id, User.full_name, User.username).where(User.id.in_(user_ids))
+            select(
+                User.id,
+                User.first_name,
+                User.last_name,
+                User.full_name,
+                User.username,
+            ).where(User.id.in_(user_ids))
         ).all()
-        names = {uid: (full or username) for uid, full, username in rows}
+        info = {
+            uid: (first, last, full, username)
+            for uid, first, last, full, username in rows
+        }
 
-    roster = [
-        PresenceUser(
-            user_id=e["user_id"],
-            display_name=names[e["user_id"]],
-            editing_member_id=e["editing_member_id"],
+    roster: list[PresenceUser] = []
+    for e in entries:
+        row = info.get(e["user_id"])
+        if row is None:
+            continue  # user was deleted; drop from roster
+        first, last, full, username = row
+        # Mirror the frontend account display-name convention (#738).
+        display_name = " ".join(p for p in (first, last) if p) or full or username
+        roster.append(
+            PresenceUser(
+                user_id=e["user_id"],
+                display_name=display_name,
+                first_name=first,
+                last_name=last,
+                editing_member_id=e["editing_member_id"],
+            )
         )
-        for e in entries
-        if e["user_id"] in names
-    ]
     roster.sort(key=lambda u: (u.display_name.casefold(), u.user_id))
 
     publish_tree_event(
