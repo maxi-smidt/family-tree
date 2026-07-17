@@ -11,7 +11,6 @@ export const GENERATION_LINE_SPACING_OPTIONS = [
   { value: "s", gap: 500 },
   { value: "m", gap: 750 },
   { value: "l", gap: 1000 },
-  { value: "xl", gap: 1250 },
 ] as const;
 
 export type GenerationLineSpacing =

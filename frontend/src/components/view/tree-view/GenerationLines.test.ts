@@ -38,7 +38,7 @@ describe("getRuledLinePattern", () => {
   });
 
   it("limits named spacing choices to snap-grid multiples", () => {
-    expect(GENERATION_LINE_SPACING_OPTIONS).toHaveLength(6);
+    expect(GENERATION_LINE_SPACING_OPTIONS).toHaveLength(5);
     expect(getGenerationLineSpacing(undefined)).toBe("s");
     expect(getGenerationLineGap(null)).toBeNull();
     expect(getGenerationLineGapForSpacing("none")).toBeNull();

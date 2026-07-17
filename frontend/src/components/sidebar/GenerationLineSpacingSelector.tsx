@@ -29,7 +29,6 @@ export const GenerationLineSpacingSelector = () => {
     s: t("generation-line-spacing-options.s"),
     m: t("generation-line-spacing-options.m"),
     l: t("generation-line-spacing-options.l"),
-    xl: t("generation-line-spacing-options.xl"),
   };
 
   return (

@@ -22,7 +22,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Added
 
 - Generation lines can now be adjusted per tree from the sidebar with None and
-  five snap-aligned spacing presets, while preserving node-center alignment
+  four snap-aligned spacing presets, while preserving node-center alignment
   (#743).
 - Linking a person who is already attached to a gallery image now confirms that
   existing link instead of failing without feedback (#728).

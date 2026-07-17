@@ -6,11 +6,10 @@
     "generation-line-spacing": "Generation line spacing",
     "generation-line-spacing-options": {
       "none": "None",
-      "xs": "XS (250 px)",
-      "s": "S (500 px)",
-      "m": "M (750 px)",
-      "l": "L (1000 px)",
-      "xl": "XL (1250 px)"
+      "xs": "XS",
+      "s": "S",
+      "m": "M",
+      "l": "L"
     },
     "edge-type-placeholder": "Select type",
     "step-type": {
