@@ -136,6 +136,35 @@ class StoryUpdate(BaseModel):
     updated_at: str
 
 
+# --- Research tasks --------------------------------------------------------
+class MemberTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: str
+    notes: str | None = None
+    done: bool
+    created_at: str
+    done_at: str | None = None
+    # Empty = tree-level task.
+    member_ids: list[str] = []
+
+
+class MemberTaskCreate(BaseModel):
+    id: str
+    title: str
+    notes: str | None = None
+    created_at: str
+    member_ids: list[str] = []
+
+
+class MemberTaskUpdate(BaseModel):
+    title: str
+    notes: str | None = None
+    done: bool
+    done_at: str | None = None
+
+
 class DocumentIdsSet(BaseModel):
     """Replace the full set of documents linked to an event or story."""
 

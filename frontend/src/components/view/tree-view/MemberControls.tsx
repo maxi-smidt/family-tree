@@ -27,11 +27,14 @@ import {
   UserPlus,
   UserRoundPlus,
   Activity,
+  ClipboardList,
   Crosshair,
   Minus,
   Plus,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
+import { useFeature } from "@/hooks/useAuthStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { createMember, Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
@@ -65,7 +68,12 @@ export const MemberControls = ({
     setIsFastMode,
     isDiseaseMode,
     setIsDiseaseMode,
+    showTaskIndicators,
+    setShowTaskIndicators,
   } = useFamilyTreeSettings();
+  const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const tasksEnabled =
+    useFeature("research_tasks") && !taskRestrictions?.includes("tasks");
   const {
     batchSetCollapsed,
     windowed,
@@ -126,6 +134,32 @@ export const MemberControls = ({
               : t("enable-disease-mode")}
           </TooltipContent>
         </Tooltip>
+        {tasksEnabled && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={showTaskIndicators ? "default" : "secondary"}
+                size="icon"
+                onClick={() => setShowTaskIndicators(!showTaskIndicators)}
+                disabled={isLockedScreen}
+                aria-label={
+                  showTaskIndicators
+                    ? t("disable-task-indicators")
+                    : t("enable-task-indicators")
+                }
+              >
+                <ClipboardList
+                  className={showTaskIndicators ? "fill-current" : ""}
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              {showTaskIndicators
+                ? t("disable-task-indicators")
+                : t("enable-task-indicators")}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </ButtonGroup>
 
       <Separator className="my-1" />

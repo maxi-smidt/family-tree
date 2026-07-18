@@ -34,6 +34,7 @@ import {
 } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryDB, StoryInput } from "@/types/story";
+import { ResearchTaskDB } from "@/types/task";
 import { DiseaseDB, DiseaseInput, mapDiseaseInputToDB } from "@/types/disease";
 import {
   DocumentDB,
@@ -488,6 +489,54 @@ export class TreeService {
     return api.put(`${base(treeId)}/stories/${storyId}/documents`, {
       document_ids: documentIds,
     });
+  }
+
+  // --- Research tasks ------------------------------------------------------
+  static getTasks(treeId: string) {
+    return api.get<ResearchTaskDB[]>(`${base(treeId)}/tasks`);
+  }
+
+  static addTask(
+    treeId: string,
+    id: string,
+    title: string,
+    notes: string | null,
+    createdAt: string,
+    memberIds: string[] = [],
+  ) {
+    return api.post<ResearchTaskDB>(`${base(treeId)}/tasks`, {
+      id,
+      title,
+      notes,
+      created_at: createdAt,
+      member_ids: memberIds,
+    });
+  }
+
+  static setTaskLinks(treeId: string, taskId: string, memberIds: string[]) {
+    return api.put(`${base(treeId)}/tasks/${taskId}/links`, {
+      member_ids: memberIds,
+    });
+  }
+
+  static updateTask(
+    treeId: string,
+    id: string,
+    title: string,
+    notes: string | null,
+    done: boolean,
+    doneAt: string | null,
+  ) {
+    return api.patch<ResearchTaskDB>(`${base(treeId)}/tasks/${id}`, {
+      title,
+      notes,
+      done,
+      done_at: doneAt,
+    });
+  }
+
+  static removeTask(treeId: string, id: string) {
+    return api.del(`${base(treeId)}/tasks/${id}`);
   }
 
   // --- Documents -----------------------------------------------------------

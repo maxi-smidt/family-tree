@@ -166,7 +166,8 @@
         "stories": "Stories",
         "sources": "Documents",
         "diseases": "Diseases",
-        "biography": "Biography"
+        "biography": "Biography",
+        "tasks": "Research tasks"
       },
       "linked": {
         "share-toggle_one": "Also share {{count}} linked tree",
@@ -698,7 +699,9 @@
       "academic-title-item": "Academic / Honorific Title",
       "tab-identity": "Identity",
       "tab-life": "Life",
-      "tab-records": "Records"
+      "tab-records": "Records",
+      "research-tasks": "Research",
+      "no-research-tasks": "No research tasks"
     },
     "member-sheet": {
       "loading-detail": "Loading details...",
@@ -885,6 +888,36 @@
           "error-add": "Failed to add condition. Please try again.",
           "error-update": "Failed to update condition. Please try again."
         }
+      },
+      "tasks": {
+        "title": "Research",
+        "add": "Add",
+        "no-tasks": "No open questions or to-dos yet",
+        "mark-done": "Mark as done",
+        "mark-open": "Reopen",
+        "edit": "Edit task",
+        "delete": "Delete task",
+        "delete-dialog": {
+          "title": "Delete Task",
+          "description": "Are you sure you want to delete this research task? This action cannot be undone.",
+          "cancel": "Cancel",
+          "delete": "Delete"
+        },
+        "dialog": {
+          "title-edit": "Edit Research Task",
+          "title-add": "Add Research Task",
+          "title": "Title",
+          "title-placeholder": "e.g., Find birth record",
+          "linked-members": "Linked members",
+          "linked-members-placeholder": "Select members...",
+          "linked-members-description": "Optional. Leave empty for a general task that applies to the whole tree.",
+          "notes": "Notes",
+          "notes-placeholder": "Details, sources to check, people to ask...",
+          "cancel": "Cancel",
+          "add": "Add",
+          "update": "Update",
+          "error-save": "Failed to save research task"
+        }
       }
     },
     "markdown-editor": {
@@ -925,7 +958,8 @@
       "add-right": "Add relative on the right",
       "open-linked-tree": "Open linked tree",
       "open-linked-tree-no-access": "Linked tree is not shared with you",
-      "life-deceased-unknown": "Deceased, date of death unknown"
+      "life-deceased-unknown": "Deceased, date of death unknown",
+      "task-indicator": "Has open research tasks"
     },
     "linked-tree": {
       "open-error": "That tree could not be opened — it may be private or no longer exist."
@@ -976,7 +1010,9 @@
       "export-image": "Export tree as image",
       "focus-here": "Focus neighborhood on this person",
       "depth-increase": "Expand neighborhood depth",
-      "depth-decrease": "Reduce neighborhood depth"
+      "depth-decrease": "Reduce neighborhood depth",
+      "enable-task-indicators": "Show open research tasks",
+      "disable-task-indicators": "Hide open research tasks"
     },
     "persistence": {
       "collapse-error": "Could not save collapsed members. The tree was restored.",
@@ -1126,7 +1162,8 @@
     "retry": "Retry",
     "navigate-hint": "Go to item",
     "diff-changed": "Changed:",
-    "diff-arrow": "→"
+    "diff-arrow": "→",
+    "target-task": "research task"
   },
   "timeline-view": {
     "view": {
@@ -1272,7 +1309,12 @@
     "dismiss": "Dismiss",
     "restore": "Restore",
     "dismissed-badge": "Dismissed",
-    "show-dismissed": "Show dismissed ({{count}})"
+    "show-dismissed": "Show dismissed ({{count}})",
+    "open-tasks-title": "Open research items ({{count}})",
+    "open-tasks-add": "Add task",
+    "open-tasks-empty": "No open research items.",
+    "open-tasks-mark-done": "Mark as done",
+    "open-tasks-tree-level": "Tree"
   },
   "statistics-view": {
     "title": "Statistics",
@@ -1461,8 +1503,12 @@
     "date-input-hint": "MM/DD/YYYY",
     "open-date-picker": "Open date picker",
     "nee": "née {{name}}",
-    "location-input": { "placeholder": "City, region, country…" },
-    "location": { "show-on-map": "Show on map" },
+    "location-input": {
+      "placeholder": "City, region, country…"
+    },
+    "location": {
+      "show-on-map": "Show on map"
+    },
     "geocode": {
       "checking": "Checking address...",
       "found": "Address found",
@@ -1703,7 +1749,8 @@
         "sources": "Documents",
         "onboarding_tour": "Onboarding tour",
         "tree_links": "Tree-in-tree links",
-        "presence": "Live presence"
+        "presence": "Live presence",
+        "research_tasks": "Research tasks"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -1719,7 +1766,8 @@
         "sources": "Reusable documents — files and links — linked to people, events and stories.",
         "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features.",
         "tree_links": "Link a member to another tree that details their own family, and navigate between them.",
-        "presence": "Show who else is currently viewing or editing the tree, with live avatars and an editing indicator."
+        "presence": "Show who else is currently viewing or editing the tree, with live avatars and an editing indicator.",
+        "research_tasks": "Per-member open questions and to-dos for genealogy research."
       }
     },
     "col-username": "Username",

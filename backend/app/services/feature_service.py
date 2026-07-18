@@ -48,6 +48,7 @@ FEATURES: dict[str, FeatureState] = {
     "onboarding_tour": "on",
     "tree_links": "on",
     "presence": "on",
+    "research_tasks": "on",
 }
 
 # Domains whose visibility can be restricted per shared member.
@@ -62,6 +63,7 @@ RESTRICTABLE_DOMAINS: set[str] = {
     "sources",
     "diseases",
     "biography",
+    "tasks",
 }
 
 # Domains restricted by default on a new share.  Empty means a freshly-shared

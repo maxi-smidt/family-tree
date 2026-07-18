@@ -22,6 +22,7 @@ import {
   ArrowRight,
   BookOpen,
   CalendarDays,
+  ClipboardList,
   FileText,
   Loader2,
   X,
@@ -47,6 +48,7 @@ const TARGET_KEY: Record<string, string> = {
   relation: "target-relation",
   event: "target-event",
   story: "target-story",
+  task: "target-task",
   gallery_image: "target-gallery_image",
   document: "target-document",
   disease: "target-disease",
@@ -65,6 +67,7 @@ const TARGET_VIEW: Record<string, ViewId> = {
 
 const TARGET_ICONS: Record<string, typeof ActivityIcon> = {
   event: CalendarDays,
+  task: ClipboardList,
   story: BookOpen,
   document: FileText,
 };

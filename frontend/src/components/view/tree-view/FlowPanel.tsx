@@ -52,6 +52,8 @@ import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useFeature } from "@/hooks/useAuthStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { NoDatabasePlaceholder } from "@/components/layout/NoDatabasePlaceholder";
 import { PresenceChips } from "@/components/layout/PresenceChips";
@@ -80,6 +82,16 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
   const treeLinksEnabled = useFeature("tree_links");
+  const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const tasksEnabled =
+    useFeature("research_tasks") && !taskRestrictions?.includes("tasks");
+  const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
+  // Open-task node indicators need the task list; skip on public trees where
+  // the task endpoints require authentication.
+  useDeferredStoreLoad(
+    tasksInitialized || !tasksEnabled || publicView,
+    refreshTasks,
+  );
   const activeTree = useTreeStore((s) => s.selectedTree);
   const openTreeAndLocateMember = useTreeStore(
     (s) => s.openTreeAndLocateMember,

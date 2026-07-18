@@ -1,5 +1,6 @@
 import {
   ChevronsDownUp,
+  ClipboardList,
   EyeIcon,
   PencilIcon,
   PlusIcon,
@@ -19,6 +20,7 @@ import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeCo
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useTranslation } from "react-i18next";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
 
 // Returns true if this disease implies genetic risk for the child, given which
 // parent it comes from and whether the other parent also carries the same condition.
@@ -97,7 +99,8 @@ function calculateDiseaseRisk(member: Member, allMembers: Member[]): boolean {
 }
 
 export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
-  const { isFastMode, isDiseaseMode } = useFamilyTreeSettings();
+  const { isFastMode, isDiseaseMode, showTaskIndicators } =
+    useFamilyTreeSettings();
   const { members } = useMemberStore();
   const { t } = useTranslation(undefined, {
     keyPrefix: "tree-view.node",
@@ -204,6 +207,12 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
 
   // Calculate if this person has potential disease risk from parents
   const hasRisk = isDiseaseMode && calculateDiseaseRisk(data, members);
+  const hasOpenTasks = useTaskStore(
+    (s) => showTaskIndicators && s.openTaskMemberIds.has(data.id),
+  );
+  // The disease/risk indicator occupies the bottom-left corner; move the
+  // task indicator over when both are visible.
+  const diseaseIndicatorShown = (isDiseaseMode && hasDiseases) || hasRisk;
   const handleClassName = `${
     isFastMode ? "w-1/2!" : "w-1/4!"
   } bg-muted-foreground! rounded-md! ${
@@ -387,6 +396,22 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
             style={{
               color: "var(--color-disease-risk)",
             }}
+          />
+        </div>
+      )}
+
+      {/* Open-research-task indicator — toggled via the canvas controls */}
+      {hasOpenTasks && (
+        <div
+          className={`absolute bottom-2 ${diseaseIndicatorShown ? "left-8" : "left-2"} rounded-full p-1 bg-muted`}
+          role="img"
+          aria-label={t("task-indicator")}
+          title={t("task-indicator")}
+        >
+          <ClipboardList
+            aria-hidden="true"
+            size={12}
+            className="text-muted-foreground"
           />
         </div>
       )}

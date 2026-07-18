@@ -43,6 +43,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
+          // `cmdk` is shared by several deferred dialogs and views. Keep its
+          // wrapper in a separate chunk rather than letting another deferred
+          // consumer fold it into the entry chunk.
+          if (/[\\/]src[\\/]components[\\/]ui[\\/]command\.tsx$/.test(id)) {
+            return "command";
+          }
+
           if (!id.includes("node_modules")) return;
 
           // Pin the React runtime and the UI/i18n/state libraries that the

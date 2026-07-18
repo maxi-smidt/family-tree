@@ -13,6 +13,8 @@ import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
+import { compareTasks } from "@/types/task";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
@@ -21,7 +23,7 @@ import { DocumentFileList } from "./DocumentFiles";
 import { useTranslation } from "react-i18next";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { CollapsibleEvent } from "./CollapsibleEvent";
-import { Activity, FileText } from "lucide-react";
+import { Activity, CheckCircle2, Circle, FileText } from "lucide-react";
 import { CollapsibleStory } from "./CollapsibleStory";
 import { Location } from "@/components/shared/Location";
 import { getEventTypeInfo, getEventTypeLabel } from "@/types/eventTypes";
@@ -49,6 +51,7 @@ export const ViewMode = ({
   const { galleryImages } = useGalleryStore();
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
+  const { getTasksByMember } = useTaskStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
   const galleryEnabled =
     useFeature("gallery") && !restrictions.includes("gallery");
@@ -59,6 +62,8 @@ export const ViewMode = ({
   const documentsEnabled =
     useFeature("sources") && !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
+  const tasksEnabled =
+    useFeature("research_tasks") && !restrictions.includes("tasks");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -81,6 +86,7 @@ export const ViewMode = ({
   const memberDocuments = getDocumentsForMember(member.id);
 
   const memberDiseases = member.diseases || [];
+  const memberTasks = [...getTasksByMember(member.id)].sort(compareTasks);
 
   const openLightbox = (index: number) => {
     setStartIndex(index);
@@ -547,6 +553,60 @@ export const ViewMode = ({
                   ) : (
                     <ItemDescription>
                       <i>{t("no-conditions")}</i>
+                    </ItemDescription>
+                  )}
+                </ItemContent>
+              </Item>
+            )}
+            {tasksEnabled && (
+              <Item variant="muted">
+                <ItemContent>
+                  <ItemTitle>{t("research-tasks")}</ItemTitle>
+                  {memberTasks.length > 0 ? (
+                    <CollapsibleSection
+                      totalCount={memberTasks.length}
+                      collapsedCount={3}
+                    >
+                      {(showAll) => (
+                        <div className="space-y-2 mt-2">
+                          {memberTasks
+                            .slice(0, showAll ? memberTasks.length : 3)
+                            .map((task) => (
+                              <div
+                                key={task.id}
+                                className="flex items-start gap-2 border rounded-lg p-2 bg-accent/50"
+                              >
+                                {task.done ? (
+                                  <CheckCircle2
+                                    aria-hidden="true"
+                                    className="w-4 h-4 text-green-600 shrink-0 mt-0.5"
+                                  />
+                                ) : (
+                                  <Circle
+                                    aria-hidden="true"
+                                    className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5"
+                                  />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p
+                                    className={`text-sm font-medium ${task.done ? "line-through text-muted-foreground" : ""}`}
+                                  >
+                                    {task.title}
+                                  </p>
+                                  {task.notes && (
+                                    <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
+                                      {task.notes}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </CollapsibleSection>
+                  ) : (
+                    <ItemDescription>
+                      <i>{t("no-research-tasks")}</i>
                     </ItemDescription>
                   )}
                 </ItemContent>

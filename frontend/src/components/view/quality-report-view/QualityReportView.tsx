@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   AlertCircle,
   AlertTriangle,
+  Circle,
+  ClipboardList,
+  Plus,
   ArrowDownToLine,
   ArrowUpFromLine,
   CheckCircle2,
@@ -19,9 +22,14 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useFeature } from "@/hooks/useAuthStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { TaskDialog } from "@/components/shared/member-sheet/TaskDialog";
 import type { QualityIssue } from "@/types/quality";
 
 const ISSUE_TYPE_KEY: Record<string, string> = {
@@ -45,6 +53,21 @@ function memberLabel(
   return name || memberId;
 }
 
+function useOpenMember(): (memberId: string) => void {
+  const treeId = useTreeStore((state) => state.selectedTree?.id);
+  const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
+  const navigateTo = useNavigationStore((state) => state.navigateTo);
+
+  return useCallback(
+    (memberId: string) => {
+      if (!treeId) return;
+      setOpenSheet(treeId, { memberId, tab: "records", mode: "view" });
+      navigateTo("tree-view");
+    },
+    [navigateTo, setOpenSheet, treeId],
+  );
+}
+
 function IssueCard({
   issue,
   canWrite,
@@ -54,7 +77,7 @@ function IssueCard({
 }) {
   const { t } = useTranslation(undefined, { keyPrefix: "quality-report-view" });
   const { members } = useMemberStore();
-  const { navigateTo } = useNavigationStore();
+  const openMember = useOpenMember();
   const { dismissIssue, restoreIssue, resolveBridgeDrift } =
     useQualityReportStore();
   const [resolving, setResolving] = useState(false);
@@ -115,7 +138,7 @@ function IssueCard({
               <button
                 key={id}
                 className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/70 transition-colors font-mono cursor-pointer"
-                onClick={() => navigateTo("tree-view")}
+                onClick={() => openMember(id)}
                 title={t("view-member")}
               >
                 {memberLabel(id, members)}
@@ -173,6 +196,102 @@ function IssueCard({
   );
 }
 
+function OpenTasksSection({ canWrite }: { canWrite: boolean }) {
+  const { t } = useTranslation(undefined, { keyPrefix: "quality-report-view" });
+  const { members } = useMemberStore();
+  const openMember = useOpenMember();
+  const { tasks, setTaskDone, refreshTasks, initialized } = useTaskStore();
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
+  useDeferredStoreLoad(initialized, refreshTasks);
+
+  const openTasks = useMemo(() => tasks.filter((task) => !task.done), [tasks]);
+  if (openTasks.length === 0 && !canWrite) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="w-4 h-4 text-muted-foreground" />
+          <h3 className="font-medium text-sm">
+            {t("open-tasks-title", { count: openTasks.length })}
+          </h3>
+        </div>
+        {canWrite && (
+          <Button
+            size="sm"
+            variant="outline"
+            type="button"
+            onClick={() => setIsTaskDialogOpen(true)}
+          >
+            <Plus />
+            {t("open-tasks-add")}
+          </Button>
+        )}
+      </div>
+      {openTasks.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">
+          {t("open-tasks-empty")}
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {openTasks.map((task) => (
+            <Card
+              key={task.id}
+              className="p-3 flex flex-row gap-3 items-center"
+            >
+              {canWrite ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="flex-shrink-0"
+                  title={t("open-tasks-mark-done")}
+                  onClick={() => void setTaskDone(task.id, true)}
+                >
+                  <Circle className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              ) : (
+                <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{task.title}</p>
+                {task.notes && (
+                  <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
+                    {task.notes}
+                  </p>
+                )}
+              </div>
+              {task.linkedMemberIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1 justify-end flex-shrink-0">
+                  {task.linkedMemberIds.map((memberId) => (
+                    <button
+                      key={memberId}
+                      className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/70 transition-colors font-mono cursor-pointer"
+                      onClick={() => openMember(memberId)}
+                      title={t("view-member")}
+                    >
+                      {memberLabel(memberId, members)}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0">
+                  {t("open-tasks-tree-level")}
+                </span>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
+      {isTaskDialogOpen && (
+        <TaskDialog
+          open={isTaskDialogOpen}
+          onOpenChange={setIsTaskDialogOpen}
+        />
+      )}
+    </div>
+  );
+}
+
 export const QualityReportView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "quality-report-view",
@@ -180,6 +299,9 @@ export const QualityReportView = () => {
   const { report, isLoading, showDismissed, refreshReport, setShowDismissed } =
     useQualityReportStore();
   const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
+  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const tasksEnabled =
+    useFeature("research_tasks") && !restrictions?.includes("tasks");
 
   useEffect(() => {
     if (!report) {
@@ -217,6 +339,8 @@ export const QualityReportView = () => {
         ) : undefined
       }
     >
+      {tasksEnabled && <OpenTasksSection canWrite={canWrite} />}
+
       {activeIssues.length > 0 && (
         <div className="flex items-center gap-3 mb-4">
           {errorCount > 0 && (

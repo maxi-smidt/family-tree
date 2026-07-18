@@ -43,6 +43,7 @@ import { comparePartialDates } from "@/utils/dateUtils";
 import { MemberEvents } from "./MemberEvents";
 import { MemberStories } from "./MemberStories";
 import { MemberDiseases } from "./MemberDiseases";
+import { MemberTasks } from "./MemberTasks";
 import { MemberDocuments } from "./MemberDocuments";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
@@ -108,6 +109,8 @@ export const EditMode = ({
     useFeature("sources") && !restrictions.includes("sources");
   const galleryEnabled =
     useFeature("gallery") && !restrictions.includes("gallery");
+  const tasksEnabled =
+    useFeature("research_tasks") && !restrictions.includes("tasks");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
@@ -989,6 +992,7 @@ export const EditMode = ({
                   {storiesEnabled && <MemberStories member={member} />}
                   {documentsEnabled && <MemberDocuments member={member} />}
                   {diseasesEnabled && <MemberDiseases member={member} />}
+                  {tasksEnabled && <MemberTasks member={member} />}
                 </div>
               )}
             </TabsContent>

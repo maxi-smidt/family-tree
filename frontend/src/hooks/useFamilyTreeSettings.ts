@@ -22,6 +22,8 @@ interface FamilyTreeSettingsState {
   setIsFastMode: (val: boolean) => void;
   isDiseaseMode: boolean;
   setIsDiseaseMode: (val: boolean) => void;
+  showTaskIndicators: boolean;
+  setShowTaskIndicators: (val: boolean) => void;
   generationLineGaps: Record<string, GenerationLineGap>;
   setGenerationLineGap: (treeId: string, gap: number | null) => void;
   visibleRelationTypes: string[];
@@ -37,6 +39,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       isLockedScreen: false,
       isFastMode: false,
       isDiseaseMode: false,
+      showTaskIndicators: false,
       generationLineGaps: {},
       sidebarOpen: true,
       visibleRelationTypes: ["parent"],
@@ -46,6 +49,7 @@ export const useFamilyTreeSettings = create<FamilyTreeSettingsState>()(
       setIsLockedScreen: (val: boolean) => set({ isLockedScreen: val }),
       setIsFastMode: (val: boolean) => set({ isFastMode: val }),
       setIsDiseaseMode: (val: boolean) => set({ isDiseaseMode: val }),
+      setShowTaskIndicators: (val: boolean) => set({ showTaskIndicators: val }),
       setGenerationLineGap: (treeId, gap) => {
         if (!isGenerationLineGap(gap)) return;
         set((s) => ({
