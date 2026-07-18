@@ -34,6 +34,7 @@ from app.models import (
     GalleryMemberLink,
     Member,
     MemberDisease,
+    MemberTask,
     Relation,
     Story,
     StoryDocumentLink,
@@ -573,6 +574,30 @@ def merge_trees(
                     inheritance_pattern=d.inheritance_pattern,
                     diagnosis_date=d.diagnosis_date,
                     notes=d.notes,
+                )
+            )
+
+    # --- Research tasks (deduped by member + title) -------------------------
+    seen_tasks: set[tuple] = set()
+    for t in sources:
+        for task in db.scalars(select(MemberTask).where(MemberTask.tree_id == t.id)):
+            mid = member_map.get(task.member_id) if task.member_id else None
+            if task.member_id is not None and mid is None:
+                continue
+            key = (mid, _norm(task.title))
+            if key in seen_tasks:
+                continue
+            seen_tasks.add(key)
+            db.add(
+                MemberTask(
+                    id=str(uuid4()),
+                    tree_id=new_tree.id,
+                    member_id=mid,
+                    title=task.title,
+                    notes=task.notes,
+                    done=task.done,
+                    created_at=task.created_at,
+                    done_at=task.done_at,
                 )
             )
 

@@ -63,6 +63,7 @@ RESTRICTABLE_DOMAINS: set[str] = {
     "sources",
     "diseases",
     "biography",
+    "tasks",
 }
 
 # Domains restricted by default on a new share.  Empty means a freshly-shared

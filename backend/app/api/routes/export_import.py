@@ -38,6 +38,7 @@ from app.models import (
     GalleryMemberLink,
     Member,
     MemberDisease,
+    MemberTask,
     Relation,
     RelationType,
     Story,
@@ -69,7 +70,7 @@ router = APIRouter(prefix="/trees", tags=["export"])
 # which is exactly what let a v1.6 bundle silently drop data — see #661).
 #   v2 (<= v1.6): sources / source_evidence / citations / story_attachments
 #   v3 (v1.7+):   documents / document_files / *_document_links
-BUNDLE_VERSION = 4
+BUNDLE_VERSION = 5
 
 # Number of rows to write per bulk-insert batch.
 _BULK_CHUNK = 1000
@@ -247,6 +248,12 @@ def migrate_bundle(bundle: dict) -> dict:
         ]
         migrated["version"] = 4
         bundle = migrated
+    if bundle.get("version", 1) < 5:
+        # v4 → v5: research tasks. Older bundles simply have none.
+        migrated = dict(bundle)
+        migrated["tasks"] = bundle.get("tasks", [])
+        migrated["version"] = 5
+        bundle = migrated
     return bundle
 
 
@@ -303,6 +310,7 @@ def export_tree(
             for rt in db.scalars(select(RelationType))
         ],
         "diseases": _rows(db, MemberDisease, tree.id),
+        "tasks": _rows(db, MemberTask, tree.id),
         "gallery_images": gallery,
         "gallery_links": _link_rows(db, GalleryMemberLink, GalleryImage, tree.id),
         "events": _rows(db, Event, tree.id),
@@ -492,6 +500,17 @@ def _do_import(
             data["member_id"] = member_map.get(row["member_id"], row["member_id"])
             if data["member_id"] in member_map.values():
                 db.add(MemberDisease(tree_id=tree.id, **data))
+
+        for row in bundle.get("tasks", []):
+            data = dict(row)
+            data.pop("tree_id", None)
+            data["id"] = str(uuid4())
+            if row.get("member_id") is not None:
+                mapped_member = member_map.get(row["member_id"])
+                if mapped_member is None:
+                    continue  # task's member was dropped from the bundle
+                data["member_id"] = mapped_member
+            db.add(MemberTask(tree_id=tree.id, **data))
         progress_cb(65)
 
         gallery_map = _remap(bundle.get("gallery_images", []))

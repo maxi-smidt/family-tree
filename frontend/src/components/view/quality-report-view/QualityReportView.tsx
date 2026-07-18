@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
@@ -185,7 +185,7 @@ function OpenTasksSection({ canWrite }: { canWrite: boolean }) {
   const { tasks, setTaskDone, refreshTasks, initialized } = useTaskStore();
   useDeferredStoreLoad(initialized, refreshTasks);
 
-  const openTasks = tasks.filter((task) => !task.done);
+  const openTasks = useMemo(() => tasks.filter((task) => !task.done), [tasks]);
   if (openTasks.length === 0) return null;
 
   return (
@@ -247,7 +247,9 @@ export const QualityReportView = () => {
   const { report, isLoading, showDismissed, refreshReport, setShowDismissed } =
     useQualityReportStore();
   const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
-  const tasksEnabled = useFeature("research_tasks");
+  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const tasksEnabled =
+    useFeature("research_tasks") && !restrictions?.includes("tasks");
 
   useEffect(() => {
     if (!report) {

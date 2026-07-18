@@ -28,6 +28,7 @@ from app.models.content import (
     DocumentMemberLink,
     EventMemberLink,
     GalleryMemberLink,
+    MemberTask,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
@@ -60,8 +61,8 @@ def member_delete_snapshot(
     """Full pre-image of a member row and its cascade children.
 
     Must be called BEFORE ``db.delete(member)``. Captures everything the DB
-    cascade will remove: relations on either side, disease records, and the
-    four content link tables. ``counterpart`` is the bridge person in the
+    cascade will remove: relations on either side, disease records, research
+    tasks, and the four content link tables. ``counterpart`` is the bridge person in the
     linked tree whose link pointers the delete route dissolves; its identity
     is recorded so the tree-in-tree link can be re-established on undo.
     Virtual-view match rows also cascade but are derived state the matching
@@ -84,6 +85,7 @@ def member_delete_snapshot(
         "diseases": [row_to_dict(d) for d in diseases],
     }
     for key, model in (
+        ("tasks", MemberTask),
         ("event_links", EventMemberLink),
         ("story_links", StoryMemberLink),
         ("gallery_links", GalleryMemberLink),

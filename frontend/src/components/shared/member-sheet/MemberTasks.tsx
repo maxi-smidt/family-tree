@@ -6,6 +6,7 @@ import { CheckCircle2, Circle, Plus, Pencil, Trash2 } from "lucide-react";
 import { TaskDialog } from "./TaskDialog";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
+import { compareTasks } from "@/types/task";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 
 type Props = {
@@ -35,13 +36,7 @@ export const MemberTasks = ({ member }: Props) => {
     memberId: member.id,
   });
 
-  const sortedTasks = [...tasks].sort((a, b) =>
-    a.done === b.done
-      ? a.createdAt.localeCompare(b.createdAt)
-      : a.done
-        ? 1
-        : -1,
-  );
+  const sortedTasks = [...tasks].sort(compareTasks);
 
   return (
     <Item variant="muted">

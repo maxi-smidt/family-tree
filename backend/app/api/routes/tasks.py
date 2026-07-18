@@ -8,9 +8,11 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
+    require_domain,
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Member, MemberTask, Tree
 from app.models.user import User
@@ -22,7 +24,10 @@ from app.services.storage_usage import QuotaExceeded, check_tree_quota
 router = APIRouter(
     prefix="/trees/{tree_id}/tasks",
     tags=["tasks"],
-    dependencies=[Depends(require_feature("research_tasks"))],
+    dependencies=[
+        Depends(require_feature("research_tasks")),
+        Depends(require_domain("tasks")),
+    ],
 )
 
 
@@ -97,8 +102,11 @@ def update_task(
     task = _get_task(db, tree, task_id)
     for key, value in payload.model_dump().items():
         setattr(task, key, value)
+    # Keep done/done_at consistent regardless of what the client sends.
     if not task.done:
         task.done_at = None
+    elif task.done_at is None:
+        task.done_at = utcnow_iso()
     record_activity(db, tree_id=tree.id, actor=user, action="update",
                     target_type="task", target_id=task.id, target_label=task.title)
     db.commit()

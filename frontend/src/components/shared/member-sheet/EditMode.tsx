@@ -109,7 +109,8 @@ export const EditMode = ({
     useFeature("sources") && !restrictions.includes("sources");
   const galleryEnabled =
     useFeature("gallery") && !restrictions.includes("gallery");
-  const tasksEnabled = useFeature("research_tasks");
+  const tasksEnabled =
+    useFeature("research_tasks") && !restrictions.includes("tasks");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");

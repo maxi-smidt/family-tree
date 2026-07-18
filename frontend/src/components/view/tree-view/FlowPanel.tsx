@@ -82,7 +82,9 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
   const treeLinksEnabled = useFeature("tree_links");
-  const tasksEnabled = useFeature("research_tasks");
+  const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const tasksEnabled =
+    useFeature("research_tasks") && !taskRestrictions?.includes("tasks");
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
   // Open-task node indicators need the task list; skip on public trees where
   // the task endpoints require authentication.

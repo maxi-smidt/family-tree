@@ -58,7 +58,9 @@ export const MemberSheet = ({
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
-  const tasksEnabled = useFeature("research_tasks");
+  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const tasksEnabled =
+    useFeature("research_tasks") && !restrictions?.includes("tasks");
   const { refreshDocuments, initialized: documentsInitialized } =
     useDocumentStore();
   const { refreshGalleryImages, initialized: galleryInitialized } =

@@ -14,6 +14,7 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useTaskStore } from "@/hooks/useTaskStore";
+import { compareTasks } from "@/types/task";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useState } from "react";
 import { ImageLightbox } from "./ImageLightbox";
@@ -61,7 +62,8 @@ export const ViewMode = ({
   const documentsEnabled =
     useFeature("sources") && !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
-  const tasksEnabled = useFeature("research_tasks");
+  const tasksEnabled =
+    useFeature("research_tasks") && !restrictions.includes("tasks");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -84,13 +86,7 @@ export const ViewMode = ({
   const memberDocuments = getDocumentsForMember(member.id);
 
   const memberDiseases = member.diseases || [];
-  const memberTasks = [...getTasksByMember(member.id)].sort((a, b) =>
-    a.done === b.done
-      ? a.createdAt.localeCompare(b.createdAt)
-      : a.done
-        ? 1
-        : -1,
-  );
+  const memberTasks = [...getTasksByMember(member.id)].sort(compareTasks);
 
   const openLightbox = (index: number) => {
     setStartIndex(index);

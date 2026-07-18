@@ -22,7 +22,11 @@ const TASK_DB: ResearchTaskDB = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  useTaskStore.setState({ tasks: [], initialized: false });
+  useTaskStore.setState({
+    tasks: [],
+    openTaskMemberIds: new Set(),
+    initialized: false,
+  });
   useTreeStore.setState({ selectedTree: undefined });
 });
 
@@ -47,6 +51,7 @@ describe("useTaskStore — refreshTasks", () => {
     expect(tasks[0].id).toBe("t1");
     expect(tasks[0].memberId).toBe("m1");
     expect(tasks[0].done).toBe(false);
+    expect(useTaskStore.getState().openTaskMemberIds.has("m1")).toBe(true);
   });
 
   it("skips the API for virtual views and marks the store initialized", async () => {
@@ -236,18 +241,6 @@ describe("useTaskStore — selectors", () => {
     useTaskStore.setState({ tasks });
     const result = useTaskStore.getState().getTasksByMember("m1");
     expect(result.map((t) => t.id)).toEqual(["t1", "t2"]);
-  });
-
-  it("getOpenTasks returns open tasks including tree-level ones", () => {
-    useTaskStore.setState({ tasks });
-    const result = useTaskStore.getState().getOpenTasks();
-    expect(result.map((t) => t.id)).toEqual(["t1", "t3"]);
-  });
-
-  it("hasOpenTasks is true only for members with open tasks", () => {
-    useTaskStore.setState({ tasks });
-    expect(useTaskStore.getState().hasOpenTasks("m1")).toBe(true);
-    expect(useTaskStore.getState().hasOpenTasks("m2")).toBe(false);
   });
 
   it("clear() empties the tasks slice", () => {

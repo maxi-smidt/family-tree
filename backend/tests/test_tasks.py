@@ -151,6 +151,41 @@ def test_editor_can_write(client, db):
     assert _create_task(client, editor, tree).status_code == 201
 
 
+def test_done_without_done_at_is_stamped_server_side(client, db):
+    user, tree = _setup(client, db)
+    _create_task(client, user, tree)
+    res = client.patch(
+        f"{API}/trees/{tree.id}/tasks/t1",
+        headers=auth(user),
+        json={"title": "Find birth record", "notes": None, "done": True,
+              "done_at": None},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["done"] is True
+    assert body["done_at"] is not None
+
+
+def test_restricted_domain_hides_routes(client, db):
+    from app.models.tree import TreeMembership
+
+    user, tree = _setup(client, db)
+    restricted = make_user(db, "dave")
+    share(db, tree, restricted, role="editor")
+    membership = db.get(TreeMembership, (tree.id, restricted.id))
+    membership.restrictions = ["tasks"]
+    db.commit()
+
+    res = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(restricted))
+    assert res.status_code == 404
+    assert _create_task(client, restricted, tree).status_code == 404
+    # The owner is unaffected.
+    assert (
+        client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(user)).status_code
+        == 200
+    )
+
+
 def test_disabled_flag_hides_routes(client, db):
     admin = make_user(db, "root", is_admin=True)
     user = make_user(db, "alice")

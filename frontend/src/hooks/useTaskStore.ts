@@ -1,16 +1,16 @@
 import { create } from "zustand";
 import { ResearchTask, ResearchTaskInput, mapTaskFromDB } from "@/types/task";
 import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
 interface TaskState {
   tasks: ResearchTask[];
+  /** Members with at least one open task — O(1) lookups for tree nodes. */
+  openTaskMemberIds: Set<string>;
   initialized: boolean;
   refreshTasks: (treeId?: string) => Promise<void>;
   getTasksByMember: (memberId: string) => ResearchTask[];
-  getOpenTasks: () => ResearchTask[];
-  hasOpenTasks: (memberId: string) => boolean;
   addTask: (task: ResearchTaskInput) => Promise<void>;
   updateTask: (id: string, task: ResearchTaskInput) => Promise<void>;
   setTaskDone: (id: string, done: boolean) => Promise<void>;
@@ -18,38 +18,39 @@ interface TaskState {
   clear: () => void;
 }
 
+const openMemberIds = (tasks: ResearchTask[]): Set<string> =>
+  new Set(
+    tasks
+      .filter((t) => !t.done && t.memberId !== null)
+      .map((t) => t.memberId as string),
+  );
+
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
+  openTaskMemberIds: new Set<string>(),
   initialized: false,
 
   refreshTasks: async (treeId = activeTreeId()) => {
     if (!treeId) {
-      set({ tasks: [] });
+      set({ tasks: [], openTaskMemberIds: new Set() });
       return;
     }
     // Research tasks are working data of a real tree; virtual views have no
     // task endpoints.
-    if (treeId.startsWith("vv_")) {
-      set({ tasks: [], initialized: true });
+    if (isVirtualId(treeId)) {
+      set({ tasks: [], openTaskMemberIds: new Set(), initialized: true });
       return;
     }
 
     const rows = await TreeService.getTasks(treeId);
     if (!isActiveTree(treeId)) return; // tree switched mid-flight — drop stale data
 
-    set({ tasks: rows.map(mapTaskFromDB), initialized: true });
+    const tasks = rows.map(mapTaskFromDB);
+    set({ tasks, openTaskMemberIds: openMemberIds(tasks), initialized: true });
   },
 
   getTasksByMember: (memberId: string) => {
     return get().tasks.filter((t) => t.memberId === memberId);
-  },
-
-  getOpenTasks: () => {
-    return get().tasks.filter((t) => !t.done);
-  },
-
-  hasOpenTasks: (memberId: string) => {
-    return get().tasks.some((t) => t.memberId === memberId && !t.done);
   },
 
   addTask: async (task: ResearchTaskInput) => {
@@ -118,5 +119,6 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     invalidateActivityView();
   },
 
-  clear: () => set({ tasks: [], initialized: false }),
+  clear: () =>
+    set({ tasks: [], openTaskMemberIds: new Set(), initialized: false }),
 }));

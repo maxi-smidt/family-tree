@@ -166,7 +166,8 @@
         "stories": "Geschichten",
         "sources": "Dokumente",
         "diseases": "Krankheiten",
-        "biography": "Biografie"
+        "biography": "Biografie",
+        "tasks": "Recherche-Aufgaben"
       },
       "linked": {
         "share-toggle_one": "{{count}} verlinkten Stammbaum ebenfalls teilen",

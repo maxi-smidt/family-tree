@@ -166,7 +166,8 @@
         "stories": "Stories",
         "sources": "Documents",
         "diseases": "Diseases",
-        "biography": "Biography"
+        "biography": "Biography",
+        "tasks": "Research tasks"
       },
       "linked": {
         "share-toggle_one": "Also share {{count}} linked tree",

@@ -208,9 +208,7 @@ export const FamilyNode = ({ data, selected }: NodeProps<Node<Member>>) => {
   // Calculate if this person has potential disease risk from parents
   const hasRisk = isDiseaseMode && calculateDiseaseRisk(data, members);
   const hasOpenTasks = useTaskStore(
-    (s) =>
-      showTaskIndicators &&
-      s.tasks.some((task) => task.memberId === data.id && !task.done),
+    (s) => showTaskIndicators && s.openTaskMemberIds.has(data.id),
   );
   // The disease/risk indicator occupies the bottom-left corner; move the
   // task indicator over when both are visible.

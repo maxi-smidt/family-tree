@@ -24,6 +24,12 @@ export interface ResearchTaskInput {
   notes?: string;
 }
 
+/** Open tasks first, each group oldest-first. */
+export function compareTasks(a: ResearchTask, b: ResearchTask): number {
+  if (a.done !== b.done) return a.done ? 1 : -1;
+  return a.createdAt.localeCompare(b.createdAt);
+}
+
 export function mapTaskFromDB(row: ResearchTaskDB): ResearchTask {
   return {
     id: row.id,

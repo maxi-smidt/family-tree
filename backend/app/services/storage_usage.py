@@ -27,6 +27,7 @@ from app.models.content import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    MemberTask,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -63,7 +64,7 @@ def _tree_model_bytes_for_tree_ids(db: Session, tree_ids: list[str]) -> int:
 
     Covers every model that carries ``tree_id``:
     Member, Relation, MemberDisease, GalleryImage, GalleryMemberLink,
-    Event, EventMemberLink, Story, StoryMemberLink,
+    Event, EventMemberLink, Story, StoryMemberLink, MemberTask,
     Document, DocumentFile, DocumentMemberLink, EventDocumentLink,
     StoryDocumentLink.
     """
@@ -82,6 +83,7 @@ def _tree_model_bytes_for_tree_ids(db: Session, tree_ids: list[str]) -> int:
     total += _sum_model(Member, Member.tree_id)
     total += _sum_model(Relation, Relation.tree_id)
     total += _sum_model(MemberDisease, MemberDisease.tree_id)
+    total += _sum_model(MemberTask, MemberTask.tree_id)
 
     # Gallery
     total += _sum_model(GalleryImage, GalleryImage.tree_id)
