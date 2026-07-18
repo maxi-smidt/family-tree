@@ -37,7 +37,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   direct links to people and linked timeline items, and editor controls. They
   can be saved without linked people, and document-card details are collapsed
   by default while still showing attachment and people counts, and listing
-  every attachment when expanded (#722).
+  uploaded attachments and external links in separate expanded sections (#722).
 - The tree-view people search now shows current-tree matches first, then
   searches every other tree shared with the user; selecting an outside match
   opens and centers that person in its tree (#724).

@@ -143,6 +143,9 @@ describe("DocumentsView", () => {
       within(documentCard as HTMLElement).getByText("Attachments"),
     ).toBeInTheDocument();
     expect(
+      within(documentCard as HTMLElement).getByText("External links"),
+    ).toBeInTheDocument();
+    expect(
       within(documentCard as HTMLElement).getByText("Linked people"),
     ).toBeInTheDocument();
     expect(

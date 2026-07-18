@@ -435,6 +435,7 @@
     "link-count_one": "{{count}} external link",
     "link-count_other": "{{count}} external links",
     "attachments": "Attachments",
+    "external-links": "External links",
     "linked-people-count_one": "{{count}} linked person",
     "linked-people-count_other": "{{count}} linked people",
     "linked-people-heading": "Linked people",

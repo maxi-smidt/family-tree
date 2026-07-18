@@ -279,10 +279,10 @@ function DocumentCard({
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const fileCount = document.files.filter(
-    (file) => file.kind === "file",
-  ).length;
-  const linkCount = document.files.length - fileCount;
+  const attachments = document.files.filter((file) => file.kind === "file");
+  const externalLinks = document.files.filter((file) => file.kind === "link");
+  const fileCount = attachments.length;
+  const linkCount = externalLinks.length;
   const detailsLabel = detailsOpen ? t("hide-details") : t("show-details");
   const unlinked =
     document.memberIds.length === 0 &&
@@ -310,6 +310,24 @@ function DocumentCard({
     if (!treeId) return;
     setOpenSheet(treeId, { memberId, tab: "records", mode: "view" });
   };
+
+  const renderAttachment = (file: DocumentFile) => (
+    <Button
+      key={file.id}
+      type="button"
+      variant="outline"
+      size="sm"
+      className="h-7 max-w-60 gap-1 px-2"
+      onClick={() => openFile(file)}
+    >
+      {file.kind === "file" ? (
+        <FileText className="h-3.5 w-3.5 shrink-0" />
+      ) : (
+        <LinkIcon className="h-3.5 w-3.5 shrink-0" />
+      )}
+      <span className="truncate">{file.filename ?? file.url}</span>
+    </Button>
+  );
 
   return (
     <Card
@@ -409,31 +427,23 @@ function DocumentCard({
                   {document.description}
                 </p>
               )}
-              {document.files.length > 0 && (
+              {attachments.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs font-medium text-muted-foreground">
                     {t("attachments")}
                   </p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {document.files.map((file) => (
-                      <Button
-                        key={file.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 max-w-60 gap-1 px-2"
-                        onClick={() => openFile(file)}
-                      >
-                        {file.kind === "file" ? (
-                          <FileText className="h-3.5 w-3.5 shrink-0" />
-                        ) : (
-                          <LinkIcon className="h-3.5 w-3.5 shrink-0" />
-                        )}
-                        <span className="truncate">
-                          {file.filename ?? file.url}
-                        </span>
-                      </Button>
-                    ))}
+                    {attachments.map(renderAttachment)}
+                  </div>
+                </div>
+              )}
+              {externalLinks.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t("external-links")}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {externalLinks.map(renderAttachment)}
                   </div>
                 </div>
               )}
