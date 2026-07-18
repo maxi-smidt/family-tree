@@ -434,6 +434,7 @@
     "file-count_other": "{{count}} Dateien",
     "link-count_one": "{{count}} externer Link",
     "link-count_other": "{{count}} externe Links",
+    "attachments": "Anhänge",
     "unlinked": "Nicht verknüpft",
     "unknown-member": "Unbekannte Person",
     "unknown-event": "Unbekanntes Ereignis",

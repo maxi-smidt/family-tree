@@ -39,7 +39,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
-import { type Document } from "@/types/document";
+import { type Document, type DocumentFile } from "@/types/document";
 import { formatDate } from "@/utils/dateUtils";
 
 type LinkFilter = "all" | "unlinked";
@@ -292,10 +292,17 @@ function DocumentCard({
   const openDocument = () => {
     const file = document.files.find((item) => item.kind === "file");
     const link = document.files.find((item) => item.kind === "link");
-    if (file) {
+    const attachment = file ?? link;
+    if (attachment) {
+      openFile(attachment);
+    }
+  };
+
+  const openFile = (file: DocumentFile) => {
+    if (file.kind === "file") {
       void openMedia(file.url).catch(() => toast.error(t("open-error")));
-    } else if (link) {
-      window.open(link.url, "_blank", "noopener,noreferrer");
+    } else {
+      window.open(file.url, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -393,6 +400,34 @@ function DocumentCard({
                   </span>
                 )}
               </div>
+              {document.files.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t("attachments")}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {document.files.map((file) => (
+                      <Button
+                        key={file.id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 max-w-60 gap-1 px-2"
+                        onClick={() => openFile(file)}
+                      >
+                        {file.kind === "file" ? (
+                          <FileText className="h-3.5 w-3.5 shrink-0" />
+                        ) : (
+                          <LinkIcon className="h-3.5 w-3.5 shrink-0" />
+                        )}
+                        <span className="truncate">
+                          {file.filename ?? file.url}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {!unlinked && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
                   {document.memberIds.map((memberId) => {

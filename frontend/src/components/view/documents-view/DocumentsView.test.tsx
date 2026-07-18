@@ -23,7 +23,26 @@ const documents: Document[] = [
     documentDate: "1900",
     createdAt: "2026-01-01T00:00:00Z",
     updatedAt: "2026-01-01T00:00:00Z",
-    files: [],
+    files: [
+      {
+        id: "file-1",
+        kind: "file",
+        filename: "birth-certificate.pdf",
+        url: "/api/media/file-1",
+        mimeType: "application/pdf",
+        size: 123,
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+      {
+        id: "link-1",
+        kind: "link",
+        filename: "Archive record",
+        url: "https://example.com/record",
+        mimeType: null,
+        size: null,
+        createdAt: "2026-01-01T00:00:00Z",
+      },
+    ],
     memberIds: ["member-1"],
     eventIds: [],
     storyIds: [],
@@ -109,6 +128,19 @@ describe("DocumentsView", () => {
     expect(
       within(documentCard as HTMLElement).getByRole("button", {
         name: "Hide details",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard as HTMLElement).getByText("Attachments"),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "birth-certificate.pdf",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "Archive record",
       }),
     ).toBeInTheDocument();
 
