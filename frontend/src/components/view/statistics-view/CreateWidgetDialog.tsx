@@ -267,6 +267,8 @@ export function CreateWidgetDialog({ open, onClose, editing }: Props) {
                 <CustomWidgetRenderer
                   widget={{ ...previewWidget, title: title.trim() || suggestedTitle }}
                   members={members}
+                  combinedScope={false}
+                  isLoading={false}
                   t={t}
                 />
               </div>

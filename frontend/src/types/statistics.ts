@@ -43,3 +43,41 @@ export interface CombinedStatisticsReport extends StatisticsReport {
   tree_count: number;
   included_tree_ids: string[];
 }
+
+export type StatisticsScope = "tree" | "linked";
+
+/** Closed API contract for the safe, backend-driven custom-widget pivot. */
+export interface CustomWidgetAggregationConfig {
+  id: string;
+  chartType: "bar" | "pie" | "line" | "area";
+  dimensionId:
+    | "gender"
+    | "birth-decade"
+    | "death-decade"
+    | "birth-year"
+    | "age-at-death"
+    | "birthplace"
+    | "hometown"
+    | "cemetery"
+    | "first-name"
+    | "last-name"
+    | "deceased-status"
+    | "academic-title";
+  measureId: "count" | "avg-lifespan" | "avg-age";
+  breakdownId?: CustomWidgetAggregationConfig["dimensionId"] | null;
+}
+
+export interface CustomWidgetAggregateRow {
+  category: string;
+  values: Record<string, number>;
+}
+
+export interface CustomWidgetAggregation {
+  id: string;
+  data: CustomWidgetAggregateRow[];
+  series: string[];
+}
+
+export interface CustomWidgetAggregateResponse {
+  widgets: CustomWidgetAggregation[];
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw, Users, Clock, CalendarDays, Skull } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -69,8 +69,17 @@ function EmptyState({ t }: { t: (k: string) => string }) {
 
 export const StatisticsView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "statistics-view" });
-  const { report, isLoading, scope, setScope, refreshStatistics } =
-    useStatisticsStore();
+  const {
+    report,
+    isLoading,
+    scope,
+    setScope,
+    refreshStatistics,
+    customWidgetAggregations,
+    isCustomWidgetAggregationsLoading,
+    refreshCustomWidgetAggregations,
+    clearCustomWidgetAggregations,
+  } = useStatisticsStore();
   const { order, hidden, customWidgets } = useStatisticsSettings();
   const members = useMemberStore((s) => s.members);
   const events = useEventStore((s) => s.events);
@@ -96,11 +105,41 @@ export const StatisticsView = () => {
     }
   }, [report, refreshStatistics]);
 
-  const customById = Object.fromEntries(customWidgets.map((w) => [w.id, w]));
-  const customIds = customWidgets.map((w) => w.id);
-  const visibleIds = normalizeOrder(order, customIds).filter(
-    (id) => !hidden.includes(id),
-  );
+  const { customById, visibleCustomWidgets, visibleIds } = useMemo(() => {
+    const byId = Object.fromEntries(
+      customWidgets.map((widget) => [widget.id, widget]),
+    );
+    const customIds = customWidgets.map((widget) => widget.id);
+    const ids = normalizeOrder(order, customIds).filter(
+      (id) => !hidden.includes(id),
+    );
+    return {
+      customById: byId,
+      visibleCustomWidgets: ids
+        .map((id) => byId[id])
+        .filter((widget): widget is (typeof customWidgets)[number] => !!widget),
+      visibleIds: ids,
+    };
+  }, [customWidgets, hidden, order]);
+
+  useEffect(() => {
+    if (
+      scope !== "linked" ||
+      !selectedTreeId ||
+      visibleCustomWidgets.length === 0
+    ) {
+      clearCustomWidgetAggregations();
+      return;
+    }
+    void refreshCustomWidgetAggregations(visibleCustomWidgets, selectedTreeId);
+  }, [
+    clearCustomWidgetAggregations,
+    refreshCustomWidgetAggregations,
+    scope,
+    selectedTreeId,
+    visibleCustomWidgets,
+  ]);
+
   const handleOpenMember = useCallback(
     (memberId: string) => {
       if (!selectedTreeId) return;
@@ -180,11 +219,9 @@ export const StatisticsView = () => {
             />
           </div>
 
-          {/* Customizable charts grid.
-              Note: custom widgets and the On this day widget use the raw,
-              active-tree stores, so they do not pick up the combined
-              ("linked") scope. The remaining report-driven widgets and the
-              overview cards above reflect combined statistics. */}
+          {/* Custom widgets use the backend pivot for the linked scope, which
+              shares the report's access-scoped traversal and bridge dedup.
+              The On this day widget remains active-tree only. */}
           {visibleIds.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               {t("all-hidden")}
@@ -199,6 +236,9 @@ export const StatisticsView = () => {
                       key={id}
                       widget={customWidget}
                       members={members}
+                      combinedScope={scope === "linked"}
+                      aggregation={customWidgetAggregations[id]}
+                      isLoading={isCustomWidgetAggregationsLoading}
                       t={t}
                     />
                   );

@@ -18,8 +18,13 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import type { Member } from "@/types/member";
+import type {
+  CustomWidgetAggregation,
+  CustomWidgetAggregateRow,
+} from "@/types/statistics";
 import {
   aggregate,
+  type AggregationResult,
   DIMENSION_MAP,
   MEASURE_MAP,
   type CustomWidget,
@@ -30,17 +35,37 @@ import { ChartTooltipContent } from "./ChartTooltipContent";
 interface Props {
   widget: CustomWidget;
   members: Member[];
+  combinedScope: boolean;
+  aggregation?: CustomWidgetAggregation;
+  isLoading: boolean;
   t: TFunc;
 }
 
 const CHART_HEIGHT = 240;
 
-export function CustomWidgetRenderer({ widget, members, t }: Props) {
-  const { data, series } = useMemo(
-    () => aggregate(members, widget, t),
-    [members, widget, t],
+export function CustomWidgetRenderer({
+  widget,
+  members,
+  combinedScope,
+  aggregation,
+  isLoading,
+  t,
+}: Props) {
+  const result = useMemo<AggregationResult | null>(
+    () =>
+      combinedScope && aggregation
+        ? formatServerAggregation(aggregation, widget, t)
+        : combinedScope
+          ? null
+          : aggregate(members, widget, t),
+    [aggregation, combinedScope, members, t, widget],
   );
 
+  if (result === null) {
+    return isLoading ? <WidgetLoadingCard title={widget.title} /> : null;
+  }
+
+  const { data, series } = result;
   if (data.length === 0 || series.length === 0) return null;
 
   const multi = series.length > 1;
@@ -50,14 +75,26 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
     series.find((s) => s.key === key)?.label ?? key;
 
   // Axis labels default to the dimension / measure names when not overridden.
-  const xLabel = widget.xLabel?.trim() || t(DIMENSION_MAP[widget.dimensionId].labelKey);
-  const yLabel = widget.yLabel?.trim() || t(MEASURE_MAP[widget.measureId].labelKey);
+  const xLabel =
+    widget.xLabel?.trim() || t(DIMENSION_MAP[widget.dimensionId].labelKey);
+  const yLabel =
+    widget.yLabel?.trim() || t(MEASURE_MAP[widget.measureId].labelKey);
 
   const xAxisLabel = xLabel
-    ? { value: xLabel, position: "insideBottom" as const, offset: -2, fontSize: 11 }
+    ? {
+        value: xLabel,
+        position: "insideBottom" as const,
+        offset: -2,
+        fontSize: 11,
+      }
     : undefined;
   const yAxisLabel = yLabel
-    ? { value: yLabel, angle: -90, position: "insideLeft" as const, fontSize: 11 }
+    ? {
+        value: yLabel,
+        angle: -90,
+        position: "insideLeft" as const,
+        fontSize: 11,
+      }
     : undefined;
 
   const tooltip = (
@@ -108,7 +145,12 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
             </Pie>
             <Tooltip
               content={({ active, label, payload }) => (
-                <ChartTooltipContent active={active} hideLabel label={label} payload={payload} />
+                <ChartTooltipContent
+                  active={active}
+                  hideLabel
+                  label={label}
+                  payload={payload}
+                />
               )}
             />
             <Legend
@@ -126,8 +168,21 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
         return (
           <LineChart data={data} margin={{ bottom: 12 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="category" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} label={xAxisLabel} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} label={yAxisLabel} />
+            <XAxis
+              dataKey="category"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              label={xAxisLabel}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={36}
+              label={yAxisLabel}
+            />
             {tooltip}
             {series.map((s, i) => (
               <Line
@@ -147,8 +202,21 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
         return (
           <AreaChart data={data} margin={{ bottom: 12 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="category" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} label={xAxisLabel} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} label={yAxisLabel} />
+            <XAxis
+              dataKey="category"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              label={xAxisLabel}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={36}
+              label={yAxisLabel}
+            />
             {tooltip}
             {series.map((s, i) => (
               <Area
@@ -170,8 +238,21 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
         return (
           <BarChart data={data} barGap={2} margin={{ bottom: 12 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="category" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} label={xAxisLabel} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 11 }} tickLine={false} axisLine={false} width={36} label={yAxisLabel} />
+            <XAxis
+              dataKey="category"
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              label={xAxisLabel}
+            />
+            <YAxis
+              allowDecimals={false}
+              tick={{ fontSize: 11 }}
+              tickLine={false}
+              axisLine={false}
+              width={36}
+              label={yAxisLabel}
+            />
             {tooltip}
             {series.map((s, i) => (
               <Bar
@@ -199,6 +280,45 @@ export function CustomWidgetRenderer({ widget, members, t }: Props) {
       </ResponsiveContainer>
     </Card>
   );
+}
+
+function WidgetLoadingCard({ title }: { title: string }) {
+  return (
+    <Card className="p-4" aria-busy="true">
+      <h2 className="text-sm font-medium mb-4 truncate" title={title}>
+        {title}
+      </h2>
+      <div className="h-[240px] animate-pulse rounded bg-muted" />
+    </Card>
+  );
+}
+
+function formatServerAggregation(
+  aggregation: CustomWidgetAggregation,
+  widget: CustomWidget,
+  t: TFunc,
+): AggregationResult {
+  const dimension = DIMENSION_MAP[widget.dimensionId];
+  const measure = MEASURE_MAP[widget.measureId];
+  const breakdown =
+    widget.breakdownId && widget.breakdownId !== widget.dimensionId
+      ? DIMENSION_MAP[widget.breakdownId]
+      : undefined;
+
+  return {
+    data: aggregation.data.map((row: CustomWidgetAggregateRow) => ({
+      category: dimension.formatCategory
+        ? dimension.formatCategory(row.category, t)
+        : row.category,
+      ...row.values,
+    })),
+    series: aggregation.series.map((key) => ({
+      key,
+      label: breakdown
+        ? (breakdown.formatCategory?.(key, t) ?? key)
+        : t(measure.labelKey),
+    })),
+  };
 }
 
 // Derives distinct colors for multiple series from the user's base color by

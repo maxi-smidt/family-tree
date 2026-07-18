@@ -1,4 +1,5 @@
 import type { Member } from "@/types/member";
+import type { CustomWidgetAggregationConfig } from "@/types/statistics";
 import { getYear } from "@/utils/dateUtils";
 
 /**
@@ -7,29 +8,18 @@ import { getYear } from "@/utils/dateUtils";
  * compute per group), and an optional **breakdown** dimension that splits each
  * group into multiple series.
  *
- * Everything is computed client-side from the raw {@link Member} records held
- * in `useMemberStore`, so any member field can be charted — not just the
- * pre-aggregated backend report. The registries below are the stable contract a
- * future widget marketplace would serialize against.
+ * The active-tree scope is computed client-side from the raw {@link Member}
+ * records held in `useMemberStore`. Linked-tree scope goes through the backend
+ * so it can reuse access-scoped traversal and bridge-person de-duplication.
+ * The registries below are the stable contract a future widget marketplace
+ * would serialize against.
  */
 
-export type CustomChartType = "bar" | "pie" | "line" | "area";
+export type CustomChartType = CustomWidgetAggregationConfig["chartType"];
 
 // ── Dimensions (X axis / breakdown) ──────────────────────────────────────────
 
-export type DimensionId =
-  | "gender"
-  | "birth-decade"
-  | "death-decade"
-  | "birth-year"
-  | "age-at-death"
-  | "birthplace"
-  | "hometown"
-  | "cemetery"
-  | "first-name"
-  | "last-name"
-  | "deceased-status"
-  | "academic-title";
+export type DimensionId = CustomWidgetAggregationConfig["dimensionId"];
 
 type CategoryOrder = "natural" | "value-desc";
 
@@ -52,7 +42,7 @@ export type TFunc = (key: string, opts?: Record<string, unknown>) => string;
 
 // ── Measures (Y axis) ────────────────────────────────────────────────────────
 
-export type MeasureId = "count" | "avg-lifespan" | "avg-age";
+export type MeasureId = CustomWidgetAggregationConfig["measureId"];
 
 export interface MeasureDefinition {
   id: MeasureId;
@@ -290,14 +280,8 @@ export const MEASURE_MAP: Record<MeasureId, MeasureDefinition> =
 
 // ── Widget config ────────────────────────────────────────────────────────────
 
-export interface CustomWidget {
-  id: string;
+export interface CustomWidget extends CustomWidgetAggregationConfig {
   kind: "custom";
-  chartType: CustomChartType;
-  dimensionId: DimensionId;
-  measureId: MeasureId;
-  /** Optional second dimension that splits each X group into multiple series. */
-  breakdownId?: DimensionId | null;
   /** Stack breakdown series on top of each other (bar/area only). */
   stacked?: boolean;
   title: string;
