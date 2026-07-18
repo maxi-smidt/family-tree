@@ -23,6 +23,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Live collaboration presence: avatar chips in the tree canvas show who else is
+  currently viewing the open tree — including yourself and accepted friends
+  with profile pictures, and other collaborators with initials/icon fallbacks —
+  once another person joins, and highlight anyone editing; a member sheet also
+  shows an indicator when someone else has it open in edit mode.
+  Backed by heartbeats with TTL expiry, works single-worker (in-process) and
+  multi-worker (`REDIS_URL`), and is gated behind a new admin-toggleable
+  `presence` feature flag (#723).
 - Friends can now see an accepted friend's profile picture in the Friends view;
   images continue to be served through an authenticated friendship-only route
   (#739).

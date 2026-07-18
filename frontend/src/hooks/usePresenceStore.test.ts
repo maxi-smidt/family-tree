@@ -1,0 +1,117 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { useMemberEditors, usePresenceStore } from "./usePresenceStore";
+import { useTreeStore } from "./useTreeStore";
+import { useAuthStore } from "./useAuthStore";
+import { PresenceUserDB } from "@/types/presence";
+import { Tree } from "@/types/tree";
+import { User } from "@/types/user";
+
+const TREE: Tree = { id: "t1", name: "Tree", role: "owner" };
+
+const ROWS: PresenceUserDB[] = [
+  {
+    user_id: "me",
+    display_name: "Me",
+    first_name: "Me",
+    last_name: null,
+    editing_member_id: null,
+  },
+  {
+    user_id: "u2",
+    display_name: "Anna",
+    first_name: "Anna",
+    last_name: "Smith",
+    editing_member_id: "m5",
+  },
+];
+
+beforeEach(() => {
+  usePresenceStore.getState().clear();
+  useTreeStore.setState({ selectedTree: TREE });
+  useAuthStore.setState({ user: { id: "me" } as unknown as User });
+});
+
+afterEach(() => {
+  usePresenceStore.getState().clear();
+  vi.useRealTimers();
+});
+
+describe("usePresenceStore — setRoster", () => {
+  it("maps DB rows to camelCase for the active tree", () => {
+    usePresenceStore.getState().setRoster("t1", ROWS);
+
+    const roster = usePresenceStore.getState().roster;
+    expect(roster).toEqual([
+      {
+        userId: "me",
+        displayName: "Me",
+        firstName: "Me",
+        lastName: null,
+        editingMemberId: null,
+      },
+      {
+        userId: "u2",
+        displayName: "Anna",
+        firstName: "Anna",
+        lastName: "Smith",
+        editingMemberId: "m5",
+      },
+    ]);
+  });
+
+  it("ignores a roster for a tree that is no longer active", () => {
+    usePresenceStore.getState().setRoster("other-tree", ROWS);
+    expect(usePresenceStore.getState().roster).toEqual([]);
+  });
+
+  it("clear empties the roster", () => {
+    usePresenceStore.getState().setRoster("t1", ROWS);
+    usePresenceStore.getState().clear();
+    expect(usePresenceStore.getState().roster).toEqual([]);
+  });
+
+  it("keeps a recent tree edit highlighted briefly", () => {
+    vi.useFakeTimers();
+    usePresenceStore.getState().markActivity("u2");
+
+    expect(usePresenceStore.getState().recentlyActiveUserIds).toEqual(["u2"]);
+
+    vi.advanceTimersByTime(1_499);
+    expect(usePresenceStore.getState().recentlyActiveUserIds).toEqual(["u2"]);
+
+    vi.advanceTimersByTime(1);
+    expect(usePresenceStore.getState().recentlyActiveUserIds).toEqual([]);
+  });
+});
+
+describe("useMemberEditors", () => {
+  it("returns other users editing the given member", () => {
+    usePresenceStore.getState().setRoster("t1", ROWS);
+
+    const { result } = renderHook(() => useMemberEditors("m5"));
+    expect(result.current.map((u) => u.displayName)).toEqual(["Anna"]);
+  });
+
+  it("does not report the current user as an editor of their own member", () => {
+    usePresenceStore.getState().setRoster("t1", [
+      {
+        user_id: "me",
+        display_name: "Me",
+        first_name: "Me",
+        last_name: null,
+        editing_member_id: "m9",
+      },
+    ]);
+
+    const { result } = renderHook(() => useMemberEditors("m9"));
+    expect(result.current).toEqual([]);
+  });
+
+  it("returns nothing when memberId is undefined", () => {
+    usePresenceStore.getState().setRoster("t1", ROWS);
+
+    const { result } = renderHook(() => useMemberEditors(undefined));
+    expect(result.current).toEqual([]);
+  });
+});

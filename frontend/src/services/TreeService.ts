@@ -47,6 +47,7 @@ import { QualityReport } from "@/types/quality";
 import { CombinedStatisticsReport, StatisticsReport } from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
 import { LinkGraphDB } from "@/types/linkGraph";
+import { PresenceRosterDB } from "@/types/presence";
 
 const base = (treeId: string) =>
   treeId.startsWith("vv_") ? `/virtual-views/${treeId}` : `/trees/${treeId}`;
@@ -708,5 +709,26 @@ export class TreeService {
       `/virtual-views/${id}/recompute-matches`,
       {},
     );
+  }
+
+  // --- Live presence --------------------------------------------------------
+  // Presence exists only for real trees (never virtual views), so these use the
+  // fixed `/trees` prefix rather than the vv-aware `base()` helper.
+  static sendPresence(
+    treeId: string,
+    editingMemberId: string | null,
+    signal?: AbortSignal,
+  ) {
+    return api.post<PresenceRosterDB>(
+      `/trees/${treeId}/presence`,
+      {
+        editing_member_id: editingMemberId,
+      },
+      signal,
+    );
+  }
+
+  static leavePresence(treeId: string) {
+    return api.del<void>(`/trees/${treeId}/presence`);
   }
 }

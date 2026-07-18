@@ -426,6 +426,11 @@
       "aria-label": "Linked tree navigation",
       "untitled": "Untitled tree"
     },
+    "presence": {
+      "aria-label_one": "{{count}} person is viewing this tree",
+      "aria-label_other": "{{count}} people are viewing this tree",
+      "editing-tooltip": "{{name}} (editing)"
+    },
     "main-panel": {
       "tree": "Tree",
       "list": "List",
@@ -662,6 +667,7 @@
       "detail-title": "Member Details",
       "edit-description": "Update the member's information.",
       "detail-description": "View detailed information about this family member.",
+      "presence-editing": "{{name}} is editing…",
       "saving": "Saving…",
       "saved": "Saved",
       "save-error": "Not saved",
@@ -1652,7 +1658,8 @@
         "map": "Map view",
         "sources": "Documents",
         "onboarding_tour": "Onboarding tour",
-        "tree_links": "Tree-in-tree links"
+        "tree_links": "Tree-in-tree links",
+        "presence": "Live presence"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -1667,7 +1674,8 @@
         "map": "Interactive map of timeline events by location.",
         "sources": "Reusable documents — files and links — linked to people, events and stories.",
         "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features.",
-        "tree_links": "Link a member to another tree that details their own family, and navigate between them."
+        "tree_links": "Link a member to another tree that details their own family, and navigate between them.",
+        "presence": "Show who else is currently viewing or editing the tree, with live avatars and an editing indicator."
       }
     },
     "col-username": "Username",

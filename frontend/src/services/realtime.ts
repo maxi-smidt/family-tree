@@ -20,7 +20,9 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { usePresenceStore } from "@/hooks/usePresenceStore";
 import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
+import { PresenceUserDB } from "@/types/presence";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -105,8 +107,12 @@ async function connect(): Promise<void> {
     const data = JSON.parse((e as MessageEvent).data) as {
       tree_id: string;
       domain: string;
+      actor_user_id?: string;
     };
     if (!isActiveTree(data.tree_id)) return;
+    if (data.actor_user_id) {
+      usePresenceStore.getState().markActivity(data.actor_user_id);
+    }
     domainRefreshers[data.domain]?.(data.tree_id);
   });
 
@@ -132,9 +138,24 @@ async function connect(): Promise<void> {
     );
   });
 
-  eventSource.addEventListener("tree.layout_changed", (e) => {
-    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
+  eventSource.addEventListener("presence.updated", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      users: PresenceUserDB[];
+    };
     if (!isActiveTree(data.tree_id)) return;
+    usePresenceStore.getState().setRoster(data.tree_id, data.users);
+  });
+
+  eventSource.addEventListener("tree.layout_changed", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      actor_user_id?: string;
+    };
+    if (!isActiveTree(data.tree_id)) return;
+    if (data.actor_user_id) {
+      usePresenceStore.getState().markActivity(data.actor_user_id);
+    }
     void useMemberStore.getState().refreshMembers(data.tree_id);
   });
 

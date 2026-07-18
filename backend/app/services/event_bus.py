@@ -42,6 +42,10 @@ _CHANNEL_PREFIX = "events:"
 # Glob pattern the listener PSUBSCRIBEs to — matches every per-user channel.
 _CHANNEL_PATTERN = f"{_CHANNEL_PREFIX}*"
 
+# Events that represent a real tree mutation and should briefly highlight the
+# actor's presence avatar on every active collaborator's canvas.
+_PRESENCE_ACTIVITY_EVENTS = {"tree.content_changed", "tree.layout_changed"}
+
 
 def _channel(user_id: str) -> str:
     return f"{_CHANNEL_PREFIX}{user_id}"
@@ -322,6 +326,10 @@ def publish_tree_event(
     """
     try:
         audience = tree_audience(db, tree) | set(extra_user_ids)
-        event_bus.publish(audience, event_type, data)
+        actor_id = db.info.get("tree_event_actor_id")
+        event_data = data
+        if event_type in _PRESENCE_ACTIVITY_EVENTS and isinstance(actor_id, str):
+            event_data = {**data, "actor_user_id": actor_id}
+        event_bus.publish(audience, event_type, event_data)
     except Exception:
         logger.exception("publish_tree_event failed (event_type=%s)", event_type)

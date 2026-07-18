@@ -21,6 +21,7 @@ from app.api.routes import (
     members,
     oauth,
     preferences,
+    presence,
     quality,
     relation_types,
     settings,
@@ -57,6 +58,7 @@ api_router.include_router(geocode.router)
 api_router.include_router(stories.router)
 api_router.include_router(documents.router)
 api_router.include_router(activity.router)
+api_router.include_router(presence.router)
 api_router.include_router(quality.router)
 api_router.include_router(statistics.router)
 api_router.include_router(media.router)

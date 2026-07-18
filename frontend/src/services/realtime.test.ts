@@ -82,6 +82,14 @@ vi.mock("@/hooks/useAuthStore", () => {
   };
 });
 
+vi.mock("@/hooks/usePresenceStore", () => {
+  const setRoster = vi.fn();
+  const markActivity = vi.fn();
+  return {
+    usePresenceStore: { getState: () => ({ setRoster, markActivity }) },
+  };
+});
+
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
@@ -164,6 +172,23 @@ describe("realtime", () => {
     FakeEventSource.instance!.dispatch("tree.deleted", { tree_id: "t1" });
 
     expect(loadTrees).toHaveBeenCalled();
+    stopRealtime();
+  });
+
+  it("highlights the actor when a tree mutation arrives", async () => {
+    const { usePresenceStore } = await import("@/hooks/usePresenceStore");
+    const markActivity = usePresenceStore.getState().markActivity;
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    startRealtime();
+    await waitForEventSource();
+
+    FakeEventSource.instance!.dispatch("tree.content_changed", {
+      tree_id: "t1",
+      domain: "unknown",
+      actor_user_id: "editor-1",
+    });
+
+    expect(markActivity).toHaveBeenCalledWith("editor-1");
     stopRealtime();
   });
 

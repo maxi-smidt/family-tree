@@ -57,6 +57,7 @@ interface RequestOptions {
   body?: unknown;
   formData?: FormData;
   raw?: boolean;
+  signal?: AbortSignal;
 }
 
 function buildUrl(path: string, params?: RequestOptions["params"]): string {
@@ -92,6 +93,7 @@ async function request<T>(
     method,
     headers,
     body: payload,
+    signal: options.signal,
   });
 
   if (response.status === 401) {
@@ -117,7 +119,8 @@ async function request<T>(
 export const api = {
   get: <T>(path: string, params?: RequestOptions["params"]) =>
     request<T>("GET", path, { params }),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, { body }),
+  post: <T>(path: string, body?: unknown, signal?: AbortSignal) =>
+    request<T>("POST", path, { body, signal }),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, { body }),
   patch: <T>(path: string, body?: unknown) =>
     request<T>("PATCH", path, { body }),

@@ -36,6 +36,16 @@ beforeEach(() => {
 });
 
 describe("useFriendStore", () => {
+  it("loadFriends refreshes accepted friends without fetching pending requests", async () => {
+    await useFriendStore.getState().loadFriends();
+
+    expect(useFriendStore.getState().friends.map((f) => f.user_id)).toEqual([
+      "bob",
+    ]);
+    expect(FriendService.listIncoming).not.toHaveBeenCalled();
+    expect(FriendService.listOutgoing).not.toHaveBeenCalled();
+  });
+
   it("loadAll populates friends, incoming and outgoing", async () => {
     await useFriendStore.getState().loadAll();
     const state = useFriendStore.getState();

@@ -87,6 +87,7 @@ import {
 } from "@/lib/features";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
+import { usePresence } from "@/hooks/usePresence";
 import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
 import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
@@ -118,6 +119,9 @@ export const MainPanel = () => {
     keyPrefix: "layout.main-panel",
   });
   const { t: tRoot } = useTranslation();
+
+  // Announce this client's presence and track who else is in the tree.
+  usePresence();
 
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
     if (readMemberSheetDeepLink()) return TREE_VIEW;
