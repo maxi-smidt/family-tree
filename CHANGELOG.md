@@ -32,9 +32,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
-- Documents now have a tree-wide archive with search, filtering for unlinked
-  records, pagination, direct links to people and linked timeline items, and
-  create/edit/delete controls for editors (#722).
+- Media now groups Gallery and Documents under one tab. Documents have a
+  tree-wide archive with search, filtering for unlinked records, pagination,
+  direct links to people and linked timeline items, and editor controls. They
+  can be saved without linked people, and document-card details can be
+  collapsed (#722).
 - The tree-view people search now shows current-tree matches first, then
   searches every other tree shared with the user; selecting an outside match
   opens and centers that person in its tree (#724).

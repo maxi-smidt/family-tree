@@ -440,6 +440,8 @@
     "unknown-story": "Unbekannte Geschichte",
     "open-hint": "Doppelklicken, um eine Dokumentdatei zu öffnen",
     "open-error": "Dokumentdatei konnte nicht geöffnet werden.",
+    "show-details": "Details anzeigen",
+    "hide-details": "Details ausblenden",
     "edit": "Dokument bearbeiten",
     "delete": "Dokument löschen",
     "delete-dialog": {
@@ -448,6 +450,10 @@
       "cancel": "Abbrechen",
       "confirm": "Löschen"
     }
+  },
+  "media-view": {
+    "gallery": "Galerie",
+    "documents": "Dokumente"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -462,8 +468,7 @@
     "main-panel": {
       "tree": "Stammbaum",
       "list": "Liste",
-      "gallery": "Galerie",
-      "documents": "Dokumente",
+      "media": "Medien",
       "timeline": "Timeline",
       "activity": "Aktivität",
       "quality-report": "Qualität",

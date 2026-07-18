@@ -1,4 +1,4 @@
-import { TREE_VIEW, ViewId } from "@/lib/tabs";
+import { MEDIA_VIEW, TREE_VIEW, ViewId } from "@/lib/tabs";
 
 /**
  * Feature-flag catalog — mirrors the backend registry in
@@ -30,8 +30,6 @@ export function isFeatureName(value: string): value is FeatureName {
 
 /** View tabs that only exist when their feature flag is enabled. */
 export const VIEW_FEATURES: Partial<Record<ViewId, FeatureName>> = {
-  "gallery-view": "gallery",
-  "documents-view": "sources",
   "timeline-view": "events",
   "map-view": "map",
   "activity-view": "activity_log",
@@ -43,8 +41,6 @@ export const VIEW_FEATURES: Partial<Record<ViewId, FeatureName>> = {
 export const VIEW_DOMAINS: Partial<Record<ViewId, string>> = {
   "tree-view": "tree",
   "list-view": "tree",
-  "gallery-view": "gallery",
-  "documents-view": "sources",
   "timeline-view": "events",
   "map-view": "map",
 };
@@ -59,6 +55,9 @@ export function filterViewsByFeatures(
 ): ViewId[] {
   const enabled = new Set(features);
   const visible = views.filter((view) => {
+    if (view === MEDIA_VIEW) {
+      return enabled.has("gallery") || enabled.has("sources");
+    }
     const required = VIEW_FEATURES[view];
     return required === undefined || enabled.has(required);
   });
@@ -76,6 +75,9 @@ export function filterViewsByRestrictions(
   if (restrictions.length === 0) return views;
   const hidden = new Set(restrictions);
   const visible = views.filter((view) => {
+    if (view === MEDIA_VIEW) {
+      return !hidden.has("gallery") || !hidden.has("sources");
+    }
     const domain = VIEW_DOMAINS[view];
     return domain === undefined || !hidden.has(domain);
   });

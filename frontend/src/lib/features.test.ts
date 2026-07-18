@@ -30,7 +30,7 @@ describe("filterViewsByFeatures", () => {
       (f) => f !== "gallery" && f !== "statistics",
     );
     const visible = filterViewsByFeatures([...ALL_VIEWS], features);
-    expect(visible).not.toContain("gallery-view");
+    expect(visible).toContain("media-view");
     expect(visible).not.toContain("statistics-view");
     expect(visible).toContain("tree-view");
     expect(visible).toContain("timeline-view");
@@ -47,22 +47,31 @@ describe("filterViewsByFeatures", () => {
   });
 
   it("falls back to the tree view when nothing would remain", () => {
-    const views: ViewId[] = ["gallery-view", "statistics-view"];
+    const views: ViewId[] = ["media-view", "statistics-view"];
     expect(filterViewsByFeatures(views, [])).toEqual([TREE_VIEW]);
   });
 
-  it("gates the documents view with the existing sources feature", () => {
-    const features = allFeatures.filter((feature) => feature !== "sources");
-    const visible = filterViewsByFeatures([...ALL_VIEWS], features);
+  it("keeps Media when either its Gallery or Documents feature is enabled", () => {
+    const galleryOnly = filterViewsByFeatures([...ALL_VIEWS], ["gallery"]);
+    const documentsOnly = filterViewsByFeatures([...ALL_VIEWS], ["sources"]);
 
-    expect(visible).not.toContain("documents-view");
+    expect(galleryOnly).toContain("media-view");
+    expect(documentsOnly).toContain("media-view");
   });
 });
 
 describe("filterViewsByRestrictions", () => {
-  it("hides the documents view when the sources domain is restricted", () => {
-    const visible = filterViewsByRestrictions([...ALL_VIEWS], ["sources"]);
+  it("hides Media only when both of its domains are restricted", () => {
+    const sourcesRestricted = filterViewsByRestrictions(
+      [...ALL_VIEWS],
+      ["sources"],
+    );
+    const allMediaRestricted = filterViewsByRestrictions(
+      [...ALL_VIEWS],
+      ["gallery", "sources"],
+    );
 
-    expect(visible).not.toContain("documents-view");
+    expect(sourcesRestricted).toContain("media-view");
+    expect(allMediaRestricted).not.toContain("media-view");
   });
 });

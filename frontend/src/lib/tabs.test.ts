@@ -28,9 +28,19 @@ describe("resolveTabs", () => {
   });
 
   it("hides tabs in the hidden list", () => {
-    const { visible } = resolveTabs([], ["gallery-view", "timeline-view"]);
-    expect(visible).not.toContain("gallery-view");
+    const { visible } = resolveTabs([], ["media-view", "timeline-view"]);
+    expect(visible).not.toContain("media-view");
     expect(visible).not.toContain("timeline-view");
+  });
+
+  it("migrates the former Gallery and Documents tab preferences to Media", () => {
+    const { ordered, visible } = resolveTabs(
+      ["gallery-view", "documents-view", "tree-view"],
+      ["gallery-view", "documents-view"],
+    );
+
+    expect(ordered.indexOf("media-view")).toBe(0);
+    expect(visible).not.toContain("media-view");
   });
 
   it("ignores unknown IDs in hidden list", () => {

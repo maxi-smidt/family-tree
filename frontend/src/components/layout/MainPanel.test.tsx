@@ -1,4 +1,10 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -20,6 +26,9 @@ vi.mock("@/components/view/list-view/ListView", () => ({
 }));
 vi.mock("@/components/view/gallery-view/GalleryView", () => ({
   GalleryView: () => <div>Gallery view</div>,
+}));
+vi.mock("@/components/view/media-view/MediaView", () => ({
+  MediaView: () => <div>Media view</div>,
 }));
 vi.mock("@/components/view/timeline-view/TimelineView", () => ({
   TimelineView: () => <div>Timeline view</div>,
@@ -122,6 +131,29 @@ describe("MainPanel", () => {
     expect(
       screen.queryByRole("tab", { name: "Gallery" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("groups Gallery and Documents under one Media tab", async () => {
+    useTreeStore.setState({
+      selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
+    });
+    useAuthStore.setState({ features: ["gallery", "sources"] });
+
+    render(<MainPanel />);
+
+    expect(screen.getByRole("tab", { name: "Media" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Gallery" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Documents" }),
+    ).not.toBeInTheDocument();
+    const mediaTab = screen.getByRole("tab", { name: "Media" });
+    fireEvent.mouseDown(mediaTab, { button: 0 });
+    fireEvent.click(mediaTab);
+    await waitFor(() => {
+      expect(screen.getByText("Media view")).toBeInTheDocument();
+    });
   });
 
   it("starts the tutorial when the onboarding feature arrives after preferences load", async () => {

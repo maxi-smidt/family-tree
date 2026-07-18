@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import {
   BookOpen,
   CalendarDays,
+  ChevronDown,
+  ChevronUp,
   FileText,
   Link as LinkIcon,
   Pencil,
@@ -276,10 +278,12 @@ function DocumentCard({
   const treeId = useTreeStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
+  const [detailsOpen, setDetailsOpen] = useState(true);
   const fileCount = document.files.filter(
     (file) => file.kind === "file",
   ).length;
   const linkCount = document.files.length - fileCount;
+  const detailsLabel = detailsOpen ? t("hide-details") : t("show-details");
   const unlinked =
     document.memberIds.length === 0 &&
     document.eventIds.length === 0 &&
@@ -345,88 +349,107 @@ function DocumentCard({
                 </Button>
               </div>
             )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-expanded={detailsOpen}
+              aria-label={detailsLabel}
+              title={detailsLabel}
+              onClick={() => setDetailsOpen((open) => !open)}
+            >
+              {detailsOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-          {document.description && (
-            <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
-              {document.description}
-            </p>
-          )}
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-              <FileText className="h-3.5 w-3.5" />
-              {t("file-count", { count: fileCount })}
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-              <LinkIcon className="h-3.5 w-3.5" />
-              {t("link-count", { count: linkCount })}
-            </span>
-            {unlinked && (
-              <span className="inline-flex items-center rounded-md bg-muted px-2 py-1">
-                {t("unlinked")}
-              </span>
-            )}
-          </div>
-          {!unlinked && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {document.memberIds.map((memberId) => {
-                const member = membersById.get(memberId);
-                const name = member
-                  ? `${member.firstName} ${member.lastName}`.trim()
-                  : t("unknown-member");
-                return (
-                  <Button
-                    key={memberId}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 max-w-48 gap-1 px-2"
-                    onClick={() => openMember(memberId)}
-                  >
-                    <UserRound className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{name}</span>
-                  </Button>
-                );
-              })}
-              {document.eventIds.map((eventId) => {
-                const event = eventsById.get(eventId);
-                const label = event
-                  ? `${event.eventType} · ${formatDate(event.date)}`
-                  : t("unknown-event");
-                return (
-                  <Button
-                    key={eventId}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 max-w-60 gap-1 px-2"
-                    disabled={!canNavigateTimeline}
-                    onClick={() => navigateTo("timeline-view")}
-                  >
-                    <CalendarDays className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">{label}</span>
-                  </Button>
-                );
-              })}
-              {document.storyIds.map((storyId) => {
-                const story = storiesById.get(storyId);
-                return (
-                  <Button
-                    key={storyId}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 max-w-60 gap-1 px-2"
-                    disabled={!canNavigateTimeline}
-                    onClick={() => navigateTo("timeline-view")}
-                  >
-                    <BookOpen className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">
-                      {story?.title || t("unknown-story")}
-                    </span>
-                  </Button>
-                );
-              })}
-            </div>
+          {detailsOpen && (
+            <>
+              {document.description && (
+                <p className="mt-2 line-clamp-2 whitespace-pre-wrap text-sm text-muted-foreground">
+                  {document.description}
+                </p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                  <FileText className="h-3.5 w-3.5" />
+                  {t("file-count", { count: fileCount })}
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                  <LinkIcon className="h-3.5 w-3.5" />
+                  {t("link-count", { count: linkCount })}
+                </span>
+                {unlinked && (
+                  <span className="inline-flex items-center rounded-md bg-muted px-2 py-1">
+                    {t("unlinked")}
+                  </span>
+                )}
+              </div>
+              {!unlinked && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {document.memberIds.map((memberId) => {
+                    const member = membersById.get(memberId);
+                    const name = member
+                      ? `${member.firstName} ${member.lastName}`.trim()
+                      : t("unknown-member");
+                    return (
+                      <Button
+                        key={memberId}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 max-w-48 gap-1 px-2"
+                        onClick={() => openMember(memberId)}
+                      >
+                        <UserRound className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{name}</span>
+                      </Button>
+                    );
+                  })}
+                  {document.eventIds.map((eventId) => {
+                    const event = eventsById.get(eventId);
+                    const label = event
+                      ? `${event.eventType} · ${formatDate(event.date)}`
+                      : t("unknown-event");
+                    return (
+                      <Button
+                        key={eventId}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 max-w-60 gap-1 px-2"
+                        disabled={!canNavigateTimeline}
+                        onClick={() => navigateTo("timeline-view")}
+                      >
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{label}</span>
+                      </Button>
+                    );
+                  })}
+                  {document.storyIds.map((storyId) => {
+                    const story = storiesById.get(storyId);
+                    return (
+                      <Button
+                        key={storyId}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 max-w-60 gap-1 px-2"
+                        disabled={!canNavigateTimeline}
+                        onClick={() => navigateTo("timeline-view")}
+                      >
+                        <BookOpen className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">
+                          {story?.title || t("unknown-story")}
+                        </span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

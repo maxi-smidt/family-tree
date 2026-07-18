@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -77,6 +77,34 @@ describe("DocumentsView", () => {
 
   it("filters to unlinked documents and opens a linked person in their records", () => {
     render(<DocumentsView />);
+
+    expect(screen.getByText("A scan of the certificate")).toBeInTheDocument();
+    const documentCard = screen
+      .getByText("Birth certificate")
+      .closest('[data-slot="card"]');
+    expect(documentCard).not.toBeNull();
+
+    fireEvent.click(
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "Hide details",
+      }),
+    );
+    expect(
+      within(documentCard as HTMLElement).queryByText(
+        "A scan of the certificate",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "Show details",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "Show details",
+      }),
+    );
 
     const [filter] = screen.getAllByRole("combobox");
     fireEvent.click(filter);

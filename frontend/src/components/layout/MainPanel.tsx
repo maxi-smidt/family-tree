@@ -17,14 +17,9 @@ const ListView = lazy(() =>
     default: m.ListView,
   })),
 );
-const GalleryView = lazy(() =>
-  import("@/components/view/gallery-view/GalleryView").then((m) => ({
-    default: m.GalleryView,
-  })),
-);
-const DocumentsView = lazy(() =>
-  import("@/components/view/documents-view/DocumentsView").then((m) => ({
-    default: m.DocumentsView,
+const MediaView = lazy(() =>
+  import("@/components/view/media-view/MediaView").then((m) => ({
+    default: m.MediaView,
   })),
 );
 const TimelineView = lazy(() =>
@@ -81,6 +76,7 @@ import { LEGAL_DEFAULT_LOCALE } from "@/lib/legalLocale";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  MEDIA_VIEW,
   TREE_VIEW,
   ViewId,
   isViewId,
@@ -107,8 +103,7 @@ const NO_TREE_VIEWS: ViewId[] = [
 const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "tree-view": <FlowPanel />,
   "list-view": <ListView />,
-  "gallery-view": <GalleryView />,
-  "documents-view": <DocumentsView />,
+  "media-view": <MediaView />,
   "timeline-view": <TimelineView />,
   "map-view": <MapView />,
   "activity-view": <ActivityView />,
@@ -132,6 +127,9 @@ export const MainPanel = () => {
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
     if (readMemberSheetDeepLink()) return TREE_VIEW;
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    if (stored === "gallery-view" || stored === "documents-view") {
+      return MEDIA_VIEW;
+    }
     return stored && isViewId(stored) ? stored : "tree-view";
   });
 
@@ -260,8 +258,7 @@ export const MainPanel = () => {
   const viewLabels: Record<ViewId, string> = {
     "tree-view": t("tree"),
     "list-view": t("list"),
-    "gallery-view": t("gallery"),
-    "documents-view": t("documents"),
+    "media-view": t("media"),
     "timeline-view": t("timeline"),
     "map-view": t("map"),
     "activity-view": t("activity"),

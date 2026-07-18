@@ -440,6 +440,8 @@
     "unknown-story": "Unknown story",
     "open-hint": "Double-click to open a document file",
     "open-error": "Could not open the document file.",
+    "show-details": "Show details",
+    "hide-details": "Hide details",
     "edit": "Edit document",
     "delete": "Delete document",
     "delete-dialog": {
@@ -448,6 +450,10 @@
       "cancel": "Cancel",
       "confirm": "Delete"
     }
+  },
+  "media-view": {
+    "gallery": "Gallery",
+    "documents": "Documents"
   },
   "layout": {
     "tree-breadcrumb": {
@@ -462,8 +468,7 @@
     "main-panel": {
       "tree": "Tree",
       "list": "List",
-      "gallery": "Gallery",
-      "documents": "Documents",
+      "media": "Media",
       "timeline": "Timeline",
       "activity": "Activity",
       "quality-report": "Quality",
