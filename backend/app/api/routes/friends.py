@@ -1,11 +1,15 @@
-"""Friend requests and the accepted-friends graph.
+"""Friend requests, the accepted-friends graph, and private friend avatars.
 
 Authenticated users only. Tree sharing with a registered user is gated on an
 accepted friendship (enforced in ``trees.py``); this router is how those
-friendships are formed and torn down.
+friendships are formed and torn down. Profile images are exposed only through
+the accepted-friend route below, never through the general tree-media route.
 """
 
+import mimetypes
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
@@ -16,6 +20,7 @@ from app.models import Friendship, User
 from app.schemas.friendship import FriendOut, FriendRequestCreate, UserSearchResult
 from app.services import friendships
 from app.services.event_bus import event_bus
+from app.services.storage import profile_image_path
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
@@ -141,6 +146,29 @@ def send_request(
             {"requester_id": user.id, "requester_username": user.username},
         )
     return friendships.to_friend_out(db, friendship, user.id)
+
+
+@router.get("/{user_id}/profile-image/{filename}")
+def get_friend_profile_image(
+    user_id: str,
+    filename: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Serve an accepted friend's current profile image to that friend only."""
+    target = db.get(User, user_id)
+    if (
+        target is None
+        or target.profile_image != filename
+        or not friendships.are_friends(db, user.id, target.id)
+    ):
+        raise HTTPException(status_code=404, detail="Profile image not found")
+
+    path = profile_image_path(target.id, filename)
+    if path is None or not path.is_file():
+        raise HTTPException(status_code=404, detail="Profile image not found")
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    return FileResponse(path, media_type=media_type)
 
 
 def _require_friendship(db: Session, user: User, other_id: str) -> Friendship:

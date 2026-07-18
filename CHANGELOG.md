@@ -30,6 +30,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   Backed by heartbeats with TTL expiry, works single-worker (in-process) and
   multi-worker (`REDIS_URL`), and is gated behind a new admin-toggleable
   `presence` feature flag (#723).
+- Friends can now see an accepted friend's profile picture in the Friends view;
+  images continue to be served through an authenticated friendship-only route
+  (#739).
 - The Statistics view now has an “On this day” widget for upcoming birthdays,
   death anniversaries, dated events, and stories, with direct links to people
   in the tree (#727).

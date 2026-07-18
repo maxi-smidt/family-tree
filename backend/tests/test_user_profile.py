@@ -7,7 +7,7 @@ import pytest
 from app.core.config import settings
 from app.services.storage_usage import compute_owner_usage
 from app.services.user_purge import purge_user
-from tests.conftest import API, auth, make_user
+from tests.conftest import API, auth, befriend, make_user
 
 _PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
@@ -91,6 +91,50 @@ def test_profile_image_is_private_replaceable_and_removable(
     assert removed.json()["profile_image_url"] is None
     assert client.get(second_url, headers=auth(alice)).status_code == 404
     assert not [path for path in profile_media_root.rglob("*") if path.is_file()]
+
+
+def test_profile_image_is_available_only_to_accepted_friends(
+    client, db, profile_media_root
+):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    carol = make_user(db, "carol")
+    alice.first_name = "Ada"
+    alice.last_name = "Lovelace"
+    db.commit()
+
+    uploaded = _upload(client, alice)
+    assert uploaded.status_code == 200, uploaded.text
+    # The original self-only URL stays private, even from an accepted friend.
+    assert (
+        client.get(uploaded.json()["profile_image_url"], headers=auth(bob)).status_code
+        == 404
+    )
+
+    request = befriend(db, alice, bob, status="pending")
+    pending = client.get(f"{API}/friends/incoming", headers=auth(bob))
+    assert pending.json()[0]["profile_image_url"] is None
+
+    request.status = "accepted"
+    db.commit()
+    friends = client.get(f"{API}/friends", headers=auth(bob))
+    assert friends.status_code == 200
+    friend = friends.json()[0]
+    assert friend["first_name"] == "Ada"
+    assert friend["last_name"] == "Lovelace"
+    assert friend["profile_image_url"].startswith(
+        f"{API}/friends/{alice.id}/profile-image/"
+    )
+
+    profile_url = friend["profile_image_url"]
+    assert client.get(profile_url, headers=auth(bob)).status_code == 200
+    assert client.get(profile_url, headers=auth(carol)).status_code == 404
+
+    assert (
+        client.delete(f"{API}/friends/{alice.id}", headers=auth(bob)).status_code
+        == 204
+    )
+    assert client.get(profile_url, headers=auth(bob)).status_code == 404
 
 
 def test_profile_image_uses_validation_without_consuming_media_quota(client, db):
