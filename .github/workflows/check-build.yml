@@ -23,7 +23,11 @@ concurrency:
 
 jobs:
   # Detect which areas a PR touched so the irrelevant heavy jobs can be skipped.
-  # On push/tag we always run everything (full validation before publishing).
+  #
+  # Deliberate CI policy: run the full matrix for every main push and release
+  # tag, even when its PR already passed. A merge commit can differ from the
+  # tested PR head (for example after a squash/rebase or concurrent merges),
+  # so this is the authoritative validation gate before publishing images.
   changes:
     name: "Detect changed areas"
     runs-on: ubuntu-latest
@@ -299,6 +303,8 @@ jobs:
   images:
     name: "Build & push ${{ matrix.service }} image"
     needs: [check-build, release-e2e]
+    # Main images publish only after the post-merge full matrix; release images
+    # additionally require the unchanged release E2E gate.
     if: |
       always() &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
