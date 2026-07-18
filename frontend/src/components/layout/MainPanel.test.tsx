@@ -28,7 +28,9 @@ vi.mock("@/components/view/gallery-view/GalleryView", () => ({
   GalleryView: () => <div>Gallery view</div>,
 }));
 vi.mock("@/components/view/media-view/MediaView", () => ({
-  MediaView: () => <div>Media view</div>,
+  MediaView: ({ section }: { section: string }) => (
+    <div>Media {section} view</div>
+  ),
 }));
 vi.mock("@/components/view/timeline-view/TimelineView", () => ({
   TimelineView: () => <div>Timeline view</div>,
@@ -133,7 +135,7 @@ describe("MainPanel", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("groups Gallery and Documents under one Media tab", async () => {
+  it("opens Gallery and Documents from the Media tab menu", async () => {
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
@@ -149,10 +151,14 @@ describe("MainPanel", () => {
       screen.queryByRole("tab", { name: "Documents" }),
     ).not.toBeInTheDocument();
     const mediaTab = screen.getByRole("tab", { name: "Media" });
-    fireEvent.mouseDown(mediaTab, { button: 0 });
+    fireEvent.pointerDown(mediaTab, { button: 0, ctrlKey: false });
     fireEvent.click(mediaTab);
+    expect(
+      screen.getByRole("menuitem", { name: "Gallery" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Documents" }));
     await waitFor(() => {
-      expect(screen.getByText("Media view")).toBeInTheDocument();
+      expect(screen.getByText("Media documents view")).toBeInTheDocument();
     });
   });
 

@@ -662,11 +662,7 @@ export const DocumentDialog = ({
             <Button
               type="submit"
               size="sm"
-              disabled={
-                submitting ||
-                !formData.title.trim() ||
-                selectedMemberIds.length === 0
-              }
+              disabled={submitting || !formData.title.trim()}
             >
               {t("save")}
             </Button>

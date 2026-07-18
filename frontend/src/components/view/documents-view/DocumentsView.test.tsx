@@ -83,6 +83,16 @@ describe("DocumentsView", () => {
       .getByText("Birth certificate")
       .closest('[data-slot="card"]');
     expect(documentCard).not.toBeNull();
+    expect(
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "Hide details",
+      }),
+    ).toHaveClass("border");
+    expect(
+      within(documentCard as HTMLElement).getByRole("button", {
+        name: "Delete document",
+      }),
+    ).toHaveClass("text-destructive");
 
     fireEvent.click(
       within(documentCard as HTMLElement).getByRole("button", {

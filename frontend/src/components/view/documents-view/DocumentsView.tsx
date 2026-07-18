@@ -325,45 +325,51 @@ function DocumentCard({
                 </p>
               )}
             </div>
-            {canWrite && (
-              <div className="flex shrink-0 gap-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t("edit")}
-                  title={t("edit")}
-                  onClick={onEdit}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t("delete")}
-                  title={t("delete")}
-                  onClick={onDelete}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-expanded={detailsOpen}
-              aria-label={detailsLabel}
-              title={detailsLabel}
-              onClick={() => setDetailsOpen((open) => !open)}
-            >
-              {detailsOpen ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-expanded={detailsOpen}
+                aria-label={detailsLabel}
+                title={detailsLabel}
+                onClick={() => setDetailsOpen((open) => !open)}
+              >
+                {detailsOpen ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+              {canWrite && (
+                <>
+                  <div className="mx-1 h-5 border-l" aria-hidden="true" />
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={t("edit")}
+                      title={t("edit")}
+                      onClick={onEdit}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive hover:text-destructive"
+                      aria-label={t("delete")}
+                      title={t("delete")}
+                      onClick={onDelete}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </>
               )}
-            </Button>
+            </div>
           </div>
           {detailsOpen && (
             <>

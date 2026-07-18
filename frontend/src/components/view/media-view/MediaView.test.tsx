@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -20,32 +20,27 @@ describe("MediaView", () => {
     });
   });
 
-  it("groups Gallery and Documents under nested Media options", async () => {
+  it("renders the Gallery section selected from the Media menu", () => {
     useAuthStore.setState({ features: ["gallery", "sources"] });
 
-    render(<MediaView />);
+    render(<MediaView section="gallery" />);
 
-    expect(screen.getByRole("tab", { name: "Gallery" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Documents" })).toBeInTheDocument();
     expect(screen.getByText("Gallery content")).toBeInTheDocument();
-
-    const documentsTab = screen.getByRole("tab", { name: "Documents" });
-    fireEvent.mouseDown(documentsTab, { button: 0 });
-    fireEvent.click(documentsTab);
-    await waitFor(() => {
-      expect(screen.getByText("Documents content")).toBeInTheDocument();
-    });
   });
 
-  it("only shows the accessible media option", () => {
+  it("falls back to Documents when Gallery is unavailable", () => {
     useAuthStore.setState({ features: ["sources"] });
 
-    render(<MediaView />);
+    render(<MediaView section="gallery" />);
 
-    expect(
-      screen.queryByRole("tab", { name: "Gallery" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Documents" })).toBeInTheDocument();
     expect(screen.getByText("Documents content")).toBeInTheDocument();
+  });
+
+  it("falls back to Gallery when Documents is unavailable", () => {
+    useAuthStore.setState({ features: ["gallery"] });
+
+    render(<MediaView section="documents" />);
+
+    expect(screen.getByText("Gallery content")).toBeInTheDocument();
   });
 });

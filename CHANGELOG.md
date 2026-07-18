@@ -32,7 +32,7 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
-- Media now groups Gallery and Documents under one tab. Documents have a
+- Media now opens Gallery and Documents from one tab menu. Documents have a
   tree-wide archive with search, filtering for unlinked records, pagination,
   direct links to people and linked timeline items, and editor controls. They
   can be saved without linked people, and document-card details can be
