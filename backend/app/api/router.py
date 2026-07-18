@@ -24,6 +24,7 @@ from app.api.routes import (
     presence,
     quality,
     relation_types,
+    search,
     settings,
     sse,
     statistics,
@@ -44,6 +45,7 @@ api_router.include_router(features.router)
 api_router.include_router(friends.router)
 api_router.include_router(relation_types.router)
 api_router.include_router(relation_types.admin_router)
+api_router.include_router(search.router)
 api_router.include_router(backups.router)
 api_router.include_router(trees.router)
 api_router.include_router(invitations.router)

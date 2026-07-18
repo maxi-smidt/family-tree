@@ -25,6 +25,7 @@ import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { hasFeature } from "@/hooks/useAuthStore";
+import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 
 export const isVirtualId = (id: string) => id.startsWith("vv_");
 
@@ -60,6 +61,7 @@ interface DatabaseState {
 
   loadTrees: () => Promise<void>;
   openTreeById: (treeId: string) => Promise<Tree>;
+  openTreeAndLocateMember: (treeId: string, memberId: string) => Promise<void>;
   unlockPublicTree: (treeId: string, password: string) => Promise<Tree>;
   createTree: (name: string, options?: { select?: boolean }) => Promise<Tree>;
   openLinkedTree: (
@@ -160,6 +162,19 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     if (requestVersion !== treeRequestVersion) return tree;
     await get().selectTree(tree);
     return tree;
+  },
+
+  openTreeAndLocateMember: async (treeId: string, memberId: string) => {
+    const tree = await get().openTreeById(treeId);
+    if (!isActiveTree(tree.id)) return;
+    useMemberSheetStore.getState().setOpenSheet(tree.id, {
+      memberId,
+      tab: "identity",
+      mode: "view",
+    });
+    // Set after the tree transition: connect() clears the member store, and
+    // the canvas consumes this once the selected member has finished loading.
+    useMemberStore.getState().setPendingLocateMemberId(memberId);
   },
 
   unlockPublicTree: async (treeId: string, password: string) => {

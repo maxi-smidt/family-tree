@@ -81,6 +81,9 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
   const treeLinksEnabled = useFeature("tree_links");
   const activeTree = useTreeStore((s) => s.selectedTree);
+  const openTreeAndLocateMember = useTreeStore(
+    (s) => s.openTreeAndLocateMember,
+  );
   const savedMemberSheetState = useMemberSheetStore((s) =>
     activeTree?.id ? s.openSheets[activeTree.id] : undefined,
   );
@@ -703,6 +706,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               windowed={windowed}
               treeId={activeTree?.id}
               onFocusRoot={setFocusRoot}
+              onOpenOtherTree={openTreeAndLocateMember}
             />
             {windowed && neighborhoodTruncated && (
               <div className="rounded-md border bg-background/90 px-3 py-1.5 text-xs text-muted-foreground shadow-md">

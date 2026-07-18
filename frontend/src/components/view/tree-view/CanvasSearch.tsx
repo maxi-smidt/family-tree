@@ -1,15 +1,38 @@
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Search, X } from "lucide-react";
+import { ArrowUpRight, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Member, MemberDB } from "@/types/member";
-import { TreeService } from "@/services/TreeService";
+import { Member, MemberDB, MemberSearchHitDB } from "@/types/member";
+import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { getMemberSearchText, formatMemberSubLabel } from "@/utils/memberUtils";
+import { toast } from "sonner";
 
-const MAX_RESULTS = 8;
+const MAX_CURRENT_RESULTS = 8;
+const MAX_RESULTS_PER_OTHER_TREE = 8;
+const MAX_OTHER_TREE_RESULTS = 40;
 const SEARCH_DEBOUNCE_MS = 300;
+
+type CurrentSearchMember = Member | MemberDB;
+
+interface CurrentSearchResult {
+  kind: "current";
+  member: CurrentSearchMember;
+}
+
+interface OtherTreeSearchResult {
+  kind: "other";
+  member: MemberSearchHitDB;
+}
+
+type SearchResult = CurrentSearchResult | OtherTreeSearchResult;
+
+interface OtherTreeGroup {
+  treeId: string;
+  treeName: string;
+  members: MemberSearchHitDB[];
+}
 
 interface CanvasSearchProps {
   members: Member[];
@@ -19,12 +42,23 @@ interface CanvasSearchProps {
   windowed?: boolean;
   treeId?: string;
   onFocusRoot?: (memberId: string) => void;
+  onOpenOtherTree: (treeId: string, memberId: string) => Promise<void>;
+}
+
+function memberName(member: CurrentSearchMember | MemberSearchHitDB): string {
+  return `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim();
+}
+
+function memberBirthDate(
+  member: CurrentSearchMember | MemberSearchHitDB,
+): string | null {
+  return "date" in member ? member.date.birth : member.dateOfBirth;
 }
 
 /**
- * Search box rendered on the tree canvas. In normal mode filters members
- * client-side; in windowed mode issues a debounced server-side search and
- * re-roots the neighborhood on select.
+ * Search box rendered on the tree canvas. The current tree always finishes
+ * first; only then does a second, capped request look through the user's
+ * other readable trees.
  */
 export const CanvasSearch = ({
   members,
@@ -33,62 +67,134 @@ export const CanvasSearch = ({
   windowed = false,
   treeId,
   onFocusRoot,
+  onOpenOtherTree,
 }: CanvasSearchProps) => {
   const { t } = useTranslation(undefined, { keyPrefix: "tree-view.search" });
+  const searchMembers = useMemberStore((s) => s.searchMembers);
+  const searchOtherTrees = useMemberStore((s) => s.searchOtherTrees);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [serverResults, setServerResults] = useState<MemberDB[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [otherTreeResults, setOtherTreeResults] = useState<MemberSearchHitDB[]>(
+    [],
+  );
+  const [isSearchingCurrent, setIsSearchingCurrent] = useState(false);
+  const [isSearchingOtherTrees, setIsSearchingOtherTrees] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestRef = useRef(0);
 
-  // Client-side results for normal mode.
+  // Client-side results for a normally loaded tree are available immediately.
   const clientResults = useMemo(() => {
     if (windowed) return [];
-    const q = query.trim().toLowerCase();
-    if (!q) return [];
+    const normalizedQuery = query.trim().toLowerCase();
+    if (!normalizedQuery) return [];
     return members
-      .filter((m) => getMemberSearchText(m).toLowerCase().includes(q))
-      .slice(0, MAX_RESULTS);
+      .filter((member) =>
+        getMemberSearchText(member).toLowerCase().includes(normalizedQuery),
+      )
+      .slice(0, MAX_CURRENT_RESULTS);
   }, [members, query, windowed]);
 
-  // Server-side search for windowed mode.
+  // A windowed tree needs a server request to complete its current-tree
+  // results. Once that is complete (or a normal tree's local pass is ready),
+  // start the second search for other readable trees.
   useEffect(() => {
-    if (!windowed || !treeId) return;
-    const q = query.trim();
-    if (!q) {
+    const normalizedQuery = query.trim();
+    const requestId = ++searchRequestRef.current;
+    const isCurrentRequest = () => requestId === searchRequestRef.current;
+
+    setOtherTreeResults([]);
+    setIsSearchingOtherTrees(false);
+
+    if (!normalizedQuery) {
       setServerResults([]);
-      setIsSearching(false);
+      setIsSearchingCurrent(false);
       return;
     }
-    setIsSearching(true);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const results = await TreeService.searchMembers(treeId, q, MAX_RESULTS);
-        setServerResults(results);
-      } catch {
-        setServerResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, SEARCH_DEBOUNCE_MS);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, windowed, treeId]);
 
-  const results = windowed ? serverResults : clientResults;
+    const searchRemainingTrees = async () => {
+      setIsSearchingOtherTrees(true);
+      try {
+        const results = await searchOtherTrees(
+          normalizedQuery,
+          treeId,
+          MAX_RESULTS_PER_OTHER_TREE,
+          MAX_OTHER_TREE_RESULTS,
+        );
+        if (isCurrentRequest()) setOtherTreeResults(results);
+      } catch {
+        if (isCurrentRequest()) setOtherTreeResults([]);
+      } finally {
+        if (isCurrentRequest()) setIsSearchingOtherTrees(false);
+      }
+    };
+
+    if (!windowed || !treeId) {
+      setServerResults([]);
+      setIsSearchingCurrent(false);
+      const timer = setTimeout(() => {
+        void searchRemainingTrees();
+      }, SEARCH_DEBOUNCE_MS);
+      return () => clearTimeout(timer);
+    }
+
+    setIsSearchingCurrent(true);
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const results = await searchMembers(
+            treeId,
+            normalizedQuery,
+            MAX_CURRENT_RESULTS,
+          );
+          if (isCurrentRequest()) setServerResults(results);
+        } catch {
+          if (isCurrentRequest()) setServerResults([]);
+        } finally {
+          if (isCurrentRequest()) setIsSearchingCurrent(false);
+        }
+        if (isCurrentRequest()) await searchRemainingTrees();
+      })();
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query, searchMembers, searchOtherTrees, treeId, windowed]);
+
+  const currentResults: CurrentSearchMember[] = windowed
+    ? serverResults
+    : clientResults;
+  const otherTreeGroups = useMemo(() => {
+    const groups = new Map<string, OtherTreeGroup>();
+    for (const member of otherTreeResults) {
+      const existing = groups.get(member.treeId);
+      if (existing) {
+        existing.members.push(member);
+      } else {
+        groups.set(member.treeId, {
+          treeId: member.treeId,
+          treeName: member.treeName,
+          members: [member],
+        });
+      }
+    }
+    return [...groups.values()];
+  }, [otherTreeResults]);
+  const selectableResults = useMemo<SearchResult[]>(
+    () => [
+      ...currentResults.map((member) => ({ kind: "current" as const, member })),
+      ...otherTreeResults.map((member) => ({ kind: "other" as const, member })),
+    ],
+    [currentResults, otherTreeResults],
+  );
 
   // Keep the active option in range whenever the result set changes.
-  useEffect(() => setActiveIndex(0), [results]);
+  useEffect(() => setActiveIndex(0), [selectableResults]);
 
   // Close the dropdown when clicking outside the search box.
   useEffect(() => {
     if (!isOpen) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!containerRef.current?.contains(e.target as globalThis.Node)) {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as globalThis.Node)) {
         setIsOpen(false);
       }
     };
@@ -96,42 +202,123 @@ export const CanvasSearch = ({
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [isOpen]);
 
-  const selectClient = (member: Member) => {
-    onLocate(member);
+  const selectCurrent = (member: CurrentSearchMember) => {
+    if (windowed) {
+      onFocusRoot?.(member.id);
+      setQuery("");
+      setIsOpen(false);
+      return;
+    }
+    onLocate(member as Member);
     setIsOpen(false);
   };
 
-  const selectServer = (member: MemberDB) => {
-    onFocusRoot?.(member.id);
-    setQuery("");
-    setIsOpen(false);
+  const selectOtherTree = async (member: MemberSearchHitDB) => {
+    try {
+      await onOpenOtherTree(member.treeId, member.id);
+      setQuery("");
+      setIsOpen(false);
+    } catch {
+      toast.error(t("open-error"));
+    }
   };
 
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    e.stopPropagation();
-    if (!results.length) return;
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveIndex((i) => (i + 1) % results.length);
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveIndex((i) => (i - 1 + results.length) % results.length);
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      const item = results[activeIndex];
-      if (!item) return;
-      if (windowed) {
-        selectServer(item as MemberDB);
-      } else {
-        selectClient(item as Member);
-      }
-    } else if (e.key === "Escape") {
+  const selectResult = (result: SearchResult) => {
+    if (result.kind === "other") {
+      void selectOtherTree(result.member);
+      return;
+    }
+    selectCurrent(result.member);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    event.stopPropagation();
+    if (!selectableResults.length) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((index) => (index + 1) % selectableResults.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex(
+        (index) =>
+          (index - 1 + selectableResults.length) % selectableResults.length,
+      );
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      const result = selectableResults[activeIndex];
+      if (result) selectResult(result);
+    } else if (event.key === "Escape") {
       setIsOpen(false);
     }
   };
 
   const showResults = isOpen && query.trim().length > 0;
-  const showSpinner = windowed && isSearching && query.trim().length > 0;
+  const hasOtherTreeSection =
+    isSearchingOtherTrees || otherTreeGroups.length > 0;
+  const hasNoResults =
+    !isSearchingCurrent &&
+    !isSearchingOtherTrees &&
+    selectableResults.length === 0;
+
+  const renderMemberResult = (
+    member: CurrentSearchMember | MemberSearchHitDB,
+    index: number,
+    kind: SearchResult["kind"],
+  ) => {
+    const name = memberName(member) || t("unnamed");
+    const sublabel = formatMemberSubLabel(
+      member.maidenName,
+      memberBirthDate(member),
+      (maidenName) => t("nee", { name: maidenName }),
+    );
+    const isOtherTree = kind === "other";
+    const treeName = isOtherTree ? (member as MemberSearchHitDB).treeName : "";
+
+    return (
+      <li
+        key={
+          isOtherTree
+            ? `${(member as MemberSearchHitDB).treeId}:${member.id}`
+            : member.id
+        }
+      >
+        <button
+          type="button"
+          className={`flex w-full items-start gap-2 px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
+            index === activeIndex ? "bg-accent text-accent-foreground" : ""
+          }`}
+          onPointerEnter={() => setActiveIndex(index)}
+          onClick={() =>
+            selectResult(
+              isOtherTree
+                ? { kind: "other", member: member as MemberSearchHitDB }
+                : { kind: "current", member: member as CurrentSearchMember },
+            )
+          }
+          aria-label={
+            isOtherTree
+              ? t("open-other-tree", { tree: treeName, member: name })
+              : undefined
+          }
+        >
+          <span className="flex min-w-0 flex-1 flex-col items-start">
+            <span className="font-medium">{name}</span>
+            {sublabel && (
+              <span className="text-xs text-muted-foreground">{sublabel}</span>
+            )}
+          </span>
+          {isOtherTree && (
+            <ArrowUpRight
+              className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+              aria-hidden="true"
+            />
+          )}
+        </button>
+      </li>
+    );
+  };
+
+  let otherTreeIndex = currentResults.length;
 
   return (
     <div ref={containerRef} className={cn("w-64", className)}>
@@ -140,8 +327,8 @@ export const CanvasSearch = ({
         <Input
           value={query}
           placeholder={t("placeholder")}
-          onChange={(e) => {
-            setQuery(e.target.value);
+          onChange={(event) => {
+            setQuery(event.target.value);
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
@@ -165,80 +352,60 @@ export const CanvasSearch = ({
       </div>
 
       {showResults && (
-        <ul className="mt-1 max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
-          {showSpinner ? (
+        <ul className="mt-1 max-h-80 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-md">
+          {isSearchingCurrent ? (
             <li className="px-3 py-2 text-sm text-muted-foreground">
               {t("searching")}
             </li>
-          ) : results.length === 0 ? (
+          ) : (
+            currentResults.length > 0 && (
+              <>
+                {hasOtherTreeSection && (
+                  <li className="px-3 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+                    {t("current-tree")}
+                  </li>
+                )}
+                {currentResults.map((member, index) =>
+                  renderMemberResult(member, index, "current"),
+                )}
+              </>
+            )
+          )}
+
+          {hasOtherTreeSection && (
+            <li className="border-t">
+              <div className="px-3 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+                {t("other-trees")}
+              </div>
+              {isSearchingOtherTrees ? (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  {t("other-trees-searching")}
+                </div>
+              ) : (
+                <ul>
+                  {otherTreeGroups.map((group) => (
+                    <li key={group.treeId}>
+                      <div className="px-3 pb-1 pt-2 text-xs text-muted-foreground">
+                        {group.treeName}
+                      </div>
+                      <ul>
+                        {group.members.map((member) => {
+                          const index = otherTreeIndex;
+                          otherTreeIndex += 1;
+                          return renderMemberResult(member, index, "other");
+                        })}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          )}
+
+          {hasNoResults && (
             <li className="px-3 py-2 text-sm text-muted-foreground">
               {t("no-results")}
             </li>
-          ) : windowed ? (
-            serverResults.map((member, index) => {
-              const name =
-                `${member.firstName ?? ""} ${member.lastName ?? ""}`.trim();
-              return (
-                <li key={member.id}>
-                  <button
-                    type="button"
-                    className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
-                      index === activeIndex
-                        ? "bg-accent text-accent-foreground"
-                        : ""
-                    }`}
-                    onPointerEnter={() => setActiveIndex(index)}
-                    onClick={() => selectServer(member)}
-                  >
-                    <span className="font-medium">{name || t("unnamed")}</span>
-                    {(() => {
-                      const sub = formatMemberSubLabel(
-                        member.maidenName,
-                        member.dateOfBirth,
-                        (name) => t("nee", { name }),
-                      );
-                      return sub ? (
-                        <span className="text-xs text-muted-foreground">
-                          {sub}
-                        </span>
-                      ) : null;
-                    })()}
-                  </button>
-                </li>
-              );
-            })
-          ) : (
-            clientResults.map((member, index) => (
-              <li key={member.id}>
-                <button
-                  type="button"
-                  className={`flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground ${
-                    index === activeIndex
-                      ? "bg-accent text-accent-foreground"
-                      : ""
-                  }`}
-                  onPointerEnter={() => setActiveIndex(index)}
-                  onClick={() => selectClient(member)}
-                >
-                  <span className="font-medium">
-                    {`${member.firstName} ${member.lastName}`.trim() ||
-                      t("unnamed")}
-                  </span>
-                  {(() => {
-                    const sub = formatMemberSubLabel(
-                      member.maidenName,
-                      member.date.birth,
-                      (name) => t("nee", { name }),
-                    );
-                    return sub ? (
-                      <span className="text-xs text-muted-foreground">
-                        {sub}
-                      </span>
-                    ) : null;
-                  })()}
-                </button>
-              </li>
-            ))
           )}
         </ul>
       )}

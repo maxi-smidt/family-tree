@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import (
@@ -55,6 +55,7 @@ from app.services.activity import record_activity
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
+from app.services.member_search import MEMBER_SURFACE_COLUMNS, member_name_search_clause
 from app.services.member_subtrees import create_linked_subtree
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.settings_service import get_media_limits
@@ -69,36 +70,6 @@ from app.services.storage import (
 from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
-
-# Columns selected for the lightweight "surface" projection (everything in
-# MemberSurfaceOut). Shared by the member list, search and neighborhood
-# endpoints so the three stay in lockstep. The heavier detail field
-# (additional_data) stays deferred to the per-member fetch.
-_MEMBER_SURFACE_COLUMNS = (
-    Member.id,
-    Member.gender,
-    Member.academic_title,
-    Member.first_name,
-    Member.middle_names,
-    Member.baptismal_name,
-    Member.last_name,
-    Member.maiden_name,
-    Member.image_data,
-    Member.date_of_birth,
-    Member.date_of_death,
-    Member.date_of_birth_sort,
-    Member.date_of_death_sort,
-    Member.deceased,
-    Member.birthplace,
-    Member.hometown,
-    Member.cemetery,
-    Member.places_lived,
-    Member.is_collapsed,
-    Member.position_x,
-    Member.position_y,
-    Member.linked_tree_id,
-    Member.linked_member_id,
-)
 
 _PUBLIC_MEMBER_COLUMNS = (
     Member.id,
@@ -258,7 +229,7 @@ def list_members(
         return JSONResponse(content=_public_member_payloads(rows))
     if surface:
         stmt = (
-            select(*_MEMBER_SURFACE_COLUMNS)
+            select(*MEMBER_SURFACE_COLUMNS)
             .where(Member.tree_id == tree.id)
             .order_by(Member.id)
         )
@@ -415,18 +386,13 @@ def search_members(
     """Full-text name search scoped to the tree.  Declared before
     ``/members/{member_id}`` so the literal ``search`` path is not captured
     as a member id."""
-    pattern = f"%{q}%"
     public_only = _public_only(db, tree, user)
-    columns = _PUBLIC_MEMBER_COLUMNS if public_only else _MEMBER_SURFACE_COLUMNS
+    columns = _PUBLIC_MEMBER_COLUMNS if public_only else MEMBER_SURFACE_COLUMNS
     stmt = (
         select(*columns)
         .where(
             Member.tree_id == tree.id,
-            or_(
-                Member.first_name.ilike(pattern),
-                Member.last_name.ilike(pattern),
-                Member.maiden_name.ilike(pattern),
-            ),
+            member_name_search_clause(q),
         )
         .order_by(Member.last_name, Member.first_name)
         .limit(limit)
@@ -483,7 +449,7 @@ def get_neighborhood(
     )
 
     public_only = _public_only(db, tree, user)
-    columns = _PUBLIC_MEMBER_COLUMNS if public_only else _MEMBER_SURFACE_COLUMNS
+    columns = _PUBLIC_MEMBER_COLUMNS if public_only else MEMBER_SURFACE_COLUMNS
     surface_stmt = (
         select(*columns)
         .where(Member.tree_id == tree.id, Member.id.in_(member_ids))

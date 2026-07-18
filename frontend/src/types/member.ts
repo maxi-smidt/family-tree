@@ -161,6 +161,12 @@ export interface MemberDB {
   isMerged?: boolean;
 }
 
+/** A lightweight member hit returned by the authenticated cross-tree search. */
+export interface MemberSearchHitDB extends MemberDB {
+  treeId: string;
+  treeName: string;
+}
+
 export interface RelationDB {
   from_member_id: string;
   to_member_id: string;

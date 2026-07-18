@@ -23,6 +23,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- The tree-view people search now shows current-tree matches first, then
+  searches every other tree shared with the user; selecting an outside match
+  opens and centers that person in its tree (#724).
 - Live collaboration presence: avatar chips in the tree canvas show who else is
   currently viewing the open tree — including yourself and accepted friends
   with profile pictures, and other collaborators with initials/icon fallbacks —

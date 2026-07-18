@@ -14,6 +14,7 @@ import {
 import {
   Member,
   MemberDB,
+  MemberSearchHitDB,
   MemberUpdate,
   RelationDB,
   RelationType,
@@ -105,6 +106,24 @@ export class TreeService {
   static searchMembers(treeId: string, q: string, limit = 20) {
     const params = new URLSearchParams({ q, limit: String(limit) });
     return api.get<MemberDB[]>(`${base(treeId)}/members/search?${params}`);
+  }
+
+  /** Search readable trees other than the active one. */
+  static searchOtherTrees(
+    q: string,
+    excludeTreeId?: string,
+    perTreeLimit = 8,
+    limit = 40,
+  ) {
+    const params = new URLSearchParams({
+      q,
+      per_tree_limit: String(perTreeLimit),
+      limit: String(limit),
+    });
+    if (excludeTreeId && !excludeTreeId.startsWith("vv_")) {
+      params.set("exclude_tree_id", excludeTreeId);
+    }
+    return api.get<MemberSearchHitDB[]>(`/search?${params}`);
   }
 
   static getRelations(treeId: string) {
