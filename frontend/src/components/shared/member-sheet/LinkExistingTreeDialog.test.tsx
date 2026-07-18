@@ -179,6 +179,14 @@ describe("LinkExistingTreeDialog", () => {
     );
 
     await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(TreeService.getLinkCandidates).toHaveBeenCalledWith(
+        SOURCE_TREE_ID,
+        "a1",
+        "tree-b",
+      ),
+    );
+    await waitFor(() => expect(screen.getByRole("combobox")).toBeEnabled());
     fireEvent.click(screen.getByRole("combobox"));
     fireEvent.click(await screen.findByText("Jo Doe"));
 
@@ -233,6 +241,14 @@ describe("LinkExistingTreeDialog", () => {
     );
 
     await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(TreeService.getLinkCandidates).toHaveBeenCalledWith(
+        SOURCE_TREE_ID,
+        "a1",
+        "tree-b",
+      ),
+    );
+    await waitFor(() => expect(screen.getByRole("combobox")).toBeEnabled());
     fireEvent.click(screen.getByRole("combobox"));
     fireEvent.click(await screen.findByText("Jo Doe"));
 

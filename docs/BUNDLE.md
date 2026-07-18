@@ -15,12 +15,12 @@ first time their view opens.
 
 Concretely:
 
-| Library (chunk)                | Loaded                                   |
-| ------------------------------ | ---------------------------------------- |
-| `@xyflow/react` (graph)        | on demand — tree view / linked-trees dialog |
-| `leaflet` + `react-leaflet` (map) | on demand — map view                  |
-| `recharts` (chart)             | on demand — statistics view              |
-| `react-markdown` + remark/rehype (editor) | on demand — first Markdown render |
+| Library (chunk)                           | Loaded                                      |
+| ----------------------------------------- | ------------------------------------------- |
+| `@xyflow/react` (graph)                   | on demand — tree view / linked-trees dialog |
+| `leaflet` + `react-leaflet` (map)         | on demand — map view                        |
+| `recharts` (chart)                        | on demand — statistics view                 |
+| `react-markdown` + remark/rehype (editor) | on demand — first Markdown render           |
 
 ## How the split works
 
@@ -36,8 +36,10 @@ Two mechanisms keep the heavy code out of the initial load:
 
 2. **Chunking strategy in [`vite.config.ts`](../frontend/vite.config.ts).** The
    React runtime plus the UI/i18n/state libraries every route shares are pinned
-   to one long-term-cached `vendor` chunk. Everything else is left to Rolldown,
-   which places each heavy library in the lazy view chunk that imports it.
+   to one long-term-cached `vendor` chunk. The shared `cmdk` command wrapper is
+   kept in its own `command` chunk so adding another deferred dialog cannot fold
+   it into the entry chunk. Everything else is left to Rolldown, which places
+   each heavy library in the lazy view chunk that imports it.
 
    > Do **not** give the heavy libraries their own named `manualChunks`. Because
    > every React library cross-imports React, naming them makes Rolldown
@@ -51,11 +53,11 @@ Enforced by [`scripts/check-bundle-size.mjs`](../frontend/scripts/check-bundle-s
 transfer sizes and sit ~15–20 % above the measured sizes so ordinary churn
 passes while a heavy dependency re-entering the initial load fails the build.
 
-| Budget (gzip)              | Limit   | Measured |
-| -------------------------- | ------- | -------- |
-| entry chunk (`index`)      | 95 KiB  | ~77 KiB  |
-| `vendor` chunk             | 190 KiB | ~157 KiB |
-| initial JS (eager total)   | 360 KiB | ~300 KiB |
+| Budget (gzip)            | Limit   | Measured |
+| ------------------------ | ------- | -------- |
+| entry chunk (`index`)    | 95 KiB  | ~77 KiB  |
+| `vendor` chunk           | 190 KiB | ~157 KiB |
+| initial JS (eager total) | 360 KiB | ~300 KiB |
 
 The checker also fails if `@xyflow`, `leaflet` or `recharts` are detected inside
 any eager chunk, regardless of the size numbers.
@@ -69,11 +71,11 @@ the "Largest on-demand chunks" table the checker prints.
 Measured with `npm run build` (gzip, level 9). The vendor chunk was the
 1.63 MB (raw) offender called out in the issue.
 
-| Metric                       | Before      | After       | Change        |
-| ---------------------------- | ----------- | ----------- | ------------- |
-| **Initial JS (eager total)** | 592 KiB     | 300 KiB     | **−49 %**     |
-| `vendor` chunk               | 473 KiB     | 157 KiB     | **−67 %**     |
-| entry (`index`) chunk        | 57 KiB      | 77 KiB      | +20 KiB\*     |
+| Metric                       | Before                  | After                           | Change       |
+| ---------------------------- | ----------------------- | ------------------------------- | ------------ |
+| **Initial JS (eager total)** | 592 KiB                 | 300 KiB                         | **−49 %**    |
+| `vendor` chunk               | 473 KiB                 | 157 KiB                         | **−67 %**    |
+| entry (`index`) chunk        | 57 KiB                  | 77 KiB                          | +20 KiB\*    |
 | Largest single chunk         | 473 KiB (vendor, eager) | 115 KiB (statistics, on demand) | eager → lazy |
 
 \* The entry chunk grows slightly because a few shared libraries that used to sit

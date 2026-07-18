@@ -3,6 +3,7 @@ import { ResearchTask, ResearchTaskInput, mapTaskFromDB } from "@/types/task";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree, isVirtualId } from "@/hooks/useTreeStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
+import { registerTaskStoreActions } from "@/hooks/taskStoreRegistry";
 
 interface TaskState {
   tasks: ResearchTask[];
@@ -127,3 +128,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   clear: () =>
     set({ tasks: [], openTaskMemberIds: new Set(), initialized: false }),
 }));
+
+registerTaskStoreActions({
+  clear: () => useTaskStore.getState().clear(),
+  refresh: (treeId) => void useTaskStore.getState().refreshTasks(treeId),
+});

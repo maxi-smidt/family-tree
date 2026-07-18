@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTaskStore } from "./useTaskStore";
 import { useTreeStore } from "./useTreeStore";
+import { clearTaskStore } from "./taskStoreRegistry";
 import { TreeService } from "@/services/TreeService";
 import { ResearchTaskDB } from "@/types/task";
 import { Tree } from "@/types/tree";
@@ -80,6 +81,22 @@ describe("useTaskStore — refreshTasks", () => {
     await p;
 
     expect(useTaskStore.getState().tasks).toHaveLength(0);
+  });
+
+  it("clears loaded task data through the tree lifecycle bridge", () => {
+    useTaskStore.setState({
+      tasks: [{ id: "stale" } as never],
+      openTaskMemberIds: new Set(["m1"]),
+      initialized: true,
+    });
+
+    clearTaskStore();
+
+    expect(useTaskStore.getState()).toMatchObject({
+      tasks: [],
+      initialized: false,
+    });
+    expect(useTaskStore.getState().openTaskMemberIds).toEqual(new Set());
   });
 });
 
