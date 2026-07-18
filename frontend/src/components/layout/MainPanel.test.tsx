@@ -160,6 +160,23 @@ describe("MainPanel", () => {
     await waitFor(() => {
       expect(screen.getByText("Media documents view")).toBeInTheDocument();
     });
+    expect(localStorage.getItem("ft_active_tab")).toBe("media-view");
+    expect(localStorage.getItem("ft_active_media_section")).toBe("documents");
+  });
+
+  it("restores the selected Media section after a refresh", async () => {
+    localStorage.setItem("ft_active_tab", "media-view");
+    localStorage.setItem("ft_active_media_section", "documents");
+    useTreeStore.setState({
+      selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
+    });
+    useAuthStore.setState({ features: ["gallery", "sources"] });
+
+    render(<MainPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Media documents view")).toBeInTheDocument();
+    });
   });
 
   it("starts the tutorial when the onboarding feature arrives after preferences load", async () => {

@@ -75,17 +75,19 @@ describe("DocumentsView", () => {
     useMemberSheetStore.setState({ openSheets: {}, setOpenSheet: vi.fn() });
   });
 
-  it("filters to unlinked documents and opens a linked person in their records", () => {
+  it("starts collapsed, then filters to unlinked documents and opens linked people", () => {
     render(<DocumentsView />);
 
-    expect(screen.getByText("A scan of the certificate")).toBeInTheDocument();
+    expect(
+      screen.queryByText("A scan of the certificate"),
+    ).not.toBeInTheDocument();
     const documentCard = screen
       .getByText("Birth certificate")
       .closest('[data-slot="card"]');
     expect(documentCard).not.toBeNull();
     expect(
       within(documentCard as HTMLElement).getByRole("button", {
-        name: "Hide details",
+        name: "Show details",
       }),
     ).toHaveClass("border");
     expect(
@@ -96,23 +98,23 @@ describe("DocumentsView", () => {
 
     fireEvent.click(
       within(documentCard as HTMLElement).getByRole("button", {
-        name: "Hide details",
+        name: "Show details",
       }),
     );
     expect(
-      within(documentCard as HTMLElement).queryByText(
+      within(documentCard as HTMLElement).getByText(
         "A scan of the certificate",
       ),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(
       within(documentCard as HTMLElement).getByRole("button", {
-        name: "Show details",
+        name: "Hide details",
       }),
     ).toBeInTheDocument();
 
     fireEvent.click(
       within(documentCard as HTMLElement).getByRole("button", {
-        name: "Show details",
+        name: "Hide details",
       }),
     );
 
@@ -125,7 +127,20 @@ describe("DocumentsView", () => {
 
     fireEvent.click(filter);
     fireEvent.click(screen.getByRole("option", { name: "All documents" }));
-    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    const restoredDocumentCard = screen
+      .getByText("Birth certificate")
+      .closest('[data-slot="card"]');
+    expect(restoredDocumentCard).not.toBeNull();
+    fireEvent.click(
+      within(restoredDocumentCard as HTMLElement).getByRole("button", {
+        name: "Show details",
+      }),
+    );
+    fireEvent.click(
+      within(restoredDocumentCard as HTMLElement).getByRole("button", {
+        name: "Ada Lovelace",
+      }),
+    );
 
     expect(useMemberSheetStore.getState().setOpenSheet).toHaveBeenCalledWith(
       "tree-1",

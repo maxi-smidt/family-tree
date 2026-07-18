@@ -100,6 +100,7 @@ import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
 import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
+const ACTIVE_MEDIA_SECTION_STORAGE_KEY = "ft_active_media_section";
 
 const NO_TREE_VIEWS: ViewId[] = [
   TREE_VIEW,
@@ -121,6 +122,12 @@ const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
 
 const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
 
+function readMediaSection(): MediaSection {
+  return localStorage.getItem(ACTIVE_MEDIA_SECTION_STORAGE_KEY) === "documents"
+    ? "documents"
+    : "gallery";
+}
+
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "layout.main-panel",
@@ -139,7 +146,7 @@ export const MainPanel = () => {
     return stored && isViewId(stored) ? stored : "tree-view";
   });
   const [activeMediaSection, setActiveMediaSection] =
-    useState<MediaSection>("gallery");
+    useState<MediaSection>(readMediaSection);
 
   const applyTab = (value: string) => {
     if (!isViewId(value)) return;
@@ -282,6 +289,7 @@ export const MainPanel = () => {
   const selectMediaSection = (section: MediaSection) => {
     guardNavigate(() => {
       setActiveMediaSection(section);
+      localStorage.setItem(ACTIVE_MEDIA_SECTION_STORAGE_KEY, section);
       applyTab(MEDIA_VIEW);
     });
   };

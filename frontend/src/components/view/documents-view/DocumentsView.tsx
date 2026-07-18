@@ -278,7 +278,7 @@ function DocumentCard({
   const treeId = useTreeStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
-  const [detailsOpen, setDetailsOpen] = useState(true);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const fileCount = document.files.filter(
     (file) => file.kind === "file",
   ).length;
