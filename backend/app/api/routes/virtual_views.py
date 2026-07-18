@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.activity_query import activity_page
+from app.api.activity_query import activity_page, hidden_activity_target_types
 from app.api.deps import (
     accessible_tree_ids,
     get_current_user,
@@ -1071,6 +1071,7 @@ def list_virtual_activity(
         actor=actor,
         action=action,
         target_type=target_type,
+        hidden_target_types=hidden_activity_target_types(db, user, source_ids),
     )
 
 

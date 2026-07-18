@@ -1311,6 +1311,8 @@
     "dismissed-badge": "Verworfen",
     "show-dismissed": "Verworfene anzeigen ({{count}})",
     "open-tasks-title": "Offene Recherchepunkte ({{count}})",
+    "open-tasks-add": "Aufgabe hinzufügen",
+    "open-tasks-empty": "Keine offenen Recherchepunkte.",
     "open-tasks-mark-done": "Als erledigt markieren",
     "open-tasks-tree-level": "Baum"
   },

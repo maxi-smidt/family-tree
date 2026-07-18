@@ -1311,6 +1311,8 @@
     "dismissed-badge": "Dismissed",
     "show-dismissed": "Show dismissed ({{count}})",
     "open-tasks-title": "Open research items ({{count}})",
+    "open-tasks-add": "Add task",
+    "open-tasks-empty": "No open research items.",
     "open-tasks-mark-done": "Mark as done",
     "open-tasks-tree-level": "Tree"
   },

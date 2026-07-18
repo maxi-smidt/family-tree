@@ -218,6 +218,26 @@ def test_restricted_domain_hides_routes(client, db):
     )
 
 
+def test_restricted_domain_hides_task_activity(client, db):
+    from app.models.tree import TreeMembership
+
+    user, tree = _setup(client, db)
+    restricted = make_user(db, "dave")
+    share(db, tree, restricted, role="viewer")
+    membership = db.get(TreeMembership, (tree.id, restricted.id))
+    membership.restrictions = ["tasks"]
+    db.commit()
+
+    assert _create_task(client, user, tree).status_code == 201
+
+    activity = client.get(
+        f"{API}/trees/{tree.id}/activity", headers=auth(restricted)
+    )
+    assert activity.status_code == 200
+    assert activity.json()["entries"] == []
+    assert activity.json()["total"] == 0
+
+
 def test_disabled_flag_hides_routes(client, db):
     admin = make_user(db, "root", is_admin=True)
     user = make_user(db, "alice")

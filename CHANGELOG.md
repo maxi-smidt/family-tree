@@ -12,14 +12,19 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Added
 
 - Research tasks: open questions and to-dos with open/done state, linked to
-  any number of members (or none, for general tree-wide tasks) and managed
-  from the member sheet's Research section. Tree nodes can show a toggleable
-  indicator for members with open tasks, the quality report lists all open
-  research items, and task changes appear in the activity log. Gated behind
-  the new `research_tasks` feature flag (#725).
+  any number of members (or none, for general tree-wide tasks), managed from
+  the member sheet or created directly from the quality report. Tree nodes can
+  show a toggleable indicator for members with open tasks, the quality report
+  lists all open research items, and task changes appear in the activity log.
+  Gated behind the new `research_tasks` feature flag (#725).
 
 ### Fixed
 
+- Research-task chips in the quality report now open the linked person's
+  record, instead of only switching to the tree canvas (#725).
+- Upgrading from the early research-task development build now creates the
+  missing task-link table and preserves every existing person association
+  (#725).
 - Custom statistics widgets now honor the “All linked trees” scope, including
   readable linked trees only and counting bridge persons once (#570).
 - The in-app changelog now renders release notes in small, on-demand windows,
@@ -31,6 +36,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   every image has uploaded successfully, instead of lingering after the uploads
   complete. It stays open when an upload fails so the failure can be reviewed
   and retried (#731).
+
+### Security
+
+- Shared members restricted from research tasks can no longer infer task titles
+  from the activity log, including in virtual tree views (#725).
 
 ### Changed
 
