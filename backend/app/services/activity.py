@@ -19,10 +19,84 @@ participates in the route's own transaction and is rolled back on error.
 
 import json
 
+from sqlalchemy import inspect, or_, select
 from sqlalchemy.orm import Session
 
+from app.db.base import Base
 from app.models.activity import ActivityLog
+from app.models.content import (
+    DocumentMemberLink,
+    EventMemberLink,
+    GalleryMemberLink,
+    StoryMemberLink,
+)
+from app.models.family import Member, MemberDisease, Relation
 from app.models.user import User
+
+# Version of the delete-snapshot payload shape stored in ``details``
+# (see docs/ACTIVITY_AUDIT.md §b). Bump when the shape changes so a future
+# undo feature can dispatch on it.
+SNAPSHOT_VERSION = 1
+
+
+def row_to_dict(obj: Base) -> dict:
+    """Serialize a mapped row's column values into a JSON-safe dict.
+
+    Uses mapper inspection so columns added by future migrations are picked up
+    automatically. All column types in the snapshotted tables are str / float /
+    bool / None, which ``json.dumps`` handles directly.
+    """
+    return {attr.key: getattr(obj, attr.key) for attr in inspect(obj).mapper.column_attrs}
+
+
+def delete_snapshot(**tables: object) -> dict:
+    """Wrap per-table pre-image data into the versioned delete payload."""
+    return {"snapshot": {"version": SNAPSHOT_VERSION, **tables}}
+
+
+def member_delete_snapshot(
+    db: Session, member: Member, counterpart: Member | None = None
+) -> dict:
+    """Full pre-image of a member row and its cascade children.
+
+    Must be called BEFORE ``db.delete(member)``. Captures everything the DB
+    cascade will remove: relations on either side, disease records, and the
+    four content link tables. ``counterpart`` is the bridge person in the
+    linked tree whose link pointers the delete route dissolves; its identity
+    is recorded so the tree-in-tree link can be re-established on undo.
+    Virtual-view match rows also cascade but are derived state the matching
+    service recomputes, so they are deliberately not snapshotted.
+    """
+    relations = db.scalars(
+        select(Relation).where(
+            or_(
+                Relation.from_member_id == member.id,
+                Relation.to_member_id == member.id,
+            )
+        )
+    ).all()
+    diseases = db.scalars(
+        select(MemberDisease).where(MemberDisease.member_id == member.id)
+    ).all()
+    tables: dict[str, object] = {
+        "member": row_to_dict(member),
+        "relations": [row_to_dict(r) for r in relations],
+        "diseases": [row_to_dict(d) for d in diseases],
+    }
+    for key, model in (
+        ("event_links", EventMemberLink),
+        ("story_links", StoryMemberLink),
+        ("gallery_links", GalleryMemberLink),
+        ("document_links", DocumentMemberLink),
+    ):
+        rows = db.scalars(select(model).where(model.member_id == member.id)).all()
+        tables[key] = [row_to_dict(r) for r in rows]
+    if counterpart is not None:
+        tables["bridge"] = {
+            "counterpart_member_id": counterpart.id,
+            "counterpart_tree_id": counterpart.tree_id,
+        }
+    return delete_snapshot(**tables)
 
 
 def record_activity(
