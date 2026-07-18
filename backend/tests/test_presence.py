@@ -176,3 +176,25 @@ def test_heartbeat_publishes_presence_updated(client, db, tree, owner):
         and [u["user_id"] for u in d["users"]] == [owner.id]
         for et, d in published
     )
+
+
+def test_tree_mutation_publishes_the_actor_for_presence_highlighting(
+    client, db, tree, owner
+):
+    with patch("app.services.event_bus.event_bus.publish") as publish:
+        res = client.post(
+            f"{API}/trees/{tree.id}/members",
+            json={"id": "m1", "first_name": "Ada"},
+            headers=auth(owner),
+        )
+    assert res.status_code == 201, res.text
+    assert any(
+        call.args[1] == "tree.content_changed"
+        and call.args[2]
+        == {
+            "tree_id": tree.id,
+            "domain": "member",
+            "actor_user_id": owner.id,
+        }
+        for call in publish.call_args_list
+    )

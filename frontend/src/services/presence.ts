@@ -16,18 +16,37 @@ import { TreeService } from "@/services/TreeService";
 import { usePresenceStore } from "@/hooks/usePresenceStore";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_TIMEOUT_MS = 10_000;
 
 let currentTreeId: string | null = null;
 let editingMemberId: string | null = null;
 let timer: ReturnType<typeof setInterval> | undefined;
-let inFlight = false;
+const inFlightTreeIds = new Set<string>();
+const pendingTreeIds = new Set<string>();
+const requestControllers = new Map<string, AbortController>();
 
 async function sendHeartbeat(): Promise<void> {
   const treeId = currentTreeId;
-  if (!treeId || inFlight) return;
-  inFlight = true;
+  if (!treeId) return;
+  if (inFlightTreeIds.has(treeId)) {
+    // Preserve the most recent edit target or tree selection rather than
+    // silently waiting for the next 30-second interval.
+    pendingTreeIds.add(treeId);
+    return;
+  }
+
+  inFlightTreeIds.add(treeId);
+  pendingTreeIds.delete(treeId);
+  const controller = new AbortController();
+  requestControllers.set(treeId, controller);
+  const timeout = setTimeout(() => controller.abort(), HEARTBEAT_TIMEOUT_MS);
+
   try {
-    const roster = await TreeService.sendPresence(treeId, editingMemberId);
+    const roster = await TreeService.sendPresence(
+      treeId,
+      editingMemberId,
+      controller.signal,
+    );
     // A tree switch may have landed while the request was in flight.
     if (treeId === currentTreeId) {
       usePresenceStore.getState().setRoster(roster.tree_id, roster.users);
@@ -41,9 +60,16 @@ async function sendHeartbeat(): Promise<void> {
     ) {
       stopPresence();
     }
-    // Transient errors (network blips, token refresh) resolve on the next tick.
+    // Transient errors and aborted requests resolve on the next tick.
   } finally {
-    inFlight = false;
+    clearTimeout(timeout);
+    inFlightTreeIds.delete(treeId);
+    if (requestControllers.get(treeId) === controller) {
+      requestControllers.delete(treeId);
+    }
+    if (treeId === currentTreeId && pendingTreeIds.delete(treeId)) {
+      void sendHeartbeat();
+    }
   }
 }
 
@@ -66,6 +92,8 @@ export function stopPresence(): void {
   const treeId = currentTreeId;
   currentTreeId = null;
   editingMemberId = null;
+  pendingTreeIds.clear();
+  if (treeId) requestControllers.get(treeId)?.abort();
   usePresenceStore.getState().clear();
   if (treeId) {
     void TreeService.leavePresence(treeId).catch(() => {

@@ -7,6 +7,8 @@ interface FriendState {
   incoming: Friend[];
   outgoing: Friend[];
   loading: boolean;
+  /** Refresh accepted friends, including their protected profile-image URLs. */
+  loadFriends: () => Promise<void>;
   /** Lightweight refresh of just the incoming-request count (for the badge). */
   loadIncoming: () => Promise<void>;
   /** Full refresh of friends + pending requests (for the dialog). */
@@ -26,6 +28,11 @@ export const useFriendStore = create<FriendState>((set, get) => ({
   incoming: [],
   outgoing: [],
   loading: false,
+
+  loadFriends: async () => {
+    const friends = await FriendService.listFriends();
+    set({ friends });
+  },
 
   loadIncoming: async () => {
     const incoming = await FriendService.listIncoming();

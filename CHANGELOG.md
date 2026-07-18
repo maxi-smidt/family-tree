@@ -24,9 +24,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 ### Added
 
 - Live collaboration presence: avatar chips in the tree canvas show who else is
-  currently viewing the open tree — including yourself, with your profile
-  picture and initials/icon fallback — and highlight anyone editing; a member
-  sheet also shows an indicator when someone else has it open in edit mode.
+  currently viewing the open tree — including yourself and accepted friends
+  with profile pictures, and other collaborators with initials/icon fallbacks —
+  and highlight anyone editing; a member sheet also shows an indicator when
+  someone else has it open in edit mode.
   Backed by heartbeats with TTL expiry, works single-worker (in-process) and
   multi-worker (`REDIS_URL`), and is gated behind a new admin-toggleable
   `presence` feature flag (#723).

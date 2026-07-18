@@ -45,6 +45,9 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=ACCOUNT_PENDING_DELETION
         )
+    # Tree-change SSE events use the request-scoped session to identify the
+    # editor for live-presence highlighting.
+    db.info["tree_event_actor_id"] = user.id
     return user
 
 

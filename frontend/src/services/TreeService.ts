@@ -714,10 +714,18 @@ export class TreeService {
   // --- Live presence --------------------------------------------------------
   // Presence exists only for real trees (never virtual views), so these use the
   // fixed `/trees` prefix rather than the vv-aware `base()` helper.
-  static sendPresence(treeId: string, editingMemberId: string | null) {
-    return api.post<PresenceRosterDB>(`/trees/${treeId}/presence`, {
-      editing_member_id: editingMemberId,
-    });
+  static sendPresence(
+    treeId: string,
+    editingMemberId: string | null,
+    signal?: AbortSignal,
+  ) {
+    return api.post<PresenceRosterDB>(
+      `/trees/${treeId}/presence`,
+      {
+        editing_member_id: editingMemberId,
+      },
+      signal,
+    );
   }
 
   static leavePresence(treeId: string) {

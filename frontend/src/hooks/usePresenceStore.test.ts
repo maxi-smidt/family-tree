@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useMemberEditors, usePresenceStore } from "./usePresenceStore";
 import { useTreeStore } from "./useTreeStore";
@@ -27,9 +27,14 @@ const ROWS: PresenceUserDB[] = [
 ];
 
 beforeEach(() => {
-  usePresenceStore.setState({ roster: [] });
+  usePresenceStore.getState().clear();
   useTreeStore.setState({ selectedTree: TREE });
   useAuthStore.setState({ user: { id: "me" } as unknown as User });
+});
+
+afterEach(() => {
+  usePresenceStore.getState().clear();
+  vi.useRealTimers();
 });
 
 describe("usePresenceStore — setRoster", () => {
@@ -64,6 +69,19 @@ describe("usePresenceStore — setRoster", () => {
     usePresenceStore.getState().setRoster("t1", ROWS);
     usePresenceStore.getState().clear();
     expect(usePresenceStore.getState().roster).toEqual([]);
+  });
+
+  it("keeps a recent tree edit highlighted briefly", () => {
+    vi.useFakeTimers();
+    usePresenceStore.getState().markActivity("u2");
+
+    expect(usePresenceStore.getState().recentlyActiveUserIds).toEqual(["u2"]);
+
+    vi.advanceTimersByTime(1_499);
+    expect(usePresenceStore.getState().recentlyActiveUserIds).toEqual(["u2"]);
+
+    vi.advanceTimersByTime(1);
+    expect(usePresenceStore.getState().recentlyActiveUserIds).toEqual([]);
   });
 });
 

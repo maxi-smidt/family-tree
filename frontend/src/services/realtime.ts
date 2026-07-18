@@ -107,8 +107,12 @@ async function connect(): Promise<void> {
     const data = JSON.parse((e as MessageEvent).data) as {
       tree_id: string;
       domain: string;
+      actor_user_id?: string;
     };
     if (!isActiveTree(data.tree_id)) return;
+    if (data.actor_user_id) {
+      usePresenceStore.getState().markActivity(data.actor_user_id);
+    }
     domainRefreshers[data.domain]?.(data.tree_id);
   });
 
@@ -144,8 +148,14 @@ async function connect(): Promise<void> {
   });
 
   eventSource.addEventListener("tree.layout_changed", (e) => {
-    const data = JSON.parse((e as MessageEvent).data) as { tree_id: string };
+    const data = JSON.parse((e as MessageEvent).data) as {
+      tree_id: string;
+      actor_user_id?: string;
+    };
     if (!isActiveTree(data.tree_id)) return;
+    if (data.actor_user_id) {
+      usePresenceStore.getState().markActivity(data.actor_user_id);
+    }
     void useMemberStore.getState().refreshMembers(data.tree_id);
   });
 

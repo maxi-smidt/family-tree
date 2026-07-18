@@ -42,7 +42,11 @@ describe("presence heartbeat manager", () => {
     startPresence("t1");
     await flush();
 
-    expect(sendPresence).toHaveBeenCalledWith("t1", null);
+    expect(sendPresence).toHaveBeenCalledWith(
+      "t1",
+      null,
+      expect.any(AbortSignal),
+    );
     expect(setRoster).toHaveBeenCalledWith("t1", users);
   });
 
@@ -72,7 +76,11 @@ describe("presence heartbeat manager", () => {
     mod.setEditingMember("m9");
     await flush();
 
-    expect(sendPresence).toHaveBeenLastCalledWith("t1", "m9");
+    expect(sendPresence).toHaveBeenLastCalledWith(
+      "t1",
+      "m9",
+      expect.any(AbortSignal),
+    );
   });
 
   it("stopPresence clears local state and leaves the tree", async () => {
@@ -94,7 +102,62 @@ describe("presence heartbeat manager", () => {
     await flush();
 
     expect(leavePresence).toHaveBeenCalledWith("t1");
-    expect(sendPresence).toHaveBeenLastCalledWith("t2", null);
+    expect(sendPresence).toHaveBeenLastCalledWith(
+      "t2",
+      null,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("replays an edit-target change that lands during a heartbeat", async () => {
+    const deferred: {
+      resolve?: (value: { tree_id: string; users: [] }) => void;
+    } = {};
+    sendPresence
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ tree_id: string; users: [] }>((resolve) => {
+            deferred.resolve = resolve;
+          }),
+      )
+      .mockResolvedValue({ tree_id: "t1", users: [] });
+
+    const mod = await import("./presence");
+    mod.startPresence("t1");
+    mod.setEditingMember("m9");
+
+    expect(sendPresence).toHaveBeenCalledTimes(1);
+    expect(deferred.resolve).toBeDefined();
+    deferred.resolve?.({ tree_id: "t1", users: [] });
+    await flush();
+
+    expect(sendPresence).toHaveBeenLastCalledWith(
+      "t1",
+      "m9",
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("joins the next tree without waiting for an old request to finish", async () => {
+    sendPresence.mockImplementationOnce(() => new Promise(() => undefined));
+
+    const mod = await import("./presence");
+    mod.startPresence("t1");
+    mod.startPresence("t2");
+    await flush();
+
+    expect(sendPresence).toHaveBeenNthCalledWith(
+      1,
+      "t1",
+      null,
+      expect.any(AbortSignal),
+    );
+    expect(sendPresence).toHaveBeenNthCalledWith(
+      2,
+      "t2",
+      null,
+      expect.any(AbortSignal),
+    );
   });
 
   it("stops heartbeating when the feature is disabled (404)", async () => {
