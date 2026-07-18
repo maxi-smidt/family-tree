@@ -18,6 +18,7 @@ import { useStatisticsStore } from "./useStatisticsStore";
 import { useQualityReportStore } from "./useQualityReportStore";
 import { useStorageStore } from "./useStorageStore";
 import { useAuthStore } from "./useAuthStore";
+import { useMemberSheetStore } from "./useMemberSheetStore";
 import { api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { Tree } from "@/types/tree";
@@ -106,6 +107,7 @@ beforeEach(() => {
   useStatisticsStore.setState({ report: null, scope: "tree" });
   useQualityReportStore.setState({ report: null, showDismissed: false });
   useStorageStore.setState({ usage: null, error: false });
+  useMemberSheetStore.setState({ openSheets: {} });
   // All feature flags enabled (the production default) so connect() loads
   // every content store.
   useAuthStore.setState({ features: [...ALL_FEATURES] });
@@ -238,6 +240,23 @@ describe("useTreeStore — connect / selectTree", () => {
 
     expect(api.get).toHaveBeenCalledWith(`/trees/${TREE_A.id}`);
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+  });
+
+  it("opens an outside-tree result, queues its locate, and opens its details", async () => {
+    mockEmptySubStores();
+    mockApiGetForConnect(TREE_B.id, TREE_B);
+
+    await useTreeStore
+      .getState()
+      .openTreeAndLocateMember(TREE_B.id, "member-b");
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
+    expect(useMemberStore.getState().pendingLocateMemberId).toBe("member-b");
+    expect(useMemberSheetStore.getState().openSheets[TREE_B.id]).toEqual({
+      memberId: "member-b",
+      tab: "identity",
+      mode: "view",
+    });
   });
 
   it("does not select a slower tree-link response after a newer request", async () => {

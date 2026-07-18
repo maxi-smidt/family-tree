@@ -895,6 +895,11 @@
     "search": {
       "placeholder": "Mitglieder suchen…",
       "no-results": "Keine Mitglieder gefunden",
+      "current-tree": "Aktueller Stammbaum",
+      "other-trees": "Weitere zugängliche Stammbäume",
+      "other-trees-searching": "Weitere Stammbäume werden durchsucht…",
+      "open-other-tree": "{{tree}} öffnen und {{member}} anzeigen",
+      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
       "unnamed": "Unbenanntes Mitglied",
       "nee": "geb. {{name}}",
       "clear": "Suche löschen",

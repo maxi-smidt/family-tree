@@ -895,6 +895,11 @@
     "search": {
       "placeholder": "Search members…",
       "no-results": "No members found",
+      "current-tree": "Current tree",
+      "other-trees": "Other accessible trees",
+      "other-trees-searching": "Searching other trees…",
+      "open-other-tree": "Open {{tree}} and locate {{member}}",
+      "open-error": "That tree could not be opened — it may no longer be shared with you.",
       "unnamed": "Unnamed member",
       "nee": "née {{name}}",
       "clear": "Clear search",

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import {
   Member,
   MemberDB,
+  MemberSearchHitDB,
   MemberUpdate,
   RelationDB,
   RelationType,
@@ -24,7 +25,6 @@ import {
 } from "@/hooks/memberStoreLayout";
 
 const WINDOWED_MODE_THRESHOLD = 2_000;
-
 
 // New-member creation still has its own relationship setup flow. Existing
 // member edits use the atomic member PATCH endpoint instead.
@@ -180,7 +180,6 @@ async function buildAppMembersOffThread(
   return filterPendingDeletions(mapped, treeId);
 }
 
-
 async function refreshAfterOptimisticFailure(
   refreshMembers: (treeId?: string) => Promise<void>,
   treeId: string,
@@ -213,6 +212,17 @@ interface MemberState {
   _pushHistory: (entry: HistoryEntry) => void;
   undo: () => Promise<void>;
   redo: () => Promise<void>;
+  searchMembers: (
+    treeId: string,
+    query: string,
+    limit?: number,
+  ) => Promise<MemberDB[]>;
+  searchOtherTrees: (
+    query: string,
+    excludeTreeId?: string,
+    perTreeLimit?: number,
+    limit?: number,
+  ) => Promise<MemberSearchHitDB[]>;
   refreshMembers: (treeId?: string) => Promise<void>;
   setFocusRoot: (rootId: string) => Promise<void>;
   setNeighborhoodDepth: (up: number, down: number) => Promise<void>;
@@ -286,6 +296,12 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       redoStack: [],
     });
   },
+
+  searchMembers: (treeId, query, limit) =>
+    TreeService.searchMembers(treeId, query, limit),
+
+  searchOtherTrees: (query, excludeTreeId, perTreeLimit, limit) =>
+    TreeService.searchOtherTrees(query, excludeTreeId, perTreeLimit, limit),
 
   undo: async () => {
     const { undoStack } = get();

@@ -80,6 +80,13 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     linked_member_id: str | None = None
 
 
+class MemberSearchHitOut(MemberSurfaceOut):
+    """A searchable member surface annotated with its containing tree."""
+
+    tree_id: str
+    tree_name: str
+
+
 class PublicMemberOut(FamilyTreeOrmBaseModel):
     """Anonymous projection: enough to render a tree, without private detail."""
 
