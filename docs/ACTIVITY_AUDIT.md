@@ -78,37 +78,45 @@ stores the new row's `id` and a human label, which is enough to locate and
 delete it (assuming no further edits happened in between and no other rows
 came to depend on it).
 
-**`delete` actions.** **Not reversible today.** The log stores only
-`target_label` — a name/title snapshot — not a full pre-image of the row. Two
-compounding problems:
+**`delete` actions.** Split by target type since issue #572:
 
-1. The deleted row's other columns (dates, notes, custom fields, media
-   references, ...) are gone; only the label survives.
-2. Cascade-deleted children — relations attached to a deleted member, content
-   links (`EventMemberLink`/`StoryMemberLink`/`GalleryMemberLink`), and
-   attached media — are unrecoverable. Nothing in the log describes them.
+_Member, relation, and disease deletes are **reversible in principle**._
+Their `details` carries a versioned pre-image snapshot
+(`{"snapshot": {"version": 1, ...}}`, built by `member_delete_snapshot` /
+`delete_snapshot` in `backend/app/services/activity.py`). A member-delete
+snapshot captures everything the DB cascade removes: the full member row
+(every mapped column, collected via SQLAlchemy mapper inspection so schema
+evolution is picked up automatically), relations on either side, disease
+rows, and all four content link tables (`event_links`, `story_links`,
+`gallery_links` including face-tag regions, `document_links`), plus a
+`bridge` key recording the counterpart member/tree when deleting a bridge
+person (the delete route dissolves the tree-in-tree link on the counterpart
+row). The member's profile photo survives because `image_data` is a media
+URL and member deletion does not unlink the file. Restoring is conditional
+on referenced rows still existing (the other member of a relation, the
+event/story/image/document behind a link, the bridge counterpart).
+Virtual-view match rows also cascade but are derived state the matching
+service recomputes, so they are deliberately not snapshotted.
 
-**What genuine per-action undo would need:** enrich delete `details` with a
-full serialized pre-image of the row _and_ its cascade children (e.g. for a
-member delete: the member row plus its relations, disease records, and
-content links, keyed so they can be re-inserted verbatim). This is a
-meaningful schema/behavior change — it is **not implemented in this PR**;
-delete payloads are left exactly as they were.
+_Event, story, gallery-image, and document deletes are **not reversible**._
+They still store only `target_label`. Gallery and document deletes also
+remove media files from disk, so a row snapshot alone would not suffice —
+they need a media trash/retention mechanism first. Tracked in issue #760.
 
 **Single-action undo vs. "revert to timestamp."** Even with enriched delete
 snapshots, there's a second axis of difficulty: undoing _one_ action (the
 most recent delete, say) is a local, self-contained operation once the
 pre-image exists. Reverting an entire tree to an earlier point in time is a
 different problem — it requires replaying the _inverse_ of every intervening
-action in reverse order (undo the last update, then the one before it, ...),
-and deletes are the action class that currently carries no reversible
-payload at all. Until deletes carry full snapshots, "revert to timestamp" is
-not achievable even in principle, regardless of how much other tooling is
-built on top of the log.
+action in reverse order (undo the last update, then the one before it, ...).
+With #572 the member/relation/disease delete payloads carry that pre-image;
+the remaining blockers are the content-type deletes above (#760) and the
+`_SKIP_DIFF` update fields.
 
-**Recommendation:** the concrete next step, if rollback is ever pursued, is
-enriching delete `details` with full row + cascade-children snapshots. That
-work is deliberately out of scope here.
+**Recommendation:** no undo/restore endpoint exists yet — the snapshots make
+the _data_ sufficient. If undo is pursued, the next steps are #760 (content
+deletes + media retention) and then a single-action undo that validates the
+"referenced rows still exist" conditions before re-inserting.
 
 ## (c) Admin / non-tree audit — recommendation
 

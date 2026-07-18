@@ -51,7 +51,12 @@ from app.schemas.family import (
 )
 from app.schemas.merge import DuplicatePair, LinkCandidatesOut
 from app.schemas.tree import TreeOut
-from app.services.activity import record_activity
+from app.services.activity import (
+    delete_snapshot,
+    member_delete_snapshot,
+    record_activity,
+    row_to_dict,
+)
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
@@ -1133,6 +1138,7 @@ def delete_member(
     # surviving counterpart becomes an ordinary member again. The FK only SET
     # NULLs its linked_member_id (the pointer at this row), leaving a dangling
     # linked_tree_id / broken badge — so clear both sides explicitly here.
+    counterpart: Member | None = None
     counterpart_tree: Tree | None = None
     if member.linked_member_id is not None:
         counterpart = db.get(Member, member.linked_member_id)
@@ -1149,6 +1155,7 @@ def delete_member(
         target_type="member",
         target_id=member.id,
         target_label=label,
+        details=member_delete_snapshot(db, member, counterpart),
     )
     db.delete(member)
     db.commit()
@@ -1264,6 +1271,7 @@ def remove_relation(
             action="delete",
             target_type="relation",
             target_label=label,
+            details=delete_snapshot(relation=row_to_dict(relation)),
         )
         db.delete(relation)
         db.commit()
@@ -1397,6 +1405,7 @@ def delete_disease(
         target_type="disease",
         target_id=disease_id,
         target_label=disease.name,
+        details=delete_snapshot(disease=row_to_dict(disease)),
     )
     db.delete(disease)
     db.commit()

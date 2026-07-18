@@ -1,10 +1,22 @@
 """Tests for the activity-log feature (issue #125, extended for #564)."""
 
 import base64
+import json
 
 from sqlalchemy import select
 
 from app.models.activity import ActivityLog
+from app.models.content import (
+    Document,
+    DocumentMemberLink,
+    Event,
+    EventMemberLink,
+    GalleryImage,
+    GalleryMemberLink,
+    Story,
+    StoryMemberLink,
+)
+from app.models.family import Member, MemberDisease, Relation
 from app.services.merge import merge_trees
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
 
@@ -501,3 +513,207 @@ def test_gallery_set_links_writes_activity(client, db, tmp_path, monkeypatch):
 # wait_for_job). Adding a dedicated activity-log assertion here would mostly
 # duplicate that machinery, so it is intentionally left to a follow-up if
 # deeper coverage is wanted.
+
+
+# ---------------------------------------------------------------------------
+# Delete snapshots (issue #572): member / relation / disease deletes carry a
+# full re-insertable pre-image in details
+# ---------------------------------------------------------------------------
+
+def _delete_details(db, tree_id):
+    rows = _activity_rows(db, tree_id)
+    deletes = [r for r in rows if r.action == "delete"]
+    assert len(deletes) == 1
+    assert deletes[0].details is not None
+    return json.loads(deletes[0].details)
+
+
+def test_delete_member_details_snapshot_full_cascade(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    member = add_member(
+        db,
+        tree,
+        "m1",
+        first_name="Ada",
+        last_name="Doe",
+        date_of_birth="1815-12-10",
+        birthplace="London",
+        image_data="/api/media/t/ada.png",
+    )
+    add_member(db, tree, "m2", first_name="Bob")
+    db.add(
+        Relation(
+            tree_id=tree.id,
+            from_member_id="m1",
+            to_member_id="m2",
+            relation_type="parent",
+        )
+    )
+    db.add(
+        Relation(
+            tree_id=tree.id,
+            from_member_id="m2",
+            to_member_id="m1",
+            relation_type="partner",
+        )
+    )
+    db.add(
+        MemberDisease(
+            id="d1",
+            tree_id=tree.id,
+            member_id="m1",
+            name="Anemia",
+            carrier_status="affected",
+            notes="secret notes",
+        )
+    )
+    db.add(
+        Event(id="e1", tree_id=tree.id, event_type="birth", date="1815", created_at="t")
+    )
+    db.add(EventMemberLink(event_id="e1", member_id="m1"))
+    db.add(
+        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+    )
+    db.add(StoryMemberLink(story_id="s1", member_id="m1"))
+    db.add(GalleryImage(id="g1", tree_id=tree.id, title="Photo"))
+    db.add(
+        GalleryMemberLink(
+            gallery_image_id="g1", member_id="m1", x=0.1, y=0.2, w=0.3, h=0.4
+        )
+    )
+    db.add(
+        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+    )
+    db.add(DocumentMemberLink(document_id="doc1", member_id="m1"))
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["version"] == 1
+
+    # Full member row, verbatim.
+    assert snapshot["member"]["id"] == "m1"
+    assert snapshot["member"]["first_name"] == "Ada"
+    assert snapshot["member"]["date_of_birth"] == "1815-12-10"
+    assert snapshot["member"]["birthplace"] == "London"
+    assert snapshot["member"]["image_data"] == "/api/media/t/ada.png"
+    # Every mapped column is present (schema evolution is picked up).
+    from sqlalchemy import inspect as sa_inspect
+
+    expected_cols = {attr.key for attr in sa_inspect(member).mapper.column_attrs}
+    assert set(snapshot["member"]) == expected_cols
+
+    # Relations on either side.
+    rels = {
+        (r["from_member_id"], r["to_member_id"], r["relation_type"])
+        for r in snapshot["relations"]
+    }
+    assert rels == {("m1", "m2", "parent"), ("m2", "m1", "partner")}
+
+    # Disease rows in full.
+    assert len(snapshot["diseases"]) == 1
+    assert snapshot["diseases"][0]["id"] == "d1"
+    assert snapshot["diseases"][0]["notes"] == "secret notes"
+
+    # All four link tables, including gallery face-tag regions.
+    assert snapshot["event_links"] == [{"event_id": "e1", "member_id": "m1"}]
+    assert snapshot["story_links"] == [{"story_id": "s1", "member_id": "m1"}]
+    assert len(snapshot["gallery_links"]) == 1
+    assert snapshot["gallery_links"][0]["gallery_image_id"] == "g1"
+    assert snapshot["gallery_links"][0]["x"] == 0.1
+    assert snapshot["gallery_links"][0]["h"] == 0.4
+    assert snapshot["document_links"] == [{"document_id": "doc1", "member_id": "m1"}]
+
+    # Not a bridge person → no bridge key.
+    assert "bridge" not in snapshot
+
+
+def test_delete_bridge_member_snapshot_records_counterpart(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    other = make_tree(db, owner, name="Linked")
+    add_member(db, tree, "m1", first_name="Ada")
+    add_member(db, other, "c1", first_name="Ada")
+    db.get(Member, "m1").linked_tree_id = other.id
+    db.get(Member, "m1").linked_member_id = "c1"
+    db.get(Member, "c1").linked_tree_id = tree.id
+    db.get(Member, "c1").linked_member_id = "m1"
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["bridge"] == {
+        "counterpart_member_id": "c1",
+        "counterpart_tree_id": other.id,
+    }
+    # The member's own pointers are preserved in its row snapshot.
+    assert snapshot["member"]["linked_tree_id"] == other.id
+    assert snapshot["member"]["linked_member_id"] == "c1"
+
+
+def test_delete_relation_details_snapshot(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1")
+    add_member(db, tree, "m2")
+    db.add(
+        Relation(
+            tree_id=tree.id,
+            from_member_id="m1",
+            to_member_id="m2",
+            relation_type="parent",
+        )
+    )
+    db.commit()
+
+    res = client.delete(
+        f"{API}/trees/{tree.id}/relations",
+        params={"from_member_id": "m1", "to_member_id": "m2", "relation_type": "parent"},
+        headers=auth(owner),
+    )
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["version"] == 1
+    assert snapshot["relation"] == {
+        "tree_id": tree.id,
+        "from_member_id": "m1",
+        "to_member_id": "m2",
+        "relation_type": "parent",
+    }
+
+
+def test_delete_disease_details_snapshot(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1")
+    db.add(
+        MemberDisease(
+            id="d1",
+            tree_id=tree.id,
+            member_id="m1",
+            name="Anemia",
+            carrier_status="carrier",
+            inheritance_pattern="autosomal_recessive",
+            diagnosis_date="1990",
+            notes="n",
+        )
+    )
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/diseases/d1", headers=auth(owner))
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["version"] == 1
+    assert snapshot["disease"]["id"] == "d1"
+    assert snapshot["disease"]["member_id"] == "m1"
+    assert snapshot["disease"]["carrier_status"] == "carrier"
+    assert snapshot["disease"]["inheritance_pattern"] == "autosomal_recessive"
+    assert snapshot["disease"]["diagnosis_date"] == "1990"
+    assert snapshot["disease"]["notes"] == "n"

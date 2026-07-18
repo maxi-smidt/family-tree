@@ -23,6 +23,13 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   complete. It stays open when an upload fails so the failure can be reviewed
   and retried (#731).
 
+### Changed
+
+- Deleting a person, relation, or disease record now stores a full snapshot of
+  the deleted data (including a person's relations, disease records, and
+  event/story/gallery/document links) in the tree activity log, laying the
+  groundwork for a future undo of accidental deletes (#572).
+
 ### Added
 
 - The tree-view people search now shows current-tree matches first, then
