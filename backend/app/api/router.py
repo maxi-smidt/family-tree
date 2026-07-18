@@ -29,6 +29,7 @@ from app.api.routes import (
     sse,
     statistics,
     stories,
+    tasks,
     trees,
     users,
     virtual_views,
@@ -58,6 +59,7 @@ api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)
 api_router.include_router(stories.router)
+api_router.include_router(tasks.router)
 api_router.include_router(documents.router)
 api_router.include_router(activity.router)
 api_router.include_router(presence.router)

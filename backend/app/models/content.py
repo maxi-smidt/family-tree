@@ -91,6 +91,28 @@ class StoryMemberLink(Base):
     )
 
 
+class MemberTask(Base):
+    """Research to-do — a member_id of NULL marks a tree-level task."""
+
+    __tablename__ = "member_tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    )
+    member_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("members.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    title: Mapped[str] = mapped_column(String(255))
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[str] = mapped_column(String(40))
+    done_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class GeocodeCache(Base):
     """Instance-wide cache of Nominatim geocoding results."""
 

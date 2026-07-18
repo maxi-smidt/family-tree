@@ -20,6 +20,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
 import { usePresenceStore } from "@/hooks/usePresenceStore";
 import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 import { PresenceUserDB } from "@/types/presence";
@@ -100,6 +101,7 @@ async function connect(): Promise<void> {
     member: (id) => void useMemberStore.getState().refreshMembers(id),
     event: (id) => void useEventStore.getState().refreshEvents(id),
     story: (id) => void useStoryStore.getState().refreshStories(id),
+    task: (id) => void useTaskStore.getState().refreshTasks(id),
     document: (id) => void useDocumentStore.getState().refreshDocuments(id),
     gallery: (id) => void useGalleryStore.getState().refreshGalleryImages(id),
   };

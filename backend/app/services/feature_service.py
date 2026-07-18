@@ -48,6 +48,7 @@ FEATURES: dict[str, FeatureState] = {
     "onboarding_tour": "on",
     "tree_links": "on",
     "presence": "on",
+    "research_tasks": "on",
 }
 
 # Domains whose visibility can be restricted per shared member.

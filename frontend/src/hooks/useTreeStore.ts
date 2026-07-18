@@ -19,6 +19,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
@@ -116,6 +117,7 @@ const clearDataStores = () => {
   useGalleryStore.getState().clear();
   useEventStore.getState().clear();
   useStoryStore.getState().clear();
+  useTaskStore.getState().clear();
   useDocumentStore.getState().clear();
   useActivityStore.getState().clear();
   useStatisticsStore.getState().clear();

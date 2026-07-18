@@ -17,12 +17,14 @@ import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDia
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
+import { useFeature } from "@/hooks/useAuthStore";
 import { useMemberEditors } from "@/hooks/usePresenceStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
@@ -55,6 +57,8 @@ export const MemberSheet = ({
   const { removeMember, fetchMemberDetail, detailLoadedIds } = useMemberStore();
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
+  const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
+  const tasksEnabled = useFeature("research_tasks");
   const { refreshDocuments, initialized: documentsInitialized } =
     useDocumentStore();
   const { refreshGalleryImages, initialized: galleryInitialized } =
@@ -128,6 +132,10 @@ export const MemberSheet = ({
   useDeferredStoreLoad(
     storiesInitialized || !isOpen || isNewMember,
     refreshStories,
+  );
+  useDeferredStoreLoad(
+    tasksInitialized || !tasksEnabled || !isOpen || isNewMember,
+    refreshTasks,
   );
   useDeferredStoreLoad(
     documentsInitialized || !isOpen || isNewMember,

@@ -698,7 +698,9 @@
       "academic-title-item": "Akademischer / Ehrentitel",
       "tab-identity": "Identität",
       "tab-life": "Leben",
-      "tab-records": "Einträge"
+      "tab-records": "Einträge",
+      "research-tasks": "Recherche",
+      "no-research-tasks": "Keine Recherche-Aufgaben"
     },
     "member-sheet": {
       "loading-detail": "Details werden geladen...",
@@ -885,6 +887,33 @@
           "error-add": "Erkrankung konnte nicht hinzugefügt werden. Bitte versuchen Sie es erneut.",
           "error-update": "Erkrankung konnte nicht aktualisiert werden. Bitte versuchen Sie es erneut."
         }
+      },
+      "tasks": {
+        "title": "Recherche",
+        "add": "Hinzufügen",
+        "no-tasks": "Noch keine offenen Fragen oder Aufgaben",
+        "mark-done": "Als erledigt markieren",
+        "mark-open": "Wieder öffnen",
+        "edit": "Aufgabe bearbeiten",
+        "delete": "Aufgabe löschen",
+        "delete-dialog": {
+          "title": "Aufgabe löschen",
+          "description": "Möchtest du diese Recherche-Aufgabe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+          "cancel": "Abbrechen",
+          "delete": "Löschen"
+        },
+        "dialog": {
+          "title-edit": "Recherche-Aufgabe bearbeiten",
+          "title-add": "Recherche-Aufgabe hinzufügen",
+          "title": "Titel",
+          "title-placeholder": "z. B. Geburtsurkunde finden",
+          "notes": "Notizen",
+          "notes-placeholder": "Details, zu prüfende Quellen, wen fragen...",
+          "cancel": "Abbrechen",
+          "add": "Hinzufügen",
+          "update": "Aktualisieren",
+          "error-save": "Recherche-Aufgabe konnte nicht gespeichert werden"
+        }
       }
     },
     "markdown-editor": {
@@ -925,7 +954,8 @@
       "add-right": "Verwandte Person rechts hinzufügen",
       "open-linked-tree": "Verknüpften Stammbaum öffnen",
       "open-linked-tree-no-access": "Der verknüpfte Stammbaum ist nicht mit dir geteilt",
-      "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt"
+      "life-deceased-unknown": "Verstorben, Sterbedatum unbekannt",
+      "task-indicator": "Hat offene Recherche-Aufgaben"
     },
     "linked-tree": {
       "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise privat oder existiert nicht mehr."
@@ -976,7 +1006,9 @@
       "export-image": "Stammbaum als Bild exportieren",
       "focus-here": "Nachbarschaft auf diese Person fokussieren",
       "depth-increase": "Nachbarschaftstiefe erhöhen",
-      "depth-decrease": "Nachbarschaftstiefe verringern"
+      "depth-decrease": "Nachbarschaftstiefe verringern",
+      "enable-task-indicators": "Offene Recherche-Aufgaben anzeigen",
+      "disable-task-indicators": "Offene Recherche-Aufgaben ausblenden"
     },
     "persistence": {
       "collapse-error": "Einklappstatus konnte nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt.",
@@ -1126,7 +1158,8 @@
     "retry": "Erneut versuchen",
     "navigate-hint": "Zum Eintrag",
     "diff-changed": "Geändert:",
-    "diff-arrow": "→"
+    "diff-arrow": "→",
+    "target-task": "Recherche-Aufgabe"
   },
   "timeline-view": {
     "view": {
@@ -1272,7 +1305,10 @@
     "dismiss": "Verwerfen",
     "restore": "Wiederherstellen",
     "dismissed-badge": "Verworfen",
-    "show-dismissed": "Verworfene anzeigen ({{count}})"
+    "show-dismissed": "Verworfene anzeigen ({{count}})",
+    "open-tasks-title": "Offene Recherchepunkte ({{count}})",
+    "open-tasks-mark-done": "Als erledigt markieren",
+    "open-tasks-tree-level": "Baum"
   },
   "statistics-view": {
     "title": "Statistiken",
@@ -1461,8 +1497,12 @@
     "date-input-hint": "TT.MM.JJJJ",
     "open-date-picker": "Datumsauswahl öffnen",
     "nee": "geb. {{name}}",
-    "location-input": { "placeholder": "Stadt, Region, Land…" },
-    "location": { "show-on-map": "Auf Karte zeigen" },
+    "location-input": {
+      "placeholder": "Stadt, Region, Land…"
+    },
+    "location": {
+      "show-on-map": "Auf Karte zeigen"
+    },
     "geocode": {
       "checking": "Adresse wird geprüft...",
       "found": "Adresse gefunden",
@@ -1703,7 +1743,8 @@
         "sources": "Dokumente",
         "onboarding_tour": "Onboarding-Tour",
         "tree_links": "Baum-im-Baum-Verknüpfungen",
-        "presence": "Live-Anwesenheit"
+        "presence": "Live-Anwesenheit",
+        "research_tasks": "Recherche-Aufgaben"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1719,7 +1760,8 @@
         "sources": "Wiederverwendbare Dokumente – Dateien und Links – verknüpft mit Personen, Ereignissen und Geschichten.",
         "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt.",
         "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen.",
-        "presence": "Zeigt an, wer den Stammbaum gerade betrachtet oder bearbeitet – mit Live-Avataren und einer Bearbeitungsanzeige."
+        "presence": "Zeigt an, wer den Stammbaum gerade betrachtet oder bearbeitet – mit Live-Avataren und einer Bearbeitungsanzeige.",
+        "research_tasks": "Offene Fragen und Aufgaben zur Ahnenforschung pro Mitglied."
       }
     },
     "col-username": "Benutzername",

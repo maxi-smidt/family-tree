@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import {
   AlertCircle,
   AlertTriangle,
+  Circle,
+  ClipboardList,
   ArrowDownToLine,
   ArrowUpFromLine,
   CheckCircle2,
@@ -19,6 +21,9 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
+import { useTaskStore } from "@/hooks/useTaskStore";
+import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
+import { useFeature } from "@/hooks/useAuthStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -173,6 +178,68 @@ function IssueCard({
   );
 }
 
+function OpenTasksSection({ canWrite }: { canWrite: boolean }) {
+  const { t } = useTranslation(undefined, { keyPrefix: "quality-report-view" });
+  const { members } = useMemberStore();
+  const { navigateTo } = useNavigationStore();
+  const { tasks, setTaskDone, refreshTasks, initialized } = useTaskStore();
+  useDeferredStoreLoad(initialized, refreshTasks);
+
+  const openTasks = tasks.filter((task) => !task.done);
+  if (openTasks.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <ClipboardList className="w-4 h-4 text-muted-foreground" />
+        <h3 className="font-medium text-sm">
+          {t("open-tasks-title", { count: openTasks.length })}
+        </h3>
+      </div>
+      <div className="flex flex-col gap-2">
+        {openTasks.map((task) => (
+          <Card key={task.id} className="p-3 flex flex-row gap-3 items-center">
+            {canWrite ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="flex-shrink-0"
+                title={t("open-tasks-mark-done")}
+                onClick={() => void setTaskDone(task.id, true)}
+              >
+                <Circle className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            ) : (
+              <Circle className="w-4 h-4 text-muted-foreground flex-shrink-0 ml-2" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium">{task.title}</p>
+              {task.notes && (
+                <p className="text-xs text-muted-foreground mt-0.5 whitespace-pre-wrap">
+                  {task.notes}
+                </p>
+              )}
+            </div>
+            {task.memberId ? (
+              <button
+                className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/70 transition-colors font-mono cursor-pointer flex-shrink-0"
+                onClick={() => navigateTo("tree-view")}
+                title={t("view-member")}
+              >
+                {memberLabel(task.memberId, members)}
+              </button>
+            ) : (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0">
+                {t("open-tasks-tree-level")}
+              </span>
+            )}
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export const QualityReportView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "quality-report-view",
@@ -180,6 +247,7 @@ export const QualityReportView = () => {
   const { report, isLoading, showDismissed, refreshReport, setShowDismissed } =
     useQualityReportStore();
   const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
+  const tasksEnabled = useFeature("research_tasks");
 
   useEffect(() => {
     if (!report) {
@@ -217,6 +285,8 @@ export const QualityReportView = () => {
         ) : undefined
       }
     >
+      {tasksEnabled && <OpenTasksSection canWrite={canWrite} />}
+
       {activeIssues.length > 0 && (
         <div className="flex items-center gap-3 mb-4">
           {errorCount > 0 && (
