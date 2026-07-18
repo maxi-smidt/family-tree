@@ -28,6 +28,15 @@ async function clickTab(page: import("@playwright/test").Page, label: RegExp) {
   await page.waitForLoadState("networkidle");
 }
 
+async function clickMediaSection(
+  page: import("@playwright/test").Page,
+  label: RegExp,
+) {
+  await page.getByRole("tab", { name: /media/i }).click();
+  await page.getByRole("menuitem", { name: label }).click();
+  await page.waitForLoadState("networkidle");
+}
+
 function collectPageErrors(page: import("@playwright/test").Page) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
@@ -87,7 +96,7 @@ test("gallery view — renders without errors when no images", async ({
 
   await adminPage.reload({ waitUntil: "networkidle" });
   await selectTree(adminPage, tree.name);
-  await clickTab(adminPage, /gallery/i);
+  await clickMediaSection(adminPage, /gallery/i);
 
   await expect(
     adminPage.getByRole("heading", { name: /gallery/i }),
