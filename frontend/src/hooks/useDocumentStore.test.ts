@@ -119,6 +119,25 @@ describe("useDocumentStore — addDocument", () => {
     expect(created?.id).toBe("d1");
   });
 
+  it("allows a document without linked people", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.saveDocument).mockResolvedValue({
+      ...DOC_DB,
+      member_ids: [],
+    });
+    vi.mocked(TreeService.getDocuments).mockResolvedValue([
+      { ...DOC_DB, member_ids: [] },
+    ]);
+
+    await useDocumentStore.getState().addDocument(INPUT, []);
+
+    expect(TreeService.saveDocument).toHaveBeenCalledWith(
+      TREE_ID,
+      expect.any(String),
+      expect.objectContaining({ member_ids: [] }),
+    );
+  });
+
   it("stages files first, then attaches them by id in the save", async () => {
     useTreeStore.setState({ selectedTree: TREE });
     vi.mocked(TreeService.stageDocumentUpload).mockResolvedValue({
@@ -145,7 +164,11 @@ describe("useDocumentStore — addDocument", () => {
     const payload = vi.mocked(TreeService.saveDocument).mock.calls[0][2];
     expect(payload.attached_upload_ids).toEqual(["upload-1"]);
     expect(payload.added_links).toEqual([
-      { id: expect.any(String), url: "https://example.com", filename: "Record" },
+      {
+        id: expect.any(String),
+        url: "https://example.com",
+        filename: "Record",
+      },
     ]);
     // The save must run only after every file has finished staging.
     const stageOrder = vi.mocked(TreeService.stageDocumentUpload).mock

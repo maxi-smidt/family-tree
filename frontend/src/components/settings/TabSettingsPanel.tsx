@@ -99,7 +99,7 @@ export function TabSettingsPanel() {
   const viewLabels: Record<ViewId, string> = {
     "tree-view": tTabs("tree"),
     "list-view": tTabs("list"),
-    "gallery-view": tTabs("gallery"),
+    "media-view": tTabs("media"),
     "timeline-view": tTabs("timeline"),
     "map-view": tTabs("map"),
     "activity-view": tTabs("activity"),

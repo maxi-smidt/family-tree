@@ -421,6 +421,45 @@
     },
     "upload-image-card": "Upload Image"
   },
+  "documents-view": {
+    "title": "Documents",
+    "add": "Add Document",
+    "search-placeholder": "Search documents...",
+    "filter-all": "All documents",
+    "filter-unlinked": "Unlinked only",
+    "empty-title": "No documents yet",
+    "empty-description": "Add a document to build this tree's archive.",
+    "no-results": "No documents match these filters.",
+    "file-count_one": "{{count}} file",
+    "file-count_other": "{{count}} files",
+    "link-count_one": "{{count}} external link",
+    "link-count_other": "{{count}} external links",
+    "attachments": "Attachments",
+    "external-links": "External links",
+    "linked-people-count_one": "{{count}} linked person",
+    "linked-people-count_other": "{{count}} linked people",
+    "linked-people-heading": "Linked people",
+    "unlinked": "Unlinked",
+    "unknown-member": "Unknown person",
+    "unknown-event": "Unknown event",
+    "unknown-story": "Unknown story",
+    "open-hint": "Double-click to open a document file",
+    "open-error": "Could not open the document file.",
+    "show-details": "Show details",
+    "hide-details": "Hide details",
+    "edit": "Edit document",
+    "delete": "Delete document",
+    "delete-dialog": {
+      "title": "Delete Document",
+      "description": "Are you sure you want to delete this document? This action cannot be undone.",
+      "cancel": "Cancel",
+      "confirm": "Delete"
+    }
+  },
+  "media-view": {
+    "gallery": "Gallery",
+    "documents": "Documents"
+  },
   "layout": {
     "tree-breadcrumb": {
       "aria-label": "Linked tree navigation",
@@ -434,7 +473,7 @@
     "main-panel": {
       "tree": "Tree",
       "list": "List",
-      "gallery": "Gallery",
+      "media": "Media",
       "timeline": "Timeline",
       "activity": "Activity",
       "quality-report": "Quality",
@@ -776,7 +815,7 @@
           "date-placeholder": "e.g., 1920 or 1920-05",
           "people-mentioned": "People mentioned",
           "people-mentioned-placeholder": "Select people...",
-          "people-mentioned-description": "Select one or more people this document is about",
+          "people-mentioned-description": "Optionally select people this document is about",
           "files": {
             "heading": "Files",
             "add-file": "Add file",

@@ -243,7 +243,7 @@ export const DocumentDialog = ({
       addedLinks.length > 0);
 
   const save = useCallback(async (): Promise<boolean> => {
-    if (!formData.title.trim() || selectedMemberIds.length === 0) return false;
+    if (!formData.title.trim()) return false;
     setSubmitting(true);
     try {
       const ops = buildFileOps();
@@ -366,7 +366,7 @@ export const DocumentDialog = ({
             </div>
 
             <div className="space-y-2">
-              <Label>{t("people-mentioned")} *</Label>
+              <Label>{t("people-mentioned")}</Label>
               <MultiSelect
                 options={memberOptions}
                 onValueChange={setSelectedMemberIds}
@@ -662,11 +662,7 @@ export const DocumentDialog = ({
             <Button
               type="submit"
               size="sm"
-              disabled={
-                submitting ||
-                !formData.title.trim() ||
-                selectedMemberIds.length === 0
-              }
+              disabled={submitting || !formData.title.trim()}
             >
               {t("save")}
             </Button>

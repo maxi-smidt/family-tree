@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ALL_FEATURES, filterViewsByFeatures, isFeatureName } from "./features";
+import {
+  ALL_FEATURES,
+  filterViewsByFeatures,
+  filterViewsByRestrictions,
+  isFeatureName,
+} from "./features";
 import { ALL_VIEWS, TREE_VIEW, ViewId } from "./tabs";
 
 describe("isFeatureName", () => {
@@ -25,7 +30,7 @@ describe("filterViewsByFeatures", () => {
       (f) => f !== "gallery" && f !== "statistics",
     );
     const visible = filterViewsByFeatures([...ALL_VIEWS], features);
-    expect(visible).not.toContain("gallery-view");
+    expect(visible).toContain("media-view");
     expect(visible).not.toContain("statistics-view");
     expect(visible).toContain("tree-view");
     expect(visible).toContain("timeline-view");
@@ -42,7 +47,31 @@ describe("filterViewsByFeatures", () => {
   });
 
   it("falls back to the tree view when nothing would remain", () => {
-    const views: ViewId[] = ["gallery-view", "statistics-view"];
+    const views: ViewId[] = ["media-view", "statistics-view"];
     expect(filterViewsByFeatures(views, [])).toEqual([TREE_VIEW]);
+  });
+
+  it("keeps Media when either its Gallery or Documents feature is enabled", () => {
+    const galleryOnly = filterViewsByFeatures([...ALL_VIEWS], ["gallery"]);
+    const documentsOnly = filterViewsByFeatures([...ALL_VIEWS], ["sources"]);
+
+    expect(galleryOnly).toContain("media-view");
+    expect(documentsOnly).toContain("media-view");
+  });
+});
+
+describe("filterViewsByRestrictions", () => {
+  it("hides Media only when both of its domains are restricted", () => {
+    const sourcesRestricted = filterViewsByRestrictions(
+      [...ALL_VIEWS],
+      ["sources"],
+    );
+    const allMediaRestricted = filterViewsByRestrictions(
+      [...ALL_VIEWS],
+      ["gallery", "sources"],
+    );
+
+    expect(sourcesRestricted).toContain("media-view");
+    expect(allMediaRestricted).not.toContain("media-view");
   });
 });

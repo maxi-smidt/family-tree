@@ -1,4 +1,10 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -20,6 +26,11 @@ vi.mock("@/components/view/list-view/ListView", () => ({
 }));
 vi.mock("@/components/view/gallery-view/GalleryView", () => ({
   GalleryView: () => <div>Gallery view</div>,
+}));
+vi.mock("@/components/view/media-view/MediaView", () => ({
+  MediaView: ({ section }: { section: string }) => (
+    <div>Media {section} view</div>
+  ),
 }));
 vi.mock("@/components/view/timeline-view/TimelineView", () => ({
   TimelineView: () => <div>Timeline view</div>,
@@ -122,6 +133,50 @@ describe("MainPanel", () => {
     expect(
       screen.queryByRole("tab", { name: "Gallery" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens Gallery and Documents from the Media tab menu", async () => {
+    useTreeStore.setState({
+      selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
+    });
+    useAuthStore.setState({ features: ["gallery", "sources"] });
+
+    render(<MainPanel />);
+
+    expect(screen.getByRole("tab", { name: "Media" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Gallery" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Documents" }),
+    ).not.toBeInTheDocument();
+    const mediaTab = screen.getByRole("tab", { name: "Media" });
+    fireEvent.pointerDown(mediaTab, { button: 0, ctrlKey: false });
+    fireEvent.click(mediaTab);
+    expect(
+      screen.getByRole("menuitem", { name: "Gallery" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Documents" }));
+    await waitFor(() => {
+      expect(screen.getByText("Media documents view")).toBeInTheDocument();
+    });
+    expect(localStorage.getItem("ft_active_tab")).toBe("media-view");
+    expect(localStorage.getItem("ft_active_media_section")).toBe("documents");
+  });
+
+  it("restores the selected Media section after a refresh", async () => {
+    localStorage.setItem("ft_active_tab", "media-view");
+    localStorage.setItem("ft_active_media_section", "documents");
+    useTreeStore.setState({
+      selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
+    });
+    useAuthStore.setState({ features: ["gallery", "sources"] });
+
+    render(<MainPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Media documents view")).toBeInTheDocument();
+    });
   });
 
   it("starts the tutorial when the onboarding feature arrives after preferences load", async () => {

@@ -30,7 +30,7 @@ import {
 type ViewId =
   | "tree-view"
   | "list-view"
-  | "gallery-view"
+  | "media-view"
   | "timeline-view"
   | "activity-view"
   | "quality-report-view"
@@ -60,7 +60,7 @@ const TARGET_VIEW: Record<string, ViewId> = {
   member: "tree-view",
   event: "timeline-view",
   story: "timeline-view",
-  gallery_image: "gallery-view",
+  gallery_image: "media-view",
 };
 
 const TARGET_ICONS: Record<string, typeof ActivityIcon> = {

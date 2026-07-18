@@ -1,11 +1,18 @@
 import { lazy, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useTranslation } from "react-i18next";
 import { TabWrapper } from "@/components/layout/TabWrapper";
 import { MobileManagementSheet } from "@/components/layout/MobileManagementSheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { SlidersHorizontal } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import type { MediaSection } from "@/components/view/media-view/MediaView";
 
 const FlowPanel = lazy(() =>
   import("@/components/view/tree-view/FlowPanel").then((m) => ({
@@ -17,9 +24,9 @@ const ListView = lazy(() =>
     default: m.ListView,
   })),
 );
-const GalleryView = lazy(() =>
-  import("@/components/view/gallery-view/GalleryView").then((m) => ({
-    default: m.GalleryView,
+const MediaView = lazy(() =>
+  import("@/components/view/media-view/MediaView").then((m) => ({
+    default: m.MediaView,
   })),
 );
 const TimelineView = lazy(() =>
@@ -76,6 +83,7 @@ import { LEGAL_DEFAULT_LOCALE } from "@/lib/legalLocale";
 import {
   DATABASE_MANAGEMENT_VIEW,
   FRIENDS_VIEW,
+  MEDIA_VIEW,
   TREE_VIEW,
   ViewId,
   isViewId,
@@ -92,6 +100,7 @@ import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
 import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
+const ACTIVE_MEDIA_SECTION_STORAGE_KEY = "ft_active_media_section";
 
 const NO_TREE_VIEWS: ViewId[] = [
   TREE_VIEW,
@@ -99,10 +108,9 @@ const NO_TREE_VIEWS: ViewId[] = [
   FRIENDS_VIEW,
 ];
 
-const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
+const VIEW_COMPONENTS: Omit<Record<ViewId, React.ReactNode>, "media-view"> = {
   "tree-view": <FlowPanel />,
   "list-view": <ListView />,
-  "gallery-view": <GalleryView />,
   "timeline-view": <TimelineView />,
   "map-view": <MapView />,
   "activity-view": <ActivityView />,
@@ -113,6 +121,12 @@ const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
 };
 
 const MANAGEMENT_VIEWS = new Set<ViewId>(["database-management-view"]);
+
+function readMediaSection(): MediaSection {
+  return localStorage.getItem(ACTIVE_MEDIA_SECTION_STORAGE_KEY) === "documents"
+    ? "documents"
+    : "gallery";
+}
 
 export const MainPanel = () => {
   const { t } = useTranslation(undefined, {
@@ -126,8 +140,13 @@ export const MainPanel = () => {
   const [activeTab, setActiveTab] = useState<ViewId>(() => {
     if (readMemberSheetDeepLink()) return TREE_VIEW;
     const stored = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY);
+    if (stored === "gallery-view" || stored === "documents-view") {
+      return MEDIA_VIEW;
+    }
     return stored && isViewId(stored) ? stored : "tree-view";
   });
+  const [activeMediaSection, setActiveMediaSection] =
+    useState<MediaSection>(readMediaSection);
 
   const applyTab = (value: string) => {
     if (!isViewId(value)) return;
@@ -229,6 +248,10 @@ export const MainPanel = () => {
 
   const selectedTree = useTreeStore((s) => s.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
+  const galleryAvailable =
+    features.includes("gallery") && !restrictions.includes("gallery");
+  const documentsAvailable =
+    features.includes("sources") && !restrictions.includes("sources");
 
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
   // A virtual tree exposes the same tabs as a normal tree (read-only,
@@ -254,7 +277,7 @@ export const MainPanel = () => {
   const viewLabels: Record<ViewId, string> = {
     "tree-view": t("tree"),
     "list-view": t("list"),
-    "gallery-view": t("gallery"),
+    "media-view": t("media"),
     "timeline-view": t("timeline"),
     "map-view": t("map"),
     "activity-view": t("activity"),
@@ -262,6 +285,17 @@ export const MainPanel = () => {
     "statistics-view": t("statistics"),
     "database-management-view": t("database-management"),
     "friends-view": t("friends"),
+  };
+  const selectMediaSection = (section: MediaSection) => {
+    guardNavigate(() => {
+      setActiveMediaSection(section);
+      localStorage.setItem(ACTIVE_MEDIA_SECTION_STORAGE_KEY, section);
+      applyTab(MEDIA_VIEW);
+    });
+  };
+  const viewComponents: Record<ViewId, React.ReactNode> = {
+    ...VIEW_COMPONENTS,
+    "media-view": <MediaView section={activeMediaSection} />,
   };
 
   return (
@@ -308,19 +342,53 @@ export const MainPanel = () => {
             {view === DATABASE_MANAGEMENT_VIEW && visible.length > 1 && (
               <div className="border-l border-border self-stretch h-auto mx-2" />
             )}
-            <TabsTrigger value={view}>
-              {viewLabels[view]}
-              {view === FRIENDS_VIEW && incomingFriendCount > 0 && (
-                <Badge variant="default" className="ml-1.5 px-1.5">
-                  {incomingFriendCount}
-                </Badge>
-              )}
-            </TabsTrigger>
+            {view === MEDIA_VIEW ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <TabsTrigger
+                    value={view}
+                    className={
+                      activeTab === MEDIA_VIEW
+                        ? "text-foreground after:opacity-100"
+                        : undefined
+                    }
+                  >
+                    {viewLabels[view]}
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </TabsTrigger>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {galleryAvailable && (
+                    <DropdownMenuItem
+                      onSelect={() => selectMediaSection("gallery")}
+                    >
+                      {tRoot("media-view.gallery")}
+                    </DropdownMenuItem>
+                  )}
+                  {documentsAvailable && (
+                    <DropdownMenuItem
+                      onSelect={() => selectMediaSection("documents")}
+                    >
+                      {tRoot("media-view.documents")}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <TabsTrigger value={view}>
+                {viewLabels[view]}
+                {view === FRIENDS_VIEW && incomingFriendCount > 0 && (
+                  <Badge variant="default" className="ml-1.5 px-1.5">
+                    {incomingFriendCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
           </span>
         ))}
       </TabsList>
 
-      {Object.entries(VIEW_COMPONENTS).map(([view, component]) => (
+      {Object.entries(viewComponents).map(([view, component]) => (
         <TabWrapper key={view} value={view}>
           {component}
         </TabWrapper>
