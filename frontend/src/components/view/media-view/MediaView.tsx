@@ -18,21 +18,20 @@ export const MediaView = () => {
     features.includes("gallery") && !restrictions.includes("gallery");
   const documentsAvailable =
     features.includes("sources") && !restrictions.includes("sources");
-  const availableSections: MediaSection[] = [
-    ...(galleryAvailable ? ["gallery" as const] : []),
-    ...(documentsAvailable ? ["documents" as const] : []),
-  ];
-  const [activeSection, setActiveSection] = useState<MediaSection>(
-    availableSections[0] ?? "gallery",
-  );
+  const defaultSection: MediaSection = galleryAvailable
+    ? "gallery"
+    : "documents";
+  const [activeSection, setActiveSection] =
+    useState<MediaSection>(defaultSection);
+  const activeSectionAvailable =
+    (activeSection === "gallery" && galleryAvailable) ||
+    (activeSection === "documents" && documentsAvailable);
 
   useEffect(() => {
-    if (!availableSections.includes(activeSection)) {
-      setActiveSection(availableSections[0] ?? "gallery");
-    }
-  }, [activeSection, availableSections]);
+    if (!activeSectionAvailable) setActiveSection(defaultSection);
+  }, [activeSectionAvailable, defaultSection]);
 
-  if (availableSections.length === 0) return null;
+  if (!galleryAvailable && !documentsAvailable) return null;
 
   return (
     <Tabs
