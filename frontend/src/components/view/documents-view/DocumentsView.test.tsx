@@ -114,6 +114,15 @@ describe("DocumentsView", () => {
         name: "Delete document",
       }),
     ).toHaveClass("text-destructive");
+    expect(
+      within(documentCard as HTMLElement).getByText("1 file"),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard as HTMLElement).getByText("1 external link"),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard as HTMLElement).getByText("1 linked person"),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       within(documentCard as HTMLElement).getByRole("button", {
@@ -132,6 +141,9 @@ describe("DocumentsView", () => {
     ).toBeInTheDocument();
     expect(
       within(documentCard as HTMLElement).getByText("Attachments"),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard as HTMLElement).getByText("Linked people"),
     ).toBeInTheDocument();
     expect(
       within(documentCard as HTMLElement).getByRole("button", {

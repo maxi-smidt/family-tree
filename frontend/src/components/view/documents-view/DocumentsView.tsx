@@ -378,6 +378,30 @@ function DocumentCard({
               )}
             </div>
           </div>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+              <FileText className="h-3.5 w-3.5" />
+              {t("file-count", { count: fileCount })}
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+              <LinkIcon className="h-3.5 w-3.5" />
+              {t("link-count", { count: linkCount })}
+            </span>
+            {document.memberIds.length > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
+                <UserRound className="h-3.5 w-3.5" />
+                {t("linked-people-count", {
+                  count: document.memberIds.length,
+                })}
+              </span>
+            ) : (
+              unlinked && (
+                <span className="inline-flex items-center rounded-md bg-muted px-2 py-1">
+                  {t("unlinked")}
+                </span>
+              )
+            )}
+          </div>
           {detailsOpen && (
             <>
               {document.description && (
@@ -385,21 +409,6 @@ function DocumentCard({
                   {document.description}
                 </p>
               )}
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-                  <FileText className="h-3.5 w-3.5" />
-                  {t("file-count", { count: fileCount })}
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1">
-                  <LinkIcon className="h-3.5 w-3.5" />
-                  {t("link-count", { count: linkCount })}
-                </span>
-                {unlinked && (
-                  <span className="inline-flex items-center rounded-md bg-muted px-2 py-1">
-                    {t("unlinked")}
-                  </span>
-                )}
-              </div>
               {document.files.length > 0 && (
                 <div className="mt-3">
                   <p className="text-xs font-medium text-muted-foreground">
@@ -428,27 +437,37 @@ function DocumentCard({
                   </div>
                 </div>
               )}
-              {!unlinked && (
+              {document.memberIds.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    {t("linked-people-heading")}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {document.memberIds.map((memberId) => {
+                      const member = membersById.get(memberId);
+                      const name = member
+                        ? `${member.firstName} ${member.lastName}`.trim()
+                        : t("unknown-member");
+                      return (
+                        <Button
+                          key={memberId}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 max-w-48 gap-1 px-2"
+                          onClick={() => openMember(memberId)}
+                        >
+                          <UserRound className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{name}</span>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {(document.eventIds.length > 0 ||
+                document.storyIds.length > 0) && (
                 <div className="mt-3 flex flex-wrap gap-1.5">
-                  {document.memberIds.map((memberId) => {
-                    const member = membersById.get(memberId);
-                    const name = member
-                      ? `${member.firstName} ${member.lastName}`.trim()
-                      : t("unknown-member");
-                    return (
-                      <Button
-                        key={memberId}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 max-w-48 gap-1 px-2"
-                        onClick={() => openMember(memberId)}
-                      >
-                        <UserRound className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate">{name}</span>
-                      </Button>
-                    );
-                  })}
                   {document.eventIds.map((eventId) => {
                     const event = eventsById.get(eventId);
                     const label = event
