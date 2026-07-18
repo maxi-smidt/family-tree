@@ -499,17 +499,23 @@ export class TreeService {
   static addTask(
     treeId: string,
     id: string,
-    memberId: string | null,
     title: string,
     notes: string | null,
     createdAt: string,
+    memberIds: string[] = [],
   ) {
     return api.post<ResearchTaskDB>(`${base(treeId)}/tasks`, {
       id,
-      member_id: memberId,
       title,
       notes,
       created_at: createdAt,
+      member_ids: memberIds,
+    });
+  }
+
+  static setTaskLinks(treeId: string, taskId: string, memberIds: string[]) {
+    return api.put(`${base(treeId)}/tasks/${taskId}/links`, {
+      member_ids: memberIds,
     });
   }
 

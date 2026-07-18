@@ -39,6 +39,7 @@ from app.models import (
     Member,
     MemberDisease,
     MemberTask,
+    MemberTaskLink,
     Relation,
     RelationType,
     Story,
@@ -252,6 +253,7 @@ def migrate_bundle(bundle: dict) -> dict:
         # v4 → v5: research tasks. Older bundles simply have none.
         migrated = dict(bundle)
         migrated["tasks"] = bundle.get("tasks", [])
+        migrated["task_links"] = bundle.get("task_links", [])
         migrated["version"] = 5
         bundle = migrated
     return bundle
@@ -311,6 +313,7 @@ def export_tree(
         ],
         "diseases": _rows(db, MemberDisease, tree.id),
         "tasks": _rows(db, MemberTask, tree.id),
+        "task_links": _link_rows(db, MemberTaskLink, MemberTask, tree.id),
         "gallery_images": gallery,
         "gallery_links": _link_rows(db, GalleryMemberLink, GalleryImage, tree.id),
         "events": _rows(db, Event, tree.id),
@@ -501,16 +504,14 @@ def _do_import(
             if data["member_id"] in member_map.values():
                 db.add(MemberDisease(tree_id=tree.id, **data))
 
+        task_map = _remap(bundle.get("tasks", []))
         for row in bundle.get("tasks", []):
             data = dict(row)
             data.pop("tree_id", None)
-            data["id"] = str(uuid4())
-            if row.get("member_id") is not None:
-                mapped_member = member_map.get(row["member_id"])
-                if mapped_member is None:
-                    continue  # task's member was dropped from the bundle
-                data["member_id"] = mapped_member
+            data["id"] = task_map[row["id"]]
             db.add(MemberTask(tree_id=tree.id, **data))
+        _import_links(db, bundle.get("task_links", []), MemberTaskLink,
+                      "task_id", task_map, member_map)
         progress_cb(65)
 
         gallery_map = _remap(bundle.get("gallery_images", []))

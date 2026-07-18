@@ -35,6 +35,7 @@ from app.models import (
     Member,
     MemberDisease,
     MemberTask,
+    MemberTaskLink,
     Relation,
     Story,
     StoryDocumentLink,
@@ -577,22 +578,34 @@ def merge_trees(
                 )
             )
 
-    # --- Research tasks (deduped by member + title) -------------------------
+    # --- Research tasks (deduped by linked-member set + title) --------------
     seen_tasks: set[tuple] = set()
     for t in sources:
+        source_links: dict[str, list[str]] = {}
+        link_rows = db.execute(
+            select(MemberTaskLink)
+            .join(MemberTask, MemberTask.id == MemberTaskLink.task_id)
+            .where(MemberTask.tree_id == t.id)
+        ).scalars()
+        for link in link_rows:
+            source_links.setdefault(link.task_id, []).append(link.member_id)
         for task in db.scalars(select(MemberTask).where(MemberTask.tree_id == t.id)):
-            mid = member_map.get(task.member_id) if task.member_id else None
-            if task.member_id is not None and mid is None:
-                continue
-            key = (mid, _norm(task.title))
+            mapped_members = sorted(
+                {
+                    member_map[mid]
+                    for mid in source_links.get(task.id, [])
+                    if mid in member_map
+                }
+            )
+            key = (frozenset(mapped_members), _norm(task.title))
             if key in seen_tasks:
                 continue
             seen_tasks.add(key)
+            new_task_id = str(uuid4())
             db.add(
                 MemberTask(
-                    id=str(uuid4()),
+                    id=new_task_id,
                     tree_id=new_tree.id,
-                    member_id=mid,
                     title=task.title,
                     notes=task.notes,
                     done=task.done,
@@ -600,6 +613,8 @@ def merge_trees(
                     done_at=task.done_at,
                 )
             )
+            for mid in mapped_members:
+                db.add(MemberTaskLink(task_id=new_task_id, member_id=mid))
 
     _progress(60)
 

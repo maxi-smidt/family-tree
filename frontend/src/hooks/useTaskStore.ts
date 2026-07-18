@@ -11,19 +11,19 @@ interface TaskState {
   initialized: boolean;
   refreshTasks: (treeId?: string) => Promise<void>;
   getTasksByMember: (memberId: string) => ResearchTask[];
-  addTask: (task: ResearchTaskInput) => Promise<void>;
-  updateTask: (id: string, task: ResearchTaskInput) => Promise<void>;
+  addTask: (memberIds: string[], task: ResearchTaskInput) => Promise<void>;
+  updateTask: (
+    id: string,
+    task: ResearchTaskInput,
+    memberIds: string[],
+  ) => Promise<void>;
   setTaskDone: (id: string, done: boolean) => Promise<void>;
   removeTask: (id: string) => Promise<void>;
   clear: () => void;
 }
 
 const openMemberIds = (tasks: ResearchTask[]): Set<string> =>
-  new Set(
-    tasks
-      .filter((t) => !t.done && t.memberId !== null)
-      .map((t) => t.memberId as string),
-  );
+  new Set(tasks.filter((t) => !t.done).flatMap((t) => t.linkedMemberIds));
 
 export const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
@@ -50,27 +50,31 @@ export const useTaskStore = create<TaskState>((set, get) => ({
   },
 
   getTasksByMember: (memberId: string) => {
-    return get().tasks.filter((t) => t.memberId === memberId);
+    return get().tasks.filter((t) => t.linkedMemberIds.includes(memberId));
   },
 
-  addTask: async (task: ResearchTaskInput) => {
+  addTask: async (memberIds: string[], task: ResearchTaskInput) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
     await TreeService.addTask(
       treeId,
       crypto.randomUUID(),
-      task.memberId ?? null,
       task.title,
       task.notes || null,
       new Date().toISOString(),
+      memberIds,
     );
 
     await get().refreshTasks(treeId);
     invalidateActivityView();
   },
 
-  updateTask: async (id: string, task: ResearchTaskInput) => {
+  updateTask: async (
+    id: string,
+    task: ResearchTaskInput,
+    memberIds: string[],
+  ) => {
     const treeId = activeTreeId();
     if (!treeId) return;
 
@@ -85,6 +89,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       current.done,
       current.doneAt,
     );
+    await TreeService.setTaskLinks(treeId, id, memberIds);
 
     await get().refreshTasks(treeId);
     invalidateActivityView();

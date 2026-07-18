@@ -220,14 +220,19 @@ function OpenTasksSection({ canWrite }: { canWrite: boolean }) {
                 </p>
               )}
             </div>
-            {task.memberId ? (
-              <button
-                className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/70 transition-colors font-mono cursor-pointer flex-shrink-0"
-                onClick={() => navigateTo("tree-view")}
-                title={t("view-member")}
-              >
-                {memberLabel(task.memberId, members)}
-              </button>
+            {task.linkedMemberIds.length > 0 ? (
+              <div className="flex flex-wrap gap-1 justify-end flex-shrink-0">
+                {task.linkedMemberIds.map((memberId) => (
+                  <button
+                    key={memberId}
+                    className="text-xs px-2 py-0.5 rounded-full bg-muted hover:bg-muted/70 transition-colors font-mono cursor-pointer"
+                    onClick={() => navigateTo("tree-view")}
+                    title={t("view-member")}
+                  >
+                    {memberLabel(memberId, members)}
+                  </button>
+                ))}
+              </div>
             ) : (
               <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground flex-shrink-0">
                 {t("open-tasks-tree-level")}

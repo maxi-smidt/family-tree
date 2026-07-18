@@ -141,20 +141,21 @@ class MemberTaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
-    member_id: str | None = None
     title: str
     notes: str | None = None
     done: bool
     created_at: str
     done_at: str | None = None
+    # Empty = tree-level task.
+    member_ids: list[str] = []
 
 
 class MemberTaskCreate(BaseModel):
     id: str
-    member_id: str | None = None
     title: str
     notes: str | None = None
     created_at: str
+    member_ids: list[str] = []
 
 
 class MemberTaskUpdate(BaseModel):

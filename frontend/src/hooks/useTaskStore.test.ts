@@ -12,12 +12,12 @@ const TREE: Tree = { id: TREE_ID, name: "Task Tree", role: "owner" };
 
 const TASK_DB: ResearchTaskDB = {
   id: "t1",
-  member_id: "m1",
   title: "Find birth record",
   notes: null,
   done: false,
   created_at: "2026-01-01T00:00:00Z",
   done_at: null,
+  member_ids: ["m1"],
 };
 
 beforeEach(() => {
@@ -40,7 +40,7 @@ describe("useTaskStore — refreshTasks", () => {
     expect(TreeService.getTasks).not.toHaveBeenCalled();
   });
 
-  it("fetches and maps tasks", async () => {
+  it("fetches and maps tasks with linked members", async () => {
     useTreeStore.setState({ selectedTree: TREE });
     vi.mocked(TreeService.getTasks).mockResolvedValue([TASK_DB]);
 
@@ -49,7 +49,7 @@ describe("useTaskStore — refreshTasks", () => {
     const tasks = useTaskStore.getState().tasks;
     expect(tasks).toHaveLength(1);
     expect(tasks[0].id).toBe("t1");
-    expect(tasks[0].memberId).toBe("m1");
+    expect(tasks[0].linkedMemberIds).toEqual(["m1"]);
     expect(tasks[0].done).toBe(false);
     expect(useTaskStore.getState().openTaskMemberIds.has("m1")).toBe(true);
   });
@@ -84,47 +84,85 @@ describe("useTaskStore — refreshTasks", () => {
 });
 
 describe("useTaskStore — addTask", () => {
-  it("calls TreeService.addTask then refreshes", async () => {
+  it("calls TreeService.addTask with linked members then refreshes", async () => {
     useTreeStore.setState({ selectedTree: TREE });
     vi.mocked(TreeService.addTask).mockResolvedValue(TASK_DB);
     vi.mocked(TreeService.getTasks).mockResolvedValue([TASK_DB]);
 
     await useTaskStore
       .getState()
-      .addTask({ memberId: "m1", title: "Find birth record" });
+      .addTask(["m1", "m2"], { title: "Find birth record" });
 
     expect(TreeService.addTask).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String),
-      "m1",
       "Find birth record",
       null,
       expect.any(String),
+      ["m1", "m2"],
     );
     expect(TreeService.getTasks).toHaveBeenCalled();
   });
 
-  it("creates a tree-level task when memberId is omitted", async () => {
+  it("creates a tree-level task with no linked members", async () => {
     useTreeStore.setState({ selectedTree: TREE });
     vi.mocked(TreeService.addTask).mockResolvedValue(TASK_DB);
     vi.mocked(TreeService.getTasks).mockResolvedValue([]);
 
-    await useTaskStore.getState().addTask({ title: "Scan family bible" });
+    await useTaskStore.getState().addTask([], { title: "Scan family bible" });
 
     expect(TreeService.addTask).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String),
-      null,
       "Scan family bible",
       null,
       expect.any(String),
+      [],
     );
   });
 
   it("does nothing when no tree is selected", async () => {
-    await useTaskStore.getState().addTask({ title: "Orphan" });
+    await useTaskStore.getState().addTask([], { title: "Orphan" });
 
     expect(TreeService.addTask).not.toHaveBeenCalled();
+  });
+});
+
+describe("useTaskStore — updateTask", () => {
+  it("updates fields and replaces member links", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    useTaskStore.setState({
+      tasks: [
+        {
+          id: "t1",
+          linkedMemberIds: ["m1"],
+          title: "Find birth record",
+          notes: "",
+          done: false,
+          createdAt: "2026-01-01T00:00:00Z",
+          doneAt: null,
+        },
+      ],
+    });
+    vi.mocked(TreeService.updateTask).mockResolvedValue(TASK_DB);
+    vi.mocked(TreeService.setTaskLinks).mockResolvedValue(undefined);
+    vi.mocked(TreeService.getTasks).mockResolvedValue([]);
+
+    await useTaskStore
+      .getState()
+      .updateTask("t1", { title: "Updated", notes: "n" }, ["m2"]);
+
+    expect(TreeService.updateTask).toHaveBeenCalledWith(
+      TREE_ID,
+      "t1",
+      "Updated",
+      "n",
+      false,
+      null,
+    );
+    expect(TreeService.setTaskLinks).toHaveBeenCalledWith(TREE_ID, "t1", [
+      "m2",
+    ]);
   });
 });
 
@@ -135,7 +173,7 @@ describe("useTaskStore — setTaskDone", () => {
       tasks: [
         {
           id: "t1",
-          memberId: "m1",
+          linkedMemberIds: ["m1"],
           title: "Find birth record",
           notes: "",
           done: false,
@@ -168,7 +206,7 @@ describe("useTaskStore — setTaskDone", () => {
       tasks: [
         {
           id: "t1",
-          memberId: "m1",
+          linkedMemberIds: ["m1"],
           title: "Find birth record",
           notes: "",
           done: true,
@@ -210,8 +248,8 @@ describe("useTaskStore — selectors", () => {
   const tasks = [
     {
       id: "t1",
-      memberId: "m1",
-      title: "Open for m1",
+      linkedMemberIds: ["m1", "m2"],
+      title: "Open for m1+m2",
       notes: "",
       done: false,
       createdAt: "2026-01-01T00:00:00Z",
@@ -219,7 +257,7 @@ describe("useTaskStore — selectors", () => {
     },
     {
       id: "t2",
-      memberId: "m1",
+      linkedMemberIds: ["m1"],
       title: "Done for m1",
       notes: "",
       done: true,
@@ -228,7 +266,7 @@ describe("useTaskStore — selectors", () => {
     },
     {
       id: "t3",
-      memberId: null,
+      linkedMemberIds: [],
       title: "Tree-level",
       notes: "",
       done: false,
@@ -237,10 +275,20 @@ describe("useTaskStore — selectors", () => {
     },
   ];
 
-  it("getTasksByMember returns only that member's tasks", () => {
+  it("getTasksByMember returns tasks linked to the given member", () => {
     useTaskStore.setState({ tasks });
-    const result = useTaskStore.getState().getTasksByMember("m1");
-    expect(result.map((t) => t.id)).toEqual(["t1", "t2"]);
+    expect(
+      useTaskStore
+        .getState()
+        .getTasksByMember("m1")
+        .map((t) => t.id),
+    ).toEqual(["t1", "t2"]);
+    expect(
+      useTaskStore
+        .getState()
+        .getTasksByMember("m2")
+        .map((t) => t.id),
+    ).toEqual(["t1"]);
   });
 
   it("clear() empties the tasks slice", () => {

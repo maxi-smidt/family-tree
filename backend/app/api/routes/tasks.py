@@ -1,4 +1,5 @@
-"""Research tasks — per-member (or tree-level) open questions and to-dos."""
+"""Research tasks — open questions and to-dos, linked to any number of
+members (a task with no linked members is a tree-level task)."""
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -14,10 +15,16 @@ from app.api.deps import (
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Member, MemberTask, Tree
+from app.models import MemberTask, MemberTaskLink, Tree
 from app.models.user import User
-from app.schemas.content import MemberTaskCreate, MemberTaskOut, MemberTaskUpdate
+from app.schemas.content import (
+    LinksSet,
+    MemberTaskCreate,
+    MemberTaskOut,
+    MemberTaskUpdate,
+)
 from app.services.activity import record_activity
+from app.services.content_links import replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import QuotaExceeded, check_tree_quota
 
@@ -38,12 +45,38 @@ def _get_task(db: Session, tree: Tree, task_id: str) -> MemberTask:
     return task
 
 
-def _check_member(db: Session, tree: Tree, member_id: str | None) -> None:
-    if member_id is None:
-        return
-    member = db.get(Member, member_id)
-    if member is None or member.tree_id != tree.id:
-        raise HTTPException(status_code=404, detail="Member not found")
+def _member_ids(db: Session, task_id: str) -> list[str]:
+    return list(
+        db.scalars(
+            select(MemberTaskLink.member_id).where(MemberTaskLink.task_id == task_id)
+        ).all()
+    )
+
+
+def _task_out(db: Session, task: MemberTask) -> MemberTaskOut:
+    return MemberTaskOut.model_validate(task).model_copy(
+        update={"member_ids": _member_ids(db, task.id)}
+    )
+
+
+def _tasks_out(db: Session, tasks: list[MemberTask]) -> list[MemberTaskOut]:
+    if not tasks:
+        return []
+    task_ids = [t.id for t in tasks]
+    rows = db.execute(
+        select(MemberTaskLink.task_id, MemberTaskLink.member_id).where(
+            MemberTaskLink.task_id.in_(task_ids)
+        )
+    ).all()
+    member_map: dict[str, list[str]] = {}
+    for tid, mid in rows:
+        member_map.setdefault(tid, []).append(mid)
+    return [
+        MemberTaskOut.model_validate(t).model_copy(
+            update={"member_ids": member_map.get(t.id, [])}
+        )
+        for t in tasks
+    ]
 
 
 def _notify(db: Session, tree: Tree) -> None:
@@ -65,7 +98,8 @@ def list_tasks(
         .where(MemberTask.tree_id == tree.id)
         .order_by(MemberTask.created_at, MemberTask.id)
     )
-    return db.scalars(apply_pagination(statement, pagination)).all()
+    tasks = db.scalars(apply_pagination(statement, pagination)).all()
+    return _tasks_out(db, list(tasks))
 
 
 @router.post("", response_model=MemberTaskOut, status_code=201)
@@ -76,19 +110,28 @@ def create_task(
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
-    _check_member(db, tree, data["member_id"])
+    member_ids = data.pop("member_ids")
     try:
         check_tree_quota(db, tree, len(str(data).encode()))
     except QuotaExceeded as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     task = MemberTask(tree_id=tree.id, done=False, **data)
     db.add(task)
+    db.flush()  # task row must exist before its links reference it
+    replace_member_links(
+        db,
+        link_model=MemberTaskLink,
+        parent_fk=MemberTaskLink.task_id,
+        parent_id=task.id,
+        tree=tree,
+        member_ids=member_ids,
+    )
     record_activity(db, tree_id=tree.id, actor=user, action="create",
                     target_type="task", target_id=task.id, target_label=task.title)
     db.commit()
     db.refresh(task)
     _notify(db, tree)
-    return task
+    return _task_out(db, task)
 
 
 @router.patch("/{task_id}", response_model=MemberTaskOut)
@@ -112,7 +155,31 @@ def update_task(
     db.commit()
     db.refresh(task)
     _notify(db, tree)
-    return task
+    return _task_out(db, task)
+
+
+@router.put("/{task_id}/links", status_code=204)
+def set_links(
+    task_id: str,
+    payload: LinksSet,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Replace the full set of members linked to this task."""
+    task = _get_task(db, tree, task_id)
+    replace_member_links(
+        db,
+        link_model=MemberTaskLink,
+        parent_fk=MemberTaskLink.task_id,
+        parent_id=task_id,
+        tree=tree,
+        member_ids=payload.member_ids,
+    )
+    record_activity(db, tree_id=tree.id, actor=user, action="update",
+                    target_type="task", target_id=task.id, target_label=task.title)
+    db.commit()
+    _notify(db, tree)
 
 
 @router.delete("/{task_id}", status_code=204)

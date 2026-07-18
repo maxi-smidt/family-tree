@@ -1,6 +1,7 @@
 export interface ResearchTask {
   id: string;
-  memberId: string | null;
+  /** Members this task is about; empty = tree-level task. */
+  linkedMemberIds: string[];
   title: string;
   notes: string;
   done: boolean;
@@ -10,16 +11,15 @@ export interface ResearchTask {
 
 export interface ResearchTaskDB {
   id: string;
-  member_id: string | null;
   title: string;
   notes: string | null;
   done: boolean;
   created_at: string;
   done_at: string | null;
+  member_ids?: string[];
 }
 
 export interface ResearchTaskInput {
-  memberId?: string | null;
   title: string;
   notes?: string;
 }
@@ -33,7 +33,7 @@ export function compareTasks(a: ResearchTask, b: ResearchTask): number {
 export function mapTaskFromDB(row: ResearchTaskDB): ResearchTask {
   return {
     id: row.id,
-    memberId: row.member_id,
+    linkedMemberIds: row.member_ids ?? [],
     title: row.title,
     notes: row.notes ?? "",
     done: row.done,

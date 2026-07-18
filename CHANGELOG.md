@@ -11,11 +11,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
-- Research tasks: per-member (and tree-level) open questions and to-dos with
-  open/done state, managed from the member sheet's Research section. Tree
-  nodes can show a toggleable indicator for members with open tasks, the
-  quality report lists all open research items, and task changes appear in
-  the activity log. Gated behind the new `research_tasks` feature flag (#725).
+- Research tasks: open questions and to-dos with open/done state, linked to
+  any number of members (or none, for general tree-wide tasks) and managed
+  from the member sheet's Research section. Tree nodes can show a toggleable
+  indicator for members with open tasks, the quality report lists all open
+  research items, and task changes appear in the activity log. Gated behind
+  the new `research_tasks` feature flag (#725).
 
 ### Fixed
 

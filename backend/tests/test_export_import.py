@@ -3,7 +3,13 @@ import io
 from sqlalchemy import select
 
 from app.api.routes.export_import import BUNDLE_VERSION
-from app.models import GalleryImage, GalleryMemberLink, Member, MemberTask
+from app.models import (
+    GalleryImage,
+    GalleryMemberLink,
+    Member,
+    MemberTask,
+    MemberTaskLink,
+)
 from app.services import crypto_export
 from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 
@@ -33,7 +39,8 @@ EXPECTED_BUNDLE_KEYS = {
     },
     5: {
         "version", "app_version", "exported_at", "tree",
-        "members", "relations", "relation_types", "diseases", "tasks",
+        "members", "relations", "relation_types", "diseases",
+        "tasks", "task_links",
         "gallery_images", "gallery_links",
         "events", "event_links",
         "stories", "story_links",
@@ -99,7 +106,6 @@ def test_native_export_import_preserves_research_tasks(client, db):
             MemberTask(
                 id="task-1",
                 tree_id=tree.id,
-                member_id=member.id,
                 title="Find birth record",
                 done=False,
                 created_at="2026-01-01T00:00:00Z",
@@ -107,7 +113,6 @@ def test_native_export_import_preserves_research_tasks(client, db):
             MemberTask(
                 id="task-2",
                 tree_id=tree.id,
-                member_id=None,
                 title="Scan family bible",
                 done=True,
                 created_at="2026-01-02T00:00:00Z",
@@ -115,6 +120,8 @@ def test_native_export_import_preserves_research_tasks(client, db):
             ),
         ]
     )
+    db.commit()
+    db.add(MemberTaskLink(task_id="task-1", member_id=member.id))
     db.commit()
 
     exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
@@ -137,11 +144,11 @@ def test_native_export_import_preserves_research_tasks(client, db):
     tasks = client.get(f"{API}/trees/{tree_id}/tasks", headers=headers).json()
     assert {t["title"] for t in tasks} == {"Find birth record", "Scan family bible"}
     by_title = {t["title"]: t for t in tasks}
-    assert by_title["Scan family bible"]["member_id"] is None
+    assert by_title["Scan family bible"]["member_ids"] == []
     assert by_title["Scan family bible"]["done"] is True
-    # The member-level task follows its member's remapped id.
+    # The linked task follows its member's remapped id.
     members = client.get(f"{API}/trees/{tree_id}/members", headers=headers).json()
-    assert by_title["Find birth record"]["member_id"] == members[0]["id"]
+    assert by_title["Find birth record"]["member_ids"] == [members[0]["id"]]
 
 
 def test_native_export_import_preserves_gallery_face_regions(client, db):
