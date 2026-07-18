@@ -22,6 +22,11 @@ const GalleryView = lazy(() =>
     default: m.GalleryView,
   })),
 );
+const DocumentsView = lazy(() =>
+  import("@/components/view/documents-view/DocumentsView").then((m) => ({
+    default: m.DocumentsView,
+  })),
+);
 const TimelineView = lazy(() =>
   import("@/components/view/timeline-view/TimelineView").then((m) => ({
     default: m.TimelineView,
@@ -103,6 +108,7 @@ const VIEW_COMPONENTS: Record<ViewId, React.ReactNode> = {
   "tree-view": <FlowPanel />,
   "list-view": <ListView />,
   "gallery-view": <GalleryView />,
+  "documents-view": <DocumentsView />,
   "timeline-view": <TimelineView />,
   "map-view": <MapView />,
   "activity-view": <ActivityView />,
@@ -255,6 +261,7 @@ export const MainPanel = () => {
     "tree-view": t("tree"),
     "list-view": t("list"),
     "gallery-view": t("gallery"),
+    "documents-view": t("documents"),
     "timeline-view": t("timeline"),
     "map-view": t("map"),
     "activity-view": t("activity"),

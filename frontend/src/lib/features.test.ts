@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ALL_FEATURES, filterViewsByFeatures, isFeatureName } from "./features";
+import {
+  ALL_FEATURES,
+  filterViewsByFeatures,
+  filterViewsByRestrictions,
+  isFeatureName,
+} from "./features";
 import { ALL_VIEWS, TREE_VIEW, ViewId } from "./tabs";
 
 describe("isFeatureName", () => {
@@ -44,5 +49,20 @@ describe("filterViewsByFeatures", () => {
   it("falls back to the tree view when nothing would remain", () => {
     const views: ViewId[] = ["gallery-view", "statistics-view"];
     expect(filterViewsByFeatures(views, [])).toEqual([TREE_VIEW]);
+  });
+
+  it("gates the documents view with the existing sources feature", () => {
+    const features = allFeatures.filter((feature) => feature !== "sources");
+    const visible = filterViewsByFeatures([...ALL_VIEWS], features);
+
+    expect(visible).not.toContain("documents-view");
+  });
+});
+
+describe("filterViewsByRestrictions", () => {
+  it("hides the documents view when the sources domain is restricted", () => {
+    const visible = filterViewsByRestrictions([...ALL_VIEWS], ["sources"]);
+
+    expect(visible).not.toContain("documents-view");
   });
 });

@@ -31,6 +31,7 @@ export function isFeatureName(value: string): value is FeatureName {
 /** View tabs that only exist when their feature flag is enabled. */
 export const VIEW_FEATURES: Partial<Record<ViewId, FeatureName>> = {
   "gallery-view": "gallery",
+  "documents-view": "sources",
   "timeline-view": "events",
   "map-view": "map",
   "activity-view": "activity_log",
@@ -43,6 +44,7 @@ export const VIEW_DOMAINS: Partial<Record<ViewId, string>> = {
   "tree-view": "tree",
   "list-view": "tree",
   "gallery-view": "gallery",
+  "documents-view": "sources",
   "timeline-view": "events",
   "map-view": "map",
 };

@@ -115,6 +115,7 @@ export const TabSettingsDialog = ({ isOpen, onClose }: Props) => {
     "tree-view": tTabs("tree"),
     "list-view": tTabs("list"),
     "gallery-view": tTabs("gallery"),
+    "documents-view": tTabs("documents"),
     "timeline-view": tTabs("timeline"),
     "map-view": tTabs("map"),
     "activity-view": tTabs("activity"),

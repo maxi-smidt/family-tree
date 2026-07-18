@@ -421,6 +421,34 @@
     },
     "upload-image-card": "Bild hochladen"
   },
+  "documents-view": {
+    "title": "Dokumente",
+    "add": "Dokument hinzufügen",
+    "search-placeholder": "Dokumente durchsuchen...",
+    "filter-all": "Alle Dokumente",
+    "filter-unlinked": "Nur nicht verknüpfte",
+    "empty-title": "Noch keine Dokumente",
+    "empty-description": "Füge ein Dokument hinzu, um das Archiv dieses Stammbaums aufzubauen.",
+    "no-results": "Keine Dokumente entsprechen diesen Filtern.",
+    "file-count_one": "{{count}} Datei",
+    "file-count_other": "{{count}} Dateien",
+    "link-count_one": "{{count}} externer Link",
+    "link-count_other": "{{count}} externe Links",
+    "unlinked": "Nicht verknüpft",
+    "unknown-member": "Unbekannte Person",
+    "unknown-event": "Unbekanntes Ereignis",
+    "unknown-story": "Unbekannte Geschichte",
+    "open-hint": "Doppelklicken, um eine Dokumentdatei zu öffnen",
+    "open-error": "Dokumentdatei konnte nicht geöffnet werden.",
+    "edit": "Dokument bearbeiten",
+    "delete": "Dokument löschen",
+    "delete-dialog": {
+      "title": "Dokument löschen",
+      "description": "Möchtest du dieses Dokument wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "cancel": "Abbrechen",
+      "confirm": "Löschen"
+    }
+  },
   "layout": {
     "tree-breadcrumb": {
       "aria-label": "Navigation verknüpfter Stammbäume",
@@ -435,6 +463,7 @@
       "tree": "Stammbaum",
       "list": "Liste",
       "gallery": "Galerie",
+      "documents": "Dokumente",
       "timeline": "Timeline",
       "activity": "Aktivität",
       "quality-report": "Qualität",
@@ -776,7 +805,7 @@
           "date-placeholder": "z.B. 1920 oder 1920-05",
           "people-mentioned": "Erwähnte Personen",
           "people-mentioned-placeholder": "Personen auswählen...",
-          "people-mentioned-description": "Wähle eine oder mehrere Personen um die es in diesem Dokument geht",
+          "people-mentioned-description": "Wähle optional Personen aus, um die es in diesem Dokument geht",
           "files": {
             "heading": "Dateien",
             "add-file": "Datei hinzufügen",
