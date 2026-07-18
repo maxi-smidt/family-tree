@@ -429,8 +429,7 @@
     "presence": {
       "aria-label_one": "{{count}} person is viewing this tree",
       "aria-label_other": "{{count}} people are viewing this tree",
-      "editing-tooltip": "{{name}} (editing)",
-      "more": "{{count}} more"
+      "editing-tooltip": "{{name}} (editing)"
     },
     "main-panel": {
       "tree": "Tree",

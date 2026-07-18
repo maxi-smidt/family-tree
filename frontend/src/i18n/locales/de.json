@@ -429,8 +429,7 @@
     "presence": {
       "aria-label_one": "{{count}} Person betrachtet diesen Stammbaum",
       "aria-label_other": "{{count}} Personen betrachten diesen Stammbaum",
-      "editing-tooltip": "{{name}} (bearbeitet)",
-      "more": "{{count}} weitere"
+      "editing-tooltip": "{{name}} (bearbeitet)"
     },
     "main-panel": {
       "tree": "Stammbaum",

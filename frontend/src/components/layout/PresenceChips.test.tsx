@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
@@ -101,5 +101,44 @@ describe("PresenceChips", () => {
       FRIEND.profile_image_url,
     );
     expect(avatars[2]).not.toHaveAttribute("data-profile-image-url");
+  });
+
+  it("hides a solo user and renders every avatar once collaborators join", () => {
+    usePresenceStore.setState({ roster: [ROSTER[0]] });
+    const { rerender } = render(<PresenceChips />);
+
+    expect(screen.queryByTestId("presence-avatar")).not.toBeInTheDocument();
+
+    act(() => {
+      usePresenceStore.setState({
+        roster: [
+          ...ROSTER,
+          {
+            userId: "fourth",
+            displayName: "Fourth User",
+            firstName: "Fourth",
+            lastName: "User",
+            editingMemberId: null,
+          },
+          {
+            userId: "fifth",
+            displayName: "Fifth User",
+            firstName: "Fifth",
+            lastName: "User",
+            editingMemberId: null,
+          },
+          {
+            userId: "sixth",
+            displayName: "Sixth User",
+            firstName: "Sixth",
+            lastName: "User",
+            editingMemberId: null,
+          },
+        ],
+      });
+    });
+    rerender(<PresenceChips />);
+
+    expect(screen.getAllByTestId("presence-avatar")).toHaveLength(6);
   });
 });

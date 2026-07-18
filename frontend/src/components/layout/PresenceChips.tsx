@@ -11,9 +11,6 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { cn } from "@/lib/utils";
 
-/** How many avatars to show before collapsing the rest into a "+N" chip. */
-const MAX_VISIBLE = 5;
-
 /**
  * Overlapping avatar chips for the users currently active in the open tree
  * (Google-Docs style), including the current user. Each chip reuses the shared
@@ -46,17 +43,16 @@ export const PresenceChips = () => {
     [friends],
   );
 
-  if (roster.length === 0) return null;
-
-  const visible = roster.slice(0, MAX_VISIBLE);
-  const overflowUsers = roster.slice(MAX_VISIBLE);
+  // A solo user's avatar adds no collaboration information. Once somebody else
+  // is present, show the entire roster (including the current user).
+  if (roster.length <= 1) return null;
 
   return (
     <div
       className="flex -space-x-2"
       aria-label={t("aria-label", { count: roster.length })}
     >
-      {visible.map((user) => {
+      {roster.map((user) => {
         const isSelf = currentUser?.id === user.userId;
         const isEditing =
           user.editingMemberId !== null ||
@@ -93,34 +89,6 @@ export const PresenceChips = () => {
           </Tooltip>
         );
       })}
-      {overflowUsers.length > 0 && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <span
-              className="flex size-8 select-none items-center justify-center rounded-full border-2 border-background bg-muted text-[11px] font-medium text-muted-foreground shadow-sm"
-              aria-label={t("more", { count: overflowUsers.length })}
-            >
-              +{overflowUsers.length}
-            </span>
-          </TooltipTrigger>
-          <TooltipContent>
-            <div className="flex flex-col gap-1">
-              {overflowUsers.map((user) => {
-                const isEditing =
-                  user.editingMemberId !== null ||
-                  recentlyActiveUserIds.includes(user.userId);
-                return (
-                  <span key={user.userId}>
-                    {isEditing
-                      ? t("editing-tooltip", { name: user.displayName })
-                      : user.displayName}
-                  </span>
-                );
-              })}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      )}
     </div>
   );
 };
