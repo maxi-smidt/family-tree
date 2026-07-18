@@ -1,6 +1,31 @@
-"""Schemas for the statistics report."""
+"""Schemas for statistics reports and custom-widget aggregations."""
 
-from pydantic import BaseModel
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+from app.schemas.base import FamilyTreeBaseModel
+
+# These are deliberately closed registries.  The aggregation endpoint maps
+# every accepted value to explicit Python code; it never accepts a field name
+# or query fragment from the client.  ``test_statistics_widgets.py`` checks
+# that they stay in lock-step with the frontend widget registries.
+WidgetChartType = Literal["bar", "pie", "line", "area"]
+WidgetDimensionId = Literal[
+    "gender",
+    "birth-decade",
+    "death-decade",
+    "birth-year",
+    "age-at-death",
+    "birthplace",
+    "hometown",
+    "cemetery",
+    "first-name",
+    "last-name",
+    "deceased-status",
+    "academic-title",
+]
+WidgetMeasureId = Literal["count", "avg-lifespan", "avg-age"]
 
 
 class GenderDistribution(BaseModel):
@@ -49,3 +74,37 @@ class CombinedStatisticsReport(StatisticsReport):
 
     tree_count: int
     included_tree_ids: list[str]
+
+
+class CustomWidgetAggregateConfig(FamilyTreeBaseModel):
+    """The safe, serializable portion of a custom-widget configuration."""
+
+    id: str = Field(min_length=1, max_length=128)
+    chart_type: WidgetChartType
+    dimension_id: WidgetDimensionId
+    measure_id: WidgetMeasureId
+    breakdown_id: WidgetDimensionId | None = None
+
+
+class CustomWidgetAggregateRequest(FamilyTreeBaseModel):
+    """Batch widget pivots so one scope change produces one API request."""
+
+    scope: Literal["tree", "linked"] = "tree"
+    widgets: list[CustomWidgetAggregateConfig] = Field(min_length=1, max_length=100)
+
+
+class CustomWidgetAggregateRow(BaseModel):
+    """One raw category with values keyed by its raw series ids."""
+
+    category: str
+    values: dict[str, float]
+
+
+class CustomWidgetAggregation(BaseModel):
+    id: str
+    data: list[CustomWidgetAggregateRow]
+    series: list[str]
+
+
+class CustomWidgetAggregateResponse(BaseModel):
+    widgets: list[CustomWidgetAggregation]

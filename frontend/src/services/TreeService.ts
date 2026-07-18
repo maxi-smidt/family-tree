@@ -45,7 +45,13 @@ import {
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityPageDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
-import { CombinedStatisticsReport, StatisticsReport } from "@/types/statistics";
+import {
+  CombinedStatisticsReport,
+  CustomWidgetAggregateResponse,
+  CustomWidgetAggregationConfig,
+  StatisticsReport,
+  StatisticsScope,
+} from "@/types/statistics";
 import { TreeStorageUsageDB } from "@/types/storage";
 import { LinkGraphDB } from "@/types/linkGraph";
 import { PresenceRosterDB } from "@/types/presence";
@@ -687,6 +693,28 @@ export class TreeService {
   static getCombinedStatistics(treeId: string) {
     return api.get<CombinedStatisticsReport>(
       `${base(treeId)}/statistics/combined`,
+    );
+  }
+
+  static getCustomWidgetAggregations(
+    treeId: string,
+    scope: StatisticsScope,
+    widgets: CustomWidgetAggregationConfig[],
+  ) {
+    return api.post<CustomWidgetAggregateResponse>(
+      `${base(treeId)}/statistics/widgets/aggregate`,
+      {
+        scope,
+        widgets: widgets.map(
+          ({ id, chartType, dimensionId, measureId, breakdownId }) => ({
+            id,
+            chartType,
+            dimensionId,
+            measureId,
+            breakdownId,
+          }),
+        ),
+      },
     );
   }
 

@@ -11,6 +11,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Custom statistics widgets now honor the “All linked trees” scope, including
+  readable linked trees only and counting bridge persons once (#570).
 - The in-app changelog now renders release notes in small, on-demand windows,
   avoiding a full-history Markdown render as releases accumulate (#746).
 - The in-app changelog is now generated from this source file while every
