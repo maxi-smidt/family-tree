@@ -47,6 +47,16 @@ EXPECTED_BUNDLE_KEYS = {
         "documents", "document_files",
         "document_member_links", "event_document_links", "story_document_links",
     },
+    6: {
+        "version", "app_version", "exported_at", "tree",
+        "members", "relations", "relation_types", "diseases",
+        "tasks", "task_links",
+        "gallery_images", "gallery_links", "unknown_faces",
+        "events", "event_links",
+        "stories", "story_links",
+        "documents", "document_files",
+        "document_member_links", "event_document_links", "story_document_links",
+    },
 }
 
 

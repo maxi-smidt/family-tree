@@ -32,6 +32,7 @@ from app.models import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    GalleryUnknownFace,
     Member,
     MemberDisease,
     MemberTask,
@@ -656,6 +657,33 @@ def merge_trees(
                         y=link.y,
                         w=link.w,
                         h=link.h,
+                    )
+                )
+
+    # --- Gallery unknown-face tags ------------------------------------------
+    # Regions carry over with their image; the linked research task is not —
+    # tasks are deduped separately above with fresh ids, and there is no
+    # reliable way to map an old task id to its merged replacement — so
+    # ``task_id`` is left null, leaving the tag an unresolved face again.
+    for t in sources:
+        faces = db.scalars(
+            select(GalleryUnknownFace)
+            .join(GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id)
+            .where(GalleryImage.tree_id == t.id)
+        )
+        for face in faces:
+            gi = image_map.get(face.gallery_image_id)
+            if gi:
+                db.add(
+                    GalleryUnknownFace(
+                        id=str(uuid4()),
+                        gallery_image_id=gi,
+                        x=face.x,
+                        y=face.y,
+                        w=face.w,
+                        h=face.h,
+                        task_id=None,
+                        created_at=face.created_at,
                     )
                 )
 

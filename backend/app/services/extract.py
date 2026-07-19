@@ -35,8 +35,10 @@ from app.models import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    GalleryUnknownFace,
     Member,
     MemberDisease,
+    MemberTask,
     Relation,
     Story,
     StoryDocumentLink,
@@ -742,6 +744,32 @@ def extract_subtree(
         ):
             img.tree_id = new_tree.id
             img.image_data = move_media_to_tree(img.image_data, new_tree.id)
+        # Unknown-face rows follow their image automatically (they're reached
+        # only through gallery_image_id, which is unchanged), but the research
+        # task they created lives in MemberTask, which never moves with this
+        # extraction. A face whose task is still open here is no longer
+        # actionable in the source tree, so the task is deleted; a done task is
+        # kept as history either way. The face's task_id is always cleared so
+        # it never points at a task in another tree.
+        moved_faces = list(
+            db.scalars(
+                select(GalleryUnknownFace).where(
+                    GalleryUnknownFace.gallery_image_id.in_(moved_image_ids)
+                )
+            )
+        )
+        task_ids = {f.task_id for f in moved_faces if f.task_id}
+        if task_ids:
+            for task in db.scalars(
+                select(MemberTask).where(
+                    MemberTask.id.in_(task_ids),
+                    MemberTask.tree_id == tree.id,
+                    MemberTask.done.is_(False),
+                )
+            ):
+                db.delete(task)
+        for face in moved_faces:
+            face.task_id = None
     for lnk in stale_gallery_links:
         db.delete(lnk)
     _progress(70)
