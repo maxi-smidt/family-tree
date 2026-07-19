@@ -286,6 +286,23 @@ def set_links(
 # ---------------------------------------------------------------------------
 
 
+def _open_linked_task(
+    db: Session, tree: Tree, face: GalleryUnknownFace
+) -> MemberTask | None:
+    """The face's research task, only while it is still open in this tree.
+
+    Defensive: the task may have moved to another tree (extract/move) or
+    already be gone or done — in all those cases the face's task link is
+    treated as absent.
+    """
+    if not face.task_id:
+        return None
+    task = db.get(MemberTask, face.task_id)
+    if task is None or task.tree_id != tree.id or task.done:
+        return None
+    return task
+
+
 def _get_unknown_face(db: Session, tree: Tree, face_id: str) -> GalleryUnknownFace:
     face = db.get(GalleryUnknownFace, face_id)
     if face is None:
@@ -440,19 +457,15 @@ def resolve_unknown_face(
             )
         )
 
-    # Defensive: the task may have moved to another tree (extract/move) or
-    # already be gone/done — only close it when it is still open here.
-    task_changed = False
-    if face.task_id:
-        task = db.get(MemberTask, face.task_id)
-        if task is not None and task.tree_id == tree.id and not task.done:
-            task.done = True
-            task.done_at = utcnow_iso()
-            record_activity(
-                db, tree_id=tree.id, actor=user, action="update",
-                target_type="task", target_id=task.id, target_label=task.title,
-            )
-            task_changed = True
+    task = _open_linked_task(db, tree, face)
+    task_changed = task is not None
+    if task is not None:
+        task.done = True
+        task.done_at = utcnow_iso()
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="task", target_id=task.id, target_label=task.title,
+        )
 
     db.delete(face)
     record_activity(
@@ -481,16 +494,14 @@ def delete_unknown_face(
     face = _get_unknown_face(db, tree, face_id)
     image = db.get(GalleryImage, face.gallery_image_id)
 
-    task_changed = False
-    if face.task_id:
-        task = db.get(MemberTask, face.task_id)
-        if task is not None and task.tree_id == tree.id and not task.done:
-            record_activity(
-                db, tree_id=tree.id, actor=user, action="delete",
-                target_type="task", target_id=task.id, target_label=task.title,
-            )
-            db.delete(task)
-            task_changed = True
+    task = _open_linked_task(db, tree, face)
+    task_changed = task is not None
+    if task is not None:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="delete",
+            target_type="task", target_id=task.id, target_label=task.title,
+        )
+        db.delete(task)
 
     db.delete(face)
     record_activity(

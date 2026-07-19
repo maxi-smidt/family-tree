@@ -27,6 +27,7 @@ from app.models.content import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    GalleryUnknownFace,
     MemberTask,
     MemberTaskLink,
     Story,
@@ -65,7 +66,7 @@ def _tree_model_bytes_for_tree_ids(db: Session, tree_ids: list[str]) -> int:
 
     Covers every model that carries ``tree_id``:
     Member, Relation, MemberDisease, GalleryImage, GalleryMemberLink,
-    Event, EventMemberLink, Story, StoryMemberLink,
+    GalleryUnknownFace, Event, EventMemberLink, Story, StoryMemberLink,
     MemberTask, MemberTaskLink,
     Document, DocumentFile, DocumentMemberLink, EventDocumentLink,
     StoryDocumentLink.
@@ -103,6 +104,13 @@ def _tree_model_bytes_for_tree_ids(db: Session, tree_ids: list[str]) -> int:
         ).where(GalleryImage.tree_id.in_(tree_ids))
     ).scalars().all()
     total += sum(_row_bytes(r) for r in links)
+    # GalleryUnknownFace has no tree_id column either — traverse via GalleryImage
+    unknown_faces = db.execute(
+        sa.select(GalleryUnknownFace).join(
+            GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id
+        ).where(GalleryImage.tree_id.in_(tree_ids))
+    ).scalars().all()
+    total += sum(_row_bytes(r) for r in unknown_faces)
 
     # Events
     total += _sum_model(Event, Event.tree_id)

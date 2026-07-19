@@ -315,7 +315,9 @@ export const ImageSheet = ({
   const handleMarkUnknown = () => {
     if (!draftRegion) return;
     const title = t("unknown-face-task-title", {
-      title: image.title || t("image-alt"),
+      // Prefer the possibly-edited (unsaved) title over the prop snapshot so
+      // the task references what the user currently sees.
+      title: formData.title || image.title || t("image-alt"),
     });
     addUnknownFace(image.id, draftRegion, {
       title,
@@ -348,8 +350,28 @@ export const ImageSheet = ({
 
   const handleResolveFace = (faceId: string) => {
     if (!resolveMemberId) return;
-    resolveUnknownFace(faceId, resolveMemberId)
-      .then(() => toast.success(t("unknown-face-resolve-success")))
+    const memberId = resolveMemberId;
+    const face = unknownFaces.find((candidate) => candidate.id === faceId);
+    resolveUnknownFace(faceId, memberId)
+      .then(() => {
+        toast.success(t("unknown-face-resolve-success"));
+        // Save full-replaces the image's member links from formData, so the
+        // link the backend just created must be mirrored into the local
+        // snapshot or a later Save would silently delete it again.
+        if (!face) return;
+        setFormData((current) => {
+          const base = current.memberLinks ?? image.memberLinks;
+          const nextLinks = [
+            ...base.filter((link) => link.memberId !== memberId),
+            { memberId, x: face.x, y: face.y, w: face.w, h: face.h },
+          ];
+          return {
+            ...current,
+            memberLinks: nextLinks,
+            linkedMemberIds: nextLinks.map((link) => link.memberId),
+          };
+        });
+      })
       .catch(() => toast.error(t("unknown-face-resolve-error")));
     setResolvingFaceId(null);
     setResolveMemberId(null);
