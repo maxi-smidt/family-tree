@@ -93,6 +93,7 @@ describe("MemberPhotos", () => {
         },
       ],
     );
+    vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
   });
 
   it("opens face tagging after an edit-view photo upload", async () => {

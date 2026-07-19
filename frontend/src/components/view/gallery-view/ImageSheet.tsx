@@ -18,12 +18,21 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useTranslation } from "react-i18next";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useFeature } from "@/hooks/useAuthStore";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Pencil, Plus, Tag, Trash2, X } from "lucide-react";
+import {
+  Check,
+  Pencil,
+  Plus,
+  Tag,
+  Trash2,
+  UserRoundSearch,
+  X,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,16 +91,36 @@ export const ImageSheet = ({
     keyPrefix: "gallery-view.image-sheet",
   });
   const { members } = useMemberStore();
-  const { updateGalleryImage, deleteGalleryImage } = useGalleryStore();
+  const {
+    galleryImages,
+    updateGalleryImage,
+    deleteGalleryImage,
+    addUnknownFace,
+    updateUnknownFace,
+    resolveUnknownFace,
+    removeUnknownFace,
+  } = useGalleryStore();
+  // Unknown-face operations persist immediately (unlike member links, which
+  // batch into formData until Save), so they must read the live store state
+  // rather than the possibly-stale `image` prop snapshot a caller may be
+  // holding onto for the sheet's lifetime.
+  const unknownFaces =
+    galleryImages.find((candidate) => candidate.id === image.id)
+      ?.unknownFaces ?? image.unknownFaces;
   const treeRole = useTreeStore((state) => state.selectedTree?.role);
   const canWrite = treeRole !== "viewer";
+  const researchTasksEnabled = useFeature("research_tasks");
   const [formData, setFormData] = useState<Partial<GalleryImage>>(image);
   const [tagMode, setTagMode] = useState(false);
   const [draftRegion, setDraftRegion] = useState<FaceRegion | null>(null);
   const [draftMemberId, setDraftMemberId] = useState<string | null>(null);
   const [newMemberId, setNewMemberId] = useState<string | null>(null);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editingFaceId, setEditingFaceId] = useState<string | null>(null);
   const [hoveredMemberId, setHoveredMemberId] = useState<string | null>(null);
+  const [hoveredFaceId, setHoveredFaceId] = useState<string | null>(null);
+  const [resolvingFaceId, setResolvingFaceId] = useState<string | null>(null);
+  const [resolveMemberId, setResolveMemberId] = useState<string | null>(null);
   const drawingStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
@@ -101,7 +130,11 @@ export const ImageSheet = ({
     setDraftMemberId(null);
     setNewMemberId(null);
     setEditingMemberId(null);
+    setEditingFaceId(null);
     setHoveredMemberId(null);
+    setHoveredFaceId(null);
+    setResolvingFaceId(null);
+    setResolveMemberId(null);
   }, [image, initialTagMode]);
 
   const memberLinks = formData.memberLinks ?? image.memberLinks;
@@ -189,6 +222,16 @@ export const ImageSheet = ({
       return;
     }
 
+    if (editingFaceId) {
+      const faceId = editingFaceId;
+      updateUnknownFace(faceId, region).catch(() =>
+        toast.error(t("unknown-face-update-error")),
+      );
+      setEditingFaceId(null);
+      setDraftRegion(null);
+      return;
+    }
+
     if (editingTag) {
       setMemberLinks(
         memberLinks.map((link) =>
@@ -263,9 +306,75 @@ export const ImageSheet = ({
         setDraftRegion(null);
         setDraftMemberId(null);
         setEditingMemberId(null);
+        setEditingFaceId(null);
       }
       return !enabled;
     });
+  };
+
+  const handleMarkUnknown = () => {
+    if (!draftRegion) return;
+    const title = t("unknown-face-task-title", {
+      // Prefer the possibly-edited (unsaved) title over the prop snapshot so
+      // the task references what the user currently sees.
+      title: formData.title || image.title || t("image-alt"),
+    });
+    addUnknownFace(image.id, draftRegion, {
+      title,
+      notes: t("unknown-face-task-notes"),
+    })
+      .then(() => toast.success(t("unknown-face-add-success")))
+      .catch(() => toast.error(t("unknown-face-add-error")));
+    setDraftRegion(null);
+  };
+
+  const handleEditFace = (faceId: string) => {
+    setTagMode(true);
+    setEditingFaceId(faceId);
+    setEditingMemberId(null);
+    setDraftRegion(null);
+    setDraftMemberId(null);
+  };
+
+  const handleDeleteFace = (faceId: string) => {
+    removeUnknownFace(faceId)
+      .then(() => toast.success(t("unknown-face-delete-success")))
+      .catch(() => toast.error(t("unknown-face-delete-error")));
+    if (editingFaceId === faceId) setEditingFaceId(null);
+    if (hoveredFaceId === faceId) setHoveredFaceId(null);
+    if (resolvingFaceId === faceId) {
+      setResolvingFaceId(null);
+      setResolveMemberId(null);
+    }
+  };
+
+  const handleResolveFace = (faceId: string) => {
+    if (!resolveMemberId) return;
+    const memberId = resolveMemberId;
+    const face = unknownFaces.find((candidate) => candidate.id === faceId);
+    resolveUnknownFace(faceId, memberId)
+      .then(() => {
+        toast.success(t("unknown-face-resolve-success"));
+        // Save full-replaces the image's member links from formData, so the
+        // link the backend just created must be mirrored into the local
+        // snapshot or a later Save would silently delete it again.
+        if (!face) return;
+        setFormData((current) => {
+          const base = current.memberLinks ?? image.memberLinks;
+          const nextLinks = [
+            ...base.filter((link) => link.memberId !== memberId),
+            { memberId, x: face.x, y: face.y, w: face.w, h: face.h },
+          ];
+          return {
+            ...current,
+            memberLinks: nextLinks,
+            linkedMemberIds: nextLinks.map((link) => link.memberId),
+          };
+        });
+      })
+      .catch(() => toast.error(t("unknown-face-resolve-error")));
+    setResolvingFaceId(null);
+    setResolveMemberId(null);
   };
 
   const linkedMembers = useMemo(
@@ -335,6 +444,36 @@ export const ImageSheet = ({
                     </Tooltip>
                   );
                 })}
+                {unknownFaces.map((face) => {
+                  const isHighlighted =
+                    hoveredFaceId === face.id || editingFaceId === face.id;
+                  return (
+                    <Tooltip key={face.id}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={t("unknown-face-aria")}
+                          className={
+                            isHighlighted
+                              ? "absolute border-2 border-amber-500 bg-amber-500/25 transition-colors"
+                              : "absolute border-2 border-amber-500/70 bg-amber-500/15 transition-colors"
+                          }
+                          style={{
+                            left: `${face.x * 100}%`,
+                            top: `${face.y * 100}%`,
+                            width: `${face.w * 100}%`,
+                            height: `${face.h * 100}%`,
+                          }}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onMouseEnter={() => setHoveredFaceId(face.id)}
+                          onMouseLeave={() => setHoveredFaceId(null)}
+                          onClick={() => canWrite && handleEditFace(face.id)}
+                        />
+                      </TooltipTrigger>
+                      <TooltipContent>{t("unknown-person")}</TooltipContent>
+                    </Tooltip>
+                  );
+                })}
                 {draftRegion && (
                   <div
                     className="pointer-events-none absolute border-2 border-dashed border-primary bg-primary/15"
@@ -399,64 +538,144 @@ export const ImageSheet = ({
                   )}
                 </div>
                 <div className="space-y-1 rounded-md border p-2">
-                  {linkedMembers.length === 0 ? (
+                  {linkedMembers.length === 0 && unknownFaces.length === 0 ? (
                     <p className="px-1 py-1 text-sm text-muted-foreground">
                       {t("members-empty")}
                     </p>
                   ) : (
-                    linkedMembers.map(({ link, name }) => (
-                      <div
-                        key={link.memberId}
-                        className={
-                          hoveredMemberId === link.memberId
-                            ? "flex items-center gap-2 rounded-sm bg-primary/10 px-1 py-1"
-                            : "flex items-center gap-2 rounded-sm px-1 py-1"
-                        }
-                        onMouseEnter={() => setHoveredMemberId(link.memberId)}
-                        onMouseLeave={() => setHoveredMemberId(null)}
-                      >
-                        <button
-                          type="button"
-                          className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
-                          onClick={() =>
-                            hasFaceRegion(link) &&
-                            canWrite &&
-                            handleEditTag(link.memberId)
+                    <>
+                      {linkedMembers.map(({ link, name }) => (
+                        <div
+                          key={link.memberId}
+                          className={
+                            hoveredMemberId === link.memberId
+                              ? "flex items-center gap-2 rounded-sm bg-primary/10 px-1 py-1"
+                              : "flex items-center gap-2 rounded-sm px-1 py-1"
                           }
+                          onMouseEnter={() => setHoveredMemberId(link.memberId)}
+                          onMouseLeave={() => setHoveredMemberId(null)}
                         >
-                          {name}
-                        </button>
-                        <span className="text-xs text-muted-foreground">
-                          {hasFaceRegion(link)
-                            ? t("face-tag")
-                            : t("whole-image-link")}
-                        </span>
-                        {canWrite && (
-                          <>
-                            {hasFaceRegion(link) && (
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 truncate text-left text-sm hover:underline"
+                            onClick={() =>
+                              hasFaceRegion(link) &&
+                              canWrite &&
+                              handleEditTag(link.memberId)
+                            }
+                          >
+                            {name}
+                          </button>
+                          <span className="text-xs text-muted-foreground">
+                            {hasFaceRegion(link)
+                              ? t("face-tag")
+                              : t("whole-image-link")}
+                          </span>
+                          {canWrite && (
+                            <>
+                              {hasFaceRegion(link) && (
+                                <Button
+                                  type="button"
+                                  size="icon-xs"
+                                  variant="ghost"
+                                  aria-label={t("edit-face-tag", { name })}
+                                  onClick={() => handleEditTag(link.memberId)}
+                                >
+                                  <Pencil />
+                                </Button>
+                              )}
                               <Button
                                 type="button"
                                 size="icon-xs"
                                 variant="ghost"
-                                aria-label={t("edit-face-tag", { name })}
-                                onClick={() => handleEditTag(link.memberId)}
+                                aria-label={t("remove-member", { name })}
+                                onClick={() => handleRemoveLink(link.memberId)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {unknownFaces.map((face) => (
+                        <div
+                          key={face.id}
+                          className={
+                            hoveredFaceId === face.id
+                              ? "flex items-center gap-2 rounded-sm bg-amber-500/10 px-1 py-1"
+                              : "flex items-center gap-2 rounded-sm px-1 py-1"
+                          }
+                          onMouseEnter={() => setHoveredFaceId(face.id)}
+                          onMouseLeave={() => setHoveredFaceId(null)}
+                        >
+                          <span className="min-w-0 flex-1 truncate text-left text-sm italic text-muted-foreground">
+                            {t("unknown-person")}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {t("face-tag")}
+                          </span>
+                          {canWrite && (
+                            <>
+                              {resolvingFaceId === face.id ? (
+                                <>
+                                  <div className="w-36">
+                                    <MemberPicker
+                                      members={unlinkedMembers}
+                                      value={resolveMemberId}
+                                      onChange={setResolveMemberId}
+                                      placeholder={t("resolve-placeholder")}
+                                      noResultsText={t("members-no-results")}
+                                      size="sm"
+                                    />
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="icon-xs"
+                                    variant="ghost"
+                                    disabled={!resolveMemberId}
+                                    aria-label={t("confirm-resolve")}
+                                    onClick={() => handleResolveFace(face.id)}
+                                  >
+                                    <Check />
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="icon-xs"
+                                  variant="ghost"
+                                  aria-label={t("resolve-unknown-face")}
+                                  onClick={() => {
+                                    setResolvingFaceId(face.id);
+                                    setResolveMemberId(null);
+                                  }}
+                                >
+                                  <UserRoundSearch />
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={t("redraw-unknown-face")}
+                                onClick={() => handleEditFace(face.id)}
                               >
                                 <Pencil />
                               </Button>
-                            )}
-                            <Button
-                              type="button"
-                              size="icon-xs"
-                              variant="ghost"
-                              aria-label={t("remove-member", { name })}
-                              onClick={() => handleRemoveLink(link.memberId)}
-                            >
-                              <Trash2 />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    ))
+                              <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                aria-label={t("delete-unknown-face")}
+                                onClick={() => handleDeleteFace(face.id)}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </>
                   )}
                 </div>
                 {canWrite && !tagMode && (
@@ -488,15 +707,26 @@ export const ImageSheet = ({
                 <Field className="rounded-md border border-dashed p-3">
                   <FieldLabel>{t("face-tags-title")}</FieldLabel>
                   <p className="text-sm text-muted-foreground">
-                    {editingTag
-                      ? t("face-tags-replace-hint", {
-                          name: memberName(editingTag.memberId),
-                        })
-                      : draftRegion
-                        ? t("face-tags-assign-hint")
-                        : t("face-tags-draw-hint")}
+                    {editingFaceId
+                      ? t("unknown-face-replace-hint")
+                      : editingTag
+                        ? t("face-tags-replace-hint", {
+                            name: memberName(editingTag.memberId),
+                          })
+                        : draftRegion
+                          ? t("face-tags-assign-hint")
+                          : t("face-tags-draw-hint")}
                   </p>
-                  {editingTag ? (
+                  {editingFaceId ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingFaceId(null)}
+                    >
+                      {t("cancel-tag-edit")}
+                    </Button>
+                  ) : editingTag ? (
                     <>
                       <MemberPicker
                         members={members}
@@ -517,24 +747,42 @@ export const ImageSheet = ({
                     </>
                   ) : (
                     draftRegion && (
-                      <div className="flex items-end gap-2">
-                        <div className="min-w-0 flex-1">
-                          <MemberPicker
-                            members={members}
-                            value={draftMemberId}
-                            onChange={setDraftMemberId}
-                            placeholder={t("face-tags-member-placeholder")}
-                            noResultsText={t("members-no-results")}
-                            size="default"
-                          />
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-end gap-2">
+                          <div className="min-w-0 flex-1">
+                            <MemberPicker
+                              members={members}
+                              value={draftMemberId}
+                              onChange={setDraftMemberId}
+                              placeholder={t("face-tags-member-placeholder")}
+                              noResultsText={t("members-no-results")}
+                              size="default"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            disabled={!draftMemberId}
+                            onClick={handleAddFaceTag}
+                          >
+                            {t("add-face-tag")}
+                          </Button>
                         </div>
-                        <Button
-                          type="button"
-                          disabled={!draftMemberId}
-                          onClick={handleAddFaceTag}
-                        >
-                          {t("add-face-tag")}
-                        </Button>
+                        {researchTasksEnabled && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={handleMarkUnknown}
+                            >
+                              <UserRoundSearch />
+                              {t("mark-unknown-person")}
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                              {t("unknown-face-persist-hint")}
+                            </p>
+                          </>
+                        )}
                       </div>
                     )
                   )}

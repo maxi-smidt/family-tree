@@ -36,6 +36,7 @@ from app.models import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    GalleryUnknownFace,
     Member,
     MemberDisease,
     MemberTask,
@@ -71,7 +72,8 @@ router = APIRouter(prefix="/trees", tags=["export"])
 # which is exactly what let a v1.6 bundle silently drop data — see #661).
 #   v2 (<= v1.6): sources / source_evidence / citations / story_attachments
 #   v3 (v1.7+):   documents / document_files / *_document_links
-BUNDLE_VERSION = 5
+#   v6 (v1.8+):   unknown_faces (gallery unknown-person tags, issue #736)
+BUNDLE_VERSION = 6
 
 # Number of rows to write per bulk-insert batch.
 _BULK_CHUNK = 1000
@@ -256,6 +258,12 @@ def migrate_bundle(bundle: dict) -> dict:
         migrated["task_links"] = bundle.get("task_links", [])
         migrated["version"] = 5
         bundle = migrated
+    if bundle.get("version", 1) < 6:
+        # v5 → v6: gallery unknown-person face tags. Older bundles have none.
+        migrated = dict(bundle)
+        migrated["unknown_faces"] = bundle.get("unknown_faces", [])
+        migrated["version"] = 6
+        bundle = migrated
     return bundle
 
 
@@ -316,6 +324,7 @@ def export_tree(
         "task_links": _link_rows(db, MemberTaskLink, MemberTask, tree.id),
         "gallery_images": gallery,
         "gallery_links": _link_rows(db, GalleryMemberLink, GalleryImage, tree.id),
+        "unknown_faces": _unknown_face_rows(db, tree.id),
         "events": _rows(db, Event, tree.id),
         "event_links": _link_rows(db, EventMemberLink, Event, tree.id),
         "stories": _rows(db, Story, tree.id),
@@ -351,6 +360,20 @@ def _link_rows(db: Session, link_model, parent_model, tree_id: str) -> list[dict
         .where(parent_model.tree_id == tree_id)
     ).all()
     cols = [c.key for c in sa_inspect(link_model).mapper.column_attrs]
+    return [{c: getattr(i, c) for c in cols} for i in items]
+
+
+def _unknown_face_rows(db: Session, tree_id: str) -> list[dict]:
+    """Gallery unknown-face rows for *tree_id*, reached through GalleryImage
+    since the table itself carries no ``tree_id`` (mirrors ``_link_rows``)."""
+    from sqlalchemy import inspect as sa_inspect
+
+    items = db.scalars(
+        select(GalleryUnknownFace)
+        .join(GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id)
+        .where(GalleryImage.tree_id == tree_id)
+    ).all()
+    cols = [c.key for c in sa_inspect(GalleryUnknownFace).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
@@ -525,6 +548,9 @@ def _do_import(
             db.add(GalleryImage(tree_id=tree.id, **data))
         _import_links(db, bundle.get("gallery_links", []), GalleryMemberLink,
                       "gallery_image_id", gallery_map, member_map)
+        _import_unknown_faces(
+            db, bundle.get("unknown_faces", []), gallery_map, task_map
+        )
         progress_cb(72)
 
         event_map = _remap(bundle.get("events", []))
@@ -649,6 +675,33 @@ def _import_links(db, links, model, parent_key, parent_map, member_map):
             data[parent_key] = parent_map[parent_old]
             data["member_id"] = member_map[member_old]
             db.add(model(**data))
+
+
+def _import_unknown_faces(db, faces, gallery_map, task_map):
+    """Import gallery_unknown_faces rows with fresh ids.
+
+    A face whose image did not survive import (shouldn't happen — images are
+    never dropped) is skipped; a face whose task did not survive import (e.g.
+    an older export missing task rows) keeps its region as an unresolved tag
+    with ``task_id`` left null rather than being dropped.
+    """
+    db.flush()
+    for row in faces:
+        gallery_image_id = gallery_map.get(row.get("gallery_image_id"))
+        if gallery_image_id is None:
+            continue
+        db.add(
+            GalleryUnknownFace(
+                id=str(uuid4()),
+                gallery_image_id=gallery_image_id,
+                x=row.get("x"),
+                y=row.get("y"),
+                w=row.get("w"),
+                h=row.get("h"),
+                task_id=task_map.get(row.get("task_id")),
+                created_at=row.get("created_at"),
+            )
+        )
 
 
 def _import_doc_links(db, links, model, parent_key, parent_map, document_map):

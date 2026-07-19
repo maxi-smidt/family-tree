@@ -40,6 +40,46 @@ class GalleryMemberLink(Base):
     h: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
+class GalleryUnknownFace(Base):
+    """A face region tagged as an unidentified person (issue #736).
+
+    Unlike ``GalleryMemberLink``, this row has no member — it exists so a
+    photographed face can be flagged for later identification without forcing
+    the tagger to guess a member. Creating one (via the API, not this model
+    directly) also creates exactly one open, tree-level ``MemberTask`` and
+    records its id in ``task_id``, keeping the tag and the task in sync:
+
+    - Resolving the face to a member turns it into a normal ``GalleryMemberLink``
+      (deleting this row) and marks the task done.
+    - Deleting the face deletes its still-open task too (a done task is kept as
+      history); ``ondelete="SET NULL"`` means completing or deleting the task
+      from the tasks UI instead just detaches it, leaving this row (and the
+      tag on the image) untouched.
+
+    No ``tree_id`` column: like ``GalleryMemberLink``, the tree is reached
+    through ``gallery_image_id`` (see the ``/gallery/unknown-faces`` routes).
+    """
+
+    __tablename__ = "gallery_unknown_faces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    gallery_image_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("gallery_images.id", ondelete="CASCADE"),
+        index=True,
+    )
+    x: Mapped[float] = mapped_column(Float, nullable=False)
+    y: Mapped[float] = mapped_column(Float, nullable=False)
+    w: Mapped[float] = mapped_column(Float, nullable=False)
+    h: Mapped[float] = mapped_column(Float, nullable=False)
+    task_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("member_tasks.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    created_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+
 class Event(Base):
     __tablename__ = "events"
 

@@ -17,6 +17,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   show a toggleable indicator for members with open tasks, the quality report
   lists all open research items, and task changes appear in the activity log.
   Gated behind the new `research_tasks` feature flag (#725).
+- Gallery face tags can now be marked as an "unknown person" (no member),
+  which creates exactly one open, tree-level research task to identify them
+  later. Resolving the tag to a member closes its task and turns the tag into
+  a normal member link; deleting the tag removes its still-open task, while a
+  completed task is kept as history. Gated behind the `research_tasks`
+  feature flag (#736).
 
 ### Fixed
 

@@ -118,6 +118,7 @@ function mockSubStoresForGedcomTree() {
   vi.mocked(TreeService.getDiseases).mockResolvedValue([]);
   vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
   vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+  vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
   vi.mocked(TreeService.getEvents).mockResolvedValue([]);
   vi.mocked(TreeService.getEventMemberLinks).mockResolvedValue([]);
   vi.mocked(TreeService.getStories).mockResolvedValue([]);

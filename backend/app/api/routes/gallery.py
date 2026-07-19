@@ -1,5 +1,7 @@
 """Gallery images and their links to members."""
 
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -14,13 +16,24 @@ from app.api.deps import (
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import GalleryImage, GalleryMemberLink, Tree
+from app.models import (
+    GalleryImage,
+    GalleryMemberLink,
+    GalleryUnknownFace,
+    Member,
+    MemberTask,
+    Tree,
+)
 from app.models.user import User
 from app.schemas.content import (
     GalleryImageOut,
     GalleryImageUpdate,
     GalleryLinkOut,
     GalleryLinksSet,
+    UnknownFaceCreate,
+    UnknownFaceOut,
+    UnknownFaceResolve,
+    UnknownFaceUpdate,
 )
 from app.services.activity import record_activity
 from app.services.content_links import (
@@ -35,7 +48,12 @@ from app.services.storage import (
     delete_media,
     store_image_upload,
 )
-from app.services.storage_usage import QuotaExceeded, check_media_quota, media_warning
+from app.services.storage_usage import (
+    QuotaExceeded,
+    check_media_quota,
+    check_tree_quota,
+    media_warning,
+)
 
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
@@ -247,3 +265,255 @@ def set_links(
         target_type="gallery_image", target_id=image.id, target_label=image.title,
     )
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Unknown-face tags (issue #736)
+#
+# Marking a face region as "unknown person" creates exactly one open,
+# tree-level research task (no member links) and records its id on the face
+# row so the tag and the task stay in sync:
+#   - resolving the face to a member turns it into a normal member link and
+#     marks the task done;
+#   - deleting the face deletes its still-open task too (a done task is kept
+#     as history);
+#   - completing or deleting the task from the tasks UI does NOT touch the
+#     tag: ``task_id`` has ``ondelete="SET NULL"``, so a task delete just
+#     detaches it, and a task completion leaves the face row untouched.
+# GET is intentionally not gated on the research_tasks feature so existing
+# tags stay visible even if the flag is later killed; only creating a new one
+# requires the flag (it is the step that writes a task).
+# ---------------------------------------------------------------------------
+
+
+def _open_linked_task(
+    db: Session, tree: Tree, face: GalleryUnknownFace
+) -> MemberTask | None:
+    """The face's research task, only while it is still open in this tree.
+
+    Defensive: the task may have moved to another tree (extract/move) or
+    already be gone or done — in all those cases the face's task link is
+    treated as absent.
+    """
+    if not face.task_id:
+        return None
+    task = db.get(MemberTask, face.task_id)
+    if task is None or task.tree_id != tree.id or task.done:
+        return None
+    return task
+
+
+def _get_unknown_face(db: Session, tree: Tree, face_id: str) -> GalleryUnknownFace:
+    face = db.get(GalleryUnknownFace, face_id)
+    if face is None:
+        raise HTTPException(status_code=404, detail="Face not found")
+    image = db.get(GalleryImage, face.gallery_image_id)
+    if image is None or image.tree_id != tree.id:
+        raise HTTPException(status_code=404, detail="Face not found")
+    return face
+
+
+@router.get("/unknown-faces", response_model=list[UnknownFaceOut])
+def list_unknown_faces(
+    pagination: Pagination = Depends(pagination_params),
+    tree: Tree = Depends(get_readable_tree),
+    db: Session = Depends(get_db),
+):
+    statement = (
+        select(GalleryUnknownFace)
+        .join(GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id)
+        .where(GalleryImage.tree_id == tree.id)
+        .order_by(GalleryUnknownFace.gallery_image_id, GalleryUnknownFace.id)
+    )
+    return db.scalars(apply_pagination(statement, pagination)).all()
+
+
+@router.post(
+    "/images/{image_id}/unknown-faces",
+    response_model=UnknownFaceOut,
+    status_code=201,
+    dependencies=[Depends(require_feature("research_tasks"))],
+)
+def create_unknown_face(
+    image_id: str,
+    payload: UnknownFaceCreate,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Tag a face region as an unknown person, creating its research task."""
+    image = _get_image(db, tree, image_id)
+
+    title = payload.task_title or (
+        f'Identify unknown person in "{image.title or image_id}"'
+    )
+    notes = payload.task_notes or None
+    try:
+        check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+
+    task = MemberTask(
+        id=str(uuid4()),
+        tree_id=tree.id,
+        title=title,
+        notes=notes,
+        done=False,
+        created_at=payload.created_at,
+    )
+    db.add(task)
+    db.flush()  # task row must exist before the face references it
+
+    face = GalleryUnknownFace(
+        id=payload.id,
+        gallery_image_id=image_id,
+        x=payload.x,
+        y=payload.y,
+        w=payload.w,
+        h=payload.h,
+        task_id=task.id,
+        created_at=payload.created_at,
+    )
+    db.add(face)
+
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
+    )
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="create",
+        target_type="task", target_id=task.id, target_label=task.title,
+    )
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    db.refresh(face)
+    publish_tree_event(
+        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
+    )
+    publish_tree_event(
+        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
+    )
+    return face
+
+
+@router.patch("/unknown-faces/{face_id}", response_model=UnknownFaceOut)
+def update_unknown_face(
+    face_id: str,
+    payload: UnknownFaceUpdate,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Redraw an unknown-face region. Never creates or touches a task."""
+    face = _get_unknown_face(db, tree, face_id)
+    image = db.get(GalleryImage, face.gallery_image_id)
+    face.x = payload.x
+    face.y = payload.y
+    face.w = payload.w
+    face.h = payload.h
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
+    )
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    db.refresh(face)
+    publish_tree_event(
+        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
+    )
+    return face
+
+
+@router.post("/unknown-faces/{face_id}/resolve", status_code=204)
+def resolve_unknown_face(
+    face_id: str,
+    payload: UnknownFaceResolve,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Turn an unknown-face tag into a member link and close its task."""
+    face = _get_unknown_face(db, tree, face_id)
+    image = db.get(GalleryImage, face.gallery_image_id)
+    member = db.get(Member, payload.member_id)
+    if member is None or member.tree_id != tree.id:
+        raise HTTPException(status_code=404, detail="Member not found")
+
+    existing_link = db.get(GalleryMemberLink, (face.gallery_image_id, member.id))
+    if existing_link is not None:
+        existing_link.x = face.x
+        existing_link.y = face.y
+        existing_link.w = face.w
+        existing_link.h = face.h
+    else:
+        db.add(
+            GalleryMemberLink(
+                gallery_image_id=face.gallery_image_id,
+                member_id=member.id,
+                x=face.x,
+                y=face.y,
+                w=face.w,
+                h=face.h,
+            )
+        )
+
+    task = _open_linked_task(db, tree, face)
+    task_changed = task is not None
+    if task is not None:
+        task.done = True
+        task.done_at = utcnow_iso()
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="task", target_id=task.id, target_label=task.title,
+        )
+
+    db.delete(face)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
+    )
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
+    )
+    if task_changed:
+        publish_tree_event(
+            db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
+        )
+
+
+@router.delete("/unknown-faces/{face_id}", status_code=204)
+def delete_unknown_face(
+    face_id: str,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Remove an unknown-face tag, deleting its task only if still open."""
+    face = _get_unknown_face(db, tree, face_id)
+    image = db.get(GalleryImage, face.gallery_image_id)
+
+    task = _open_linked_task(db, tree, face)
+    task_changed = task is not None
+    if task is not None:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="delete",
+            target_type="task", target_id=task.id, target_label=task.title,
+        )
+        db.delete(task)
+
+    db.delete(face)
+    record_activity(
+        db, tree_id=tree.id, actor=user, action="update",
+        target_type="gallery_image", target_id=image.id, target_label=image.title,
+    )
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
+    )
+    if task_changed:
+        publish_tree_event(
+            db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
+        )

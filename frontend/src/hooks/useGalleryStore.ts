@@ -3,11 +3,13 @@ import {
   GalleryImage,
   GalleryImageDB,
   GalleryMemberLink,
+  UnknownFace,
 } from "@/types/gallery";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
+import { refreshTaskStore } from "@/hooks/taskStoreRegistry";
 
 /** Runtime guard for data received from the gallery API. */
 function isGalleryImageDB(image: unknown): image is GalleryImageDB {
@@ -54,6 +56,20 @@ interface GalleryState {
     changes: Partial<GalleryImage>,
   ) => Promise<void>;
   deleteGalleryImage: (id: string) => Promise<void>;
+  /** Tag a face region as an unknown person; persists immediately (unlike
+   *  member links, which batch on Save) so its research task is created
+   *  exactly once. */
+  addUnknownFace: (
+    imageId: string,
+    region: { x: number; y: number; w: number; h: number },
+    task: { title: string | null; notes: string | null },
+  ) => Promise<void>;
+  updateUnknownFace: (
+    faceId: string,
+    region: { x: number; y: number; w: number; h: number },
+  ) => Promise<void>;
+  resolveUnknownFace: (faceId: string, memberId: string) => Promise<void>;
+  removeUnknownFace: (faceId: string) => Promise<void>;
   clear: () => void;
 }
 
@@ -67,9 +83,10 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       return;
     }
 
-    const [imagesResult, linksResult] = await Promise.all([
+    const [imagesResult, linksResult, unknownFacesResult] = await Promise.all([
       TreeService.getGalleryImages(treeId),
       TreeService.getGalleryMemberLinks(treeId),
+      TreeService.getGalleryUnknownFaces(treeId),
     ]);
 
     if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
@@ -88,12 +105,30 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
       );
     }
 
+    const facesByImage = new Map<string, UnknownFace[]>();
+    for (const face of unknownFacesResult) {
+      facesByImage.set(
+        face.gallery_image_id,
+        (facesByImage.get(face.gallery_image_id) ?? []).concat({
+          id: face.id,
+          galleryImageId: face.gallery_image_id,
+          x: face.x,
+          y: face.y,
+          w: face.w,
+          h: face.h,
+          taskId: face.task_id,
+          createdAt: face.created_at,
+        }),
+      );
+    }
+
     const images = imagesResult.filter(isGalleryImageDB).map((row) => {
       const memberLinks = linksByImage.get(row.id) ?? [];
       return {
         ...row,
         linkedMemberIds: memberLinks.map((link) => link.memberId),
         memberLinks,
+        unknownFaces: facesByImage.get(row.id) ?? [],
       };
     });
 
@@ -168,6 +203,65 @@ export const useGalleryStore = create<GalleryState>((set, get) => ({
     await TreeService.removeGalleryImage(treeId, id);
     await get().refreshGalleryImages(treeId);
     useStorageStore.getState().refreshStorageUsage();
+    invalidateActivityView();
+  },
+
+  addUnknownFace: async (
+    imageId: string,
+    region: { x: number; y: number; w: number; h: number },
+    task: { title: string | null; notes: string | null },
+  ) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    await TreeService.addGalleryUnknownFace(treeId, imageId, {
+      id: crypto.randomUUID(),
+      x: region.x,
+      y: region.y,
+      w: region.w,
+      h: region.h,
+      createdAt: new Date().toISOString(),
+      taskTitle: task.title,
+      taskNotes: task.notes,
+    });
+
+    await get().refreshGalleryImages(treeId);
+    refreshTaskStore(treeId);
+    invalidateActivityView();
+  },
+
+  updateUnknownFace: async (
+    faceId: string,
+    region: { x: number; y: number; w: number; h: number },
+  ) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    await TreeService.updateGalleryUnknownFace(treeId, faceId, region);
+
+    await get().refreshGalleryImages(treeId);
+    invalidateActivityView();
+  },
+
+  resolveUnknownFace: async (faceId: string, memberId: string) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    await TreeService.resolveGalleryUnknownFace(treeId, faceId, memberId);
+
+    await get().refreshGalleryImages(treeId);
+    refreshTaskStore(treeId);
+    invalidateActivityView();
+  },
+
+  removeUnknownFace: async (faceId: string) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+
+    await TreeService.removeGalleryUnknownFace(treeId, faceId);
+
+    await get().refreshGalleryImages(treeId);
+    refreshTaskStore(treeId);
     invalidateActivityView();
   },
 

@@ -133,9 +133,9 @@ test("import inspect — returns bundle metadata without committing", async ({
   expect(preview).toMatchObject({
     password_required: false,
     name: "E2E-Inspect-Src",
-    // Bumped to 5 for research tasks (see BUNDLE_VERSION in
-    // backend/app/api/routes/export_import.py, #725).
-    bundle_version: 5,
+    // Bumped to 6 for gallery unknown faces (see BUNDLE_VERSION in
+    // backend/app/api/routes/export_import.py, #736).
+    bundle_version: 6,
   });
 });
 

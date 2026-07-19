@@ -36,6 +36,7 @@ const IMAGE: GalleryImage = {
   description: null,
   linkedMemberIds: [MEMBER.id],
   memberLinks: [{ memberId: MEMBER.id, x: 0.1, y: 0.2, w: 0.3, h: 0.4 }],
+  unknownFaces: [],
   createdAt: "2024-01-01T00:00:00Z",
   uploadedAt: "2024-01-01T00:00:00Z",
 };
@@ -52,5 +53,34 @@ describe("ImageLightbox", () => {
     expect(screen.getByText("Linked people:")).toBeInTheDocument();
     expect(screen.getAllByText("Ada Lovelace")).toHaveLength(2);
     expect(screen.getByLabelText("Face tag for Ada Lovelace")).toBeVisible();
+  });
+
+  it("shows unknown-person tags read-only", () => {
+    const withUnknownFace: GalleryImage = {
+      ...IMAGE,
+      unknownFaces: [
+        {
+          id: "face-1",
+          galleryImageId: IMAGE.id,
+          x: 0.5,
+          y: 0.5,
+          w: 0.2,
+          h: 0.2,
+          taskId: "task-1",
+          createdAt: "2026-01-01T00:00:00Z",
+        },
+      ],
+    };
+
+    render(
+      <ImageLightbox
+        images={[withUnknownFace]}
+        startIndex={0}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Unknown person")).toBeVisible();
+    expect(screen.getAllByText("Unknown person").length).toBeGreaterThan(0);
   });
 });

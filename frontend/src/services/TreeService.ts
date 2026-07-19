@@ -31,6 +31,7 @@ import {
   GalleryImageDB,
   GalleryMemberLink,
   GalleryMemberLinkDB,
+  UnknownFaceDB,
 } from "@/types/gallery";
 import { EventDB, EventInput } from "@/types/event";
 import { StoryDB, StoryInput } from "@/types/story";
@@ -344,6 +345,67 @@ export class TreeService {
 
   static removeGalleryImage(treeId: string, id: string) {
     return api.del(`${base(treeId)}/gallery/images/${id}`);
+  }
+
+  // --- Gallery: unknown-face tags (issue #736) ------------------------------
+  static getGalleryUnknownFaces(treeId: string) {
+    return api.get<UnknownFaceDB[]>(`${base(treeId)}/gallery/unknown-faces`);
+  }
+
+  /** Tag a face region as an unknown person; the backend creates exactly one
+   *  open, tree-level research task and returns the linked face row. */
+  static addGalleryUnknownFace(
+    treeId: string,
+    imageId: string,
+    face: {
+      id: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      createdAt: string;
+      taskTitle: string | null;
+      taskNotes: string | null;
+    },
+  ) {
+    return api.post<UnknownFaceDB>(
+      `${base(treeId)}/gallery/images/${imageId}/unknown-faces`,
+      {
+        id: face.id,
+        x: face.x,
+        y: face.y,
+        w: face.w,
+        h: face.h,
+        created_at: face.createdAt,
+        task_title: face.taskTitle,
+        task_notes: face.taskNotes,
+      },
+    );
+  }
+
+  static updateGalleryUnknownFace(
+    treeId: string,
+    faceId: string,
+    region: { x: number; y: number; w: number; h: number },
+  ) {
+    return api.patch<UnknownFaceDB>(
+      `${base(treeId)}/gallery/unknown-faces/${faceId}`,
+      region,
+    );
+  }
+
+  static resolveGalleryUnknownFace(
+    treeId: string,
+    faceId: string,
+    memberId: string,
+  ) {
+    return api.post(`${base(treeId)}/gallery/unknown-faces/${faceId}/resolve`, {
+      member_id: memberId,
+    });
+  }
+
+  static removeGalleryUnknownFace(treeId: string, faceId: string) {
+    return api.del(`${base(treeId)}/gallery/unknown-faces/${faceId}`);
   }
 
   // --- Events --------------------------------------------------------------

@@ -409,7 +409,26 @@
       "delete-confirm-cancel": "Abbrechen",
       "delete-confirm-confirm": "Bestätigen",
       "toast-delete-success": "Bild wurde erfolgreich gelöscht.",
-      "toast-delete-error": "Das Bild konnte nicht gelöscht werden."
+      "toast-delete-error": "Das Bild konnte nicht gelöscht werden.",
+      "unknown-person": "Unbekannte Person",
+      "unknown-face-aria": "Unbekannte Person",
+      "mark-unknown-person": "Als unbekannte Person markieren",
+      "unknown-face-persist-hint": "Die Markierung wird sofort gespeichert und erstellt eine Aufgabe.",
+      "unknown-face-task-title": "Unbekannte Person in \"{{title}}\" identifizieren",
+      "unknown-face-task-notes": "Erstellt aus einer Gesichtsmarkierung in der Galerie.",
+      "unknown-face-add-success": "Als unbekannte Person markiert; eine Aufgabe wurde erstellt.",
+      "unknown-face-add-error": "Dieses Gesicht konnte nicht als unbekannte Person markiert werden.",
+      "unknown-face-update-error": "Die Markierung der unbekannten Person konnte nicht aktualisiert werden.",
+      "unknown-face-replace-hint": "Zeichne ein neues Rechteck, um diese Markierung zu verschieben.",
+      "unknown-face-delete-success": "Markierung der unbekannten Person entfernt.",
+      "unknown-face-delete-error": "Die Markierung konnte nicht entfernt werden.",
+      "unknown-face-resolve-success": "Person identifiziert; die Aufgabe wurde als erledigt markiert.",
+      "unknown-face-resolve-error": "Diese Markierung konnte nicht aufgelöst werden.",
+      "resolve-unknown-face": "Diese Person identifizieren",
+      "resolve-placeholder": "Die hier gezeigte Person auswählen",
+      "confirm-resolve": "Identifizierung bestätigen",
+      "redraw-unknown-face": "Markierung neu zeichnen",
+      "delete-unknown-face": "Markierung löschen"
     },
     "image-lightbox": {
       "image-alt": "Galeriebild",
@@ -418,7 +437,9 @@
       "next": "Nächstes Bild",
       "linked-people": "Verlinkte Personen",
       "face-tag": "Gesichtsmarkierung für {{name}}",
-      "unknown-member": "Unbekannte Person"
+      "unknown-member": "Unbekannte Person",
+      "unknown-person": "Unbekannte Person",
+      "unknown-face-tag": "Unbekannte Person"
     },
     "upload-image-card": "Bild hochladen"
   },

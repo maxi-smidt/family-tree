@@ -32,6 +32,7 @@ from app.models import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    GalleryUnknownFace,
     Member,
     MemberDisease,
     MemberTask,
@@ -579,7 +580,11 @@ def merge_trees(
             )
 
     # --- Research tasks (deduped by linked-member set + title) --------------
-    seen_tasks: set[tuple] = set()
+    # seen_tasks maps the dedup key to the surviving merged task id, and
+    # task_id_map maps every source task id to it, so rows referencing tasks
+    # (gallery unknown faces below) can follow their task into the merge.
+    seen_tasks: dict[tuple, str] = {}
+    task_id_map: dict[str, str] = {}
     for t in sources:
         source_links: dict[str, list[str]] = {}
         link_rows = db.execute(
@@ -599,9 +604,11 @@ def merge_trees(
             )
             key = (frozenset(mapped_members), _norm(task.title))
             if key in seen_tasks:
+                task_id_map[task.id] = seen_tasks[key]
                 continue
-            seen_tasks.add(key)
             new_task_id = str(uuid4())
+            seen_tasks[key] = new_task_id
+            task_id_map[task.id] = new_task_id
             db.add(
                 MemberTask(
                     id=new_task_id,
@@ -656,6 +663,35 @@ def merge_trees(
                         y=link.y,
                         w=link.w,
                         h=link.h,
+                    )
+                )
+
+    # --- Gallery unknown-face tags ------------------------------------------
+    # Regions carry over with their image, and ``task_id`` follows the task
+    # into the merge via task_id_map (falling back to null if the task was
+    # somehow not copied), so resolving/deleting the face after the merge
+    # still closes the right task.
+    for t in sources:
+        faces = db.scalars(
+            select(GalleryUnknownFace)
+            .join(GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id)
+            .where(GalleryImage.tree_id == t.id)
+        )
+        for face in faces:
+            gi = image_map.get(face.gallery_image_id)
+            if gi:
+                db.add(
+                    GalleryUnknownFace(
+                        id=str(uuid4()),
+                        gallery_image_id=gi,
+                        x=face.x,
+                        y=face.y,
+                        w=face.w,
+                        h=face.h,
+                        task_id=(
+                            task_id_map.get(face.task_id) if face.task_id else None
+                        ),
+                        created_at=face.created_at,
                     )
                 )
 

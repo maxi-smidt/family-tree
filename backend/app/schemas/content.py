@@ -53,6 +53,54 @@ class GalleryLinkIn(BaseModel):
         return self
 
 
+class UnknownFaceOut(BaseModel):
+    """A face region flagged as an unidentified person, linked to its task."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    gallery_image_id: str
+    x: float
+    y: float
+    w: float
+    h: float
+    task_id: str | None = None
+    created_at: str | None = None
+
+
+class UnknownFaceUpdate(BaseModel):
+    """Update an unknown face's region only — never touches its task."""
+
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    w: float = Field(gt=0, le=1)
+    h: float = Field(gt=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_region(self) -> "UnknownFaceUpdate":
+        if self.x + self.w > 1 or self.y + self.h > 1:
+            raise ValueError("A face region must fit within the image")
+        return self
+
+
+class UnknownFaceCreate(UnknownFaceUpdate):
+    """Create an unknown-face tag; also creates its research task.
+
+    Region fields and validation are inherited from :class:`UnknownFaceUpdate`.
+    ``task_title``/``task_notes`` let the frontend send localized text; when
+    omitted the backend falls back to an English default title and no notes.
+    """
+
+    id: str
+    created_at: str
+    task_title: str | None = None
+    task_notes: str | None = None
+
+
+class UnknownFaceResolve(BaseModel):
+    member_id: str
+
+
 class GalleryLinksSet(BaseModel):
     """Replace an image's member links, including optional face regions."""
 
