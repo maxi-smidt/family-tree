@@ -55,9 +55,9 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
       ? `${member.firstName} ${member.lastName}`.trim()
       : t("unknown-member");
   };
-  const linkedPeople = currentImage.memberLinks.map((link) =>
-    memberName(link.memberId),
-  );
+  const linkedPeople = currentImage.memberLinks
+    .map((link) => memberName(link.memberId))
+    .concat(currentImage.unknownFaces.length > 0 ? [t("unknown-person")] : []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm">
@@ -103,6 +103,23 @@ export const ImageLightbox = ({ images, startIndex, onClose }: Props) => {
               >
                 <span className="absolute left-0 top-0 -translate-y-full whitespace-nowrap rounded bg-black/75 px-1.5 py-0.5 text-xs text-white">
                   {memberName(link.memberId)}
+                </span>
+              </div>
+            ))}
+            {currentImage.unknownFaces.map((face) => (
+              <div
+                key={face.id}
+                aria-label={t("unknown-face-tag")}
+                className="absolute border-2 border-amber-500 bg-amber-500/20"
+                style={{
+                  left: `${face.x * 100}%`,
+                  top: `${face.y * 100}%`,
+                  width: `${face.w * 100}%`,
+                  height: `${face.h * 100}%`,
+                }}
+              >
+                <span className="absolute left-0 top-0 -translate-y-full whitespace-nowrap rounded bg-black/75 px-1.5 py-0.5 text-xs text-white">
+                  {t("unknown-person")}
                 </span>
               </div>
             ))}

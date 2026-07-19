@@ -409,7 +409,26 @@
       "delete-confirm-cancel": "Cancel",
       "delete-confirm-confirm": "Confirm",
       "toast-delete-success": "Image deleted successfully.",
-      "toast-delete-error": "The image could not be deleted."
+      "toast-delete-error": "The image could not be deleted.",
+      "unknown-person": "Unknown person",
+      "unknown-face-aria": "Unknown person",
+      "mark-unknown-person": "Mark as unknown person",
+      "unknown-face-persist-hint": "Marking as unknown saves immediately and creates a research task.",
+      "unknown-face-task-title": "Identify unknown person in \"{{title}}\"",
+      "unknown-face-task-notes": "Created from a face tag in the gallery.",
+      "unknown-face-add-success": "Marked as unknown person; a research task was created.",
+      "unknown-face-add-error": "Could not mark this face as an unknown person.",
+      "unknown-face-update-error": "Could not update the unknown-person tag.",
+      "unknown-face-replace-hint": "Draw a new rectangle to move this unknown-person tag.",
+      "unknown-face-delete-success": "Unknown-person tag removed.",
+      "unknown-face-delete-error": "Could not remove the unknown-person tag.",
+      "unknown-face-resolve-success": "Face identified; the research task was marked done.",
+      "unknown-face-resolve-error": "Could not resolve this unknown-person tag.",
+      "resolve-unknown-face": "Identify this person",
+      "resolve-placeholder": "Choose the member shown here",
+      "confirm-resolve": "Confirm identification",
+      "redraw-unknown-face": "Redraw unknown-person tag",
+      "delete-unknown-face": "Delete unknown-person tag"
     },
     "image-lightbox": {
       "image-alt": "Gallery image",
@@ -418,7 +437,9 @@
       "next": "Next image",
       "linked-people": "Linked people",
       "face-tag": "Face tag for {{name}}",
-      "unknown-member": "Unknown member"
+      "unknown-member": "Unknown member",
+      "unknown-person": "Unknown person",
+      "unknown-face-tag": "Unknown person"
     },
     "upload-image-card": "Upload Image"
   },

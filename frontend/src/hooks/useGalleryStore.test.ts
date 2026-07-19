@@ -23,6 +23,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   useGalleryStore.setState({ galleryImages: [] });
   useTreeStore.setState({ selectedTree: undefined });
+  vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
 });
 
 describe("useGalleryStore — refreshGalleryImages", () => {
@@ -248,5 +249,143 @@ describe("useGalleryStore — stale-write guard", () => {
     useGalleryStore.getState().clear();
 
     expect(useGalleryStore.getState().galleryImages).toHaveLength(0);
+  });
+});
+
+describe("useGalleryStore — unknown faces", () => {
+  beforeEach(() => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
+    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+    vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
+  });
+
+  it("addUnknownFace streams a face + task, then refreshes", async () => {
+    vi.mocked(TreeService.addGalleryUnknownFace).mockResolvedValue(
+      undefined as never,
+    );
+
+    await useGalleryStore
+      .getState()
+      .addUnknownFace(
+        "img1",
+        { x: 0.1, y: 0.2, w: 0.3, h: 0.4 },
+        { title: "Who is this?", notes: null },
+      );
+
+    expect(TreeService.addGalleryUnknownFace).toHaveBeenCalledWith(
+      TREE_ID,
+      "img1",
+      expect.objectContaining({
+        x: 0.1,
+        y: 0.2,
+        w: 0.3,
+        h: 0.4,
+        taskTitle: "Who is this?",
+        taskNotes: null,
+      }),
+    );
+    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+  });
+
+  it("updateUnknownFace calls TreeService and refreshes", async () => {
+    vi.mocked(TreeService.updateGalleryUnknownFace).mockResolvedValue(
+      undefined as never,
+    );
+
+    await useGalleryStore
+      .getState()
+      .updateUnknownFace("face1", { x: 0.5, y: 0.5, w: 0.1, h: 0.1 });
+
+    expect(TreeService.updateGalleryUnknownFace).toHaveBeenCalledWith(
+      TREE_ID,
+      "face1",
+      { x: 0.5, y: 0.5, w: 0.1, h: 0.1 },
+    );
+    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+  });
+
+  it("resolveUnknownFace calls TreeService and refreshes", async () => {
+    vi.mocked(TreeService.resolveGalleryUnknownFace).mockResolvedValue(
+      undefined,
+    );
+
+    await useGalleryStore.getState().resolveUnknownFace("face1", "m1");
+
+    expect(TreeService.resolveGalleryUnknownFace).toHaveBeenCalledWith(
+      TREE_ID,
+      "face1",
+      "m1",
+    );
+    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+  });
+
+  it("removeUnknownFace calls TreeService and refreshes", async () => {
+    vi.mocked(TreeService.removeGalleryUnknownFace).mockResolvedValue(
+      undefined,
+    );
+
+    await useGalleryStore.getState().removeUnknownFace("face1");
+
+    expect(TreeService.removeGalleryUnknownFace).toHaveBeenCalledWith(
+      TREE_ID,
+      "face1",
+    );
+    expect(TreeService.getGalleryImages).toHaveBeenCalled();
+  });
+
+  it("does nothing when no tree is selected", async () => {
+    useTreeStore.setState({ selectedTree: undefined });
+
+    await useGalleryStore
+      .getState()
+      .addUnknownFace(
+        "img1",
+        { x: 0.1, y: 0.2, w: 0.3, h: 0.4 },
+        { title: null, notes: null },
+      );
+
+    expect(TreeService.addGalleryUnknownFace).not.toHaveBeenCalled();
+  });
+
+  it("attaches fetched unknown faces to their gallery image", async () => {
+    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([
+      {
+        id: "img1",
+        imageData: "data:image/png;base64,abc",
+        title: "Test",
+        description: null,
+        createdAt: "2024-01-01T00:00:00Z",
+        uploadedAt: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([
+      {
+        id: "face1",
+        gallery_image_id: "img1",
+        x: 0.1,
+        y: 0.2,
+        w: 0.3,
+        h: 0.4,
+        task_id: "task1",
+        created_at: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    await useGalleryStore.getState().refreshGalleryImages();
+
+    const image = useGalleryStore.getState().galleryImages[0];
+    expect(image.unknownFaces).toEqual([
+      {
+        id: "face1",
+        galleryImageId: "img1",
+        x: 0.1,
+        y: 0.2,
+        w: 0.3,
+        h: 0.4,
+        taskId: "task1",
+        createdAt: "2024-01-01T00:00:00Z",
+      },
+    ]);
   });
 });
