@@ -1,0 +1,1 @@
+i want that the image card layout stays the same regardless of if people are linked. everything should have fixes position
