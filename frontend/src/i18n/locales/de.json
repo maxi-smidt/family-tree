@@ -23,7 +23,8 @@
       "placeholder": "Wähle Stammbaum",
       "owned": "Gehört dir",
       "shared": "Mit dir geteilt",
-      "trees-group": "Bäume",
+      "your-trees-group": "Deine Bäume",
+      "shared-trees-group": "Mit dir geteilt",
       "virtual-views-group": "Virtuelle Ansichten",
       "virtual-view": "Virtuelle Ansicht"
     },

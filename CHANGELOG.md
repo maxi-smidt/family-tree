@@ -62,6 +62,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   button clusters with separators, and less-frequent actions (lock canvas,
   export image, arrange members, task indicators, neighborhood depth,
   focus-here) moved into a "More actions" overflow menu on each side (#775).
+- The active-tree switcher now lists trees you own and trees shared with you
+  under separate "Your trees" and "Shared with you" headings (each hidden
+  when empty), instead of a single combined "Trees" group (#802).
 
 ### Fixed
 

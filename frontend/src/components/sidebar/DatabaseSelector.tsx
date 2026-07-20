@@ -24,6 +24,9 @@ export const DatabaseSelector = () => {
   const selectTree = useTreeStore((s) => s.selectTree);
   const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
 
+  const ownedTrees = trees.filter((db) => db.role === "owner");
+  const sharedTrees = trees.filter((db) => db.role !== "owner");
+
   const handleDatabaseChange = (dbId: string) => {
     const item = [...trees, ...virtualViews].find((d) => d.id === dbId);
     if (item) guardNavigate(() => void selectTree(item));
@@ -35,34 +38,52 @@ export const DatabaseSelector = () => {
         onValueChange={handleDatabaseChange}
         value={selectedTree?.id ?? ""}
       >
-        <SelectTrigger size="sm" className="w-full text-xs" data-testid="tree-selector">
+        <SelectTrigger
+          size="sm"
+          className="w-full text-xs"
+          data-testid="tree-selector"
+        >
           <SelectValue placeholder={t("placeholder")} />
         </SelectTrigger>
         <SelectContent>
-          <SelectGroup>
-            <SelectLabel>{t("trees-group")}</SelectLabel>
-            {trees.map((db) => (
-              <SelectItem key={db.id} value={db.id}>
-                <span className="flex items-center gap-2">
-                  {db.role === "owner" ? (
+          {ownedTrees.length > 0 && (
+            <SelectGroup>
+              <SelectLabel>{t("your-trees-group")}</SelectLabel>
+              {ownedTrees.map((db) => (
+                <SelectItem key={db.id} value={db.id}>
+                  <span className="flex items-center gap-2">
                     <Crown
                       className="h-3.5 w-3.5 text-muted-foreground"
                       aria-label={t("owned")}
                     />
-                  ) : (
-                    <Users
-                      className="h-3.5 w-3.5 text-muted-foreground"
-                      aria-label={t("shared")}
-                    />
-                  )}
-                  {db.name}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectGroup>
+                    {db.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          )}
+          {sharedTrees.length > 0 && (
+            <>
+              {ownedTrees.length > 0 && <SelectSeparator />}
+              <SelectGroup>
+                <SelectLabel>{t("shared-trees-group")}</SelectLabel>
+                {sharedTrees.map((db) => (
+                  <SelectItem key={db.id} value={db.id}>
+                    <span className="flex items-center gap-2">
+                      <Users
+                        className="h-3.5 w-3.5 text-muted-foreground"
+                        aria-label={t("shared")}
+                      />
+                      {db.name}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </>
+          )}
           {virtualViews.length > 0 && (
             <>
-              <SelectSeparator />
+              {trees.length > 0 && <SelectSeparator />}
               <SelectGroup>
                 <SelectLabel>{t("virtual-views-group")}</SelectLabel>
                 {virtualViews.map((v) => (
