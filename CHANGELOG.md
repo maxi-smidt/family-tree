@@ -52,6 +52,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Upgrading from the early research-task development build now creates the
   missing task-link table and preserves every existing person association
   (#725).
+- Setting a member's birthplace (or cemetery) now seeds the location of the
+  auto-created birth (or death) vital event, and keeps it filled in as the
+  place is edited later. A location the user already typed directly onto the
+  event is never overwritten (#769).
 - Custom statistics widgets now honor the “All linked trees” scope, including
   readable linked trees only and counting bridge persons once (#570).
 - The in-app changelog now renders release notes in small, on-demand windows,

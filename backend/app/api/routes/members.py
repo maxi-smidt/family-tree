@@ -620,6 +620,7 @@ def _sync_vital_event(
     member: Member,
     event_type: str,
     date: str | None,
+    location: str | None,
 ) -> None:
     """Keep one member's birth/death event aligned without losing documents."""
     events = list(
@@ -637,15 +638,20 @@ def _sync_vital_event(
     existing = events[0] if events else None
     if date:
         if existing is not None:
-            # Do not replace the row: its location, description, and linked
-            # documents are user-authored details preserved by #659.
+            # Do not replace the row: its description and linked documents
+            # are user-authored details preserved by #659. The location is
+            # only backfilled while still empty, so an existing (possibly
+            # user-authored) location is never silently overwritten (#769).
             existing.date = date
+            if location and not existing.location:
+                existing.location = location
             return
         event = Event(
             id=str(uuid4()),
             tree_id=tree.id,
             event_type=event_type,
             date=date,
+            location=location,
             created_at=utcnow_iso(),
         )
         db.add(event)
@@ -753,13 +759,23 @@ def update_member(
             maternal_parent_id,
         )
     vital_events_changed = _event_updates_allowed(db, tree, user) and (
-        "date_of_birth" in changes or "date_of_death" in changes
+        "date_of_birth" in changes
+        or "date_of_death" in changes
+        or "birthplace" in changes
+        or "cemetery" in changes
     )
     if vital_events_changed:
-        if "date_of_birth" in changes:
-            _sync_vital_event(db, tree, member, "birth", changes["date_of_birth"])
-        if "date_of_death" in changes:
-            _sync_vital_event(db, tree, member, "death", changes["date_of_death"])
+        # member fields above are already mutated by the setattr loop, so the
+        # current date/place reflect this save even when only one of the pair
+        # (e.g. birthplace without a date change) was actually sent.
+        if "date_of_birth" in changes or "birthplace" in changes:
+            _sync_vital_event(
+                db, tree, member, "birth", member.date_of_birth, member.birthplace
+            )
+        if "date_of_death" in changes or "cemetery" in changes:
+            _sync_vital_event(
+                db, tree, member, "death", member.date_of_death, member.cemetery
+            )
     after = {k: getattr(member, k) for k in before}
     # Bridge person: mirror identity edits onto the counterpart row so the
     # same human stays consistent on both sides of a tree-in-tree link.

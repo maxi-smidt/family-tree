@@ -133,6 +133,102 @@ def test_member_update_atomically_replaces_parent_and_vital_event(client, db):
     assert db.query(Event).filter_by(tree_id=tree.id, event_type="birth").count() == 1
 
 
+def test_member_update_creates_birth_event_seeded_with_birthplace(client, db):
+    user = make_user(db, "seed-birth")
+    tree = make_tree(db, user)
+    member = add_member(db, tree, "m1", first_name="Ada", last_name="Lovelace")
+
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{member.id}",
+        headers=auth(user),
+        json={"dateOfBirth": "1815-12-10", "birthplace": "London"},
+    )
+    assert response.status_code == 200
+
+    event = db.query(Event).filter_by(tree_id=tree.id, event_type="birth").one()
+    assert event.date == "1815-12-10"
+    assert event.location == "London"
+
+
+def test_member_update_creates_death_event_seeded_with_cemetery(client, db):
+    user = make_user(db, "seed-death")
+    tree = make_tree(db, user)
+    member = add_member(db, tree, "m1", first_name="Ada", last_name="Lovelace")
+
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{member.id}",
+        headers=auth(user),
+        json={"dateOfDeath": "1852-11-27", "cemetery": "Hucknall Torkard"},
+    )
+    assert response.status_code == 200
+
+    event = db.query(Event).filter_by(tree_id=tree.id, event_type="death").one()
+    assert event.date == "1852-11-27"
+    assert event.location == "Hucknall Torkard"
+
+
+def test_member_update_backfills_empty_event_location_from_birthplace(client, db):
+    user = make_user(db, "backfill")
+    tree = make_tree(db, user)
+    member = add_member(
+        db, tree, "m1", first_name="Ada", last_name="Lovelace", date_of_birth="1815"
+    )
+    event = Event(
+        id="birth-event",
+        tree_id=tree.id,
+        event_type="birth",
+        date="1815",
+        location=None,
+        created_at="2024-01-01T00:00:00Z",
+    )
+    db.add(event)
+    db.add(EventMemberLink(event_id=event.id, member_id=member.id))
+    db.commit()
+
+    # Only birthplace changes — the date is untouched.
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{member.id}",
+        headers=auth(user),
+        json={"birthplace": "London"},
+    )
+    assert response.status_code == 200
+
+    db.expire_all()
+    saved_event = db.get(Event, event.id)
+    assert saved_event.date == "1815"
+    assert saved_event.location == "London"
+
+
+def test_member_update_does_not_overwrite_user_authored_event_location(client, db):
+    user = make_user(db, "preserve")
+    tree = make_tree(db, user)
+    member = add_member(
+        db, tree, "m1", first_name="Ada", last_name="Lovelace", date_of_birth="1815"
+    )
+    event = Event(
+        id="birth-event",
+        tree_id=tree.id,
+        event_type="birth",
+        date="1815",
+        location="Vienna",
+        created_at="2024-01-01T00:00:00Z",
+    )
+    db.add(event)
+    db.add(EventMemberLink(event_id=event.id, member_id=member.id))
+    db.commit()
+
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{member.id}",
+        headers=auth(user),
+        json={"birthplace": "London"},
+    )
+    assert response.status_code == 200
+
+    db.expire_all()
+    saved_event = db.get(Event, event.id)
+    assert saved_event.location == "Vienna"
+
+
 def test_member_update_rolls_back_when_a_parent_is_invalid(client, db):
     user = make_user(db, "rollback")
     tree = make_tree(db, user)
