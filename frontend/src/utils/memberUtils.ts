@@ -9,6 +9,13 @@ export interface MemberOption {
   searchValue?: string;
 }
 
+/** A member's display name: first + last, no maiden name or title. */
+export function getMemberFullName(
+  m: Pick<Member, "firstName" | "lastName">,
+): string {
+  return `${m.firstName} ${m.lastName}`.trim();
+}
+
 /** Searchable text for a member: full name plus maiden name (no dates/ids). */
 export function getMemberSearchText(
   m: Pick<Member, "firstName" | "lastName" | "maidenName">,
@@ -45,7 +52,7 @@ export function getMemberOptions(
   formatMaiden: (name: string) => string,
 ): MemberOption[] {
   return members.map((m) => ({
-    label: `${m.firstName} ${m.lastName}`.trim(),
+    label: getMemberFullName(m),
     value: m.id,
     sublabel: formatMemberSubLabel(m.maidenName, m.date.birth, formatMaiden),
     searchValue: getMemberSearchText(m),

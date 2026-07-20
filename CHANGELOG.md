@@ -31,6 +31,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   expanded as a whole via its header, independent of the existing
   show-more/show-less within a section. Collapse state is remembered per
   section across reopening the sheet (#782).
+- Gallery thumbnails now show the names of linked members below the title,
+  with the first two shown in full and any remainder collapsed into a
+  "+N more" suffix (#779).
 
 ### Changed
 

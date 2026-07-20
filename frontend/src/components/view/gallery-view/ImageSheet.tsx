@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { GalleryImage, GalleryMemberLink } from "@/types/gallery";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { getMemberFullName } from "@/utils/memberUtils";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -151,9 +152,7 @@ export const ImageSheet = ({
 
   const memberName = (memberId: string) => {
     const member = members.find((candidate) => candidate.id === memberId);
-    return member
-      ? `${member.firstName} ${member.lastName}`.trim()
-      : t("unknown-member");
+    return member ? getMemberFullName(member) : t("unknown-member");
   };
 
   const setMemberLinks = (nextLinks: GalleryMemberLink[]) => {
