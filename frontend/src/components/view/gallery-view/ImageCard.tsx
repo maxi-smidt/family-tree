@@ -3,7 +3,13 @@ import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { GalleryImage } from "@/types/gallery";
 import { formatDate } from "@/utils/dateUtils";
 import { useTranslation } from "react-i18next";
-import { KeyboardEvent } from "react";
+import { KeyboardEvent, useMemo } from "react";
+import { Users } from "lucide-react";
+import { useMemberStore } from "@/hooks/useMemberStore";
+import { getMemberFullName } from "@/utils/memberUtils";
+
+// Names beyond this count collapse into a "+K more" suffix.
+const MAX_VISIBLE_NAMES = 2;
 
 type Props = {
   image: GalleryImage;
@@ -14,6 +20,19 @@ export const ImageCard = ({ image, onClick }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "gallery-view.view",
   });
+  const members = useMemberStore((state) => state.members);
+
+  const linkedNames = useMemo(
+    () =>
+      image.linkedMemberIds
+        .map((id) => members.find((member) => member.id === id))
+        .filter((member) => !!member)
+        .map(getMemberFullName),
+    [image.linkedMemberIds, members],
+  );
+
+  const visibleNames = linkedNames.slice(0, MAX_VISIBLE_NAMES);
+  const extraCount = linkedNames.length - visibleNames.length;
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -46,6 +65,19 @@ export const ImageCard = ({ image, onClick }: Props) => {
         </h3>
         <p className="text-[10px] text-muted-foreground mt-0.5">
           {formatDate(image.createdAt)}
+        </p>
+        <p
+          className={`flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 truncate ${
+            linkedNames.length === 0 ? "invisible" : ""
+          }`}
+          title={linkedNames.length > 0 ? linkedNames.join(", ") : undefined}
+        >
+          <Users className="size-2.5 shrink-0" />
+          <span className="truncate">
+            {visibleNames.join(", ")}
+            {extraCount > 0 &&
+              ` ${t("linked-members-more", { count: extraCount })}`}
+          </span>
         </p>
       </CardContent>
     </Card>

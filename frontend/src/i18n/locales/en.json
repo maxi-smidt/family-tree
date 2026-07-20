@@ -349,6 +349,7 @@
       "toast-success-image-upload": "Image uploaded successfully.",
       "toast-error-read-file": "Failed to read file",
       "image-alt-fallback": "Gallery image",
+      "linked-members-more": "+{{count}} more",
       "empty-title": "No photos yet",
       "empty-description": "Upload your first photo to start building this tree's gallery.",
       "empty-cta": "Upload photo",

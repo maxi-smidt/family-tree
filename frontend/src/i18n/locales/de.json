@@ -349,6 +349,7 @@
       "toast-success-image-upload": "Bild erfolgreich hochgeladen!",
       "toast-error-read-file": "Datei konnte nicht gelesen werden.",
       "image-alt-fallback": "Galeriebild",
+      "linked-members-more": "+{{count}} weitere",
       "empty-title": "Noch keine Fotos",
       "empty-description": "Lade dein erstes Foto hoch, um die Galerie dieses Stammbaums zu füllen.",
       "empty-cta": "Foto hochladen",
