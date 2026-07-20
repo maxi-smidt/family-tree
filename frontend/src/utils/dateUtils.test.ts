@@ -7,6 +7,7 @@ import {
   isValidPartialDate,
   parsePartialDateInput,
   resolveDateLocale,
+  sortByDateDesc,
 } from "@/utils/dateUtils";
 
 describe("dateUtils", () => {
@@ -122,6 +123,46 @@ describe("dateUtils", () => {
       expect(isValidPartialDate("2020-04-31")).toBe(false); // April has 30 days
       expect(isValidPartialDate("not-a-date")).toBe(false);
       expect(isValidPartialDate("2020-00-00")).toBe(false); // month 0
+    });
+  });
+
+  describe("sortByDateDesc", () => {
+    it("orders items newest-first, handling partial precision", () => {
+      const items = [
+        { id: "day", date: "2020-06-15" },
+        { id: "year", date: "2021" },
+        { id: "month", date: "2020-08" },
+      ];
+
+      expect(sortByDateDesc(items, (i) => i.date).map((i) => i.id)).toEqual([
+        "year",
+        "month",
+        "day",
+      ]);
+    });
+
+    it("sorts undated items last", () => {
+      const items = [
+        { id: "undated", date: null },
+        { id: "dated", date: "2020" },
+      ];
+
+      expect(sortByDateDesc(items, (i) => i.date).map((i) => i.id)).toEqual([
+        "dated",
+        "undated",
+      ]);
+    });
+
+    it("does not mutate the input array", () => {
+      const items = [
+        { id: "a", date: "2020" },
+        { id: "b", date: "2021" },
+      ];
+      const original = [...items];
+
+      sortByDateDesc(items, (i) => i.date);
+
+      expect(items).toEqual(original);
     });
   });
 });

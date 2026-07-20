@@ -1,9 +1,9 @@
 import { Member } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { Button } from "@/components/ui/button";
-import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Plus, Pencil, Trash2, Activity } from "lucide-react";
 import { DiseaseDialog } from "./DiseaseDialog";
+import { RECORD_SECTION_IDS, RecordSectionCard } from "./RecordSectionCard";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { Disease } from "@/types/disease";
@@ -67,16 +67,17 @@ export const MemberDiseases = ({ member }: Props) => {
   };
 
   return (
-    <Item variant="muted">
-      <ItemContent>
-        <div className="flex items-center justify-between mb-2">
-          <ItemTitle>{t("title")}</ItemTitle>
+    <>
+      <RecordSectionCard
+        sectionId={RECORD_SECTION_IDS.diseases}
+        title={t("title")}
+        headerActions={
           <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
-        </div>
-
+        }
+      >
         {diseases.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
             {t("no-diseases")}
@@ -146,7 +147,7 @@ export const MemberDiseases = ({ member }: Props) => {
             ))}
           </div>
         )}
-      </ItemContent>
+      </RecordSectionCard>
 
       <DiseaseDialog
         open={isDialogOpen}
@@ -164,6 +165,6 @@ export const MemberDiseases = ({ member }: Props) => {
         cancelText={t("delete-dialog.cancel")}
         confirmText={t("delete-dialog.delete")}
       />
-    </Item>
+    </>
   );
 };

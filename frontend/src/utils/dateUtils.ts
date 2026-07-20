@@ -17,7 +17,9 @@ const LANGUAGE_LOCALES: Record<string, string> = {
 
 export type DatePrecision = "day" | "month" | "year" | null;
 
-export function getDatePrecision(value: string | null | undefined): DatePrecision {
+export function getDatePrecision(
+  value: string | null | undefined,
+): DatePrecision {
   if (!value) return null;
   if (DATE_ONLY_RE.test(value)) return "day";
   if (YEAR_MONTH_RE.test(value)) return "month";
@@ -47,12 +49,27 @@ export function isValidPartialDate(value: string): boolean {
 }
 
 /** Compare two partial date strings. Returns negative, zero, or positive. */
-export function comparePartialDates(a: string | null, b: string | null): number {
+export function comparePartialDates(
+  a: string | null,
+  b: string | null,
+): number {
   if (!a && !b) return 0;
   if (!a) return -1;
   if (!b) return 1;
   // Lexicographic on the common prefix works for YYYY, YYYY-MM, YYYY-MM-DD.
   return a.localeCompare(b);
+}
+
+/**
+ * Sort items newest-first by a partial date string, with undated items last.
+ * Mirrors the `comparePartialDates(b, a)` convention already used by the
+ * timeline view.
+ */
+export function sortByDateDesc<T>(
+  items: T[],
+  getDate: (item: T) => string | null,
+): T[] {
+  return [...items].sort((a, b) => comparePartialDates(getDate(b), getDate(a)));
 }
 
 /** Extract the 4-digit year from a partial date string without using `new Date`. */
@@ -216,12 +233,21 @@ export function formatDate(
     if (precision === "month") {
       const [year, month] = dateString.split("-").map(Number);
       const d = new Date(year, month - 1, 1);
-      return new Intl.DateTimeFormat(locale, { year: "numeric", month: "long", ...intlOptions }).format(d);
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "long",
+        ...intlOptions,
+      }).format(d);
     }
     if (precision === "day") {
       const [y, mo, day] = dateString.split("-").map(Number);
       const d = new Date(y, mo - 1, day);
-      return new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric", ...intlOptions }).format(d);
+      return new Intl.DateTimeFormat(locale, {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        ...intlOptions,
+      }).format(d);
     }
     // Unrecognized string — fall through to Date parse for full ISO timestamps (event dates, etc.)
   }

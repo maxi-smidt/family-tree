@@ -4,7 +4,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { GalleryImage } from "@/types/gallery";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Button } from "@/components/ui/button";
-import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
+import { RECORD_SECTION_IDS, RecordSectionCard } from "./RecordSectionCard";
 import { ImagePlus } from "lucide-react";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
@@ -77,10 +77,19 @@ export const MemberPhotos = ({ member }: Props) => {
   };
 
   return (
-    <Item variant="muted">
-      <ItemContent>
-        <div className="flex items-center justify-between mb-2">
-          <ItemTitle>{t("photos-field")}</ItemTitle>
+    <>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <RecordSectionCard
+        sectionId={RECORD_SECTION_IDS.gallery}
+        title={t("photos-field")}
+        headerActions={
           <Button
             size="sm"
             variant="ghost"
@@ -90,15 +99,8 @@ export const MemberPhotos = ({ member }: Props) => {
             <ImagePlus />
             {t("photos-add")}
           </Button>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={handleFileChange}
-          className="hidden"
-        />
+        }
+      >
         {linkedImages.length > 0 ? (
           <div className="grid grid-cols-3 gap-2 mt-1">
             {linkedImages.map((image) => (
@@ -113,7 +115,7 @@ export const MemberPhotos = ({ member }: Props) => {
         ) : (
           <p className="text-xs text-muted-foreground">{t("photos-empty")}</p>
         )}
-      </ItemContent>
+      </RecordSectionCard>
       {faceTagQueue[0] && (
         <ImageSheet
           isOpen
@@ -122,6 +124,6 @@ export const MemberPhotos = ({ member }: Props) => {
           initialTagMode
         />
       )}
-    </Item>
+    </>
   );
 };

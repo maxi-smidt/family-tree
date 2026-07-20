@@ -1,14 +1,14 @@
 import { Member } from "@/types/member";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { Button } from "@/components/ui/button";
-import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { FileText, Plus, Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { DocumentDialog } from "./DocumentDialog";
 import { DocumentFileList } from "./DocumentFiles";
+import { RECORD_SECTION_IDS, RecordSectionCard } from "./RecordSectionCard";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { useTranslation } from "react-i18next";
-import { formatDate } from "@/utils/dateUtils";
+import { formatDate, sortByDateDesc } from "@/utils/dateUtils";
 import { Document } from "@/types/document";
 
 type Props = {
@@ -26,7 +26,10 @@ export const MemberDocuments = ({ member }: Props) => {
     null,
   );
 
-  const documents = getDocumentsForMember(member.id);
+  const documents = sortByDateDesc(
+    getDocumentsForMember(member.id),
+    (doc) => doc.documentDate,
+  );
 
   const handleAdd = () => {
     setEditingDocument(null);
@@ -46,16 +49,17 @@ export const MemberDocuments = ({ member }: Props) => {
   };
 
   return (
-    <Item variant="muted">
-      <ItemContent>
-        <div className="flex items-center justify-between mb-2">
-          <ItemTitle>{t("title")}</ItemTitle>
+    <>
+      <RecordSectionCard
+        sectionId={RECORD_SECTION_IDS.documents}
+        title={t("title")}
+        headerActions={
           <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
-        </div>
-
+        }
+      >
         {documents.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
             {t("no-documents")}
@@ -115,7 +119,7 @@ export const MemberDocuments = ({ member }: Props) => {
             ))}
           </div>
         )}
-      </ItemContent>
+      </RecordSectionCard>
 
       <DocumentDialog
         open={isDialogOpen}
@@ -133,6 +137,6 @@ export const MemberDocuments = ({ member }: Props) => {
         cancelText={t("delete-dialog.cancel")}
         confirmText={t("delete-dialog.delete")}
       />
-    </Item>
+    </>
   );
 };

@@ -1,9 +1,9 @@
 import { Member } from "@/types/member";
 import { useTaskStore } from "@/hooks/useTaskStore";
 import { Button } from "@/components/ui/button";
-import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { CheckCircle2, Circle, Plus, Pencil, Trash2 } from "lucide-react";
 import { TaskDialog } from "./TaskDialog";
+import { RECORD_SECTION_IDS, RecordSectionCard } from "./RecordSectionCard";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
 import { compareTasks } from "@/types/task";
@@ -39,16 +39,17 @@ export const MemberTasks = ({ member }: Props) => {
   const sortedTasks = [...tasks].sort(compareTasks);
 
   return (
-    <Item variant="muted">
-      <ItemContent>
-        <div className="flex items-center justify-between mb-2">
-          <ItemTitle>{t("title")}</ItemTitle>
+    <>
+      <RecordSectionCard
+        sectionId={RECORD_SECTION_IDS.tasks}
+        title={t("title")}
+        headerActions={
           <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
-        </div>
-
+        }
+      >
         {tasks.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
             {t("no-tasks")}
@@ -110,7 +111,7 @@ export const MemberTasks = ({ member }: Props) => {
             ))}
           </div>
         )}
-      </ItemContent>
+      </RecordSectionCard>
 
       <TaskDialog
         open={isDialogOpen}
@@ -128,6 +129,6 @@ export const MemberTasks = ({ member }: Props) => {
         cancelText={t("delete-dialog.cancel")}
         confirmText={t("delete-dialog.delete")}
       />
-    </Item>
+    </>
   );
 };
