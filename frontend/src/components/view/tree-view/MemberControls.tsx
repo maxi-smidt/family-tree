@@ -18,6 +18,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenuCheckboxItem,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import {
   ChevronsDownUp,
   ChevronsUpDown,
   ListChevronsUpDown,
@@ -39,6 +43,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { createMember, Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
+import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
 
@@ -84,6 +89,15 @@ export const MemberControls = ({
     setNeighborhoodDepth,
   } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
+  const canFocusHere = windowed && selectedNodes.length === 1;
+
+  const adjustNeighborhoodDepth = (delta: 1 | -1) => (e: Event) => {
+    e.preventDefault();
+    void setNeighborhoodDepth(
+      Math.min(Math.max(neighborhoodUp + delta, 1), 10),
+      Math.min(Math.max(neighborhoodDown + delta, 1), 10),
+    );
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -93,178 +107,24 @@ export const MemberControls = ({
       {!readOnly && <Separator className="my-1" />}
 
       {/* View Modes */}
-      <ButtonGroup orientation="vertical">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isFastMode ? "default" : "secondary"}
-              size="icon"
-              onClick={() => setIsFastMode(!isFastMode)}
-              disabled={isLockedScreen}
-              aria-label={
-                isFastMode ? t("disable-quick-add") : t("enable-quick-add")
-              }
-            >
-              <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isDiseaseMode ? "default" : "secondary"}
-              size="icon"
-              onClick={() => setIsDiseaseMode(!isDiseaseMode)}
-              disabled={isLockedScreen}
-              aria-label={
-                isDiseaseMode
-                  ? t("disable-disease-mode")
-                  : t("enable-disease-mode")
-              }
-            >
-              <Activity className={isDiseaseMode ? "fill-current" : ""} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            {isDiseaseMode
-              ? t("disable-disease-mode")
-              : t("enable-disease-mode")}
-          </TooltipContent>
-        </Tooltip>
-        {tasksEnabled && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={showTaskIndicators ? "default" : "secondary"}
-                size="icon"
-                onClick={() => setShowTaskIndicators(!showTaskIndicators)}
-                disabled={isLockedScreen}
-                aria-label={
-                  showTaskIndicators
-                    ? t("disable-task-indicators")
-                    : t("enable-task-indicators")
-                }
-              >
-                <ClipboardList
-                  className={showTaskIndicators ? "fill-current" : ""}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              {showTaskIndicators
-                ? t("disable-task-indicators")
-                : t("enable-task-indicators")}
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </ButtonGroup>
-
-      <Separator className="my-1" />
-
-      {/* Layout */}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
-            variant="secondary"
+            variant={isFastMode ? "default" : "secondary"}
             size="icon"
-            onClick={() => setIsArrangeDialogOpen(true)}
-            disabled={isLockedScreen || isLayouting}
-            aria-label={t("arrange-members")}
+            onClick={() => setIsFastMode(!isFastMode)}
+            disabled={isLockedScreen}
+            aria-label={
+              isFastMode ? t("disable-quick-add") : t("enable-quick-add")
+            }
           >
-            {isLayouting ? <Loader2 className="animate-spin" /> : <Network />}
+            <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
           </Button>
         </TooltipTrigger>
-        <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
+        <TooltipContent side="left">
+          {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
+        </TooltipContent>
       </Tooltip>
-      <AlertDialog
-        open={isArrangeDialogOpen}
-        onOpenChange={setIsArrangeDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("arrange-confirm-title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("arrange-confirm-description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("arrange-confirm-cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onRearrange}
-              disabled={isLockedScreen || isLayouting}
-            >
-              {t("arrange-confirm-confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {windowed && (
-        <>
-          <Separator className="my-1" />
-          {/* Neighborhood depth controls */}
-          <ButtonGroup orientation="vertical">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  onClick={() =>
-                    void setNeighborhoodDepth(
-                      Math.min(neighborhoodUp + 1, 10),
-                      Math.min(neighborhoodDown + 1, 10),
-                    )
-                  }
-                  aria-label={t("depth-increase")}
-                >
-                  <Plus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">{t("depth-increase")}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  onClick={() =>
-                    void setNeighborhoodDepth(
-                      Math.max(neighborhoodUp - 1, 1),
-                      Math.max(neighborhoodDown - 1, 1),
-                    )
-                  }
-                  disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
-                  aria-label={t("depth-decrease")}
-                >
-                  <Minus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">{t("depth-decrease")}</TooltipContent>
-            </Tooltip>
-          </ButtonGroup>
-          {selectedNodes.length === 1 && (
-            <>
-              <Separator className="my-1" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => void setFocusRoot(selectedNodes[0].id)}
-                    aria-label={t("focus-here")}
-                  >
-                    <Crosshair />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">{t("focus-here")}</TooltipContent>
-              </Tooltip>
-            </>
-          )}
-        </>
-      )}
 
       <Separator className="my-1" />
 
@@ -354,6 +214,90 @@ export const MemberControls = ({
           </Tooltip>
         </ButtonGroup>
       )}
+
+      <Separator className="my-1" />
+
+      {/* Layout + situational actions */}
+      <PanelMoreMenu label={t("more-actions")} side="left">
+        <DropdownMenuItem
+          inset
+          onSelect={() => setIsArrangeDialogOpen(true)}
+          disabled={isLockedScreen || isLayouting}
+        >
+          {isLayouting ? <Loader2 className="animate-spin" /> : <Network />}
+          {t("arrange-members")}
+        </DropdownMenuItem>
+        <DropdownMenuCheckboxItem
+          checked={isDiseaseMode}
+          onCheckedChange={setIsDiseaseMode}
+          onSelect={(e) => e.preventDefault()}
+          disabled={isLockedScreen}
+        >
+          <Activity className={isDiseaseMode ? "fill-current" : ""} />
+          {isDiseaseMode ? t("disable-disease-mode") : t("enable-disease-mode")}
+        </DropdownMenuCheckboxItem>
+        {tasksEnabled && (
+          <DropdownMenuCheckboxItem
+            checked={showTaskIndicators}
+            onCheckedChange={setShowTaskIndicators}
+            onSelect={(e) => e.preventDefault()}
+          >
+            <ClipboardList
+              className={showTaskIndicators ? "fill-current" : ""}
+            />
+            {showTaskIndicators
+              ? t("disable-task-indicators")
+              : t("enable-task-indicators")}
+          </DropdownMenuCheckboxItem>
+        )}
+        {windowed && (
+          <>
+            <DropdownMenuItem inset onSelect={adjustNeighborhoodDepth(1)}>
+              <Plus />
+              {t("depth-increase")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              inset
+              onSelect={adjustNeighborhoodDepth(-1)}
+              disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
+            >
+              <Minus />
+              {t("depth-decrease")}
+            </DropdownMenuItem>
+          </>
+        )}
+        {canFocusHere && (
+          <DropdownMenuItem
+            inset
+            onSelect={() => void setFocusRoot(selectedNodes[0].id)}
+          >
+            <Crosshair />
+            {t("focus-here")}
+          </DropdownMenuItem>
+        )}
+      </PanelMoreMenu>
+      <AlertDialog
+        open={isArrangeDialogOpen}
+        onOpenChange={setIsArrangeDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("arrange-confirm-title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("arrange-confirm-description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("arrange-confirm-cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onRearrange}
+              disabled={isLockedScreen || isLayouting}
+            >
+              {t("arrange-confirm-confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 

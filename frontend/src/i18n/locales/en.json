@@ -1038,7 +1038,8 @@
       "depth-increase": "Expand neighborhood depth",
       "depth-decrease": "Reduce neighborhood depth",
       "enable-task-indicators": "Show open research tasks",
-      "disable-task-indicators": "Hide open research tasks"
+      "disable-task-indicators": "Hide open research tasks",
+      "more-actions": "More actions"
     },
     "persistence": {
       "collapse-error": "Could not save collapsed members. The tree was restored.",
