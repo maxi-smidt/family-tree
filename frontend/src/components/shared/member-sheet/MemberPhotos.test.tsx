@@ -115,7 +115,7 @@ describe("MemberPhotos", () => {
       TREE.id,
       expect.any(String),
       file,
-      expect.objectContaining({ memberIds: [MEMBER.id] }),
+      expect.objectContaining({ memberIds: [MEMBER.id], title: "portrait" }),
       expect.any(String),
     );
   });

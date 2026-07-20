@@ -56,4 +56,37 @@ describe("DocumentDialog", () => {
 
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
+
+  it("defaults the title to the first attached file's name when empty", () => {
+    render(<DocumentDialog open onOpenChange={vi.fn()} />);
+    // DialogContent renders into a Radix portal, so it lands in
+    // document.body rather than the render() container.
+    const fileInput = document.body.querySelector('input[type="file"]');
+    const file = new File(["content"], "report.pdf", {
+      type: "application/pdf",
+    });
+
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [file] },
+    });
+
+    expect(screen.getByLabelText("Title *")).toHaveValue("report");
+  });
+
+  it("never overwrites a title the user already entered", () => {
+    render(<DocumentDialog open onOpenChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Title *"), {
+      target: { value: "Archive index" },
+    });
+    const fileInput = document.body.querySelector('input[type="file"]');
+    const file = new File(["content"], "report.pdf", {
+      type: "application/pdf",
+    });
+
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [file] },
+    });
+
+    expect(screen.getByLabelText("Title *")).toHaveValue("Archive index");
+  });
 });

@@ -31,6 +31,15 @@ export function getExtension(name: string): string {
   return i >= 0 ? clean.slice(i + 1).toLowerCase() : "";
 }
 
+/** Strips the last extension off a file name for use as a default title
+ * (e.g. "IMG_1234.jpg" -> "IMG_1234"). A leading dot (dotfiles like
+ * ".gitignore") is not treated as an extension separator. */
+export function getBaseName(name: string): string {
+  const clean = name.trim().split(/[?#]/)[0];
+  const i = clean.lastIndexOf(".");
+  return i > 0 ? clean.slice(0, i) : clean;
+}
+
 export type FileKind = "image" | "pdf" | "sheet" | "doc" | "slides" | "text";
 
 export function getFileKind(
