@@ -104,6 +104,67 @@ class TestParentChildAgeGap:
         assert not any(i["issue_type"] in gap_issues for i in issues)
 
 
+class TestChildAfterParentDeath:
+    def test_child_born_after_mother_death_is_flagged(self):
+        mother = _member("p1", date_of_death="1900", gender="f")
+        child = _member("c1", date_of_birth="1910")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([mother, child], [rel])
+        assert any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+    def test_child_born_year_after_mother_death_is_flagged(self):
+        # Mothers get no grace window: a birth after death is impossible.
+        mother = _member("p1", date_of_death="1900", gender="f")
+        child = _member("c1", date_of_birth="1901")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([mother, child], [rel])
+        assert any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+    def test_child_born_after_father_death_beyond_grace_is_flagged(self):
+        father = _member("p1", date_of_death="1900", gender="m")
+        child = _member("c1", date_of_birth="1905")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([father, child], [rel])
+        assert any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+    def test_posthumous_birth_within_father_grace_is_clean(self):
+        # A child born the year after the father's death is a plausible
+        # posthumous birth and must not be flagged.
+        father = _member("p1", date_of_death="1900", gender="m")
+        child = _member("c1", date_of_birth="1901")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([father, child], [rel])
+        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+    def test_unknown_gender_uses_father_grace(self):
+        parent = _member("p1", date_of_death="1900")  # gender unset
+        child = _member("c1", date_of_birth="1901")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([parent, child], [rel])
+        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+    def test_child_born_before_parent_death_is_clean(self):
+        parent = _member("p1", date_of_birth="1850", date_of_death="1900", gender="f")
+        child = _member("c1", date_of_birth="1880")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([parent, child], [rel])
+        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+    def test_child_born_same_year_as_parent_death_is_clean(self):
+        parent = _member("p1", date_of_death="1900", gender="f")
+        child = _member("c1", date_of_birth="1900")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([parent, child], [rel])
+        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+    def test_parent_without_death_date_skipped(self):
+        parent = _member("p1", date_of_birth="1850", gender="f")
+        child = _member("c1", date_of_birth="1990")
+        rel = _relation("c1", "p1")
+        issues = run_quality_checks([parent, child], [rel])
+        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+
+
 class TestRelationshipCycle:
     def test_self_loop_is_cycle(self):
         m = _member("m1")
@@ -212,6 +273,19 @@ def test_quality_report_birth_after_death(client, db):
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "birth_after_death" in types
+
+
+def test_quality_report_child_after_parent_death(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "p1", first_name="Mom", date_of_death="1900", gender="f")
+    add_member(db, tree, "c1", first_name="Kid", date_of_birth="1910")
+    _add_relation(client, tree.id, "c1", "p1", "parent", auth(owner))
+
+    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    assert res.status_code == 200
+    types = [i["issue_type"] for i in res.json()["issues"]]
+    assert "child_after_parent_death" in types
 
 
 def test_quality_report_viewer_can_read(client, db):
