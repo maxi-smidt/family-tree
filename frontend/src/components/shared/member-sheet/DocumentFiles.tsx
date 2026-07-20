@@ -119,7 +119,7 @@ export const DocumentFileList = ({ files }: { files: DocumentFile[] }) => {
             <span className="truncate">{f.filename || f.url}</span>
           </a>
         ) : (
-          <div key={f.id} className="flex items-center gap-2 text-sm">
+          <div key={f.id} className="flex items-center gap-2 text-sm min-w-0">
             <button
               type="button"
               onClick={() => open(f)}

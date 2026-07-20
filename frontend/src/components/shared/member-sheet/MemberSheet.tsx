@@ -243,7 +243,7 @@ export const MemberSheet = ({
       }}
     >
       <SheetContent
-        className="w-full max-w-full sm:w-135 sm:max-w-none"
+        className="w-full max-w-full sm:w-160 sm:max-w-none"
         showCloseButton={false}
         onOpenAutoFocus={(e) => {
           if (isViewingEditMode) {
