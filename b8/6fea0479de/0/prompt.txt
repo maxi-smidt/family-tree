@@ -1,0 +1,1 @@
+Check whether the background backend pytest run (task bjlkp9oti) has completed; if so review its output and proceed to push branch + create PR for issue #778 gallery date changes. If not, just note it's still running.
