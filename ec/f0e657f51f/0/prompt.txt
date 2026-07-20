@@ -1,0 +1,22 @@
+<task-notification>
+<task-id>ad9f58a88508566ba</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/tmp/claude-1000/-home-codex-projects-family-tree/a22dadfc-53ce-410c-8ac6-1d24ca1ffeae/tasks/ad9f58a88508566ba.output</output-file>
+<status>completed</status>
+<summary>Agent "Reuse review of sort/collapse diff" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Reviewed both files against the existing codebase patterns.
+
+**Real duplication found:**
+
+1. `frontend/src/components/shared/dialog/MemberDetailDialog.tsx:92-93` — still does inline `getEventsByMember(currentMember.id).sort((a, b) =&gt; new Date(b.date).getTime() - new Date(a.date).getTime())`. This is the exact pattern the diff just removed from `MemberEvents.tsx` and `ViewMode.tsx` (both replaced with `sortByDateDesc`). This file wasn't touched, so the old, less-correct `new Date().getTime()` comparison (doesn't handle year-only/year-month partial dates the way `comparePartialDates` does, and doesn't push undated items last) survives right next to the new helper it duplicates. Should call `sortByDateDesc(getEventsByMember(currentMember.id), (e) =&gt; e.date)` instead.
+
+2. `frontend/src/components/view/timeline-view/TimelineView.tsx:154,248-249` — manually calls `comparePartialDates(b.date, a.date)` / `comparePartialDates(b.data.date, a.data.date)` inside `.sort()`, which is precisely what `sortByDateDesc` now wraps (per its own doc comment: "Mirrors the `comparePartialDates(b, a)` convention already used by the timeline view"). The new helper acknowledges this existing call site but doesn't migrate it, leaving two copies of the same "reverse partial-date compare" idiom. Should reuse `sortByDateDesc` here too, or the PR should at least note it intentionally left this one alone.
+
+**Not duplication (checked, ruled out):**
+
+- `useMemberSheetSectionsStore.ts` vs `useMemberSheetStore.ts` — different, non-overlapping data (per-tree open-sheet state vs. flat per-user section-collapse map). A standalone `create()+persist()` store per concern is the established pattern in this repo (see `useListSettings.ts`, `useTimelineSettings.ts`, `useStatisticsSettings.ts`), so a new store is correct, not duplicative.
+- `CollapsibleSectionCard.tsx` vs `CollapsibleSection.tsx` — different concerns (persisted whole-section collapse via header click vs. local, non-persisted show-more/show-less of a list), no logic overlap.
+- No pre-existing generic "collapsible card" component was found elsewhere that this reimplements.</result>
+<usage><subagent_tokens>51952</subagent_tokens><tool_uses>8</tool_uses><duration_ms>52889</duration_ms></usage>
+</task-notification>
