@@ -18,10 +18,18 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ChevronsDownUp,
   ChevronsUpDown,
   ListChevronsUpDown,
   Loader2,
+  MoreHorizontal,
   Network,
   UserMinus,
   UserPlus,
@@ -84,6 +92,9 @@ export const MemberControls = ({
     setNeighborhoodDepth,
   } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
+  const canFocusHere = windowed && selectedNodes.length === 1;
+  const canAdjustDepth = windowed;
+  const hasOverflowActions = canAdjustDepth || canFocusHere || tasksEnabled;
 
   return (
     <div className="flex flex-col gap-2">
@@ -134,137 +145,7 @@ export const MemberControls = ({
               : t("enable-disease-mode")}
           </TooltipContent>
         </Tooltip>
-        {tasksEnabled && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={showTaskIndicators ? "default" : "secondary"}
-                size="icon"
-                onClick={() => setShowTaskIndicators(!showTaskIndicators)}
-                disabled={isLockedScreen}
-                aria-label={
-                  showTaskIndicators
-                    ? t("disable-task-indicators")
-                    : t("enable-task-indicators")
-                }
-              >
-                <ClipboardList
-                  className={showTaskIndicators ? "fill-current" : ""}
-                />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              {showTaskIndicators
-                ? t("disable-task-indicators")
-                : t("enable-task-indicators")}
-            </TooltipContent>
-          </Tooltip>
-        )}
       </ButtonGroup>
-
-      <Separator className="my-1" />
-
-      {/* Layout */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => setIsArrangeDialogOpen(true)}
-            disabled={isLockedScreen || isLayouting}
-            aria-label={t("arrange-members")}
-          >
-            {isLayouting ? <Loader2 className="animate-spin" /> : <Network />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent side="left">{t("arrange-members")}</TooltipContent>
-      </Tooltip>
-      <AlertDialog
-        open={isArrangeDialogOpen}
-        onOpenChange={setIsArrangeDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("arrange-confirm-title")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("arrange-confirm-description")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("arrange-confirm-cancel")}</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={onRearrange}
-              disabled={isLockedScreen || isLayouting}
-            >
-              {t("arrange-confirm-confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {windowed && (
-        <>
-          <Separator className="my-1" />
-          {/* Neighborhood depth controls */}
-          <ButtonGroup orientation="vertical">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  onClick={() =>
-                    void setNeighborhoodDepth(
-                      Math.min(neighborhoodUp + 1, 10),
-                      Math.min(neighborhoodDown + 1, 10),
-                    )
-                  }
-                  aria-label={t("depth-increase")}
-                >
-                  <Plus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">{t("depth-increase")}</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  onClick={() =>
-                    void setNeighborhoodDepth(
-                      Math.max(neighborhoodUp - 1, 1),
-                      Math.max(neighborhoodDown - 1, 1),
-                    )
-                  }
-                  disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
-                  aria-label={t("depth-decrease")}
-                >
-                  <Minus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">{t("depth-decrease")}</TooltipContent>
-            </Tooltip>
-          </ButtonGroup>
-          {selectedNodes.length === 1 && (
-            <>
-              <Separator className="my-1" />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => void setFocusRoot(selectedNodes[0].id)}
-                    aria-label={t("focus-here")}
-                  >
-                    <Crosshair />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">{t("focus-here")}</TooltipContent>
-              </Tooltip>
-            </>
-          )}
-        </>
-      )}
 
       <Separator className="my-1" />
 
@@ -354,6 +235,116 @@ export const MemberControls = ({
           </Tooltip>
         </ButtonGroup>
       )}
+
+      <Separator className="my-1" />
+
+      {/* Layout + situational actions */}
+      <DropdownMenu>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label={t("more-actions")}
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="left">{t("more-actions")}</TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent side="left" align="end">
+          <DropdownMenuItem
+            onSelect={() => setIsArrangeDialogOpen(true)}
+            disabled={isLockedScreen || isLayouting}
+          >
+            {isLayouting ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <Network />
+            )}
+            {t("arrange-members")}
+          </DropdownMenuItem>
+          {hasOverflowActions && (
+            <>
+              {tasksEnabled && (
+                <DropdownMenuCheckboxItem
+                  checked={showTaskIndicators}
+                  onCheckedChange={setShowTaskIndicators}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <ClipboardList
+                    className={showTaskIndicators ? "fill-current" : ""}
+                  />
+                  {showTaskIndicators
+                    ? t("disable-task-indicators")
+                    : t("enable-task-indicators")}
+                </DropdownMenuCheckboxItem>
+              )}
+              {canAdjustDepth && (
+                <>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      void setNeighborhoodDepth(
+                        Math.min(neighborhoodUp + 1, 10),
+                        Math.min(neighborhoodDown + 1, 10),
+                      );
+                    }}
+                  >
+                    <Plus />
+                    {t("depth-increase")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      void setNeighborhoodDepth(
+                        Math.max(neighborhoodUp - 1, 1),
+                        Math.max(neighborhoodDown - 1, 1),
+                      );
+                    }}
+                    disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
+                  >
+                    <Minus />
+                    {t("depth-decrease")}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canFocusHere && (
+                <DropdownMenuItem
+                  onSelect={() => void setFocusRoot(selectedNodes[0].id)}
+                >
+                  <Crosshair />
+                  {t("focus-here")}
+                </DropdownMenuItem>
+              )}
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialog
+        open={isArrangeDialogOpen}
+        onOpenChange={setIsArrangeDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("arrange-confirm-title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("arrange-confirm-description")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("arrange-confirm-cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onRearrange}
+              disabled={isLockedScreen || isLayouting}
+            >
+              {t("arrange-confirm-confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 

@@ -55,7 +55,10 @@ describe("MemberControls", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Arrange members" }));
+    fireEvent.pointerDown(screen.getByRole("button", { name: "More actions" }), {
+      button: 0,
+    });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Arrange members" }));
 
     expect(onRearrange).not.toHaveBeenCalled();
     expect(screen.getByText("Arrange the tree?")).toBeInTheDocument();

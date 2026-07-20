@@ -56,6 +56,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   document likewise defaults its title from the first attached file's name
   when no title has been entered yet. A title you've already typed is never
   overwritten (#777).
+- Reworked the tree-view canvas toolbars: both the bottom-left (history,
+  zoom, connection/selection modes) and bottom-right (relations, view
+  modes, collapse, add/remove) controls are now organized into grouped
+  button clusters with separators, and less-frequent actions (lock canvas,
+  export image, arrange members, task indicators, neighborhood depth,
+  focus-here) moved into a "More actions" overflow menu on each side (#775).
 
 ### Fixed
 

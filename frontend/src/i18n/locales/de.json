@@ -1038,7 +1038,8 @@
       "depth-increase": "Nachbarschaftstiefe erhöhen",
       "depth-decrease": "Nachbarschaftstiefe verringern",
       "enable-task-indicators": "Offene Recherche-Aufgaben anzeigen",
-      "disable-task-indicators": "Offene Recherche-Aufgaben ausblenden"
+      "disable-task-indicators": "Offene Recherche-Aufgaben ausblenden",
+      "more-actions": "Weitere Aktionen"
     },
     "persistence": {
       "collapse-error": "Einklappstatus konnte nicht gespeichert werden. Der Stammbaum wurde wiederhergestellt.",
