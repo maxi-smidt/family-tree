@@ -3,9 +3,11 @@
   "checkpoint_id": "13b7aaf88560",
   "strategy": "manual-commit",
   "branch": "feat/802-tree-selector-shared-section",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "CHANGELOG.md",
+    "frontend/src/components/sidebar/DatabaseSelector.test.tsx",
+    "frontend/src/components/sidebar/DatabaseSelector.tsx",
     "frontend/src/i18n/locales/de.json",
     "frontend/src/i18n/locales/en.json"
   ],
@@ -16,13 +18,20 @@
       "compact_transcript": "/13/b7aaf88560/0/transcript.jsonl",
       "content_hash": "/13/b7aaf88560/0/content_hash.txt",
       "prompt": "/13/b7aaf88560/0/prompt.txt"
+    },
+    {
+      "metadata": "/13/b7aaf88560/1/metadata.json",
+      "transcript": "/13/b7aaf88560/1/full.jsonl",
+      "compact_transcript": "/13/b7aaf88560/1/transcript.jsonl",
+      "content_hash": "/13/b7aaf88560/1/content_hash.txt",
+      "prompt": "/13/b7aaf88560/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 412,
-    "cache_creation_tokens": 668320,
-    "cache_read_tokens": 33260514,
-    "output_tokens": 121859,
-    "api_call_count": 208
+    "input_tokens": 498,
+    "cache_creation_tokens": 719628,
+    "cache_read_tokens": 35616691,
+    "output_tokens": 138044,
+    "api_call_count": 251
   }
 }
