@@ -1,11 +1,11 @@
 import { Member } from "@/types/member";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { Button } from "@/components/ui/button";
-import { Item, ItemContent, ItemTitle } from "@/components/ui/item";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { StoryDialog } from "./StoryDialog";
 import { LinkedDocumentList } from "./LinkedDocumentList";
 import { CollapsibleStory } from "./CollapsibleStory";
+import { RECORD_SECTION_IDS, RecordSectionCard } from "./RecordSectionCard";
 import { useTranslation } from "react-i18next";
 import { useContentManager } from "@/hooks/useContentManager";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
@@ -39,16 +39,17 @@ export const MemberStories = ({ member }: Props) => {
   });
 
   return (
-    <Item variant="muted">
-      <ItemContent>
-        <div className="flex items-center justify-between mb-2">
-          <ItemTitle>{t("title")}</ItemTitle>
+    <>
+      <RecordSectionCard
+        sectionId={RECORD_SECTION_IDS.stories}
+        title={t("title")}
+        headerActions={
           <Button size="sm" variant="ghost" type="button" onClick={handleAdd}>
             <Plus />
             {t("add")}
           </Button>
-        </div>
-
+        }
+      >
         {stories.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">
             {t("no-stories")}
@@ -91,7 +92,7 @@ export const MemberStories = ({ member }: Props) => {
             ))}
           </div>
         )}
-      </ItemContent>
+      </RecordSectionCard>
 
       <StoryDialog
         open={isDialogOpen}
@@ -109,6 +110,6 @@ export const MemberStories = ({ member }: Props) => {
         cancelText={t("delete-dialog.cancel")}
         confirmText={t("delete-dialog.delete")}
       />
-    </Item>
+    </>
   );
 };

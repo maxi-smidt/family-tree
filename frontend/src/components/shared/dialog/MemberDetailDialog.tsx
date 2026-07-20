@@ -26,7 +26,11 @@ import { Calendar, BookOpen, Users, Images, Activity } from "lucide-react";
 import { Location } from "@/components/shared/Location";
 import { Separator } from "@/components/ui/separator";
 import { useTranslation } from "react-i18next";
-import { formatDate, formatDateWithFallback } from "@/utils/dateUtils";
+import {
+  formatDate,
+  formatDateWithFallback,
+  sortByDateDesc,
+} from "@/utils/dateUtils";
 import { getEventTypeLabel, getEventTypeInfo } from "@/types/eventTypes";
 import { Badge } from "@/components/ui/badge";
 import { CollapsibleEvent } from "@/components/shared/member-sheet/CollapsibleEvent";
@@ -90,8 +94,9 @@ export const MemberDetailDialog = ({ member, open, onOpenChange }: Props) => {
     return linkedIds.includes(currentMember.id);
   });
 
-  const memberEvents = getEventsByMember(currentMember.id).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  const memberEvents = sortByDateDesc(
+    getEventsByMember(currentMember.id),
+    (event) => event.date,
   );
 
   const memberStories = getStoriesByMember(currentMember.id);

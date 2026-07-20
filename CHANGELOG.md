@@ -26,6 +26,18 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   a normal member link; deleting the tag removes its still-open task, while a
   completed task is kept as history. Gated behind the `research_tasks`
   feature flag (#736).
+- Each Records section (Gallery, Events, Stories, Documents, Genetic
+  Conditions, Research Tasks) in the member sheet can now be collapsed or
+  expanded as a whole via its header, independent of the existing
+  show-more/show-less within a section. Collapse state is remembered per
+  section across reopening the sheet (#782).
+
+### Changed
+
+- Documents and events in the member sheet (and the read-only member preview
+  dialog) are now sorted newest-first by their date, instead of insertion
+  order; entries with a partial (year-only or year-month) date sort using
+  that partial precision, and undated entries sort last (#781).
 
 ### Fixed
 
