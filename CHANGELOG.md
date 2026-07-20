@@ -69,6 +69,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   details when you click anywhere on the row, not just its dedicated "Show
   details" button; double-clicking still opens the attached file, and the
   edit/delete controls no longer trigger the toggle (#801).
+- Documents in the member sheet's Documents section now start collapsed and
+  toggle open on click (or keyboard), showing just the title and date until
+  expanded, so members with many documents are easier to scan (#801).
 
 ### Fixed
 
