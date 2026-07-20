@@ -122,7 +122,7 @@ export const EditMode = ({
     firstName?: string;
     lastName?: string;
   }>({});
-  const [recordsMounted, setRecordsMounted] = useState(false);
+  const [recordsMounted, setRecordsMounted] = useState(activeTab === "records");
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   // These identifiers are deliberately captured for the editor's lifetime.
@@ -156,6 +156,14 @@ export const EditMode = ({
   useEffect(() => {
     onSaveStatusChange?.(saveStatus);
   }, [saveStatus, onSaveStatusChange]);
+
+  // Records content is lazy-mounted the first time its tab becomes active.
+  // Deriving this from `activeTab` (rather than only the tab-click handler)
+  // covers restores that land directly on Records — e.g. a page refresh, where
+  // the persisted tab is selected but no click fires to trigger the mount.
+  useEffect(() => {
+    if (activeTab === "records") setRecordsMounted(true);
+  }, [activeTab]);
 
   useEffect(() => {
     const dirty =
@@ -516,10 +524,7 @@ export const EditMode = ({
               ? "identity"
               : activeTab
           }
-          onValueChange={(v) => {
-            onTabChange(v as MemberSheetTab);
-            if (v === "records") setRecordsMounted(true);
-          }}
+          onValueChange={(v) => onTabChange(v as MemberSheetTab)}
         >
           <TabsList variant="line" className="w-full justify-start mb-3">
             <TabsTrigger value="identity">{t("tab-identity")}</TabsTrigger>
