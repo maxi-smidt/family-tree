@@ -750,20 +750,6 @@ export const EditMode = ({
                 </div>
               </Field>
 
-              <Field>
-                <div className="flex items-center justify-between">
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                    {t("adopted-field")}
-                  </FieldLabel>
-                  <Switch
-                    checked={formData.adopted}
-                    onCheckedChange={(checked) =>
-                      handleChange("adopted", checked)
-                    }
-                  />
-                </div>
-              </Field>
-
               {formData.deceased && (
                 <div className={mapEnabled ? "grid grid-cols-2 gap-3" : ""}>
                   <Field>
@@ -794,6 +780,20 @@ export const EditMode = ({
                   )}
                 </div>
               )}
+
+              <Field>
+                <div className="flex items-center justify-between">
+                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
+                    {t("adopted-field")}
+                  </FieldLabel>
+                  <Switch
+                    checked={formData.adopted}
+                    onCheckedChange={(checked) =>
+                      handleChange("adopted", checked)
+                    }
+                  />
+                </div>
+              </Field>
 
               {mapEnabled && (
                 <Field>
