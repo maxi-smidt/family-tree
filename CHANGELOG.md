@@ -34,6 +34,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Gallery thumbnails now show the names of linked members below the title,
   with the first two shown in full and any remainder collapsed into a
   "+N more" suffix (#779).
+- Gallery images now default their "Date Taken" to the photo's EXIF capture
+  date when available; extraction is best-effort and never blocks or slows an
+  upload if the metadata is missing or unreadable (#778).
 
 ### Changed
 
@@ -41,6 +44,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   dialog) are now sorted newest-first by their date, instead of insertion
   order; entries with a partial (year-only or year-month) date sort using
   that partial precision, and undated entries sort last (#781).
+- The gallery image "Date Taken" field is now optional and uses the same
+  partial-date picker as the rest of the app (year, year-month, or full date,
+  or left empty) instead of a full calendar that always defaulted to today.
+  Missing dates display as "unknown" and sort consistently; existing photos'
+  dates are normalized to the new format (#778).
 
 ### Fixed
 

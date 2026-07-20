@@ -89,4 +89,31 @@ describe("PartialDatePicker", () => {
 
     expect(onChange).toHaveBeenLastCalledWith(null);
   });
+
+  it("renders as read-only when disabled, hiding the clear and calendar buttons", () => {
+    const onChange = vi.fn();
+    render(
+      <PartialDatePicker
+        value="2025-06-12"
+        onChange={onChange}
+        placeholder="Pick a date"
+        disabled
+      />,
+    );
+
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: /clear date|datum löschen/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /open date picker|datumsauswahl öffnen/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "2020" },
+    });
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });

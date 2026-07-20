@@ -437,7 +437,7 @@ def test_streamed_image_is_normalized_to_webp(tmp_path, monkeypatch):
 
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
     png = _make_png(8, 8)
-    url = asyncio.run(
+    url, _ = asyncio.run(
         store_image_upload(_TREE_ID, _image_upload("p.png", "image/png", png), _LIMITS)
     )
     assert url.startswith(f"{MEDIA_URL_PREFIX}/{_TREE_ID}/")
@@ -452,7 +452,7 @@ def test_streamed_image_original_mode_preserves_bytes(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
     limits = _LIMITS.model_copy(update={"image_storage_mode": "original"})
     png = _make_png(6, 6)
-    url = asyncio.run(
+    url, _ = asyncio.run(
         store_image_upload(
             _TREE_ID, _image_upload("p.png", "image/png", png), limits, mode="original"
         )
@@ -468,7 +468,7 @@ def test_streamed_image_both_mode_keeps_display_and_original(tmp_path, monkeypat
 
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
     png = _make_png(6, 6)
-    url = asyncio.run(
+    url, _ = asyncio.run(
         store_image_upload(
             _TREE_ID, _image_upload("p.png", "image/png", png), _LIMITS, mode="both"
         )
@@ -572,7 +572,7 @@ def test_streamed_images_complete_under_concurrent_near_limit_uploads(
             ),
         )
 
-    url_a, url_b = asyncio.run(upload_pair())
+    (url_a, _), (url_b, _) = asyncio.run(upload_pair())
     stored = {
         (tmp_path / "media" / url.removeprefix(f"{MEDIA_URL_PREFIX}/")).read_bytes()
         for url in (url_a, url_b)

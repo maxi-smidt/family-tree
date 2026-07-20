@@ -15,7 +15,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { DatePicker } from "@/components/ui/date-picker";
+import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -179,12 +179,6 @@ export const ImageSheet = ({
         onClose();
       })
       .catch(() => toast.error(t("toast-delete-error")));
-  };
-
-  const handleDateChange = (date: Date | undefined) => {
-    if (date) {
-      setFormData({ ...formData, createdAt: date.toISOString() });
-    }
   };
 
   const updatePoint = (event: PointerEvent<HTMLDivElement>) => {
@@ -516,9 +510,12 @@ export const ImageSheet = ({
               </Field>
               <Field>
                 <FieldLabel>{t("date-field")}</FieldLabel>
-                <DatePicker
-                  value={new Date(formData.createdAt || new Date())}
-                  onChange={canWrite ? handleDateChange : undefined}
+                <PartialDatePicker
+                  value={formData.createdAt}
+                  onChange={(value) =>
+                    setFormData({ ...formData, createdAt: value })
+                  }
+                  disabled={!canWrite}
                 />
               </Field>
               <Field>

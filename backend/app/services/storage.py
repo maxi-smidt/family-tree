@@ -16,6 +16,7 @@ import os
 import re
 import shutil
 import tempfile
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
@@ -390,7 +391,7 @@ async def store_profile_image_upload(
     retaining gallery originals. They live in an isolated directory which is
     never exposed by the tree-media route.
     """
-    url = await store_image_upload(profile_storage_id(user_id), upload, limits)
+    url, _ = await store_image_upload(profile_storage_id(user_id), upload, limits)
     return url.rsplit("/", 1)[-1]
 
 
@@ -486,7 +487,8 @@ async def store_image_upload(
     limits: MediaLimits,
     *,
     mode: str = "compressed",
-) -> str:
+    extract_exif_date: bool = False,
+) -> tuple[str, str | None]:
     """Stream a multipart image upload to disk, normalize it, and store it.
 
     The browser sends the picked image as multipart ``UploadFile`` bytes rather
@@ -503,6 +505,12 @@ async def store_image_upload(
     - ``"original"``: store the streamed bytes as-is under their extension.
     - ``"both"``: store a display WebP and keep the original as a sibling in
       the ``originals/`` subdirectory.
+
+    Returns ``(media_url, exif_date_taken)``. ``exif_date_taken`` is only ever
+    populated when ``extract_exif_date`` is set (gallery uploads want a default
+    photo-taken date; other callers like profile avatars don't) and is a
+    best-effort ``"YYYY-MM-DD"`` read from the original file's EXIF, or
+    ``None`` when absent/unreadable.
     """
     mime = (upload.content_type or "").split(";", 1)[0].strip().lower()
     if mime not in _MIME_EXT:
@@ -534,12 +542,16 @@ async def store_image_upload(
                     )
                 temp_file.write(chunk)
 
+        exif_date_taken = (
+            _extract_exif_date_taken(temp_path) if extract_exif_date else None
+        )
+
         if mode == "original":
             _validate_image_dimensions(temp_path, limits)
             filename = f"{stem}.{orig_ext}"
             os.replace(temp_path, tree_dir / filename)
             temp_path = None
-            return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+            return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}", exif_date_taken
 
         if mode == "both":
             display_raw, display_ext = _normalize_image(temp_path, orig_ext, limits)
@@ -549,7 +561,10 @@ async def store_image_upload(
             # same stem, so delete/copy/move helpers keep the pair together.
             os.replace(temp_path, _originals_dir(tree_id) / f"{stem}.{orig_ext}")
             temp_path = None
-            return f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}"
+            return (
+                f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}",
+                exif_date_taken,
+            )
 
         # Default: "compressed". The display WebP is a fresh file, so the
         # streamed original temp file is no longer needed — remove it.
@@ -558,7 +573,7 @@ async def store_image_upload(
         (tree_dir / filename).write_bytes(display_raw)
         temp_path.unlink(missing_ok=True)
         temp_path = None
-        return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+        return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}", exif_date_taken
     except BaseException:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
@@ -577,6 +592,55 @@ def _open_image_source(source: bytes | Path):
     if isinstance(source, Path):
         return Image.open(source)
     return Image.open(BytesIO(source))
+
+
+_EXIF_SUBIFD_TAG = 0x8769  # Exif SubIFD pointer, holds DateTimeOriginal/Digitized
+_EXIF_DATE_TAGS = (36867, 36868)  # DateTimeOriginal, DateTimeDigitized (Exif SubIFD)
+_EXIF_BASE_DATE_TAG = 306  # DateTime (base IFD0) — coarser "file modified" fallback
+_EXIF_DATE_RE = re.compile(r"^(\d{4}):(\d{2}):(\d{2})")
+_EXIF_YEAR_MIN = 1400
+_EXIF_YEAR_MAX_SLACK = 1  # tolerate camera clocks a little ahead of the server
+
+
+def _extract_exif_date_taken(source: bytes | Path) -> str | None:
+    """Best-effort EXIF date-taken lookup; returns ``None`` on any failure.
+
+    Prefers ``DateTimeOriginal``/``DateTimeDigitized`` (Exif SubIFD) over the
+    coarser base ``DateTime`` tag, since that's what most cameras and phones
+    write. Never raises — corrupt EXIF, an unsupported format, or a garbage
+    timestamp must never break or slow down an upload.
+    """
+    try:
+        with _open_image_source(source) as img:
+            exif = img.getexif()
+            if not exif:
+                return None
+            raw = None
+            try:
+                exif_ifd = exif.get_ifd(_EXIF_SUBIFD_TAG)
+                for tag in _EXIF_DATE_TAGS:
+                    raw = exif_ifd.get(tag)
+                    if raw:
+                        break
+            except Exception:  # noqa: BLE001 - SubIFD access is best-effort
+                raw = None
+            raw = raw or exif.get(_EXIF_BASE_DATE_TAG)
+            if not isinstance(raw, str):
+                return None
+
+            match = _EXIF_DATE_RE.match(raw)
+            if not match:
+                return None
+            year, month, day = match.groups()
+            year_int, month_int, day_int = int(year), int(month), int(day)
+            current_year = date.today().year
+            if not (_EXIF_YEAR_MIN <= year_int <= current_year + _EXIF_YEAR_MAX_SLACK):
+                return None
+            if not (1 <= month_int <= 12) or not (1 <= day_int <= 31):
+                return None
+            return f"{year}-{month}-{day}"
+    except Exception:  # noqa: BLE001 - EXIF extraction is best-effort only
+        return None
 
 
 def _validate_image_dimensions(source: bytes | Path, limits: MediaLimits) -> None:

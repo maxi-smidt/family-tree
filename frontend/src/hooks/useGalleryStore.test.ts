@@ -85,6 +85,20 @@ describe("useGalleryStore — refreshGalleryImages", () => {
       expect.objectContaining({ id: IMAGE_DB.id }),
     ]);
   });
+
+  it("keeps a gallery image whose photo-taken date is null", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([
+      { ...IMAGE_DB, createdAt: null },
+    ]);
+    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
+
+    await useGalleryStore.getState().refreshGalleryImages();
+
+    expect(useGalleryStore.getState().galleryImages).toEqual([
+      expect.objectContaining({ id: IMAGE_DB.id, createdAt: null }),
+    ]);
+  });
 });
 
 describe("useGalleryStore — addGalleryImage", () => {

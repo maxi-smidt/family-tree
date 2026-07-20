@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useTranslation } from "react-i18next";
+import { comparePartialDates } from "@/utils/dateUtils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -141,18 +142,25 @@ export const GalleryView = () => {
       : galleryImages;
 
     return [...filtered].sort((a, b) => {
-      const aValue = a[sortKey] || "";
-      const bValue = b[sortKey] || "";
-
-      if (sortKey === "createdAt" || sortKey === "uploadedAt") {
+      if (sortKey === "createdAt") {
+        // Partial/possibly-null dates — comparePartialDates sorts undated
+        // images consistently to one end instead of `new Date(null)` NaNs.
         return sortDirection === "asc"
-          ? new Date(aValue).getTime() - new Date(bValue).getTime()
-          : new Date(bValue).getTime() - new Date(aValue).getTime();
+          ? comparePartialDates(a.createdAt, b.createdAt)
+          : comparePartialDates(b.createdAt, a.createdAt);
       }
 
+      if (sortKey === "uploadedAt") {
+        return sortDirection === "asc"
+          ? new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime()
+          : new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime();
+      }
+
+      const aValue = a.title || "";
+      const bValue = b.title || "";
       return sortDirection === "asc"
-        ? (aValue as string).localeCompare(bValue as string)
-        : (bValue as string).localeCompare(aValue as string);
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
     });
   }, [galleryImages, sortKey, sortDirection, searchTerm]);
 
