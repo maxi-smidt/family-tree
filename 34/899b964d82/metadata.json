@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "34899b964d82",
+  "strategy": "manual-commit",
+  "branch": "feat/802-tree-selector-shared-section",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/sidebar/DatabaseSelector.test.tsx",
+    "frontend/src/components/sidebar/DatabaseSelector.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/34/899b964d82/0/metadata.json",
+      "transcript": "/34/899b964d82/0/full.jsonl",
+      "compact_transcript": "/34/899b964d82/0/transcript.jsonl",
+      "content_hash": "/34/899b964d82/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 15210,
+    "cache_read_tokens": 1451683,
+    "output_tokens": 7128,
+    "api_call_count": 18
+  }
+}
