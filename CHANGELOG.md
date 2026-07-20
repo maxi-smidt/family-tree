@@ -29,6 +29,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The "Linked documents" picker in the Story and Event dialogs now only lists
+  documents belonging to the member(s) being linked, instead of every document
+  in the tree; documents already linked stay visible even if they belong to
+  someone else, so saving never silently drops them (#770).
 - Long, space-less document and attachment file names in the member sheet now
   truncate with an ellipsis (full name still available on hover) instead of
   pushing the sheet into horizontal scrolling. The member sheet was also
