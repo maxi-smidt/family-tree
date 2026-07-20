@@ -750,20 +750,6 @@ export const EditMode = ({
                 </div>
               </Field>
 
-              <Field>
-                <div className="flex items-center justify-between">
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                    {t("adopted-field")}
-                  </FieldLabel>
-                  <Switch
-                    checked={formData.adopted}
-                    onCheckedChange={(checked) =>
-                      handleChange("adopted", checked)
-                    }
-                  />
-                </div>
-              </Field>
-
               {formData.deceased && (
                 <div className={mapEnabled ? "grid grid-cols-2 gap-3" : ""}>
                   <Field>
@@ -781,36 +767,35 @@ export const EditMode = ({
                   {mapEnabled && (
                     <Field>
                       <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                        {t("hometown-field")}
+                        {t("cemetery-field")}
                       </FieldLabel>
                       <LocationInput
-                        id="hometown"
-                        value={formData.hometown}
+                        id="cemetery"
+                        value={formData.cemetery}
                         className="h-7 text-xs! shadow-none"
                         placeholder={t("location-placeholder")}
-                        onChange={(value) => handleChange("hometown", value)}
+                        onChange={(value) => handleChange("cemetery", value)}
                       />
                     </Field>
                   )}
                 </div>
               )}
 
-              {formData.deceased && mapEnabled && (
-                <Field>
+              <Field>
+                <div className="flex items-center justify-between">
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                    {t("cemetery-field")}
+                    {t("adopted-field")}
                   </FieldLabel>
-                  <LocationInput
-                    id="cemetery"
-                    value={formData.cemetery}
-                    className="h-7 text-xs! shadow-none"
-                    placeholder={t("location-placeholder")}
-                    onChange={(value) => handleChange("cemetery", value)}
+                  <Switch
+                    checked={formData.adopted}
+                    onCheckedChange={(checked) =>
+                      handleChange("adopted", checked)
+                    }
                   />
-                </Field>
-              )}
+                </div>
+              </Field>
 
-              {!formData.deceased && mapEnabled && (
+              {mapEnabled && (
                 <Field>
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("hometown-field")}
