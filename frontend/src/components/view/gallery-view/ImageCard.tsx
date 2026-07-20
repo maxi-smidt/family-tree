@@ -66,19 +66,19 @@ export const ImageCard = ({ image, onClick }: Props) => {
         <p className="text-[10px] text-muted-foreground mt-0.5">
           {formatDate(image.createdAt)}
         </p>
-        {linkedNames.length > 0 && (
-          <p
-            className="flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 truncate"
-            title={linkedNames.join(", ")}
-          >
-            <Users className="size-2.5 shrink-0" />
-            <span className="truncate">
-              {visibleNames.join(", ")}
-              {extraCount > 0 &&
-                ` ${t("linked-members-more", { count: extraCount })}`}
-            </span>
-          </p>
-        )}
+        <p
+          className={`flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 truncate ${
+            linkedNames.length === 0 ? "invisible" : ""
+          }`}
+          title={linkedNames.length > 0 ? linkedNames.join(", ") : undefined}
+        >
+          <Users className="size-2.5 shrink-0" />
+          <span className="truncate">
+            {visibleNames.join(", ")}
+            {extraCount > 0 &&
+              ` ${t("linked-members-more", { count: extraCount })}`}
+          </span>
+        </p>
       </CardContent>
     </Card>
   );

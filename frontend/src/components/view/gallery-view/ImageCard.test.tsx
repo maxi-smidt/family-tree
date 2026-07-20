@@ -56,10 +56,14 @@ describe("ImageCard linked members", () => {
     useMemberStore.setState({ members: [alice, bob, carol] });
   });
 
-  it("renders nothing extra when the image has no linked members", () => {
-    render(<ImageCard image={makeImage()} onClick={vi.fn()} />);
+  it("keeps the linked-names row's space reserved but invisible when there are no links", () => {
+    const { container } = render(
+      <ImageCard image={makeImage()} onClick={vi.fn()} />,
+    );
 
     expect(screen.queryByText(/Alice/)).not.toBeInTheDocument();
+    const row = container.querySelector(".invisible");
+    expect(row).toBeInTheDocument();
   });
 
   it("shows resolved names for linked members", () => {
