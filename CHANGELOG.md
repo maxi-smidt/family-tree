@@ -26,6 +26,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Long, space-less document and attachment file names in the member sheet now
+  truncate with an ellipsis (full name still available on hover) instead of
+  pushing the sheet into horizontal scrolling. The member sheet was also
+  widened to give the Records tab more room (#772).
 - Research-task chips in the quality report now open the linked person's
   record, instead of only switching to the tree canvas (#725).
 - Upgrading from the early research-task development build now creates the
