@@ -781,36 +781,21 @@ export const EditMode = ({
                   {mapEnabled && (
                     <Field>
                       <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                        {t("hometown-field")}
+                        {t("cemetery-field")}
                       </FieldLabel>
                       <LocationInput
-                        id="hometown"
-                        value={formData.hometown}
+                        id="cemetery"
+                        value={formData.cemetery}
                         className="h-7 text-xs! shadow-none"
                         placeholder={t("location-placeholder")}
-                        onChange={(value) => handleChange("hometown", value)}
+                        onChange={(value) => handleChange("cemetery", value)}
                       />
                     </Field>
                   )}
                 </div>
               )}
 
-              {formData.deceased && mapEnabled && (
-                <Field>
-                  <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
-                    {t("cemetery-field")}
-                  </FieldLabel>
-                  <LocationInput
-                    id="cemetery"
-                    value={formData.cemetery}
-                    className="h-7 text-xs! shadow-none"
-                    placeholder={t("location-placeholder")}
-                    onChange={(value) => handleChange("cemetery", value)}
-                  />
-                </Field>
-              )}
-
-              {!formData.deceased && mapEnabled && (
+              {mapEnabled && (
                 <Field>
                   <FieldLabel className="text-[12px] font-semibold text-muted-foreground uppercase">
                     {t("hometown-field")}

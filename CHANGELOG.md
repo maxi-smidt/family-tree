@@ -29,6 +29,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The member sheet's Life tab now pairs the death date with the cemetery
+  field instead of the home place, since the two describe where a member
+  died and was buried. Home place now sits on its own row for both living
+  and deceased members (#780).
 - The "Linked documents" picker in the Story and Event dialogs now only lists
   documents belonging to the member(s) being linked, instead of every document
   in the tree; documents already linked stay visible even if they belong to
