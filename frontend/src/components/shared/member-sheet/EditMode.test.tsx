@@ -1,8 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
+import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import type { Tree } from "@/types/tree";
 import { EditMode } from "./EditMode";
@@ -10,6 +12,16 @@ import { EditMode } from "./EditMode";
 vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }));
+
+vi.mock("@/hooks/useMediaUrl", async () => {
+  const actual = await vi.importActual<typeof import("@/hooks/useMediaUrl")>(
+    "@/hooks/useMediaUrl",
+  );
+  return {
+    ...actual,
+    fetchMediaObjectUrl: vi.fn().mockResolvedValue("blob:mock-object-url"),
+  };
+});
 
 // Every feature on, so the Records children would render if the tab mounts.
 vi.mock("@/hooks/useAuthStore", async () => {
@@ -93,5 +105,84 @@ describe("EditMode records tab", () => {
       <EditMode member={MEMBER} activeTab="identity" onTabChange={() => {}} />,
     );
     expect(screen.queryByTestId("records-child")).not.toBeInTheDocument();
+  });
+});
+
+describe("EditMode profile picture avatar", () => {
+  const LINKED_IMAGE: GalleryImage = {
+    id: "image-1",
+    imageData: "data:image/png;base64,abc",
+    title: "Portrait",
+    description: null,
+    linkedMemberIds: [MEMBER.id],
+    memberLinks: [],
+    unknownFaces: [],
+    createdAt: "2024-01-01T00:00:00Z",
+    uploadedAt: "2024-01-01T00:00:00Z",
+  };
+
+  beforeEach(async () => {
+    await i18n.changeLanguage("en");
+    Element.prototype.scrollIntoView = vi.fn();
+    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
+    Element.prototype.releasePointerCapture = vi.fn();
+    Element.prototype.setPointerCapture = vi.fn();
+    URL.revokeObjectURL = vi.fn();
+    useMemberStore.setState({ members: [MEMBER] });
+    useTreeStore.setState({ selectedTree: TREE });
+    useGalleryStore.setState({ galleryImages: [], initialized: true });
+  });
+
+  it("opens the file picker directly when the member has no linked photos", () => {
+    render(
+      <EditMode member={MEMBER} activeTab="identity" onTabChange={() => {}} />,
+    );
+
+    const avatarTrigger = screen.getByRole("button", {
+      name: "Change profile picture",
+    });
+    fireEvent.pointerDown(avatarTrigger, { pointerType: "mouse" });
+    fireEvent.click(avatarTrigger);
+
+    expect(screen.queryByText("Choose from gallery")).not.toBeInTheDocument();
+  });
+
+  it("offers upload vs. gallery choice when the member has linked photos", async () => {
+    useGalleryStore.setState({
+      galleryImages: [LINKED_IMAGE],
+      initialized: true,
+    });
+    render(
+      <EditMode member={MEMBER} activeTab="identity" onTabChange={() => {}} />,
+    );
+
+    const avatarTrigger = screen.getByRole("button", {
+      name: "Change profile picture",
+    });
+    fireEvent.pointerDown(avatarTrigger, { pointerType: "mouse" });
+    fireEvent.click(avatarTrigger);
+
+    expect(await screen.findByText("Upload a photo")).toBeInTheDocument();
+    expect(screen.getByText("Choose from gallery")).toBeInTheDocument();
+  });
+
+  it("opens the crop dialog after picking a linked gallery photo", async () => {
+    useGalleryStore.setState({
+      galleryImages: [LINKED_IMAGE],
+      initialized: true,
+    });
+    render(
+      <EditMode member={MEMBER} activeTab="identity" onTabChange={() => {}} />,
+    );
+
+    const avatarTrigger = screen.getByRole("button", {
+      name: "Change profile picture",
+    });
+    fireEvent.pointerDown(avatarTrigger, { pointerType: "mouse" });
+    fireEvent.click(avatarTrigger);
+    fireEvent.click(await screen.findByText("Choose from gallery"));
+    fireEvent.click(await screen.findByRole("button", { name: "Portrait" }));
+
+    expect(await screen.findByText("Crop image")).toBeInTheDocument();
   });
 });

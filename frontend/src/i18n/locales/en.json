@@ -605,6 +605,11 @@
   },
   "sheet": {
     "edit-mode": {
+      "avatar-change": "Change profile picture",
+      "avatar-menu-upload": "Upload a photo",
+      "avatar-menu-choose-gallery": "Choose from gallery",
+      "avatar-gallery-picker-title": "Choose a photo",
+      "avatar-gallery-picker-description": "Pick one of this person's linked photos to use as their profile picture.",
       "toast-error-file": "Failed to read file",
       "toast-error-birth": "Death date cannot be before birth date",
       "toast-error-death": "Birth date cannot be after death date",
@@ -689,7 +694,6 @@
       "photos-field": "Photos",
       "photos-add": "Add photo",
       "photos-empty": "No photos linked to this person yet.",
-      "photos-set-as-profile": "Use as profile picture",
       "toast-success-photo-upload": "Photo uploaded and linked.",
       "toast-error-photo-upload": "Failed to upload photo."
     },
