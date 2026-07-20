@@ -11,6 +11,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Data-quality report now flags a child born after a parent's death year. A
+  posthumous-birth grace window (~1 year) is allowed for fathers and
+  parents of unknown gender, but not for mothers (#768).
 - Research tasks: open questions and to-dos with open/done state, linked to
   any number of members (or none, for general tree-wide tasks), managed from
   the member sheet or created directly from the quality report. Tree nodes can
