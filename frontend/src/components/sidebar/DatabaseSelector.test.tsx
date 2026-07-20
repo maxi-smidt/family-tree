@@ -39,7 +39,12 @@ vi.mock("@/hooks/useUnsavedChangesStore", () => ({
 
 const OWNED_TREE: Tree = { id: "tree-1", name: "My Tree", role: "owner" };
 const SHARED_TREE: Tree = { id: "tree-2", name: "Shared Tree", role: "editor" };
-const VIEW: Tree = { id: "view-1", name: "My View", role: "owner", is_virtual: true };
+const VIEW: Tree = {
+  id: "view-1",
+  name: "My View",
+  role: "owner",
+  is_virtual: true,
+};
 
 const renderOpen = () => {
   render(<DatabaseSelector />);
