@@ -34,6 +34,7 @@ import {
   ATTACHMENT_ACCEPT,
   attachmentError,
   formatFileSize,
+  getBaseName,
 } from "@/utils/attachmentUtils";
 import { downloadMedia } from "@/hooks/useMediaUrl";
 import { Document, DocumentFileOps, DocumentInput } from "@/types/document";
@@ -173,6 +174,7 @@ export const DocumentDialog = ({
   const handleFilesPicked = (fileList: FileList | null) => {
     if (!fileList) return;
     setFileError(null);
+    let shouldDefaultTitle = !formData.title.trim();
     for (const file of Array.from(fileList)) {
       const err = attachmentError(file, maxFileBytes);
       if (err) {
@@ -183,6 +185,10 @@ export const DocumentDialog = ({
         ...prev,
         { tempId: crypto.randomUUID(), filename: file.name, file },
       ]);
+      if (shouldDefaultTitle) {
+        setFormData((prev) => ({ ...prev, title: getBaseName(file.name) }));
+        shouldDefaultTitle = false;
+      }
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
   };

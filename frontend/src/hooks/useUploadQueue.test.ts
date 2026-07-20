@@ -63,6 +63,10 @@ describe("useUploadQueue — auto-dismiss", () => {
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0].status).toBe("done");
     expect(result.current.isActive).toBe(false);
+    expect(addGalleryImage).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "a" }),
+      expect.anything(),
+    );
 
     // The panel should dismiss itself after the linger delay.
     await act(async () => {

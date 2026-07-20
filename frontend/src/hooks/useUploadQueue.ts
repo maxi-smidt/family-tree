@@ -4,7 +4,7 @@ import { useStorageStore } from "@/hooks/useStorageStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
-import { formatDateTime } from "@/utils/dateUtils";
+import { getBaseName } from "@/utils/attachmentUtils";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
@@ -163,7 +163,7 @@ export function useUploadQueue(): UploadQueueState {
               await useGalleryStore.getState().addGalleryImage(
                 {
                   file: item.file,
-                  title: formatDateTime(new Date()),
+                  title: getBaseName(item.name),
                   description: null,
                   linkedMemberIds: [],
                 },

@@ -10,7 +10,7 @@ import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { formatDateTime } from "@/utils/dateUtils";
+import { getBaseName } from "@/utils/attachmentUtils";
 import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 
 type Props = {
@@ -35,7 +35,7 @@ export const MemberPhotos = ({ member }: Props) => {
     try {
       const imageId = await addGalleryImage({
         file,
-        title: formatDateTime(new Date()),
+        title: getBaseName(file.name),
         description: null,
         linkedMemberIds: [member.id],
       });

@@ -49,6 +49,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   or left empty) instead of a full calendar that always defaulted to today.
   Missing dates display as "unknown" and sort consistently; existing photos'
   dates are normalized to the new format (#778).
+- Newly uploaded gallery images now default their title to the uploaded
+  file's name (extension stripped) instead of the current timestamp; a new
+  document likewise defaults its title from the first attached file's name
+  when no title has been entered yet. A title you've already typed is never
+  overwritten (#777).
 
 ### Fixed
 
