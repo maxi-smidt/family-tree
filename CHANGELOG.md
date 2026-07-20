@@ -75,6 +75,10 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Locking the tree canvas now also disables per-node editing: the node edit
+  (pencil) button, quick-add handles, and the member sheet's edit-mode toggle
+  are hidden while the canvas is locked, matching the existing lock behavior
+  for dragging, selecting, and connecting members (#800).
 - The member sheet's Life tab now pairs the death date with the cemetery
   field instead of the home place, since the two describe where a member
   died and was buried. Home place now sits on its own row for both living

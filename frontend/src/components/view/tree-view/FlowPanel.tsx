@@ -134,6 +134,11 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     setViewport,
     generationLineGaps,
   } = useFamilyTreeSettings();
+  // Locking the canvas also disables per-node edit affordances (pencil,
+  // quick-add, connect handles) and the member sheet's edit toggle, on top of
+  // the role/mobile read-only gating. Drag/select/connect are gated
+  // separately at the ReactFlow level below.
+  const isEditReadOnly = isCanvasReadOnly || isLockedScreen;
   const DEFAULT_VIEWPORT = { x: 0, y: 0, zoom: 1 };
   const viewport = (activeTree && viewports[activeTree.id]) ?? DEFAULT_VIEWPORT;
   const generationLineGap = getGenerationLineGap(
@@ -392,7 +397,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
                 connection.hasConnectionPath &&
                 !isUnionConnectionPath,
               onAddChildToUnion: pending.onAddChildToUnion,
-              isReadOnly: isCanvasReadOnly,
+              isReadOnly: isEditReadOnly,
             },
             draggable: false,
             selectable: false,
@@ -444,7 +449,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       connection.isConnectionMode,
       hiddenNodeIds,
       pending.onAddChildToUnion,
-      isCanvasReadOnly,
+      isEditReadOnly,
     ],
   );
 
@@ -495,7 +500,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     (id) => pending.onAddHorizontal(id, "left"),
     (id) => pending.onAddHorizontal(id, "right"),
     locator.highlightedNodeId,
-    isCanvasReadOnly,
+    isEditReadOnly,
     connection.connectionSelectedIds,
     connection.connectionPath.nodeIds,
     connection.isConnectionMode,
@@ -817,7 +822,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
             onClose={pending.closeSheet}
             member={pending.editingMember}
             initialEditMode={pending.isEditMode}
-            canEdit={!isMobile && canWrite}
+            canEdit={!isEditReadOnly}
             isNewMember={pending.isNewMemberSession}
             onDiscardNewMember={pending.discardNewMember}
             onSaveNewMember={pending.saveNewMember}
