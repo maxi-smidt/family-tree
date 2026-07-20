@@ -1,0 +1,2 @@
+continue with PR #783 with these tasks: * make the file size end aligned (to be below trash and pencil icon)
+* remove the double click function on the document title that opens it. rather let the tooltip display the full title (handy when truncated) and the file is opened/downloaded anyways when clicked on the single file
