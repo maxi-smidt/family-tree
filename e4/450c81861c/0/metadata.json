@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "e4450c81861c",
+  "session_id": "7faf214b-cbac-4d34-897c-7edc005ce907",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-20T23:09:10.76780469Z",
+  "branch": "fix/800-canvas-lock-edit-gating",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/view/tree-view/FlowPanel.tsx",
+    "CHANGELOG.md",
+    "frontend/src/components/shared/member-sheet/MemberSheet.test.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "bd8af6357a4f",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 66,
+    "cache_creation_tokens": 45896,
+    "cache_read_tokens": 1618402,
+    "output_tokens": 8193,
+    "api_call_count": 33
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-20T23:09:10.752562537Z",
+    "agent_lines": 35,
+    "agent_removed": 4,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 35,
+    "total_lines_changed": 39,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 164,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

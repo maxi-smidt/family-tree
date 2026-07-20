@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "e4450c81861c",
+  "strategy": "manual-commit",
+  "branch": "fix/800-canvas-lock-edit-gating",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGELOG.md",
+    "frontend/src/components/shared/member-sheet/MemberSheet.test.tsx",
+    "frontend/src/components/view/tree-view/FlowPanel.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e4/450c81861c/0/metadata.json",
+      "transcript": "/e4/450c81861c/0/full.jsonl",
+      "compact_transcript": "/e4/450c81861c/0/transcript.jsonl",
+      "content_hash": "/e4/450c81861c/0/content_hash.txt",
+      "prompt": "/e4/450c81861c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 66,
+    "cache_creation_tokens": 45896,
+    "cache_read_tokens": 1618402,
+    "output_tokens": 8193,
+    "api_call_count": 33
+  }
+}
