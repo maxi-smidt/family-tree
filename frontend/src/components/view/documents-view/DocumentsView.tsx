@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookOpen,
@@ -329,11 +329,18 @@ function DocumentCard({
     </Button>
   );
 
+  const isInteractiveTarget = (event: MouseEvent) =>
+    (event.target as HTMLElement).closest("button, a, input") !== null;
+
   return (
     <Card
-      className="cursor-default p-4 transition-colors hover:bg-muted/40"
+      className="cursor-pointer p-4 transition-colors hover:bg-muted/40"
+      onClick={(event) => {
+        if (isInteractiveTarget(event)) return;
+        setDetailsOpen((open) => !open);
+      }}
       onDoubleClick={(event) => {
-        if ((event.target as HTMLElement).closest("button, a, input")) return;
+        if (isInteractiveTarget(event)) return;
         openDocument();
       }}
       title={t("open-hint")}

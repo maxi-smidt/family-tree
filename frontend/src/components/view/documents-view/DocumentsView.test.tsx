@@ -194,4 +194,34 @@ describe("DocumentsView", () => {
       { memberId: "member-1", tab: "records", mode: "view" },
     );
   });
+
+  it("expands and collapses when clicking the row, without the edit button toggling it", () => {
+    render(<DocumentsView />);
+    const documentCard = screen
+      .getByText("Birth certificate")
+      .closest('[data-slot="card"]') as HTMLElement;
+
+    fireEvent.click(within(documentCard).getByText("Birth certificate"));
+    expect(
+      within(documentCard).getByText("A scan of the certificate"),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard).getByRole("button", { name: "Hide details" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(documentCard).getByRole("button", { name: "Edit document" }),
+    );
+    expect(
+      within(documentCard).getByText("A scan of the certificate"),
+    ).toBeInTheDocument();
+    expect(
+      within(documentCard).getByRole("button", { name: "Hide details" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(documentCard).getByText("Birth certificate"));
+    expect(
+      within(documentCard).queryByText("A scan of the certificate"),
+    ).not.toBeInTheDocument();
+  });
 });
