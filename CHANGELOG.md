@@ -26,6 +26,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Switching to the Life tab (or any tab) while creating a new member now works;
+  the sheet previously stayed stuck on Identity until the member was saved
+  (#771).
 - Research-task chips in the quality report now open the linked person's
   record, instead of only switching to the tree canvas (#725).
 - Upgrading from the early research-task development build now creates the
