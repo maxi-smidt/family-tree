@@ -1,7 +1,14 @@
 import { Member } from "@/types/member";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { Button } from "@/components/ui/button";
-import { FileText, Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Plus,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { DocumentDialog } from "./DocumentDialog";
 import { DocumentFileList } from "./DocumentFiles";
@@ -25,6 +32,7 @@ export const MemberDocuments = ({ member }: Props) => {
   const [documentToDelete, setDocumentToDelete] = useState<Document | null>(
     null,
   );
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const documents = sortByDateDesc(
     getDocumentsForMember(member.id),
@@ -48,6 +56,18 @@ export const MemberDocuments = ({ member }: Props) => {
     }
   };
 
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   return (
     <>
       <RecordSectionCard
@@ -66,57 +86,72 @@ export const MemberDocuments = ({ member }: Props) => {
           </p>
         ) : (
           <div className="space-y-2 mt-2">
-            {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                    <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p
-                        className="font-medium text-sm truncate"
-                        title={doc.title}
-                      >
-                        {doc.title}
-                      </p>
-                      {doc.documentDate && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(doc.documentDate)}
-                        </p>
+            {documents.map((doc) => {
+              const isExpanded = expandedIds.has(doc.id);
+              return (
+                <div
+                  key={doc.id}
+                  className="border rounded-lg p-3 hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <button
+                      type="button"
+                      aria-expanded={isExpanded}
+                      onClick={() => toggleExpanded(doc.id)}
+                      className="flex items-start gap-2 flex-1 min-w-0 text-left"
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                       )}
+                      <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="font-medium text-sm truncate"
+                          title={doc.title}
+                        >
+                          {doc.title}
+                        </p>
+                        {doc.documentDate && (
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(doc.documentDate)}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => handleEdit(doc)}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => setDocumentToDelete(doc)}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </div>
+                  </div>
+                  {isExpanded && (
+                    <div className="pl-6">
                       {doc.description && (
                         <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
                           {doc.description}
                         </p>
                       )}
+                      <DocumentFileList files={doc.files} />
                     </div>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => handleEdit(doc)}
-                    >
-                      <Pencil />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => setDocumentToDelete(doc)}
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
+                  )}
                 </div>
-                <div className="pl-6">
-                  <DocumentFileList files={doc.files} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </RecordSectionCard>
