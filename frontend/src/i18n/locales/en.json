@@ -23,7 +23,8 @@
       "placeholder": "Select tree",
       "owned": "Owned by you",
       "shared": "Shared with you",
-      "trees-group": "Trees",
+      "your-trees-group": "Your trees",
+      "shared-trees-group": "Shared with you",
       "virtual-views-group": "Virtual Views",
       "virtual-view": "Virtual view"
     },
