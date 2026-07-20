@@ -11,6 +11,8 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- A member's profile picture can now be set from one of their already-linked
+  gallery photos (with crop), instead of only by uploading a new file (#776).
 - Data-quality report now flags a child born after a parent's death year. A
   posthumous-birth grace window (~1 year) is allowed for fathers and
   parents of unknown gender, but not for mothers (#768).

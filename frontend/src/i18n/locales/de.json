@@ -689,6 +689,7 @@
       "photos-field": "Fotos",
       "photos-add": "Foto hinzufügen",
       "photos-empty": "Noch keine Fotos mit dieser Person verknüpft.",
+      "photos-set-as-profile": "Als Profilbild verwenden",
       "toast-success-photo-upload": "Foto hochgeladen und verknüpft.",
       "toast-error-photo-upload": "Hochladen des Fotos fehlgeschlagen."
     },

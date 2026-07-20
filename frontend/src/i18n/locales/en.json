@@ -689,6 +689,7 @@
       "photos-field": "Photos",
       "photos-add": "Add photo",
       "photos-empty": "No photos linked to this person yet.",
+      "photos-set-as-profile": "Use as profile picture",
       "toast-success-photo-upload": "Photo uploaded and linked.",
       "toast-error-photo-upload": "Failed to upload photo."
     },

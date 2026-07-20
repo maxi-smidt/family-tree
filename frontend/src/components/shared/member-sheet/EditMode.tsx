@@ -26,7 +26,9 @@ import {
   VenusAndMars,
 } from "lucide-react";
 import { Gender, Member } from "@/types/member";
+import { GalleryImage } from "@/types/gallery";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
+import { fetchMediaObjectUrl } from "@/hooks/useMediaUrl";
 import { toast } from "sonner";
 import debounce from "lodash.debounce";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -220,8 +222,30 @@ export const EditMode = ({
     reader.readAsDataURL(file);
   }
 
+  // Only gallery-sourced crop inputs are blob: URLs (the file-upload path
+  // reads a data: URL instead) — revoke those, and only those, once the crop
+  // dialog no longer needs them.
+  const releaseSelectedImage = (image: string | null) => {
+    if (image?.startsWith("blob:")) URL.revokeObjectURL(image);
+  };
+
+  const handleSelectGalleryImage = async (image: GalleryImage) => {
+    try {
+      const objectUrl = await fetchMediaObjectUrl(image.imageData);
+      setSelectedImage(objectUrl);
+    } catch {
+      toast.error(t("toast-error-file"));
+    }
+  };
+
   const onConfirm = (imageData: string) => {
     handleChange("imageData", imageData);
+    releaseSelectedImage(selectedImage);
+    setSelectedImage(null);
+  };
+
+  const onCancelCrop = () => {
+    releaseSelectedImage(selectedImage);
     setSelectedImage(null);
   };
 
@@ -515,7 +539,7 @@ export const EditMode = ({
           isOpen={!!selectedImage}
           imageData={selectedImage}
           onConfirm={onConfirm}
-          onCancel={() => setSelectedImage(null)}
+          onCancel={onCancelCrop}
         />
 
         <Tabs
@@ -977,7 +1001,12 @@ export const EditMode = ({
             <TabsContent value="records">
               {recordsMounted && (
                 <div className="space-y-4">
-                  {galleryEnabled && <MemberPhotos member={member} />}
+                  {galleryEnabled && (
+                    <MemberPhotos
+                      member={member}
+                      onSelectProfilePicture={handleSelectGalleryImage}
+                    />
+                  )}
                   {eventsEnabled && <MemberEvents member={member} />}
                   {storiesEnabled && <MemberStories member={member} />}
                   {documentsEnabled && <MemberDocuments member={member} />}

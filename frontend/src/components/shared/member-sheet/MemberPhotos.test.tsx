@@ -5,7 +5,7 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { TreeService } from "@/services/TreeService";
-import type { GalleryImageDB } from "@/types/gallery";
+import type { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import type { Tree } from "@/types/tree";
 import { MemberPhotos } from "./MemberPhotos";
@@ -97,7 +97,9 @@ describe("MemberPhotos", () => {
   });
 
   it("opens face tagging after an edit-view photo upload", async () => {
-    const { container } = render(<MemberPhotos member={MEMBER} />);
+    const { container } = render(
+      <MemberPhotos member={MEMBER} onSelectProfilePicture={vi.fn()} />,
+    );
     const fileInput = container.querySelector('input[type="file"]');
     const file = new File([new Uint8Array([1, 2, 3])], "portrait.png", {
       type: "image/png",
@@ -118,5 +120,39 @@ describe("MemberPhotos", () => {
       expect.objectContaining({ memberIds: [MEMBER.id], title: "portrait" }),
       expect.any(String),
     );
+  });
+
+  it("calls onSelectProfilePicture when a linked photo is chosen as the avatar", async () => {
+    const linkedImage: GalleryImage = {
+      id: "image-1",
+      imageData: "data:image/png;base64,abc",
+      title: "Portrait",
+      description: null,
+      linkedMemberIds: [MEMBER.id],
+      memberLinks: [
+        { memberId: MEMBER.id, x: null, y: null, w: null, h: null },
+      ],
+      unknownFaces: [],
+      createdAt: "2024-01-01T00:00:00Z",
+      uploadedAt: "2024-01-01T00:00:00Z",
+    };
+    useGalleryStore.setState({
+      galleryImages: [linkedImage],
+      initialized: true,
+    });
+    const onSelectProfilePicture = vi.fn();
+
+    render(
+      <MemberPhotos
+        member={MEMBER}
+        onSelectProfilePicture={onSelectProfilePicture}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Use as profile picture" }),
+    );
+
+    expect(onSelectProfilePicture).toHaveBeenCalledWith(linkedImage);
   });
 });

@@ -4,8 +4,13 @@ import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { GalleryImage } from "@/types/gallery";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { RECORD_SECTION_IDS, RecordSectionCard } from "./RecordSectionCard";
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, UserRound } from "lucide-react";
 import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { toast } from "sonner";
@@ -15,9 +20,10 @@ import { ImageSheet } from "@/components/view/gallery-view/ImageSheet";
 
 type Props = {
   member: Member;
+  onSelectProfilePicture: (image: GalleryImage) => void;
 };
 
-export const MemberPhotos = ({ member }: Props) => {
+export const MemberPhotos = ({ member, onSelectProfilePicture }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "sheet.edit-mode" });
   const { galleryImages, addGalleryImage } = useGalleryStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -104,12 +110,26 @@ export const MemberPhotos = ({ member }: Props) => {
         {linkedImages.length > 0 ? (
           <div className="grid grid-cols-3 gap-2 mt-1">
             {linkedImages.map((image) => (
-              <AuthenticatedImage
-                key={image.id}
-                src={image.imageData}
-                alt={image.title || ""}
-                className="w-full h-20 object-cover rounded-md"
-              />
+              <div key={image.id} className="relative group">
+                <AuthenticatedImage
+                  src={image.imageData}
+                  alt={image.title || ""}
+                  className="w-full h-20 object-cover rounded-md"
+                />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={t("photos-set-as-profile")}
+                      className="absolute inset-0 flex items-center justify-center rounded-md bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+                      onClick={() => onSelectProfilePicture(image)}
+                    >
+                      <UserRound className="text-white w-5 h-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("photos-set-as-profile")}</TooltipContent>
+                </Tooltip>
+              </div>
             ))}
           </div>
         ) : (

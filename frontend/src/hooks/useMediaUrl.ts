@@ -69,7 +69,7 @@ export function useMediaUrl(
 
 /** Fetch a media URL with the Bearer token and return a fresh object URL.
  *  Caller owns the returned URL and is responsible for revoking it. */
-async function fetchMediaObjectUrl(src: string): Promise<string> {
+export async function fetchMediaObjectUrl(src: string): Promise<string> {
   const r = await fetch(src, {
     headers: mediaHeaders(),
   });
