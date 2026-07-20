@@ -1,0 +1,92 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "d1e3c6b3c9ea",
+  "session_id": "02371126-7f18-412f-9d61-106fe05741ca",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-20T22:56:49.719721791Z",
+  "branch": "fix/801-documents-view-collapse",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/view/documents-view/DocumentsView.tsx",
+    "frontend/src/components/view/documents-view/DocumentsView.test.tsx",
+    "CHANGELOG.md"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "2ecb2585e7ea",
+  "checkpoint_transcript_start": 190,
+  "transcript_lines_at_start": 190,
+  "compact_transcript_start": 48,
+  "token_usage": {
+    "input_tokens": 66,
+    "cache_creation_tokens": 37881,
+    "cache_read_tokens": 3782879,
+    "output_tokens": 16308,
+    "api_call_count": 33
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_013L1rAs6iF64e6XZuGrv51H",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "review"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "2ecb2585e7ea",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 175,
+        "end": 176,
+        "entry_ids": [
+          "51f3c8ce-9298-4776-9fc9-c701774aa24e"
+        ],
+        "tool_use_id": "toolu_013L1rAs6iF64e6XZuGrv51H"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_013L1rAs6iF64e6XZuGrv51H"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: review",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-20T22:56:49.682231666Z",
+    "agent_lines": 44,
+    "agent_removed": 6,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 44,
+    "total_lines_changed": 50,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 164,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
