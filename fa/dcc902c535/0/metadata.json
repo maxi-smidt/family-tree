@@ -56,6 +56,99 @@
         "label": "Skill: run",
         "default_collapsed": true
       }
+    },
+    {
+      "id": "claude-skill-toolu_01G6pv2SyVqNTH9zTXDVzGgP",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "simplify"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "31facf7ada4a",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 560,
+        "end": 561,
+        "entry_ids": [
+          "fac218cc-c9a2-448f-8c1b-1ef92e39ff35"
+        ],
+        "tool_use_id": "toolu_01G6pv2SyVqNTH9zTXDVzGgP"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01G6pv2SyVqNTH9zTXDVzGgP"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: simplify",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_01S3pvXCTEuszyGR6WzJk9PA",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "code-review"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "31facf7ada4a",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 659,
+        "end": 660,
+        "entry_ids": [
+          "547fd7b7-baf4-4875-a3f1-8e2406ae1111"
+        ],
+        "tool_use_id": "toolu_01S3pvXCTEuszyGR6WzJk9PA"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01S3pvXCTEuszyGR6WzJk9PA"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: code-review",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_0177i78LL65k9APfBqvnPeUY",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "artifact-design"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "31facf7ada4a",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 688,
+        "end": 689,
+        "entry_ids": [
+          "711c27fb-58b6-4a70-81ff-3275e8bac3f9"
+        ],
+        "tool_use_id": "toolu_0177i78LL65k9APfBqvnPeUY"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_0177i78LL65k9APfBqvnPeUY"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: artifact-design",
+        "default_collapsed": true
+      }
     }
   ],
   "session_metrics": {
