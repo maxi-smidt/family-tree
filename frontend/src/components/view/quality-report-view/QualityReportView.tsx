@@ -35,6 +35,7 @@ import type { QualityIssue } from "@/types/quality";
 const ISSUE_TYPE_KEY: Record<string, string> = {
   birth_after_death: "issue-birth-after-death",
   child_older_than_parent: "issue-child-older-than-parent",
+  child_after_parent_death: "issue-child-after-parent-death",
   parent_too_young: "issue-parent-too-young",
   parent_too_old: "issue-parent-too-old",
   relationship_cycle: "issue-relationship-cycle",

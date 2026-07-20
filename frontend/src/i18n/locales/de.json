@@ -1316,6 +1316,7 @@
     "issue-unknown": "Unbekanntes Problem",
     "issue-birth-after-death": "Geburt nach Tod",
     "issue-child-older-than-parent": "Kind älter als Elternteil",
+    "issue-child-after-parent-death": "Kind nach dem Tod des Elternteils geboren",
     "issue-parent-too-young": "Elternteil zu jung",
     "issue-parent-too-old": "Elternteil zu alt",
     "issue-relationship-cycle": "Beziehungszyklus",

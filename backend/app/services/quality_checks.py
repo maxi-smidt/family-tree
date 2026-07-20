@@ -9,6 +9,13 @@ from app.models.family import Member, Relation
 _MIN_PARENT_AGE = 10
 _MAX_PARENT_AGE = 100
 
+# A child can legitimately be born shortly after their *father's* death
+# (a posthumous birth, up to ~9 months later). Dates here are year-only, so a
+# one-year grace window is allowed for fathers and unknown-gender parents. A
+# birth after the *mother's* death is not biologically possible, so mothers get
+# no grace.
+_POSTHUMOUS_BIRTH_GRACE_YEARS = 1
+
 
 def _year(date_str: str | None) -> int | None:
     if not date_str:
@@ -65,7 +72,28 @@ def run_quality_checks(
         if parent is None or child is None:
             continue
         parent_birth = _year(parent.date_of_birth)
+        parent_death = _year(parent.date_of_death)
         child_birth = _year(child.date_of_birth)
+
+        # Child born after the parent had already died. Fathers (and parents of
+        # unknown gender) get a small posthumous-birth grace window; mothers get
+        # none, since a birth after the mother's death is impossible.
+        if parent_death is not None and child_birth is not None:
+            is_mother = (parent.gender or "").lower() == "f"
+            grace = 0 if is_mother else _POSTHUMOUS_BIRTH_GRACE_YEARS
+            if child_birth > parent_death + grace:
+                issues.append(
+                    {
+                        "issue_type": "child_after_parent_death",
+                        "severity": "error",
+                        "member_ids": [parent_id, child_id],
+                        "description": (
+                            f"Child was born ({child_birth}) after the "
+                            f"parent's death year ({parent_death})."
+                        ),
+                    }
+                )
+
         if parent_birth is None or child_birth is None:
             continue
         age_at_birth = child_birth - parent_birth
