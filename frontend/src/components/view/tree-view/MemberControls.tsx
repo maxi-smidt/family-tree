@@ -18,18 +18,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  DropdownMenu,
   DropdownMenuCheckboxItem,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   ChevronsDownUp,
   ChevronsUpDown,
   ListChevronsUpDown,
   Loader2,
-  MoreHorizontal,
   Network,
   UserMinus,
   UserPlus,
@@ -47,6 +43,7 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { createMember, Member } from "@/types/member";
 import { NODE_WIDTH } from "@/constants";
 import { RelationControls } from "@/components/view/tree-view/RelationControls";
+import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
 
@@ -93,8 +90,14 @@ export const MemberControls = ({
   } = useMemberStore();
   const { screenToFlowPosition } = useReactFlow();
   const canFocusHere = windowed && selectedNodes.length === 1;
-  const canAdjustDepth = windowed;
-  const hasOverflowActions = canAdjustDepth || canFocusHere || tasksEnabled;
+
+  const adjustNeighborhoodDepth = (delta: 1 | -1) => (e: Event) => {
+    e.preventDefault();
+    void setNeighborhoodDepth(
+      Math.min(Math.max(neighborhoodUp + delta, 1), 10),
+      Math.min(Math.max(neighborhoodDown + delta, 1), 10),
+    );
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -239,90 +242,52 @@ export const MemberControls = ({
       <Separator className="my-1" />
 
       {/* Layout + situational actions */}
-      <DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label={t("more-actions")}
-              >
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="left">{t("more-actions")}</TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent side="left" align="end">
-          <DropdownMenuItem
-            onSelect={() => setIsArrangeDialogOpen(true)}
-            disabled={isLockedScreen || isLayouting}
+      <PanelMoreMenu label={t("more-actions")} side="left">
+        <DropdownMenuItem
+          onSelect={() => setIsArrangeDialogOpen(true)}
+          disabled={isLockedScreen || isLayouting}
+        >
+          {isLayouting ? <Loader2 className="animate-spin" /> : <Network />}
+          {t("arrange-members")}
+        </DropdownMenuItem>
+        {tasksEnabled && (
+          <DropdownMenuCheckboxItem
+            checked={showTaskIndicators}
+            onCheckedChange={setShowTaskIndicators}
+            onSelect={(e) => e.preventDefault()}
           >
-            {isLayouting ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <Network />
-            )}
-            {t("arrange-members")}
+            <ClipboardList
+              className={showTaskIndicators ? "fill-current" : ""}
+            />
+            {showTaskIndicators
+              ? t("disable-task-indicators")
+              : t("enable-task-indicators")}
+          </DropdownMenuCheckboxItem>
+        )}
+        {windowed && (
+          <>
+            <DropdownMenuItem onSelect={adjustNeighborhoodDepth(1)}>
+              <Plus />
+              {t("depth-increase")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={adjustNeighborhoodDepth(-1)}
+              disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
+            >
+              <Minus />
+              {t("depth-decrease")}
+            </DropdownMenuItem>
+          </>
+        )}
+        {canFocusHere && (
+          <DropdownMenuItem
+            onSelect={() => void setFocusRoot(selectedNodes[0].id)}
+          >
+            <Crosshair />
+            {t("focus-here")}
           </DropdownMenuItem>
-          {hasOverflowActions && (
-            <>
-              {tasksEnabled && (
-                <DropdownMenuCheckboxItem
-                  checked={showTaskIndicators}
-                  onCheckedChange={setShowTaskIndicators}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  <ClipboardList
-                    className={showTaskIndicators ? "fill-current" : ""}
-                  />
-                  {showTaskIndicators
-                    ? t("disable-task-indicators")
-                    : t("enable-task-indicators")}
-                </DropdownMenuCheckboxItem>
-              )}
-              {canAdjustDepth && (
-                <>
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      void setNeighborhoodDepth(
-                        Math.min(neighborhoodUp + 1, 10),
-                        Math.min(neighborhoodDown + 1, 10),
-                      );
-                    }}
-                  >
-                    <Plus />
-                    {t("depth-increase")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onSelect={(e) => {
-                      e.preventDefault();
-                      void setNeighborhoodDepth(
-                        Math.max(neighborhoodUp - 1, 1),
-                        Math.max(neighborhoodDown - 1, 1),
-                      );
-                    }}
-                    disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
-                  >
-                    <Minus />
-                    {t("depth-decrease")}
-                  </DropdownMenuItem>
-                </>
-              )}
-              {canFocusHere && (
-                <DropdownMenuItem
-                  onSelect={() => void setFocusRoot(selectedNodes[0].id)}
-                >
-                  <Crosshair />
-                  {t("focus-here")}
-                </DropdownMenuItem>
-              )}
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+        )}
+      </PanelMoreMenu>
       <AlertDialog
         open={isArrangeDialogOpen}
         onOpenChange={setIsArrangeDialogOpen}

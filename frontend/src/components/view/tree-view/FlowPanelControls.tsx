@@ -6,19 +6,16 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
   DropdownMenuCheckboxItem,
-  DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PanelMoreMenu } from "@/components/view/tree-view/PanelMoreMenu";
 import {
   ImageDown,
   Lock,
   LockOpen,
   Loader2,
   Maximize,
-  MoreHorizontal,
   Minus,
   Plus,
   Redo2,
@@ -191,41 +188,25 @@ export const FlowPanelControls = ({
         )}
       </ButtonGroup>
 
-      <DropdownMenu>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label={t("more-actions")}
-              >
-                <MoreHorizontal />
-              </Button>
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="right">{t("more-actions")}</TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent side="right" align="end">
-          {!navigationOnly && (
-            <DropdownMenuCheckboxItem
-              checked={isLockedScreen}
-              onCheckedChange={(checked) => setIsLockedScreen(checked)}
-              onSelect={(e) => e.preventDefault()}
-            >
-              {isLockedScreen ? <Lock /> : <LockOpen />}
-              {isLockedScreen ? t("unlock-canvas") : t("lock-canvas")}
-            </DropdownMenuCheckboxItem>
-          )}
-          <DropdownMenuItem
-            onSelect={() => void exportImage()}
-            disabled={isExporting}
+      <PanelMoreMenu label={t("more-actions")} side="right">
+        {!navigationOnly && (
+          <DropdownMenuCheckboxItem
+            checked={isLockedScreen}
+            onCheckedChange={setIsLockedScreen}
+            onSelect={(e) => e.preventDefault()}
           >
-            {isExporting ? <Loader2 className="animate-spin" /> : <ImageDown />}
-            {t("export-image")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {isLockedScreen ? <Lock /> : <LockOpen />}
+            {isLockedScreen ? t("unlock-canvas") : t("lock-canvas")}
+          </DropdownMenuCheckboxItem>
+        )}
+        <DropdownMenuItem
+          onSelect={() => void exportImage()}
+          disabled={isExporting}
+        >
+          {isExporting ? <Loader2 className="animate-spin" /> : <ImageDown />}
+          {t("export-image")}
+        </DropdownMenuItem>
+      </PanelMoreMenu>
     </div>
   );
 };
