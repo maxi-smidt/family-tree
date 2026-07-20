@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "fadcc902c535",
+  "strategy": "manual-commit",
+  "branch": "feat/775-refine-tree-view-toolbar",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/view/tree-view/FlowPanelControls.tsx",
+    "frontend/src/components/view/tree-view/MemberControls.test.tsx",
+    "frontend/src/components/view/tree-view/MemberControls.tsx",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/fa/dcc902c535/0/metadata.json",
+      "transcript": "/fa/dcc902c535/0/full.jsonl",
+      "compact_transcript": "/fa/dcc902c535/0/transcript.jsonl",
+      "content_hash": "/fa/dcc902c535/0/content_hash.txt",
+      "prompt": "/fa/dcc902c535/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 246,
+    "cache_creation_tokens": 301891,
+    "cache_read_tokens": 13501443,
+    "output_tokens": 53392,
+    "api_call_count": 124
+  }
+}

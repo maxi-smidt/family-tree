@@ -1,0 +1,5 @@
+You are a Senior Developer and have been assigned #775; create a new branch from origin/main; plan with opus, implement with sonnet (make no mistake, produce clean code) and push and review it; create PR.
+
+---
+
+all the controls in th reactflow panel should be considered here (left and right side)
