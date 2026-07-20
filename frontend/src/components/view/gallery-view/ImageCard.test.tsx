@@ -44,7 +44,7 @@ function makeImage(overrides: Partial<GalleryImage> = {}): GalleryImage {
     linkedMemberIds: [],
     memberLinks: [],
     unknownFaces: [],
-    createdAt: "2024-01-01T00:00:00Z",
+    createdAt: "2024-01-01",
     uploadedAt: "2024-01-01T00:00:00Z",
     ...overrides,
   };
@@ -99,5 +99,13 @@ describe("ImageCard linked members", () => {
     );
 
     expect(screen.queryByText(/more/)).not.toBeInTheDocument();
+  });
+
+  it("shows a localized fallback when the photo date is missing", () => {
+    render(
+      <ImageCard image={makeImage({ createdAt: null })} onClick={vi.fn()} />,
+    );
+
+    expect(screen.getByText("unknown")).toBeInTheDocument();
   });
 });

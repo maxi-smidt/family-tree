@@ -52,7 +52,7 @@ export interface GalleryImage {
   linkedMemberIds: string[];
   memberLinks: GalleryMemberLink[];
   unknownFaces: UnknownFace[];
-  createdAt: string;
+  createdAt: string | null;
   uploadedAt: string;
 }
 
@@ -61,6 +61,6 @@ export interface GalleryImageDB {
   imageData: string;
   title: string | null;
   description: string | null;
-  createdAt: string;
+  createdAt: string | null;
   uploadedAt: string;
 }

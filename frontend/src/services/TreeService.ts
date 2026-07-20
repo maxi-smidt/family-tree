@@ -301,7 +301,8 @@ export class TreeService {
     if (meta.title !== null) formData.append("title", meta.title);
     if (meta.description !== null)
       formData.append("description", meta.description);
-    formData.append("created_at", now);
+    // created_at (photo-taken date) is left for the backend to fill in from
+    // the image's EXIF data, or leave null — only uploaded_at is "now".
     formData.append("uploaded_at", now);
     for (const memberId of meta.memberIds)
       formData.append("member_ids", memberId);
@@ -339,6 +340,7 @@ export class TreeService {
     if (changes.title !== undefined) body.title = changes.title;
     if (changes.description !== undefined)
       body.description = changes.description;
+    if (changes.createdAt !== undefined) body.createdAt = changes.createdAt;
     if (Object.keys(body).length === 0) return Promise.resolve();
     return api.patch(`${base(treeId)}/gallery/images/${id}`, body);
   }

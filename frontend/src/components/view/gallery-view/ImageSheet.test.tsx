@@ -66,7 +66,7 @@ const IMAGE: GalleryImage = {
   linkedMemberIds: [MEMBER.id],
   memberLinks: [{ memberId: MEMBER.id, x: null, y: null, w: null, h: null }],
   unknownFaces: [],
-  createdAt: "2024-01-01T00:00:00Z",
+  createdAt: "2024-01-01",
   uploadedAt: "2024-01-01T00:00:00Z",
 };
 
@@ -114,6 +114,27 @@ describe("ImageSheet", () => {
     vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
     vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
     vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
+  });
+
+  it("clears the photo date with the partial date picker and saves it as null", async () => {
+    vi.mocked(TreeService.updateGalleryImage).mockResolvedValue(
+      undefined as never,
+    );
+    render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
+
+    const dateInput = screen.getByLabelText(i18n.t("common.date-input-hint"));
+    fireEvent.focus(dateInput);
+    fireEvent.change(dateInput, { target: { value: "" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await vi.waitFor(() => {
+      expect(TreeService.updateGalleryImage).toHaveBeenCalled();
+    });
+    const call = vi.mocked(TreeService.updateGalleryImage).mock.calls[0];
+    expect(call[0]).toBe("tree-1");
+    expect(call[1]).toBe(IMAGE.id);
+    expect(call[2]).toEqual(expect.objectContaining({ createdAt: null }));
   });
 
   it("hides already-linked people from candidates while keeping their link visible", async () => {

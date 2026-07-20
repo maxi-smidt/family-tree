@@ -29,6 +29,7 @@ type Props = {
   value?: string | null;
   onChange?: (value: string | null) => void;
   placeholder?: string;
+  disabled?: boolean;
 };
 
 const YEAR_MIN = 1400;
@@ -61,6 +62,7 @@ export const PartialDatePicker = ({
   value,
   onChange,
   placeholder,
+  disabled = false,
 }: Props) => {
   const { t, i18n } = useTranslation();
   const language = i18n.resolvedLanguage;
@@ -82,6 +84,7 @@ export const PartialDatePicker = ({
     !parsePartialDateInput(text, language).valid;
 
   const handleTextChange = (next: string) => {
+    if (disabled) return;
     setText(next);
     if (next.trim() === "") {
       onChange?.(null);
@@ -122,6 +125,7 @@ export const PartialDatePicker = ({
 
   // When popover opens, sync activePrecision to the current value's precision.
   const handleOpenChange = (next: boolean) => {
+    if (disabled) return;
     if (next) {
       setActivePrecision(getDatePrecision(value ?? null) ?? "day");
       if (!value) setViewYear(today.getFullYear());
@@ -192,15 +196,16 @@ export const PartialDatePicker = ({
           <Input
             value={text}
             onChange={(e) => handleTextChange(e.target.value)}
-            onFocus={() => setFocused(true)}
+            onFocus={() => !disabled && setFocused(true)}
             onBlur={handleTextBlur}
             placeholder={t("common.date-input-hint")}
             aria-label={placeholder ?? t("common.date-input-hint")}
             aria-invalid={textIsInvalid}
+            disabled={disabled}
             className={cn("pr-12", className)}
           />
           <div className="absolute inset-y-0 right-1 flex items-center gap-0.5">
-            {value && (
+            {value && !disabled && (
               <button
                 type="button"
                 aria-label={t("common.clear-date")}
@@ -210,15 +215,17 @@ export const PartialDatePicker = ({
                 <XIcon className="h-3 w-3" aria-hidden="true" />
               </button>
             )}
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                aria-label={t("common.open-date-picker")}
-                className="flex size-5 items-center justify-center rounded-sm text-muted-foreground opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <CalendarIcon className="h-4 w-4" aria-hidden="true" />
-              </button>
-            </PopoverTrigger>
+            {!disabled && (
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("common.open-date-picker")}
+                  className="flex size-5 items-center justify-center rounded-sm text-muted-foreground opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <CalendarIcon className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </PopoverTrigger>
+            )}
           </div>
         </div>
       </PopoverAnchor>

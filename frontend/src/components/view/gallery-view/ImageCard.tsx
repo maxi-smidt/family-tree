@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { GalleryImage } from "@/types/gallery";
-import { formatDate } from "@/utils/dateUtils";
+import { formatDateWithFallback } from "@/utils/dateUtils";
 import { useTranslation } from "react-i18next";
 import { KeyboardEvent, useMemo } from "react";
 import { Users } from "lucide-react";
@@ -17,7 +17,7 @@ type Props = {
 };
 
 export const ImageCard = ({ image, onClick }: Props) => {
-  const { t } = useTranslation(undefined, {
+  const { t, i18n } = useTranslation(undefined, {
     keyPrefix: "gallery-view.view",
   });
   const members = useMemberStore((state) => state.members);
@@ -64,7 +64,7 @@ export const ImageCard = ({ image, onClick }: Props) => {
           {image.title}
         </h3>
         <p className="text-[10px] text-muted-foreground mt-0.5">
-          {formatDate(image.createdAt)}
+          {formatDateWithFallback(image.createdAt, i18n.t)}
         </p>
         <p
           className={`flex items-center gap-1 text-[10px] text-muted-foreground mt-0.5 truncate ${

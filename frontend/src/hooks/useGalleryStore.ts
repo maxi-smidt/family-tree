@@ -22,7 +22,8 @@ function isGalleryImageDB(image: unknown): image is GalleryImageDB {
       typeof (image as GalleryImageDB).title === "string") &&
     ((image as GalleryImageDB).description === null ||
       typeof (image as GalleryImageDB).description === "string") &&
-    typeof (image as GalleryImageDB).createdAt === "string" &&
+    ((image as GalleryImageDB).createdAt === null ||
+      typeof (image as GalleryImageDB).createdAt === "string") &&
     typeof (image as GalleryImageDB).uploadedAt === "string"
   );
 }

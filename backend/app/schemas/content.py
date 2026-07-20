@@ -24,6 +24,7 @@ class GalleryImageUpdate(FamilyTreeBaseModel):
     image_data: str | None = None
     title: str | None = None
     description: str | None = None
+    created_at: str | None = None
 
 
 class LinksSet(BaseModel):

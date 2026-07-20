@@ -129,7 +129,9 @@ async def create_image(
         user_mode,
     )
     try:
-        new_image_url = await store_image_upload(tree.id, image, limits, mode=mode)
+        new_image_url, exif_date_taken = await store_image_upload(
+            tree.id, image, limits, mode=mode, extract_exif_date=True
+        )
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
@@ -152,7 +154,7 @@ async def create_image(
         image_data=new_image_url,
         title=title,
         description=description,
-        created_at=created_at or now,
+        created_at=created_at or exif_date_taken,
         uploaded_at=uploaded_at or now,
     )
     try:
