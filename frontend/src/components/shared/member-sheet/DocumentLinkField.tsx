@@ -26,14 +26,23 @@ export const DocumentLinkField = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.member-sheet.documents.linked",
   });
-  const { documents, initialized, refreshDocuments } = useDocumentStore();
+  const { documents, initialized, refreshDocuments, getDocumentsForMember } =
+    useDocumentStore();
   const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!initialized) void refreshDocuments();
   }, [initialized, refreshDocuments]);
 
-  const options = documents.map((d) => ({ label: d.title, value: d.id }));
+  // Scope the picker to the seeded member(s)' own documents, but keep any
+  // already-linked document visible even if it belongs to someone else so
+  // saving never silently drops an existing link.
+  const scopedIds = new Set(
+    seedMemberIds.flatMap((id) => getDocumentsForMember(id).map((d) => d.id)),
+  );
+  const options = documents
+    .filter((d) => scopedIds.has(d.id) || documentIds.includes(d.id))
+    .map((d) => ({ label: d.title, value: d.id }));
 
   return (
     <div className="space-y-2">
