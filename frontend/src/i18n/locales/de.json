@@ -605,6 +605,11 @@
   },
   "sheet": {
     "edit-mode": {
+      "avatar-change": "Profilbild ändern",
+      "avatar-menu-upload": "Foto hochladen",
+      "avatar-menu-choose-gallery": "Aus Galerie wählen",
+      "avatar-gallery-picker-title": "Foto auswählen",
+      "avatar-gallery-picker-description": "Wähle eines der mit dieser Person verknüpften Fotos als Profilbild.",
       "toast-error-file": "Lesen des Files fehlgeschlagen",
       "toast-error-birth": "Sterbedatum kann nicht vor dem Geburtsdatum sein.",
       "toast-error-death": "Geburtsdatum kann nicht nach dem Sterbedatum sein.",

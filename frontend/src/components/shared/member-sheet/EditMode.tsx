@@ -5,6 +5,7 @@ import { ApiError } from "@/services/api";
 import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import {
@@ -17,6 +18,7 @@ import {
   useState,
 } from "react";
 import {
+  Images,
   Mars,
   Plus,
   Trash2,
@@ -26,7 +28,10 @@ import {
   VenusAndMars,
 } from "lucide-react";
 import { Gender, Member } from "@/types/member";
+import { GalleryImage } from "@/types/gallery";
 import { ImageCropDialog } from "@/components/shared/member-sheet/dialog/ImageCropDialog";
+import { GalleryPickerDialog } from "@/components/shared/member-sheet/dialog/GalleryPickerDialog";
+import { fetchMediaObjectUrl } from "@/hooks/useMediaUrl";
 import { toast } from "sonner";
 import debounce from "lodash.debounce";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -37,6 +42,12 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
 import { comparePartialDates } from "@/utils/dateUtils";
@@ -98,6 +109,7 @@ export const EditMode = ({
     keyPrefix: "sheet.edit-mode",
   });
   const { updateMemberPartial, members } = useMemberStore();
+  const { galleryImages } = useGalleryStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
   const currentTreeId = useTreeStore((s) => s.selectedTree?.id);
   const treeLinksEnabled = useFeature("tree_links");
@@ -118,6 +130,7 @@ export const EditMode = ({
   const [formData, setFormData] = useState<Member>(member);
   const [initialData, setInitialData] = useState<Member>(member);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [galleryPickerOpen, setGalleryPickerOpen] = useState(false);
   const [errors, setErrors] = useState<{
     firstName?: string;
     lastName?: string;
@@ -199,6 +212,14 @@ export const EditMode = ({
     return members.filter((m) => !excluded.has(m.id));
   }, [member.id, members]);
 
+  const linkedGalleryImages = useMemo(
+    () =>
+      galleryImages.filter((image) =>
+        image.linkedMemberIds.includes(member.id),
+      ),
+    [galleryImages, member.id],
+  );
+
   const handleChange = (field: keyof Member, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -220,8 +241,35 @@ export const EditMode = ({
     reader.readAsDataURL(file);
   }
 
+  // Only gallery-sourced crop inputs are blob: URLs (the file-upload path
+  // reads a data: URL instead) — revoke those, and only those, once the crop
+  // dialog no longer needs them.
+  const releaseSelectedImage = (image: string | null) => {
+    if (image?.startsWith("blob:")) URL.revokeObjectURL(image);
+  };
+
+  const handleSelectGalleryImage = async (image: GalleryImage) => {
+    try {
+      const objectUrl = await fetchMediaObjectUrl(image.imageData);
+      setSelectedImage(objectUrl);
+    } catch {
+      toast.error(t("toast-error-file"));
+    }
+  };
+
+  const handlePickGalleryImage = (image: GalleryImage) => {
+    setGalleryPickerOpen(false);
+    void handleSelectGalleryImage(image);
+  };
+
   const onConfirm = (imageData: string) => {
     handleChange("imageData", imageData);
+    releaseSelectedImage(selectedImage);
+    setSelectedImage(null);
+  };
+
+  const onCancelCrop = () => {
+    releaseSelectedImage(selectedImage);
     setSelectedImage(null);
   };
 
@@ -477,33 +525,65 @@ export const EditMode = ({
     useCallback(() => save(), [save]),
   );
 
+  const avatarImage = formData.imageData ? (
+    <AuthenticatedImage
+      src={formData.imageData}
+      className="size-24 rounded-full object-cover mx-auto bg-gray-100"
+      alt="Profile"
+      fallback={
+        <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+          <User size={48} />
+        </div>
+      }
+    />
+  ) : (
+    <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
+      <User size={48} />
+    </div>
+  );
+  const avatarOverlayClassName =
+    "absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer";
+  const showGalleryPicker =
+    !isNew && galleryEnabled && linkedGalleryImages.length > 0;
+
   return (
     <form id="edit-member-form" onSubmit={handleSave} className="flex flex-col">
       <div className="nodrag">
-        <label className="block relative mb-4 cursor-pointer group w-fit mx-auto">
-          {formData.imageData ? (
-            <AuthenticatedImage
-              src={formData.imageData}
-              className="size-24 rounded-full object-cover mx-auto bg-gray-100"
-              alt="Profile"
-              fallback={
-                <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
-                  <User size={48} />
-                </div>
-              }
-            />
+        <div className="relative mb-4 w-fit mx-auto group">
+          {avatarImage}
+          {showGalleryPicker ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={t("avatar-change")}
+                  className={avatarOverlayClassName}
+                >
+                  <Upload className="text-white w-6 h-6" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center">
+                <DropdownMenuItem onClick={handleSelectImage}>
+                  <Upload className="size-4" />
+                  {t("avatar-menu-upload")}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setGalleryPickerOpen(true)}>
+                  <Images className="size-4" />
+                  {t("avatar-menu-choose-gallery")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <div className="size-24 flex justify-center items-center rounded-full mx-auto bg-muted text-2xl font-bold text-muted-foreground">
-              <User size={48} />
-            </div>
+            <button
+              type="button"
+              aria-label={t("avatar-change")}
+              className={avatarOverlayClassName}
+              onClick={handleSelectImage}
+            >
+              <Upload className="text-white w-6 h-6" />
+            </button>
           )}
-          <div
-            className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={handleSelectImage}
-          >
-            <Upload className="text-white w-6 h-6" />
-          </div>
-        </label>
+        </div>
         <input
           ref={fileInputRef}
           type="file"
@@ -515,7 +595,13 @@ export const EditMode = ({
           isOpen={!!selectedImage}
           imageData={selectedImage}
           onConfirm={onConfirm}
-          onCancel={() => setSelectedImage(null)}
+          onCancel={onCancelCrop}
+        />
+        <GalleryPickerDialog
+          isOpen={galleryPickerOpen}
+          images={linkedGalleryImages}
+          onSelect={handlePickGalleryImage}
+          onClose={() => setGalleryPickerOpen(false)}
         />
 
         <Tabs
