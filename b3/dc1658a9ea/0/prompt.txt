@@ -1,0 +1,1 @@
+put disease mode also into the "more actions"; see the further actions are left aligned in the popup, currently it looks weird
