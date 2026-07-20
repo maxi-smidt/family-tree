@@ -29,6 +29,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Switching to the Life tab (or any tab) while creating a new member now works;
+  the sheet previously stayed stuck on Identity until the member was saved
+  (#771).
 - The member sheet's Records tab now shows its content immediately when the
   sheet is restored directly onto it (e.g. after a page refresh) in edit mode,
   instead of appearing blank until you switch tabs and back (#767).

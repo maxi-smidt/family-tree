@@ -79,11 +79,15 @@ export const MemberSheet = ({
   const [isDirty, setIsDirty] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  // New members have no persisted, member-id-keyed sheet state yet (their temp
+  // id is client-only), so their active tab lives in local component state.
+  const [newMemberTab, setNewMemberTab] = useState<MemberSheetTab>("identity");
   const flushAutosaveRef = useRef<() => Promise<void>>(async () => {});
   const effectiveCanEdit = canEdit || isNewMember;
   const isViewingEditMode = effectiveCanEdit && isEditMode;
-  const activeTab: MemberSheetTab =
-    savedSheetState && savedSheetState.memberId === member?.id
+  const activeTab: MemberSheetTab = isNewMember
+    ? newMemberTab
+    : savedSheetState && savedSheetState.memberId === member?.id
       ? savedSheetState.tab
       : "identity";
   const editors = useMemberEditors(member?.id);
@@ -91,6 +95,12 @@ export const MemberSheet = ({
   useEffect(() => {
     setIsEditMode(effectiveCanEdit ? initialEditMode : false);
   }, [effectiveCanEdit, initialEditMode, isOpen]);
+
+  // Each new member starts on Identity; reset the local tab when a different
+  // new member is opened so state never carries over between sessions.
+  useEffect(() => {
+    if (isNewMember) setNewMemberTab("identity");
+  }, [isNewMember, member?.id]);
 
   useEffect(() => {
     if (!isOpen || !member || isNewMember || !treeId) return;
@@ -151,7 +161,11 @@ export const MemberSheet = ({
   if (!member) return null;
 
   const handleTabChange = (tab: MemberSheetTab) => {
-    if (!treeId || isNewMember) return;
+    if (isNewMember) {
+      setNewMemberTab(tab);
+      return;
+    }
+    if (!treeId) return;
     setOpenSheet(treeId, {
       memberId: member.id,
       tab,
