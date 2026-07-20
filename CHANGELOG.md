@@ -29,6 +29,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The member sheet's Records tab now shows its content immediately when the
+  sheet is restored directly onto it (e.g. after a page refresh) in edit mode,
+  instead of appearing blank until you switch tabs and back (#767).
 - Research-task chips in the quality report now open the linked person's
   record, instead of only switching to the tree canvas (#725).
 - Upgrading from the early research-task development build now creates the
