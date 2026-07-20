@@ -11,6 +11,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Data-quality report now flags a child born after a parent's death year. A
+  posthumous-birth grace window (~1 year) is allowed for fathers and
+  parents of unknown gender, but not for mothers (#768).
 - Research tasks: open questions and to-dos with open/done state, linked to
   any number of members (or none, for general tree-wide tasks), managed from
   the member sheet or created directly from the quality report. Tree nodes can
@@ -30,6 +33,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   truncate with an ellipsis (full name still available on hover) instead of
   pushing the sheet into horizontal scrolling. The member sheet was also
   widened to give the Records tab more room (#772).
+- Switching to the Life tab (or any tab) while creating a new member now works;
+  the sheet previously stayed stuck on Identity until the member was saved
+  (#771).
+- The member sheet's Records tab now shows its content immediately when the
+  sheet is restored directly onto it (e.g. after a page refresh) in edit mode,
+  instead of appearing blank until you switch tabs and back (#767).
 - Research-task chips in the quality report now open the linked person's
   record, instead of only switching to the tree canvas (#725).
 - Upgrading from the early research-task development build now creates the
