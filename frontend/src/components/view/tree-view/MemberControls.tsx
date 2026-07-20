@@ -107,48 +107,24 @@ export const MemberControls = ({
       {!readOnly && <Separator className="my-1" />}
 
       {/* View Modes */}
-      <ButtonGroup orientation="vertical">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isFastMode ? "default" : "secondary"}
-              size="icon"
-              onClick={() => setIsFastMode(!isFastMode)}
-              disabled={isLockedScreen}
-              aria-label={
-                isFastMode ? t("disable-quick-add") : t("enable-quick-add")
-              }
-            >
-              <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isDiseaseMode ? "default" : "secondary"}
-              size="icon"
-              onClick={() => setIsDiseaseMode(!isDiseaseMode)}
-              disabled={isLockedScreen}
-              aria-label={
-                isDiseaseMode
-                  ? t("disable-disease-mode")
-                  : t("enable-disease-mode")
-              }
-            >
-              <Activity className={isDiseaseMode ? "fill-current" : ""} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="left">
-            {isDiseaseMode
-              ? t("disable-disease-mode")
-              : t("enable-disease-mode")}
-          </TooltipContent>
-        </Tooltip>
-      </ButtonGroup>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={isFastMode ? "default" : "secondary"}
+            size="icon"
+            onClick={() => setIsFastMode(!isFastMode)}
+            disabled={isLockedScreen}
+            aria-label={
+              isFastMode ? t("disable-quick-add") : t("enable-quick-add")
+            }
+          >
+            <UserRoundPlus className={isFastMode ? "fill-current" : ""} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="left">
+          {isFastMode ? t("disable-quick-add") : t("enable-quick-add")}
+        </TooltipContent>
+      </Tooltip>
 
       <Separator className="my-1" />
 
@@ -244,12 +220,22 @@ export const MemberControls = ({
       {/* Layout + situational actions */}
       <PanelMoreMenu label={t("more-actions")} side="left">
         <DropdownMenuItem
+          inset
           onSelect={() => setIsArrangeDialogOpen(true)}
           disabled={isLockedScreen || isLayouting}
         >
           {isLayouting ? <Loader2 className="animate-spin" /> : <Network />}
           {t("arrange-members")}
         </DropdownMenuItem>
+        <DropdownMenuCheckboxItem
+          checked={isDiseaseMode}
+          onCheckedChange={setIsDiseaseMode}
+          onSelect={(e) => e.preventDefault()}
+          disabled={isLockedScreen}
+        >
+          <Activity className={isDiseaseMode ? "fill-current" : ""} />
+          {isDiseaseMode ? t("disable-disease-mode") : t("enable-disease-mode")}
+        </DropdownMenuCheckboxItem>
         {tasksEnabled && (
           <DropdownMenuCheckboxItem
             checked={showTaskIndicators}
@@ -266,11 +252,12 @@ export const MemberControls = ({
         )}
         {windowed && (
           <>
-            <DropdownMenuItem onSelect={adjustNeighborhoodDepth(1)}>
+            <DropdownMenuItem inset onSelect={adjustNeighborhoodDepth(1)}>
               <Plus />
               {t("depth-increase")}
             </DropdownMenuItem>
             <DropdownMenuItem
+              inset
               onSelect={adjustNeighborhoodDepth(-1)}
               disabled={neighborhoodUp <= 1 && neighborhoodDown <= 1}
             >
@@ -281,6 +268,7 @@ export const MemberControls = ({
         )}
         {canFocusHere && (
           <DropdownMenuItem
+            inset
             onSelect={() => void setFocusRoot(selectedNodes[0].id)}
           >
             <Crosshair />

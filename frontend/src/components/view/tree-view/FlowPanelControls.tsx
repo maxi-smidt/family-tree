@@ -200,6 +200,7 @@ export const FlowPanelControls = ({
           </DropdownMenuCheckboxItem>
         )}
         <DropdownMenuItem
+          inset
           onSelect={() => void exportImage()}
           disabled={isExporting}
         >
