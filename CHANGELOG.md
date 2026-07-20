@@ -32,7 +32,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Long, space-less document and attachment file names in the member sheet now
   truncate with an ellipsis (full name still available on hover) instead of
   pushing the sheet into horizontal scrolling. The member sheet was also
-  widened to give the Records tab more room (#772).
+  widened to give the Records tab more room. Document file sizes in the
+  Records tab are now end-aligned under the edit/delete icons, and
+  double-clicking a document title no longer opens its file (the title's
+  tooltip shows the full name instead; opening/downloading still works via
+  the file row itself) (#772).
 - Switching to the Life tab (or any tab) while creating a new member now works;
   the sheet previously stayed stuck on Identity until the member was saved
   (#771).

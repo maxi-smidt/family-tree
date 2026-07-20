@@ -807,7 +807,6 @@
         "title": "Dokumente",
         "add": "Hinzufügen",
         "no-documents": "Noch keine Dokumente",
-        "open-hint": "Zum Öffnen doppelklicken",
         "delete-dialog": {
           "title": "Dokument löschen",
           "description": "Möchtest du dieses Dokument und seine Dateien wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
