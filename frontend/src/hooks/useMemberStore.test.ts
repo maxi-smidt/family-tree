@@ -188,6 +188,51 @@ describe("useMemberStore — addMember", () => {
     expect(useMemberStore.getState().undoStack).toHaveLength(1);
     expect(useMemberStore.getState().redoStack).toHaveLength(0);
   });
+
+  it("seeds the auto-created birth event's location from birthplace", async () => {
+    selectTree();
+    vi.mocked(TreeService.addMember).mockResolvedValue(undefined);
+    mockServiceEmpty();
+
+    const newMember = {
+      id: "m4",
+      gender: "f" as const,
+      academicTitle: null,
+      firstName: "Ada",
+      lastName: "Lovelace",
+      middleNames: null,
+      baptismalName: null,
+      maidenName: null,
+      imageData: null,
+      date: { birth: "1815-12-10", death: null },
+      deceased: false,
+      adopted: false,
+      parents: { paternalParent: null, maternalParent: null },
+      additionalData: null,
+      isCollapsed: false,
+      position: { x: 0, y: 0 },
+      relations: [],
+      diseases: [],
+      birthplace: "London",
+      hometown: null,
+      cemetery: null,
+      placesLived: [],
+    };
+
+    await useMemberStore.getState().addMember(newMember);
+
+    expect(TreeService.addEvent).toHaveBeenCalledWith(
+      TREE_ID,
+      expect.any(String),
+      expect.objectContaining({
+        eventType: "birth",
+        date: "1815-12-10",
+        location: "London",
+      }),
+      expect.any(String),
+      ["m4"],
+    );
+  });
 });
 
 describe("useMemberStore — removeMember", () => {

@@ -32,6 +32,7 @@ async function syncVitalEventAfterCreate(
   memberId: string,
   eventType: "birth" | "death",
   date: string,
+  location: string | null,
 ) {
   const { events, addEvent, updateEvent } = useEventStore.getState();
   const existing = events.find(
@@ -39,7 +40,7 @@ async function syncVitalEventAfterCreate(
       event.eventType === eventType && event.linkedMemberIds.includes(memberId),
   );
   if (!existing) {
-    await addEvent([memberId], { eventType, date });
+    await addEvent([memberId], { eventType, date, location });
   } else if (existing.date !== date) {
     await updateEvent(
       existing.id,
@@ -610,6 +611,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         newMember.id,
         "birth",
         newMember.date.birth,
+        newMember.birthplace,
       );
     }
     if (newMember.date.death) {
@@ -617,6 +619,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
         newMember.id,
         "death",
         newMember.date.death,
+        newMember.cemetery,
       );
     }
 
