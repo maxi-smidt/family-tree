@@ -159,7 +159,7 @@ class TestChildAfterParentDeath:
 
     def test_parent_without_death_date_skipped(self):
         parent = _member("p1", date_of_birth="1850", gender="f")
-        child = _member("c1", date_of_birth="1990")
+        child = _member("c1", date_of_birth="1880")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
