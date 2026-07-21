@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "7b1c8612812d",
+  "strategy": "manual-commit",
+  "branch": "feat/797-advanced-name-search",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "backend/tests/test_global_search.py",
+    "backend/tests/test_neighborhood.py",
+    "frontend/src/components/view/tree-view/CanvasSearch.test.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7b/1c8612812d/0/metadata.json",
+      "transcript": "/7b/1c8612812d/0/full.jsonl",
+      "compact_transcript": "/7b/1c8612812d/0/transcript.jsonl",
+      "content_hash": "/7b/1c8612812d/0/content_hash.txt",
+      "prompt": "/7b/1c8612812d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 50,
+    "cache_creation_tokens": 15910,
+    "cache_read_tokens": 3661314,
+    "output_tokens": 9629,
+    "api_call_count": 25
+  }
+}

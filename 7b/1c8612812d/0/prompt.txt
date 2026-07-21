@@ -1,0 +1,1 @@
+include death date the same way as birth date into the query (so if a year is provided it is this or that)
