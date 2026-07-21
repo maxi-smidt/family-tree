@@ -42,11 +42,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
-- Member name search (in-tree and cross-tree) now splits a multi-word query
-  into tokens matched independently across first/last/maiden name, so
-  `"Last First"` matches the same as `"First Last"`, and a 4-digit year token
-  (e.g. `"Anna Müller 1932"`) also matches that person's birth/death date.
-  Single-word queries behave exactly as before (#797).
+- Member name search (in-tree and cross-tree, including the tree canvas's own
+  search box) now splits a multi-word query into tokens matched independently
+  across first/last/maiden name, so `"Last First"` matches the same as
+  `"First Last"`, and a 4-digit year token (e.g. `"Anna Müller 1932"`) also
+  matches that person's birth/death date. Single-word queries behave exactly
+  as before (#797).
 - Documents and events in the member sheet (and the read-only member preview
   dialog) are now sorted newest-first by their date, instead of insertion
   order; entries with a partial (year-only or year-month) date sort using

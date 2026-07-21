@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   reconstructParents,
   getMemberSearchText,
+  memberMatchesSearch,
   formatMemberSubLabel,
   getMemberOptions,
 } from "./memberUtils";
@@ -114,6 +115,51 @@ describe("getMemberSearchText", () => {
       maidenName: null,
     });
     expect(getMemberSearchText(m)).toBe("Jane Smith");
+  });
+});
+
+describe("memberMatchesSearch", () => {
+  it("matches a single-token query as a plain substring", () => {
+    const m = makeMember({ firstName: "Johann", lastName: "Bach" });
+    expect(memberMatchesSearch(m, "jo")).toBe(true);
+    expect(memberMatchesSearch(m, "zz")).toBe(false);
+  });
+
+  it("matches First-Last and Last-First token order the same way", () => {
+    const m = makeMember({ firstName: "Anna", lastName: "Müller" });
+    expect(memberMatchesSearch(m, "Anna Müller")).toBe(true);
+    expect(memberMatchesSearch(m, "Müller Anna")).toBe(true);
+  });
+
+  it("matches partial tokens (regression: 'Homer 2 Simpson' via 'Simps 2')", () => {
+    const m = makeMember({ firstName: "Homer 2", lastName: "Simpson" });
+    expect(memberMatchesSearch(m, "Simps 2")).toBe(true);
+  });
+
+  it("matches a name token combined with a birth or death year", () => {
+    const m = makeMember({ firstName: "Anna", lastName: "Müller" });
+    expect(
+      memberMatchesSearch(m, "Anna Müller 1932", { birth: "12 May 1932" }),
+    ).toBe(true);
+    expect(
+      memberMatchesSearch(m, "Müller 1999", {
+        birth: "1901",
+        death: "1999",
+      }),
+    ).toBe(true);
+  });
+
+  it("ANDs across tokens: a year matching a different field than the name fails", () => {
+    const m = makeMember({ firstName: "Anna", lastName: "Müller" });
+    expect(
+      memberMatchesSearch(m, "Anna 1999", { birth: "1901" }),
+    ).toBe(false);
+  });
+
+  it("returns false for an empty or whitespace-only query", () => {
+    const m = makeMember({ firstName: "Anna", lastName: "Müller" });
+    expect(memberMatchesSearch(m, "")).toBe(false);
+    expect(memberMatchesSearch(m, "   ")).toBe(false);
   });
 });
 
