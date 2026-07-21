@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "1724ce3e4155",
+  "strategy": "manual-commit",
+  "branch": "feat/799-event-after-death-check",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGELOG.md",
+    "backend/app/api/routes/quality.py",
+    "backend/app/services/quality_checks.py",
+    "backend/tests/test_quality.py",
+    "frontend/src/components/view/quality-report-view/QualityReportView.tsx",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/17/24ce3e4155/0/metadata.json",
+      "transcript": "/17/24ce3e4155/0/full.jsonl",
+      "compact_transcript": "/17/24ce3e4155/0/transcript.jsonl",
+      "content_hash": "/17/24ce3e4155/0/content_hash.txt",
+      "prompt": "/17/24ce3e4155/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 90,
+    "cache_creation_tokens": 58936,
+    "cache_read_tokens": 2768395,
+    "output_tokens": 16463,
+    "api_call_count": 45
+  }
+}
