@@ -373,3 +373,112 @@ def test_merge_route_records_rich_activity_payload(client, db):
     assert merge_details["removed"]["member"]["id"] == "remove"
     assert "keep_before" in merge_details
     assert "field_choices" in merge_details
+
+
+# ---------------------------------------------------------------------------
+# Tree-in-tree bridge handling
+# ---------------------------------------------------------------------------
+
+
+def test_bridge_link_inherited_onto_keep_and_logged_in_other_tree(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    other = make_tree(db, user, "Other")
+    add_member(db, tree, "keep", first_name="Keep", last_name="Person")
+    remove = add_member(db, tree, "remove", first_name="Remove", last_name="Person")
+    counterpart = add_member(
+        db, other, "counterpart", first_name="Remove", last_name="Person",
+    )
+    # Wire the bridge after both rows exist — linked_member_id is a real FK.
+    remove.linked_tree_id = other.id
+    remove.linked_member_id = "counterpart"
+    counterpart.linked_tree_id = tree.id
+    counterpart.linked_member_id = "remove"
+    db.commit()
+
+    resp = client.post(
+        f"{API}/trees/{tree.id}/members/merge",
+        json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
+        headers=auth(user),
+    )
+    assert resp.status_code == 200
+
+    # The merge ran through the client's own session (a different connection
+    # than this test's `db`); `keep`/`counterpart` above are held via strong
+    # refs, so without this the identity map would serve stale pre-merge
+    # state instead of re-querying.
+    db.expire_all()
+    keep = db.get(Member, "keep")
+    assert keep.linked_tree_id == other.id
+    assert keep.linked_member_id == "counterpart"
+    counterpart = db.get(Member, "counterpart")
+    assert counterpart.linked_tree_id == tree.id
+    assert counterpart.linked_member_id == "keep"
+
+    row = db.scalars(
+        select(ActivityLog)
+        .where(ActivityLog.tree_id == other.id)
+        .order_by(ActivityLog.id.desc())
+    ).first()
+    assert row is not None
+    assert row.target_id == "counterpart"
+    bridge_details = json.loads(row.details)
+    assert bridge_details["after"] == {
+        "linked_tree_id": tree.id,
+        "linked_member_id": "keep",
+    }
+
+
+def test_bridge_link_dissolved_when_keep_already_linked(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    other_a = make_tree(db, user, "OtherA")
+    other_b = make_tree(db, user, "OtherB")
+    keep = add_member(db, tree, "keep", first_name="Keep", last_name="Person")
+    counterpart_a = add_member(
+        db, other_a, "counterpart_a", first_name="Keep", last_name="Person",
+    )
+    remove = add_member(db, tree, "remove", first_name="Remove", last_name="Person")
+    counterpart_b = add_member(
+        db, other_b, "counterpart_b", first_name="Remove", last_name="Person",
+    )
+    # Wire both bridges after every row exists — linked_member_id is a real FK.
+    keep.linked_tree_id = other_a.id
+    keep.linked_member_id = "counterpart_a"
+    counterpart_a.linked_tree_id = tree.id
+    counterpart_a.linked_member_id = "keep"
+    remove.linked_tree_id = other_b.id
+    remove.linked_member_id = "counterpart_b"
+    counterpart_b.linked_tree_id = tree.id
+    counterpart_b.linked_member_id = "remove"
+    db.commit()
+
+    resp = client.post(
+        f"{API}/trees/{tree.id}/members/merge",
+        json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
+        headers=auth(user),
+    )
+    assert resp.status_code == 200
+
+    db.expire_all()  # see comment in the "inherited" test above
+    keep = db.get(Member, "keep")
+    # keep's own bridge is untouched
+    assert keep.linked_tree_id == other_a.id
+    assert keep.linked_member_id == "counterpart_a"
+    # remove's counterpart is dissolved, not deleted
+    counterpart_b = db.get(Member, "counterpart_b")
+    assert counterpart_b.linked_tree_id is None
+    assert counterpart_b.linked_member_id is None
+
+    row = db.scalars(
+        select(ActivityLog)
+        .where(ActivityLog.tree_id == other_b.id)
+        .order_by(ActivityLog.id.desc())
+    ).first()
+    assert row is not None
+    assert row.target_id == "counterpart_b"
+    bridge_details = json.loads(row.details)
+    assert bridge_details["after"] == {
+        "linked_tree_id": None,
+        "linked_member_id": None,
+    }

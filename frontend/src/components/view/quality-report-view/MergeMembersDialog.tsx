@@ -240,9 +240,8 @@ export const MergeMembersDialog = ({
                 sourceAName={nameFor(keepId)}
                 sourceBName={nameFor(removeId)}
                 state={resolutionState}
-                onChange={(updated) =>
-                  setResolutionState({ ...updated, action: "merge" })
-                }
+                onChange={setResolutionState}
+                hideActionToggle
               />
             )}
             {transferRows.length > 0 && (

@@ -11,6 +11,7 @@ from ``app.services.merge`` rather than forked.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import Literal
 
 from fastapi import HTTPException
 from pydantic.alias_generators import to_camel
@@ -44,6 +45,8 @@ from app.services.merge import (
     member_key,
 )
 from app.services.quality_checks import find_parent_cycle_members
+
+BridgeOutcome = Literal["inherited", "dissolved"]
 
 
 def compute_member_merge_preview(
@@ -164,12 +167,14 @@ def merge_members_in_place(
     keep: Member,
     remove: Member,
     fields: dict[str, str],
-) -> tuple[Member, dict, Tree | None]:
+) -> tuple[Member, dict, Member | None, BridgeOutcome | None]:
     """Merge ``remove`` into ``keep`` within ``tree``; caller commits.
 
-    Returns ``(keep, activity_details, counterpart_tree)`` — ``counterpart_tree``
-    is set only when a tree-in-tree bridge link was re-wired, so the route can
-    fire a ``tree.content_changed`` event for that other tree too.
+    Returns ``(keep, activity_details, counterpart, bridge_outcome)`` —
+    ``counterpart`` is the bridge-person row in another tree, set only when
+    ``remove`` was linked to one; ``bridge_outcome`` says what happened to it
+    (``"inherited"`` onto ``keep``, or ``"dissolved"`` because ``keep`` already
+    had its own link) so the route can log it and notify that other tree.
     """
     if keep.id == remove.id:
         raise HTTPException(
@@ -270,17 +275,18 @@ def merge_members_in_place(
     _transfer_diseases(db, keep.id, remove.id)
 
     # --- Tree-in-tree bridge: carry the link onto keep, else dissolve it ----
-    counterpart_tree: Tree | None = None
+    bridge_outcome: BridgeOutcome | None = None
     if counterpart is not None:
         if keep.linked_member_id is None:
             keep.linked_tree_id = remove.linked_tree_id
             keep.linked_member_id = remove.linked_member_id
             counterpart.linked_tree_id = keep.tree_id
             counterpart.linked_member_id = keep.id
+            bridge_outcome = "inherited"
         else:
             counterpart.linked_tree_id = None
             counterpart.linked_member_id = None
-        counterpart_tree = db.get(Tree, counterpart.tree_id)
+            bridge_outcome = "dissolved"
 
     details = {
         "merge": {
@@ -293,4 +299,4 @@ def merge_members_in_place(
     }
 
     db.delete(remove)
-    return keep, details, counterpart_tree
+    return keep, details, counterpart, bridge_outcome

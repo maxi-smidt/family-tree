@@ -404,7 +404,7 @@ def merge_members(
     """
     keep = _get_member(db, tree, payload.keep_id)
     remove = _get_member(db, tree, payload.remove_id)
-    merged, details, counterpart_tree = merge_members_in_place(
+    merged, details, counterpart, bridge_outcome = merge_members_in_place(
         db, tree, keep, remove, payload.fields
     )
     label = " ".join(filter(None, [merged.first_name, merged.last_name])) or None
@@ -418,6 +418,36 @@ def merge_members(
         target_label=label,
         details=details,
     )
+
+    # A bridge person's counterpart lives in another tree: its own
+    # linked_tree_id/linked_member_id just changed (re-pointed onto `merged`,
+    # or cleared entirely), so that tree gets its own activity entry too —
+    # same reasoning as the two record_activity calls in link_member_to_tree.
+    counterpart_tree: Tree | None = None
+    if counterpart is not None and bridge_outcome is not None:
+        counterpart_tree = db.get(Tree, counterpart.tree_id)
+        counterpart_label = (
+            " ".join(filter(None, [counterpart.first_name, counterpart.last_name]))
+            or None
+        )
+        bridge_details = {
+            "after": (
+                {"linked_tree_id": merged.tree_id, "linked_member_id": merged.id}
+                if bridge_outcome == "inherited"
+                else {"linked_tree_id": None, "linked_member_id": None}
+            )
+        }
+        record_activity(
+            db,
+            tree_id=counterpart_tree.id,
+            actor=user,
+            action="update",
+            target_type="member",
+            target_id=counterpart.id,
+            target_label=counterpart_label,
+            details=bridge_details,
+        )
+
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(merged)
@@ -429,6 +459,9 @@ def merge_members(
     )
     invalidate_stats(tree.id)
     if counterpart_tree is not None:
+        publish_tree_event(
+            db, counterpart_tree, "activity.entry_added", {"tree_id": counterpart_tree.id}
+        )
         publish_tree_event(
             db,
             counterpart_tree,

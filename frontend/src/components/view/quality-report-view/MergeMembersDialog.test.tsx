@@ -226,6 +226,10 @@ describe("MergeMembersDialog", () => {
     await waitFor(() => expect(screen.getByText("Vienna")).toBeInTheDocument());
     expect(screen.getByText("Graz")).toBeInTheDocument();
 
+    // "Keep both" makes no sense for an in-place merge of two specific
+    // records, so the resolver's merge/keep-both toggle must not appear here.
+    expect(screen.queryByText("Keep both")).not.toBeInTheDocument();
+
     const choiceSelect = screen
       .getAllByRole("combobox")
       .find((el) => el.textContent?.includes("Use A"));
