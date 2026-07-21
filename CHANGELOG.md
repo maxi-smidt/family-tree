@@ -84,6 +84,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Uploading several files to a member-sheet document no longer silently stops
+  after the first one when a connection stalls or a single file fails to
+  upload. Every file is now staged independently with a request timeout so a
+  dead connection surfaces as an error instead of hanging forever, and the
+  dialog names the file(s) that failed instead of saving a partial set (#773).
 - Member name and place fields (first/middle/last/maiden/baptismal name,
   academic title, birthplace, hometown, cemetery, notes) are now trimmed of
   leading and trailing whitespace when saved from any entry path, and

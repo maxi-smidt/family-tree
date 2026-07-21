@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useDocumentStore } from "./useDocumentStore";
+import { DocumentUploadError, useDocumentStore } from "./useDocumentStore";
 import { useTreeStore } from "./useTreeStore";
 import { TreeService } from "@/services/TreeService";
 import { DocumentDB } from "@/types/document";
@@ -28,6 +28,12 @@ const DOC_DB: DocumentDB = {
 
 const INPUT = { title: "Birth Certificate", description: "", documentDate: "" };
 const FILE = new File(["pdf bytes"], "scan.pdf", { type: "application/pdf" });
+const FILE2 = new File(["pdf bytes 2"], "scan2.pdf", {
+  type: "application/pdf",
+});
+const FILE3 = new File(["pdf bytes 3"], "scan3.pdf", {
+  type: "application/pdf",
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -210,6 +216,71 @@ describe("useDocumentStore — addDocument", () => {
       .addDocument(INPUT, ["m1"]);
     expect(created).toBeNull();
     expect(TreeService.saveDocument).not.toHaveBeenCalled();
+  });
+
+  it("attempts every file and reports all failures without saving when one stage fails", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.stageDocumentUpload).mockImplementation(
+      (_treeId, file) => {
+        if (file === FILE2) return Promise.reject(new Error("stalled"));
+        return Promise.resolve({
+          id: `upload-${file.name}`,
+          filename: file.name,
+          mime_type: "application/pdf",
+          size: file.size,
+        });
+      },
+    );
+    const onFileProgress = vi.fn();
+
+    await expect(
+      useDocumentStore.getState().addDocument(
+        INPUT,
+        ["m1"],
+        {
+          addedFiles: [
+            { filename: "scan.pdf", file: FILE },
+            { filename: "scan2.pdf", file: FILE2 },
+            { filename: "scan3.pdf", file: FILE3 },
+          ],
+          addedLinks: [],
+          removedIds: [],
+          renamed: [],
+        },
+        onFileProgress,
+      ),
+    ).rejects.toMatchObject({
+      name: "DocumentUploadError",
+      failed: [{ index: 1, filename: "scan2.pdf" }],
+    });
+
+    // Every file is attempted, even the ones queued behind the failure.
+    expect(TreeService.stageDocumentUpload).toHaveBeenCalledTimes(3);
+    // Progress still advances past the failed file instead of freezing.
+    expect(onFileProgress).toHaveBeenCalledWith(3, 3);
+    // A partial file set is never attached — the save never runs.
+    expect(TreeService.saveDocument).not.toHaveBeenCalled();
+  });
+
+  it("rejects with the concrete DocumentUploadError instance", async () => {
+    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(TreeService.stageDocumentUpload).mockRejectedValue(
+      new Error("network error"),
+    );
+
+    let caught: unknown;
+    try {
+      await useDocumentStore.getState().addDocument(INPUT, ["m1"], {
+        addedFiles: [{ filename: "scan.pdf", file: FILE }],
+        addedLinks: [],
+        removedIds: [],
+        renamed: [],
+      });
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeInstanceOf(DocumentUploadError);
   });
 });
 

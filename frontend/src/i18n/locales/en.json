@@ -855,6 +855,7 @@
             "uploading": "Uploading {{done}} of {{total}}…",
             "status-done": "Uploaded",
             "status-queued": "Queued",
+            "status-failed": "Upload failed",
             "download": "Download",
             "remove": "Remove",
             "filename": "File name",
@@ -868,7 +869,8 @@
             "error-quota-media": "Media storage quota exceeded.",
             "error-quota-tree": "Tree data quota exceeded.",
             "error-quota-total": "Total storage quota exceeded.",
-            "error-open": "Could not open the file."
+            "error-open": "Could not open the file.",
+            "error-upload-failed": "Could not upload {{files}}. Check your connection and try saving again."
           },
           "cancel": "Cancel",
           "save": "Save",

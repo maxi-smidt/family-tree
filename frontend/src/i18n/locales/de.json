@@ -855,6 +855,7 @@
             "uploading": "{{done}} von {{total}} werden hochgeladen…",
             "status-done": "Hochgeladen",
             "status-queued": "In Warteschlange",
+            "status-failed": "Upload fehlgeschlagen",
             "download": "Herunterladen",
             "remove": "Entfernen",
             "filename": "Dateiname",
@@ -868,7 +869,8 @@
             "error-quota-media": "Medienspeicher-Kontingent überschritten.",
             "error-quota-tree": "Stammbaumdaten-Kontingent überschritten.",
             "error-quota-total": "Gesamtspeicher-Kontingent überschritten.",
-            "error-open": "Datei konnte nicht geöffnet werden."
+            "error-open": "Datei konnte nicht geöffnet werden.",
+            "error-upload-failed": "{{files}} konnte(n) nicht hochgeladen werden. Überprüfe deine Verbindung und speichere erneut."
           },
           "cancel": "Abbrechen",
           "save": "Speichern",

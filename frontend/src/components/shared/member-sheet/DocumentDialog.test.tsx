@@ -1,11 +1,19 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { toast } from "sonner";
 import i18n from "@/i18n/i18n";
-import { useDocumentStore } from "@/hooks/useDocumentStore";
+import {
+  DocumentUploadError,
+  useDocumentStore,
+} from "@/hooks/useDocumentStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import type { Document } from "@/types/document";
 import { DocumentDialog } from "./DocumentDialog";
+
+vi.mock("sonner", () => ({
+  toast: { error: vi.fn(), success: vi.fn(), warning: vi.fn() },
+}));
 
 const UNLINKED_DOCUMENT: Document = {
   id: "document-1",
@@ -22,6 +30,7 @@ const UNLINKED_DOCUMENT: Document = {
 
 describe("DocumentDialog", () => {
   beforeEach(async () => {
+    vi.clearAllMocks();
     await i18n.changeLanguage("en");
     useMemberStore.setState({ members: [] });
     useDocumentStore.setState({
@@ -88,5 +97,36 @@ describe("DocumentDialog", () => {
     });
 
     expect(screen.getByLabelText("Title *")).toHaveValue("Archive index");
+  });
+
+  it("marks the failed file row and keeps the dialog open when an upload fails", async () => {
+    const onOpenChange = vi.fn();
+    const addDocument = vi
+      .fn()
+      .mockRejectedValue(
+        new DocumentUploadError([{ index: 0, filename: "report.pdf" }]),
+      );
+    useDocumentStore.setState({ addDocument });
+
+    render(<DocumentDialog open onOpenChange={onOpenChange} />);
+    fireEvent.change(screen.getByLabelText("Title *"), {
+      target: { value: "Archive index" },
+    });
+    const fileInput = document.body.querySelector('input[type="file"]');
+    const file = new File(["content"], "report.pdf", {
+      type: "application/pdf",
+    });
+    fireEvent.change(fileInput as HTMLInputElement, {
+      target: { files: [file] },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(addDocument).toHaveBeenCalled());
+    await screen.findByText("Upload failed");
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(toast.error).toHaveBeenCalledWith(
+      "Could not upload report.pdf. Check your connection and try saving again.",
+    );
   });
 });
