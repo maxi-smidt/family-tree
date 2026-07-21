@@ -308,6 +308,70 @@ def test_bulk_position_update(client, db):
     assert (by_id["m2"]["positionX"], by_id["m2"]["positionY"]) == (-50, 75)
 
 
+def test_create_member_trims_whitespace(client, db):
+    user = make_user(db, "trimmer")
+    tree = make_tree(db, user)
+
+    created = _create_member(
+        client,
+        tree,
+        user,
+        "m1",
+        firstName="  Ada  ",
+        lastName="  Lovelace ",
+        middleNames=" Augusta Byron ",
+        birthplace="  London ",
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["firstName"] == "Ada"
+    assert body["lastName"] == "Lovelace"
+    assert body["middleNames"] == "Augusta Byron"
+    assert body["birthplace"] == "London"
+
+    listed = client.get(f"{API}/trees/{tree.id}/members", headers=auth(user)).json()
+    assert listed[0]["firstName"] == "Ada"
+    assert listed[0]["lastName"] == "Lovelace"
+
+
+def test_update_member_trims_whitespace(client, db):
+    user = make_user(db, "trimmer2")
+    tree = make_tree(db, user)
+    _create_member(client, tree, user, "m1")
+
+    updated = client.patch(
+        f"{API}/trees/{tree.id}/members/m1",
+        headers=auth(user),
+        json={
+            "lastName": "  Lovelace  ",
+            "middleNames": " Augusta Byron ",
+            "cemetery": "  Kensal Green  ",
+        },
+    )
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["lastName"] == "Lovelace"
+    assert body["middleNames"] == "Augusta Byron"
+    assert body["cemetery"] == "Kensal Green"
+
+    fetched = client.get(f"{API}/trees/{tree.id}/members", headers=auth(user)).json()
+    assert fetched[0]["lastName"] == "Lovelace"
+
+
+def test_update_member_whitespace_only_field_trims_to_empty_string(client, db):
+    user = make_user(db, "trimmer3")
+    tree = make_tree(db, user)
+    _create_member(client, tree, user, "m1")
+
+    updated = client.patch(
+        f"{API}/trees/{tree.id}/members/m1",
+        headers=auth(user),
+        json={"middleNames": "   "},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["middleNames"] == ""
+
+
 def test_relations_are_idempotent(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user)

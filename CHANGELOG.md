@@ -81,6 +81,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Member name and place fields (first/middle/last/maiden/baptismal name,
+  academic title, birthplace, hometown, cemetery, notes) are now trimmed of
+  leading and trailing whitespace when saved from any entry path, and
+  existing records are backfilled, so search and duplicate detection match
+  reliably regardless of stray copy-paste spaces (#796).
 - Locking the tree canvas now also disables per-node editing: the node edit
   (pencil) button, quick-add handles, and the member sheet's edit-mode toggle
   are hidden while the canvas is locked, matching the existing lock behavior
