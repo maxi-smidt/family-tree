@@ -10,13 +10,47 @@ as-is.
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
 from app.schemas.tree import TreeOut
 
-
 # --- Members ---------------------------------------------------------------
+
+
+# Free-text member fields that should be trimmed of leading/trailing
+# whitespace on every write path, mirroring what gedcom.py already does for
+# imported members. Excludes places_lived (JSON-encoded structured data),
+# image_data/dates (not name-like text), and identifiers.
+_TRIMMED_MEMBER_FIELDS = (
+    "gender",
+    "academic_title",
+    "first_name",
+    "middle_names",
+    "baptismal_name",
+    "last_name",
+    "maiden_name",
+    "birthplace",
+    "hometown",
+    "cemetery",
+    "additional_data",
+)
+
+
+class _TrimMemberStringsMixin:
+    """Strips whitespace from free-text member fields before validation.
+
+    Fields are declared on the MemberCreate/MemberUpdate subclasses, not here
+    (check_fields=False), and only present string values are touched — absent
+    fields on a partial update stay absent, and None passes through unchanged.
+    """
+
+    @field_validator(*_TRIMMED_MEMBER_FIELDS, mode="before", check_fields=False)
+    @classmethod
+    def _trim_strings(cls, v: object) -> object:
+        return v.strip() if isinstance(v, str) else v
+
+
 class MemberOut(FamilyTreeOrmBaseModel):
     id: str
     gender: str | None = None
@@ -107,7 +141,7 @@ class PublicMemberOut(FamilyTreeOrmBaseModel):
     position_y: float = 0
 
 
-class MemberCreate(FamilyTreeBaseModel):
+class MemberCreate(_TrimMemberStringsMixin, FamilyTreeBaseModel):
     id: str
     gender: str | None = None
     academic_title: str | None = None
@@ -133,7 +167,7 @@ class MemberCreate(FamilyTreeBaseModel):
     linked_member_id: str | None = None
 
 
-class MemberUpdate(FamilyTreeBaseModel):
+class MemberUpdate(_TrimMemberStringsMixin, FamilyTreeBaseModel):
     gender: str | None = None
     academic_title: str | None = None
     first_name: str | None = None
