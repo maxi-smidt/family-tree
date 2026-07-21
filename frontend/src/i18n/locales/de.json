@@ -1330,6 +1330,7 @@
     "issue-duplicate-candidate": "Mögliches Duplikat",
     "issue-disconnected-member": "Keine Beziehungen",
     "issue-bridge-person-drift": "Verknüpfte Kopie nicht synchron",
+    "issue-event-after-death": "Ereignis nach dem Tod",
     "resolve-drift-push": "Daten dieses Stammbaums übernehmen",
     "resolve-drift-pull": "Daten des verknüpften Stammbaums übernehmen",
     "resolve-drift-success": "Beide Kopien dieser Person sind wieder synchron.",

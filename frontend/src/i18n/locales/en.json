@@ -1330,6 +1330,7 @@
     "issue-duplicate-candidate": "Possible duplicate",
     "issue-disconnected-member": "No relationships",
     "issue-bridge-person-drift": "Linked copy out of sync",
+    "issue-event-after-death": "Event after death",
     "resolve-drift-push": "Use this tree's data",
     "resolve-drift-pull": "Use linked tree's data",
     "resolve-drift-success": "Both copies of this person are in sync again.",

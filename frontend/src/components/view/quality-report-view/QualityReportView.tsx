@@ -42,6 +42,7 @@ const ISSUE_TYPE_KEY: Record<string, string> = {
   duplicate_candidate: "issue-duplicate-candidate",
   disconnected_member: "issue-disconnected-member",
   bridge_person_drift: "issue-bridge-person-drift",
+  event_after_death: "issue-event-after-death",
 };
 
 function memberLabel(

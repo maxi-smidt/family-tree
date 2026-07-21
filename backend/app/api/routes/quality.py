@@ -14,6 +14,7 @@ from app.api.deps import (
 )
 from app.db.session import get_db
 from app.models import Tree, User
+from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
 from app.models.quality import QualityIssueDismissal
 from app.schemas.quality import QualityIssue, QualityReport
@@ -94,7 +95,15 @@ def get_quality_report(
     relations = list(
         db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
     )
-    raw_issues = run_quality_checks(members, relations)
+    events = list(db.scalars(select(Event).where(Event.tree_id == tree.id)).all())
+    event_links = list(
+        db.scalars(
+            select(EventMemberLink)
+            .join(Event, Event.id == EventMemberLink.event_id)
+            .where(Event.tree_id == tree.id)
+        ).all()
+    )
+    raw_issues = run_quality_checks(members, relations, events, event_links)
     raw_issues += _bridge_drift_issues(db, user, members)
 
     dismissed_ids = set(
@@ -141,7 +150,15 @@ def dismiss_quality_issue(
     relations = list(
         db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
     )
-    raw_issues = run_quality_checks(members, relations)
+    events = list(db.scalars(select(Event).where(Event.tree_id == tree.id)).all())
+    event_links = list(
+        db.scalars(
+            select(EventMemberLink)
+            .join(Event, Event.id == EventMemberLink.event_id)
+            .where(Event.tree_id == tree.id)
+        ).all()
+    )
+    raw_issues = run_quality_checks(members, relations, events, event_links)
     issue = next((i for i in raw_issues if i["id"] == issue_id), None)
     if issue is None:
         raise HTTPException(status_code=404, detail="Quality issue not found")
