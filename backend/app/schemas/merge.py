@@ -44,3 +44,27 @@ class MergeResolution(BaseModel):
     member_b_id: str
     action: Literal["merge", "keep_both"] = "merge"
     fields: dict[str, Literal["a", "b", "combine"]] = {}
+
+
+# --- In-place, same-tree member merge (#729) --------------------------------
+
+
+class MemberMergeTransferCounts(BaseModel):
+    relations: int
+    events: int
+    stories: int
+    gallery: int
+    documents: int
+    tasks: int
+    diseases: int
+
+
+class MemberMergePreviewOut(BaseModel):
+    pair: DuplicatePair
+    transfer: MemberMergeTransferCounts
+
+
+class MemberMergeRequest(BaseModel):
+    keep_id: str
+    remove_id: str
+    fields: dict[str, Literal["a", "b", "combine"]] = {}

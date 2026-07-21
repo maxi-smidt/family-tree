@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { QualityReport } from "@/types/quality";
+import { MergeFieldChoice } from "@/types/merge";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -15,6 +16,11 @@ interface QualityReportState {
   resolveBridgeDrift: (
     memberId: string,
     direction: "push" | "pull",
+  ) => Promise<void>;
+  mergeMembers: (
+    keepId: string,
+    removeId: string,
+    fields: Partial<Record<string, MergeFieldChoice>>,
   ) => Promise<void>;
   clear: () => void;
 }
@@ -68,6 +74,24 @@ export const useQualityReportStore = create<QualityReportState>((set, get) => ({
       tasks.push(useMemberStore.getState().refreshMembers(treeId));
     }
     await Promise.all(tasks);
+  },
+
+  // Merge two members of the tree in place (#729): the report and member
+  // list both change shape (a duplicate finding disappears, a member is
+  // gone), so refresh both. Errors (e.g. the 400 cycle guard) propagate to
+  // the dialog, which maps them to a specific message.
+  mergeMembers: async (keepId, removeId, fields) => {
+    const treeId = activeTreeId();
+    if (!treeId) return;
+    await TreeService.mergeMembers(treeId, {
+      keep_id: keepId,
+      remove_id: removeId,
+      fields,
+    });
+    await Promise.all([
+      get().refreshReport(treeId),
+      useMemberStore.getState().refreshMembers(treeId),
+    ]);
   },
 
   clear: () => set({ report: null, showDismissed: false }),

@@ -10,6 +10,7 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   CheckCircle2,
+  GitMerge,
   RefreshCw,
   RotateCcw,
   ShieldCheck,
@@ -30,6 +31,7 @@ import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { TaskDialog } from "@/components/shared/member-sheet/TaskDialog";
+import { MergeMembersDialog } from "@/components/view/quality-report-view/MergeMembersDialog";
 import type { QualityIssue } from "@/types/quality";
 
 const ISSUE_TYPE_KEY: Record<string, string> = {
@@ -83,11 +85,13 @@ function IssueCard({
   const { dismissIssue, restoreIssue, resolveBridgeDrift } =
     useQualityReportStore();
   const [resolving, setResolving] = useState(false);
+  const [mergeOpen, setMergeOpen] = useState(false);
 
   // Bridge-person drift is directly fixable from the note: adopt one side.
   // Requires write access to the linked tree too — the backend answers 403
   // otherwise, surfaced as a dedicated toast.
   const isBridgeDrift = issue.issue_type === "bridge_person_drift";
+  const isDuplicate = issue.issue_type === "duplicate_candidate";
   const handleResolveDrift = async (direction: "push" | "pull") => {
     setResolving(true);
     try {
@@ -170,6 +174,18 @@ function IssueCard({
             </Button>
           </div>
         )}
+        {isDuplicate && canWrite && !issue.dismissed && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setMergeOpen(true)}
+            >
+              <GitMerge />
+              {t("merge-action")}
+            </Button>
+          </div>
+        )}
       </div>
       {canWrite && (
         <div className="flex-shrink-0">
@@ -193,6 +209,14 @@ function IssueCard({
             </Button>
           )}
         </div>
+      )}
+      {isDuplicate && mergeOpen && (
+        <MergeMembersDialog
+          memberIds={issue.member_ids}
+          open={mergeOpen}
+          onOpenChange={setMergeOpen}
+          onMerged={() => toast.success(t("merge-success"))}
+        />
       )}
     </Card>
   );

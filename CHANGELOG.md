@@ -11,6 +11,14 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Data-quality report's "possible duplicate" findings can now be resolved
+  directly with a guided merge: pick which record to keep, resolve any
+  conflicting fields (reusing the tree-merge conflict resolver), preview what
+  will be transferred, and confirm. All of the removed member's relations,
+  events, stories, gallery tags, documents, research tasks, and genetic
+  conditions move onto the kept record; the merge refuses to run if it would
+  create a relationship cycle or if the same member is picked on both sides
+  (#729).
 - A member's profile picture can now be set from one of their already-linked
   gallery photos (with crop), instead of only by uploading a new file (#776).
 - Data-quality report now flags a child born after a parent's death year. A

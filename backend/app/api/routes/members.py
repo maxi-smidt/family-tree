@@ -49,7 +49,12 @@ from app.schemas.family import (
     RelationCreate,
     RelationOut,
 )
-from app.schemas.merge import DuplicatePair, LinkCandidatesOut
+from app.schemas.merge import (
+    DuplicatePair,
+    LinkCandidatesOut,
+    MemberMergePreviewOut,
+    MemberMergeRequest,
+)
 from app.schemas.tree import TreeOut
 from app.services.activity import (
     delete_snapshot,
@@ -60,6 +65,7 @@ from app.services.activity import (
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
+from app.services.member_merge import compute_member_merge_preview, merge_members_in_place
 from app.services.member_search import MEMBER_SURFACE_COLUMNS, member_name_search_clause
 from app.services.member_subtrees import create_linked_subtree
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
@@ -380,6 +386,59 @@ def update_member_collapsed(
     db.commit()
 
 
+@router.post("/members/merge", response_model=MemberOut)
+def merge_members(
+    payload: MemberMergeRequest,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Merge two members of this tree in place (#729).
+
+    ``keep_id`` survives; ``remove_id`` is deleted after its relations,
+    content links, and diseases are re-pointed onto ``keep_id`` and its
+    conflicting fields are resolved per ``fields`` (a/b/combine, same
+    semantics as the tree-merge resolver). Declared above
+    ``/members/{member_id}`` — like ``positions``/``collapsed`` — so the
+    literal ``merge`` path segment isn't captured as a member id.
+    """
+    keep = _get_member(db, tree, payload.keep_id)
+    remove = _get_member(db, tree, payload.remove_id)
+    merged, details, counterpart_tree = merge_members_in_place(
+        db, tree, keep, remove, payload.fields
+    )
+    label = " ".join(filter(None, [merged.first_name, merged.last_name])) or None
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="update",
+        target_type="member",
+        target_id=merged.id,
+        target_label=label,
+        details=details,
+    )
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    db.refresh(merged)
+    publish_tree_event(
+        db,
+        tree,
+        "tree.content_changed",
+        {"tree_id": tree.id, "domain": "member"},
+    )
+    invalidate_stats(tree.id)
+    if counterpart_tree is not None:
+        publish_tree_event(
+            db,
+            counterpart_tree,
+            "tree.content_changed",
+            {"tree_id": counterpart_tree.id, "domain": "member"},
+        )
+        invalidate_stats(counterpart_tree.id)
+    return merged
+
+
 @router.get("/members/search", response_model=list[MemberSurfaceOut])
 def search_members(
     q: str = Query(..., min_length=1, max_length=200),
@@ -509,6 +568,29 @@ def get_member(
     if _public_only(db, tree, user):
         raise HTTPException(status_code=404, detail="Member not found")
     return _get_member(db, tree, member_id)
+
+
+@router.get(
+    "/members/{member_id}/merge-preview",
+    response_model=MemberMergePreviewOut,
+)
+def get_member_merge_preview(
+    member_id: str,
+    other: str = Query(...),
+    tree: Tree = Depends(get_writable_tree),
+    db: Session = Depends(get_db),
+):
+    """Field conflicts + transfer counts for a same-tree member merge (#729).
+
+    ``member_id`` previews as the surviving ("keep") side and ``other`` as
+    the one that would be removed; the merge itself is symmetric in what it
+    computes here, only ``POST /members/merge`` cares which id is which.
+    """
+    keep = _get_member(db, tree, member_id)
+    remove = _get_member(db, tree, other)
+    if keep.id == remove.id:
+        raise HTTPException(status_code=400, detail="Cannot merge a member with itself")
+    return compute_member_merge_preview(db, tree, keep, remove)
 
 
 def _event_updates_allowed(db: Session, tree: Tree, user: User) -> bool:

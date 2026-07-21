@@ -42,6 +42,47 @@ def issue_id_for(issue_type: str, member_ids: list[str]) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:32]
 
 
+def find_parent_cycle_members(
+    members: list[Member], relations: list[Relation]
+) -> set[str]:
+    """Return the ids of members participating in a parent-chain cycle.
+
+    Empty when the parent relationships are acyclic. A parent edge is a
+    ``Relation`` with ``relation_type == "parent"``, ``from_member_id`` the
+    child and ``to_member_id`` the parent. Shared by the quality report (an
+    informational finding) and the in-place member-merge guard (a hard
+    refusal), so both agree on what counts as a cycle.
+    """
+    parents_of: dict[str, set[str]] = defaultdict(set)
+    for r in relations:
+        if r.relation_type == "parent":
+            parents_of[r.from_member_id].add(r.to_member_id)
+
+    visited: set[str] = set()
+    on_stack: set[str] = set()
+    cycle_members: set[str] = set()
+
+    def _dfs(node: str) -> bool:
+        visited.add(node)
+        on_stack.add(node)
+        for ancestor in parents_of.get(node, set()):
+            if ancestor not in visited:
+                if _dfs(ancestor):
+                    cycle_members.update([node, ancestor])
+                    return True
+            elif ancestor in on_stack:
+                cycle_members.update([node, ancestor])
+                return True
+        on_stack.discard(node)
+        return False
+
+    for m in members:
+        if m.id not in visited:
+            _dfs(m.id)
+
+    return cycle_members
+
+
 def run_quality_checks(
     members: list[Member],
     relations: list[Relation],
@@ -144,32 +185,7 @@ def run_quality_checks(
             )
 
     # --- 3. Relationship cycles (parent-chain) ---
-    # Build child→parents adjacency for traversal.
-    parents_of: dict[str, set[str]] = defaultdict(set)
-    for parent_id, child_id in parent_pairs:
-        parents_of[child_id].add(parent_id)
-
-    visited: set[str] = set()
-    on_stack: set[str] = set()
-    cycle_members: set[str] = set()
-
-    def _dfs(node: str) -> bool:
-        visited.add(node)
-        on_stack.add(node)
-        for ancestor in parents_of.get(node, set()):
-            if ancestor not in visited:
-                if _dfs(ancestor):
-                    cycle_members.update([node, ancestor])
-                    return True
-            elif ancestor in on_stack:
-                cycle_members.update([node, ancestor])
-                return True
-        on_stack.discard(node)
-        return False
-
-    for m in members:
-        if m.id not in visited:
-            _dfs(m.id)
+    cycle_members = find_parent_cycle_members(members, relations)
 
     if cycle_members:
         issues.append(
