@@ -1,0 +1,35 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "41707d698037",
+  "strategy": "manual-commit",
+  "branch": "feat/773-document-upload-resilience",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGELOG.md",
+    "frontend/src/components/shared/member-sheet/DocumentDialog.test.tsx",
+    "frontend/src/components/shared/member-sheet/DocumentDialog.tsx",
+    "frontend/src/hooks/useDocumentStore.test.ts",
+    "frontend/src/hooks/useDocumentStore.ts",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json",
+    "frontend/src/services/TreeService.ts",
+    "frontend/src/services/api.test.ts",
+    "frontend/src/services/api.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/41/707d698037/0/metadata.json",
+      "transcript": "/41/707d698037/0/full.jsonl",
+      "compact_transcript": "/41/707d698037/0/transcript.jsonl",
+      "content_hash": "/41/707d698037/0/content_hash.txt",
+      "prompt": "/41/707d698037/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 184,
+    "cache_creation_tokens": 113731,
+    "cache_read_tokens": 8950218,
+    "output_tokens": 34606,
+    "api_call_count": 92
+  }
+}
