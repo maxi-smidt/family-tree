@@ -5,9 +5,13 @@ ordering so a person does not disappear when the user expands a search beyond
 the current tree.
 """
 
-from sqlalchemy import or_
+import re
+
+from sqlalchemy import and_, or_
 
 from app.models import Member
+
+_YEAR_TOKEN = re.compile(r"\d{4}")
 
 # Keep this projection aligned with ``MemberSurfaceOut``. It lets search
 # endpoints return the information needed to identify a person without loading
@@ -39,11 +43,37 @@ MEMBER_SURFACE_COLUMNS = (
 )
 
 
-def member_name_search_clause(query: str):
-    """Return the name fields shared by tree-local and global search."""
-    pattern = f"%{query}%"
-    return or_(
+def _token_clause(token: str):
+    """OR clause matching a single query token against one member.
+
+    A bare word matches any name field; a 4-digit year additionally matches
+    the birth/death date strings, so e.g. ``"1932"`` finds members born or
+    deceased that year without excluding a numeric-looking name field.
+    """
+    pattern = f"%{token}%"
+    clauses = [
         Member.first_name.ilike(pattern),
         Member.last_name.ilike(pattern),
         Member.maiden_name.ilike(pattern),
-    )
+    ]
+    if _YEAR_TOKEN.fullmatch(token):
+        clauses += [
+            Member.date_of_birth.ilike(pattern),
+            Member.date_of_death.ilike(pattern),
+        ]
+    return or_(*clauses)
+
+
+def member_name_search_clause(query: str):
+    """Return the name fields shared by tree-local and global search.
+
+    A single-token query keeps the original whole-string substring match. A
+    multi-token query (e.g. ``"Last First"`` or ``"Anna Müller 1932"``) is
+    split on whitespace and AND-ed token by token, so tokens can land in any
+    order across ``first_name``/``last_name``/``maiden_name`` (and a
+    year-shaped token also against the birth/death dates).
+    """
+    tokens = query.split()
+    if len(tokens) <= 1:
+        return _token_clause(query)
+    return and_(*(_token_clause(token) for token in tokens))

@@ -212,6 +212,136 @@ def test_search_members_by_maiden_name(db, client):
     assert "m2" not in ids
 
 
+def test_search_matches_first_last_and_last_first_order(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(
+        db, tree, "m1",
+        first_name="Anna", last_name="Müller", gender="f",
+    )
+    add_member(db, tree, "m2", first_name="Anna", last_name="Schmidt", gender="f")
+
+    for query in ("Anna Müller", "Müller Anna"):
+        r = client.get(
+            f"{API}/trees/{tree.id}/members/search",
+            params={"q": query},
+            headers=auth(user),
+        )
+        assert r.status_code == 200
+        ids = {m["id"] for m in r.json()}
+        assert ids == {"m1"}, query
+
+
+def test_search_matches_partial_tokens(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(
+        db, tree, "m1",
+        first_name="Anna", last_name="Müller", gender="f",
+    )
+    add_member(db, tree, "m2", first_name="Bob", last_name="Meyer", gender="m")
+
+    for query in ("Müller Ann", "Anna Mü"):
+        r = client.get(
+            f"{API}/trees/{tree.id}/members/search",
+            params={"q": query},
+            headers=auth(user),
+        )
+        assert r.status_code == 200
+        ids = {m["id"] for m in r.json()}
+        assert ids == {"m1"}, query
+
+
+def test_search_matches_name_combined_with_birth_year(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(
+        db, tree, "m1",
+        first_name="Anna", last_name="Müller",
+        date_of_birth="12 May 1932", gender="f",
+    )
+    add_member(
+        db, tree, "m2",
+        first_name="Anna", last_name="Müller",
+        date_of_birth="1901", gender="f",
+    )
+
+    for query in ("Anna Müller 1932", "1932 Anna"):
+        r = client.get(
+            f"{API}/trees/{tree.id}/members/search",
+            params={"q": query},
+            headers=auth(user),
+        )
+        assert r.status_code == 200
+        ids = {m["id"] for m in r.json()}
+        assert ids == {"m1"}, query
+
+
+def test_search_matches_name_combined_with_death_year(db, client):
+    """A year token matches date_of_death the same way it matches
+    date_of_birth — either field can satisfy the token."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(
+        db, tree, "m1",
+        first_name="Anna", last_name="Müller",
+        date_of_birth="1901", date_of_death="3 Jan 1999", gender="f",
+    )
+    add_member(
+        db, tree, "m2",
+        first_name="Anna", last_name="Müller",
+        date_of_birth="1901", date_of_death="1950", gender="f",
+    )
+
+    r = client.get(
+        f"{API}/trees/{tree.id}/members/search",
+        params={"q": "Anna Müller 1999"},
+        headers=auth(user),
+    )
+    assert r.status_code == 200
+    ids = {m["id"] for m in r.json()}
+    assert ids == {"m1"}
+
+
+def test_search_year_token_requires_matching_name_token(db, client):
+    """Multi-token queries AND across tokens: a year that matches a different
+    member than the name token should exclude both."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(
+        db, tree, "m1",
+        first_name="Anna", last_name="Müller",
+        date_of_birth="1901", gender="f",
+    )
+    add_member(
+        db, tree, "m2",
+        first_name="Bob", last_name="Schmidt",
+        date_of_birth="1932", gender="m",
+    )
+
+    r = client.get(
+        f"{API}/trees/{tree.id}/members/search",
+        params={"q": "Anna 1932"},
+        headers=auth(user),
+    )
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_search_single_token_behavior_unchanged(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(db, tree, "m1", first_name="Johann", last_name="Bach", gender="m")
+
+    r = client.get(
+        f"{API}/trees/{tree.id}/members/search?q=jo",
+        headers=auth(user),
+    )
+    assert r.status_code == 200
+    ids = {m["id"] for m in r.json()}
+    assert ids == {"m1"}
+
+
 def test_search_empty_result(db, client):
     user = make_user(db, "alice")
     tree = make_tree(db, user)

@@ -6,7 +6,7 @@ import { Member, MemberDB, MemberSearchHitDB } from "@/types/member";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { getMemberSearchText, formatMemberSubLabel } from "@/utils/memberUtils";
+import { memberMatchesSearch, formatMemberSubLabel } from "@/utils/memberUtils";
 import { toast } from "sonner";
 
 const MAX_CURRENT_RESULTS = 8;
@@ -87,11 +87,13 @@ export const CanvasSearch = ({
   // Client-side results for a normally loaded tree are available immediately.
   const clientResults = useMemo(() => {
     if (windowed) return [];
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) return [];
+    if (!query.trim()) return [];
     return members
       .filter((member) =>
-        getMemberSearchText(member).toLowerCase().includes(normalizedQuery),
+        memberMatchesSearch(member, query, {
+          birth: member.date.birth,
+          death: member.date.death,
+        }),
       )
       .slice(0, MAX_CURRENT_RESULTS);
   }, [members, query, windowed]);
