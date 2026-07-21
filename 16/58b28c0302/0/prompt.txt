@@ -1,0 +1,9 @@
+Check the backend pytest full-suite run (with -n auto) that was started in the background for issue #729 verification. Read its output; if all tests pass, proceed to finalize the #729 work: review the diff, commit, push the feat/729-member-merge-assistant branch, run a code review pass, and open the PR. If tests fail, diagnose and fix.
+
+---
+
+what happens when a bridging person is merged with some other person? or if it were two bridging people
+
+---
+
+add the record activity. also, in the merge dialog, there is the select action (merge or keep both) - what is this for? i cant even select keep both... that diesnt make sense for a merge dialog, does it?

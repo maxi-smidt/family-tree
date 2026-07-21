@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "1658b28c0302",
+  "strategy": "manual-commit",
+  "branch": "feat/729-member-merge-assistant",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "backend/app/api/routes/members.py",
+    "backend/app/services/member_merge.py",
+    "backend/tests/test_member_merge.py",
+    "frontend/src/components/view/database-management-view/dialog/MergeConflictResolver.tsx",
+    "frontend/src/components/view/quality-report-view/MergeMembersDialog.test.tsx",
+    "frontend/src/components/view/quality-report-view/MergeMembersDialog.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/16/58b28c0302/0/metadata.json",
+      "transcript": "/16/58b28c0302/0/full.jsonl",
+      "compact_transcript": "/16/58b28c0302/0/transcript.jsonl",
+      "content_hash": "/16/58b28c0302/0/content_hash.txt",
+      "prompt": "/16/58b28c0302/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 114,
+    "cache_creation_tokens": 52557,
+    "cache_read_tokens": 17846386,
+    "output_tokens": 35764,
+    "api_call_count": 57
+  }
+}
