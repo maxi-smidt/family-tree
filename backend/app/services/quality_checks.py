@@ -3,6 +3,7 @@
 import hashlib
 from collections import defaultdict
 
+from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
 
 # Minimum/maximum plausible age of a parent at their child's birth.
@@ -15,6 +16,10 @@ _MAX_PARENT_AGE = 100
 # birth after the *mother's* death is not biologically possible, so mothers get
 # no grace.
 _POSTHUMOUS_BIRTH_GRACE_YEARS = 1
+
+# Event types that legitimately happen after a person's death and should not
+# be flagged by the event-after-death check.
+_POST_DEATH_EVENT_TYPES = frozenset({"burial"})
 
 
 def _year(date_str: str | None) -> int | None:
@@ -40,7 +45,11 @@ def issue_id_for(issue_type: str, member_ids: list[str]) -> str:
 def run_quality_checks(
     members: list[Member],
     relations: list[Relation],
+    events: list[Event] | None = None,
+    event_links: list[EventMemberLink] | None = None,
 ) -> list[dict]:
+    events = events or []
+    event_links = event_links or []
     issues: list[dict] = []
     member_map = {m.id: m for m in members}
 
@@ -208,7 +217,34 @@ def run_quality_checks(
                     }
                 )
 
+    # --- 6. Event dated after the member's own death ---
+    event_map = {e.id: e for e in events}
+    for link in event_links:
+        member = member_map.get(link.member_id)
+        ev = event_map.get(link.event_id)
+        if member is None or ev is None:
+            continue
+        if (ev.event_type or "").lower() in _POST_DEATH_EVENT_TYPES:
+            continue
+        death = _year(member.date_of_death)
+        ev_year = _year(ev.date)
+        if death is None or ev_year is None:
+            continue
+        if ev_year > death:
+            issues.append(
+                {
+                    "id": issue_id_for("event_after_death", [member.id, ev.id]),
+                    "issue_type": "event_after_death",
+                    "severity": "warning",
+                    "member_ids": [member.id],
+                    "description": (
+                        f"A '{ev.event_type}' event ({ev_year}) is dated after "
+                        f"this member's death year ({death})."
+                    ),
+                }
+            )
+
     for issue in issues:
-        issue["id"] = issue_id_for(issue["issue_type"], issue["member_ids"])
+        issue.setdefault("id", issue_id_for(issue["issue_type"], issue["member_ids"]))
 
     return issues

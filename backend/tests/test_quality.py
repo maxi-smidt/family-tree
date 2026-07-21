@@ -1,5 +1,6 @@
 """Tests for the data-quality report (issue #164, dismissals issue #521)."""
 
+from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
 from app.services.quality_checks import issue_id_for, run_quality_checks
 from tests.conftest import (
@@ -39,6 +40,16 @@ def _relation(from_id: str, to_id: str, rtype: str = "parent") -> Relation:
     return Relation(
         tree_id="t1", from_member_id=from_id, to_member_id=to_id, relation_type=rtype
     )
+
+
+def _event(eid: str, date: str, event_type: str = "marriage") -> Event:
+    return Event(
+        id=eid, tree_id="t1", event_type=event_type, date=date, created_at="2020"
+    )
+
+
+def _event_link(eid: str, mid: str) -> EventMemberLink:
+    return EventMemberLink(event_id=eid, member_id=mid)
 
 
 class TestBirthAfterDeath:
@@ -237,6 +248,84 @@ class TestDisconnectedMembers:
         assert not any(i["issue_type"] == "disconnected_member" for i in issues)
 
 
+class TestEventAfterDeath:
+    def test_event_after_death_flagged(self):
+        m = _member("m1", date_of_death="1900")
+        ev = _event("e1", date="1910")
+        issues = run_quality_checks(
+            [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
+        )
+        assert any(i["issue_type"] == "event_after_death" for i in issues)
+
+    def test_partial_dates_year_only(self):
+        m = _member("m1", date_of_death="1900-01")
+        ev = _event("e1", date="1910-06")
+        issues = run_quality_checks(
+            [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
+        )
+        assert any(i["issue_type"] == "event_after_death" for i in issues)
+
+    def test_event_before_death_not_flagged(self):
+        m = _member("m1", date_of_death="1900")
+        ev = _event("e1", date="1890")
+        issues = run_quality_checks(
+            [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
+        )
+        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+
+    def test_same_year_not_flagged(self):
+        m = _member("m1", date_of_death="1900")
+        ev = _event("e1", date="1900")
+        issues = run_quality_checks(
+            [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
+        )
+        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+
+    def test_burial_event_excluded(self):
+        m = _member("m1", date_of_death="1900")
+        ev = _event("e1", date="1910", event_type="burial")
+        issues = run_quality_checks(
+            [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
+        )
+        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+
+    def test_no_death_date_not_flagged(self):
+        m = _member("m1")
+        ev = _event("e1", date="1910")
+        issues = run_quality_checks(
+            [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
+        )
+        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+
+    def test_multi_member_event_flags_only_deceased(self):
+        alive = _member("m1")
+        dead = _member("m2", date_of_death="1900")
+        ev = _event("e1", date="1950")
+        issues = run_quality_checks(
+            [alive, dead],
+            [],
+            events=[ev],
+            event_links=[_event_link("e1", "m1"), _event_link("e1", "m2")],
+        )
+        flagged = [i for i in issues if i["issue_type"] == "event_after_death"]
+        assert len(flagged) == 1
+        assert flagged[0]["member_ids"] == ["m2"]
+
+    def test_distinct_ids_for_multiple_offending_events(self):
+        m = _member("m1", date_of_death="1900")
+        ev1 = _event("e1", date="1910")
+        ev2 = _event("e2", date="1920")
+        issues = run_quality_checks(
+            [m],
+            [],
+            events=[ev1, ev2],
+            event_links=[_event_link("e1", "m1"), _event_link("e2", "m1")],
+        )
+        flagged = [i for i in issues if i["issue_type"] == "event_after_death"]
+        assert len(flagged) == 2
+        assert flagged[0]["id"] != flagged[1]["id"]
+
+
 # ---------------------------------------------------------------------------
 # Integration tests via HTTP
 # ---------------------------------------------------------------------------
@@ -286,6 +375,55 @@ def test_quality_report_child_after_parent_death(client, db):
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "child_after_parent_death" in types
+
+
+def _add_event(client, tree_id, eid, date, member_ids, headers, event_type="marriage"):
+    return client.post(
+        f"{API}/trees/{tree_id}/events",
+        headers=headers,
+        json={
+            "id": eid,
+            "event_type": event_type,
+            "date": date,
+            "created_at": "2020",
+            "member_ids": member_ids,
+        },
+    )
+
+
+def test_quality_report_event_after_death(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1", first_name="Dead", date_of_death="1900")
+    res = _add_event(client, tree.id, "e1", "1950", ["m1"], auth(owner))
+    assert res.status_code in (200, 201)
+
+    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    assert res.status_code == 200
+    types = [i["issue_type"] for i in res.json()["issues"]]
+    assert "event_after_death" in types
+
+
+def test_quality_report_event_after_death_dismiss_roundtrip(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1", first_name="Dead", date_of_death="1900")
+    _add_event(client, tree.id, "e1", "1950", ["m1"], auth(owner))
+
+    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    issue = next(
+        i for i in res.json()["issues"] if i["issue_type"] == "event_after_death"
+    )
+
+    res = client.post(
+        f"{API}/trees/{tree.id}/quality-report/issues/{issue['id']}/dismiss",
+        headers=auth(owner),
+    )
+    assert res.status_code == 204
+
+    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    types = [i["issue_type"] for i in res.json()["issues"]]
+    assert "event_after_death" not in types
 
 
 def test_quality_report_viewer_can_read(client, db):
