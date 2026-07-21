@@ -18,6 +18,18 @@ const NO_OPS: DocumentFileOps = {
   renamed: [],
 };
 
+/** Thrown when one or more files failed to stage (network hiccup, timed-out
+ *  connection, ...). Carries every failure, not just the first, so the caller
+ *  can tell the user exactly which file(s) to retry. */
+export class DocumentUploadError extends Error {
+  failed: { index: number; filename: string }[];
+  constructor(failed: { index: number; filename: string }[]) {
+    super("document-upload-failed");
+    this.name = "DocumentUploadError";
+    this.failed = failed;
+  }
+}
+
 interface DocumentState {
   documents: Document[];
   initialized: boolean;
@@ -43,7 +55,12 @@ interface DocumentState {
 /** Stream the picked files into the staging area (reporting per-file progress)
  *  and build the atomic save payload referencing them. New files are staged
  *  *before* the save runs — and the save removes old files only after it
- *  commits — so a failed save never destroys the previous version. */
+ *  commits — so a failed save never destroys the previous version.
+ *
+ *  Every file is attempted even if an earlier one fails (a stalled connection
+ *  must not silently swallow the files queued behind it) — but if any file
+ *  fails, the payload is never built and a `DocumentUploadError` naming every
+ *  failure is thrown instead, so a save never attaches a partial file set. */
 async function stageAndBuildPayload(
   treeId: string,
   input: DocumentInput,
@@ -54,15 +71,21 @@ async function stageAndBuildPayload(
   const total = ops.addedFiles.length;
   if (total > 0) onFileProgress?.(0, total);
   const attachedUploadIds: string[] = [];
+  const failed: { index: number; filename: string }[] = [];
   for (const [i, f] of ops.addedFiles.entries()) {
-    const staged = await TreeService.stageDocumentUpload(
-      treeId,
-      f.file,
-      f.filename,
-    );
-    attachedUploadIds.push(staged.id);
+    try {
+      const staged = await TreeService.stageDocumentUpload(
+        treeId,
+        f.file,
+        f.filename,
+      );
+      attachedUploadIds.push(staged.id);
+    } catch {
+      failed.push({ index: i, filename: f.filename });
+    }
     onFileProgress?.(i + 1, total);
   }
+  if (failed.length > 0) throw new DocumentUploadError(failed);
   return {
     title: input.title,
     description: input.description || null,

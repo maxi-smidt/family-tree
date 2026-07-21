@@ -9,6 +9,10 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 const TOKEN_KEY = "ft_token";
 
+/** Hang ceiling for a staged file upload — bounds a stalled/dead connection,
+ *  not the time a large-but-healthy transfer may take. */
+export const UPLOAD_STAGE_TIMEOUT_MS = 120_000;
+
 let authToken: string | null = localStorage.getItem(TOKEN_KEY);
 let unauthorizedHandler: (() => void) | null = null;
 
@@ -58,6 +62,7 @@ interface RequestOptions {
   formData?: FormData;
   raw?: boolean;
   signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 function buildUrl(path: string, params?: RequestOptions["params"]): string {
@@ -89,12 +94,31 @@ async function request<T>(
     payload = JSON.stringify(options.body);
   }
 
-  const response = await fetch(buildUrl(path, options.params), {
-    method,
-    headers,
-    body: payload,
-    signal: options.signal,
-  });
+  // A hung connection (dead keep-alive socket, dropped wifi, ...) otherwise
+  // leaves fetch() pending forever with no error — this is a ceiling on that
+  // hang, not a body-transfer deadline, so it must stay generous enough for a
+  // full upload on a slow link.
+  let timeoutController: AbortController | undefined;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let signal = options.signal;
+  if (options.timeoutMs !== undefined) {
+    timeoutController = new AbortController();
+    timeoutId = setTimeout(() => timeoutController?.abort(), options.timeoutMs);
+    options.signal?.addEventListener("abort", () => timeoutController?.abort());
+    signal = timeoutController.signal;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path, options.params), {
+      method,
+      headers,
+      body: payload,
+      signal,
+    });
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
 
   if (response.status === 401) {
     unauthorizedHandler?.();
@@ -126,8 +150,8 @@ export const api = {
     request<T>("PATCH", path, { body }),
   del: <T>(path: string, params?: RequestOptions["params"]) =>
     request<T>("DELETE", path, { params }),
-  postForm: <T>(path: string, formData: FormData) =>
-    request<T>("POST", path, { formData }),
+  postForm: <T>(path: string, formData: FormData, timeoutMs?: number) =>
+    request<T>("POST", path, { formData, timeoutMs }),
   getRaw: (path: string, params?: RequestOptions["params"]) =>
     request<Response>("GET", path, { params, raw: true }),
   postRaw: (path: string, body?: unknown) =>

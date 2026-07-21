@@ -5,7 +5,7 @@
  * mirrors the backend row shapes (`MemberDB`, `RelationDB`, ...).
  */
 
-import { api } from "@/services/api";
+import { api, UPLOAD_STAGE_TIMEOUT_MS } from "@/services/api";
 import {
   SubtreeExtractPayload,
   SubtreeExtractPreview,
@@ -638,6 +638,7 @@ export class TreeService {
     return api.postForm<DocumentUploadDB>(
       `${base(treeId)}/documents/uploads`,
       formData,
+      UPLOAD_STAGE_TIMEOUT_MS,
     );
   }
 

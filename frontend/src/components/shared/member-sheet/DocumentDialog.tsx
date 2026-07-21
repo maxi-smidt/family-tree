@@ -14,6 +14,7 @@ import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { Spinner } from "@/components/ui/spinner";
 import {
+  AlertCircle,
   CheckCircle,
   Download,
   Link as LinkIcon,
@@ -21,7 +22,10 @@ import {
   Plus,
   X,
 } from "lucide-react";
-import { useDocumentStore } from "@/hooks/useDocumentStore";
+import {
+  DocumentUploadError,
+  useDocumentStore,
+} from "@/hooks/useDocumentStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { ApiError } from "@/services/api";
@@ -102,6 +106,7 @@ export const DocumentDialog = ({
   const [linkUrl, setLinkUrl] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
+  const [failedTempIds, setFailedTempIds] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<{
     done: number;
@@ -124,6 +129,7 @@ export const DocumentDialog = ({
 
   useEffect(() => {
     setFileError(null);
+    setFailedTempIds(new Set());
     setAdded([]);
     setAddedLinks([]);
     setShowLinkForm(false);
@@ -174,6 +180,7 @@ export const DocumentDialog = ({
   const handleFilesPicked = (fileList: FileList | null) => {
     if (!fileList) return;
     setFileError(null);
+    setFailedTempIds(new Set());
     let shouldDefaultTitle = !formData.title.trim();
     for (const file of Array.from(fileList)) {
       const err = attachmentError(file, maxFileBytes);
@@ -251,6 +258,7 @@ export const DocumentDialog = ({
   const save = useCallback(async (): Promise<boolean> => {
     if (!formData.title.trim()) return false;
     setSubmitting(true);
+    setFailedTempIds(new Set());
     try {
       const ops = buildFileOps();
       const addedCount = ops.addedFiles.length;
@@ -284,6 +292,16 @@ export const DocumentDialog = ({
         } else {
           toast.error(t("files.error-size", { max: maxFileSize ?? "" }));
         }
+      } else if (err instanceof DocumentUploadError) {
+        setFailedTempIds(
+          new Set(
+            err.failed
+              .map((f) => added[f.index]?.tempId)
+              .filter((id): id is string => id !== undefined),
+          ),
+        );
+        const files = err.failed.map((f) => f.filename).join(", ");
+        toast.error(t("files.error-upload-failed", { files }));
       } else {
         toast.error(t("error-save"));
       }
@@ -512,7 +530,12 @@ export const DocumentDialog = ({
                         aria-label={t("files.filename")}
                         disabled={submitting}
                       />
-                      {!uploadProgress ? (
+                      {failedTempIds.has(a.tempId) ? (
+                        <span className="flex items-center gap-1 text-xs text-destructive shrink-0">
+                          <AlertCircle className="size-3" />
+                          {t("files.status-failed")}
+                        </span>
+                      ) : !uploadProgress ? (
                         <span className="text-xs text-muted-foreground shrink-0">
                           {t("files.new")}
                         </span>
