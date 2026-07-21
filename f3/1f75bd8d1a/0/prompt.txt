@@ -1,0 +1,9 @@
+You are a Senior Developer and have been assigned #729; create a new branch from origin/main; plan with opus, implement with sonnet (make no mistake, produce clean code) and push and review it; create PR.
+
+---
+
+what? your task was #729, what does that recap mean
+
+---
+
+yes

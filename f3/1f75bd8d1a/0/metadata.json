@@ -1,0 +1,106 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "f31f75bd8d1a",
+  "session_id": "5039c651-1673-445c-9a00-50859e6d1aa4",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-21T15:38:31.472286001Z",
+  "branch": "feat/729-member-merge-assistant",
+  "checkpoints_count": 2,
+  "save_step_count": 2,
+  "files_touched": [
+    "CHANGELOG.md",
+    "backend/app/api/routes/members.py",
+    "backend/app/schemas/merge.py",
+    "backend/app/services/quality_checks.py",
+    "frontend/src/components/view/quality-report-view/QualityReportView.tsx",
+    "frontend/src/hooks/useQualityReportStore.ts",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json",
+    "frontend/src/services/TreeService.ts",
+    "frontend/src/types/merge.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "8314bd1396ee",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 300,
+    "cache_creation_tokens": 254065,
+    "cache_read_tokens": 27657197,
+    "output_tokens": 94251,
+    "api_call_count": 150
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-21T15:38:31.383779645Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 29,
+    "total_committed": 0,
+    "total_lines_changed": 29,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 1701,
+      "user_lines_removed": 29,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52,
+        "CHANGELOG.md": 8,
+        "backend/app/api/routes/members.py": 83,
+        "backend/app/schemas/merge.py": 24,
+        "backend/app/services/member_merge.py": 296,
+        "backend/app/services/quality_checks.py": 42,
+        "backend/tests/test_member_merge.py": 375,
+        "frontend/src/components/view/quality-report-view/MergeMembersDialog.test.tsx": 265,
+        "frontend/src/components/view/quality-report-view/MergeMembersDialog.tsx": 286,
+        "frontend/src/components/view/quality-report-view/QualityReportView.tsx": 24,
+        "frontend/src/hooks/useQualityReportStore.ts": 24,
+        "frontend/src/i18n/locales/de.json": 32,
+        "frontend/src/i18n/locales/en.json": 32,
+        "frontend/src/services/TreeService.ts": 21,
+        "frontend/src/types/merge.ts": 25
+      },
+      "user_removed_per_file": {
+        "backend/app/api/routes/members.py": 1,
+        "backend/app/services/quality_checks.py": 26,
+        "frontend/src/i18n/locales/de.json": 1,
+        "frontend/src/i18n/locales/en.json": 1
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 25,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1676,
+      "agent_lines_removed": 29,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.local.json": 24
+      }
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 25,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1676,
+      "agent_lines_removed": 29,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.local.json": 24
+      }
+    }
+  ]
+}
