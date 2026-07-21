@@ -21,6 +21,7 @@ export const ALL_FEATURES = [
   "tree_links",
   "presence",
   "research_tasks",
+  "notifications",
 ] as const;
 
 export type FeatureName = (typeof ALL_FEATURES)[number];

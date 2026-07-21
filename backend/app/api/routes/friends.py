@@ -18,7 +18,7 @@ from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Friendship, User
 from app.schemas.friendship import FriendOut, FriendRequestCreate, UserSearchResult
-from app.services import friendships
+from app.services import friendships, notification_service
 from app.services.event_bus import event_bus
 from app.services.storage import profile_image_path
 
@@ -145,6 +145,12 @@ def send_request(
             "friend.request_received",
             {"requester_id": user.id, "requester_username": user.username},
         )
+        notification_service.create_notification(
+            db,
+            target.id,
+            "friend_request_received",
+            {"requester_id": user.id, "requester_username": user.username},
+        )
     return friendships.to_friend_out(db, friendship, user.id)
 
 
@@ -191,6 +197,12 @@ def accept_request(
     friendship.responded_at = utcnow_iso()
     db.commit()
     db.refresh(friendship)
+    notification_service.create_notification(
+        db,
+        friendship.requester_id,
+        "friend_request_accepted",
+        {"addressee_id": user.id, "addressee_username": user.username},
+    )
     return friendships.to_friend_out(db, friendship, user.id)
 
 

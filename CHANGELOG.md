@@ -11,6 +11,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Notification center: a persistent bell inbox (with unread badge) that collects friend
+  requests/acceptances, tree share/unshare, and tree invitations, so events that happen while
+  you're offline are waiting on next login. Unread count updates live over SSE; mark-read and
+  mark-all-read supported; entries are retention-capped per user. Gated behind the new
+  `notifications` feature flag (#726).
 - A member's profile picture can now be set from one of their already-linked
   gallery photos (with crop), instead of only by uploading a new file (#776).
 - Data-quality report now flags a child born after a parent's death year. A

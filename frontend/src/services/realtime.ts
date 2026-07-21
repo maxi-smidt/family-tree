@@ -18,12 +18,14 @@ import { useFriendStore } from "@/hooks/useFriendStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
+import { useNotificationStore } from "@/hooks/useNotificationStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { refreshTaskStore } from "@/hooks/taskStoreRegistry";
 import { usePresenceStore } from "@/hooks/usePresenceStore";
 import { isActiveTree, useTreeStore } from "@/hooks/useTreeStore";
 import { PresenceUserDB } from "@/types/presence";
+import { NotificationDB } from "@/types/notification";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -138,6 +140,14 @@ async function connect(): Promise<void> {
     toast.info(
       i18n.t("dialog.share-tree.invitation-received", { name: data.tree_name }),
     );
+  });
+
+  // Persistent notification inbox (#726). Toasts above stay as the immediate
+  // nudge; this just keeps the bell's list/badge live. No toast here — it
+  // would double up with the ones already fired above for the same events.
+  eventSource.addEventListener("notification.created", (e) => {
+    const data = JSON.parse((e as MessageEvent).data) as NotificationDB;
+    useNotificationStore.getState().addFromEvent(data);
   });
 
   eventSource.addEventListener("presence.updated", (e) => {

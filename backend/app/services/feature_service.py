@@ -49,6 +49,7 @@ FEATURES: dict[str, FeatureState] = {
     "tree_links": "on",
     "presence": "on",
     "research_tasks": "on",
+    "notifications": "on",
 }
 
 # Domains whose visibility can be restricted per shared member.
@@ -109,6 +110,17 @@ def is_enabled(db: Session, feature: str, user: User) -> bool:
     return (
         db.get(FeatureFlagOverride, (feature, user.id)) is not None
     )
+
+
+def is_enabled_for_id(db: Session, feature: str, user_id: str) -> bool:
+    """Like ``is_enabled`` but for callers that only have a user_id (e.g. the
+    notification producer, which never loads a full ``User`` row)."""
+    state = get_state(db, feature)
+    if state == "on":
+        return True
+    if state == "off":
+        return False
+    return db.get(FeatureFlagOverride, (feature, user_id)) is not None
 
 
 def enabled_for(db: Session, user: User) -> list[str]:

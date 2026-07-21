@@ -19,6 +19,7 @@ from app.api.routes import (
     legal,
     media,
     members,
+    notifications,
     oauth,
     preferences,
     presence,
@@ -68,3 +69,4 @@ api_router.include_router(statistics.router)
 api_router.include_router(media.router)
 api_router.include_router(sse.router)
 api_router.include_router(legal.router)
+api_router.include_router(notifications.router)

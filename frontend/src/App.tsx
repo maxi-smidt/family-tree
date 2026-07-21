@@ -5,6 +5,7 @@ import { resetWhatsNewStoreForSession } from "@/hooks/useWhatsNewStore";
 import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
 import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
+import { resetNotificationStoreForSession } from "@/hooks/useNotificationStore";
 import { startRealtime, stopRealtime } from "@/services/realtime";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -46,6 +47,7 @@ export const App = () => {
       resetLegalStoreForSession();
       resetTreeStoreForSession();
       resetTutorialStoreForSession();
+      resetNotificationStoreForSession();
       stopRealtime();
       return;
     }
@@ -57,6 +59,7 @@ export const App = () => {
     resetLegalStoreForSession();
     resetTreeStoreForSession();
     resetTutorialStoreForSession();
+    resetNotificationStoreForSession();
 
     void (async () => {
       try {
