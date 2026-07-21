@@ -157,4 +157,23 @@ describe("MemberSheet tab switching", () => {
     });
     expect(screen.getByTestId("edit-active-tab")).toHaveTextContent("life");
   });
+
+  it("forces view mode and hides the edit toggle when canEdit is false", async () => {
+    render(
+      <MemberSheet
+        isOpen
+        onClose={() => {}}
+        member={MEMBER}
+        initialEditMode
+        canEdit={false}
+      />,
+    );
+
+    expect(await screen.findByTestId("view-active-tab")).toBeInTheDocument();
+    expect(screen.queryByTestId("edit-active-tab")).not.toBeInTheDocument();
+    // Only the mocked ViewMode's own "view-go-life" button should render;
+    // the header's edit/view toggle button is omitted entirely when
+    // effectiveCanEdit is false.
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+  });
 });
