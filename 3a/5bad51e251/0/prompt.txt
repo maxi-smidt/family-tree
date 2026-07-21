@@ -1,0 +1,1 @@
+You are a Senior Developer and have been assigned #796; create a new branch from origin/main; plan with opus, implement with sonnet (make no mistake, produce clean code) and push and review it; create PR. maybe the same goes for other fields as well
