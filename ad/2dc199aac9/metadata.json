@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "ad2dc199aac9",
+  "strategy": "manual-commit",
+  "branch": "feat/797-advanced-name-search",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/utils/memberUtils.test.ts",
+    "frontend/src/utils/memberUtils.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ad/2dc199aac9/0/metadata.json",
+      "transcript": "/ad/2dc199aac9/0/full.jsonl",
+      "compact_transcript": "/ad/2dc199aac9/0/transcript.jsonl",
+      "content_hash": "/ad/2dc199aac9/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 24,
+    "cache_creation_tokens": 12563,
+    "cache_read_tokens": 1540271,
+    "output_tokens": 3011,
+    "api_call_count": 12
+  }
+}
