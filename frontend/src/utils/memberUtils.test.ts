@@ -151,9 +151,7 @@ describe("memberMatchesSearch", () => {
 
   it("ANDs across tokens: a year matching a different field than the name fails", () => {
     const m = makeMember({ firstName: "Anna", lastName: "Müller" });
-    expect(
-      memberMatchesSearch(m, "Anna 1999", { birth: "1901" }),
-    ).toBe(false);
+    expect(memberMatchesSearch(m, "Anna 1999", { birth: "1901" })).toBe(false);
   });
 
   it("returns false for an empty or whitespace-only query", () => {

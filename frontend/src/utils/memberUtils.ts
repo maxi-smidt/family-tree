@@ -56,7 +56,7 @@ export function memberMatchesSearch(
     if (!YEAR_TOKEN.test(token)) return false;
     return Boolean(
       dates.birth?.toLowerCase().includes(lower) ||
-        dates.death?.toLowerCase().includes(lower),
+      dates.death?.toLowerCase().includes(lower),
     );
   });
 }
