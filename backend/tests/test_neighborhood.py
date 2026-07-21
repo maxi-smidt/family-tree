@@ -277,6 +277,32 @@ def test_search_matches_name_combined_with_birth_year(db, client):
         assert ids == {"m1"}, query
 
 
+def test_search_matches_name_combined_with_death_year(db, client):
+    """A year token matches date_of_death the same way it matches
+    date_of_birth — either field can satisfy the token."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    add_member(
+        db, tree, "m1",
+        first_name="Anna", last_name="Müller",
+        date_of_birth="1901", date_of_death="3 Jan 1999", gender="f",
+    )
+    add_member(
+        db, tree, "m2",
+        first_name="Anna", last_name="Müller",
+        date_of_birth="1901", date_of_death="1950", gender="f",
+    )
+
+    r = client.get(
+        f"{API}/trees/{tree.id}/members/search",
+        params={"q": "Anna Müller 1999"},
+        headers=auth(user),
+    )
+    assert r.status_code == 200
+    ids = {m["id"] for m in r.json()}
+    assert ids == {"m1"}
+
+
 def test_search_year_token_requires_matching_name_token(db, client):
     """Multi-token queries AND across tokens: a year that matches a different
     member than the name token should exclude both."""

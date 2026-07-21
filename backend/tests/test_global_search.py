@@ -135,3 +135,36 @@ def test_global_search_matches_name_permutation_and_birth_year(client, db):
     )
     assert response.status_code == 200
     assert {hit["id"] for hit in response.json()} == {"anna-mueller"}
+
+
+def test_global_search_matches_death_year_the_same_way_as_birth_year(client, db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "Family")
+    add_member(
+        db,
+        tree,
+        "anna-mueller",
+        first_name="Anna",
+        last_name="Müller",
+        date_of_birth="1901",
+        date_of_death="3 Jan 1999",
+        gender="f",
+    )
+    add_member(
+        db,
+        tree,
+        "anna-other",
+        first_name="Anna",
+        last_name="Müller",
+        date_of_birth="1901",
+        date_of_death="1950",
+        gender="f",
+    )
+
+    response = client.get(
+        f"{API}/search",
+        params={"q": "Anna Müller 1999"},
+        headers=auth(user),
+    )
+    assert response.status_code == 200
+    assert {hit["id"] for hit in response.json()} == {"anna-mueller"}

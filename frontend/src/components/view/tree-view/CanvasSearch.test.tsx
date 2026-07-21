@@ -138,4 +138,30 @@ describe("CanvasSearch", () => {
 
     expect(screen.getByText("Anna Müller")).toBeInTheDocument();
   });
+
+  it("matches a name token combined with a death-year token in the current tree", async () => {
+    searchOtherTrees.mockResolvedValue([]);
+    const member = {
+      id: "anna",
+      firstName: "Anna",
+      lastName: "Müller",
+      maidenName: null,
+      date: { birth: "1901", death: "3 Jan 1999" },
+    } as Member;
+
+    render(
+      <CanvasSearch
+        members={[member]}
+        onLocate={vi.fn()}
+        treeId="current-tree"
+        onOpenOtherTree={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Search members…"), {
+      target: { value: "Müller 1999" },
+    });
+
+    expect(screen.getByText("Anna Müller")).toBeInTheDocument();
+  });
 });
