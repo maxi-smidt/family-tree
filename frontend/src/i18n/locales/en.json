@@ -26,7 +26,8 @@
       "your-trees-group": "Your trees",
       "shared-trees-group": "Shared with you",
       "virtual-views-group": "Virtual Views",
-      "virtual-view": "Virtual view"
+      "virtual-view": "Virtual view",
+      "open-error": "That tree could not be opened — it may no longer be shared with you."
     },
     "language-selector": {
       "select": "Language"
@@ -1535,6 +1536,7 @@
     "recompute-button": "Recompute matches",
     "toast-recompute-success": "Matches recomputed. {{count}} overlapping members found.",
     "toast-recompute-error": "Could not recompute matches.",
+    "toast-select-error": "That tree could not be opened — it may no longer be shared with you.",
     "new-menu-button": "New",
     "import-menu-button": "Import",
     "row-actions-button": "More actions",
@@ -1813,7 +1815,8 @@
         "onboarding_tour": "Onboarding tour",
         "tree_links": "Tree-in-tree links",
         "presence": "Live presence",
-        "research_tasks": "Research tasks"
+        "research_tasks": "Research tasks",
+        "notifications": "Notifications"
       },
       "descriptions": {
         "gallery": "Photo gallery and image links on members.",
@@ -1830,7 +1833,8 @@
         "onboarding_tour": "Guided first-login tour that walks new users through creating a tree and key features.",
         "tree_links": "Link a member to another tree that details their own family, and navigate between them.",
         "presence": "Show who else is currently viewing or editing the tree, with live avatars and an editing indicator.",
-        "research_tasks": "Per-member open questions and to-dos for genealogy research."
+        "research_tasks": "Per-member open questions and to-dos for genealogy research.",
+        "notifications": "Persistent notification inbox for friend requests, tree sharing, and invitations, with a live unread badge."
       }
     },
     "col-username": "Username",
@@ -2183,6 +2187,21 @@
       "title": "Name your tree",
       "default": "My first tree",
       "body": "We've started you off with a name — you can rename your tree any time later. Click Next to create it."
+    }
+  },
+  "notifications": {
+    "aria-label": "Notifications",
+    "title": "Notifications",
+    "empty": "You're all caught up.",
+    "mark-all-read": "Mark all read",
+    "load-more": "Load more",
+    "unread-badge-label": "{{count}} unread",
+    "types": {
+      "friend_request_received": "{{requester_username}} sent you a friend request",
+      "friend_request_accepted": "{{addressee_username}} accepted your friend request",
+      "tree_shared": "{{actor_username}} shared \"{{tree_name}}\" with you",
+      "tree_unshared": "Access to \"{{tree_name}}\" was removed",
+      "invitation_received": "You've been invited to \"{{tree_name}}\""
     }
   }
 }

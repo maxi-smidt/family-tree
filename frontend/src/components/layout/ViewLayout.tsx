@@ -21,7 +21,9 @@ export const ViewLayout = ({
 }: ViewLayoutProps) => {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-4">
-      <div className="flex-none flex items-center justify-between mb-6 h-5">
+      {/* pr-12 clears the notification bell fixed at top-4 right-4 in Layout,
+          mirroring the ml-16 other headers use to clear the sidebar trigger. */}
+      <div className="flex-none flex items-center justify-between mb-6 h-5 pr-12">
         <h1 className="text-xl font-semibold leading-none">{title}</h1>
         {action && <div>{action}</div>}
       </div>

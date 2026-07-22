@@ -213,7 +213,12 @@ export const DatabaseManagementView = () => {
 
   const handleSelectDatabase = async (database: Tree) => {
     if (selectedTree?.id !== database.id) {
-      await selectTree(database);
+      try {
+        await selectTree(database);
+      } catch {
+        // Stale row — e.g. access was revoked since this list was loaded.
+        toast.error(t("toast-select-error"));
+      }
     }
   };
 
@@ -228,7 +233,12 @@ export const DatabaseManagementView = () => {
   };
 
   const handleOpenRemoveDialog = async (database: Tree) => {
-    await selectTree(database);
+    try {
+      await selectTree(database);
+    } catch {
+      toast.error(t("toast-select-error"));
+      return;
+    }
     setIsRemoveDatabaseDialogOpen(true);
   };
 
@@ -248,7 +258,11 @@ export const DatabaseManagementView = () => {
 
   const handleSelectVirtualView = async (view: Tree) => {
     if (selectedTree?.id !== view.id) {
-      await selectTree(view);
+      try {
+        await selectTree(view);
+      } catch {
+        toast.error(t("toast-select-error"));
+      }
     }
   };
 

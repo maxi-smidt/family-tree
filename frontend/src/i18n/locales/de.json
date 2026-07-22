@@ -26,7 +26,8 @@
       "your-trees-group": "Deine Bäume",
       "shared-trees-group": "Mit dir geteilt",
       "virtual-views-group": "Virtuelle Ansichten",
-      "virtual-view": "Virtuelle Ansicht"
+      "virtual-view": "Virtuelle Ansicht",
+      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt."
     },
     "language-selector": {
       "select": "Sprache"
@@ -1535,6 +1536,7 @@
     "recompute-button": "Übereinstimmungen neu berechnen",
     "toast-recompute-success": "Übereinstimmungen neu berechnet. {{count}} gemeinsame Mitglieder gefunden.",
     "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden.",
+    "toast-select-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
     "new-menu-button": "Neu",
     "import-menu-button": "Importieren",
     "row-actions-button": "Weitere Aktionen",
@@ -1813,7 +1815,8 @@
         "onboarding_tour": "Onboarding-Tour",
         "tree_links": "Baum-im-Baum-Verknüpfungen",
         "presence": "Live-Anwesenheit",
-        "research_tasks": "Recherche-Aufgaben"
+        "research_tasks": "Recherche-Aufgaben",
+        "notifications": "Benachrichtigungen"
       },
       "descriptions": {
         "gallery": "Fotogalerie und Bildverknüpfungen bei Mitgliedern.",
@@ -1830,7 +1833,8 @@
         "onboarding_tour": "Geführte Ersttour, die neuen Benutzern zeigt, wie man einen Stammbaum erstellt und die wichtigsten Funktionen nutzt.",
         "tree_links": "Verknüpfe ein Mitglied mit einem anderen Stammbaum, der seine eigene Familie zeigt, und navigiere zwischen ihnen.",
         "presence": "Zeigt an, wer den Stammbaum gerade betrachtet oder bearbeitet – mit Live-Avataren und einer Bearbeitungsanzeige.",
-        "research_tasks": "Offene Fragen und Aufgaben zur Ahnenforschung pro Mitglied."
+        "research_tasks": "Offene Fragen und Aufgaben zur Ahnenforschung pro Mitglied.",
+        "notifications": "Persistentes Benachrichtigungs-Postfach für Freundschaftsanfragen, Stammbaum-Freigaben und Einladungen, mit einer Live-Anzeige ungelesener Einträge."
       }
     },
     "col-username": "Benutzername",
@@ -2183,6 +2187,21 @@
       "title": "Stammbaum benennen",
       "default": "Mein erster Stammbaum",
       "body": "Wir haben deinem Stammbaum schon einen Namen gegeben — du kannst ihn jederzeit später ändern. Klicke auf Weiter, um ihn zu erstellen."
+    }
+  },
+  "notifications": {
+    "aria-label": "Benachrichtigungen",
+    "title": "Benachrichtigungen",
+    "empty": "Du hast alles gesehen.",
+    "mark-all-read": "Alle als gelesen markieren",
+    "load-more": "Mehr laden",
+    "unread-badge-label": "{{count}} ungelesen",
+    "types": {
+      "friend_request_received": "{{requester_username}} hat dir eine Freundschaftsanfrage gesendet",
+      "friend_request_accepted": "{{addressee_username}} hat deine Freundschaftsanfrage angenommen",
+      "tree_shared": "{{actor_username}} hat \"{{tree_name}}\" mit dir geteilt",
+      "tree_unshared": "Der Zugriff auf \"{{tree_name}}\" wurde entzogen",
+      "invitation_received": "Du wurdest zu \"{{tree_name}}\" eingeladen"
     }
   }
 }

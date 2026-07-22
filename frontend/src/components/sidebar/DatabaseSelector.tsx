@@ -13,6 +13,7 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useTranslation } from "react-i18next";
 import { Crown, Layers, Users } from "lucide-react";
+import { toast } from "sonner";
 
 export const DatabaseSelector = () => {
   const { t } = useTranslation(undefined, {
@@ -29,7 +30,14 @@ export const DatabaseSelector = () => {
 
   const handleDatabaseChange = (dbId: string) => {
     const item = [...trees, ...virtualViews].find((d) => d.id === dbId);
-    if (item) guardNavigate(() => void selectTree(item));
+    if (item) {
+      guardNavigate(() => {
+        // Guards against a stale list entry — e.g. access was revoked since
+        // this dropdown was last loaded — instead of leaving the store
+        // half-connected to a tree it can no longer read (#807 follow-up).
+        void selectTree(item).catch(() => toast.error(t("open-error")));
+      });
+    }
   };
 
   return (

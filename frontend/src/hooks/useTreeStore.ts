@@ -4,7 +4,7 @@ import {
   SubtreeExtractPreview,
   Tree,
 } from "@/types/tree";
-import { api, setPublicTreeToken } from "@/services/api";
+import { ApiError, api, setPublicTreeToken } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { TreeSharingService } from "@/services/TreeSharingService";
 import {
@@ -449,9 +449,18 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
           ? s.virtualViews.map((v) => (v.id === fresh.id ? fresh : v))
           : s.virtualViews,
       }));
-    } catch {
-      // non-fatal; continue with what we have
+    } catch (error) {
       if (!isActiveTree(tree.id)) return;
+      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+        // Access is truly gone (revoked mid-session, or the tree/view was
+        // deleted) — don't limp along with the stale tree object and an
+        // empty canvas. Reset cleanly, drop it from the local lists, and let
+        // the caller (which knows the context) tell the user why.
+        await get().disconnect();
+        void get().loadTrees();
+        throw error;
+      }
+      // transient (network hiccup, 5xx) — proceed with what we already have.
     }
 
     const loads = [

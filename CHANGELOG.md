@@ -11,6 +11,11 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Added
 
+- Notification center: a persistent bell inbox (with unread badge) that collects friend
+  requests/acceptances, tree share/unshare, and tree invitations, so events that happen while
+  you're offline are waiting on next login. Unread count updates live over SSE; mark-read and
+  mark-all-read supported; entries are retention-capped per user. Gated behind the new
+  `notifications` feature flag (#726).
 - Data-quality report's "possible duplicate" findings can now be resolved
   directly with a guided merge: pick which record to keep, resolve any
   conflicting fields (reusing the tree-merge conflict resolver, defaulting to

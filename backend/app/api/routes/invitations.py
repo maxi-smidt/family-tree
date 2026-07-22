@@ -21,6 +21,7 @@ from app.schemas.tree import (
     InvitationOut,
     InvitationPreview,
 )
+from app.services import notification_service
 from app.services.event_bus import event_bus
 from app.services.invitations import (
     accept_invitation,
@@ -115,6 +116,12 @@ def create_invitation(
             event_bus.publish(
                 [invited_user.id],
                 "invitation.received",
+                {"tree_id": tree.id, "tree_name": tree.name},
+            )
+            notification_service.create_notification(
+                db,
+                invited_user.id,
+                "invitation_received",
                 {"tree_id": tree.id, "tree_name": tree.name},
             )
     return _inv_out(inv, include_token=True)

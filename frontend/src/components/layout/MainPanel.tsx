@@ -1,5 +1,6 @@
 import { lazy, useState, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -334,7 +335,15 @@ export const MainPanel = () => {
 
       <TabsList
         variant="line"
-        className="ml-16 mt-3 hidden md:inline-flex"
+        // TabsList is w-fit (shrink-to-fit), so a plain mr-* margin doesn't
+        // stop it from growing under the notification bell (fixed top-4
+        // right-4 in Layout) — cap its own width instead (100% minus ml-16's
+        // 4rem and 4rem of bell clearance). Each TabsTrigger below is
+        // flex-1 + min-w-0 + truncate so tabs shrink with an ellipsis under
+        // that cap instead of overflowing; overflow-x-auto is just a safety
+        // net for the pathological case where even truncated labels don't
+        // fit (matches TreeBreadcrumb's approach to the same problem).
+        className="ml-16 mt-3 hidden md:inline-flex max-w-[calc(100%-8rem)] overflow-x-auto"
         data-tutorial="views-tabs"
       >
         {visible.map((view) => (
@@ -347,14 +356,18 @@ export const MainPanel = () => {
                 <DropdownMenuTrigger asChild>
                   <TabsTrigger
                     value={view}
-                    className={
-                      activeTab === MEDIA_VIEW
-                        ? "text-foreground after:opacity-100"
-                        : undefined
-                    }
+                    className={cn(
+                      // flex-auto keeps the natural (content-proportional)
+                      // basis instead of TabsTrigger's default flex-1
+                      // (basis-0), which would force every tab to the same
+                      // width — truncating long labels even when there's
+                      // slack elsewhere in the row.
+                      "flex-auto min-w-0",
+                      activeTab === MEDIA_VIEW && "text-foreground after:opacity-100",
+                    )}
                   >
-                    {viewLabels[view]}
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <span className="truncate">{viewLabels[view]}</span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0" />
                   </TabsTrigger>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
@@ -375,10 +388,10 @@ export const MainPanel = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <TabsTrigger value={view}>
-                {viewLabels[view]}
+              <TabsTrigger value={view} className="flex-auto min-w-0">
+                <span className="truncate">{viewLabels[view]}</span>
                 {view === FRIENDS_VIEW && incomingFriendCount > 0 && (
-                  <Badge variant="default" className="ml-1.5 px-1.5">
+                  <Badge variant="default" className="ml-1.5 px-1.5 shrink-0">
                     {incomingFriendCount}
                   </Badge>
                 )}

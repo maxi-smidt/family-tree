@@ -50,6 +50,8 @@ const DYNAMIC_KEY_PREFIXES = [
   "admin.legal-",
   // t(`lang-${locale}`) — LegalDocsDialog
   "legal.lang-",
+  // tRoot(`notifications.types.${n.type}`) — NotificationBell
+  "notifications.types.",
 ];
 
 function isDynamicKey(key) {

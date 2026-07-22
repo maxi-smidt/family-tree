@@ -53,7 +53,7 @@ from app.schemas.tree import (
     TreeTransferResult,
     TreeUpdate,
 )
-from app.services import feature_service, friendships
+from app.services import feature_service, friendships, notification_service
 from app.services.activity import record_activity
 from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus, publish_tree_event, tree_audience
@@ -683,6 +683,17 @@ def share_tree(
     )
     if is_new_grant:
         publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        notification_service.create_notification(
+            db,
+            target.id,
+            "tree_shared",
+            {
+                "tree_id": tree.id,
+                "tree_name": tree.name,
+                "role": payload.role,
+                "actor_username": user.username,
+            },
+        )
     return list_access(tree=tree, db=db)
 
 
@@ -713,6 +724,9 @@ def revoke_access(
             extra_user_ids=[user_id],
         )
         publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        notification_service.create_notification(
+            db, user_id, "tree_unshared", {"tree_id": tree.id, "tree_name": tree.name}
+        )
 
 
 _BATCH_TREE_IDS_MAX = 100
@@ -843,6 +857,17 @@ def share_trees_batch(
         )
     for t in logged_trees:
         publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
+        notification_service.create_notification(
+            db,
+            target.id,
+            "tree_shared",
+            {
+                "tree_id": t.id,
+                "tree_name": t.name,
+                "role": payload.role,
+                "actor_username": user.username,
+            },
+        )
     return list_access(tree=tree, db=db)
 
 
@@ -897,6 +922,9 @@ def revoke_access_batch(
             extra_user_ids=[payload.user_id],
         )
         publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
+        notification_service.create_notification(
+            db, payload.user_id, "tree_unshared", {"tree_id": t.id, "tree_name": t.name}
+        )
 
 
 @router.patch(

@@ -696,7 +696,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       >
         <SelectionModeController active={inSelectionMode} />
         <Background />
-        <Panel position="top-right" className="pt-2 pr-2">
+        {/* pr-16 clears the notification bell fixed at top-4 right-4 in Layout. */}
+        <Panel position="top-right" className="pt-2 pr-16">
           <PresenceChips />
         </Panel>
         <GenerationLines

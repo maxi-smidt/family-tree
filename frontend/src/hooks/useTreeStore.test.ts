@@ -19,22 +19,28 @@ import { useQualityReportStore } from "./useQualityReportStore";
 import { useStorageStore } from "./useStorageStore";
 import { useAuthStore } from "./useAuthStore";
 import { useMemberSheetStore } from "./useMemberSheetStore";
-import { api } from "@/services/api";
+import { ApiError, api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { Tree } from "@/types/tree";
 import { ALL_FEATURES } from "@/lib/features";
 
-vi.mock("@/services/api", () => ({
-  api: {
-    get: vi.fn(),
-    post: vi.fn(),
-    patch: vi.fn(),
-    del: vi.fn(),
-  },
-  getAuthToken: vi.fn(() => null),
-  setAuthToken: vi.fn(),
-  onUnauthorized: vi.fn(),
-}));
+vi.mock("@/services/api", async (importOriginal) => {
+  // Keep the real ApiError/setPublicTreeToken exports — useTreeStore does an
+  // `instanceof ApiError` check, which needs the real class, not a mock stub.
+  const actual = await importOriginal<typeof import("@/services/api")>();
+  return {
+    ...actual,
+    api: {
+      get: vi.fn(),
+      post: vi.fn(),
+      patch: vi.fn(),
+      del: vi.fn(),
+    },
+    getAuthToken: vi.fn(() => null),
+    setAuthToken: vi.fn(),
+    onUnauthorized: vi.fn(),
+  };
+});
 vi.mock("@/services/TreeService");
 
 const TREE_A: Tree = { id: "tree-a", name: "Tree A", role: "owner" };
@@ -258,6 +264,54 @@ describe("useTreeStore — connect / selectTree", () => {
       tab: "identity",
       mode: "view",
     });
+  });
+
+  it("disconnects cleanly and rejects when access was revoked (403)", async () => {
+    mockEmptySubStores();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) {
+        return Promise.reject(new ApiError(403, "Forbidden"));
+      }
+      if (path === "/trees") return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+
+    await expect(useTreeStore.getState().connect(TREE_A)).rejects.toThrow();
+
+    // Must not be left half-connected to a tree it can't actually read —
+    // a stale selectedTree here is what made the DB selector show a blank
+    // entry and the canvas look like an empty "new" tree (#807 follow-up).
+    expect(useTreeStore.getState().selectedTree).toBeUndefined();
+    expect(useTreeStore.getState().isReady).toBe(false);
+  });
+
+  it("selectTree also rejects and disconnects when the target 404s", async () => {
+    mockEmptySubStores();
+    useTreeStore.setState({ selectedTree: TREE_B, isReady: true });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) {
+        return Promise.reject(new ApiError(404, "Not Found"));
+      }
+      return Promise.resolve([]);
+    });
+
+    await expect(useTreeStore.getState().selectTree(TREE_A)).rejects.toThrow();
+
+    expect(useTreeStore.getState().selectedTree).toBeUndefined();
+  });
+
+  it("tolerates a transient (non-access) failure and proceeds with what it has", async () => {
+    mockEmptySubStores();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) return Promise.reject(new Error("network error"));
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
+    await useTreeStore.getState().connect(TREE_A);
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
   });
 
   it("does not select a slower tree-link response after a newer request", async () => {
