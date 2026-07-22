@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Bell } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { formatDateWithFallback } from "@/utils/dateUtils";
+import { formatDate } from "@/utils/dateUtils";
 import { useFeature } from "@/hooks/useAuthStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -47,7 +47,7 @@ function navigateForNotification(n: NotificationDB): void {
 
 export const NotificationBell = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "notifications" });
-  const { t: tRoot, i18n } = useTranslation();
+  const { t: tRoot } = useTranslation();
   const [open, setOpen] = useState(false);
 
   const notifications = useNotificationStore((s) => s.notifications);
@@ -67,7 +67,6 @@ export const NotificationBell = () => {
   const handleItemClick = (n: NotificationDB) => {
     void markRead(n.id);
     navigateForNotification(n);
-    setOpen(false);
   };
 
   const badgeLabel =
@@ -98,18 +97,17 @@ export const NotificationBell = () => {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        {/* flex-wrap: some locales' "mark all read" label is too long to
-            share a row with the title in a 320px popover — wrap to its own
-            line instead of overflowing (see de.json). */}
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 border-b">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
           <span className="text-sm font-semibold">{t("title")}</span>
           <Button
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             disabled={unreadCount === 0}
             onClick={() => void markAllRead()}
+            aria-label={t("mark-all-read")}
+            title={t("mark-all-read")}
           >
-            {t("mark-all-read")}
+            <CheckCheck className="size-4" />
           </Button>
         </div>
         <div className="max-h-96 overflow-y-auto">
@@ -137,7 +135,7 @@ export const NotificationBell = () => {
                     {tRoot(`notifications.types.${n.type}`, n.payload ?? {})}
                   </span>
                   <span className="block text-xs text-muted-foreground mt-0.5">
-                    {formatDateWithFallback(n.created_at, i18n.t)}
+                    {formatDate(n.created_at, { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </span>
               </button>
