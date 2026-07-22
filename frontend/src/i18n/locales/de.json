@@ -26,7 +26,8 @@
       "your-trees-group": "Deine Bäume",
       "shared-trees-group": "Mit dir geteilt",
       "virtual-views-group": "Virtuelle Ansichten",
-      "virtual-view": "Virtuelle Ansicht"
+      "virtual-view": "Virtuelle Ansicht",
+      "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt."
     },
     "language-selector": {
       "select": "Sprache"
@@ -1501,6 +1502,7 @@
     "recompute-button": "Übereinstimmungen neu berechnen",
     "toast-recompute-success": "Übereinstimmungen neu berechnet. {{count}} gemeinsame Mitglieder gefunden.",
     "toast-recompute-error": "Übereinstimmungen konnten nicht neu berechnet werden.",
+    "toast-select-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise nicht mehr mit dir geteilt.",
     "new-menu-button": "Neu",
     "import-menu-button": "Importieren",
     "row-actions-button": "Weitere Aktionen",

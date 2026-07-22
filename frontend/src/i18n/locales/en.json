@@ -26,7 +26,8 @@
       "your-trees-group": "Your trees",
       "shared-trees-group": "Shared with you",
       "virtual-views-group": "Virtual Views",
-      "virtual-view": "Virtual view"
+      "virtual-view": "Virtual view",
+      "open-error": "That tree could not be opened — it may no longer be shared with you."
     },
     "language-selector": {
       "select": "Language"
@@ -1501,6 +1502,7 @@
     "recompute-button": "Recompute matches",
     "toast-recompute-success": "Matches recomputed. {{count}} overlapping members found.",
     "toast-recompute-error": "Could not recompute matches.",
+    "toast-select-error": "That tree could not be opened — it may no longer be shared with you.",
     "new-menu-button": "New",
     "import-menu-button": "Import",
     "row-actions-button": "More actions",
