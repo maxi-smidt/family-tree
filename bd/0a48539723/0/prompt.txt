@@ -1,0 +1,70 @@
+● Review: PR #812 — In-place merge of duplicate members
+
+   Solid PR overall: good test coverage (484 lines of backend tests, frontend dialog tests), reuse of the existing tree-merge machinery instead of forking, a rich activity payload anticipating undo (#572),
+   correct route ordering, i18n parity (only en/de exist), and a CHANGELOG entry. But I found several real issues, two of which I'd call blockers.
+
+   Blockers / Majors
+
+   1. Vital-event mirror breaks after a merge — backend/app/services/member_merge.py:469
+   _repoint_member_links(db, EventMemberLink, ...) transfers all of remove's event links — including the derived birth/death mirror events, which are plain Event rows of type birth/death linked via
+   EventMemberLink. Two consequences, both verified against _sync_vital_event (members.py:732):
+   • If both members have a mirror birth (or death) event — the common case for duplicates — keep ends up linked to two birth events. _sync_vital_event assumes one (events[0], ordered by random UUID), so
+     future edits update one arbitrarily and the stale duplicate stays visible in keep's timeline.
+   • If the merge changes keep's date_of_birth/date_of_death/birthplace/cemetery via field choice "b", the mirror is never re-synced — update_member does this (members.py:876-895), the merge route doesn't.
+     The merge must dedupe same-type vital events (honoring the user's field choice) and/or call _sync_vital_event afterward.
+
+   2. Bridge-person drift — members.py merge route
+   BRIDGE_SYNC_FIELDS overlaps CONFLICT_FIELDS almost entirely (names, dates, birthplace, cemetery, additional_data…). If keep is a bridge person and field choices adopt remove's values, the counterpart in
+   the other tree is not synced — update_member calls _sync_bridge_person (members.py:897), the merge path skips it. There's a drift-detection feature that may paper over this later, but the merge knowingly
+   creates the drift it then relies on detecting.
+
+   3. Cycle guard is over-broad and misleads — member_merge.py:418
+   find_parent_cycle_members(remaining_members, simulated_relations) rejects the merge if any parent cycle exists anywhere in the simulated graph — including pre-existing cycles unrelated to the merged pair
+   (relation creation has no cycle guard, and the quality report itself treats cycles as a pre-existing, informational finding). Result: one bad cycle elsewhere in the tree disables all member merges, with
+   the misleading message "This merge would create a relationship cycle". The guard should only reject cycles involving keep.id. Related UX gap: the preview endpoint doesn't run the check, so users resolve
+   all field conflicts and only get the 400 on confirm.
+
+   4. Stale frontend stores after merge — useQualityReportStore.ts:83-95
+   mergeMembers refreshes only the report and member list. It skips invalidateDerivedViews() (which the normal member-delete path calls, useMemberStore.ts:134) and doesn't clear the per-tree domain stores
+   (useEventStore, useStoryStore, useGalleryStore, useTaskStore) — yet the merge re-points exactly that content. Already-initialized stores serve stale data (wrong statistics, transferred events invisible)
+   until reconnect. This is the first in-place member deletion in the app, so the gap is new.
+
+   Minors
+
+   • Data loss by default: buildInitialResolutionState defaults every conflict to "a" (mergeUtils.ts:60). For one-sided conflicts (keep empty, remove has data — which compute_conflicts does report), clicking
+     through with defaults silently discards remove's values. reconcile_bridge_fields defaults one-sided fields to the non-empty side (merge.py:349); this dialog should too. Same for image_data when only
+     remove has a photo — not even reported as a conflict, so it's lost invisibly.
+   • Double success toast: the dialog toasts "Members merged." and then onMerged() triggers the identical toast again in QualityReportView.tsx:218.
+   • Silent preview failure: MergeMembersDialog.tsx catches preview errors with setPreview(null) — no error UI, permanently disabled Merge button, no explanation.
+   • Preview transfer counts overstate: compute_member_merge_preview counts all of remove's relations/links, but duplicates and self-relations are dropped during the actual merge — the promised "N will be
+     transferred" can be wrong.
+   • Convention deviation: the dialog calls TreeService directly for the preview (AGENTS.md says components only call store actions). MergeTreesDialog sets the same precedent, but it's still a documented
+     violation — a store pass-through would be cleaner.
+   • Style: member_merge.py imports private names (_norm, _to_snake_case) from app.services.merge — promote them to public or inline them. SimpleNamespace fakes passed as list[Relation] to
+     find_parent_cycle_members is a type-hint lie. Service layer raising HTTPException is consistent with the codebase, so acceptable.
+
+   Nits
+
+   • mergeMembers silently succeeds with no active tree → false success toast for a destructive op.
+   • No undo grace period, unlike normal member deletion (defensible given the confirm dialog, but a conscious inconsistency).
+   • Dead defensive code: the two Selects filter out each other's value, so the same-member guard is unreachable.
+   • GET merge-preview requires get_writable_tree — defensible as a pre-write step, but semantically odd for a GET.
+
+   Challenges to the design
+
+   • The vital-event transfer reveals a modeling ambiguity: mirror events are indistinguishable from user-authored events, so "union all event links" can't be right in general. The merge needs
+     vital-event-aware dedup, not generic link union.
+   • Why simulate-and-DFS the whole graph? The guard loads every member and relation in the tree to check a property that only depends on ancestry reachable from keep. A DFS from keep over the simulated
+     edges is cheaper and, more importantly, makes the "cycles involving keep only" fix natural.
+   • Activity action is "update" on keep — there's no "delete" entry for remove and no distinct "merge" action. The undo payload is forward-looking (#572), but activity consumers filtering on delete will
+     miss that a person vanished. Worth a dedicated action type now rather than a migration later.
+   • No concurrency handling: two editors merging overlapping pairs concurrently can interleave deletes/re-points within no transaction isolation beyond the single commit. Probably acceptable at self-hosted
+     scale, but it's unacknowledged. whats your take on this
+
+---
+
+so which points would you include in the PR?
+
+---
+
+okay, then plan the must fixes and worth flaggings with opus and implement them using Sonnet and push them to the PR

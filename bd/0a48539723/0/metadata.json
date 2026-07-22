@@ -1,0 +1,68 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "bd0a48539723",
+  "session_id": "b4cb0c20-4d80-44fa-9b22-9776b59b9476",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-22T14:46:06.115762042Z",
+  "branch": "feat/729-member-merge-assistant",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "backend/app/services/merge.py",
+    "backend/app/services/member_merge.py",
+    "backend/app/schemas/merge.py",
+    "backend/app/api/routes/members.py",
+    "backend/tests/test_member_merge.py",
+    "frontend/src/types/merge.ts",
+    "frontend/src/utils/mergeUtils.ts",
+    "frontend/src/components/view/quality-report-view/MergeMembersDialog.tsx",
+    "frontend/src/i18n/locales/en.json",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/components/view/quality-report-view/QualityReportView.tsx",
+    "frontend/src/hooks/useQualityReportStore.ts",
+    "frontend/src/utils/mergeUtils.test.ts",
+    "frontend/src/components/view/quality-report-view/MergeMembersDialog.test.tsx",
+    "frontend/src/hooks/useQualityReportStore.test.ts",
+    "CHANGELOG.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-5",
+  "turn_id": "e728cc0542b7",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 344,
+    "cache_creation_tokens": 281093,
+    "cache_read_tokens": 34970956,
+    "output_tokens": 119498,
+    "api_call_count": 172
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-22T14:46:06.031113192Z",
+    "agent_lines": 727,
+    "agent_removed": 120,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 727,
+    "total_lines_changed": 847,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
