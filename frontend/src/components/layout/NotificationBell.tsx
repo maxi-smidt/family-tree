@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bell, CheckCheck } from "lucide-react";
+import { toast } from "sonner";
+import i18n from "@/i18n/i18n";
 import {
   Popover,
   PopoverContent,
@@ -26,18 +28,24 @@ function navigateForNotification(n: NotificationDB): void {
     case "friend_request_accepted":
       useNavigationStore.getState().navigateTo(FRIENDS_VIEW);
       break;
-    case "tree_shared":
-      // Best-effort: the tree may since have been unshared or deleted.
-      void (async () => {
-        try {
-          await useTreeStore
-            .getState()
-            .openTreeById(String(n.payload?.tree_id));
-        } catch {
-          // ignore — nothing sensible to navigate to
-        }
-      })();
+    case "tree_shared": {
+      // The tree may since have been unshared or deleted — capture where
+      // the user already was so a failed open can land them back there
+      // instead of on whatever partial state the failed attempt left,
+      // and tell them why nothing opened instead of failing silently.
+      const previousTree = useTreeStore.getState().selectedTree;
+      void useTreeStore
+        .getState()
+        .openTreeById(String(n.payload?.tree_id))
+        .catch(() => {
+          toast.error(i18n.t("tree-view.search.open-error"));
+          const current = useTreeStore.getState().selectedTree;
+          if (previousTree && current?.id !== previousTree.id) {
+            void useTreeStore.getState().selectTree(previousTree);
+          }
+        });
       break;
+    }
     default:
       // tree_unshared / invitation_received: nothing to navigate to, the
       // click above has already marked it read.
