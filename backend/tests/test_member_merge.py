@@ -61,6 +61,99 @@ def test_preview_reports_camel_case_conflicts_and_transfer_counts(db):
     # snake_case names must not leak through
     assert "additional_data" not in preview.pair.conflicts
     assert preview.transfer.relations == 1
+    assert preview.would_create_cycle is False
+
+
+def test_preview_transfer_counts_match_what_actually_transfers(db):
+    """Duplicate relations/diseases the merge would drop must not be counted
+    as if they would transfer (#812)."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    keep = add_member(db, tree, "keep", first_name="Keep")
+    remove = add_member(db, tree, "remove", first_name="Remove")
+    add_member(db, tree, "child", first_name="Child")
+
+    # keep already has this relation — remove's copy is a duplicate.
+    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="keep",
+                     relation_type="parent"))
+    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="remove",
+                     relation_type="parent"))
+    # Becomes a self-relation once both ends fold onto keep.
+    db.add(Relation(tree_id=tree.id, from_member_id="remove", to_member_id="keep",
+                     relation_type="partner"))
+
+    db.add(MemberDisease(id="d1", tree_id=tree.id, member_id="keep",
+                          name="Diabetes", carrier_status="affected"))
+    db.add(MemberDisease(id="d2", tree_id=tree.id, member_id="remove",
+                          name="diabetes", carrier_status="affected"))
+    db.add(MemberDisease(id="d3", tree_id=tree.id, member_id="remove",
+                          name="Asthma", carrier_status="carrier"))
+    db.commit()
+
+    preview = compute_member_merge_preview(db, tree, keep, remove)
+    assert preview.transfer.relations == 0
+    assert preview.transfer.diseases == 1
+
+    merge_members_in_place(db, tree, keep, remove, {})
+    db.commit()
+
+    relations = db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
+    assert len(relations) == 1
+    diseases = db.scalars(select(MemberDisease)).all()
+    assert len(diseases) == 2
+
+
+def test_preview_excludes_redundant_vital_mirror_event_from_transfer_count(db):
+    """When both members already have a birth mirror event, the merge's own
+    dedup collapses them to one — the preview must not promise a transfer
+    that never actually lands (#812)."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    keep = add_member(db, tree, "keep", first_name="Keep", date_of_birth="1920")
+    remove = add_member(db, tree, "remove", first_name="Remove", date_of_birth="1921")
+    db.add(Event(id="keep-birth", tree_id=tree.id, event_type="birth", date="1920",
+                  created_at="2024-01-01T00:00:00Z"))
+    db.add(Event(id="remove-birth", tree_id=tree.id, event_type="birth", date="1921",
+                  created_at="2024-01-01T00:00:00Z"))
+    db.add(EventMemberLink(event_id="keep-birth", member_id="keep"))
+    db.add(EventMemberLink(event_id="remove-birth", member_id="remove"))
+    db.commit()
+
+    preview = compute_member_merge_preview(db, tree, keep, remove)
+    assert preview.transfer.events == 0
+
+
+def test_preview_flags_would_create_cycle(db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    keep = add_member(db, tree, "keep", first_name="Keep")
+    remove = add_member(db, tree, "remove", first_name="Remove")
+    add_member(db, tree, "mid", first_name="Mid")
+    db.add(Relation(tree_id=tree.id, from_member_id="keep", to_member_id="mid",
+                     relation_type="parent"))
+    db.add(Relation(tree_id=tree.id, from_member_id="mid", to_member_id="remove",
+                     relation_type="parent"))
+    db.commit()
+
+    preview = compute_member_merge_preview(db, tree, keep, remove)
+    assert preview.would_create_cycle is True
+
+
+def test_preview_does_not_flag_unrelated_cycle(db):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    add_member(db, tree, "x", first_name="X")
+    add_member(db, tree, "y", first_name="Y")
+    db.add(Relation(tree_id=tree.id, from_member_id="x", to_member_id="y",
+                     relation_type="parent"))
+    db.add(Relation(tree_id=tree.id, from_member_id="y", to_member_id="x",
+                     relation_type="parent"))
+    keep = add_member(db, tree, "keep", first_name="Keep")
+    remove = add_member(db, tree, "remove", first_name="Remove")
+    db.commit()
+
+    preview = compute_member_merge_preview(db, tree, keep, remove)
+    assert preview.would_create_cycle is False
 
 
 # ---------------------------------------------------------------------------
@@ -114,6 +207,30 @@ def test_merge_creates_cycle_is_rejected(db):
     with pytest.raises(HTTPException) as exc:
         merge_members_in_place(db, tree, keep, remove, {})
     assert exc.value.status_code == 400
+
+
+def test_pre_existing_unrelated_cycle_does_not_block_merge(db):
+    """A cycle elsewhere in the tree, uninvolved with keep or remove, must
+    not disable merging — relation creation has no cycle guard and the
+    quality report treats such cycles as pre-existing/informational, so this
+    merge's own guard must be scoped to cycles it would actually create
+    (#812)."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    add_member(db, tree, "x", first_name="X")
+    add_member(db, tree, "y", first_name="Y")
+    db.add(Relation(tree_id=tree.id, from_member_id="x", to_member_id="y",
+                     relation_type="parent"))
+    db.add(Relation(tree_id=tree.id, from_member_id="y", to_member_id="x",
+                     relation_type="parent"))
+    keep = add_member(db, tree, "keep", first_name="Keep")
+    remove = add_member(db, tree, "remove", first_name="Remove")
+    db.commit()
+
+    merge_members_in_place(db, tree, keep, remove, {})
+    db.commit()
+
+    assert db.get(Member, "remove") is None
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +490,115 @@ def test_merge_route_records_rich_activity_payload(client, db):
     assert merge_details["removed"]["member"]["id"] == "remove"
     assert "keep_before" in merge_details
     assert "field_choices" in merge_details
+
+
+# ---------------------------------------------------------------------------
+# Vital-event mirror consistency (#812)
+# ---------------------------------------------------------------------------
+
+
+def test_merge_dedupes_duplicate_vital_mirror_events(client, db):
+    """Both members having their own birth mirror event is the common
+    duplicate case — the merge must not leave keep linked to two."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    add_member(db, tree, "keep", first_name="Keep", date_of_birth="1920")
+    add_member(db, tree, "remove", first_name="Remove", date_of_birth="1921")
+    db.add(Event(id="keep-birth", tree_id=tree.id, event_type="birth", date="1920",
+                  created_at="2024-01-01T00:00:00Z"))
+    db.add(Event(id="remove-birth", tree_id=tree.id, event_type="birth", date="1921",
+                  created_at="2024-01-01T00:00:00Z"))
+    db.add(EventMemberLink(event_id="keep-birth", member_id="keep"))
+    db.add(EventMemberLink(event_id="remove-birth", member_id="remove"))
+    db.commit()
+
+    resp = client.post(
+        f"{API}/trees/{tree.id}/members/merge",
+        json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
+        headers=auth(user),
+    )
+    assert resp.status_code == 200
+
+    events = db.scalars(
+        select(Event).where(Event.tree_id == tree.id, Event.event_type == "birth")
+    ).all()
+    assert len(events) == 1
+    # Default field choice is "a" — keep's own date survives.
+    assert events[0].date == "1920"
+
+
+def test_merge_creates_vital_event_reflecting_resolved_fields(client, db):
+    """Field choice 'b' adopting remove's date_of_birth/birthplace must sync
+    onto keep's vital-event mirror, same as a plain member edit would."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    add_member(db, tree, "keep", first_name="Keep")
+    add_member(
+        db, tree, "remove", first_name="Remove",
+        date_of_birth="1921", birthplace="Hamburg",
+    )
+
+    resp = client.post(
+        f"{API}/trees/{tree.id}/members/merge",
+        json={
+            "keep_id": "keep",
+            "remove_id": "remove",
+            "fields": {"dateOfBirth": "b", "birthplace": "b"},
+        },
+        headers=auth(user),
+    )
+    assert resp.status_code == 200
+
+    event = db.query(Event).filter_by(tree_id=tree.id, event_type="birth").one()
+    assert event.date == "1921"
+    assert event.location == "Hamburg"
+
+
+# ---------------------------------------------------------------------------
+# Bridge-person drift on the surviving member (#812)
+# ---------------------------------------------------------------------------
+
+
+def test_merge_syncs_bridge_person_identity_field_changes(client, db):
+    """Field choices that change keep's identity fields must propagate onto
+    keep's own bridge counterpart, same as a plain member edit does via
+    _sync_bridge_person — otherwise the merge itself creates bridge drift."""
+    user = make_user(db, "alice")
+    tree = make_tree(db, user, "T")
+    other = make_tree(db, user, "Other")
+    keep = add_member(
+        db, tree, "keep", first_name="Keep", last_name="Person", birthplace="Berlin",
+    )
+    add_member(
+        db, tree, "remove", first_name="Remove", last_name="Person",
+        birthplace="Hamburg",
+    )
+    counterpart = add_member(
+        db, other, "counterpart", first_name="Keep", last_name="Person",
+        birthplace="Berlin",
+    )
+    keep.linked_tree_id = other.id
+    keep.linked_member_id = "counterpart"
+    counterpart.linked_tree_id = tree.id
+    counterpart.linked_member_id = "keep"
+    db.commit()
+
+    resp = client.post(
+        f"{API}/trees/{tree.id}/members/merge",
+        json={
+            "keep_id": "keep",
+            "remove_id": "remove",
+            "fields": {"birthplace": "b"},
+        },
+        headers=auth(user),
+    )
+    assert resp.status_code == 200
+    assert resp.json()["birthplace"] == "Hamburg"
+
+    db.expire_all()
+    assert db.get(Member, "counterpart").birthplace == "Hamburg"
+    # keep's own bridge link is unaffected — remove had no counterpart.
+    assert db.get(Member, "keep").linked_member_id == "counterpart"
 
 
 # ---------------------------------------------------------------------------

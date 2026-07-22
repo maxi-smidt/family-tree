@@ -50,6 +50,7 @@ export interface MemberMergeTransferCounts {
 export interface MemberMergePreview {
   pair: DuplicatePair;
   transfer: MemberMergeTransferCounts;
+  would_create_cycle: boolean;
 }
 
 export interface MemberMergeRequest {

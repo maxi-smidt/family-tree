@@ -4,6 +4,12 @@ import { MergeFieldChoice } from "@/types/merge";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
+import { useEventStore } from "@/hooks/useEventStore";
+import { useStoryStore } from "@/hooks/useStoryStore";
+import { useGalleryStore } from "@/hooks/useGalleryStore";
+import { useDocumentStore } from "@/hooks/useDocumentStore";
+import { invalidateDerivedViews } from "@/hooks/invalidateDerivedViews";
+import { refreshTaskStore } from "@/hooks/taskStoreRegistry";
 
 interface QualityReportState {
   report: QualityReport | null;
@@ -76,10 +82,14 @@ export const useQualityReportStore = create<QualityReportState>((set, get) => ({
     await Promise.all(tasks);
   },
 
-  // Merge two members of the tree in place (#729): the report and member
-  // list both change shape (a duplicate finding disappears, a member is
-  // gone), so refresh both. Errors (e.g. the 400 cycle guard) propagate to
-  // the dialog, which maps them to a specific message.
+  // Merge two members of the tree in place (#729): besides the report and
+  // member list, the merge re-points remove's events/stories/gallery tags/
+  // documents/tasks onto keep, so any of those stores already loaded in this
+  // session would otherwise keep showing pre-merge data until reconnect.
+  // invalidateDerivedViews() clears report/statistics/activity first (same
+  // as the member-delete path) so the eager refreshes below repopulate them
+  // fresh rather than racing a stale clear. Errors (e.g. the 400 cycle
+  // guard) propagate to the dialog, which maps them to a specific message.
   mergeMembers: async (keepId, removeId, fields) => {
     const treeId = activeTreeId();
     if (!treeId) return;
@@ -88,10 +98,29 @@ export const useQualityReportStore = create<QualityReportState>((set, get) => ({
       remove_id: removeId,
       fields,
     });
-    await Promise.all([
+    invalidateDerivedViews();
+    const refreshes: Promise<void>[] = [
       get().refreshReport(treeId),
       useMemberStore.getState().refreshMembers(treeId),
-    ]);
+    ];
+    if (useEventStore.getState().initialized) {
+      refreshes.push(useEventStore.getState().refreshEvents(treeId));
+    }
+    if (useStoryStore.getState().initialized) {
+      refreshes.push(useStoryStore.getState().refreshStories(treeId));
+    }
+    if (useGalleryStore.getState().initialized) {
+      refreshes.push(useGalleryStore.getState().refreshGalleryImages(treeId));
+    }
+    if (useDocumentStore.getState().initialized) {
+      refreshes.push(useDocumentStore.getState().refreshDocuments(treeId));
+    }
+    // Research tasks are an optional feature loaded through a lazy bridge
+    // (taskStoreRegistry) rather than imported directly, same as every other
+    // post-mutation task refresh in the app (useGalleryStore, useUploadQueue,
+    // realtime.ts) — a no-op until that feature's store has actually loaded.
+    refreshTaskStore(treeId);
+    await Promise.all(refreshes);
   },
 
   clear: () => set({ report: null, showDismissed: false }),

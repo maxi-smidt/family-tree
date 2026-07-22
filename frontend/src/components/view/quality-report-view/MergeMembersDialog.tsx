@@ -66,6 +66,7 @@ export const MergeMembersDialog = ({
   const [removeId, setRemoveId] = useState(memberIds[1]);
   const [preview, setPreview] = useState<MemberMergePreview | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewError, setPreviewError] = useState(false);
   const [resolutionState, setResolutionState] =
     useState<PairResolutionState | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -79,11 +80,13 @@ export const MergeMembersDialog = ({
   useEffect(() => {
     if (!open || !treeId || !keepId || !removeId || keepId === removeId) {
       setPreview(null);
+      setPreviewError(false);
       setResolutionState(null);
       return;
     }
     let cancelled = false;
     setLoadingPreview(true);
+    setPreviewError(false);
     TreeService.getMemberMergePreview(treeId, keepId, removeId)
       .then((result) => {
         if (cancelled) return;
@@ -91,7 +94,9 @@ export const MergeMembersDialog = ({
         setResolutionState(buildInitialResolutionState(result.pair));
       })
       .catch(() => {
-        if (!cancelled) setPreview(null);
+        if (cancelled) return;
+        setPreview(null);
+        setPreviewError(true);
       })
       .finally(() => {
         if (!cancelled) setLoadingPreview(false);
@@ -232,8 +237,17 @@ export const MergeMembersDialog = ({
           </p>
         )}
 
+        {distinct && !loadingPreview && previewError && (
+          <p className="text-sm text-destructive text-center py-4">
+            {t("preview-error")}
+          </p>
+        )}
+
         {distinct && !loadingPreview && preview && resolutionState && (
           <div className="space-y-3">
+            {preview.would_create_cycle && (
+              <p className="text-sm text-destructive">{t("cycle-error")}</p>
+            )}
             {preview.pair.conflicts.length > 0 && (
               <MergeConflictResolver
                 pair={preview.pair}
@@ -273,7 +287,13 @@ export const MergeMembersDialog = ({
           <Button
             type="button"
             size="sm"
-            disabled={!distinct || submitting || loadingPreview || !preview}
+            disabled={
+              !distinct ||
+              submitting ||
+              loadingPreview ||
+              !preview ||
+              preview.would_create_cycle
+            }
             onClick={() => void handleConfirm()}
           >
             {t("confirm")}

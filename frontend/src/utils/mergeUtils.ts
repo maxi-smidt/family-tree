@@ -48,16 +48,31 @@ export interface PairResolutionState {
 }
 
 /**
+ * True when a field value should be treated as absent — mirrors the
+ * backend's `_empty()` (app/services/merge.py).
+ */
+function isEmptyValue(value: string | null | undefined): boolean {
+  return !(value ?? "").trim();
+}
+
+/**
  * Build the initial resolution state for a duplicate pair from the backend's
  * `default_action` suggestion and its conflict list.
+ *
+ * A field defaults to "a" (source-A value) unless it's a one-sided conflict
+ * (A empty, B has data) — then "b" wins, mirroring the backend's own default
+ * for unresolved fields (`reconcile_bridge_fields` in app/services/merge.py).
+ * Otherwise clicking through with defaults would silently discard the only
+ * value either side has for that field (#812).
  */
 export function buildInitialResolutionState(
   pair: DuplicatePair,
 ): PairResolutionState {
   const fields: Partial<Record<string, MergeFieldChoice>> = {};
   for (const field of pair.conflicts) {
-    // Default field choice: "a" (keep source-A value)
-    fields[field] = "a";
+    const va = getMemberField(pair.member_a, field);
+    const vb = getMemberField(pair.member_b, field);
+    fields[field] = !isEmptyValue(va) || isEmptyValue(vb) ? "a" : "b";
   }
   return {
     action: pair.default_action,
@@ -110,9 +125,7 @@ export function getMemberField(
   field: string,
 ): string | null | undefined {
   return (member as unknown as Record<string, unknown>)[field] as
-    | string
-    | null
-    | undefined;
+    string | null | undefined;
 }
 
 /**

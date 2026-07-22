@@ -1347,8 +1347,7 @@
     "open-tasks-empty": "Keine offenen Recherchepunkte.",
     "open-tasks-mark-done": "Als erledigt markieren",
     "open-tasks-tree-level": "Baum",
-    "merge-action": "Zusammenführen…",
-    "merge-success": "Personen zusammengeführt."
+    "merge-action": "Zusammenführen…"
   },
   "merge-members-dialog": {
     "title": "Doppelte Personen zusammenführen",
@@ -1373,6 +1372,7 @@
     "transfer-diseases_one": "{{count}} Gesundheitseintrag",
     "transfer-diseases_other": "{{count}} Gesundheitseinträge",
     "loading-preview": "Wird geladen…",
+    "preview-error": "Vorschau für diese Personen konnte nicht geladen werden. Bitte erneut versuchen.",
     "cancel": "Abbrechen",
     "confirm": "Zusammenführen",
     "success": "Personen zusammengeführt.",

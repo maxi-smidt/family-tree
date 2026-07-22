@@ -1347,8 +1347,7 @@
     "open-tasks-empty": "No open research items.",
     "open-tasks-mark-done": "Mark as done",
     "open-tasks-tree-level": "Tree",
-    "merge-action": "Merge…",
-    "merge-success": "Members merged."
+    "merge-action": "Merge…"
   },
   "merge-members-dialog": {
     "title": "Merge duplicate members",
@@ -1373,6 +1372,7 @@
     "transfer-diseases_one": "{{count}} health record",
     "transfer-diseases_other": "{{count}} health records",
     "loading-preview": "Loading…",
+    "preview-error": "Could not load a preview for these members. Try again.",
     "cancel": "Cancel",
     "confirm": "Merge",
     "success": "Members merged.",

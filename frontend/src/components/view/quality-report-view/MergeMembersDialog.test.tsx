@@ -106,6 +106,7 @@ function preview(overrides: Partial<MemberMergePreview>): MemberMergePreview {
       tasks: 0,
       diseases: 0,
     },
+    would_create_cycle: false,
     ...overrides,
   };
 }
@@ -121,10 +122,7 @@ describe("MergeMembersDialog", () => {
       selectedTree: { id: "tree-1", name: "Tree", role: "editor" },
     });
     useMemberStore.setState({
-      members: [
-        makeAppMember({ id: "a1" }),
-        makeAppMember({ id: "b1" }),
-      ],
+      members: [makeAppMember({ id: "a1" }), makeAppMember({ id: "b1" })],
     });
     useQualityReportStore.setState({ mergeMembers: vi.fn() });
   });
@@ -245,6 +243,52 @@ describe("MergeMembersDialog", () => {
       });
     });
     expect(onMerged).toHaveBeenCalled();
+  });
+
+  it("shows an error message and disables Merge when the preview fails to load", async () => {
+    vi.mocked(TreeService.getMemberMergePreview).mockRejectedValue(
+      new Error("network error"),
+    );
+
+    render(
+      <MergeMembersDialog
+        memberIds={["a1", "b1"]}
+        open
+        onOpenChange={vi.fn()}
+        onMerged={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole("dialog");
+    expect(
+      await screen.findByText(
+        "Could not load a preview for these members. Try again.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Merge" })).toBeDisabled();
+  });
+
+  it("shows the cycle warning and disables Merge when the preview flags one", async () => {
+    vi.mocked(TreeService.getMemberMergePreview).mockResolvedValue(
+      preview({ would_create_cycle: true }),
+    );
+
+    render(
+      <MergeMembersDialog
+        memberIds={["a1", "b1"]}
+        open
+        onOpenChange={vi.fn()}
+        onMerged={vi.fn()}
+      />,
+    );
+
+    await screen.findByRole("dialog");
+    expect(
+      await screen.findByText(
+        "This merge would create an impossible loop in the family tree.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Merge" })).toBeDisabled();
   });
 
   it("shows a picker when more than two members share the finding", async () => {

@@ -10,16 +10,17 @@ from ``app.services.merge`` rather than forked.
 
 from __future__ import annotations
 
-from types import SimpleNamespace
+from collections import defaultdict
 from typing import Literal
 
 from fastapi import HTTPException
 from pydantic.alias_generators import to_camel
-from sqlalchemy import func, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import (
     DocumentMemberLink,
+    Event,
     EventMemberLink,
     GalleryMemberLink,
     Member,
@@ -38,15 +39,164 @@ from app.schemas.merge import (
 from app.services.activity import SNAPSHOT_VERSION, member_delete_snapshot
 from app.services.merge import (
     CONFLICT_FIELDS,
-    _norm,
-    _to_snake_case,
     apply_field_choices,
     compute_conflicts,
     member_key,
+    norm,
+    to_snake_case,
 )
-from app.services.quality_checks import find_parent_cycle_members
 
 BridgeOutcome = Literal["inherited", "dissolved"]
+
+
+def _merge_creates_cycle_through_keep(
+    relations: list[Relation], keep_id: str, remove_id: str
+) -> bool:
+    """Whether folding ``remove``'s parent edges onto ``keep`` makes ``keep``
+    its own ancestor.
+
+    Scoped to cycles that would involve ``keep`` specifically — relation
+    creation elsewhere has no cycle guard and the quality report treats
+    pre-existing cycles as informational, so an unrelated cycle sitting
+    somewhere else in the tree must not block this merge (#812).
+    """
+    parents_of: dict[str, set[str]] = defaultdict(set)
+    for r in relations:
+        if r.relation_type != "parent":
+            continue
+        f = keep_id if r.from_member_id == remove_id else r.from_member_id
+        t = keep_id if r.to_member_id == remove_id else r.to_member_id
+        if f == t:
+            continue
+        parents_of[f].add(t)
+
+    stack = list(parents_of.get(keep_id, ()))
+    seen: set[str] = set()
+    while stack:
+        node = stack.pop()
+        if node == keep_id:
+            return True
+        if node in seen:
+            continue
+        seen.add(node)
+        stack.extend(parents_of.get(node, ()))
+    return False
+
+
+def _plan_relation_transfer(
+    all_relations: list[Relation], keep_id: str, remove_id: str
+) -> tuple[set[tuple[str, str, str]], list[Relation]]:
+    """Split ``all_relations`` into keep's existing dedup keys and the rows
+    touching ``remove`` that a merge would need to re-point."""
+    keep_keys: set[tuple[str, str, str]] = set()
+    remove_relations: list[Relation] = []
+    for r in all_relations:
+        if remove_id in (r.from_member_id, r.to_member_id):
+            remove_relations.append(r)
+        else:
+            keep_keys.add((r.from_member_id, r.to_member_id, r.relation_type))
+    return keep_keys, remove_relations
+
+
+def _new_relation_keys(
+    remove_relations: list[Relation],
+    keep_keys: set[tuple[str, str, str]],
+    keep_id: str,
+    remove_id: str,
+) -> list[tuple[str, str, str]]:
+    """Dedup keys for the relations a merge would actually add onto keep —
+    self-relations and rows keep already has are dropped. Shared by the
+    preview (counting only) and the real merge (also applying them) so the
+    two can't drift apart (#812)."""
+    seen = set(keep_keys)
+    new_keys: list[tuple[str, str, str]] = []
+    for r in remove_relations:
+        f = keep_id if r.from_member_id == remove_id else r.from_member_id
+        t = keep_id if r.to_member_id == remove_id else r.to_member_id
+        if f == t:
+            continue  # self-relation once both ends fold onto keep
+        key = (f, t, r.relation_type)
+        if key in seen:
+            continue  # keep already has this relation
+        seen.add(key)
+        new_keys.append(key)
+    return new_keys
+
+
+def _count_new_links(
+    db: Session, model: type, id_field: str, keep_id: str, remove_id: str
+) -> int:
+    """How many of remove's rows in a member-link table are not already on
+    keep — mirrors the dedup ``_repoint_member_links`` applies at merge time."""
+    keep_ids = {
+        getattr(row, id_field)
+        for row in db.scalars(select(model).where(model.member_id == keep_id))
+    }
+    return sum(
+        1
+        for row in db.scalars(select(model).where(model.member_id == remove_id))
+        if getattr(row, id_field) not in keep_ids
+    )
+
+
+def _count_new_event_links(
+    db: Session, tree_id: str, keep_id: str, remove_id: str
+) -> int:
+    """Like ``_count_new_links`` for events, but also excludes a remove-side
+    birth/death mirror event when keep already has one of that type — the
+    post-merge vital-event dedup (see the merge route) would collapse it
+    right back out, so counting it as "will transfer" overstates reality."""
+    keep_links = {
+        row.event_id
+        for row in db.scalars(
+            select(EventMemberLink).where(EventMemberLink.member_id == keep_id)
+        )
+    }
+    keep_vital_types = {
+        event_type
+        for (event_type,) in db.execute(
+            select(Event.event_type)
+            .join(EventMemberLink, EventMemberLink.event_id == Event.id)
+            .where(
+                Event.tree_id == tree_id,
+                EventMemberLink.member_id == keep_id,
+                Event.event_type.in_(("birth", "death")),
+            )
+        )
+    }
+    count = 0
+    for link in db.scalars(
+        select(EventMemberLink).where(EventMemberLink.member_id == remove_id)
+    ):
+        if link.event_id in keep_links:
+            continue
+        event = db.get(Event, link.event_id)
+        if event is not None and event.event_type in keep_vital_types:
+            continue
+        count += 1
+    return count
+
+
+def _count_new_diseases(db: Session, keep_id: str, remove_id: str) -> int:
+    """Mirrors ``_transfer_diseases``'s name-based dedup (including among
+    remove's own rows) to count how many diseases would actually transfer."""
+    keep_names = {
+        norm(d.name)
+        for d in db.scalars(
+            select(MemberDisease).where(MemberDisease.member_id == keep_id)
+        )
+    }
+    seen = set(keep_names)
+    count = 0
+    for disease in db.scalars(
+        select(MemberDisease).where(MemberDisease.member_id == remove_id)
+    ):
+        name_key = norm(disease.name)
+        if name_key in seen:
+            continue
+        seen.add(name_key)
+        count += 1
+    return count
 
 
 def compute_member_merge_preview(
@@ -69,34 +219,35 @@ def compute_member_merge_preview(
         default_action="merge",
     )
 
-    def _count(model: type, column) -> int:
-        return db.scalar(select(func.count()).where(column == remove.id)) or 0
-
-    relations = (
-        db.scalar(
-            select(func.count())
-            .select_from(Relation)
-            .where(
-                Relation.tree_id == tree.id,
-                or_(
-                    Relation.from_member_id == remove.id,
-                    Relation.to_member_id == remove.id,
-                ),
-            )
-        )
-        or 0
+    all_relations = list(
+        db.scalars(select(Relation).where(Relation.tree_id == tree.id))
+    )
+    would_create_cycle = _merge_creates_cycle_through_keep(
+        all_relations, keep.id, remove.id
+    )
+    keep_keys, remove_relations = _plan_relation_transfer(
+        all_relations, keep.id, remove.id
+    )
+    relations = len(
+        _new_relation_keys(remove_relations, keep_keys, keep.id, remove.id)
     )
 
     transfer = MemberMergeTransferCounts(
         relations=relations,
-        events=_count(EventMemberLink, EventMemberLink.member_id),
-        stories=_count(StoryMemberLink, StoryMemberLink.member_id),
-        gallery=_count(GalleryMemberLink, GalleryMemberLink.member_id),
-        documents=_count(DocumentMemberLink, DocumentMemberLink.member_id),
-        tasks=_count(MemberTaskLink, MemberTaskLink.member_id),
-        diseases=_count(MemberDisease, MemberDisease.member_id),
+        events=_count_new_event_links(db, tree.id, keep.id, remove.id),
+        stories=_count_new_links(db, StoryMemberLink, "story_id", keep.id, remove.id),
+        gallery=_count_new_links(
+            db, GalleryMemberLink, "gallery_image_id", keep.id, remove.id
+        ),
+        documents=_count_new_links(
+            db, DocumentMemberLink, "document_id", keep.id, remove.id
+        ),
+        tasks=_count_new_links(db, MemberTaskLink, "task_id", keep.id, remove.id),
+        diseases=_count_new_diseases(db, keep.id, remove.id),
     )
-    return MemberMergePreviewOut(pair=pair, transfer=transfer)
+    return MemberMergePreviewOut(
+        pair=pair, transfer=transfer, would_create_cycle=would_create_cycle
+    )
 
 
 def _repoint_member_links(
@@ -141,7 +292,7 @@ def _transfer_diseases(db: Session, keep_id: str, remove_id: str) -> None:
     dropped rather than kept alongside.
     """
     keep_names = {
-        _norm(d.name)
+        norm(d.name)
         for d in db.scalars(
             select(MemberDisease).where(MemberDisease.member_id == keep_id)
         )
@@ -149,7 +300,7 @@ def _transfer_diseases(db: Session, keep_id: str, remove_id: str) -> None:
     for disease in db.scalars(
         select(MemberDisease).where(MemberDisease.member_id == remove_id)
     ):
-        name_key = _norm(disease.name)
+        name_key = norm(disease.name)
         if name_key in keep_names:
             db.delete(disease)
             continue
@@ -184,35 +335,19 @@ def merge_members_in_place(
     normalized_fields = {
         snake: choice
         for snake, choice in (
-            (_to_snake_case(field), choice) for field, choice in fields.items()
+            (to_snake_case(field), choice) for field, choice in fields.items()
         )
         if snake in CONFLICT_FIELDS
     }
 
-    # --- Cycle guard: simulate folding remove's edges onto keep first -------
+    # --- Cycle guard: scoped to cycles that would involve keep --------------
     all_relations = list(
         db.scalars(select(Relation).where(Relation.tree_id == tree.id))
     )
-    simulated_relations = []
-    for r in all_relations:
-        f = keep.id if r.from_member_id == remove.id else r.from_member_id
-        t = keep.id if r.to_member_id == remove.id else r.to_member_id
-        if f == t:
-            continue
-        simulated_relations.append(
-            SimpleNamespace(
-                from_member_id=f, to_member_id=t, relation_type=r.relation_type
-            )
-        )
-    remaining_members = [
-        m
-        for m in db.scalars(select(Member).where(Member.tree_id == tree.id))
-        if m.id != remove.id
-    ]
-    if find_parent_cycle_members(remaining_members, simulated_relations):
+    if _merge_creates_cycle_through_keep(all_relations, keep.id, remove.id):
         raise HTTPException(
             status_code=400,
-            detail="This merge would create a relationship cycle",
+            detail="This merge would make this member their own ancestor",
         )
 
     # --- Pre-image for the activity log, captured before any mutation -------
@@ -228,26 +363,12 @@ def merge_members_in_place(
     apply_field_choices(keep, keep, remove, normalized_fields)
 
     # --- Relations: union onto keep, dedupe, drop self-relations -----------
-    keep_keys: set[tuple[str, str, str]] = set()
-    remove_relations: list[Relation] = []
-    for r in all_relations:
-        if remove.id in (r.from_member_id, r.to_member_id):
-            remove_relations.append(r)
-        else:
-            keep_keys.add((r.from_member_id, r.to_member_id, r.relation_type))
-
-    new_relations: list[tuple[str, str, str]] = []
+    keep_keys, remove_relations = _plan_relation_transfer(
+        all_relations, keep.id, remove.id
+    )
+    new_relations = _new_relation_keys(remove_relations, keep_keys, keep.id, remove.id)
     for r in remove_relations:
-        f = keep.id if r.from_member_id == remove.id else r.from_member_id
-        t = keep.id if r.to_member_id == remove.id else r.to_member_id
         db.delete(r)
-        if f == t:
-            continue  # self-relation once both ends fold onto keep
-        key = (f, t, r.relation_type)
-        if key in keep_keys:
-            continue  # keep already has this relation
-        keep_keys.add(key)
-        new_relations.append(key)
     db.flush()
     for f, t, relation_type in new_relations:
         db.add(

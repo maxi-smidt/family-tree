@@ -215,7 +215,7 @@ function IssueCard({
           memberIds={issue.member_ids}
           open={mergeOpen}
           onOpenChange={setMergeOpen}
-          onMerged={() => toast.success(t("merge-success"))}
+          onMerged={() => {}}
         />
       )}
     </Card>

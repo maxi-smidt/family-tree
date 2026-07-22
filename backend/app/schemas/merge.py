@@ -62,6 +62,7 @@ class MemberMergeTransferCounts(BaseModel):
 class MemberMergePreviewOut(BaseModel):
     pair: DuplicatePair
     transfer: MemberMergeTransferCounts
+    would_create_cycle: bool = False
 
 
 class MemberMergeRequest(BaseModel):
