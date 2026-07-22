@@ -2158,6 +2158,7 @@
     "title": "Notifications",
     "empty": "You're all caught up.",
     "mark-all-read": "Mark all read",
+    "load-more": "Load more",
     "unread-badge-label": "{{count}} unread",
     "types": {
       "friend_request_received": "{{requester_username}} sent you a friend request",

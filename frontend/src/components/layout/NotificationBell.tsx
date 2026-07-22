@@ -52,14 +52,15 @@ export const NotificationBell = () => {
 
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
+  const total = useNotificationStore((s) => s.total);
+  const loadingMore = useNotificationStore((s) => s.loadingMore);
   const load = useNotificationStore((s) => s.load);
-  const refreshUnreadCount = useNotificationStore((s) => s.refreshUnreadCount);
+  const loadMore = useNotificationStore((s) => s.loadMore);
   const markRead = useNotificationStore((s) => s.markRead);
   const markAllRead = useNotificationStore((s) => s.markAllRead);
 
   useEffect(() => {
     void load();
-    void refreshUnreadCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -97,7 +98,10 @@ export const NotificationBell = () => {
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
-        <div className="flex items-center justify-between px-4 py-3 border-b">
+        {/* flex-wrap: some locales' "mark all read" label is too long to
+            share a row with the title in a 320px popover — wrap to its own
+            line instead of overflowing (see de.json). */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 border-b">
           <span className="text-sm font-semibold">{t("title")}</span>
           <Button
             variant="ghost"
@@ -138,6 +142,17 @@ export const NotificationBell = () => {
                 </span>
               </button>
             ))
+          )}
+          {notifications.length < total && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full rounded-none"
+              disabled={loadingMore}
+              onClick={() => void loadMore()}
+            >
+              {t("load-more")}
+            </Button>
           )}
         </div>
       </PopoverContent>

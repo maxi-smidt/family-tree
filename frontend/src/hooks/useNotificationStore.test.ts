@@ -30,13 +30,15 @@ beforeEach(() => {
   useNotificationStore.setState({
     notifications: [],
     unreadCount: 0,
+    total: 0,
     loading: false,
+    loadingMore: false,
     loaded: false,
   });
 });
 
 describe("useNotificationStore — load", () => {
-  it("populates notifications and unreadCount from the first page", async () => {
+  it("populates notifications, unreadCount, and total from the first page", async () => {
     vi.mocked(NotificationService.list).mockResolvedValue({
       entries: [N1, N2],
       total: 2,
@@ -48,6 +50,7 @@ describe("useNotificationStore — load", () => {
     const state = useNotificationStore.getState();
     expect(state.notifications).toEqual([N1, N2]);
     expect(state.unreadCount).toBe(1);
+    expect(state.total).toBe(2);
     expect(state.loaded).toBe(true);
     expect(state.loading).toBe(false);
 
@@ -56,27 +59,81 @@ describe("useNotificationStore — load", () => {
   });
 });
 
-describe("useNotificationStore — refreshUnreadCount", () => {
-  it("fetches just the unread count", async () => {
-    vi.mocked(NotificationService.unreadCount).mockResolvedValue({
-      unread_count: 4,
+describe("useNotificationStore — loadMore", () => {
+  it("appends the next page, paging by the current list length", async () => {
+    useNotificationStore.setState({ notifications: [N1], unreadCount: 1, total: 2 });
+    vi.mocked(NotificationService.list).mockResolvedValue({
+      entries: [N2],
+      total: 2,
+      unread_count: 1,
     });
 
-    await useNotificationStore.getState().refreshUnreadCount();
+    await useNotificationStore.getState().loadMore();
 
-    expect(useNotificationStore.getState().unreadCount).toBe(4);
+    expect(NotificationService.list).toHaveBeenCalledWith(25, 1);
+    const state = useNotificationStore.getState();
+    expect(state.notifications).toEqual([N1, N2]);
+    expect(state.loadingMore).toBe(false);
+  });
+
+  it("dedupes entries already present (e.g. an SSE arrival mid-page)", async () => {
+    useNotificationStore.setState({ notifications: [N1], unreadCount: 1, total: 2 });
+    vi.mocked(NotificationService.list).mockResolvedValue({
+      entries: [N1, N2],
+      total: 2,
+      unread_count: 1,
+    });
+
+    await useNotificationStore.getState().loadMore();
+
+    expect(useNotificationStore.getState().notifications).toEqual([N1, N2]);
+  });
+
+  it("does nothing once every notification is already loaded", async () => {
+    useNotificationStore.setState({ notifications: [N1, N2], unreadCount: 0, total: 2 });
+
+    await useNotificationStore.getState().loadMore();
+
+    expect(NotificationService.list).not.toHaveBeenCalled();
+  });
+
+  it("never lets a stale response overwrite unreadCount, and never lowers total", async () => {
+    // Simulates a notification.created SSE event landing while the
+    // loadMore request (issued before it) is still in flight: the response
+    // reflects the pre-event world and must not undo the event's bump.
+    useNotificationStore.setState({ notifications: [N1], unreadCount: 1, total: 2 });
+    vi.mocked(NotificationService.list).mockResolvedValue({
+      entries: [N2],
+      total: 2, // stale — an event already bumped the live total to 3
+      unread_count: 1, // stale — an event already bumped the live count to 2
+    });
+
+    const pending = useNotificationStore.getState().loadMore();
+    useNotificationStore.getState().addFromEvent({
+      id: "n3",
+      type: "friend_request_received",
+      payload: null,
+      created_at: "2026-07-21T10:00:00Z",
+      read_at: null,
+    });
+    await pending;
+
+    const state = useNotificationStore.getState();
+    expect(state.unreadCount).toBe(2);
+    expect(state.total).toBe(3);
   });
 });
 
 describe("useNotificationStore — addFromEvent", () => {
-  it("prepends a new notification and increments unreadCount", () => {
-    useNotificationStore.setState({ notifications: [N2], unreadCount: 0 });
+  it("prepends a new notification, increments unreadCount and total", () => {
+    useNotificationStore.setState({ notifications: [N2], unreadCount: 0, total: 1 });
 
     useNotificationStore.getState().addFromEvent(N1);
 
     const state = useNotificationStore.getState();
     expect(state.notifications).toEqual([N1, N2]);
     expect(state.unreadCount).toBe(1);
+    expect(state.total).toBe(2);
   });
 
   it("does not increment unreadCount for an already-read event", () => {
@@ -140,6 +197,7 @@ describe("useNotificationStore — clear", () => {
     useNotificationStore.setState({
       notifications: [N1],
       unreadCount: 1,
+      total: 1,
       loaded: true,
     });
 
@@ -148,6 +206,7 @@ describe("useNotificationStore — clear", () => {
     const state = useNotificationStore.getState();
     expect(state.notifications).toEqual([]);
     expect(state.unreadCount).toBe(0);
+    expect(state.total).toBe(0);
     expect(state.loaded).toBe(false);
   });
 });

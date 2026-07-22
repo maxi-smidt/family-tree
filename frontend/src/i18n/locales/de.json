@@ -2158,6 +2158,7 @@
     "title": "Benachrichtigungen",
     "empty": "Du hast alles gesehen.",
     "mark-all-read": "Alle als gelesen markieren",
+    "load-more": "Mehr laden",
     "unread-badge-label": "{{count}} ungelesen",
     "types": {
       "friend_request_received": "{{requester_username}} hat dir eine Freundschaftsanfrage gesendet",
