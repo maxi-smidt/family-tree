@@ -32,3 +32,29 @@ export interface MergeResolution {
   action: MergeDefaultAction;
   fields: Partial<Record<string, MergeFieldChoice>>;
 }
+
+/**
+ * In-place, same-tree member merge (#729) — combines two members of one
+ * tree, unlike the tree-level merge above which clones into a new tree.
+ */
+export interface MemberMergeTransferCounts {
+  relations: number;
+  events: number;
+  stories: number;
+  gallery: number;
+  documents: number;
+  tasks: number;
+  diseases: number;
+}
+
+export interface MemberMergePreview {
+  pair: DuplicatePair;
+  transfer: MemberMergeTransferCounts;
+  would_create_cycle: boolean;
+}
+
+export interface MemberMergeRequest {
+  keep_id: string;
+  remove_id: string;
+  fields: Partial<Record<string, MergeFieldChoice>>;
+}

@@ -31,6 +31,10 @@ interface Props {
   sourceBName: string;
   state: PairResolutionState;
   onChange: (updated: PairResolutionState) => void;
+  /** Hide the merge/keep-both toggle for callers where "keep both" isn't a
+   *  real option (e.g. an in-place merge of two members of the same tree) —
+   *  the resolver always behaves as if `action: "merge"` in that case. */
+  hideActionToggle?: boolean;
 }
 
 function FieldRow({
@@ -125,6 +129,7 @@ export const MergeConflictResolver = ({
   sourceBName,
   state,
   onChange,
+  hideActionToggle = false,
 }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "merge-view.resolve",
@@ -164,25 +169,29 @@ export const MergeConflictResolver = ({
           </Badge>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <Label className="text-xs text-muted-foreground">
-            {t("action-label")}
-          </Label>
-          <Select
-            value={state.action}
-            onValueChange={(v) =>
-              handleActionChange(v as "merge" | "keep_both")
-            }
-          >
-            <SelectTrigger className="h-7 w-28 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="merge">{t("action-merge")}</SelectItem>
-              <SelectItem value="keep_both">{t("action-keep-both")}</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {!hideActionToggle && (
+          <div className="flex items-center gap-2 shrink-0">
+            <Label className="text-xs text-muted-foreground">
+              {t("action-label")}
+            </Label>
+            <Select
+              value={state.action}
+              onValueChange={(v) =>
+                handleActionChange(v as "merge" | "keep_both")
+              }
+            >
+              <SelectTrigger className="h-7 w-28 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="merge">{t("action-merge")}</SelectItem>
+                <SelectItem value="keep_both">
+                  {t("action-keep-both")}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {/* Column headers */}

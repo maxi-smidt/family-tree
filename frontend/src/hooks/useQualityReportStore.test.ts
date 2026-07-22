@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useQualityReportStore } from "./useQualityReportStore";
 import { useTreeStore } from "./useTreeStore";
+import { useMemberStore } from "./useMemberStore";
+import { useEventStore } from "./useEventStore";
+import { useStoryStore } from "./useStoryStore";
+import { useGalleryStore } from "./useGalleryStore";
+import { useDocumentStore } from "./useDocumentStore";
+import { registerTaskStoreActions } from "./taskStoreRegistry";
 import { TreeService } from "@/services/TreeService";
 import { QualityReport } from "@/types/quality";
 import { Tree } from "@/types/tree";
@@ -98,6 +104,60 @@ describe("useQualityReportStore — dismissIssue / restoreIssue", () => {
     await useQualityReportStore.getState().dismissIssue("issue-1");
 
     expect(TreeService.dismissQualityIssue).not.toHaveBeenCalled();
+  });
+});
+
+describe("useQualityReportStore — mergeMembers", () => {
+  it("refreshes members and any already-initialized domain stores (#812)", async () => {
+    useTreeStore.setState({ selectedTree: makeTree() });
+    useQualityReportStore.setState({ report: REPORT, showDismissed: true });
+    vi.mocked(TreeService.mergeMembers).mockResolvedValue(
+      {} as Awaited<ReturnType<typeof TreeService.mergeMembers>>,
+    );
+    vi.mocked(TreeService.getQualityReport).mockResolvedValue(REPORT);
+
+    const refreshMembers = vi.fn().mockResolvedValue(undefined);
+    useMemberStore.setState({ refreshMembers });
+    const refreshEvents = vi.fn().mockResolvedValue(undefined);
+    useEventStore.setState({ initialized: true, refreshEvents });
+    const refreshStories = vi.fn().mockResolvedValue(undefined);
+    useStoryStore.setState({ initialized: false, refreshStories });
+    const refreshGalleryImages = vi.fn().mockResolvedValue(undefined);
+    useGalleryStore.setState({ initialized: true, refreshGalleryImages });
+    const refreshDocuments = vi.fn().mockResolvedValue(undefined);
+    useDocumentStore.setState({ initialized: true, refreshDocuments });
+    // Research tasks go through the lazy taskStoreRegistry bridge (like
+    // every other post-mutation task refresh in the app) rather than a
+    // direct useTaskStore import, so unrelated tests never trigger the
+    // real store's own network calls just by importing this one.
+    const taskRefresh = vi.fn();
+    registerTaskStoreActions({ clear: vi.fn(), refresh: taskRefresh });
+
+    await useQualityReportStore.getState().mergeMembers("keep", "remove", {});
+
+    expect(TreeService.mergeMembers).toHaveBeenCalledWith(TREE_ID, {
+      keep_id: "keep",
+      remove_id: "remove",
+      fields: {},
+    });
+    expect(refreshMembers).toHaveBeenCalledWith(TREE_ID);
+    // Already-hydrated domain stores refresh so they don't keep serving
+    // pre-merge data for the rest of the session.
+    expect(refreshEvents).toHaveBeenCalledWith(TREE_ID);
+    expect(refreshGalleryImages).toHaveBeenCalledWith(TREE_ID);
+    expect(refreshDocuments).toHaveBeenCalledWith(TREE_ID);
+    expect(taskRefresh).toHaveBeenCalledWith(TREE_ID);
+    // A store nobody has opened yet is left uninitialized rather than
+    // eagerly hydrated.
+    expect(refreshStories).not.toHaveBeenCalled();
+    // The report itself ends up fresh, not stuck at the cleared/null state
+    // invalidateDerivedViews() briefly sets it to.
+    expect(useQualityReportStore.getState().report).toEqual(REPORT);
+  });
+
+  it("does nothing when no tree is selected", async () => {
+    await useQualityReportStore.getState().mergeMembers("keep", "remove", {});
+    expect(TreeService.mergeMembers).not.toHaveBeenCalled();
   });
 });
 

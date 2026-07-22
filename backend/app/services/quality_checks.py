@@ -3,6 +3,7 @@
 import hashlib
 from collections import defaultdict
 
+from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
 
 # Minimum/maximum plausible age of a parent at their child's birth.
@@ -15,6 +16,10 @@ _MAX_PARENT_AGE = 100
 # birth after the *mother's* death is not biologically possible, so mothers get
 # no grace.
 _POSTHUMOUS_BIRTH_GRACE_YEARS = 1
+
+# Event types that legitimately happen after a person's death and should not
+# be flagged by the event-after-death check.
+_POST_DEATH_EVENT_TYPES = frozenset({"burial"})
 
 
 def _year(date_str: str | None) -> int | None:
@@ -37,10 +42,55 @@ def issue_id_for(issue_type: str, member_ids: list[str]) -> str:
     return hashlib.sha256(key.encode()).hexdigest()[:32]
 
 
+def find_parent_cycle_members(
+    members: list[Member], relations: list[Relation]
+) -> set[str]:
+    """Return the ids of members participating in a parent-chain cycle.
+
+    Empty when the parent relationships are acyclic. A parent edge is a
+    ``Relation`` with ``relation_type == "parent"``, ``from_member_id`` the
+    child and ``to_member_id`` the parent. Shared by the quality report (an
+    informational finding) and the in-place member-merge guard (a hard
+    refusal), so both agree on what counts as a cycle.
+    """
+    parents_of: dict[str, set[str]] = defaultdict(set)
+    for r in relations:
+        if r.relation_type == "parent":
+            parents_of[r.from_member_id].add(r.to_member_id)
+
+    visited: set[str] = set()
+    on_stack: set[str] = set()
+    cycle_members: set[str] = set()
+
+    def _dfs(node: str) -> bool:
+        visited.add(node)
+        on_stack.add(node)
+        for ancestor in parents_of.get(node, set()):
+            if ancestor not in visited:
+                if _dfs(ancestor):
+                    cycle_members.update([node, ancestor])
+                    return True
+            elif ancestor in on_stack:
+                cycle_members.update([node, ancestor])
+                return True
+        on_stack.discard(node)
+        return False
+
+    for m in members:
+        if m.id not in visited:
+            _dfs(m.id)
+
+    return cycle_members
+
+
 def run_quality_checks(
     members: list[Member],
     relations: list[Relation],
+    events: list[Event] | None = None,
+    event_links: list[EventMemberLink] | None = None,
 ) -> list[dict]:
+    events = events or []
+    event_links = event_links or []
     issues: list[dict] = []
     member_map = {m.id: m for m in members}
 
@@ -135,32 +185,7 @@ def run_quality_checks(
             )
 
     # --- 3. Relationship cycles (parent-chain) ---
-    # Build child→parents adjacency for traversal.
-    parents_of: dict[str, set[str]] = defaultdict(set)
-    for parent_id, child_id in parent_pairs:
-        parents_of[child_id].add(parent_id)
-
-    visited: set[str] = set()
-    on_stack: set[str] = set()
-    cycle_members: set[str] = set()
-
-    def _dfs(node: str) -> bool:
-        visited.add(node)
-        on_stack.add(node)
-        for ancestor in parents_of.get(node, set()):
-            if ancestor not in visited:
-                if _dfs(ancestor):
-                    cycle_members.update([node, ancestor])
-                    return True
-            elif ancestor in on_stack:
-                cycle_members.update([node, ancestor])
-                return True
-        on_stack.discard(node)
-        return False
-
-    for m in members:
-        if m.id not in visited:
-            _dfs(m.id)
+    cycle_members = find_parent_cycle_members(members, relations)
 
     if cycle_members:
         issues.append(
@@ -208,7 +233,34 @@ def run_quality_checks(
                     }
                 )
 
+    # --- 6. Event dated after the member's own death ---
+    event_map = {e.id: e for e in events}
+    for link in event_links:
+        member = member_map.get(link.member_id)
+        ev = event_map.get(link.event_id)
+        if member is None or ev is None:
+            continue
+        if (ev.event_type or "").lower() in _POST_DEATH_EVENT_TYPES:
+            continue
+        death = _year(member.date_of_death)
+        ev_year = _year(ev.date)
+        if death is None or ev_year is None:
+            continue
+        if ev_year > death:
+            issues.append(
+                {
+                    "id": issue_id_for("event_after_death", [member.id, ev.id]),
+                    "issue_type": "event_after_death",
+                    "severity": "warning",
+                    "member_ids": [member.id],
+                    "description": (
+                        f"A '{ev.event_type}' event ({ev_year}) is dated after "
+                        f"this member's death year ({death})."
+                    ),
+                }
+            )
+
     for issue in issues:
-        issue["id"] = issue_id_for(issue["issue_type"], issue["member_ids"])
+        issue.setdefault("id", issue_id_for(issue["issue_type"], issue["member_ids"]))
 
     return issues

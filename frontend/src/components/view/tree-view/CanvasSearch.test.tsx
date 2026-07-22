@@ -86,4 +86,82 @@ describe("CanvasSearch", () => {
       );
     });
   });
+
+  it("matches a reordered multi-token query in the current tree, like the server-backed search", async () => {
+    searchOtherTrees.mockResolvedValue([]);
+    const member = {
+      id: "homer",
+      firstName: "Homer 2",
+      lastName: "Simpson",
+      maidenName: null,
+      date: { birth: "1956", death: null },
+    } as Member;
+
+    render(
+      <CanvasSearch
+        members={[member]}
+        onLocate={vi.fn()}
+        treeId="current-tree"
+        onOpenOtherTree={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Search members…"), {
+      target: { value: "Simps 2" },
+    });
+
+    expect(screen.getByText("Homer 2 Simpson")).toBeInTheDocument();
+  });
+
+  it("matches a name token combined with a birth-year token in the current tree", async () => {
+    searchOtherTrees.mockResolvedValue([]);
+    const member = {
+      id: "anna",
+      firstName: "Anna",
+      lastName: "Müller",
+      maidenName: null,
+      date: { birth: "12 May 1932", death: null },
+    } as Member;
+
+    render(
+      <CanvasSearch
+        members={[member]}
+        onLocate={vi.fn()}
+        treeId="current-tree"
+        onOpenOtherTree={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Search members…"), {
+      target: { value: "Müller 1932" },
+    });
+
+    expect(screen.getByText("Anna Müller")).toBeInTheDocument();
+  });
+
+  it("matches a name token combined with a death-year token in the current tree", async () => {
+    searchOtherTrees.mockResolvedValue([]);
+    const member = {
+      id: "anna",
+      firstName: "Anna",
+      lastName: "Müller",
+      maidenName: null,
+      date: { birth: "1901", death: "3 Jan 1999" },
+    } as Member;
+
+    render(
+      <CanvasSearch
+        members={[member]}
+        onLocate={vi.fn()}
+        treeId="current-tree"
+        onOpenOtherTree={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("Search members…"), {
+      target: { value: "Müller 1999" },
+    });
+
+    expect(screen.getByText("Anna Müller")).toBeInTheDocument();
+  });
 });

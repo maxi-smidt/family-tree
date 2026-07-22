@@ -16,11 +16,25 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   you're offline are waiting on next login. Unread count updates live over SSE; mark-read and
   mark-all-read supported; entries are retention-capped per user. Gated behind the new
   `notifications` feature flag (#726).
+- Data-quality report's "possible duplicate" findings can now be resolved
+  directly with a guided merge: pick which record to keep, resolve any
+  conflicting fields (reusing the tree-merge conflict resolver, defaulting to
+  whichever side actually has a value when only one does), and preview an
+  accurate count of what will be transferred before confirming. All of the
+  removed member's relations, events (including keeping the birth/death
+  timeline entries in sync), stories, gallery tags, documents, research
+  tasks, genetic conditions, and bridge-person link move onto the kept
+  record; the merge refuses to run if it would make the kept record its own
+  ancestor, or if the same member is picked on both sides — both caught
+  up front in the preview, not just on confirm (#729).
 - A member's profile picture can now be set from one of their already-linked
   gallery photos (with crop), instead of only by uploading a new file (#776).
 - Data-quality report now flags a child born after a parent's death year. A
   posthumous-birth grace window (~1 year) is allowed for fathers and
   parents of unknown gender, but not for mothers (#768).
+- Data-quality report now flags a life event dated after the linked member's
+  own death year (a new `event_after_death` warning). Burial events are
+  excluded, since they legitimately occur after death (#799).
 - Research tasks: open questions and to-dos with open/done state, linked to
   any number of members (or none, for general tree-wide tasks), managed from
   the member sheet or created directly from the quality report. Tree nodes can
@@ -47,6 +61,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Changed
 
+- Member name search (in-tree and cross-tree, including the tree canvas's own
+  search box) now splits a multi-word query into tokens matched independently
+  across first/last/maiden name, so `"Last First"` matches the same as
+  `"First Last"`, and a 4-digit year token (e.g. `"Anna Müller 1932"`) also
+  matches that person's birth/death date. Single-word queries behave exactly
+  as before (#797).
 - Documents and events in the member sheet (and the read-only member preview
   dialog) are now sorted newest-first by their date, instead of insertion
   order; entries with a partial (year-only or year-month) date sort using
@@ -80,6 +100,16 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- Uploading several files to a member-sheet document no longer silently stops
+  after the first one when a connection stalls or a single file fails to
+  upload. Every file is now staged independently with a request timeout so a
+  dead connection surfaces as an error instead of hanging forever, and the
+  dialog names the file(s) that failed instead of saving a partial set (#773).
+- Member name and place fields (first/middle/last/maiden/baptismal name,
+  academic title, birthplace, hometown, cemetery, notes) are now trimmed of
+  leading and trailing whitespace when saved from any entry path, and
+  existing records are backfilled, so search and duplicate detection match
+  reliably regardless of stray copy-paste spaces (#796).
 - Locking the tree canvas now also disables per-node editing: the node edit
   (pencil) button, quick-add handles, and the member sheet's edit-mode toggle
   are hidden while the canvas is locked, matching the existing lock behavior

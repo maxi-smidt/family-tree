@@ -26,6 +26,41 @@ export function getMemberSearchText(
     .trim();
 }
 
+const YEAR_TOKEN = /^\d{4}$/;
+
+/**
+ * Client-side mirror of the backend's ``member_name_search_clause`` (see
+ * ``backend/app/services/member_search.py``): a single-token query is a plain
+ * substring match against the combined name text; a multi-token query is
+ * split on whitespace and AND-ed token by token, so name-order permutations
+ * (e.g. "Last First") match, and a 4-digit-year token also matches the
+ * birth/death date strings. Kept in sync so the always-loaded "current tree"
+ * results (filtered client-side) don't diverge from the server-backed
+ * cross-tree results for the same query.
+ */
+export function memberMatchesSearch(
+  m: Pick<Member, "firstName" | "lastName" | "maidenName">,
+  query: string,
+  dates: { birth?: string | null; death?: string | null } = {},
+): boolean {
+  const trimmed = query.trim();
+  if (!trimmed) return false;
+  const searchText = getMemberSearchText(m).toLowerCase();
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length <= 1) {
+    return searchText.includes(trimmed.toLowerCase());
+  }
+  return tokens.every((token) => {
+    const lower = token.toLowerCase();
+    if (searchText.includes(lower)) return true;
+    if (!YEAR_TOKEN.test(token)) return false;
+    return Boolean(
+      dates.birth?.toLowerCase().includes(lower) ||
+      dates.death?.toLowerCase().includes(lower),
+    );
+  });
+}
+
 /**
  * Muted secondary line for a member: born (maiden) name and birth year, e.g.
  * "née Jones · 1900". `formatMaiden` localizes the maiden-name part (it returns

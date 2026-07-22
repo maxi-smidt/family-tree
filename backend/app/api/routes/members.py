@@ -49,7 +49,12 @@ from app.schemas.family import (
     RelationCreate,
     RelationOut,
 )
-from app.schemas.merge import DuplicatePair, LinkCandidatesOut
+from app.schemas.merge import (
+    DuplicatePair,
+    LinkCandidatesOut,
+    MemberMergePreviewOut,
+    MemberMergeRequest,
+)
 from app.schemas.tree import TreeOut
 from app.services.activity import (
     delete_snapshot,
@@ -60,6 +65,7 @@ from app.services.activity import (
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
+from app.services.member_merge import compute_member_merge_preview, merge_members_in_place
 from app.services.member_search import MEMBER_SURFACE_COLUMNS, member_name_search_clause
 from app.services.member_subtrees import create_linked_subtree
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
@@ -380,6 +386,160 @@ def update_member_collapsed(
     db.commit()
 
 
+def _sync_merged_vital_events(db: Session, tree: Tree, member: Member) -> None:
+    """After a merge re-points event links onto ``member``, drop duplicate
+    birth/death mirror events.
+
+    ``merge_members_in_place`` unions every event link from ``remove`` onto
+    ``keep`` without knowing which are derived vital-event mirrors, so a
+    duplicate birth/death event survives whenever both members had one —
+    ``_sync_vital_event`` assumes exactly one per type (#812).
+    """
+    for event_type in ("birth", "death"):
+        mirrors = list(
+            db.scalars(
+                select(Event)
+                .join(EventMemberLink, EventMemberLink.event_id == Event.id)
+                .where(
+                    Event.tree_id == tree.id,
+                    Event.event_type == event_type,
+                    EventMemberLink.member_id == member.id,
+                )
+                .order_by(Event.id)
+            )
+        )
+        for duplicate in mirrors[1:]:
+            db.delete(duplicate)
+    db.flush()
+
+
+@router.post("/members/merge", response_model=MemberOut)
+def merge_members(
+    payload: MemberMergeRequest,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Merge two members of this tree in place (#729).
+
+    ``keep_id`` survives; ``remove_id`` is deleted after its relations,
+    content links, and diseases are re-pointed onto ``keep_id`` and its
+    conflicting fields are resolved per ``fields`` (a/b/combine, same
+    semantics as the tree-merge resolver). Declared above
+    ``/members/{member_id}`` — like ``positions``/``collapsed`` — so the
+    literal ``merge`` path segment isn't captured as a member id.
+    """
+    keep = _get_member(db, tree, payload.keep_id)
+    remove = _get_member(db, tree, payload.remove_id)
+    merged, details, counterpart, bridge_outcome = merge_members_in_place(
+        db, tree, keep, remove, payload.fields
+    )
+
+    # Vital-event mirror consistency: dedup always runs (integrity cleanup);
+    # the date/location resync is skipped when the actor can't touch Events,
+    # mirroring update_member's own gating.
+    _sync_merged_vital_events(db, tree, merged)
+    if _event_updates_allowed(db, tree, user):
+        _sync_vital_event(
+            db, tree, merged, "birth", merged.date_of_birth, merged.birthplace
+        )
+        _sync_vital_event(
+            db, tree, merged, "death", merged.date_of_death, merged.cemetery
+        )
+
+    # Bridge-person drift: mirror field choices that changed keep's identity
+    # fields onto its own counterpart, same as update_member does. Uses
+    # keep_before (captured pre-merge) rather than remove's raw fields, since
+    # a "b" choice can pull remove's value while a "combine" produces a value
+    # neither side had.
+    keep_before = details["merge"]["keep_before"]
+    changed_fields = {
+        field: getattr(merged, field)
+        for field, before_value in keep_before.items()
+        if getattr(merged, field) != before_value
+    }
+    _, bridge_synced_tree = _sync_bridge_person(db, merged, changed_fields, user)
+
+    label = " ".join(filter(None, [merged.first_name, merged.last_name])) or None
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="update",
+        target_type="member",
+        target_id=merged.id,
+        target_label=label,
+        details=details,
+    )
+
+    # A bridge person's counterpart lives in another tree: its own
+    # linked_tree_id/linked_member_id just changed (re-pointed onto `merged`,
+    # or cleared entirely), so that tree gets its own activity entry too —
+    # same reasoning as the two record_activity calls in link_member_to_tree.
+    counterpart_tree: Tree | None = None
+    if counterpart is not None and bridge_outcome is not None:
+        counterpart_tree = db.get(Tree, counterpart.tree_id)
+        counterpart_label = (
+            " ".join(filter(None, [counterpart.first_name, counterpart.last_name]))
+            or None
+        )
+        bridge_details = {
+            "after": (
+                {"linked_tree_id": merged.tree_id, "linked_member_id": merged.id}
+                if bridge_outcome == "inherited"
+                else {"linked_tree_id": None, "linked_member_id": None}
+            )
+        }
+        record_activity(
+            db,
+            tree_id=counterpart_tree.id,
+            actor=user,
+            action="update",
+            target_type="member",
+            target_id=counterpart.id,
+            target_label=counterpart_label,
+            details=bridge_details,
+        )
+
+    db.commit()
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    db.refresh(merged)
+    # A merge can touch any content that was linked to `remove`, not just the
+    # member row itself, so every domain the transfer covers gets refreshed —
+    # see MemberMergeTransferCounts (#812).
+    for domain in ("member", "event", "story", "gallery", "document", "task"):
+        publish_tree_event(
+            db,
+            tree,
+            "tree.content_changed",
+            {"tree_id": tree.id, "domain": domain},
+        )
+    invalidate_stats(tree.id)
+
+    notified_tree_ids: set[str] = set()
+    if counterpart_tree is not None:
+        publish_tree_event(
+            db, counterpart_tree, "activity.entry_added", {"tree_id": counterpart_tree.id}
+        )
+        publish_tree_event(
+            db,
+            counterpart_tree,
+            "tree.content_changed",
+            {"tree_id": counterpart_tree.id, "domain": "member"},
+        )
+        invalidate_stats(counterpart_tree.id)
+        notified_tree_ids.add(counterpart_tree.id)
+    if bridge_synced_tree is not None and bridge_synced_tree.id not in notified_tree_ids:
+        publish_tree_event(
+            db,
+            bridge_synced_tree,
+            "tree.content_changed",
+            {"tree_id": bridge_synced_tree.id, "domain": "member"},
+        )
+        invalidate_stats(bridge_synced_tree.id)
+    return merged
+
+
 @router.get("/members/search", response_model=list[MemberSurfaceOut])
 def search_members(
     q: str = Query(..., min_length=1, max_length=200),
@@ -509,6 +669,29 @@ def get_member(
     if _public_only(db, tree, user):
         raise HTTPException(status_code=404, detail="Member not found")
     return _get_member(db, tree, member_id)
+
+
+@router.get(
+    "/members/{member_id}/merge-preview",
+    response_model=MemberMergePreviewOut,
+)
+def get_member_merge_preview(
+    member_id: str,
+    other: str = Query(...),
+    tree: Tree = Depends(get_writable_tree),
+    db: Session = Depends(get_db),
+):
+    """Field conflicts + transfer counts for a same-tree member merge (#729).
+
+    ``member_id`` previews as the surviving ("keep") side and ``other`` as
+    the one that would be removed; the merge itself is symmetric in what it
+    computes here, only ``POST /members/merge`` cares which id is which.
+    """
+    keep = _get_member(db, tree, member_id)
+    remove = _get_member(db, tree, other)
+    if keep.id == remove.id:
+        raise HTTPException(status_code=400, detail="Cannot merge a member with itself")
+    return compute_member_merge_preview(db, tree, keep, remove)
 
 
 def _event_updates_allowed(db: Session, tree: Tree, user: User) -> bool:
