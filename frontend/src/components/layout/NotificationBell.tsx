@@ -29,14 +29,19 @@ function navigateForNotification(n: NotificationDB): void {
       useNavigationStore.getState().navigateTo(FRIENDS_VIEW);
       break;
     case "tree_shared": {
+      const treeId = String(n.payload?.tree_id);
+      const previousTree = useTreeStore.getState().selectedTree;
+      // Already there — nothing to navigate. Also avoids retrying the same
+      // now-inaccessible tree below if access was revoked while it was open
+      // (that retry would fail again and land on the same empty state).
+      if (previousTree?.id === treeId) break;
       // The tree may since have been unshared or deleted — capture where
       // the user already was so a failed open can land them back there
       // instead of on whatever partial state the failed attempt left,
       // and tell them why nothing opened instead of failing silently.
-      const previousTree = useTreeStore.getState().selectedTree;
       void useTreeStore
         .getState()
-        .openTreeById(String(n.payload?.tree_id))
+        .openTreeById(treeId)
         .catch(() => {
           toast.error(i18n.t("tree-view.search.open-error"));
           const current = useTreeStore.getState().selectedTree;
