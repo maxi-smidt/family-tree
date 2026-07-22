@@ -23,6 +23,8 @@ import {
 } from "@/types/member";
 import {
   DuplicatePair,
+  MemberMergePreview,
+  MemberMergeRequest,
   MergeFieldChoice,
   MergePreviewResult,
 } from "@/types/merge";
@@ -797,6 +799,25 @@ export class TreeService {
     return api.del<void>(
       `${base(treeId)}/quality-report/issues/${issueId}/dismiss`,
     );
+  }
+
+  /** Field conflicts + transfer counts for merging `removeId` into `keepId`
+   *  in place (#729), reusing the merge conflict-resolution UI. */
+  static getMemberMergePreview(
+    treeId: string,
+    keepId: string,
+    removeId: string,
+  ) {
+    const params = new URLSearchParams({ other: removeId });
+    return api.get<MemberMergePreview>(
+      `${base(treeId)}/members/${keepId}/merge-preview?${params}`,
+    );
+  }
+
+  /** Merge two members of the same tree in place: `keepId` survives,
+   *  `removeId` is deleted after its relations/content are re-pointed. */
+  static mergeMembers(treeId: string, body: MemberMergeRequest) {
+    return api.post<MemberDB>(`${base(treeId)}/members/merge`, body);
   }
 
   // --- Statistics -----------------------------------------------------------

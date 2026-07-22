@@ -71,6 +71,26 @@ describe("buildInitialResolutionState", () => {
     const state = buildInitialResolutionState(pair);
     expect(state.fields).toEqual({});
   });
+
+  it("defaults a one-sided conflict (A empty, B set) to 'b'", () => {
+    const pair = makePair({
+      member_a: makeDB({ id: "a1", birthplace: null }),
+      member_b: makeDB({ id: "b1", birthplace: "Hamburg" }),
+      conflicts: ["birthplace"],
+    });
+    const state = buildInitialResolutionState(pair);
+    expect(state.fields["birthplace"]).toBe("b");
+  });
+
+  it("defaults a one-sided conflict (A set, B empty) to 'a'", () => {
+    const pair = makePair({
+      member_a: makeDB({ id: "a1", birthplace: "Berlin" }),
+      member_b: makeDB({ id: "b1", birthplace: null }),
+      conflicts: ["birthplace"],
+    });
+    const state = buildInitialResolutionState(pair);
+    expect(state.fields["birthplace"]).toBe("a");
+  });
 });
 
 // ---------------------------------------------------------------------------

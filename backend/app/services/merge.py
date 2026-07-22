@@ -59,7 +59,7 @@ if TYPE_CHECKING:
 # Normalisation helpers
 # ---------------------------------------------------------------------------
 
-def _norm(value: str | None) -> str:
+def norm(value: str | None) -> str:
     return (value or "").strip().lower()
 
 
@@ -71,7 +71,7 @@ def _empty(value: str | None) -> bool:
 _CAMEL_BOUNDARY = re.compile(r"(?<!^)(?=[A-Z])")
 
 
-def _to_snake_case(name: str) -> str:
+def to_snake_case(name: str) -> str:
     """Convert a camelCase field name (as the frontend sends field_choices /
     merge resolution keys) to the snake_case attribute name used on
     ``Member``. Already-snake_case input passes through unchanged."""
@@ -81,14 +81,14 @@ def _to_snake_case(name: str) -> str:
 def member_key(m: Member) -> tuple:
     """Exact-duplicate key: name + gender + both dates (all normalised)."""
     return (
-        _norm(m.first_name), _norm(m.last_name),
+        norm(m.first_name), norm(m.last_name),
         m.gender, m.date_of_birth, m.date_of_death,
     )
 
 
 def member_name_key(m: Member) -> tuple:
     """Name + gender only — used for possible-candidate detection."""
-    return (_norm(m.first_name), _norm(m.last_name), m.gender)
+    return (norm(m.first_name), norm(m.last_name), m.gender)
 
 
 # ---------------------------------------------------------------------------
@@ -122,21 +122,22 @@ CONFLICT_FIELDS: list[str] = [
 
 
 def compute_conflicts(a: Member, b: Member) -> list[str]:
-    """Return field names where the two members differ in a meaningful way."""
+    """Return field names where the two members differ in a meaningful way.
+
+    A field where only one side has a value is still reported (not just
+    both-set-and-differing) — otherwise a lone value on the non-default side
+    is never surfaced as a choice and gets silently dropped by whichever
+    caller applies an all-empty default (#812).
+    """
     conflicts: list[str] = []
     for field in CONFLICT_FIELDS:
         va = getattr(a, field, None)
         vb = getattr(b, field, None)
-        if field == "image_data":
-            # Report conflict only when both are set and differ
-            if not _empty(va) and not _empty(vb) and va != vb:
-                conflicts.append(field)
-        else:
-            # Treat None and "" as equal-empty
-            if _empty(va) and _empty(vb):
-                continue
-            if (va or "") != (vb or ""):
-                conflicts.append(field)
+        # Treat None and "" as equal-empty
+        if _empty(va) and _empty(vb):
+            continue
+        if (va or "") != (vb or ""):
+            conflicts.append(field)
     return conflicts
 
 
@@ -335,7 +336,7 @@ def reconcile_bridge_fields(
     ``Member`` attribute name.
     """
     choices = choices or {}
-    normalised_choices = {_to_snake_case(k): v for k, v in choices.items()}
+    normalised_choices = {to_snake_case(k): v for k, v in choices.items()}
     resolved: dict[str, str] = {
         k: v for k, v in normalised_choices.items() if k in CONFLICT_FIELDS
     }
@@ -562,7 +563,7 @@ def merge_trees(
             mid = member_map.get(d.member_id)
             if mid is None:
                 continue
-            key = (mid, _norm(d.name))
+            key = (mid, norm(d.name))
             if key in seen_diseases:
                 continue
             seen_diseases.add(key)
@@ -602,7 +603,7 @@ def merge_trees(
                     if mid in member_map
                 }
             )
-            key = (frozenset(mapped_members), _norm(task.title))
+            key = (frozenset(mapped_members), norm(task.title))
             if key in seen_tasks:
                 task_id_map[task.id] = seen_tasks[key]
                 continue
