@@ -101,7 +101,7 @@ def test_accept_requires_being_addressee(client, db):
     assert res.status_code == 400
 
 
-def test_search_excludes_self_and_annotates_status(client, db):
+def test_search_excludes_self_and_accepted_friends(client, db):
     alice = make_user(db, "alice")
     bob = make_user(db, "bob")
     befriend(db, alice, bob)
@@ -112,10 +112,25 @@ def test_search_excludes_self_and_annotates_status(client, db):
     by_name = {r["username"]: r for r in res.json()}
     assert "alice" not in by_name  # never includes the caller
     assert "alicia" in by_name and by_name["alicia"]["status"] is None
+    assert "email" not in by_name["alicia"]  # privacy: emails never exposed
 
+    # Already-accepted friends aren't actionable, so they're excluded outright.
     bob_hit = client.get(f"{API}/friends/search?q=bob", headers=auth(alice)).json()
-    assert bob_hit[0]["status"] == "accepted"
-    assert "email" not in bob_hit[0]  # privacy: emails never exposed
+    assert bob_hit == []
+
+
+def test_search_shows_pending_but_hides_accepted(client, db):
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    make_user(db, "bella")
+    befriend(db, alice, bob)
+    _send(client, alice, "bella")
+
+    res = client.get(f"{API}/friends/search?q=b", headers=auth(alice))
+    assert res.status_code == 200
+    by_name = {r["username"]: r for r in res.json()}
+    assert "bob" not in by_name
+    assert "bella" in by_name
 
 
 def test_search_annotates_pending_direction(client, db):

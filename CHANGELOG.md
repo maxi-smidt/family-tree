@@ -100,6 +100,9 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 ### Fixed
 
+- The Add Friend search no longer lists people you're already friends with;
+  only actionable results (no relationship, a pending request, or blocked)
+  appear (#815).
 - Uploading several files to a member-sheet document no longer silently stops
   after the first one when a connection stalls or a single file fails to
   upload. Every file is now staged independently with a request timeout so a
