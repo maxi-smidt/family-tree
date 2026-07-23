@@ -360,6 +360,36 @@ def test_trash_media_moves_display_and_original(tmp_path, monkeypatch):
     assert trashed_orig.read_bytes() == png
 
 
+def test_trash_media_moves_original_when_display_missing(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(4, 4)
+    url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS, mode="both")
+    stem = url.rsplit("/", 1)[-1].removesuffix(".webp")
+    rel = url[len(MEDIA_URL_PREFIX) + 1 :]
+    display_file = settings.media_root / rel
+    orig_file = settings.media_root / _TREE_ID / "originals" / f"{stem}.png"
+    assert orig_file.is_file()
+
+    # Simulate the display file already being gone (e.g. a prior partial
+    # cleanup); the originals sibling should still be trashed.
+    display_file.unlink()
+
+    trash_media(url)
+
+    trashed_orig = (
+        settings.media_root
+        / _TREE_ID
+        / MEDIA_TRASH_DIR_NAME
+        / "originals"
+        / orig_file.name
+    )
+    assert trashed_orig.is_file()
+    assert trashed_orig.read_bytes() == png
+    assert not orig_file.exists()
+
+
 def test_trash_media_noop_for_missing_file(tmp_path, monkeypatch):
     from app.core.config import settings
 

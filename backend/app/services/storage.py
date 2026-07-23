@@ -12,11 +12,13 @@ Filenames are random UUIDs, so the URLs are unguessable.
 import base64
 import binascii
 import hashlib
+import logging
 import os
 import re
 import shutil
 import tempfile
 import time
+from collections.abc import Callable
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -26,6 +28,8 @@ from fastapi import UploadFile
 
 from app.core.config import settings
 from app.schemas.setting import MediaLimits
+
+logger = logging.getLogger(__name__)
 
 MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
 
@@ -368,6 +372,26 @@ def _trash_originals_dir(tree_dir: Path) -> Path:
     return path
 
 
+def _stamp_and_trash(src: Path, dest_dir_fn: Callable[[], Path]) -> None:
+    """Stamp *src*'s mtime to now, then move it into ``dest_dir_fn()``.
+
+    The mtime is stamped on the source *before* the move so it survives
+    either path ``shutil.move`` can take: a same-filesystem ``os.rename``
+    carries the source mtime through verbatim, and a cross-filesystem
+    ``copy2`` fallback copies it from the source. Stamping only the
+    destination (after the move) leaves a window where a stale, already-
+    expired mtime sits in trash and can be purged before it's corrected.
+    Best-effort and per-file: logs and swallows any failure so one bad file
+    can't strand its siblings or break the caller's delete request.
+    """
+    try:
+        dest_dir = dest_dir_fn()
+        os.utime(src, None)
+        shutil.move(str(src), str(dest_dir / src.name))
+    except (OSError, ValueError):
+        logger.warning("Failed to trash media file %s", src.name, exc_info=True)
+
+
 def trash_media(value: str | None) -> None:
     """Move the on-disk file backing a media URL into the tree's trash.
 
@@ -381,18 +405,11 @@ def trash_media(value: str | None) -> None:
     path = _safe_media_path(value)
     if path is None:
         return
-    try:
-        originals = _safe_original_files(path)
-        if path.is_file():
-            dest = _trash_dir(path.parent) / path.name
-            shutil.move(str(path), str(dest))
-            os.utime(dest, None)
-        for orig in originals:
-            dest = _trash_originals_dir(path.parent) / orig.name
-            shutil.move(str(orig), str(dest))
-            os.utime(dest, None)
-    except (OSError, ValueError):
-        pass
+    originals = _safe_original_files(path)
+    if path.is_file():
+        _stamp_and_trash(path, lambda: _trash_dir(path.parent))
+    for orig in originals:
+        _stamp_and_trash(orig, lambda: _trash_originals_dir(path.parent))
 
 
 def purge_expired_media_trash(ttl_seconds: int = MEDIA_TRASH_TTL_SECONDS) -> int:
