@@ -16,10 +16,10 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Friendship, User
+from app.models import Friendship, Tree, User
 from app.schemas.friendship import FriendOut, FriendRequestCreate, UserSearchResult
 from app.services import friendships, notification_service
-from app.services.event_bus import event_bus
+from app.services.event_bus import event_bus, publish_tree_event
 from app.services.storage import profile_image_path
 
 router = APIRouter(prefix="/friends", tags=["friends"])
@@ -39,6 +39,36 @@ def _friendships_for(db: Session, user_id: str, *, status: str) -> list[Friendsh
             )
         ).all()
     )
+
+
+def _notify_revoked_memberships(
+    db: Session, revoked: list[tuple[Tree, str]]
+) -> None:
+    """Notify users who lost tree access through an unfriend/block.
+
+    Mirrors the explicit unshare route (``trees.revoke_access``): the activity
+    entry (logged by ``revoke_shared_memberships`` before commit) is
+    broadcast via ``activity.entry_added``, a realtime ``tree.access_changed``
+    event so open sessions react immediately, plus a durable inbox
+    notification. Must run after the membership deletion is committed —
+    ``publish_tree_event`` computes its audience from the committed rows and
+    reaches the revoked user via ``extra_user_ids``.
+    """
+    for tree, revoked_user_id in revoked:
+        publish_tree_event(
+            db,
+            tree,
+            "tree.access_changed",
+            {"tree_id": tree.id},
+            extra_user_ids=[revoked_user_id],
+        )
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        notification_service.create_notification(
+            db,
+            revoked_user_id,
+            "tree_unshared",
+            {"tree_id": tree.id, "tree_name": tree.name},
+        )
 
 
 @router.get("", response_model=list[FriendOut])
@@ -234,9 +264,13 @@ def remove_friend(
         return
     was_accepted = friendship.status == "accepted"
     db.delete(friendship)
-    if was_accepted:
-        friendships.revoke_shared_memberships(db, user.id, user_id)
+    revoked = (
+        friendships.revoke_shared_memberships(db, user, user_id)
+        if was_accepted
+        else []
+    )
     db.commit()
+    _notify_revoked_memberships(db, revoked)
 
 
 @router.post("/{user_id}/block", status_code=204)
@@ -260,8 +294,9 @@ def block_user(
     friendship.addressee_id = user_id
     friendship.status = "blocked"
     friendship.responded_at = utcnow_iso()
-    friendships.revoke_shared_memberships(db, user.id, user_id)
+    revoked = friendships.revoke_shared_memberships(db, user, user_id)
     db.commit()
+    _notify_revoked_memberships(db, revoked)
 
 
 @router.delete("/{user_id}/block", status_code=204)

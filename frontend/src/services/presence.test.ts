@@ -16,6 +16,11 @@ vi.mock("@/hooks/usePresenceStore", () => ({
   usePresenceStore: { getState: () => ({ setRoster, clear }) },
 }));
 
+const loadTrees = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/hooks/useTreeStore", () => ({
+  useTreeStore: { getState: () => ({ loadTrees }) },
+}));
+
 /** Flush pending microtasks (the async heartbeat) under fake timers. */
 const flush = () => vi.advanceTimersByTimeAsync(0);
 
@@ -173,6 +178,25 @@ describe("presence heartbeat manager", () => {
     // The 404 handler tears down the loop.
     expect(clear).toHaveBeenCalled();
     expect(leavePresence).toHaveBeenCalledWith("t1");
+
+    sendPresence.mockClear();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(sendPresence).not.toHaveBeenCalled();
+  });
+
+  it("stops heartbeating and reloads trees when access is revoked (403) (#814)", async () => {
+    const { ApiError } = await import("@/services/api");
+    sendPresence.mockRejectedValue(new ApiError(403, "No access to this tree"));
+
+    const mod = await import("./presence");
+    mod.startPresence("t1");
+    await flush();
+
+    // The 403 handler tears down the loop (roster cleared → stale presence
+    // chips disappear) and nudges the tree store to notice the lost access.
+    expect(clear).toHaveBeenCalled();
+    expect(leavePresence).toHaveBeenCalledWith("t1");
+    expect(loadTrees).toHaveBeenCalled();
 
     sendPresence.mockClear();
     await vi.advanceTimersByTimeAsync(60_000);

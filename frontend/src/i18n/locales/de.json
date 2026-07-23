@@ -995,6 +995,7 @@
       "open-error": "Dieser Stammbaum konnte nicht geöffnet werden – er ist möglicherweise privat oder existiert nicht mehr."
     },
     "canvas-label": "Stammbaum-Leinwand",
+    "access-revoked": "\"{{name}}\" ist nicht mehr verfügbar – die Freigabe wurde möglicherweise aufgehoben oder der Stammbaum gelöscht.",
     "search": {
       "placeholder": "Mitglieder suchen…",
       "no-results": "Keine Mitglieder gefunden",

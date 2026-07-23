@@ -125,6 +125,25 @@ const clearDataStores = () => {
   useStorageStore.getState().clear();
 };
 
+// Land on the most recently used remaining tree/view (the API sorts by
+// last_opened — same rule as startup in App.tsx) instead of leaving a blank
+// canvas, when nothing is currently selected. Shared by loadTrees() and
+// connect()'s revoked-access recovery — both disconnect first (for an
+// immediate, deterministic UI reset), which clears `selectedTree` before this
+// runs, so it must read the *current* trees/virtualViews rather than rely on
+// the stale selection that triggered the disconnect. Best effort: if the
+// fallback tree fails to open, stay disconnected.
+const selectFallbackTree = async (get: () => DatabaseState) => {
+  if (get().selectedTree) return;
+  const { trees, virtualViews } = get();
+  const next = [...trees, ...virtualViews][0];
+  if (next) {
+    await get()
+      .selectTree(next)
+      .catch(() => {});
+  }
+};
+
 export const useTreeStore = create<DatabaseState>((set, get) => ({
   trees: [],
   virtualViews: [],
@@ -145,14 +164,14 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     // Drop a stale selection that no longer exists / is no longer accessible.
     const selected = get().selectedTree;
     const allItems = [...trees, ...virtualViews];
-    if (selected) {
-      const freshSelected = allItems.find((t) => t.id === selected.id);
-      if (freshSelected) {
-        set({ selectedTree: freshSelected });
-      } else {
-        await get().disconnect();
-      }
+    if (!selected) return;
+    const freshSelected = allItems.find((t) => t.id === selected.id);
+    if (freshSelected) {
+      set({ selectedTree: freshSelected });
+      return;
     }
+    await get().disconnect();
+    await selectFallbackTree(get);
   },
 
   // Resolve a tree before selecting it. This keeps link routing, including
@@ -442,24 +461,54 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       if (!isActiveTree(tree.id)) return;
       set((s) => ({
         selectedTree: fresh,
+        // Update in place if already known, otherwise insert — this list can
+        // be missing the tree entirely (opened via a link/notification before
+        // the next loadTrees(), or re-opened right after a loadTrees() had
+        // pruned it). Leaving it out here would connect successfully while
+        // the tree selector (which only renders from this list) shows no
+        // selection at all, since its value has no matching option.
         trees: virtual
           ? s.trees
-          : s.trees.map((t) => (t.id === fresh.id ? fresh : t)),
+          : s.trees.some((t) => t.id === fresh.id)
+            ? s.trees.map((t) => (t.id === fresh.id ? fresh : t))
+            : [fresh, ...s.trees],
         virtualViews: virtual
-          ? s.virtualViews.map((v) => (v.id === fresh.id ? fresh : v))
+          ? s.virtualViews.some((v) => v.id === fresh.id)
+            ? s.virtualViews.map((v) => (v.id === fresh.id ? fresh : v))
+            : [fresh, ...s.virtualViews]
           : s.virtualViews,
       }));
     } catch (error) {
-      if (!isActiveTree(tree.id)) return;
-      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+      if (
+        error instanceof ApiError &&
+        (error.status === 403 || error.status === 404)
+      ) {
         // Access is truly gone (revoked mid-session, or the tree/view was
         // deleted) — don't limp along with the stale tree object and an
-        // empty canvas. Reset cleanly, drop it from the local lists, and let
-        // the caller (which knows the context) tell the user why.
-        await get().disconnect();
-        void get().loadTrees();
+        // empty canvas. Tear down only when this tree is still the active
+        // one (a concurrent SSE-triggered loadTrees may have disconnected
+        // already), but always re-throw so the caller (notification click,
+        // tree selector) can surface the failure instead of resolving into
+        // a silent empty state (#813).
+        if (isActiveTree(tree.id)) {
+          await get().disconnect();
+          // disconnect() just cleared `selectedTree`, so loadTrees()'s own
+          // "was something selected before this refresh?" check can no
+          // longer see it — refresh the lists, then land on a remaining
+          // tree ourselves instead of leaving a blank canvas.
+          // Fire-and-forget: the caller doesn't need to wait on this to see
+          // the rejection below.
+          void get()
+            .loadTrees()
+            .then(() => selectFallbackTree(get))
+            .catch(() => {
+              // Transient failure refreshing the list — the next SSE event
+              // or heartbeat retries.
+            });
+        }
         throw error;
       }
+      if (!isActiveTree(tree.id)) return;
       // transient (network hiccup, 5xx) — proceed with what we already have.
     }
 

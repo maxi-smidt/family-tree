@@ -66,13 +66,28 @@ async function connect(): Promise<void> {
     reconnectAttempts = 0;
   };
 
-  const reload = () => {
-    void useTreeStore.getState().loadTrees();
+  // The active tree can vanish from the user's list (access revoked, tree
+  // deleted, ownership transferred). loadTrees() drops the stale selection —
+  // detect that here and say why the canvas just switched/emptied, instead
+  // of failing silently (#813/#814).
+  const reload = async () => {
+    const before = useTreeStore.getState().selectedTree;
+    try {
+      await useTreeStore.getState().loadTrees();
+    } catch {
+      // A replacement selection may fail to open; the next event retries.
+    }
+    const after = useTreeStore.getState().selectedTree;
+    if (before && after?.id !== before.id) {
+      toast.error(i18n.t("tree-view.access-revoked", { name: before.name }));
+    }
   };
 
-  eventSource.addEventListener("tree.ownership_changed", reload);
-  eventSource.addEventListener("tree.access_changed", reload);
-  eventSource.addEventListener("tree.deleted", reload);
+  const onTreeListChanged = () => void reload();
+
+  eventSource.addEventListener("tree.ownership_changed", onTreeListChanged);
+  eventSource.addEventListener("tree.access_changed", onTreeListChanged);
+  eventSource.addEventListener("tree.deleted", onTreeListChanged);
 
   eventSource.addEventListener("backup.completed", () => {
     useAdminViewStore.getState().bumpBackupTick();

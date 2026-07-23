@@ -54,9 +54,15 @@ vi.mock("@/services/api", () => ({
 
 vi.mock("@/hooks/useTreeStore", () => {
   const loadTrees = vi.fn().mockResolvedValue(undefined);
+  const state: { selectedTree?: { id: string; name: string } } = {};
   return {
     useTreeStore: {
-      getState: () => ({ loadTrees }),
+      getState: () => ({
+        loadTrees,
+        selectedTree: state.selectedTree,
+      }),
+      // Test-only handle to mutate the fake selection between events.
+      __state: state,
     },
     isActiveTree: vi.fn(() => true),
   };
@@ -172,6 +178,62 @@ describe("realtime", () => {
     FakeEventSource.instance!.dispatch("tree.deleted", { tree_id: "t1" });
 
     expect(loadTrees).toHaveBeenCalled();
+    stopRealtime();
+  });
+
+  it("toasts when the active tree disappears after tree.access_changed (#814)", async () => {
+    const { useTreeStore } = await import("@/hooks/useTreeStore");
+    const { toast } = await import("sonner");
+    const state = (
+      useTreeStore as unknown as {
+        __state: { selectedTree?: { id: string; name: string } };
+      }
+    ).__state;
+    state.selectedTree = { id: "t1", name: "Family" };
+    // loadTrees drops the stale selection (access revoked server-side).
+    vi.mocked(useTreeStore.getState().loadTrees).mockImplementationOnce(
+      async () => {
+        state.selectedTree = undefined;
+      },
+    );
+
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    startRealtime();
+    await waitForEventSource();
+
+    FakeEventSource.instance!.dispatch("tree.access_changed", {
+      tree_id: "t1",
+    });
+
+    await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());
+    stopRealtime();
+  });
+
+  it("does not toast when the active tree survives tree.access_changed", async () => {
+    const { useTreeStore } = await import("@/hooks/useTreeStore");
+    const { toast } = await import("sonner");
+    const state = (
+      useTreeStore as unknown as {
+        __state: { selectedTree?: { id: string; name: string } };
+      }
+    ).__state;
+    state.selectedTree = { id: "t1", name: "Family" };
+
+    const { startRealtime, stopRealtime } = await import("./realtime");
+    startRealtime();
+    await waitForEventSource();
+
+    // Someone else's membership changed — our tree is unaffected.
+    FakeEventSource.instance!.dispatch("tree.access_changed", {
+      tree_id: "t1",
+    });
+
+    await vi.waitFor(() =>
+      expect(useTreeStore.getState().loadTrees).toHaveBeenCalled(),
+    );
+    // Give the async reload a chance to (not) toast.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(toast.error).not.toHaveBeenCalled();
     stopRealtime();
   });
 

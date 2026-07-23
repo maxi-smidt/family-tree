@@ -995,6 +995,7 @@
       "open-error": "That tree could not be opened — it may be private or no longer exist."
     },
     "canvas-label": "Family tree canvas",
+    "access-revoked": "\"{{name}}\" is no longer available — it may have been unshared or deleted.",
     "search": {
       "placeholder": "Search members…",
       "no-results": "No members found",

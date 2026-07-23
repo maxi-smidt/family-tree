@@ -14,6 +14,7 @@
 import { ApiError } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { usePresenceStore } from "@/hooks/usePresenceStore";
+import { useTreeStore } from "@/hooks/useTreeStore";
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEARTBEAT_TIMEOUT_MS = 10_000;
@@ -52,13 +53,26 @@ async function sendHeartbeat(): Promise<void> {
       usePresenceStore.getState().setRoster(roster.tree_id, roster.users);
     }
   } catch (err) {
-    // Feature turned off at runtime answers 404 — stop pinging this tree.
+    // 404: the feature was turned off at runtime. 403: access to the tree
+    // was revoked mid-session. Both end this tree's presence session — stop
+    // heartbeating and clear the roster so stale presence chips disappear
+    // (#814).
     if (
       err instanceof ApiError &&
-      err.status === 404 &&
+      (err.status === 404 || err.status === 403) &&
       treeId === currentTreeId
     ) {
       stopPresence();
+      if (err.status === 403) {
+        // Backstop in case the tree.access_changed SSE event was missed:
+        // make the tree store notice the lost access right away.
+        void useTreeStore
+          .getState()
+          .loadTrees()
+          .catch(() => {
+            // Transient failure — the next SSE event or heartbeat retries.
+          });
+      }
     }
     // Transient errors and aborted requests resolve on the next tick.
   } finally {
