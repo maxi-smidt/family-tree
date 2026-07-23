@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "d76a84116621",
+  "strategy": "manual-commit",
+  "branch": "fix/815-exclude-friends-from-search",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGELOG.md",
+    "backend/app/api/routes/friends.py",
+    "backend/tests/test_friends.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d7/6a84116621/0/metadata.json",
+      "transcript": "/d7/6a84116621/0/full.jsonl",
+      "compact_transcript": "/d7/6a84116621/0/transcript.jsonl",
+      "content_hash": "/d7/6a84116621/0/content_hash.txt",
+      "prompt": "/d7/6a84116621/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 94,
+    "cache_creation_tokens": 57982,
+    "cache_read_tokens": 2785760,
+    "output_tokens": 14605,
+    "api_call_count": 47
+  }
+}
