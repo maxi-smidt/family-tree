@@ -145,13 +145,21 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
     // Drop a stale selection that no longer exists / is no longer accessible.
     const selected = get().selectedTree;
     const allItems = [...trees, ...virtualViews];
-    if (selected) {
-      const freshSelected = allItems.find((t) => t.id === selected.id);
-      if (freshSelected) {
-        set({ selectedTree: freshSelected });
-      } else {
-        await get().disconnect();
-      }
+    if (!selected) return;
+    const freshSelected = allItems.find((t) => t.id === selected.id);
+    if (freshSelected) {
+      set({ selectedTree: freshSelected });
+      return;
+    }
+    await get().disconnect();
+    // Land on the most recently used remaining tree/view (the API sorts by
+    // last_opened — same rule as startup in App.tsx) instead of leaving a
+    // blank canvas. Best effort: if it fails to open, stay disconnected.
+    const next = allItems[0];
+    if (next) {
+      await get()
+        .selectTree(next)
+        .catch(() => {});
     }
   },
 
@@ -450,16 +458,24 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
           : s.virtualViews,
       }));
     } catch (error) {
-      if (!isActiveTree(tree.id)) return;
-      if (error instanceof ApiError && (error.status === 403 || error.status === 404)) {
+      if (
+        error instanceof ApiError &&
+        (error.status === 403 || error.status === 404)
+      ) {
         // Access is truly gone (revoked mid-session, or the tree/view was
         // deleted) — don't limp along with the stale tree object and an
-        // empty canvas. Reset cleanly, drop it from the local lists, and let
-        // the caller (which knows the context) tell the user why.
-        await get().disconnect();
-        void get().loadTrees();
+        // empty canvas. Tear down only when this tree is still the active
+        // one (a concurrent SSE-triggered loadTrees may have disconnected
+        // already), but always re-throw so the caller (notification click,
+        // tree selector) can surface the failure instead of resolving into
+        // a silent empty state (#813).
+        if (isActiveTree(tree.id)) {
+          await get().disconnect();
+          void get().loadTrees();
+        }
         throw error;
       }
+      if (!isActiveTree(tree.id)) return;
       // transient (network hiccup, 5xx) — proceed with what we already have.
     }
 

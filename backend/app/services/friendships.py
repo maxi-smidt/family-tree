@@ -51,14 +51,19 @@ def accepted_friend_ids(db: Session, user_id: str) -> set[str]:
     }
 
 
-def revoke_shared_memberships(db: Session, a_id: str, b_id: str) -> None:
+def revoke_shared_memberships(
+    db: Session, a_id: str, b_id: str
+) -> list[tuple[Tree, str]]:
     """Drop any tree memberships shared between the two users, both directions.
 
     Keeps the invariant *shared ⇒ friends* true after an unfriend: a membership
     on a tree ``a`` owns granted to ``b`` (or vice-versa) is removed.
+
+    Returns the affected ``(tree, revoked_user_id)`` pairs so callers can
+    notify the revoked users once the deletion is committed.
     """
-    memberships = db.scalars(
-        select(TreeMembership)
+    rows = db.execute(
+        select(TreeMembership, Tree)
         .join(Tree, Tree.id == TreeMembership.tree_id)
         .where(
             or_(
@@ -67,8 +72,10 @@ def revoke_shared_memberships(db: Session, a_id: str, b_id: str) -> None:
             )
         )
     ).all()
-    for membership in memberships:
+    revoked = [(tree, membership.user_id) for membership, tree in rows]
+    for membership, _tree in rows:
         db.delete(membership)
+    return revoked
 
 
 def to_friend_out(db: Session, friendship: Friendship, viewer_id: str) -> FriendOut:

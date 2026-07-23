@@ -3,7 +3,7 @@
  *   - Tree switching (connect / selectTree)
  *   - Disconnect behavior (all sub-stores cleared)
  *   - Role / permission workflow (owner vs editor vs viewer)
- *   - loadTrees auto-disconnects when selected tree disappears
+ *   - loadTrees drops a vanished selection and auto-selects the next tree
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -285,6 +285,28 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(useTreeStore.getState().isReady).toBe(false);
   });
 
+  it("still rejects when a concurrent disconnect wins the race before a 403 (#813)", async () => {
+    mockEmptySubStores();
+    // An SSE-triggered loadTrees() disconnects while connect's GET is in
+    // flight; the 403 then arrives with the tree no longer active. The
+    // caller (e.g. the notification bell) must still see a rejection so its
+    // toast + recovery run — resolving silently strands the user (#813).
+    vi.mocked(api.get).mockImplementation(async (path: string) => {
+      if (path === `/trees/${TREE_A.id}`) {
+        await useTreeStore.getState().disconnect();
+        throw new ApiError(403, "Forbidden");
+      }
+      if (path === "/trees") return Promise.resolve([]);
+      return Promise.resolve([]);
+    });
+
+    await expect(useTreeStore.getState().connect(TREE_A)).rejects.toThrow();
+
+    // The concurrent disconnect is not undone — no stale tree is restored.
+    expect(useTreeStore.getState().selectedTree).toBeUndefined();
+    expect(useTreeStore.getState().isReady).toBe(false);
+  });
+
   it("selectTree also rejects and disconnects when the target 404s", async () => {
     mockEmptySubStores();
     useTreeStore.setState({ selectedTree: TREE_B, isReady: true });
@@ -303,7 +325,8 @@ describe("useTreeStore — connect / selectTree", () => {
   it("tolerates a transient (non-access) failure and proceeds with what it has", async () => {
     mockEmptySubStores();
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === `/trees/${TREE_A.id}`) return Promise.reject(new Error("network error"));
+      if (path === `/trees/${TREE_A.id}`)
+        return Promise.reject(new Error("network error"));
       if (path.includes("/metadata")) return Promise.resolve({});
       return Promise.resolve([]);
     });
@@ -541,7 +564,8 @@ describe("useTreeStore — role & permissions", () => {
 // ---------------------------------------------------------------------------
 
 describe("useTreeStore — loadTrees", () => {
-  it("auto-disconnects when the active tree is no longer in the list", async () => {
+  it("auto-selects the most recent remaining tree when the active one disappears", async () => {
+    mockEmptySubStores();
     useTreeStore.setState({
       selectedTree: TREE_A,
       isReady: true,
@@ -549,7 +573,30 @@ describe("useTreeStore — loadTrees", () => {
     });
 
     // Server returns a list that no longer includes tree-a
-    vi.mocked(api.get).mockResolvedValueOnce([TREE_B]);
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === "/trees") return Promise.resolve([TREE_B]);
+      if (path === `/trees/${TREE_B.id}`) return Promise.resolve(TREE_B);
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+    vi.mocked(TreeService.listVirtualViews).mockResolvedValue([]);
+
+    await useTreeStore.getState().loadTrees();
+
+    // Lands on the remaining tree (startup's MRU rule) instead of a blank
+    // canvas with no selection (#813/#814).
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
+    expect(useTreeStore.getState().isReady).toBe(true);
+  });
+
+  it("auto-disconnects when the active tree is gone and none remain", async () => {
+    useTreeStore.setState({
+      selectedTree: TREE_A,
+      isReady: true,
+      trees: [TREE_A],
+    });
+
+    vi.mocked(api.get).mockResolvedValueOnce([]);
     vi.mocked(TreeService.listVirtualViews).mockResolvedValueOnce([]);
 
     await useTreeStore.getState().loadTrees();
