@@ -46,7 +46,9 @@ def _notify_revoked_memberships(
 ) -> None:
     """Notify users who lost tree access through an unfriend/block.
 
-    Mirrors the explicit unshare route (``trees.revoke_access``): a realtime
+    Mirrors the explicit unshare route (``trees.revoke_access``): the activity
+    entry (logged by ``revoke_shared_memberships`` before commit) is
+    broadcast via ``activity.entry_added``, a realtime ``tree.access_changed``
     event so open sessions react immediately, plus a durable inbox
     notification. Must run after the membership deletion is committed —
     ``publish_tree_event`` computes its audience from the committed rows and
@@ -60,6 +62,7 @@ def _notify_revoked_memberships(
             {"tree_id": tree.id},
             extra_user_ids=[revoked_user_id],
         )
+        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
         notification_service.create_notification(
             db,
             revoked_user_id,
@@ -262,7 +265,7 @@ def remove_friend(
     was_accepted = friendship.status == "accepted"
     db.delete(friendship)
     revoked = (
-        friendships.revoke_shared_memberships(db, user.id, user_id)
+        friendships.revoke_shared_memberships(db, user, user_id)
         if was_accepted
         else []
     )
@@ -291,7 +294,7 @@ def block_user(
     friendship.addressee_id = user_id
     friendship.status = "blocked"
     friendship.responded_at = utcnow_iso()
-    revoked = friendships.revoke_shared_memberships(db, user.id, user_id)
+    revoked = friendships.revoke_shared_memberships(db, user, user_id)
     db.commit()
     _notify_revoked_memberships(db, revoked)
 

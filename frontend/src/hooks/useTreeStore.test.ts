@@ -307,6 +307,33 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(useTreeStore.getState().isReady).toBe(false);
   });
 
+  it("lands on the remaining tree instead of a blank canvas after a 403 (#813)", async () => {
+    mockEmptySubStores();
+    useTreeStore.setState({ trees: [TREE_A, TREE_B] });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/trees/${TREE_A.id}`) {
+        return Promise.reject(new ApiError(403, "Forbidden"));
+      }
+      if (path === "/trees") return Promise.resolve([TREE_B]);
+      if (path === `/trees/${TREE_B.id}`) return Promise.resolve(TREE_B);
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+
+    await expect(useTreeStore.getState().connect(TREE_A)).rejects.toThrow();
+
+    // The stale tree is never restored — the caller (e.g. the notification
+    // bell) still gets its rejection to show a toast against. But
+    // disconnect()'s own loadTrees() no longer sees the stale selection to
+    // react to, so connect() must refresh the list and land on the fallback
+    // itself, settling on the one remaining tree instead of leaving the
+    // canvas blank.
+    await vi.waitFor(() => {
+      expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_B.id);
+      expect(useTreeStore.getState().isReady).toBe(true);
+    });
+  });
+
   it("selectTree also rejects and disconnects when the target 404s", async () => {
     mockEmptySubStores();
     useTreeStore.setState({ selectedTree: TREE_B, isReady: true });

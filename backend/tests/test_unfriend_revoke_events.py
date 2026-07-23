@@ -3,7 +3,8 @@
 Issues #813/#814: ``revoke_shared_memberships`` used to silently delete the
 membership rows, so the revoked user's open session never learned about it.
 The routes now mirror the explicit unshare route: a ``tree.access_changed``
-SSE event reaching the revoked user, plus a durable ``tree_unshared``
+SSE event reaching the revoked user, a "share removed" activity log entry
+(broadcast via ``activity.entry_added``), plus a durable ``tree_unshared``
 notification.
 """
 
@@ -11,7 +12,7 @@ from unittest.mock import patch
 
 from sqlalchemy import select
 
-from app.models import Notification, TreeMembership
+from app.models import ActivityLog, Notification, TreeMembership
 from tests.conftest import API, auth, befriend, make_tree, make_user, share
 
 
@@ -23,12 +24,32 @@ def _access_changed_calls(m) -> list[tuple[set[str], dict]]:
     ]
 
 
+def _entry_added_calls(m) -> list[dict]:
+    return [
+        call.args[2]
+        for call in m.call_args_list
+        if call.args[1] == "activity.entry_added"
+    ]
+
+
 def _unshared_notifications(db, user_id: str) -> list[Notification]:
     return list(
         db.scalars(
             select(Notification).where(
                 Notification.user_id == user_id,
                 Notification.type == "tree_unshared",
+            )
+        ).all()
+    )
+
+
+def _share_deletions(db, tree_id: str) -> list[ActivityLog]:
+    return list(
+        db.scalars(
+            select(ActivityLog).where(
+                ActivityLog.tree_id == tree_id,
+                ActivityLog.target_type == "share",
+                ActivityLog.action == "delete",
             )
         ).all()
     )
@@ -57,6 +78,13 @@ def test_unfriend_emits_access_changed_and_notification(client, db):
     # Durable inbox notification for the revoked user.
     entries = _unshared_notifications(db, bob.id)
     assert len(entries) == 1
+    # Audit trail entry, same as the explicit unshare route, plus the event
+    # that tells anyone viewing the tree's activity feed to refresh.
+    logged = _share_deletions(db, tree.id)
+    assert len(logged) == 1
+    assert logged[0].actor_id == alice.id
+    assert logged[0].target_id == bob.id
+    assert _entry_added_calls(m) == [{"tree_id": tree.id}]
 
 
 def test_unfriend_revokes_both_directions(client, db):
@@ -85,6 +113,12 @@ def test_unfriend_revokes_both_directions(client, db):
     assert len(_unshared_notifications(db, bob.id)) == 1
     assert len(_unshared_notifications(db, alice.id)) == 1
 
+    # Alice initiated the unfriend, so she's logged as the actor on both
+    # trees — even bob's, which she doesn't own — since she's still the one
+    # who caused the loss of access there.
+    assert _share_deletions(db, alices_tree.id)[0].actor_id == alice.id
+    assert _share_deletions(db, bobs_tree.id)[0].actor_id == alice.id
+
 
 def test_cancel_pending_request_emits_nothing(client, db):
     alice = make_user(db, "alice")
@@ -97,6 +131,7 @@ def test_cancel_pending_request_emits_nothing(client, db):
     assert res.status_code == 204
     assert _access_changed_calls(m) == []
     assert _unshared_notifications(db, bob.id) == []
+    assert _entry_added_calls(m) == []
 
 
 def test_block_emits_access_changed_and_notification(client, db):
@@ -117,3 +152,7 @@ def test_block_emits_access_changed_and_notification(client, db):
     assert data == {"tree_id": tree.id}
     assert bob.id in audience
     assert len(_unshared_notifications(db, bob.id)) == 1
+    logged = _share_deletions(db, tree.id)
+    assert len(logged) == 1
+    assert logged[0].actor_id == alice.id
+    assert logged[0].target_id == bob.id

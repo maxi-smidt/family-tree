@@ -109,12 +109,12 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - Losing access to a shared tree is now surfaced instead of failing silently:
   unfriending or blocking someone revokes their tree access with the same
-  realtime event and inbox notification as an explicit unshare, and the open
-  session on the other side shows a toast, switches to another tree instead of
-  a blank canvas, and clears the now-stale presence chips. Clicking an old
-  "tree shared with you" notification for a revoked tree also reliably shows
-  the error toast and recovers, even when the revocation event races the
-  click (#813, #814).
+  realtime event, activity log entry, and inbox notification as an explicit
+  unshare, and the open session on the other side shows a toast, switches to
+  another tree instead of a blank canvas, and clears the now-stale presence
+  chips. Clicking an old "tree shared with you" notification for a revoked
+  tree also reliably shows the error toast and recovers, even when the
+  revocation event races the click (#813, #814).
 - The Add Friend search no longer lists people you're already friends with;
   only actionable results (no relationship, a pending request, or blocked)
   appear (#815).

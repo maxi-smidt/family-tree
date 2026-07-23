@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.models import Friendship, Tree, TreeMembership, User
 from app.schemas.friendship import FriendOut
+from app.services.activity import record_activity
 
 
 def get_friendship(db: Session, a_id: str, b_id: str) -> Friendship | None:
@@ -52,12 +53,16 @@ def accepted_friend_ids(db: Session, user_id: str) -> set[str]:
 
 
 def revoke_shared_memberships(
-    db: Session, a_id: str, b_id: str
+    db: Session, actor: User, other_id: str
 ) -> list[tuple[Tree, str]]:
     """Drop any tree memberships shared between the two users, both directions.
 
     Keeps the invariant *shared ⇒ friends* true after an unfriend: a membership
-    on a tree ``a`` owns granted to ``b`` (or vice-versa) is removed.
+    on a tree ``actor`` owns granted to ``other_id`` (or vice-versa) is removed.
+    Logs a "share removed" activity entry on each affected tree, same as the
+    explicit unshare route (``trees.revoke_access``) — ``actor`` is the
+    initiator of the unfriend/block even on the tree they don't own, since
+    they're still the one causing the loss of access there.
 
     Returns the affected ``(tree, revoked_user_id)`` pairs so callers can
     notify the revoked users once the deletion is committed.
@@ -67,13 +72,23 @@ def revoke_shared_memberships(
         .join(Tree, Tree.id == TreeMembership.tree_id)
         .where(
             or_(
-                (Tree.owner_id == a_id) & (TreeMembership.user_id == b_id),
-                (Tree.owner_id == b_id) & (TreeMembership.user_id == a_id),
+                (Tree.owner_id == actor.id) & (TreeMembership.user_id == other_id),
+                (Tree.owner_id == other_id) & (TreeMembership.user_id == actor.id),
             )
         )
     ).all()
     revoked = [(tree, membership.user_id) for membership, tree in rows]
-    for membership, _tree in rows:
+    for membership, tree in rows:
+        revoked_user = db.get(User, membership.user_id)
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=actor,
+            action="delete",
+            target_type="share",
+            target_id=membership.user_id,
+            target_label=revoked_user.username if revoked_user else None,
+        )
         db.delete(membership)
     return revoked
 
