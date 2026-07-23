@@ -40,9 +40,10 @@ MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
 MEDIA_TRASH_DIR_NAME = ".trash"
 
 # How long trashed media survives before purge_expired_media_trash reclaims
-# it. A plain constant (not an env-configurable Settings field) because there
-# is no restore/undo endpoint yet — this is purely an internal disk-reclaim
-# window, not a user-facing recovery guarantee (see docs/ACTIVITY_AUDIT.md).
+# it. A plain constant (not an env-configurable Settings field): it is the
+# recovery window for the activity-log undo endpoint (see untrash_media and
+# docs/ACTIVITY_AUDIT.md) — once it elapses, undo still restores the row but
+# the media link comes back dead.
 MEDIA_TRASH_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 
@@ -410,6 +411,44 @@ def trash_media(value: str | None) -> None:
         _stamp_and_trash(path, lambda: _trash_dir(path.parent))
     for orig in originals:
         _stamp_and_trash(orig, lambda: _trash_originals_dir(path.parent))
+
+
+def untrash_media(value: str | None) -> bool:
+    """Move a trashed media file back to its live location (issue #762).
+
+    Best-effort inverse of ``trash_media``: given the *original* media URL —
+    the same URL a delete snapshot's ``trashed_media`` list records — looks
+    for the file under ``<tree_dir>/.trash/`` (and any ``.trash/originals/``
+    sibling) and moves it back. Returns True if the primary file was
+    restored, False if it was missing, most likely because
+    ``purge_expired_media_trash`` already reclaimed it after
+    ``MEDIA_TRASH_TTL_SECONDS`` — callers should treat that as a degraded but
+    still valid restore (the row comes back with a dead media link) rather
+    than an error. Never raises, so a failed move can't break an undo.
+    """
+    path = _safe_media_path(value)
+    if path is None:
+        return False
+    restored = False
+    trashed = _trash_dir(path.parent) / path.name
+    if trashed.is_file():
+        try:
+            shutil.move(str(trashed), str(path))
+            restored = True
+        except OSError:
+            logger.warning("Failed to untrash media file %s", path.name, exc_info=True)
+    for candidate in _trash_originals_dir(path.parent).glob(f"{path.stem}.*"):
+        if not candidate.is_file():
+            continue
+        try:
+            originals_dir = (path.parent / "originals").resolve()
+            originals_dir.mkdir(exist_ok=True)
+            shutil.move(str(candidate), str(originals_dir / candidate.name))
+        except OSError:
+            logger.warning(
+                "Failed to untrash original media file %s", candidate.name, exc_info=True
+            )
+    return restored
 
 
 def purge_expired_media_trash(ttl_seconds: int = MEDIA_TRASH_TTL_SECONDS) -> int:

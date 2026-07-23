@@ -277,4 +277,32 @@ describe("useActivityStore", () => {
       activities: [{ id: "fresh" }],
     });
   });
+
+  describe("undo", () => {
+    const report = {
+      undo_entry_id: "u1",
+      target_type: "member",
+      restored: { member: "m1" },
+      skipped: [],
+    };
+
+    it("calls the service with the active tree and entry id, then refreshes", async () => {
+      vi.mocked(TreeService.undoActivity).mockResolvedValue(report);
+      vi.mocked(TreeService.getActivity).mockResolvedValue(page(["a1"], 1));
+
+      const result = await useActivityStore.getState().undo("entry-1");
+
+      expect(TreeService.undoActivity).toHaveBeenCalledWith("tree-1", "entry-1");
+      expect(TreeService.getActivity).toHaveBeenCalled();
+      expect(result).toEqual(report);
+    });
+
+    it("propagates a rejection so the caller can report it", async () => {
+      vi.mocked(TreeService.undoActivity).mockRejectedValue(new Error("conflict"));
+
+      await expect(
+        useActivityStore.getState().undo("entry-1"),
+      ).rejects.toThrow("conflict");
+    });
+  });
 });

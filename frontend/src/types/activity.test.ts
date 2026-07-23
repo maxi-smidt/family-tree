@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapActivityFromDB, ActivityDB } from "./activity";
+import { Activity, isUndoableDelete, mapActivityFromDB, ActivityDB } from "./activity";
 
 const baseRow: ActivityDB = {
   id: "a1",
@@ -40,5 +40,56 @@ describe("mapActivityFromDB", () => {
     expect(result.actorUsername).toBeNull();
     expect(result.targetId).toBeNull();
     expect(result.targetLabel).toBeNull();
+  });
+});
+
+describe("isUndoableDelete", () => {
+  const base: Activity = {
+    id: "a1",
+    treeId: "t1",
+    actorId: "u1",
+    actorUsername: "alice",
+    action: "delete",
+    targetType: "member",
+    targetId: "m1",
+    targetLabel: "Ada Doe",
+    createdAt: "2024-01-01T12:00:00Z",
+  };
+
+  it("is true for a delete with a version-1 snapshot", () => {
+    expect(
+      isUndoableDelete({ ...base, details: { snapshot: { version: 1 } } }),
+    ).toBe(true);
+  });
+
+  it("is false for a create or update action", () => {
+    expect(
+      isUndoableDelete({
+        ...base,
+        action: "create",
+        details: { snapshot: { version: 1 } },
+      }),
+    ).toBe(false);
+    expect(
+      isUndoableDelete({
+        ...base,
+        action: "update",
+        details: { snapshot: { version: 1 } },
+      }),
+    ).toBe(false);
+  });
+
+  it("is false without details", () => {
+    expect(isUndoableDelete({ ...base, details: null })).toBe(false);
+  });
+
+  it("is false without a snapshot", () => {
+    expect(isUndoableDelete({ ...base, details: {} })).toBe(false);
+  });
+
+  it("is false for an unsupported snapshot version", () => {
+    expect(
+      isUndoableDelete({ ...base, details: { snapshot: { version: 2 } } }),
+    ).toBe(false);
   });
 });

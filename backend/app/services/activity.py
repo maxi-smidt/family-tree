@@ -205,16 +205,23 @@ def record_activity(
     target_id: str | None = None,
     target_label: str | None = None,
     details: dict | None = None,
-) -> None:
-    db.add(
-        ActivityLog(
-            tree_id=tree_id,
-            actor_id=actor.id,
-            actor_username=actor.username,
-            action=action,
-            target_type=target_type,
-            target_id=target_id,
-            target_label=target_label,
-            details=json.dumps(details) if details is not None else None,
-        )
+) -> ActivityLog:
+    """Add (not commit) a new activity row and return it.
+
+    The caller commits as part of its own transaction. The return value lets
+    callers that need the new row's id (e.g. the undo endpoint, which
+    references its own logged entry) avoid a second query — existing callers
+    that ignore the return value are unaffected.
+    """
+    row = ActivityLog(
+        tree_id=tree_id,
+        actor_id=actor.id,
+        actor_username=actor.username,
+        action=action,
+        target_type=target_type,
+        target_id=target_id,
+        target_label=target_label,
+        details=json.dumps(details) if details is not None else None,
     )
+    db.add(row)
+    return row

@@ -1196,7 +1196,17 @@
     "navigate-hint": "Zum Eintrag",
     "diff-changed": "Geändert:",
     "diff-arrow": "→",
-    "target-task": "Recherche-Aufgabe"
+    "target-task": "Recherche-Aufgabe",
+    "undo": "Rückgängig",
+    "undo-confirm-title": "Diese Löschung rückgängig machen?",
+    "undo-confirm-body": "Dadurch wird das gelöschte Element sowie alles, was noch damit verknüpft ist, wiederhergestellt. Alles, was nicht wiederhergestellt werden kann (z. B. ein verknüpftes Element, das inzwischen ebenfalls gelöscht wurde), wird als übersprungen gemeldet.",
+    "undo-cancel": "Abbrechen",
+    "undo-confirm-action": "Rückgängig machen",
+    "undo-success": "Wiederhergestellt.",
+    "undo-partial": "Wiederhergestellt, aber {{count}} Element(e) konnten nicht wiederhergestellt werden – Details im Protokoll.",
+    "undo-conflict": "Rückgängig machen nicht möglich – es wurde offenbar bereits wiederhergestellt, oder etwas, wovon es abhängt, existiert nicht mehr.",
+    "undo-invalid": "Dieser Eintrag kann nicht rückgängig gemacht werden.",
+    "undo-error": "Rückgängig machen fehlgeschlagen."
   },
   "timeline-view": {
     "view": {
@@ -1807,6 +1817,7 @@
         "stories": "Geschichten",
         "events": "Ereignisse & Zeitstrahl",
         "activity_log": "Aktivitätsprotokoll",
+        "activity_undo": "Aktivität rückgängig machen",
         "quality_report": "Qualitätsbericht",
         "statistics": "Statistiken",
         "virtual_views": "Virtuelle Ansichten",
@@ -1825,6 +1836,7 @@
         "stories": "Geschichten und Biografien bei Mitgliedern.",
         "events": "Lebensereignisse und die Zeitstrahl-Ansicht.",
         "activity_log": "Protokoll der letzten Änderungen pro Stammbaum.",
+        "activity_undo": "Ermöglicht Bearbeitern, eine gelöschte Person, Beziehung, ein Ereignis, eine Geschichte, ein Galeriebild oder ein Dokument direkt aus dem Aktivitätsprotokoll wiederherzustellen.",
         "quality_report": "Datenqualitätsprüfungen pro Stammbaum.",
         "statistics": "Aggregierte Statistiken pro Stammbaum.",
         "virtual_views": "Schreibgeschützte Ansichten über mehrere Stammbäume.",

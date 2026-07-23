@@ -47,7 +47,7 @@ import {
   DocumentUploadDB,
 } from "@/types/document";
 import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
-import { ActivityPageDB } from "@/types/activity";
+import { ActivityPageDB, ActivityUndoDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import {
   CombinedStatisticsReport,
@@ -780,6 +780,12 @@ export class TreeService {
     } = {},
   ) {
     return api.get<ActivityPageDB>(`${base(treeId)}/activity`, params);
+  }
+
+  static undoActivity(treeId: string, entryId: string) {
+    return api.post<ActivityUndoDB>(
+      `${base(treeId)}/activity/${entryId}/undo`,
+    );
   }
 
   // --- Quality report -------------------------------------------------------

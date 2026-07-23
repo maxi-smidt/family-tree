@@ -80,8 +80,10 @@ came to depend on it).
 
 **`delete` actions.** Split by target type since issue #572:
 
-_Member, relation, and disease deletes are **reversible in principle**._
-Their `details` carries a versioned pre-image snapshot
+_Member, relation, and disease deletes are **reversible in the product**_
+(issue #762): `POST /trees/{tree_id}/activity/{entry_id}/undo` restores them
+from the snapshot below — see "Undo endpoint" further down. Their `details`
+carries a versioned pre-image snapshot
 (`{"snapshot": {"version": 1, ...}}`, built by `member_delete_snapshot` /
 `delete_snapshot` in `backend/app/services/activity.py`). A member-delete
 snapshot captures everything the DB cascade removes: the full member row
@@ -99,7 +101,8 @@ Virtual-view match rows also cascade but are derived state the matching
 service recomputes, so they are deliberately not snapshotted.
 
 _Event, story, gallery-image, and document deletes are also **reversible in
-principle** (issue #760)._ `event_delete_snapshot` / `story_delete_snapshot` /
+the product**_ (snapshotted by issue #760, undoable by the same #762 endpoint
+as above). `event_delete_snapshot` / `story_delete_snapshot` /
 `gallery_delete_snapshot` / `document_delete_snapshot`
 (`backend/app/services/activity.py`) follow the same pattern: the full parent
 row plus every link table that cascades away with it.
@@ -134,10 +137,13 @@ Trashed files are excluded from storage-quota accounting
 (`storage_usage.py`), so deleting still frees quota immediately even though
 the bytes physically survive. `purge_expired_media_trash` permanently
 removes trashed files older than `MEDIA_TRASH_TTL_SECONDS` (30 days, a fixed
-constant — not admin/env-configurable, since there is no restore endpoint
-yet to make the window a user-facing guarantee); it runs as part of the
-existing background sweep (`backend/app/services/deletion_sweeper.py`),
-alongside the pending-user purge.
+constant, not admin/env-configurable) — it runs as part of the existing
+background sweep (`backend/app/services/deletion_sweeper.py`), alongside the
+pending-user purge. That window is now the user-facing recovery guarantee
+for the undo endpoint below: `untrash_media` (`backend/app/services/
+storage.py`) moves a file back out of `.trash/` on undo, and a restore
+attempted after the sweep already reclaimed it degrades gracefully — the row
+comes back, the media link is just dead — rather than failing.
 
 **Known remaining gap.** `document_service.save_document` (the composite
 `PUT /documents/{id}` the frontend uses for in-place edits) can also remove
@@ -150,18 +156,38 @@ per-file snapshot. A future issue could extend snapshotting to that path too.
 **Single-action undo vs. "revert to timestamp."** Even with enriched delete
 snapshots, there's a second axis of difficulty: undoing _one_ action (the
 most recent delete, say) is a local, self-contained operation once the
-pre-image exists. Reverting an entire tree to an earlier point in time is a
-different problem — it requires replaying the _inverse_ of every intervening
-action in reverse order (undo the last update, then the one before it, ...).
-With #572 and #760 every delete action now carries a re-insertable pre-image;
-the remaining blocker for full single-action undo is the `_SKIP_DIFF` update
-fields.
+pre-image exists — issue #762 implements exactly that, for `delete` entries
+only. Reverting an entire tree to an earlier point in time is a different
+problem — it requires replaying the _inverse_ of every intervening action in
+reverse order (undo the last update, then the one before it, ...) — and
+remains **out of scope**. Undo of `create` entries (delete the referenced
+row) and `update` entries (re-apply the stored `before` diff) are also not
+implemented by #762; the latter is additionally blocked by the `_SKIP_DIFF`
+fields never being captured in the first place.
 
-**Recommendation:** no undo/restore endpoint exists yet — the snapshots (and,
-for gallery/document deletes, the trash window) make the _data_ sufficient.
-If undo is pursued, the next step is a single-action undo endpoint that
-validates the "referenced rows (and, for media, the trashed file) still
-exist" conditions before re-inserting.
+**Undo endpoint (issue #762).** `POST /trees/{tree_id}/activity/{entry_id}/undo`
+(`backend/app/api/routes/activity.py`, `Depends(get_writable_tree)`) restores a
+single `delete` entry from its snapshot. It dispatches on
+`details.snapshot.version` (currently only `1` is understood; an unknown
+version or a missing snapshot is a 422, never a crash) to a per-type restore
+function in `backend/app/services/activity_undo.py` — `restore_member`,
+`restore_relation`, `restore_disease`, `restore_event`, `restore_story`,
+`restore_gallery_image`, `restore_document`, `restore_document_file` — each
+mirroring its matching `*_delete_snapshot` builder key-for-key.
+
+Restoring is **partial and safe**: the main row plus every child reference
+that still validates (the other endpoint of a relation, the parent of a link
+row, a bridge counterpart that isn't already linked elsewhere) comes back;
+anything that doesn't validate is skipped and reported rather than failing
+the whole undo (`{"restored": {...}, "skipped": [{"table", "reason"}, ...]}`).
+A double-undo, or an undo racing a concurrent insert of the same id, surfaces
+as a structured 409, never a 500. The undo itself writes a new `create`
+activity entry (`details.undo_of` pointing at the entry it reverses), so the
+log stays append-only — an undo is a new action, not an erasure. It is
+gated by its own `activity_undo` feature flag (see `feature_service.py`,
+router split in `activity.py`), independent of the read-only `activity_log`
+flag that gates the log view, so an admin can disable restores without
+hiding the log, or vice versa.
 
 ## (c) Admin / non-tree audit — recommendation
 

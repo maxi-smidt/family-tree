@@ -40,6 +40,7 @@ FEATURES: dict[str, FeatureState] = {
     "map": "on",
     "sources": "on",
     "activity_log": "on",
+    "activity_undo": "on",
     "quality_report": "on",
     "statistics": "on",
     "virtual_views": "on",

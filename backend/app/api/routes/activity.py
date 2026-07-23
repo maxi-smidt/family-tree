@@ -1,18 +1,42 @@
-"""Activity / audit log endpoint — list recent changes for a tree."""
+"""Activity / audit log endpoints — list recent changes for a tree, and undo
+a single logged delete (issue #762)."""
 
-from fastapi import APIRouter, Depends, Query
+import json
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.activity_query import activity_page, hidden_activity_target_types
-from app.api.deps import get_current_user, get_readable_tree, require_feature
+from app.api.deps import (
+    get_current_user,
+    get_readable_tree,
+    get_writable_tree,
+    require_feature,
+)
 from app.db.session import get_db
-from app.models import Tree, User
-from app.schemas.activity import ActivityPageOut
+from app.models import ActivityLog, Tree, User
+from app.schemas.activity import ActivityPageOut, ActivityUndoOut
+from app.services.activity import SNAPSHOT_VERSION, record_activity
+from app.services.activity_undo import CONTENT_DOMAIN, RESTORERS, UndoConflict
+from app.services.cache import invalidate_stats
+from app.services.event_bus import publish_tree_event
+from app.services.storage import untrash_media
 
 router = APIRouter(
     prefix="/trees/{tree_id}",
     tags=["activity"],
     dependencies=[Depends(require_feature("activity_log"))],
+)
+
+# A separate router (not a route added to `router` above) so undo is gated
+# solely by its own flag: `router`'s dependencies apply to every route
+# registered on it, and stacking a second `Depends(require_feature(...))` on
+# one route would AND the two flags together instead of decoupling them.
+undo_router = APIRouter(
+    prefix="/trees/{tree_id}",
+    tags=["activity"],
+    dependencies=[Depends(require_feature("activity_undo"))],
 )
 
 
@@ -40,4 +64,100 @@ def list_activity(
         action=action,
         target_type=target_type,
         hidden_target_types=hidden_activity_target_types(db, user, [tree.id]),
+    )
+
+
+@undo_router.post(
+    "/activity/{entry_id}/undo",
+    response_model=ActivityUndoOut,
+    response_model_exclude_none=True,
+)
+def undo_activity(
+    entry_id: str,
+    tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> ActivityUndoOut:
+    """Undo a single logged delete by restoring its pre-image snapshot.
+
+    Dispatches on ``details.snapshot.version``; only version 1 is understood
+    today. Restores the main row plus every child reference that still
+    validates against the tree's current state, skipping (and reporting) the
+    rest rather than failing outright — see app.services.activity_undo.
+    """
+    entry = db.get(ActivityLog, entry_id)
+    if entry is None or entry.tree_id != tree.id:
+        raise HTTPException(status_code=404, detail="Activity entry not found")
+    if entry.action != "delete":
+        raise HTTPException(status_code=422, detail="Only delete actions can be undone")
+
+    details = json.loads(entry.details) if entry.details else None
+    snapshot = (details or {}).get("snapshot")
+    if snapshot is None:
+        raise HTTPException(status_code=422, detail="Entry has no restorable snapshot")
+    if snapshot.get("version") != SNAPSHOT_VERSION:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported snapshot version: {snapshot.get('version')!r}",
+        )
+
+    restore = RESTORERS.get(entry.target_type)
+    if restore is None:
+        raise HTTPException(
+            status_code=422, detail=f"'{entry.target_type}' entries cannot be undone"
+        )
+
+    try:
+        result = restore(db, tree, snapshot)
+        undo_entry = record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="create",
+            target_type=entry.target_type,
+            target_id=result.main_id,
+            target_label=entry.target_label,
+            details={
+                "undo_of": entry_id,
+                "restored": result.restored,
+                "skipped": result.skipped,
+            },
+        )
+        db.flush()
+        undo_entry_id = undo_entry.id
+        db.commit()
+    except UndoConflict as exc:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=exc.reason) from exc
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Concurrent conflict — the row was recreated by another request",
+        ) from exc
+
+    # Best-effort, post-commit: a failed or degraded media un-trash (the file
+    # already purged by the retention sweep) never rolls back the restore —
+    # it only shows up as an extra skip in the response the caller sees.
+    skipped = list(result.skipped)
+    for url in result.media_to_untrash:
+        if not untrash_media(url):
+            skipped.append(
+                {"table": "media", "reason": "file already purged from trash", "id": url}
+            )
+
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_tree_event(
+        db,
+        tree,
+        "tree.content_changed",
+        {"tree_id": tree.id, "domain": CONTENT_DOMAIN[entry.target_type]},
+    )
+    invalidate_stats(tree.id)
+
+    return ActivityUndoOut(
+        undo_entry_id=undo_entry_id,
+        target_type=entry.target_type,
+        restored=result.restored,
+        skipped=skipped,
     )

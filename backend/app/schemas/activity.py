@@ -28,3 +28,26 @@ class ActivityPageOut(BaseModel):
     entries: list[ActivityOut]
     total: int
     actors: list[str]
+
+
+class UndoSkippedItem(BaseModel):
+    """One reference the undo could not restore, and why."""
+
+    table: str
+    reason: str
+    id: str | None = None
+
+
+class ActivityUndoOut(BaseModel):
+    """Result of undoing a single delete activity entry.
+
+    ``restored`` maps each restored table to either the id of the main row
+    (``"member": "m1"``) or a count of restored child rows (``"relations":
+    2``). ``skipped`` enumerates every reference that no longer validated,
+    with a human-readable reason, so a partial restore is never silent.
+    """
+
+    undo_entry_id: str
+    target_type: str
+    restored: dict[str, object]
+    skipped: list[UndoSkippedItem]
