@@ -1,0 +1,66 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "8319a848e8c0",
+  "session_id": "ae48921b-12d3-4562-9aed-0973c388edba",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-23T19:57:50.693908958Z",
+  "branch": "feat/760-reversible-deletes-media-retention",
+  "checkpoints_count": 3,
+  "save_step_count": 1,
+  "files_touched": [
+    "backend/app/services/storage.py",
+    "backend/tests/test_storage.py",
+    "backend/tests/test_storage_usage.py"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-5",
+  "turn_id": "197c2cd10129",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 104,
+    "cache_creation_tokens": 45847,
+    "cache_read_tokens": 3054221,
+    "output_tokens": 16375,
+    "api_call_count": 52
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-23T19:57:50.67218655Z",
+    "agent_lines": 77,
+    "agent_removed": 13,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 77,
+    "total_lines_changed": 90,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 24,
+      "user_lines_removed": 0,
+      "agent_lines_added": 216,
+      "agent_lines_removed": 13,
+      "user_added_per_file": {
+        ".claude/settings.local.json": 24
+      }
+    }
+  ]
+}

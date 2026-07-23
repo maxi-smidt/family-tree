@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "8319a848e8c0",
+  "strategy": "manual-commit",
+  "branch": "feat/760-reversible-deletes-media-retention",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "backend/app/services/storage.py",
+    "backend/tests/test_storage.py",
+    "backend/tests/test_storage_usage.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/83/19a848e8c0/0/metadata.json",
+      "transcript": "/83/19a848e8c0/0/full.jsonl",
+      "compact_transcript": "/83/19a848e8c0/0/transcript.jsonl",
+      "content_hash": "/83/19a848e8c0/0/content_hash.txt",
+      "prompt": "/83/19a848e8c0/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 104,
+    "cache_creation_tokens": 45847,
+    "cache_read_tokens": 3054221,
+    "output_tokens": 16375,
+    "api_call_count": 52
+  }
+}

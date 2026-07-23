@@ -1,0 +1,128 @@
+whats your take on the code review
+
+---
+
+whats your take on the code review Code Review — PR #817: Reversible deletes + media trash/retention (#760)                                                                                                                                 │
+   │                                                                                                                                                                                                          │
+   │ Scope reviewed: full diff (15 files, +655), plus surrounding base code                                                                                                                                   │
+   │ (storage.py, activity.py, deletion_sweeper.py, storage_usage.py,                                                                                                                                         │
+   │ activity_query.py, delete routes for members/gallery/documents, frontend                                                                                                                                 │
+   │ ActivityView). Branch feat/760-reversible-deletes-media-retention is checked                                                                                                                             │
+   │ out locally; verified uv run pytest tests/test_activity.py tests/test_storage.py                                                                                                                         │
+   │ → all pass.                                                                                                                                                                                              │
+   │                                                                                                                                                                                                          │
+   │ Verdict: Solid, well-scoped PR. Follows the #572 pattern faithfully,                                                                                                                                     │
+   │ transactional ordering is correct, security posture is preserved, tests/docs/                                                                                                                            │
+   │ changelog/i18n are all in order. No blockers. Findings are low-severity                                                                                                                                  │
+   │ robustness items plus design points worth challenging.                                                                                                                                                   │
+   │                                                                                                                                                                                                          │
+   │ What's done well                                                                                                                                                                                         │
+   │                                                                                                                                                                                                          │
+   │ • Snapshot-before-delete / trash-after-commit ordering is right everywhere —                                                                                                                             │
+   │   a failed commit can't strand a live row pointing at moved bytes.                                                                                                                                       │
+   │ • The previously unlogged DELETE /documents/{id}/files/{file_id} endpoint was                                                                                                                            │
+   │   a real audit gap; the fix also adds the missing activity.entry_added                                                                                                                                   │
+   │   publish.                                                                                                                                                                                               │
+   │ • trash_media reuses _safe_media_path / _safe_original_files, so the                                                                                                                                     │
+   │   existing traversal protections carry over. Verified the .trash collision                                                                                                                               │
+   │   claim: _SAFE_PATH_SEGMENT_RE (^[A-Za-z0-9][A-Za-z0-9._-]*$) does forbid a                                                                                                                              │
+   │   leading dot, so no tree dir can be named .trash.                                                                                                                                                       │
+   │ • Purge runs under the existing advisory-lock leader election                                                                                                                                            │
+   │   (_sweep_if_leader → _run_sweep_once), safe for multi-worker.                                                                                                                                           │
+   │ • New document_file target type checked against the restricted-membership                                                                                                                                │
+   │   hiding map (ACTIVITY_TARGET_TYPES_BY_DOMAIN): only tasks is restrictable                                                                                                                               │
+   │   today, so no activity-log info leak. Frontend renders details only for                                                                                                                                 │
+   │   update actions, so the big snapshot JSON never hits the UI.                                                                                                                                            │
+   │ • Golden rules respected: no version bump, changelog under ## [Unreleased],                                                                                                                              │
+   │   i18n parity (only en/de locales exist), Alembic correctly not needed.                                                                                                                                  │
+   │                                                                                                                                                                                                          │
+   │ Findings (by severity)                                                                                                                                                                                   │
+   │                                                                                                                                                                                                          │
+   │ 1. Low — mtime race defeats retention for old files (storage.py,                                                                                                                                         │
+   │    trash_media). shutil.move preserves the original mtime;                                                                                                                                               │
+   │    os.utime(dest, None) stamps the move time only afterwards. A file uploaded                                                                                                                            │
+   │    │ 30 days ago has an already-expired mtime in the window between move and                                                                                                                             │
+   │    │ utime — a concurrent sweep purges it instantly. Worse: if os.utime fails,                                                                                                                           │
+   │    │ the exception is swallowed and the file is purged at the next sweep,                                                                                                                                │
+   │    │ silently voiding the 30-day retention. Stamping the source before the                                                                                                                               │
+   │    │ move (or encoding the trash timestamp in the dest name) closes this.                                                                                                                                │
+   │                                                                                                                                                                                                          │
+   │ 2. Low — silent failure mode is worse than delete_media's (storage.py).                                                                                                                                  │
+   │    trash_media swallows all OSError/ValueError with no logging. A failed                                                                                                                                 │
+   │    move leaves the bytes in the live tree dir with the DB row already gone:                                                                                                                              │
+   │    the file counts against quota forever and is never purged (it's not in                                                                                                                                │
+   │    .trash). delete_media had the same never-raise contract, so this is                                                                                                                                   │
+   │    parity not regression — but trash now carries the retention promise, so at                                                                                                                            │
+   │    minimum a logger.warning is warranted.                                                                                                                                                                │
+   │                                                                                                                                                                                                          │
+   │ 3. Low — mtime as the retention clock is fragile. Any external touch                                                                                                                                     │
+   │    (rsync, backup restore, admin poking around) shifts mtimes and extends or                                                                                                                             │
+   │    shortens retention unpredictably. A timestamped filename prefix or a small                                                                                                                            │
+   │    manifest would be robust; the current design is schema-free and simple,                                                                                                                               │
+   │    which is a fair trade while no restore endpoint exists — but it should be a                                                                                                                           │
+   │    conscious decision.                                                                                                                                                                                   │
+   │                                                                                                                                                                                                          │
+   │ 4. Nit — purge leaves empty dirs forever (purge_expired_media_trash).                                                                                                                                    │
+   │    Files are unlinked but .trash/ and .trash/originals/ are never removed;                                                                                                                               │
+   │    one empty pair per tree-with-deletions accumulates. Also, trash_media on                                                                                                                              │
+   │    a missing file can still create empty .trash dirs via                                                                                                                                                 │
+   │    _trash_originals_dir.                                                                                                                                                                                 │
+   │                                                                                                                                                                                                          │
+   │ 5. Nit — no test for the quota exclusion. _media_bytes skipping .trash                                                                                                                                   │
+   │    is the user-visible "deleting frees quota immediately" promise, but no test                                                                                                                           │
+   │    covers it. Also untested: trash_media with only an originals/ sibling                                                                                                                                 │
+   │    present (display file missing).                                                                                                                                                                       │
+   │                                                                                                                                                                                                          │
+   │ 6. Nit — cosmetic inconsistencies: delete_document trashes before                                                                                                                                        │
+   │    publishing events, delete_image trashes after (harmless);                                                                                                                                             │
+   │    purge_expired_media_trash(MEDIA_TRASH_TTL_SECONDS) passes the default                                                                                                                                 │
+   │    explicitly; the document_file snapshot is built inline in the route while                                                                                                                             │
+   │    the other four types get service-level helpers (a                                                                                                                                                     │
+   │    document_file_delete_snapshot() would be symmetric — the docs justify the                                                                                                                             │
+   │    inline form, so take or leave).                                                                                                                                                                       │
+   │                                                                                                                                                                                                          │
+   │ 7. Non-issue, checked: trash filename collisions (shutil.move overwrites                                                                                                                                 │
+   │    an existing dest on POSIX) are practically impossible with UUID filenames.                                                                                                                            │
+   │                                                                                                                                                                                                          │
+   │ Challenges to the implementation                                                                                                                                                                         │
+   │                                                                                                                                                                                                          │
+   │ • Quota freed instantly, disk held 30 days. Net disk usage can now grow by                                                                                                                               │
+   │   up to 30 days of deletes, invisible to the quota system. On disk-constrained                                                                                                                           │
+   │   self-hosts the fixed MEDIA_TRASH_TTL_SECONDS can't be tuned. The "no                                                                                                                                   │
+   │   restore endpoint → internal detail" rationale is reasonable, but an env                                                                                                                                │
+   │   override costs almost nothing. At minimum, ops docs should mention the new                                                                                                                             │
+   │   disk-usage behaviour.                                                                                                                                                                                  │
+   │ • Retention story is still incomplete for the undo goal. Member photos are                                                                                                                               │
+   │   neither deleted nor trashed on delete_member (pre-existing: bytes become                                                                                                                               │
+   │   permanent orphans that count against quota), and save_document's in-place                                                                                                                              │
+   │   file removals remain immediate unlinks (acknowledged in the docs). Fine as                                                                                                                             │
+   │   scoping, but the docs' "every delete action now carries a re-insertable                                                                                                                                │
+   │   pre-image" is only true because member photos were never cleaned up at all —                                                                                                                           │
+   │   worth flagging when undo is actually built.                                                                                                                                                            │
+   │ • Backups grow silently. backup_service rglobs the entire media root, so                                                                                                                                 │
+   │   archives now include up to 30 days of trashed bytes. Arguably desirable                                                                                                                                │
+   │   (trash survives in backups), but it should be a deliberate choice, not a                                                                                                                               │
+   │   side effect.                                                                                                                                                                                           │
+   │ • Snapshot ↔ trash-path coupling. The snapshot stores the original media                                                                                                                                 │
+   │   URL, not the trash location; a future undo must recompute                                                                                                                                              │
+   │   .trash/<name> (and .trash/originals/) from trash_media's internals.                                                                                                                                    │
+   │   Recording the trashed path (or documenting the on-disk contract as part of                                                                                                                             │
+   │   snapshot version: 1) would decouple undo from those internals before the                                                                                                                               │
+   │   payload shape ossifies.                                                                                                                                                                                │
+   │ • Efficiency: no concerns. 2–3 extra indexed SELECTs per delete, one                                                                                                                                     │
+   │   relative_to per file in the usage walk, purge scoped to .trash dirs                                                                                                                                    │
+   │   only. All negligible.                                                                                                                                                                                  │
+   │                                                                                                                                                                                                          │
+   │ Suggested outcome                                                                                                                                                                                        │
+   │                                                                                                                                                                                                          │
+   │ Approve as-is or with follow-ups: findings 1–2 (mtime race, silent-failure                                                                                                                               │
+   │ logging) are the only ones I'd ask to be addressed — small, localized changes                                                                                                                            │
+   │ in trash_media. The rest are follow-up material.
+
+---
+
+so list short what changes you will make
+
+---
+
+go ahead and plan the fixes with opus and implement with Sonnet; then push
