@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "3659dc1eeded",
+  "strategy": "manual-commit",
+  "branch": "feat/762-undo-delete-activity",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGELOG.md",
+    "backend/app/api/router.py",
+    "backend/app/api/routes/activity.py",
+    "backend/app/schemas/activity.py",
+    "backend/app/services/activity.py",
+    "backend/app/services/activity_undo.py",
+    "backend/app/services/feature_service.py",
+    "backend/app/services/storage.py",
+    "backend/tests/test_activity_undo.py",
+    "docs/ACTIVITY_AUDIT.md",
+    "frontend/src/components/view/activity-view/ActivityView.test.tsx",
+    "frontend/src/components/view/activity-view/ActivityView.tsx",
+    "frontend/src/hooks/useActivityStore.test.ts",
+    "frontend/src/hooks/useActivityStore.ts",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json",
+    "frontend/src/lib/features.ts",
+    "frontend/src/services/TreeService.ts",
+    "frontend/src/types/activity.test.ts",
+    "frontend/src/types/activity.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/36/59dc1eeded/0/metadata.json",
+      "transcript": "/36/59dc1eeded/0/full.jsonl",
+      "compact_transcript": "/36/59dc1eeded/0/transcript.jsonl",
+      "content_hash": "/36/59dc1eeded/0/content_hash.txt",
+      "prompt": "/36/59dc1eeded/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 370,
+    "cache_creation_tokens": 365524,
+    "cache_read_tokens": 34438400,
+    "output_tokens": 96240,
+    "api_call_count": 185
+  }
+}
