@@ -1,0 +1,111 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "83737a78d162",
+  "session_id": "ea0b3d53-bee4-415c-80f1-452faf6dd50c",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-23T22:18:44.054602203Z",
+  "branch": "fix/813-revoked-tree-access",
+  "checkpoints_count": 3,
+  "save_step_count": 2,
+  "files_touched": [
+    "frontend/src/hooks/useTreeStore.test.ts",
+    "frontend/src/hooks/useTreeStore.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-5",
+  "turn_id": "77877efc7042",
+  "checkpoint_transcript_start": 448,
+  "transcript_lines_at_start": 448,
+  "compact_transcript_start": 105,
+  "token_usage": {
+    "input_tokens": 100,
+    "cache_creation_tokens": 84450,
+    "cache_read_tokens": 12534248,
+    "output_tokens": 55287,
+    "api_call_count": 50
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_01UtqWzi3nipwNREchUqzyZV",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "review"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "77877efc7042",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 13,
+        "end": 14,
+        "entry_ids": [
+          "7c1456f4-2408-4166-ab3e-95be3a654c50"
+        ],
+        "tool_use_id": "toolu_01UtqWzi3nipwNREchUqzyZV"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01UtqWzi3nipwNREchUqzyZV"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: review",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 5
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-23T22:18:43.963491682Z",
+    "agent_lines": 32,
+    "agent_removed": 2,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 32,
+    "total_lines_changed": 34,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 24,
+      "user_lines_removed": 0,
+      "agent_lines_added": 139,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.local.json": 24
+      }
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 24,
+      "user_lines_removed": 0,
+      "agent_lines_added": 171,
+      "agent_lines_removed": 2,
+      "user_added_per_file": {
+        ".claude/settings.local.json": 24
+      }
+    }
+  ]
+}

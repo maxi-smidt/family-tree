@@ -1,0 +1,5 @@
+after revoked access i got the message that it was removed, but somehow i could open the tree. I could also edit some values and the backend accepted it. why are the routers not access checked?
+
+---
+
+i am running the newest commit on my mac. Recreate: two browser with different accounts logged in. A shares tree with B. Both have tree open. Member is created. A revokes access from B. B is rerouted to fallback tree. but when clicking on the notification that invited to the tree, the tree actually opens in tree view, but is not selected in the sidebar. When i edited values of a member with B it worked and got saved in the db
