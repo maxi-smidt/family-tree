@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "58079275cb33",
+  "strategy": "manual-commit",
+  "branch": "feat/762-undo-delete-activity",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/activity_undo.py",
+    "backend/tests/test_activity_undo.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/58/079275cb33/0/metadata.json",
+      "transcript": "/58/079275cb33/0/full.jsonl",
+      "compact_transcript": "/58/079275cb33/0/transcript.jsonl",
+      "content_hash": "/58/079275cb33/0/content_hash.txt",
+      "prompt": "/58/079275cb33/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 76,
+    "cache_creation_tokens": 45707,
+    "cache_read_tokens": 11676264,
+    "output_tokens": 21409,
+    "api_call_count": 38
+  }
+}

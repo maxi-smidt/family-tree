@@ -1,0 +1,7 @@
+<task-notification>
+<task-id>bxpr5854i</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/tmp/claude-1000/-home-codex-projects-family-tree/ea0b3d53-bee4-415c-80f1-452faf6dd50c/tasks/bxpr5854i.output</output-file>
+<status>completed</status>
+<summary>Background command "uv run pytest -q -n auto 2&gt;&amp;1 | tail -30" completed (exit code 0)</summary>
+</task-notification>
