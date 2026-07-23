@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "0460920185d0",
+  "strategy": "manual-commit",
+  "branch": "feat/760-reversible-deletes-media-retention",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CHANGELOG.md",
+    "backend/app/api/routes/documents.py",
+    "backend/app/api/routes/events.py",
+    "backend/app/api/routes/gallery.py",
+    "backend/app/api/routes/stories.py",
+    "backend/app/services/activity.py",
+    "backend/app/services/deletion_sweeper.py",
+    "backend/app/services/storage.py",
+    "backend/app/services/storage_usage.py",
+    "backend/tests/test_activity.py",
+    "backend/tests/test_storage.py",
+    "docs/ACTIVITY_AUDIT.md",
+    "frontend/src/components/view/activity-view/ActivityView.tsx",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/04/60920185d0/0/metadata.json",
+      "transcript": "/04/60920185d0/0/full.jsonl",
+      "compact_transcript": "/04/60920185d0/0/transcript.jsonl",
+      "content_hash": "/04/60920185d0/0/content_hash.txt",
+      "prompt": "/04/60920185d0/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 236,
+    "cache_creation_tokens": 192829,
+    "cache_read_tokens": 18636694,
+    "output_tokens": 68296,
+    "api_call_count": 118
+  }
+}
