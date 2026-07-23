@@ -4,6 +4,7 @@ import asyncio
 import base64
 import hashlib
 import struct
+import time
 import zlib
 
 import pytest
@@ -18,6 +19,7 @@ from app.core.media_config import (
 )
 from app.schemas.setting import MediaLimits
 from app.services.storage import (
+    MEDIA_TRASH_DIR_NAME,
     MEDIA_URL_PREFIX,
     FileTooLarge,
     ImageTooLarge,
@@ -31,10 +33,12 @@ from app.services.storage import (
     media_url_to_data_url,
     move_media_to_tree,
     process_image_field,
+    purge_expired_media_trash,
     store_data_url,
     store_document,
     store_document_upload,
     store_image_upload,
+    trash_media,
 )
 
 _TREE_ID = "tree-abc"
@@ -320,6 +324,116 @@ def test_delete_media_removes_both_display_and_original(tmp_path, monkeypatch):
     rel = url[len(MEDIA_URL_PREFIX) + 1:]
     assert not (settings.media_root / rel).exists(), "display file must be gone"
     assert not orig_file.exists(), "original must be gone"
+
+
+def test_trash_media_moves_display_and_original(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(4, 4)
+    url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS, mode="both")
+    stem = url.rsplit("/", 1)[-1].removesuffix(".webp")
+    rel = url[len(MEDIA_URL_PREFIX) + 1 :]
+    display_file = settings.media_root / rel
+    orig_file = settings.media_root / _TREE_ID / "originals" / f"{stem}.png"
+    assert display_file.is_file()
+    assert orig_file.is_file()
+    display_bytes = display_file.read_bytes()
+
+    trash_media(url)
+
+    assert not display_file.exists(), "display file must be moved out of place"
+    assert not orig_file.exists(), "original must be moved out of place"
+    trashed_display = (
+        settings.media_root / _TREE_ID / MEDIA_TRASH_DIR_NAME / display_file.name
+    )
+    trashed_orig = (
+        settings.media_root
+        / _TREE_ID
+        / MEDIA_TRASH_DIR_NAME
+        / "originals"
+        / orig_file.name
+    )
+    assert trashed_display.is_file()
+    assert trashed_display.read_bytes() == display_bytes
+    assert trashed_orig.is_file()
+    assert trashed_orig.read_bytes() == png
+
+
+def test_trash_media_moves_original_when_display_missing(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(4, 4)
+    url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS, mode="both")
+    stem = url.rsplit("/", 1)[-1].removesuffix(".webp")
+    rel = url[len(MEDIA_URL_PREFIX) + 1 :]
+    display_file = settings.media_root / rel
+    orig_file = settings.media_root / _TREE_ID / "originals" / f"{stem}.png"
+    assert orig_file.is_file()
+
+    # Simulate the display file already being gone (e.g. a prior partial
+    # cleanup); the originals sibling should still be trashed.
+    display_file.unlink()
+
+    trash_media(url)
+
+    trashed_orig = (
+        settings.media_root
+        / _TREE_ID
+        / MEDIA_TRASH_DIR_NAME
+        / "originals"
+        / orig_file.name
+    )
+    assert trashed_orig.is_file()
+    assert trashed_orig.read_bytes() == png
+    assert not orig_file.exists()
+
+
+def test_trash_media_noop_for_missing_file(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    # Never raises for a well-formed but nonexistent media URL.
+    trash_media(f"{MEDIA_URL_PREFIX}/{_TREE_ID}/does-not-exist.png")
+
+
+def test_purge_expired_media_trash_removes_only_expired(tmp_path, monkeypatch):
+    import os
+
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    png = _make_png(4, 4)
+    old_url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS)
+    fresh_url = store_data_url(_TREE_ID, _data_url("image/png", png), _LIMITS)
+    trash_media(old_url)
+    trash_media(fresh_url)
+
+    ttl = 60 * 60  # 1 hour
+    old_rel = old_url[len(MEDIA_URL_PREFIX) + 1 :]
+    old_filename = old_rel.split("/", 1)[1]
+    old_trashed = settings.media_root / _TREE_ID / MEDIA_TRASH_DIR_NAME / old_filename
+    fresh_rel = fresh_url[len(MEDIA_URL_PREFIX) + 1 :]
+    fresh_filename = fresh_rel.split("/", 1)[1]
+    fresh_trashed = settings.media_root / _TREE_ID / MEDIA_TRASH_DIR_NAME / fresh_filename
+
+    # Backdate only the "old" file's mtime past the TTL.
+    stale_time = time.time() - ttl - 60
+    os.utime(old_trashed, (stale_time, stale_time))
+
+    removed = purge_expired_media_trash(ttl)
+
+    assert removed == 1
+    assert not old_trashed.exists()
+    assert fresh_trashed.exists()
+
+
+def test_purge_expired_media_trash_no_trash_dir_is_safe(tmp_path, monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    assert purge_expired_media_trash(60) == 0
 
 
 def test_copy_media_to_tree_copies_original_subdir(tmp_path, monkeypatch):

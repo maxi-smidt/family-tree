@@ -51,6 +51,7 @@ const TARGET_KEY: Record<string, string> = {
   task: "target-task",
   gallery_image: "target-gallery_image",
   document: "target-document",
+  document_file: "target-document_file",
   disease: "target-disease",
   tree: "target-tree",
   share: "target-share",
@@ -70,6 +71,7 @@ const TARGET_ICONS: Record<string, typeof ActivityIcon> = {
   task: ClipboardList,
   story: BookOpen,
   document: FileText,
+  document_file: FileText,
 };
 
 // Fields we do not want to surface in the diff.

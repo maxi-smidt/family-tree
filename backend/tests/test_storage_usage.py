@@ -7,7 +7,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.services.storage import _tree_media_dir, delete_tree_media
+from app.services.storage import (
+    MEDIA_URL_PREFIX,
+    _tree_media_dir,
+    delete_tree_media,
+    trash_media,
+)
 from app.services.storage_usage import (
     QuotaExceeded,
     _media_bytes,
@@ -72,6 +77,18 @@ def test_media_bytes_zero_after_delete(tmp_path, monkeypatch):
     _write_fake_media(tree_id, "photo.webp", b"data")
     assert _media_bytes(tree_id) > 0
     delete_tree_media(tree_id)
+    assert _media_bytes(tree_id) == 0
+
+
+def test_media_bytes_excludes_trashed_files(tmp_path, monkeypatch):
+    """Trashed media (moved into .trash/ by trash_media) frees quota instantly."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    tree_id = "test-tree-003"
+    _write_fake_media(tree_id, "photo.webp", b"hello world")
+    assert _media_bytes(tree_id) == len(b"hello world")
+
+    trash_media(f"{MEDIA_URL_PREFIX}/{tree_id}/photo.webp")
+
     assert _media_bytes(tree_id) == 0
 
 

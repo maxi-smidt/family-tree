@@ -12,10 +12,13 @@ Filenames are random UUIDs, so the URLs are unguessable.
 import base64
 import binascii
 import hashlib
+import logging
 import os
 import re
 import shutil
 import tempfile
+import time
+from collections.abc import Callable
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -26,7 +29,21 @@ from fastapi import UploadFile
 from app.core.config import settings
 from app.schemas.setting import MediaLimits
 
+logger = logging.getLogger(__name__)
+
 MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
+
+# Reserved per-tree subdirectory holding trashed (soft-deleted) media pending
+# the retention sweep (see trash_media / purge_expired_media_trash below).
+# Tree ids must match _SAFE_PATH_SEGMENT_RE, which forbids a leading dot, so
+# this name can never collide with a real tree directory.
+MEDIA_TRASH_DIR_NAME = ".trash"
+
+# How long trashed media survives before purge_expired_media_trash reclaims
+# it. A plain constant (not an env-configurable Settings field) because there
+# is no restore/undo endpoint yet — this is purely an internal disk-reclaim
+# window, not a user-facing recovery guarantee (see docs/ACTIVITY_AUDIT.md).
+MEDIA_TRASH_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 
 def profile_storage_id(user_id: str) -> str:
@@ -339,6 +356,94 @@ def delete_media(value: str | None) -> None:
             orig.unlink(missing_ok=True)
     except OSError:
         pass
+
+
+def _trash_dir(tree_dir: Path) -> Path:
+    path = (tree_dir / MEDIA_TRASH_DIR_NAME).resolve()
+    if path.parent != tree_dir:
+        raise ValueError("Invalid trash directory")
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def _trash_originals_dir(tree_dir: Path) -> Path:
+    path = (_trash_dir(tree_dir) / "originals").resolve()
+    path.mkdir(exist_ok=True)
+    return path
+
+
+def _stamp_and_trash(src: Path, dest_dir_fn: Callable[[], Path]) -> None:
+    """Stamp *src*'s mtime to now, then move it into ``dest_dir_fn()``.
+
+    The mtime is stamped on the source *before* the move so it survives
+    either path ``shutil.move`` can take: a same-filesystem ``os.rename``
+    carries the source mtime through verbatim, and a cross-filesystem
+    ``copy2`` fallback copies it from the source. Stamping only the
+    destination (after the move) leaves a window where a stale, already-
+    expired mtime sits in trash and can be purged before it's corrected.
+    Best-effort and per-file: logs and swallows any failure so one bad file
+    can't strand its siblings or break the caller's delete request.
+    """
+    try:
+        dest_dir = dest_dir_fn()
+        os.utime(src, None)
+        shutil.move(str(src), str(dest_dir / src.name))
+    except (OSError, ValueError):
+        logger.warning("Failed to trash media file %s", src.name, exc_info=True)
+
+
+def trash_media(value: str | None) -> None:
+    """Move the on-disk file backing a media URL into the tree's trash.
+
+    Retention counterpart to ``delete_media``: instead of unlinking, the file
+    (and any ``originals/`` sibling) is moved into ``<tree_dir>/.trash/`` with
+    its mtime stamped to the move time, so ``purge_expired_media_trash`` can
+    later reclaim it once ``MEDIA_TRASH_TTL_SECONDS`` has elapsed. No-op for
+    non-media URLs or missing files; never raises, so a failed move can't
+    break a delete request.
+    """
+    path = _safe_media_path(value)
+    if path is None:
+        return
+    originals = _safe_original_files(path)
+    if path.is_file():
+        _stamp_and_trash(path, lambda: _trash_dir(path.parent))
+    for orig in originals:
+        _stamp_and_trash(orig, lambda: _trash_originals_dir(path.parent))
+
+
+def purge_expired_media_trash(ttl_seconds: int = MEDIA_TRASH_TTL_SECONDS) -> int:
+    """Permanently remove trashed media files older than ``ttl_seconds``.
+
+    Called from the deletion-sweep loop (``app.services.deletion_sweeper``).
+    Best-effort per file/tree so one bad entry can't stop the rest. Returns
+    the number of files removed.
+    """
+    root = settings.media_root
+    if not root.is_dir():
+        return 0
+    cutoff = time.time() - ttl_seconds
+    removed = 0
+    try:
+        tree_dirs = list(root.iterdir())
+    except OSError:
+        return 0
+    for tree_dir in tree_dirs:
+        trash = tree_dir / MEDIA_TRASH_DIR_NAME
+        if not trash.is_dir():
+            continue
+        try:
+            candidates = list(trash.rglob("*"))
+        except OSError:
+            continue
+        for candidate in candidates:
+            try:
+                if candidate.is_file() and candidate.stat().st_mtime < cutoff:
+                    candidate.unlink(missing_ok=True)
+                    removed += 1
+            except OSError:
+                continue
+    return removed
 
 
 def _tree_media_dir(tree_id: str) -> Path:

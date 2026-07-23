@@ -8,12 +8,15 @@ from sqlalchemy import select
 from app.models.activity import ActivityLog
 from app.models.content import (
     Document,
+    DocumentFile,
     DocumentMemberLink,
     Event,
+    EventDocumentLink,
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
     Story,
+    StoryDocumentLink,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
@@ -717,3 +720,264 @@ def test_delete_disease_details_snapshot(client, db):
     assert snapshot["disease"]["inheritance_pattern"] == "autosomal_recessive"
     assert snapshot["disease"]["diagnosis_date"] == "1990"
     assert snapshot["disease"]["notes"] == "n"
+
+
+# ---------------------------------------------------------------------------
+# Delete snapshots (issue #760): event / story / gallery image / document
+# deletes carry a full re-insertable pre-image, and gallery/document media is
+# moved to per-tree trash rather than unlinked.
+# ---------------------------------------------------------------------------
+
+
+def test_delete_event_details_snapshot(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1", first_name="Ada")
+    db.add(
+        Event(id="e1", tree_id=tree.id, event_type="birth", date="1900", created_at="t")
+    )
+    db.add(EventMemberLink(event_id="e1", member_id="m1"))
+    db.add(
+        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+    )
+    db.add(EventDocumentLink(event_id="e1", document_id="doc1"))
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/events/e1", headers=auth(owner))
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["version"] == 1
+    assert snapshot["event"]["id"] == "e1"
+    assert snapshot["event"]["event_type"] == "birth"
+    assert snapshot["member_links"] == [{"event_id": "e1", "member_id": "m1"}]
+    assert snapshot["document_links"] == [{"event_id": "e1", "document_id": "doc1"}]
+
+
+def test_delete_story_details_snapshot(client, db):
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1", first_name="Ada")
+    db.add(
+        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+    )
+    db.add(StoryMemberLink(story_id="s1", member_id="m1"))
+    db.add(
+        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+    )
+    db.add(StoryDocumentLink(story_id="s1", document_id="doc1"))
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/stories/s1", headers=auth(owner))
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["version"] == 1
+    assert snapshot["story"]["id"] == "s1"
+    assert snapshot["story"]["title"] == "A Story"
+    assert snapshot["member_links"] == [{"story_id": "s1", "member_id": "m1"}]
+    assert snapshot["document_links"] == [{"story_id": "s1", "document_id": "doc1"}]
+
+
+def test_delete_gallery_image_details_snapshot_trashes_media(
+    client, db, tmp_path, monkeypatch
+):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1", first_name="Ada")
+
+    created = client.post(
+        f"{API}/trees/{tree.id}/gallery/images",
+        headers=auth(owner),
+        data={"id": "img1", "title": "A Photo", "uploaded_at": "2000-01-01T00:00:00Z"},
+        files={"image": ("a.png", _PNG_BYTES, "image/png")},
+    )
+    assert created.status_code == 201
+    image_url = created.json()["imageData"]
+    stored_path = settings.media_root / tree.id / image_url.rsplit("/", 1)[-1]
+    assert stored_path.is_file()
+
+    res = client.put(
+        f"{API}/trees/{tree.id}/gallery/images/img1/links",
+        headers=auth(owner),
+        json={"member_ids": ["m1"]},
+    )
+    assert res.status_code == 204
+    # Region-less link: give it a face-tag region directly so the snapshot
+    # asserts on x/y/w/h too.
+    link = db.get(GalleryMemberLink, ("img1", "m1"))
+    link.x, link.y, link.w, link.h = 0.1, 0.2, 0.3, 0.4
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/gallery/images/img1", headers=auth(owner))
+    assert res.status_code == 204
+
+    rows = _activity_rows(db, tree.id)
+    deletes = [r for r in rows if r.action == "delete"]
+    assert len(deletes) == 1
+    snapshot = json.loads(deletes[0].details)["snapshot"]
+    assert snapshot["version"] == 1
+    assert snapshot["gallery_image"]["id"] == "img1"
+    assert len(snapshot["member_links"]) == 1
+    assert snapshot["member_links"][0]["x"] == 0.1
+    assert snapshot["member_links"][0]["h"] == 0.4
+    assert snapshot["trashed_media"] == [image_url]
+
+    # The bytes survive under .trash/ instead of being unlinked.
+    assert not stored_path.is_file()
+    trashed_path = settings.media_root / tree.id / ".trash" / stored_path.name
+    assert trashed_path.is_file()
+
+
+def _write_media_file(
+    settings, tree_id: str, filename: str, content: bytes = b"data"
+) -> str:
+    from app.services.storage import MEDIA_URL_PREFIX
+
+    tree_dir = settings.media_root / tree_id
+    tree_dir.mkdir(parents=True, exist_ok=True)
+    (tree_dir / filename).write_bytes(content)
+    return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+
+
+def test_delete_document_details_snapshot_trashes_media(
+    client, db, tmp_path, monkeypatch
+):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    add_member(db, tree, "m1", first_name="Ada")
+    url = _write_media_file(settings, tree.id, "file1.pdf")
+
+    db.add(
+        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+    )
+    db.add(
+        DocumentFile(
+            id="f1",
+            tree_id=tree.id,
+            document_id="doc1",
+            kind="file",
+            filename="file1.pdf",
+            url=url,
+            mime_type="application/pdf",
+            size=4,
+            created_at="t",
+        )
+    )
+    db.add(DocumentMemberLink(document_id="doc1", member_id="m1"))
+    db.add(
+        Event(id="e1", tree_id=tree.id, event_type="birth", date="1900", created_at="t")
+    )
+    db.add(EventDocumentLink(event_id="e1", document_id="doc1"))
+    db.add(
+        Story(id="s1", tree_id=tree.id, title="A Story", created_at="t", updated_at="t")
+    )
+    db.add(StoryDocumentLink(story_id="s1", document_id="doc1"))
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/documents/doc1", headers=auth(owner))
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["version"] == 1
+    assert snapshot["document"]["id"] == "doc1"
+    assert len(snapshot["files"]) == 1
+    assert snapshot["files"][0]["url"] == url
+    assert snapshot["member_links"] == [{"document_id": "doc1", "member_id": "m1"}]
+    assert snapshot["event_links"] == [{"event_id": "e1", "document_id": "doc1"}]
+    assert snapshot["story_links"] == [{"story_id": "s1", "document_id": "doc1"}]
+    assert snapshot["trashed_media"] == [url]
+
+    stored_path = settings.media_root / tree.id / "file1.pdf"
+    trashed_path = settings.media_root / tree.id / ".trash" / "file1.pdf"
+    assert not stored_path.is_file()
+    assert trashed_path.is_file()
+
+
+def test_delete_document_file_writes_activity_and_trashes_media(
+    client, db, tmp_path, monkeypatch
+):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    url = _write_media_file(settings, tree.id, "file1.pdf")
+
+    db.add(
+        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+    )
+    db.add(
+        DocumentFile(
+            id="f1",
+            tree_id=tree.id,
+            document_id="doc1",
+            kind="file",
+            filename="file1.pdf",
+            url=url,
+            mime_type="application/pdf",
+            size=4,
+            created_at="t",
+        )
+    )
+    db.commit()
+
+    res = client.delete(
+        f"{API}/trees/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
+    )
+    assert res.status_code == 204
+
+    rows = _activity_rows(db, tree.id)
+    deletes = [r for r in rows if r.action == "delete"]
+    assert len(deletes) == 1
+    assert deletes[0].target_type == "document_file"
+    assert deletes[0].target_id == "f1"
+    assert deletes[0].target_label == "file1.pdf"
+    snapshot = json.loads(deletes[0].details)["snapshot"]
+    assert snapshot["version"] == 1
+    assert snapshot["document_file"]["id"] == "f1"
+    assert snapshot["document_file"]["url"] == url
+    assert snapshot["trashed_media"] == [url]
+
+    stored_path = settings.media_root / tree.id / "file1.pdf"
+    trashed_path = settings.media_root / tree.id / ".trash" / "file1.pdf"
+    assert not stored_path.is_file()
+    assert trashed_path.is_file()
+
+
+def test_delete_document_link_file_has_no_trashed_media(client, db):
+    """A ``kind="link"`` attachment has no backing file, so nothing is trashed."""
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    db.add(
+        Document(id="doc1", tree_id=tree.id, title="Deed", created_at="t", updated_at="t")
+    )
+    db.add(
+        DocumentFile(
+            id="f1",
+            tree_id=tree.id,
+            document_id="doc1",
+            kind="link",
+            filename="External",
+            url="https://example.com/deed",
+            mime_type=None,
+            size=None,
+            created_at="t",
+        )
+    )
+    db.commit()
+
+    res = client.delete(
+        f"{API}/trees/{tree.id}/documents/doc1/files/f1", headers=auth(owner)
+    )
+    assert res.status_code == 204
+
+    snapshot = _delete_details(db, tree.id)["snapshot"]
+    assert snapshot["document_file"]["kind"] == "link"
+    assert snapshot["trashed_media"] == []

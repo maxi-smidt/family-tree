@@ -23,7 +23,7 @@ from app.schemas.content import (
     StoryOut,
     StoryUpdate,
 )
-from app.services.activity import record_activity
+from app.services.activity import record_activity, story_delete_snapshot
 from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import QuotaExceeded, check_tree_quota
@@ -177,7 +177,8 @@ def delete_story(
 ):
     story = _get_story(db, tree, story_id)
     record_activity(db, tree_id=tree.id, actor=user, action="delete",
-                    target_type="story", target_id=story.id, target_label=story.title)
+                    target_type="story", target_id=story.id, target_label=story.title,
+                    details=story_delete_snapshot(db, story))
     db.delete(story)
     db.commit()
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
