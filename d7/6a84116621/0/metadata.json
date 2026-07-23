@@ -22,6 +22,71 @@
     "output_tokens": 14605,
     "api_call_count": 47
   },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_01PTVWvHMuvu5HidnFopHQYM",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "simplify"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "1328a33a5dd3",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 205,
+        "end": 206,
+        "entry_ids": [
+          "673513dc-d056-4bb9-9d08-3305a2838ff5"
+        ],
+        "tool_use_id": "toolu_01PTVWvHMuvu5HidnFopHQYM"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01PTVWvHMuvu5HidnFopHQYM"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: simplify",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_01SfcLnkh76FXQMPqTQtMWQt",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "security-review"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "1328a33a5dd3",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 241,
+        "end": 242,
+        "entry_ids": [
+          "24ac75e8-d204-462c-afbf-89b6609f88e6"
+        ],
+        "tool_use_id": "toolu_01SfcLnkh76FXQMPqTQtMWQt"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01SfcLnkh76FXQMPqTQtMWQt"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: security-review",
+        "default_collapsed": true
+      }
+    }
+  ],
   "initial_attribution": {
     "calculated_at": "2026-07-23T14:40:55.908609994Z",
     "agent_lines": 41,
