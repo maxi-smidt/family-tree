@@ -214,6 +214,44 @@ def test_undo_bridge_member_delete_skips_gone_counterpart(client, db):
     assert any(s["table"] == "members" for s in body["skipped"])
 
 
+def test_undo_member_delete_ignores_same_id_member_in_another_tree(client, db):
+    """Member ids are client-suppliable, so an existence check must be
+    tree-scoped: a same-id row that only exists in an unrelated tree must
+    not be mistaken for the real, same-tree relation endpoint."""
+    owner = make_user(db, "alice")
+    tree = make_tree(db, owner)
+    other = make_tree(db, owner, name="Other")
+    add_member(db, tree, "m1", first_name="Ada")
+    add_member(db, tree, "m2", first_name="Bob")
+    db.add(
+        Relation(
+            tree_id=tree.id,
+            from_member_id="m1",
+            to_member_id="m2",
+            relation_type="parent",
+        )
+    )
+    db.commit()
+
+    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
+    assert res.status_code == 204
+    entry = _last_delete_entry(db, tree.id, "member")
+
+    # m2 is gone from `tree`, but a *different* member with the same id now
+    # exists in an unrelated tree.
+    res = client.delete(f"{API}/trees/{tree.id}/members/m2", headers=auth(owner))
+    assert res.status_code == 204
+    add_member(db, other, "m2", first_name="Someone Else")
+
+    res = _undo(client, tree.id, entry.id, owner)
+    assert res.status_code == 200
+    body = res.json()
+    assert "relations" not in body["restored"]
+    assert body["skipped"] == [
+        {"table": "relations", "reason": "member m2 no longer exists"}
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Partial restore: a stale relation endpoint is skipped, not fatal
 # ---------------------------------------------------------------------------

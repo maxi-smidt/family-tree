@@ -79,6 +79,25 @@ def _instantiate(
     return model(**{k: v for k, v in data.items() if k in columns and k not in drop})
 
 
+def _in_tree(db: Session, model: type, row_id: str, tree_id: str) -> object | None:
+    """Look up a row by id, but only if it belongs to ``tree_id``.
+
+    Member/event/story/gallery-image/document ids are client-suppliable
+    (see e.g. ``MemberCreate.id``), so a plain ``db.get(model, row_id)``
+    existence check could be fooled by an unrelated row in a different tree
+    that happens to reuse the same id. Every cross-reference validity check
+    in this module scopes through here instead, matching the "every content
+    query is scoped by tree_id" rule the rest of the app follows. The one
+    exception is a *main row* conflict check (a global PK collision, which
+    would fail on insert regardless of tree) and the bridge counterpart,
+    which is expected to live in a different tree by design.
+    """
+    row = db.get(model, row_id)
+    if row is not None and row.tree_id != tree_id:
+        return None
+    return row
+
+
 # ---------------------------------------------------------------------------
 # Member (+ relations, diseases, five link tables, bridge)
 # ---------------------------------------------------------------------------
@@ -104,7 +123,13 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     bridge = snapshot.get("bridge")
     if bridge is not None:
-        counterpart = db.get(Member, bridge["counterpart_member_id"])
+        # The counterpart is expected to live in a *different* tree by
+        # design (that's the whole point of a tree-in-tree bridge), so it's
+        # scoped to the bridge's own recorded tree, not the tree being
+        # restored into.
+        counterpart = _in_tree(
+            db, Member, bridge["counterpart_member_id"], bridge["counterpart_tree_id"]
+        )
         if counterpart is None:
             result.add_skip(
                 "members",
@@ -128,7 +153,7 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
             if rel["from_member_id"] == member_id
             else rel["from_member_id"]
         )
-        if db.get(Member, other_id) is None:
+        if _in_tree(db, Member, other_id, tree.id) is None:
             result.add_skip("relations", f"member {other_id} no longer exists")
             continue
         key = (tree.id, rel["from_member_id"], rel["to_member_id"], rel["relation_type"])
@@ -152,6 +177,7 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     _restore_member_links(
         db,
+        tree,
         result,
         snapshot.get("task_links", []),
         link_model=MemberTaskLink,
@@ -162,6 +188,7 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     )
     _restore_member_links(
         db,
+        tree,
         result,
         snapshot.get("event_links", []),
         link_model=EventMemberLink,
@@ -172,6 +199,7 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     )
     _restore_member_links(
         db,
+        tree,
         result,
         snapshot.get("story_links", []),
         link_model=StoryMemberLink,
@@ -182,6 +210,7 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     )
     _restore_member_links(
         db,
+        tree,
         result,
         snapshot.get("gallery_links", []),
         link_model=GalleryMemberLink,
@@ -192,6 +221,7 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     )
     _restore_member_links(
         db,
+        tree,
         result,
         snapshot.get("document_links", []),
         link_model=DocumentMemberLink,
@@ -205,6 +235,7 @@ def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
 def _restore_member_links(
     db: Session,
+    tree: Tree,
     result: RestoreResult,
     links: list[dict],
     *,
@@ -217,7 +248,7 @@ def _restore_member_links(
     count = 0
     for link in links:
         parent_id = link[parent_key]
-        if db.get(parent_model, parent_id) is None:
+        if _in_tree(db, parent_model, parent_id, tree.id) is None:
             result.add_skip(table, f"{parent_label} {parent_id} no longer exists")
             continue
         key = (parent_id, link["member_id"])
@@ -241,7 +272,7 @@ def restore_relation(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     if db.get(Relation, key) is not None:
         raise UndoConflict("relation already exists")
     for member_id in (rel["from_member_id"], rel["to_member_id"]):
-        if db.get(Member, member_id) is None:
+        if _in_tree(db, Member, member_id, tree.id) is None:
             raise UndoConflict(f"member {member_id} no longer exists")
     db.add(Relation(**rel))
     return RestoreResult(main_id=None, restored={"relation": 1})
@@ -251,7 +282,7 @@ def restore_disease(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     disease = snapshot["disease"]
     if db.get(MemberDisease, disease["id"]) is not None:
         raise UndoConflict(f"disease {disease['id']} already exists")
-    if db.get(Member, disease["member_id"]) is None:
+    if _in_tree(db, Member, disease["member_id"], tree.id) is None:
         raise UndoConflict(f"member {disease['member_id']} no longer exists")
     db.add(MemberDisease(**disease))
     return RestoreResult(main_id=disease["id"], restored={"disease": disease["id"]})
@@ -272,7 +303,7 @@ def restore_event(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     count = 0
     for link in snapshot.get("member_links", []):
-        if db.get(Member, link["member_id"]) is None:
+        if _in_tree(db, Member, link["member_id"], tree.id) is None:
             result.add_skip(
                 "member_links", f"member {link['member_id']} no longer exists"
             )
@@ -287,7 +318,7 @@ def restore_event(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     count = 0
     for link in snapshot.get("document_links", []):
-        if db.get(Document, link["document_id"]) is None:
+        if _in_tree(db, Document, link["document_id"], tree.id) is None:
             result.add_skip(
                 "document_links", f"document {link['document_id']} no longer exists"
             )
@@ -312,7 +343,7 @@ def restore_story(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     count = 0
     for link in snapshot.get("member_links", []):
-        if db.get(Member, link["member_id"]) is None:
+        if _in_tree(db, Member, link["member_id"], tree.id) is None:
             result.add_skip(
                 "member_links", f"member {link['member_id']} no longer exists"
             )
@@ -327,7 +358,7 @@ def restore_story(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     count = 0
     for link in snapshot.get("document_links", []):
-        if db.get(Document, link["document_id"]) is None:
+        if _in_tree(db, Document, link["document_id"], tree.id) is None:
             result.add_skip(
                 "document_links", f"document {link['document_id']} no longer exists"
             )
@@ -361,7 +392,7 @@ def restore_gallery_image(db: Session, tree: Tree, snapshot: dict) -> RestoreRes
 
     count = 0
     for link in snapshot.get("member_links", []):
-        if db.get(Member, link["member_id"]) is None:
+        if _in_tree(db, Member, link["member_id"], tree.id) is None:
             result.add_skip(
                 "member_links", f"member {link['member_id']} no longer exists"
             )
@@ -400,7 +431,7 @@ def restore_document(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     count = 0
     for link in snapshot.get("member_links", []):
-        if db.get(Member, link["member_id"]) is None:
+        if _in_tree(db, Member, link["member_id"], tree.id) is None:
             result.add_skip(
                 "member_links", f"member {link['member_id']} no longer exists"
             )
@@ -415,7 +446,7 @@ def restore_document(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     count = 0
     for link in snapshot.get("event_links", []):
-        if db.get(Event, link["event_id"]) is None:
+        if _in_tree(db, Event, link["event_id"], tree.id) is None:
             result.add_skip("event_links", f"event {link['event_id']} no longer exists")
             continue
         if db.get(EventDocumentLink, (link["event_id"], doc_id)) is not None:
@@ -428,7 +459,7 @@ def restore_document(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 
     count = 0
     for link in snapshot.get("story_links", []):
-        if db.get(Story, link["story_id"]) is None:
+        if _in_tree(db, Story, link["story_id"], tree.id) is None:
             result.add_skip("story_links", f"story {link['story_id']} no longer exists")
             continue
         if db.get(StoryDocumentLink, (link["story_id"], doc_id)) is not None:
@@ -446,7 +477,7 @@ def restore_document_file(db: Session, tree: Tree, snapshot: dict) -> RestoreRes
     file_id = file_data["id"]
     if db.get(DocumentFile, file_id) is not None:
         raise UndoConflict(f"document file {file_id} already exists")
-    if db.get(Document, file_data["document_id"]) is None:
+    if _in_tree(db, Document, file_data["document_id"], tree.id) is None:
         raise UndoConflict(f"document {file_data['document_id']} no longer exists")
     db.add(DocumentFile(**file_data))
     return RestoreResult(
