@@ -23,7 +23,7 @@ from app.schemas.content import (
     EventUpdate,
     LinksSet,
 )
-from app.services.activity import record_activity
+from app.services.activity import event_delete_snapshot, record_activity
 from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import QuotaExceeded, check_tree_quota
@@ -183,6 +183,7 @@ def delete_event(
     record_activity(
         db, tree_id=tree.id, actor=user, action="delete",
         target_type="event", target_id=event.id, target_label=event.event_type,
+        details=event_delete_snapshot(db, event),
     )
     db.delete(event)
     db.commit()

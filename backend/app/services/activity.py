@@ -25,10 +25,16 @@ from sqlalchemy.orm import Session
 from app.db.base import Base
 from app.models.activity import ActivityLog
 from app.models.content import (
+    Document,
     DocumentMemberLink,
+    Event,
+    EventDocumentLink,
     EventMemberLink,
+    GalleryImage,
     GalleryMemberLink,
     MemberTaskLink,
+    Story,
+    StoryDocumentLink,
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
@@ -100,6 +106,93 @@ def member_delete_snapshot(
             "counterpart_tree_id": counterpart.tree_id,
         }
     return delete_snapshot(**tables)
+
+
+def event_delete_snapshot(db: Session, event: Event) -> dict:
+    """Full pre-image of an event row and its member/document links.
+
+    Must be called BEFORE ``db.delete(event)``. Events own no media directly
+    (only documents linked through ``event_document_link`` do), so unlike the
+    gallery/document snapshots below there is no media to trash.
+    """
+    member_links = db.scalars(
+        select(EventMemberLink).where(EventMemberLink.event_id == event.id)
+    ).all()
+    document_links = db.scalars(
+        select(EventDocumentLink).where(EventDocumentLink.event_id == event.id)
+    ).all()
+    return delete_snapshot(
+        event=row_to_dict(event),
+        member_links=[row_to_dict(r) for r in member_links],
+        document_links=[row_to_dict(r) for r in document_links],
+    )
+
+
+def story_delete_snapshot(db: Session, story: Story) -> dict:
+    """Full pre-image of a story row and its member/document links.
+
+    Must be called BEFORE ``db.delete(story)``. Stories own no media directly,
+    mirroring ``event_delete_snapshot``.
+    """
+    member_links = db.scalars(
+        select(StoryMemberLink).where(StoryMemberLink.story_id == story.id)
+    ).all()
+    document_links = db.scalars(
+        select(StoryDocumentLink).where(StoryDocumentLink.story_id == story.id)
+    ).all()
+    return delete_snapshot(
+        story=row_to_dict(story),
+        member_links=[row_to_dict(r) for r in member_links],
+        document_links=[row_to_dict(r) for r in document_links],
+    )
+
+
+def gallery_delete_snapshot(db: Session, image: GalleryImage) -> dict:
+    """Full pre-image of a gallery image row and its member links.
+
+    Must be called BEFORE ``db.delete(image)``. ``member_links`` includes any
+    face-tag regions (x/y/w/h). ``gallery_unknown_faces`` rows cascade away
+    with the image but are deliberately not snapshotted here, mirroring the
+    virtual-view-match exclusion in ``member_delete_snapshot``. ``trashed_media``
+    records the media URL the caller is expected to move into per-tree trash
+    (``app.services.storage.trash_media``) rather than delete outright.
+    """
+    member_links = db.scalars(
+        select(GalleryMemberLink).where(GalleryMemberLink.gallery_image_id == image.id)
+    ).all()
+    return delete_snapshot(
+        gallery_image=row_to_dict(image),
+        member_links=[row_to_dict(r) for r in member_links],
+        trashed_media=[image.image_data] if image.image_data else [],
+    )
+
+
+def document_delete_snapshot(db: Session, document: Document) -> dict:
+    """Full pre-image of a document row, its files, and every link table.
+
+    Must be called BEFORE ``db.delete(document)``. ``trashed_media`` records
+    the file-kind attachment URLs the caller is expected to move into
+    per-tree trash rather than delete outright (link-kind attachments have no
+    backing file, so they're excluded).
+    """
+    files = document.files
+    member_links = db.scalars(
+        select(DocumentMemberLink).where(DocumentMemberLink.document_id == document.id)
+    ).all()
+    event_links = db.scalars(
+        select(EventDocumentLink).where(EventDocumentLink.document_id == document.id)
+    ).all()
+    story_links = db.scalars(
+        select(StoryDocumentLink).where(StoryDocumentLink.document_id == document.id)
+    ).all()
+    return delete_snapshot(
+        document=row_to_dict(document),
+        files=[row_to_dict(f) for f in files],
+        member_links=[row_to_dict(r) for r in member_links],
+        event_links=[row_to_dict(r) for r in event_links],
+        story_links=[row_to_dict(r) for r in story_links],
+        trashed_media=[f.url for f in files if f.kind == "file"],
+    )
 
 
 def record_activity(

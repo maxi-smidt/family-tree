@@ -98,10 +98,54 @@ event/story/image/document behind a link, the bridge counterpart).
 Virtual-view match rows also cascade but are derived state the matching
 service recomputes, so they are deliberately not snapshotted.
 
-_Event, story, gallery-image, and document deletes are **not reversible**._
-They still store only `target_label`. Gallery and document deletes also
-remove media files from disk, so a row snapshot alone would not suffice —
-they need a media trash/retention mechanism first. Tracked in issue #760.
+_Event, story, gallery-image, and document deletes are also **reversible in
+principle** (issue #760)._ `event_delete_snapshot` / `story_delete_snapshot` /
+`gallery_delete_snapshot` / `document_delete_snapshot`
+(`backend/app/services/activity.py`) follow the same pattern: the full parent
+row plus every link table that cascades away with it.
+
+- **Event**: `event` row, `member_links` (`event_member_link`),
+  `document_links` (`event_document_link`). Events own no media.
+- **Story**: `story` row, `member_links` (`story_member_link`),
+  `document_links` (`story_document_link`). Stories own no media.
+- **Gallery image**: `gallery_image` row, `member_links`
+  (`gallery_member_link`, including face-tag regions), and `trashed_media` —
+  the image's media URL, moved into trash rather than deleted (see below).
+  `gallery_unknown_faces` rows also cascade away but are deliberately not
+  snapshotted, mirroring the virtual-view-match exclusion above.
+- **Document**: `document` row, `files` (`document_files`, both `"file"` and
+  `"link"` kind), `member_links` / `event_links` / `story_links`
+  (`document_member_link` / `event_document_link` / `story_document_link`),
+  and `trashed_media` — the URLs of every `kind=="file"` attachment, moved
+  into trash. The standalone `DELETE /documents/{id}/files/{file_id}`
+  endpoint now records its own `delete` row too (`target_type
+  ="document_file"`), built inline from `delete_snapshot(document_file=...,
+  trashed_media=...)` since it's a single row with no link tables of its own.
+
+**Media trash/retention (issue #760).** Gallery and document deletes used to
+call `delete_media`, unlinking the bytes immediately — a row snapshot alone
+couldn't restore those. Both call sites now use `trash_media`
+(`backend/app/services/storage.py`) instead: it moves the file (and any
+`originals/` sibling from `"both"`-mode gallery uploads) into
+`<tree_dir>/.trash/` rather than deleting it, stamping its mtime to the move
+time. A per-tree `.trash/` directory can never collide with a real tree id
+(tree ids must start with an alphanumeric; `.trash` starts with a dot).
+Trashed files are excluded from storage-quota accounting
+(`storage_usage.py`), so deleting still frees quota immediately even though
+the bytes physically survive. `purge_expired_media_trash` permanently
+removes trashed files older than `MEDIA_TRASH_TTL_SECONDS` (30 days, a fixed
+constant — not admin/env-configurable, since there is no restore endpoint
+yet to make the window a user-facing guarantee); it runs as part of the
+existing background sweep (`backend/app/services/deletion_sweeper.py`),
+alongside the pending-user purge.
+
+**Known remaining gap.** `document_service.save_document` (the composite
+`PUT /documents/{id}` the frontend uses for in-place edits) can also remove
+files as part of an atomic multi-change save. That's an `update` action, not
+a `delete`, and the issue's scope covers whole-entity deletes plus the
+standalone single-file delete endpoint — so file removals via that composite
+save path are unchanged: still an immediate `delete_media` with no
+per-file snapshot. A future issue could extend snapshotting to that path too.
 
 **Single-action undo vs. "revert to timestamp."** Even with enriched delete
 snapshots, there's a second axis of difficulty: undoing _one_ action (the
@@ -109,14 +153,15 @@ most recent delete, say) is a local, self-contained operation once the
 pre-image exists. Reverting an entire tree to an earlier point in time is a
 different problem — it requires replaying the _inverse_ of every intervening
 action in reverse order (undo the last update, then the one before it, ...).
-With #572 the member/relation/disease delete payloads carry that pre-image;
-the remaining blockers are the content-type deletes above (#760) and the
-`_SKIP_DIFF` update fields.
+With #572 and #760 every delete action now carries a re-insertable pre-image;
+the remaining blocker for full single-action undo is the `_SKIP_DIFF` update
+fields.
 
-**Recommendation:** no undo/restore endpoint exists yet — the snapshots make
-the _data_ sufficient. If undo is pursued, the next steps are #760 (content
-deletes + media retention) and then a single-action undo that validates the
-"referenced rows still exist" conditions before re-inserting.
+**Recommendation:** no undo/restore endpoint exists yet — the snapshots (and,
+for gallery/document deletes, the trash window) make the _data_ sufficient.
+If undo is pursued, the next step is a single-action undo endpoint that
+validates the "referenced rows (and, for media, the trashed file) still
+exist" conditions before re-inserting.
 
 ## (c) Admin / non-tree audit — recommendation
 

@@ -37,6 +37,7 @@ from app.models.content import (
 from app.models.family import Member, MemberDisease, Relation
 from app.models.tree import Tree
 from app.services.settings_service import get_int_setting
+from app.services.storage import MEDIA_TRASH_DIR_NAME
 
 # ---------------------------------------------------------------------------
 # Usage calculation
@@ -166,8 +167,11 @@ def _media_bytes(tree_id: str) -> int:
     """Sum on-disk file sizes under ``media_root/<tree_id>/``.
 
     Counts files in the tree directory and in the ``originals/`` subdirectory
-    used by gallery ``"both"`` mode. Returns 0 when the directory does not
-    exist (e.g. tree has no media).
+    used by gallery ``"both"`` mode. Excludes ``.trash/`` — media a delete has
+    moved into per-tree trash (see ``app.services.storage.trash_media``) no
+    longer counts against quota, even though it survives on disk until the
+    retention sweep purges it. Returns 0 when the directory does not exist
+    (e.g. tree has no media).
     """
     tree_dir = settings.media_root / tree_id
     if not tree_dir.is_dir():
@@ -175,6 +179,8 @@ def _media_bytes(tree_id: str) -> int:
     total = 0
     try:
         for entry in tree_dir.rglob("*"):
+            if MEDIA_TRASH_DIR_NAME in entry.relative_to(tree_dir).parts:
+                continue
             if not entry.is_symlink() and entry.is_file():
                 try:
                     total += entry.stat().st_size

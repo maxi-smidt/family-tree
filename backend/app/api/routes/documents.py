@@ -43,7 +43,12 @@ from app.schemas.content import (
     DocumentUploadOut,
     LinksSet,
 )
-from app.services.activity import record_activity
+from app.services.activity import (
+    delete_snapshot,
+    document_delete_snapshot,
+    record_activity,
+    row_to_dict,
+)
 from app.services.content_links import replace_member_links
 from app.services.document_service import (
     external_link_url,
@@ -58,6 +63,7 @@ from app.services.storage import (
     UnsupportedFileType,
     delete_media,
     store_document_upload,
+    trash_media,
 )
 from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
 
@@ -288,15 +294,16 @@ def delete_document(
         target_type="document",
         target_id=document.id,
         target_label=document.title,
+        details=document_delete_snapshot(db, document),
     )
-    # Capture the on-disk URLs before the row is gone, but only unlink the bytes
-    # *after* the DB commit succeeds. Removing them first would leave a live row
-    # pointing at a missing file if the commit then failed.
+    # Capture the on-disk URLs before the row is gone, but only move the bytes
+    # to trash *after* the DB commit succeeds. Removing them first would leave
+    # a live row pointing at a missing file if the commit then failed.
     file_urls = [f.url for f in document.files if f.kind == "file"]
     db.delete(document)
     db.commit()
     for url in file_urls:
-        delete_media(url)
+        trash_media(url)
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
@@ -529,17 +536,33 @@ def delete_file(
     document_id: str,
     file_id: str,
     tree: Tree = Depends(get_writable_tree),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     document = _get_document(db, tree, document_id)
     file = _get_file(db, document, file_id)
-    # Unlink the bytes only after the row is durably gone: deleting first would
-    # leave a live row pointing at a missing file if the commit then failed.
+    # Move the bytes to trash only after the row is durably gone: deleting
+    # first would leave a live row pointing at a missing file if the commit
+    # then failed.
     url = file.url if file.kind == "file" else None
+    record_activity(
+        db,
+        tree_id=tree.id,
+        actor=user,
+        action="delete",
+        target_type="document_file",
+        target_id=file.id,
+        target_label=file.filename,
+        details=delete_snapshot(
+            document_file=row_to_dict(file),
+            trashed_media=[url] if url else [],
+        ),
+    )
     db.delete(file)
     db.commit()
     if url is not None:
-        delete_media(url)
+        trash_media(url)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     publish_tree_event(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "document"},

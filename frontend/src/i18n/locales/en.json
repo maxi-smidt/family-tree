@@ -1177,6 +1177,7 @@
     "target-story": "story",
     "target-gallery_image": "image",
     "target-document": "document",
+    "target-document_file": "document file",
     "target-disease": "condition",
     "target-tree": "tree",
     "target-share": "share",

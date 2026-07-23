@@ -97,6 +97,13 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Documents in the member sheet's Documents section now start collapsed and
   toggle open on click (or keyboard), showing just the title and date until
   expanded, so members with many documents are easier to scan (#801).
+- Deleting an event, story, gallery image, or document now records a full
+  re-insertable snapshot of the removed row(s) and their links in the tree
+  activity log, extending the person/relation/disease snapshots from #572;
+  the standalone document single-file delete is now logged too. Media
+  backing a deleted gallery image or document is moved into a per-tree trash
+  area and kept for 30 days before a background sweep reclaims it, instead of
+  being unlinked immediately (#760).
 
 ### Fixed
 

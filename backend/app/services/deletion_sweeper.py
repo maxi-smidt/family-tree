@@ -1,9 +1,11 @@
-"""Background loop that periodically purges expired pending-deletion users.
+"""Background loop that periodically purges expired pending-deletion users and
+trashed media.
 
 Started from the FastAPI ``lifespan`` ([app.main]). It runs one sweep at startup
-and then every ``DELETION_SWEEP_INTERVAL_SECONDS``. The purge itself is sync
-([user_purge.purge_due_users]) and runs in a worker thread so it never blocks the
-event loop. A single task means runs can't overlap.
+and then every ``DELETION_SWEEP_INTERVAL_SECONDS``. Each purge is sync
+([user_purge.purge_due_users], [storage.purge_expired_media_trash]) and runs in
+a worker thread so it never blocks the event loop. A single task means runs
+can't overlap.
 
 Under multiple uvicorn workers each process runs this loop, so a Postgres
 advisory lock ([advisory_lock.single_leader]) elects a single leader per round;
@@ -17,6 +19,7 @@ from app.core.config import settings
 from app.db.advisory_lock import single_leader
 from app.db.session import SessionLocal
 from app.services.event_bus import admin_user_ids, event_bus
+from app.services.storage import MEDIA_TRASH_TTL_SECONDS, purge_expired_media_trash
 from app.services.user_purge import purge_due_users
 
 logger = logging.getLogger("app.deletion_sweeper")
@@ -34,6 +37,9 @@ def _run_sweep_once() -> None:
                 "purge.ran",
                 {"purged_count": count},
             )
+    purged_media = purge_expired_media_trash(MEDIA_TRASH_TTL_SECONDS)
+    if purged_media > 0:
+        logger.info("Purged %d expired trashed media file(s)", purged_media)
 
 
 def _sweep_if_leader() -> None:

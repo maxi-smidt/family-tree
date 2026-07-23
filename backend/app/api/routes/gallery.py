@@ -35,7 +35,7 @@ from app.schemas.content import (
     UnknownFaceResolve,
     UnknownFaceUpdate,
 )
-from app.services.activity import record_activity
+from app.services.activity import gallery_delete_snapshot, record_activity
 from app.services.content_links import (
     replace_gallery_member_links,
     replace_member_links,
@@ -47,6 +47,7 @@ from app.services.storage import (
     UnsupportedImageType,
     delete_media,
     store_image_upload,
+    trash_media,
 )
 from app.services.storage_usage import (
     QuotaExceeded,
@@ -235,6 +236,7 @@ def delete_image(
     record_activity(
         db, tree_id=tree.id, actor=user, action="delete",
         target_type="gallery_image", target_id=image.id, target_label=image.title,
+        details=gallery_delete_snapshot(db, image),
     )
     db.delete(image)
     db.commit()
@@ -243,7 +245,7 @@ def delete_image(
         db, tree, "tree.content_changed",
         {"tree_id": tree.id, "domain": "gallery"},
     )
-    delete_media(image_url)
+    trash_media(image_url)
 
 
 @router.put("/images/{image_id}/links", status_code=204)
