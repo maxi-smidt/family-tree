@@ -249,6 +249,26 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
   });
 
+  it("inserts the tree into the list when reopening one that's missing from it", async () => {
+    // Mirrors clicking a "shared with you" notification for a tree that
+    // loadTrees() had already dropped (e.g. from a prior connect failure) —
+    // connect() succeeds and must add it back, not just try to update an
+    // entry that isn't there. Otherwise the tree selector (which renders
+    // only from `trees`) shows no selection at all even though the store is
+    // genuinely connected.
+    mockEmptySubStores();
+    useTreeStore.setState({ trees: [TREE_B] });
+    mockApiGetForConnect(TREE_A.id, TREE_A);
+
+    await useTreeStore.getState().openTreeById(TREE_A.id);
+
+    expect(useTreeStore.getState().selectedTree?.id).toBe(TREE_A.id);
+    expect(useTreeStore.getState().trees.map((t) => t.id)).toEqual([
+      TREE_A.id,
+      TREE_B.id,
+    ]);
+  });
+
   it("opens an outside-tree result, queues its locate, and opens its details", async () => {
     mockEmptySubStores();
     mockApiGetForConnect(TREE_B.id, TREE_B);

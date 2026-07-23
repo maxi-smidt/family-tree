@@ -461,11 +461,21 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
       if (!isActiveTree(tree.id)) return;
       set((s) => ({
         selectedTree: fresh,
+        // Update in place if already known, otherwise insert — this list can
+        // be missing the tree entirely (opened via a link/notification before
+        // the next loadTrees(), or re-opened right after a loadTrees() had
+        // pruned it). Leaving it out here would connect successfully while
+        // the tree selector (which only renders from this list) shows no
+        // selection at all, since its value has no matching option.
         trees: virtual
           ? s.trees
-          : s.trees.map((t) => (t.id === fresh.id ? fresh : t)),
+          : s.trees.some((t) => t.id === fresh.id)
+            ? s.trees.map((t) => (t.id === fresh.id ? fresh : t))
+            : [fresh, ...s.trees],
         virtualViews: virtual
-          ? s.virtualViews.map((v) => (v.id === fresh.id ? fresh : v))
+          ? s.virtualViews.some((v) => v.id === fresh.id)
+            ? s.virtualViews.map((v) => (v.id === fresh.id ? fresh : v))
+            : [fresh, ...s.virtualViews]
           : s.virtualViews,
       }));
     } catch (error) {
