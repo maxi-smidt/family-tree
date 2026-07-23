@@ -96,6 +96,7 @@ def search_users(
         .where(
             func.lower(User.username).contains(term.lower()),
             User.id != user.id,
+            User.id.not_in(friendships.accepted_friend_ids(db, user.id)),
             User.is_active.is_(True),
             User.deletion_requested_at.is_(None),
         )
