@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "50d4c785f35f",
+  "strategy": "manual-commit",
+  "branch": "fix/813-revoked-tree-access",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "CHANGELOG.md",
+    "backend/app/api/routes/friends.py",
+    "backend/app/services/friendships.py",
+    "backend/tests/test_unfriend_revoke_events.py",
+    "frontend/src/hooks/useTreeStore.test.ts",
+    "frontend/src/hooks/useTreeStore.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/50/d4c785f35f/0/metadata.json",
+      "transcript": "/50/d4c785f35f/0/full.jsonl",
+      "compact_transcript": "/50/d4c785f35f/0/transcript.jsonl",
+      "content_hash": "/50/d4c785f35f/0/content_hash.txt",
+      "prompt": "/50/d4c785f35f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 192,
+    "cache_creation_tokens": 182043,
+    "cache_read_tokens": 13343008,
+    "output_tokens": 78036,
+    "api_call_count": 96
+  }
+}
