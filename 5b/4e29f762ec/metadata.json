@@ -1,0 +1,62 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "5b4e29f762ec",
+  "strategy": "manual-commit",
+  "branch": "test/822-frontend-suite-cleanup",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/admin/AdminAuditPanel.test.tsx",
+    "frontend/src/components/admin/LegalVersionHistoryPanel.test.tsx",
+    "frontend/src/components/changelog/ChangelogList.test.tsx",
+    "frontend/src/components/changelog/WhatsNewAnnouncementDialog.test.tsx",
+    "frontend/src/components/layout/MainPanel.test.tsx",
+    "frontend/src/components/layout/PresenceChips.test.tsx",
+    "frontend/src/components/layout/SessionExpiryBanner.test.tsx",
+    "frontend/src/components/legal/LegalGateDialog.test.tsx",
+    "frontend/src/components/settings/ProfileSettingsPanel.test.tsx",
+    "frontend/src/components/shared/StorageUsagePanel.test.tsx",
+    "frontend/src/components/shared/dialog/CreateDatabaseDialog.test.tsx",
+    "frontend/src/components/shared/member-sheet/DocumentDialog.test.tsx",
+    "frontend/src/components/shared/member-sheet/DocumentLinkField.test.tsx",
+    "frontend/src/components/shared/member-sheet/EditMode.test.tsx",
+    "frontend/src/components/shared/member-sheet/ImageLightbox.test.tsx",
+    "frontend/src/components/shared/member-sheet/LinkExistingTreeDialog.test.tsx",
+    "frontend/src/components/shared/member-sheet/MarkdownEditor.test.tsx",
+    "frontend/src/components/shared/member-sheet/MemberDocuments.test.tsx",
+    "frontend/src/components/shared/member-sheet/dialog/GalleryPickerDialog.test.tsx",
+    "frontend/src/components/sidebar/DatabaseSelector.test.tsx",
+    "frontend/src/components/ui/multi-select.test.tsx",
+    "frontend/src/components/view/activity-view/ActivityView.test.tsx",
+    "frontend/src/components/view/database-management-view/dialog/RemoveDatabaseDialog.test.tsx",
+    "frontend/src/components/view/database-management-view/dialog/ShareTreeDialog.test.tsx",
+    "frontend/src/components/view/documents-view/DocumentsView.test.tsx",
+    "frontend/src/components/view/friends-view/FriendsView.test.tsx",
+    "frontend/src/components/view/gallery-view/GalleryView.test.tsx",
+    "frontend/src/components/view/gallery-view/ImageCard.test.tsx",
+    "frontend/src/components/view/list-view/EditableCell.test.tsx",
+    "frontend/src/components/view/map-view/MapView.test.tsx",
+    "frontend/src/components/view/media-view/MediaView.test.tsx",
+    "frontend/src/components/view/quality-report-view/MergeMembersDialog.test.tsx",
+    "frontend/src/components/view/quality-report-view/QualityReportView.test.tsx",
+    "frontend/src/components/view/tree-view/CanvasSearch.test.tsx",
+    "frontend/src/components/view/tree-view/MemberControls.test.tsx",
+    "frontend/src/components/view/tree-view/node/FamilyNodeContent.test.tsx",
+    "frontend/src/test/setup.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/5b/4e29f762ec/0/metadata.json",
+      "transcript": "/5b/4e29f762ec/0/full.jsonl",
+      "compact_transcript": "/5b/4e29f762ec/0/transcript.jsonl",
+      "content_hash": "/5b/4e29f762ec/0/content_hash.txt",
+      "prompt": "/5b/4e29f762ec/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 430,
+    "cache_creation_tokens": 366891,
+    "cache_read_tokens": 57387810,
+    "output_tokens": 101350,
+    "api_call_count": 215
+  }
+}

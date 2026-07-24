@@ -1,0 +1,157 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "5b4e29f762ec",
+  "session_id": "23086e8d-1d76-473c-bd04-a6476b161ad8",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-24T11:35:43.011941308Z",
+  "branch": "test/822-frontend-suite-cleanup",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/admin/AdminAuditPanel.test.tsx",
+    "frontend/src/components/admin/LegalVersionHistoryPanel.test.tsx",
+    "frontend/src/components/changelog/ChangelogList.test.tsx",
+    "frontend/src/components/changelog/WhatsNewAnnouncementDialog.test.tsx",
+    "frontend/src/components/layout/MainPanel.test.tsx",
+    "frontend/src/components/layout/PresenceChips.test.tsx",
+    "frontend/src/components/layout/SessionExpiryBanner.test.tsx",
+    "frontend/src/components/legal/LegalGateDialog.test.tsx",
+    "frontend/src/components/settings/ProfileSettingsPanel.test.tsx",
+    "frontend/src/components/shared/StorageUsagePanel.test.tsx",
+    "frontend/src/components/shared/dialog/CreateDatabaseDialog.test.tsx",
+    "frontend/src/components/shared/member-sheet/DocumentDialog.test.tsx",
+    "frontend/src/components/shared/member-sheet/DocumentLinkField.test.tsx",
+    "frontend/src/components/shared/member-sheet/EditMode.test.tsx",
+    "frontend/src/components/shared/member-sheet/ImageLightbox.test.tsx",
+    "frontend/src/components/shared/member-sheet/LinkExistingTreeDialog.test.tsx",
+    "frontend/src/components/shared/member-sheet/MarkdownEditor.test.tsx",
+    "frontend/src/components/shared/member-sheet/MemberDocuments.test.tsx",
+    "frontend/src/components/shared/member-sheet/dialog/GalleryPickerDialog.test.tsx",
+    "frontend/src/components/sidebar/DatabaseSelector.test.tsx",
+    "frontend/src/components/ui/multi-select.test.tsx",
+    "frontend/src/components/view/activity-view/ActivityView.test.tsx",
+    "frontend/src/components/view/database-management-view/dialog/RemoveDatabaseDialog.test.tsx",
+    "frontend/src/components/view/database-management-view/dialog/ShareTreeDialog.test.tsx",
+    "frontend/src/components/view/documents-view/DocumentsView.test.tsx",
+    "frontend/src/components/view/friends-view/FriendsView.test.tsx",
+    "frontend/src/components/view/gallery-view/GalleryView.test.tsx",
+    "frontend/src/components/view/gallery-view/ImageCard.test.tsx",
+    "frontend/src/components/view/list-view/EditableCell.test.tsx",
+    "frontend/src/components/view/map-view/MapView.test.tsx",
+    "frontend/src/components/view/media-view/MediaView.test.tsx",
+    "frontend/src/components/view/quality-report-view/MergeMembersDialog.test.tsx",
+    "frontend/src/components/view/quality-report-view/QualityReportView.test.tsx",
+    "frontend/src/components/view/tree-view/CanvasSearch.test.tsx",
+    "frontend/src/components/view/tree-view/MemberControls.test.tsx",
+    "frontend/src/components/view/tree-view/node/FamilyNodeContent.test.tsx",
+    "frontend/src/test/setup.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "c800b76b861e",
+  "checkpoint_transcript_start": 436,
+  "transcript_lines_at_start": 436,
+  "compact_transcript_start": 122,
+  "token_usage": {
+    "input_tokens": 430,
+    "cache_creation_tokens": 366891,
+    "cache_read_tokens": 57387810,
+    "output_tokens": 101350,
+    "api_call_count": 215
+  },
+  "skill_events_version": 1,
+  "skill_events": [
+    {
+      "id": "claude-skill-toolu_01B9m1sbsuQ4nHr47q7eRyE1",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "review"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "c800b76b861e",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 404,
+        "end": 405,
+        "entry_ids": [
+          "ab7d0b7d-03d7-4c40-93ae-15d5d41fd344"
+        ],
+        "tool_use_id": "toolu_01B9m1sbsuQ4nHr47q7eRyE1"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_01B9m1sbsuQ4nHr47q7eRyE1"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: review",
+        "default_collapsed": true
+      }
+    },
+    {
+      "id": "claude-skill-toolu_018HxpN1CcHx5zriWBwK8Gr5",
+      "event_type": "tool_invocation",
+      "skill": {
+        "name": "review"
+      },
+      "source": {
+        "agent": "claude-code",
+        "signal": "skill_tool_use",
+        "confidence": "explicit"
+      },
+      "turn_id": "c800b76b861e",
+      "transcript_anchor": {
+        "unit": "line",
+        "start": 420,
+        "end": 421,
+        "entry_ids": [
+          "a6ed1e8b-a43c-4c2d-beb5-24764295f0fd"
+        ],
+        "tool_use_id": "toolu_018HxpN1CcHx5zriWBwK8Gr5"
+      },
+      "native": {
+        "tool_name": "Skill",
+        "tool_use_id": "toolu_018HxpN1CcHx5zriWBwK8Gr5"
+      },
+      "collapse": {
+        "target": "tool_pair",
+        "label": "Skill: review",
+        "default_collapsed": true
+      }
+    }
+  ],
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-24T11:35:42.83610041Z",
+    "agent_lines": 0,
+    "agent_removed": 231,
+    "human_added": 327,
+    "human_modified": 158,
+    "human_removed": 0,
+    "total_committed": 391,
+    "total_lines_changed": 832,
+    "agent_percentage": 27.764423076923077,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 164,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
