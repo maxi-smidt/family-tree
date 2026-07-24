@@ -20,6 +20,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from uuid import uuid4
 
+from pydantic import ValidationError
 from sqlalchemy import delete, func, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
@@ -65,6 +66,7 @@ from app.models import (
     VirtualViewSource,
 )
 from app.models.backup import BackupRecord
+from app.schemas.backup import BackupBundle, MediaItem
 from app.services.admin_audit import record_admin_audit
 from app.services.crypto_export import decrypt_bundle, encrypt_bundle
 
@@ -152,13 +154,13 @@ def _safe_media_relative(path: str) -> PurePosixPath:
     return relative
 
 
-def _collect_media() -> list[dict[str, Any]]:
+def _collect_media() -> list[MediaItem]:
     """Serialize every regular file in the media root with a content hash."""
     root = settings.media_root
     if not root.exists():
         return []
 
-    media: list[dict[str, Any]] = []
+    media: list[MediaItem] = []
     for path in sorted(root.rglob("*")):
         if not path.is_file() or path.is_symlink():
             continue
@@ -166,100 +168,68 @@ def _collect_media() -> list[dict[str, Any]]:
         _safe_media_relative(relative)
         raw = path.read_bytes()
         media.append(
-            {
-                "path": relative,
-                "size_bytes": len(raw),
-                "sha256": _file_digest(raw),
-                "data": base64.b64encode(raw).decode("ascii"),
-            }
+            MediaItem(
+                path=relative,
+                size_bytes=len(raw),
+                sha256=_file_digest(raw),
+                data=base64.b64encode(raw).decode("ascii"),
+            )
         )
     return media
 
 
-def _collect_bundle(db: Session) -> dict[str, Any]:
+def _collect_bundle(db: Session) -> BackupBundle:
     """Build a complete, self-verifying instance backup bundle."""
     tables = {model.__tablename__: _model_rows(db, model) for model in BACKUP_MODELS}
     media = _collect_media()
-    return {
-        "format": BACKUP_FORMAT,
-        "version": BACKUP_VERSION,
-        "created_at": utcnow_iso(),
-        "tables": tables,
-        "media": media,
-        "manifest": {
+    return BackupBundle(
+        format=BACKUP_FORMAT,
+        version=BACKUP_VERSION,
+        created_at=utcnow_iso(),
+        tables=tables,
+        media=media,
+        manifest={
             "format": BACKUP_FORMAT,
             "version": BACKUP_VERSION,
             "table_row_counts": {
                 name: len(rows) for name, rows in tables.items()
             },
             "media": [
-                {
-                    "path": item["path"],
-                    "size_bytes": item["size_bytes"],
-                    "sha256": item["sha256"],
-                }
+                {"path": item.path, "size_bytes": item.size_bytes, "sha256": item.sha256}
                 for item in media
             ],
         },
-    }
+    )
 
 
-def validate_bundle(bundle: dict[str, Any]) -> None:
-    """Validate format, all table counts, and every embedded media hash."""
-    manifest = bundle.get("manifest")
-    if (
-        bundle.get("format") != BACKUP_FORMAT
-        or bundle.get("version") != BACKUP_VERSION
-        or not isinstance(manifest, dict)
-        or manifest.get("format") != BACKUP_FORMAT
-        or manifest.get("version") != BACKUP_VERSION
-    ):
-        raise BackupValidationError("Unsupported instance backup format")
+def _expected_table_names() -> set[str]:
+    return {model.__tablename__ for model in BACKUP_MODELS}
 
-    tables = bundle.get("tables")
-    expected_counts = manifest.get("table_row_counts")
-    if not isinstance(tables, dict) or not isinstance(expected_counts, dict):
-        raise BackupValidationError("Backup manifest is missing table metadata")
-    expected_table_names = {model.__tablename__ for model in BACKUP_MODELS}
-    if (
-        set(tables) != expected_table_names
-        or set(expected_counts) != expected_table_names
-    ):
+
+def validate_bundle(bundle: BackupBundle | dict[str, Any]) -> BackupBundle:
+    """Validate format, all table counts, and every embedded media hash.
+
+    Accepts either a ``BackupBundle`` model or a raw dict (e.g. decrypted from
+    an existing file). Returns the validated model.
+    """
+    if isinstance(bundle, dict):
+        try:
+            bundle = BackupBundle.model_validate(bundle)
+        except ValidationError as exc:
+            raise BackupValidationError(
+                f"Invalid instance backup: {exc.errors(include_url=False)}"
+            ) from exc
+
+    expected_table_names = _expected_table_names()
+    if set(bundle.tables) != expected_table_names:
         raise BackupValidationError("Backup does not contain every required table")
-    for name, rows in tables.items():
-        if not isinstance(rows, list) or expected_counts.get(name) != len(rows):
+    if set(bundle.manifest.table_row_counts) != expected_table_names:
+        raise BackupValidationError("Backup manifest is missing table metadata")
+    for name, rows in bundle.tables.items():
+        if bundle.manifest.table_row_counts.get(name) != len(rows):
             raise BackupValidationError(f"Backup row count does not match for {name}")
 
-    media = bundle.get("media")
-    expected_media = manifest.get("media")
-    if not isinstance(media, list) or not isinstance(expected_media, list):
-        raise BackupValidationError("Backup manifest is missing media metadata")
-    if len(media) != len(expected_media):
-        raise BackupValidationError("Backup media count does not match manifest")
-    expected_by_path = {item.get("path"): item for item in expected_media}
-    if len(expected_by_path) != len(expected_media):
-        raise BackupValidationError("Backup manifest contains duplicate media paths")
-    for item in media:
-        if not isinstance(item, dict):
-            raise BackupValidationError("Backup contains invalid media metadata")
-        path = item.get("path")
-        _safe_media_relative(path if isinstance(path, str) else "")
-        expected = expected_by_path.get(path)
-        if expected is None:
-            raise BackupValidationError("Backup media is not listed in manifest")
-        try:
-            raw = base64.b64decode(item.get("data", ""), validate=True)
-        except (TypeError, ValueError) as exc:
-            raise BackupValidationError("Backup contains invalid media data") from exc
-        if (
-            item.get("size_bytes") != len(raw)
-            or item.get("sha256") != _file_digest(raw)
-            or expected.get("size_bytes") != len(raw)
-            or expected.get("sha256") != _file_digest(raw)
-        ):
-            raise BackupValidationError(f"Backup media hash does not match for {path}")
-    if {item["path"] for item in media} != set(expected_by_path):
-        raise BackupValidationError("Backup media paths do not match manifest")
+    return bundle
 
 
 def _verify_database_counts(db: Session, expected_counts: dict[str, int]) -> None:
@@ -271,14 +241,14 @@ def _verify_database_counts(db: Session, expected_counts: dict[str, int]) -> Non
             )
 
 
-def _write_staged_media(media: list[dict[str, Any]], media_root: Path) -> Path:
+def _write_staged_media(media: list[MediaItem], media_root: Path) -> Path:
     staging = media_root.with_name(f"{media_root.name}.restore-{uuid4().hex}")
     try:
         for item in media:
-            relative = _safe_media_relative(item["path"])
+            relative = _safe_media_relative(item.path)
             destination = staging.joinpath(*relative.parts)
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_bytes(base64.b64decode(item["data"], validate=True))
+            destination.write_bytes(base64.b64decode(item.data, validate=True))
         return staging
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
@@ -325,7 +295,7 @@ def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
 
 def restore_bundle(
     db: Session,
-    bundle: dict[str, Any],
+    bundle: BackupBundle | dict[str, Any],
     *,
     replace: bool = False,
     media_root: Path | None = None,
@@ -336,7 +306,7 @@ def restore_bundle(
     operator path a fresh database/media volume, while still allowing a fully
     scripted disaster-recovery replacement with an explicit flag.
     """
-    validate_bundle(bundle)
+    validated = validate_bundle(bundle)
     target_media = media_root or settings.media_root
     if not replace and (
         not _database_is_empty(db) or not _media_root_is_empty(target_media)
@@ -345,13 +315,13 @@ def restore_bundle(
             "Restore target is not empty; use replace=True only for deliberate recovery"
         )
 
-    staging = _write_staged_media(bundle["media"], target_media)
+    staging = _write_staged_media(validated.media, target_media)
     try:
         if replace:
             _clear_instance(db, target_media)
-        _insert_rows(db, bundle["tables"])
+        _insert_rows(db, validated.tables)
         db.flush()
-        _verify_database_counts(db, bundle["manifest"]["table_row_counts"])
+        _verify_database_counts(db, validated.manifest.table_row_counts)
         db.commit()
         target_media.parent.mkdir(parents=True, exist_ok=True)
         if target_media.exists():
@@ -369,9 +339,15 @@ def restore_backup_file(
 ) -> None:
     """Decrypt and restore a server-encrypted ``.ftbackup`` file."""
     try:
-        bundle = decrypt_bundle(filepath.read_bytes(), None)
+        bundle_dict = decrypt_bundle(filepath.read_bytes(), None)
     except Exception as exc:  # noqa: BLE001
         raise BackupValidationError("Could not decrypt backup file") from exc
+    try:
+        bundle = BackupBundle.model_validate(bundle_dict)
+    except ValidationError as exc:
+        raise BackupValidationError(
+            f"Invalid instance backup: {exc.errors(include_url=False)}"
+        ) from exc
     restore_bundle(db, bundle, replace=replace, media_root=media_root)
 
 
@@ -391,7 +367,7 @@ def create_backup(
     try:
         bundle = _collect_bundle(db)
         validate_bundle(bundle)
-        blob = encrypt_bundle(bundle, None)
+        blob = encrypt_bundle(bundle.model_dump(), None)
         # Verify the encrypted file can be decrypted and still validates before
         # it is eligible to be retained or displayed as successful.
         validate_bundle(decrypt_bundle(blob, None))
