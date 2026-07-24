@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
@@ -42,8 +41,7 @@ const IMAGE: GalleryImage = {
 };
 
 describe("ImageLightbox", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useMemberStore.setState({ members: [MEMBER] });
   });
 

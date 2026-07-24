@@ -1,22 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { TreeService } from "@/services/TreeService";
 import { type Tree } from "@/types/tree";
 import { type MemberDB } from "@/types/member";
 import { type DuplicatePair } from "@/types/merge";
 import { LinkExistingTreeDialog } from "./LinkExistingTreeDialog";
-
-// Radix Select relies on scrollIntoView / hasPointerCapture, which jsdom
-// doesn't implement.
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-// @ts-expect-error -- test-only polyfill
-global.ResizeObserver = MockResizeObserver;
 
 vi.mock("@/services/TreeService", () => ({
   TreeService: {
@@ -82,12 +71,8 @@ function pair(overrides: Partial<DuplicatePair>): DuplicatePair {
 }
 
 describe("LinkExistingTreeDialog", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    Element.prototype.scrollIntoView = vi.fn();
-    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-    Element.prototype.releasePointerCapture = vi.fn();
-    await i18n.changeLanguage("en");
     useTreeStore.setState({ linkExistingTree: vi.fn() });
   });
 

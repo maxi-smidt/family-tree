@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
@@ -42,15 +41,6 @@ vi.mock("./MemberDocuments", () => ({ MemberDocuments: () => null }));
 vi.mock("./MemberDiseases", () => ({ MemberDiseases: () => null }));
 vi.mock("./MemberTasks", () => ({ MemberTasks: () => null }));
 
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-// @ts-expect-error -- test-only polyfill for Radix
-global.ResizeObserver = MockResizeObserver;
-
 const TREE: Tree = {
   id: "tree-1",
   name: "Tree",
@@ -81,12 +71,7 @@ const MEMBER: Member = {
 };
 
 describe("EditMode records tab", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-    Element.prototype.scrollIntoView = vi.fn();
-    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-    Element.prototype.releasePointerCapture = vi.fn();
-    Element.prototype.setPointerCapture = vi.fn();
+  beforeEach(() => {
     useMemberStore.setState({ members: [MEMBER] });
     useTreeStore.setState({ selectedTree: TREE });
   });
@@ -121,12 +106,7 @@ describe("EditMode profile picture avatar", () => {
     uploadedAt: "2024-01-01T00:00:00Z",
   };
 
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-    Element.prototype.scrollIntoView = vi.fn();
-    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-    Element.prototype.releasePointerCapture = vi.fn();
-    Element.prototype.setPointerCapture = vi.fn();
+  beforeEach(() => {
     URL.revokeObjectURL = vi.fn();
     useMemberStore.setState({ members: [MEMBER] });
     useTreeStore.setState({ selectedTree: TREE });

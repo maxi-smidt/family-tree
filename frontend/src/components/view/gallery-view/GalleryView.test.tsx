@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import type { GalleryImage } from "@/types/gallery";
@@ -39,8 +38,7 @@ const galleryImages: GalleryImage[] = [
 ];
 
 describe("GalleryView search", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useTreeStore.setState({ isReady: true });
     useGalleryStore.setState({ galleryImages, initialized: true });
   });
@@ -87,9 +85,7 @@ describe("GalleryView sort by date taken", () => {
     },
   ];
 
-  beforeEach(async () => {
-    Element.prototype.scrollIntoView = vi.fn();
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useTreeStore.setState({ isReady: true });
     useGalleryStore.setState({
       galleryImages: imagesWithMissingDate,

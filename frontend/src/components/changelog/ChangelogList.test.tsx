@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
+import { describe, expect, it, vi } from "vitest";
 import { ChangelogList } from "./ChangelogList";
 
 vi.mock("@/lib/buildInfo", () => ({
@@ -29,10 +28,6 @@ vi.mock("@/components/shared/MarkdownContent", () => ({
 }));
 
 describe("ChangelogList", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-  });
-
   it("filters newer versions and renders older entries on demand", () => {
     render(<ChangelogList />);
 

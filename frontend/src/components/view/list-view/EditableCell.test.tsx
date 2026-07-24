@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import type { Member } from "@/types/member";
@@ -89,8 +88,7 @@ const virtualTree: Tree = {
 describe("EditableCell — text field (firstName)", () => {
   const updateMemberPartial = vi.fn().mockResolvedValue(undefined);
 
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     updateMemberPartial.mockClear();
     useMemberStore.setState({ members: [member], updateMemberPartial });
     useTreeStore.setState({ selectedTree: ownerTree, isReady: true });
@@ -177,8 +175,7 @@ describe("EditableCell — nullable text field (maidenName)", () => {
     maidenName: "Smith",
   };
 
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     updateMemberPartial.mockClear();
     useMemberStore.setState({
       members: [memberWithMaiden],
@@ -206,8 +203,7 @@ describe("EditableCell — nullable text field (maidenName)", () => {
 describe("EditableCell — location field (birthplace)", () => {
   const updateMemberPartial = vi.fn().mockResolvedValue(undefined);
 
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     updateMemberPartial.mockClear();
     useMemberStore.setState({ members: [member], updateMemberPartial });
   });
@@ -236,8 +232,7 @@ describe("EditableCell — location field (birthplace)", () => {
 describe("ListView — Quick edit toggle gating", () => {
   const updateMemberPartial = vi.fn().mockResolvedValue(undefined);
 
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     updateMemberPartial.mockClear();
     useMemberStore.setState({ members: [member], updateMemberPartial });
     mockUseIsMobile.mockReturnValue(false);

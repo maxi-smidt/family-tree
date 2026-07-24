@@ -1,13 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
+import { describe, expect, it, vi } from "vitest";
 import { CreateDatabaseDialog } from "./CreateDatabaseDialog";
 
 describe("CreateDatabaseDialog", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-  });
-
   it("allows cancellation by default", () => {
     const onCancel = vi.fn();
 

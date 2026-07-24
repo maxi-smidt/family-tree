@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import type { Friend } from "@/types/friend";
 import { FriendsView } from "./FriendsView";
@@ -38,8 +37,7 @@ const friend: Friend = {
 };
 
 describe("FriendsView", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useFriendStore.setState({
       friends: [friend],
       incoming: [],

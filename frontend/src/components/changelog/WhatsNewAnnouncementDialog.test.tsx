@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useUserSettingsViewStore } from "@/hooks/useUserSettingsViewStore";
@@ -21,8 +20,7 @@ const USER: User = {
 };
 
 describe("WhatsNewAnnouncementDialog", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useAuthStore.setState({ user: USER });
     useTutorialStore.setState({ completed: true, loaded: true });
     useWhatsNewStore.setState({

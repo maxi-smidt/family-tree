@@ -1,6 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { usePresenceStore } from "@/hooks/usePresenceStore";
@@ -78,8 +77,7 @@ const FRIEND: Friend = {
 };
 
 describe("PresenceChips", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useAuthStore.setState({ user: CURRENT_USER });
     usePresenceStore.setState({ roster: ROSTER, recentlyActiveUserIds: [] });
     useFriendStore.setState({

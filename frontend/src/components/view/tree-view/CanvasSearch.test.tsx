@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { Member, MemberSearchHitDB } from "@/types/member";
 import { CanvasSearch } from "./CanvasSearch";
 
@@ -35,9 +34,8 @@ const OTHER_TREE_MEMBER = {
 } as MemberSearchHitDB;
 
 describe("CanvasSearch", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    await i18n.changeLanguage("en");
   });
 
   it("shows current-tree hits before starting and grouping other-tree hits", async () => {

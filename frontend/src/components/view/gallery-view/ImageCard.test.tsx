@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
@@ -51,8 +50,7 @@ function makeImage(overrides: Partial<GalleryImage> = {}): GalleryImage {
 }
 
 describe("ImageCard linked members", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useMemberStore.setState({ members: [alice, bob, carol] });
   });
 

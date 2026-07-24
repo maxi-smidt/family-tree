@@ -1,12 +1,9 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
+import { beforeEach, describe, expect, it } from "vitest";
+import { fireEvent, renderWithProviders, screen, within } from "@/test/utils";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import type { Document } from "@/types/document";
 import type { Member } from "@/types/member";
 import { MemberDocuments } from "./MemberDocuments";
-
-vi.mock("@/services/TreeService");
 
 const MEMBER: Member = {
   id: "member-1",
@@ -45,13 +42,12 @@ const DOCUMENT: Document = {
 };
 
 describe("MemberDocuments", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useDocumentStore.setState({ documents: [DOCUMENT] });
   });
 
   it("starts collapsed and hides the description", () => {
-    render(<MemberDocuments member={MEMBER} />);
+    renderWithProviders(<MemberDocuments member={MEMBER} />);
 
     const toggle = screen.getByRole("button", { name: /Archive index/ });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -61,7 +57,7 @@ describe("MemberDocuments", () => {
   });
 
   it("toggles the description and file list when the row is clicked", () => {
-    render(<MemberDocuments member={MEMBER} />);
+    renderWithProviders(<MemberDocuments member={MEMBER} />);
 
     const toggle = screen.getByRole("button", { name: /Archive index/ });
     fireEvent.click(toggle);
@@ -78,7 +74,7 @@ describe("MemberDocuments", () => {
   });
 
   it("does not toggle when the edit or delete buttons are clicked", () => {
-    render(<MemberDocuments member={MEMBER} />);
+    renderWithProviders(<MemberDocuments member={MEMBER} />);
 
     const toggle = screen.getByRole("button", { name: /Archive index/ });
     const row = toggle.parentElement as HTMLElement;

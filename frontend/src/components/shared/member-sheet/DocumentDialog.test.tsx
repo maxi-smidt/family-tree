@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
-import i18n from "@/i18n/i18n";
 import {
   DocumentUploadError,
   useDocumentStore,
@@ -29,9 +28,8 @@ const UNLINKED_DOCUMENT: Document = {
 };
 
 describe("DocumentDialog", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    await i18n.changeLanguage("en");
     useMemberStore.setState({ members: [] });
     useDocumentStore.setState({
       addDocument: vi.fn(),

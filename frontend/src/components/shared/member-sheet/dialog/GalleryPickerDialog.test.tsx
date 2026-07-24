@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
+import { describe, expect, it, vi } from "vitest";
 import type { GalleryImage } from "@/types/gallery";
 import { GalleryPickerDialog } from "./GalleryPickerDialog";
 
@@ -17,10 +16,6 @@ const IMAGE: GalleryImage = {
 };
 
 describe("GalleryPickerDialog", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-  });
-
   it("calls onSelect with the clicked image", () => {
     const onSelect = vi.fn();
     render(

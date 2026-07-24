@@ -5,12 +5,10 @@ import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { TreeService } from "@/services/TreeService";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import { ImageSheet } from "./ImageSheet";
 
-vi.mock("@/services/TreeService");
 vi.mock("sonner", () => ({
   toast: {
     error: vi.fn(),
@@ -18,15 +16,6 @@ vi.mock("sonner", () => ({
     info: vi.fn(),
   },
 }));
-
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-// @ts-expect-error -- test-only polyfill for Radix popovers
-global.ResizeObserver = MockResizeObserver;
 
 const MEMBER: Member = {
   id: "member-1",
@@ -87,12 +76,8 @@ const IMAGE_WITH_UNKNOWN_FACE: GalleryImage = {
 };
 
 describe("ImageSheet", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    Element.prototype.scrollIntoView = vi.fn();
-    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-    Element.prototype.releasePointerCapture = vi.fn();
-    Element.prototype.setPointerCapture = vi.fn();
     Element.prototype.getBoundingClientRect = vi.fn(() => ({
       x: 0,
       y: 0,
@@ -104,22 +89,21 @@ describe("ImageSheet", () => {
       height: 100,
       toJSON: () => {},
     }));
-    await i18n.changeLanguage("en");
     useMemberStore.setState({ members: [MEMBER, UNLINKED_MEMBER] });
     useTreeStore.setState({
       selectedTree: { id: "tree-1", name: "Tree", role: "owner" },
     });
-    useGalleryStore.setState({ galleryImages: [] });
+    useGalleryStore.setState({
+      galleryImages: [],
+      updateGalleryImage: vi.fn().mockResolvedValue(undefined),
+      addUnknownFace: vi.fn().mockResolvedValue(undefined),
+      resolveUnknownFace: vi.fn().mockResolvedValue(undefined),
+      removeUnknownFace: vi.fn().mockResolvedValue(undefined),
+    });
     useAuthStore.setState({ features: [] });
-    vi.mocked(TreeService.getGalleryImages).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockResolvedValue([]);
-    vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
   });
 
   it("clears the photo date with the partial date picker and saves it as null", async () => {
-    vi.mocked(TreeService.updateGalleryImage).mockResolvedValue(
-      undefined as never,
-    );
     render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
     const dateInput = screen.getByLabelText(i18n.t("common.date-input-hint"));
@@ -128,13 +112,13 @@ describe("ImageSheet", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
+    const { updateGalleryImage } = useGalleryStore.getState();
     await vi.waitFor(() => {
-      expect(TreeService.updateGalleryImage).toHaveBeenCalled();
+      expect(updateGalleryImage).toHaveBeenCalled();
     });
-    const call = vi.mocked(TreeService.updateGalleryImage).mock.calls[0];
-    expect(call[0]).toBe("tree-1");
-    expect(call[1]).toBe(IMAGE.id);
-    expect(call[2]).toEqual(expect.objectContaining({ createdAt: null }));
+    const call = vi.mocked(updateGalleryImage).mock.calls[0];
+    expect(call[0]).toBe(IMAGE.id);
+    expect(call[1]).toEqual(expect.objectContaining({ createdAt: null }));
   });
 
   it("hides already-linked people from candidates while keeping their link visible", async () => {
@@ -188,9 +172,6 @@ describe("ImageSheet", () => {
 
   it("persists a new unknown-face tag immediately when marked", async () => {
     useAuthStore.setState({ features: ["research_tasks"] });
-    vi.mocked(TreeService.addGalleryUnknownFace).mockResolvedValue(
-      undefined as never,
-    );
     render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Tag faces" }));
@@ -203,23 +184,20 @@ describe("ImageSheet", () => {
       screen.getByRole("button", { name: "Mark as unknown person" }),
     );
 
+    const { addUnknownFace } = useGalleryStore.getState();
     await vi.waitFor(() => {
-      expect(TreeService.addGalleryUnknownFace).toHaveBeenCalledTimes(1);
+      expect(addUnknownFace).toHaveBeenCalledTimes(1);
     });
-    const call = vi.mocked(TreeService.addGalleryUnknownFace).mock.calls[0];
-    expect(call[0]).toBe("tree-1");
-    expect(call[1]).toBe(IMAGE.id);
-    expect(call[2].x).toBeCloseTo(0.1);
-    expect(call[2].y).toBeCloseTo(0.1);
-    expect(call[2].w).toBeCloseTo(0.3);
-    expect(call[2].h).toBeCloseTo(0.3);
-    expect(call[2].taskTitle).toContain("Portrait");
+    const call = vi.mocked(addUnknownFace).mock.calls[0];
+    expect(call[0]).toBe(IMAGE.id);
+    expect(call[1].x).toBeCloseTo(0.1);
+    expect(call[1].y).toBeCloseTo(0.1);
+    expect(call[1].w).toBeCloseTo(0.3);
+    expect(call[1].h).toBeCloseTo(0.3);
+    expect(call[2].title).toContain("Portrait");
   });
 
   it("resolves an unknown face to a member", async () => {
-    vi.mocked(TreeService.resolveGalleryUnknownFace).mockResolvedValue(
-      undefined,
-    );
     render(
       <ImageSheet isOpen onClose={vi.fn()} image={IMAGE_WITH_UNKNOWN_FACE} />,
     );
@@ -233,9 +211,9 @@ describe("ImageSheet", () => {
       screen.getByRole("button", { name: "Confirm identification" }),
     );
 
+    const { resolveUnknownFace } = useGalleryStore.getState();
     await vi.waitFor(() => {
-      expect(TreeService.resolveGalleryUnknownFace).toHaveBeenCalledWith(
-        "tree-1",
+      expect(resolveUnknownFace).toHaveBeenCalledWith(
         "face-1",
         UNLINKED_MEMBER.id,
       );
@@ -243,9 +221,6 @@ describe("ImageSheet", () => {
   });
 
   it("deletes an unknown face", async () => {
-    vi.mocked(TreeService.removeGalleryUnknownFace).mockResolvedValue(
-      undefined,
-    );
     render(
       <ImageSheet isOpen onClose={vi.fn()} image={IMAGE_WITH_UNKNOWN_FACE} />,
     );
@@ -254,11 +229,9 @@ describe("ImageSheet", () => {
       screen.getByRole("button", { name: "Delete unknown-person tag" }),
     );
 
+    const { removeUnknownFace } = useGalleryStore.getState();
     await vi.waitFor(() => {
-      expect(TreeService.removeGalleryUnknownFace).toHaveBeenCalledWith(
-        "tree-1",
-        "face-1",
-      );
+      expect(removeUnknownFace).toHaveBeenCalledWith("face-1");
     });
   });
 });
