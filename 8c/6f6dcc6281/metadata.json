@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "8c6f6dcc6281",
+  "strategy": "manual-commit",
+  "branch": "typing/824-quality-issue-typing",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/quality.py",
+    "backend/app/api/routes/virtual_views.py",
+    "backend/app/services/quality_checks.py",
+    "backend/tests/test_quality.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8c/6f6dcc6281/0/metadata.json",
+      "transcript": "/8c/6f6dcc6281/0/full.jsonl",
+      "compact_transcript": "/8c/6f6dcc6281/0/transcript.jsonl",
+      "content_hash": "/8c/6f6dcc6281/0/content_hash.txt",
+      "prompt": "/8c/6f6dcc6281/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 90,
+    "cache_creation_tokens": 77816,
+    "cache_read_tokens": 3296029,
+    "output_tokens": 18230,
+    "api_call_count": 45
+  }
+}
