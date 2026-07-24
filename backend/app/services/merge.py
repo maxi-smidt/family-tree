@@ -45,7 +45,12 @@ from app.models import (
     User,
 )
 from app.schemas.family import MemberOut
-from app.schemas.merge import DuplicatePair, MergeResolution, TreeMergePreview
+from app.schemas.merge import (
+    DuplicatePair,
+    FieldChoice,
+    MergeResolution,
+    TreeMergePreview,
+)
 from app.services.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback
@@ -53,6 +58,9 @@ from app.services.storage import copy_media_to_tree
 
 if TYPE_CHECKING:
     pass
+
+
+MemberIdMap = dict[str, str]
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +291,7 @@ def apply_field_choices(
     clone: Member,
     ma: Member,
     mb: Member,
-    fields: dict[str, str],
+    fields: dict[str, FieldChoice],
 ) -> None:
     """Apply per-field resolution choices to a merged clone.
 
@@ -314,7 +322,7 @@ def apply_field_choices(
 def reconcile_bridge_fields(
     member: Member,
     counterpart: Member,
-    choices: dict[str, str] | None = None,
+    choices: dict[str, FieldChoice] | None = None,
 ) -> None:
     """Reconcile the conflicting fields of a freshly-wired bridge pair.
 
@@ -337,7 +345,7 @@ def reconcile_bridge_fields(
     """
     choices = choices or {}
     normalised_choices = {to_snake_case(k): v for k, v in choices.items()}
-    resolved: dict[str, str] = {
+    resolved: dict[str, FieldChoice] = {
         k: v for k, v in normalised_choices.items() if k in CONFLICT_FIELDS
     }
     for field in CONFLICT_FIELDS:
@@ -438,7 +446,7 @@ def merge_trees(
 
     # --- Members (with de-duplication across both sources) -----------------
     # member_map: source member id → new tree member id
-    member_map: dict[str, str] = {}
+    member_map: MemberIdMap = {}
     # dedup: exact-match key → clone Member object (so we can apply field merges)
     dedup: dict[tuple, Member] = {}
     # name-key index for possible-candidate detection
@@ -585,7 +593,7 @@ def merge_trees(
     # task_id_map maps every source task id to it, so rows referencing tasks
     # (gallery unknown faces below) can follow their task into the merge.
     seen_tasks: dict[tuple, str] = {}
-    task_id_map: dict[str, str] = {}
+    task_id_map: MemberIdMap = {}
     for t in sources:
         source_links: dict[str, list[str]] = {}
         link_rows = db.execute(
@@ -627,7 +635,7 @@ def merge_trees(
     _progress(60)
 
     # --- Gallery images + links --------------------------------------------
-    image_map: dict[str, str] = {}
+    image_map: MemberIdMap = {}
     for t in sources:
         for img in db.scalars(select(GalleryImage).where(GalleryImage.tree_id == t.id)):
             new_id = str(uuid4())
@@ -699,7 +707,7 @@ def merge_trees(
     _progress(70)
 
     # --- Events + links ----------------------------------------------------
-    event_map: dict[str, str] = {}
+    event_map: MemberIdMap = {}
     for t in sources:
         for e in db.scalars(select(Event).where(Event.tree_id == t.id)):
             new_id = str(uuid4())
@@ -733,7 +741,7 @@ def merge_trees(
     _progress(80)
 
     # --- Stories + links ---------------------------------------------------
-    story_map: dict[str, str] = {}
+    story_map: MemberIdMap = {}
     for t in sources:
         for s in db.scalars(select(Story).where(Story.tree_id == t.id)):
             new_id = str(uuid4())
@@ -768,7 +776,7 @@ def merge_trees(
     # documents (with their files) into the new tree and repoint the merged
     # member/event/story links to the copies, so no link crosses a tree
     # boundary.
-    document_map: dict[str, str] = {}
+    document_map: MemberIdMap = {}
     for t in sources:
         for doc in db.scalars(select(Document).where(Document.tree_id == t.id)):
             new_id = str(uuid4())
