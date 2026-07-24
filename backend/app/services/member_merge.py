@@ -33,6 +33,7 @@ from app.models import (
 from app.schemas.family import MemberOut
 from app.schemas.merge import (
     DuplicatePair,
+    FieldChoice,
     MemberMergePreviewOut,
     MemberMergeTransferCounts,
 )
@@ -317,7 +318,7 @@ def merge_members_in_place(
     tree: Tree,
     keep: Member,
     remove: Member,
-    fields: dict[str, str],
+    fields: dict[str, FieldChoice],
 ) -> tuple[Member, dict, Member | None, BridgeOutcome | None]:
     """Merge ``remove`` into ``keep`` within ``tree``; caller commits.
 
@@ -332,7 +333,7 @@ def merge_members_in_place(
             status_code=400, detail="Cannot merge a member with itself"
         )
 
-    normalized_fields = {
+    normalized_fields: dict[str, FieldChoice] = {
         snake: choice
         for snake, choice in (
             (to_snake_case(field), choice) for field, choice in fields.items()
