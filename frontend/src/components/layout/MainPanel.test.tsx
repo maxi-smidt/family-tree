@@ -6,7 +6,6 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useWhatsNewStore } from "@/hooks/useWhatsNewStore";
@@ -72,9 +71,8 @@ const USER: User = {
 };
 
 describe("MainPanel", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     localStorage.clear();
-    await i18n.changeLanguage("en");
 
     useTreeStore.setState({
       trees: [],

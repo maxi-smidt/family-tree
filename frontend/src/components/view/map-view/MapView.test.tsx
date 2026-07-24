@@ -1,7 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useGeocodeStore } from "@/hooks/useGeocodeStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -10,17 +9,6 @@ import type { Event } from "@/types/event";
 import type { GeocodeResult } from "@/types/geocode";
 import type { Member } from "@/types/member";
 import { MapView } from "./MapView";
-
-// The member-picker command palette (cmdk) relies on ResizeObserver, which
-// jsdom doesn't implement.
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-// @ts-expect-error -- test-only polyfill
-global.ResizeObserver = MockResizeObserver;
-Element.prototype.scrollIntoView = vi.fn();
 
 const fitBoundsMock = vi.fn();
 
@@ -143,8 +131,7 @@ const coords = new Map<string, GeocodeResult>(
 );
 
 describe("MapView location type filters", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useMemberStore.setState({ members: [member] });
     useEventStore.setState({ events: [event], initialized: true });
     useGeocodeStore.setState({
@@ -364,8 +351,7 @@ describe("MapView location type filters", () => {
 describe("MapView unresolved locations", () => {
   const retryLocationsMock = vi.fn(async () => undefined);
 
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useMemberStore.setState({ members: [member] });
     useEventStore.setState({ events: [event], initialized: true });
     // Berlin (Alex's places-lived entry) fails to resolve; everything else

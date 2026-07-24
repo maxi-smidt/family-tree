@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { LegalService } from "@/services/LegalService";
 import { LegalVersionHistoryPanel } from "./LegalVersionHistoryPanel";
 
@@ -46,8 +45,7 @@ const VERSIONS = [
 ];
 
 describe("LegalVersionHistoryPanel", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(LegalService.listVersions).mockResolvedValue(VERSIONS);
   });

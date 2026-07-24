@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { ApiError } from "@/services/api";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { type Tree } from "@/types/tree";
@@ -27,9 +26,8 @@ const TREE_A: Tree = { id: "tree-a", name: "Tree A", role: "owner" };
 const realLoadTrees = useTreeStore.getState().loadTrees;
 
 describe("RemoveDatabaseDialog", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    await i18n.changeLanguage("en");
     useTreeStore.setState({
       trees: [TREE_A],
       virtualViews: [],

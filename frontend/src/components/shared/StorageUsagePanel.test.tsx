@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useStorageStore } from "@/hooks/useStorageStore";
 import { StorageUsagePanel } from "./StorageUsagePanel";
 import { TreeStorageUsageDB } from "@/types/storage";
@@ -29,9 +28,8 @@ function mockStore(overrides: Partial<MockStoreState> = {}) {
   vi.mocked(useStorageStore).mockReturnValue(state as never);
 }
 
-beforeEach(async () => {
+beforeEach(() => {
   vi.clearAllMocks();
-  await i18n.changeLanguage("en");
   mockStore();
 });
 

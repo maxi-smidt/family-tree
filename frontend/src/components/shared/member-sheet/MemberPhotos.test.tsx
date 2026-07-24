@@ -1,31 +1,19 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
-import { TreeService } from "@/services/TreeService";
-import type { GalleryImageDB } from "@/types/gallery";
+import type { GalleryImage, GalleryImageDB } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import type { Tree } from "@/types/tree";
 import { MemberPhotos } from "./MemberPhotos";
 
-vi.mock("@/services/TreeService");
 vi.mock("sonner", () => ({
   toast: {
     error: vi.fn(),
     success: vi.fn(),
   },
 }));
-
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-
-// @ts-expect-error -- test-only polyfill for Radix popovers
-global.ResizeObserver = MockResizeObserver;
 
 const TREE: Tree = { id: "tree-1", name: "Tree", role: "owner" };
 const MEMBER: Member = {
@@ -60,40 +48,45 @@ const IMAGE: GalleryImageDB = {
   uploadedAt: "2024-01-01T00:00:00Z",
 };
 
-describe("MemberPhotos", () => {
-  beforeEach(async () => {
-    let uploadedImageId = "";
+type AddGalleryImage = ReturnType<typeof useGalleryStore.getState>["addGalleryImage"];
 
+describe("MemberPhotos", () => {
+  let addGalleryImage: AddGalleryImage;
+
+  beforeEach(() => {
     vi.clearAllMocks();
-    Element.prototype.scrollIntoView = vi.fn();
-    Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-    Element.prototype.releasePointerCapture = vi.fn();
-    await i18n.changeLanguage("en");
-    useGalleryStore.setState({ galleryImages: [], initialized: false });
-    useMemberStore.setState({ members: [MEMBER] });
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.uploadGalleryImage).mockImplementation(
-      async (_treeId, id) => {
-        uploadedImageId = id;
-        return undefined as never;
+    // The real action uploads then refreshes galleryImages from the server;
+    // this fake mirrors just the observable effect MemberPhotos depends on —
+    // the new image appearing in store state right after the promise resolves.
+    addGalleryImage = vi.fn(
+      async ({ linkedMemberIds }: { linkedMemberIds: string[] }) => {
+        const id = "uploaded-image-1";
+        const image: GalleryImage = {
+          ...IMAGE,
+          id,
+          linkedMemberIds,
+          memberLinks: linkedMemberIds.map((memberId) => ({
+            memberId,
+            x: null,
+            y: null,
+            w: null,
+            h: null,
+          })),
+          unknownFaces: [],
+        };
+        useGalleryStore.setState((state) => ({
+          galleryImages: [...state.galleryImages, image],
+        }));
+        return id;
       },
     );
-    vi.mocked(TreeService.getGalleryImages).mockImplementation(async () => [
-      { ...IMAGE, id: uploadedImageId },
-    ]);
-    vi.mocked(TreeService.getGalleryMemberLinks).mockImplementation(
-      async () => [
-        {
-          gallery_image_id: uploadedImageId,
-          member_id: MEMBER.id,
-          x: null,
-          y: null,
-          w: null,
-          h: null,
-        },
-      ],
-    );
-    vi.mocked(TreeService.getGalleryUnknownFaces).mockResolvedValue([]);
+    useGalleryStore.setState({
+      galleryImages: [],
+      initialized: false,
+      addGalleryImage,
+    });
+    useMemberStore.setState({ members: [MEMBER] });
+    useTreeStore.setState({ selectedTree: TREE });
   });
 
   it("opens face tagging after an edit-view photo upload", async () => {
@@ -111,12 +104,12 @@ describe("MemberPhotos", () => {
     expect(
       await screen.findByRole("button", { name: "Done tagging" }),
     ).toBeInTheDocument();
-    expect(TreeService.uploadGalleryImage).toHaveBeenCalledWith(
-      TREE.id,
-      expect.any(String),
-      file,
-      expect.objectContaining({ memberIds: [MEMBER.id], title: "portrait" }),
-      expect.any(String),
+    expect(addGalleryImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        file,
+        linkedMemberIds: [MEMBER.id],
+        title: "portrait",
+      }),
     );
   });
 });

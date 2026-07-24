@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { MarkdownEditor } from "./MarkdownEditor";
 
 const originalGetBoundingClientRect =
@@ -36,9 +35,7 @@ function ControlledEditor({ initialValue }: { initialValue: string }) {
 }
 
 describe("MarkdownEditor", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-
+  beforeEach(() => {
     Object.defineProperty(HTMLTextAreaElement.prototype, "scrollHeight", {
       configurable: true,
       get: () => 240,

@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
@@ -11,8 +10,7 @@ import { useTreeStore } from "@/hooks/useTreeStore";
 import { QualityReportView } from "./QualityReportView";
 
 describe("QualityReportView research tasks", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useAuthStore.setState({ features: ["research_tasks"] });
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner" } as never,

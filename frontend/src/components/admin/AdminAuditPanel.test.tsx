@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { AdminAuditEntry, AdminService } from "@/services/AdminService";
 import { AdminAuditPanel } from "./AdminAuditPanel";
 
@@ -22,8 +21,7 @@ function makeEntry(id: string, over: Partial<AdminAuditEntry> = {}): AdminAuditE
 }
 
 describe("AdminAuditPanel", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(AdminService.listAuditSubjectTypes).mockResolvedValue([
       "user",

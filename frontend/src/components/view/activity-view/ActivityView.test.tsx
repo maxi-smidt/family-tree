@@ -1,7 +1,6 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
-import i18n from "@/i18n/i18n";
+import { fireEvent, renderWithProviders, screen, within } from "@/test/utils";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -45,8 +44,7 @@ function setActivityState(overrides: Partial<ReturnType<typeof useActivityStore.
 }
 
 describe("ActivityView undo", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useAuthStore.setState({ features: ["activity_undo"] });
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner" } as never,
@@ -55,13 +53,13 @@ describe("ActivityView undo", () => {
   });
 
   it("shows an undo button for an undoable delete when enabled for an editor", () => {
-    render(<ActivityView />);
+    renderWithProviders(<ActivityView />);
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
   });
 
   it("hides the undo button when the activity_undo flag is off", () => {
     useAuthStore.setState({ features: [] });
-    render(<ActivityView />);
+    renderWithProviders(<ActivityView />);
     expect(
       screen.queryByRole("button", { name: "Undo" }),
     ).not.toBeInTheDocument();
@@ -71,7 +69,7 @@ describe("ActivityView undo", () => {
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "viewer" } as never,
     });
-    render(<ActivityView />);
+    renderWithProviders(<ActivityView />);
     expect(
       screen.queryByRole("button", { name: "Undo" }),
     ).not.toBeInTheDocument();
@@ -81,7 +79,7 @@ describe("ActivityView undo", () => {
     setActivityState({
       activities: [{ ...DELETE_ENTRY, details: null }],
     });
-    render(<ActivityView />);
+    renderWithProviders(<ActivityView />);
     expect(
       screen.queryByRole("button", { name: "Undo" }),
     ).not.toBeInTheDocument();
@@ -96,7 +94,7 @@ describe("ActivityView undo", () => {
     });
     setActivityState({ undo });
 
-    render(<ActivityView />);
+    renderWithProviders(<ActivityView />);
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
 
     const dialog = screen.getByRole("alertdialog");
@@ -115,7 +113,7 @@ describe("ActivityView undo", () => {
     });
     setActivityState({ undo });
 
-    render(<ActivityView />);
+    renderWithProviders(<ActivityView />);
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     fireEvent.click(
       within(screen.getByRole("alertdialog")).getByRole("button", { name: "Undo" }),
@@ -128,7 +126,7 @@ describe("ActivityView undo", () => {
     const undo = vi.fn().mockRejectedValue(new ApiError(409, "conflict"));
     setActivityState({ undo });
 
-    render(<ActivityView />);
+    renderWithProviders(<ActivityView />);
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     fireEvent.click(
       within(screen.getByRole("alertdialog")).getByRole("button", { name: "Undo" }),

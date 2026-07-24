@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import type { User } from "@/types/user";
 import { ProfileSettingsPanel } from "./ProfileSettingsPanel";
@@ -52,8 +51,7 @@ class MockFileReader {
 }
 
 describe("ProfileSettingsPanel", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useAuthStore.setState({
       user: USER,
       accountOperation: "idle",

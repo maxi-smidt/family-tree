@@ -1,27 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MultiSelect } from "./multi-select";
-
-// Radix Popover / cmdk rely on APIs jsdom doesn't implement.
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
 
 const OPTIONS = [
   { label: "Ada Lovelace", value: "1" },
   { label: "Alan Turing", value: "2" },
   { label: "Grace Hopper", value: "3" },
 ];
-
-beforeEach(() => {
-  // @ts-expect-error -- test-only polyfill
-  global.ResizeObserver = MockResizeObserver;
-  Element.prototype.scrollIntoView = vi.fn();
-  Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-  Element.prototype.releasePointerCapture = vi.fn();
-});
 
 const openMenu = () => fireEvent.click(screen.getByRole("combobox"));
 

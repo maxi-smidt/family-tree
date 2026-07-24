@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { Node } from "@xyflow/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { MemberControls } from "./MemberControls";
@@ -25,8 +24,7 @@ const nodes = [
 ] as Node[];
 
 describe("MemberControls", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useFamilyTreeSettings.setState({
       isLockedScreen: false,
       isFastMode: false,

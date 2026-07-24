@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useLegalStore } from "@/hooks/useLegalStore";
 import { type User } from "@/types/user";
@@ -26,8 +25,7 @@ const DOCUMENTS = {
 };
 
 describe("LegalGateDialog", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useAuthStore.setState({ user: null });
     useLegalStore.setState({
       documents: null,

@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { act, render } from "@testing-library/react";
-import {
-  ReactFlowProvider,
-  useStore,
-  useStoreApi,
-  type ReactFlowState,
-} from "@xyflow/react";
+import { useStore, useStoreApi, type ReactFlowState } from "@xyflow/react";
+import { act, renderWithProviders } from "@/test/utils";
 import { SelectionModeController } from "./SelectionModeController";
 
 let multiSelectionActive = false;
@@ -21,29 +16,31 @@ function Probe() {
 
 describe("SelectionModeController", () => {
   it("turns React Flow multi-selection on while active and off when inactive", () => {
-    const { rerender } = render(
-      <ReactFlowProvider>
+    const { rerender } = renderWithProviders(
+      <>
         <SelectionModeController active={true} />
         <Probe />
-      </ReactFlowProvider>,
+      </>,
+      { reactFlow: true },
     );
     expect(multiSelectionActive).toBe(true);
 
     rerender(
-      <ReactFlowProvider>
+      <>
         <SelectionModeController active={false} />
         <Probe />
-      </ReactFlowProvider>,
+      </>,
     );
     expect(multiSelectionActive).toBe(false);
   });
 
   it("suppresses the persistent selection box while active", () => {
-    render(
-      <ReactFlowProvider>
+    renderWithProviders(
+      <>
         <SelectionModeController active={true} />
         <Probe />
-      </ReactFlowProvider>,
+      </>,
+      { reactFlow: true },
     );
 
     // React Flow raises nodesSelectionActive when a marquee ends; the controller

@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -62,9 +61,7 @@ const documents: Document[] = [
 ];
 
 describe("DocumentsView", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
-    HTMLElement.prototype.scrollIntoView = vi.fn();
+  beforeEach(() => {
     useAuthStore.setState({ features: ["events"] });
     useTreeStore.setState({
       isReady: true,

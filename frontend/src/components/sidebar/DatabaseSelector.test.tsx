@@ -1,15 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { type Tree } from "@/types/tree";
 import { DatabaseSelector } from "./DatabaseSelector";
-
-void i18n.changeLanguage("en");
-
-// Radix Select relies on pointer capture / scrollIntoView, which jsdom
-// doesn't implement.
-window.HTMLElement.prototype.hasPointerCapture = vi.fn();
-window.HTMLElement.prototype.scrollIntoView = vi.fn();
 
 let trees: Tree[] = [];
 let virtualViews: Tree[] = [];

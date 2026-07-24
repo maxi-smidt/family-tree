@@ -1,17 +1,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import type { Document } from "@/types/document";
 import { DocumentLinkField } from "./DocumentLinkField";
-
-// Radix Popover / cmdk rely on APIs jsdom doesn't implement.
-class MockResizeObserver {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
 
 const doc = (id: string, title: string, memberIds: string[]): Document => ({
   id,
@@ -32,14 +24,7 @@ const ALREADY_LINKED_DOC = doc("doc-linked", "Already linked elsewhere", [
   "member-2",
 ]);
 
-beforeEach(async () => {
-  // @ts-expect-error -- test-only polyfill
-  global.ResizeObserver = MockResizeObserver;
-  Element.prototype.scrollIntoView = vi.fn();
-  Element.prototype.hasPointerCapture = vi.fn().mockReturnValue(false);
-  Element.prototype.releasePointerCapture = vi.fn();
-
-  await i18n.changeLanguage("en");
+beforeEach(() => {
   useDocumentStore.setState({
     documents: [OWN_DOC, OTHER_DOC, ALREADY_LINKED_DOC],
     initialized: true,

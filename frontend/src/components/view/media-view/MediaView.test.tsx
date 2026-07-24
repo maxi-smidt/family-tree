@@ -1,6 +1,5 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import i18n from "@/i18n/i18n";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { MediaView } from "./MediaView";
@@ -13,8 +12,7 @@ vi.mock("@/components/view/documents-view/DocumentsView", () => ({
 }));
 
 describe("MediaView", () => {
-  beforeEach(async () => {
-    await i18n.changeLanguage("en");
+  beforeEach(() => {
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
