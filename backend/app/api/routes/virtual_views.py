@@ -50,7 +50,7 @@ from app.schemas.content import (
     StoryOut,
 )
 from app.schemas.family import DiseaseOut, MemberOut, RelationOut
-from app.schemas.quality import QualityIssue, QualityReport
+from app.schemas.quality import QualityReport
 from app.schemas.statistics import StatisticsReport
 from app.schemas.virtual_view import (
     VirtualMemberOut,
@@ -1122,11 +1122,11 @@ def get_virtual_quality_report(
     members = _analytics_members(db, view)
     primary_map = _primary_member_map(db, view)
     relations = _analytics_relations(db, view, primary_map)
-    raw_issues = run_quality_checks(members, relations)
+    issues = run_quality_checks(members, relations)
     return QualityReport(
         tree_id=view.id,
         total_members=len(members),
-        issues=[QualityIssue(**i) for i in raw_issues],
+        issues=issues,
     )
 
 

@@ -21,7 +21,7 @@ class TestIssueId:
         m = _member("m1", date_of_birth="2010", date_of_death="2005")
         first = run_quality_checks([m], [])
         second = run_quality_checks([m], [])
-        assert first[0]["id"] == second[0]["id"]
+        assert first[0].id == second[0].id
 
     def test_order_independent_for_member_ids(self):
         assert issue_id_for("duplicate_candidate", ["a", "b"]) == issue_id_for(
@@ -56,23 +56,23 @@ class TestBirthAfterDeath:
     def test_detects_birth_after_death(self):
         m = _member("m1", date_of_birth="2010", date_of_death="2005")
         issues = run_quality_checks([m], [])
-        types = [i["issue_type"] for i in issues]
+        types = [i.issue_type for i in issues]
         assert "birth_after_death" in types
 
     def test_valid_dates_no_issue(self):
         m = _member("m1", date_of_birth="1980", date_of_death="2020")
         issues = run_quality_checks([m], [])
-        assert not any(i["issue_type"] == "birth_after_death" for i in issues)
+        assert not any(i.issue_type == "birth_after_death" for i in issues)
 
     def test_same_year_is_ok(self):
         m = _member("m1", date_of_birth="2000", date_of_death="2000")
         issues = run_quality_checks([m], [])
-        assert not any(i["issue_type"] == "birth_after_death" for i in issues)
+        assert not any(i.issue_type == "birth_after_death" for i in issues)
 
     def test_partial_date_year_only(self):
         m = _member("m1", date_of_birth="2010-06", date_of_death="2005-01")
         issues = run_quality_checks([m], [])
-        assert any(i["issue_type"] == "birth_after_death" for i in issues)
+        assert any(i.issue_type == "birth_after_death" for i in issues)
 
 
 class TestParentChildAgeGap:
@@ -82,14 +82,14 @@ class TestParentChildAgeGap:
         # from=child, to=parent
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
-        assert any(i["issue_type"] == "child_older_than_parent" for i in issues)
+        assert any(i.issue_type == "child_older_than_parent" for i in issues)
 
     def test_parent_too_young_is_warning(self):
         parent = _member("p1", date_of_birth="1990")
         child = _member("c1", date_of_birth="1995")  # parent was 5
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
-        assert any(i["issue_type"] == "parent_too_young" for i in issues)
+        assert any(i.issue_type == "parent_too_young" for i in issues)
 
     def test_normal_age_gap_is_clean(self):
         parent = _member("p1", date_of_birth="1950")
@@ -97,14 +97,14 @@ class TestParentChildAgeGap:
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         gap_issues = {"child_older_than_parent", "parent_too_young", "parent_too_old"}
-        assert not any(i["issue_type"] in gap_issues for i in issues)
+        assert not any(i.issue_type in gap_issues for i in issues)
 
     def test_parent_too_old_is_warning(self):
         parent = _member("p1", date_of_birth="1800")
         child = _member("c1", date_of_birth="1950")  # parent was 150
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
-        assert any(i["issue_type"] == "parent_too_old" for i in issues)
+        assert any(i.issue_type == "parent_too_old" for i in issues)
 
     def test_missing_dates_skipped(self):
         parent = _member("p1")
@@ -112,7 +112,7 @@ class TestParentChildAgeGap:
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
         gap_issues = {"child_older_than_parent", "parent_too_young", "parent_too_old"}
-        assert not any(i["issue_type"] in gap_issues for i in issues)
+        assert not any(i.issue_type in gap_issues for i in issues)
 
 
 class TestChildAfterParentDeath:
@@ -121,7 +121,7 @@ class TestChildAfterParentDeath:
         child = _member("c1", date_of_birth="1910")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([mother, child], [rel])
-        assert any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert any(i.issue_type == "child_after_parent_death" for i in issues)
 
     def test_child_born_year_after_mother_death_is_flagged(self):
         # Mothers get no grace window: a birth after death is impossible.
@@ -129,14 +129,14 @@ class TestChildAfterParentDeath:
         child = _member("c1", date_of_birth="1901")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([mother, child], [rel])
-        assert any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert any(i.issue_type == "child_after_parent_death" for i in issues)
 
     def test_child_born_after_father_death_beyond_grace_is_flagged(self):
         father = _member("p1", date_of_death="1900", gender="m")
         child = _member("c1", date_of_birth="1905")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([father, child], [rel])
-        assert any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert any(i.issue_type == "child_after_parent_death" for i in issues)
 
     def test_posthumous_birth_within_father_grace_is_clean(self):
         # A child born the year after the father's death is a plausible
@@ -145,35 +145,35 @@ class TestChildAfterParentDeath:
         child = _member("c1", date_of_birth="1901")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([father, child], [rel])
-        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert not any(i.issue_type == "child_after_parent_death" for i in issues)
 
     def test_unknown_gender_uses_father_grace(self):
         parent = _member("p1", date_of_death="1900")  # gender unset
         child = _member("c1", date_of_birth="1901")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
-        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert not any(i.issue_type == "child_after_parent_death" for i in issues)
 
     def test_child_born_before_parent_death_is_clean(self):
         parent = _member("p1", date_of_birth="1850", date_of_death="1900", gender="f")
         child = _member("c1", date_of_birth="1880")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
-        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert not any(i.issue_type == "child_after_parent_death" for i in issues)
 
     def test_child_born_same_year_as_parent_death_is_clean(self):
         parent = _member("p1", date_of_death="1900", gender="f")
         child = _member("c1", date_of_birth="1900")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
-        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert not any(i.issue_type == "child_after_parent_death" for i in issues)
 
     def test_parent_without_death_date_skipped(self):
         parent = _member("p1", date_of_birth="1850", gender="f")
         child = _member("c1", date_of_birth="1880")
         rel = _relation("c1", "p1")
         issues = run_quality_checks([parent, child], [rel])
-        assert not any(i["issue_type"] == "child_after_parent_death" for i in issues)
+        assert not any(i.issue_type == "child_after_parent_death" for i in issues)
 
 
 class TestRelationshipCycle:
@@ -181,21 +181,21 @@ class TestRelationshipCycle:
         m = _member("m1")
         rel = _relation("m1", "m1")
         issues = run_quality_checks([m], [rel])
-        assert any(i["issue_type"] == "relationship_cycle" for i in issues)
+        assert any(i.issue_type == "relationship_cycle" for i in issues)
 
     def test_two_node_cycle(self):
         a = _member("a")
         b = _member("b")
         # a's parent is b, b's parent is a → cycle
         issues = run_quality_checks([a, b], [_relation("a", "b"), _relation("b", "a")])
-        assert any(i["issue_type"] == "relationship_cycle" for i in issues)
+        assert any(i.issue_type == "relationship_cycle" for i in issues)
 
     def test_linear_chain_no_cycle(self):
         g = _member("g")
         p = _member("p")
         c = _member("c")
         issues = run_quality_checks([g, p, c], [_relation("p", "g"), _relation("c", "p")])
-        assert not any(i["issue_type"] == "relationship_cycle" for i in issues)
+        assert not any(i.issue_type == "relationship_cycle" for i in issues)
 
 
 class TestDuplicateCandidates:
@@ -203,32 +203,32 @@ class TestDuplicateCandidates:
         m1 = _member("m1", first_name="John", last_name="Doe")
         m2 = _member("m2", first_name="John", last_name="Doe")
         issues = run_quality_checks([m1, m2], [])
-        assert any(i["issue_type"] == "duplicate_candidate" for i in issues)
+        assert any(i.issue_type == "duplicate_candidate" for i in issues)
 
     def test_case_insensitive(self):
         m1 = _member("m1", first_name="john", last_name="doe")
         m2 = _member("m2", first_name="John", last_name="Doe")
         issues = run_quality_checks([m1, m2], [])
-        assert any(i["issue_type"] == "duplicate_candidate" for i in issues)
+        assert any(i.issue_type == "duplicate_candidate" for i in issues)
 
     def test_different_names_not_flagged(self):
         m1 = _member("m1", first_name="John", last_name="Doe")
         m2 = _member("m2", first_name="Jane", last_name="Doe")
         issues = run_quality_checks([m1, m2], [])
-        assert not any(i["issue_type"] == "duplicate_candidate" for i in issues)
+        assert not any(i.issue_type == "duplicate_candidate" for i in issues)
 
     def test_empty_names_not_flagged(self):
         m1 = _member("m1")
         m2 = _member("m2")
         issues = run_quality_checks([m1, m2], [])
-        assert not any(i["issue_type"] == "duplicate_candidate" for i in issues)
+        assert not any(i.issue_type == "duplicate_candidate" for i in issues)
 
 
 class TestDisconnectedMembers:
     def test_solo_tree_not_flagged(self):
         m = _member("m1")
         issues = run_quality_checks([m], [])
-        assert not any(i["issue_type"] == "disconnected_member" for i in issues)
+        assert not any(i.issue_type == "disconnected_member" for i in issues)
 
     def test_isolated_member_in_multi_member_tree(self):
         m1 = _member("m1")
@@ -236,16 +236,16 @@ class TestDisconnectedMembers:
         m3 = _member("m3")
         rel = _relation("m2", "m1")  # m1 and m2 connected; m3 isolated
         issues = run_quality_checks([m1, m2, m3], [rel])
-        disconnected = [i for i in issues if i["issue_type"] == "disconnected_member"]
+        disconnected = [i for i in issues if i.issue_type == "disconnected_member"]
         assert len(disconnected) == 1
-        assert disconnected[0]["member_ids"] == ["m3"]
+        assert disconnected[0].member_ids == ["m3"]
 
     def test_all_connected_no_issues(self):
         m1 = _member("m1")
         m2 = _member("m2")
         rel = _relation("m1", "m2")
         issues = run_quality_checks([m1, m2], [rel])
-        assert not any(i["issue_type"] == "disconnected_member" for i in issues)
+        assert not any(i.issue_type == "disconnected_member" for i in issues)
 
 
 class TestEventAfterDeath:
@@ -255,7 +255,7 @@ class TestEventAfterDeath:
         issues = run_quality_checks(
             [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
         )
-        assert any(i["issue_type"] == "event_after_death" for i in issues)
+        assert any(i.issue_type == "event_after_death" for i in issues)
 
     def test_partial_dates_year_only(self):
         m = _member("m1", date_of_death="1900-01")
@@ -263,7 +263,7 @@ class TestEventAfterDeath:
         issues = run_quality_checks(
             [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
         )
-        assert any(i["issue_type"] == "event_after_death" for i in issues)
+        assert any(i.issue_type == "event_after_death" for i in issues)
 
     def test_event_before_death_not_flagged(self):
         m = _member("m1", date_of_death="1900")
@@ -271,7 +271,7 @@ class TestEventAfterDeath:
         issues = run_quality_checks(
             [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
         )
-        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+        assert not any(i.issue_type == "event_after_death" for i in issues)
 
     def test_same_year_not_flagged(self):
         m = _member("m1", date_of_death="1900")
@@ -279,7 +279,7 @@ class TestEventAfterDeath:
         issues = run_quality_checks(
             [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
         )
-        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+        assert not any(i.issue_type == "event_after_death" for i in issues)
 
     def test_burial_event_excluded(self):
         m = _member("m1", date_of_death="1900")
@@ -287,7 +287,7 @@ class TestEventAfterDeath:
         issues = run_quality_checks(
             [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
         )
-        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+        assert not any(i.issue_type == "event_after_death" for i in issues)
 
     def test_no_death_date_not_flagged(self):
         m = _member("m1")
@@ -295,7 +295,7 @@ class TestEventAfterDeath:
         issues = run_quality_checks(
             [m], [], events=[ev], event_links=[_event_link("e1", "m1")]
         )
-        assert not any(i["issue_type"] == "event_after_death" for i in issues)
+        assert not any(i.issue_type == "event_after_death" for i in issues)
 
     def test_multi_member_event_flags_only_deceased(self):
         alive = _member("m1")
@@ -307,9 +307,9 @@ class TestEventAfterDeath:
             events=[ev],
             event_links=[_event_link("e1", "m1"), _event_link("e1", "m2")],
         )
-        flagged = [i for i in issues if i["issue_type"] == "event_after_death"]
+        flagged = [i for i in issues if i.issue_type == "event_after_death"]
         assert len(flagged) == 1
-        assert flagged[0]["member_ids"] == ["m2"]
+        assert flagged[0].member_ids == ["m2"]
 
     def test_distinct_ids_for_multiple_offending_events(self):
         m = _member("m1", date_of_death="1900")
@@ -321,9 +321,9 @@ class TestEventAfterDeath:
             events=[ev1, ev2],
             event_links=[_event_link("e1", "m1"), _event_link("e2", "m1")],
         )
-        flagged = [i for i in issues if i["issue_type"] == "event_after_death"]
+        flagged = [i for i in issues if i.issue_type == "event_after_death"]
         assert len(flagged) == 2
-        assert flagged[0]["id"] != flagged[1]["id"]
+        assert flagged[0].id != flagged[1].id
 
 
 # ---------------------------------------------------------------------------

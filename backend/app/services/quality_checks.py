@@ -5,6 +5,7 @@ from collections import defaultdict
 
 from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
+from app.schemas.quality import QualityIssue
 
 # Minimum/maximum plausible age of a parent at their child's birth.
 _MIN_PARENT_AGE = 10
@@ -88,10 +89,10 @@ def run_quality_checks(
     relations: list[Relation],
     events: list[Event] | None = None,
     event_links: list[EventMemberLink] | None = None,
-) -> list[dict]:
+) -> list[QualityIssue]:
     events = events or []
     event_links = event_links or []
-    issues: list[dict] = []
+    issues: list[QualityIssue] = []
     member_map = {m.id: m for m in members}
 
     # --- 1. Birth-after-death ---
@@ -100,12 +101,13 @@ def run_quality_checks(
         death = _year(m.date_of_death)
         if birth is not None and death is not None and birth > death:
             issues.append(
-                {
-                    "issue_type": "birth_after_death",
-                    "severity": "error",
-                    "member_ids": [m.id],
-                    "description": f"Birth year ({birth}) is after death year ({death}).",
-                }
+                QualityIssue(
+                    id=issue_id_for("birth_after_death", [m.id]),
+                    issue_type="birth_after_death",
+                    severity="error",
+                    member_ids=[m.id],
+                    description=f"Birth year ({birth}) is after death year ({death}).",
+                )
             )
 
     # --- 2. Parent–child age-gap anomalies ---
@@ -133,15 +135,18 @@ def run_quality_checks(
             grace = 0 if is_mother else _POSTHUMOUS_BIRTH_GRACE_YEARS
             if child_birth > parent_death + grace:
                 issues.append(
-                    {
-                        "issue_type": "child_after_parent_death",
-                        "severity": "error",
-                        "member_ids": [parent_id, child_id],
-                        "description": (
+                    QualityIssue(
+                        id=issue_id_for(
+                            "child_after_parent_death", [parent_id, child_id]
+                        ),
+                        issue_type="child_after_parent_death",
+                        severity="error",
+                        member_ids=[parent_id, child_id],
+                        description=(
                             f"Child was born ({child_birth}) after the "
                             f"parent's death year ({parent_death})."
                         ),
-                    }
+                    )
                 )
 
         if parent_birth is None or child_birth is None:
@@ -149,52 +154,57 @@ def run_quality_checks(
         age_at_birth = child_birth - parent_birth
         if age_at_birth < 0:
             issues.append(
-                {
-                    "issue_type": "child_older_than_parent",
-                    "severity": "error",
-                    "member_ids": [parent_id, child_id],
-                    "description": (
+                QualityIssue(
+                    id=issue_id_for("child_older_than_parent", [parent_id, child_id]),
+                    issue_type="child_older_than_parent",
+                    severity="error",
+                    member_ids=[parent_id, child_id],
+                    description=(
                         f"Child's birth year ({child_birth}) is before "
                         f"parent's birth year ({parent_birth})."
                     ),
-                }
+                )
             )
         elif age_at_birth < _MIN_PARENT_AGE:
             issues.append(
-                {
-                    "issue_type": "parent_too_young",
-                    "severity": "warning",
-                    "member_ids": [parent_id, child_id],
-                    "description": (
+                QualityIssue(
+                    id=issue_id_for("parent_too_young", [parent_id, child_id]),
+                    issue_type="parent_too_young",
+                    severity="warning",
+                    member_ids=[parent_id, child_id],
+                    description=(
                         f"Parent was only {age_at_birth} year(s) old when "
                         f"child was born ({child_birth})."
                     ),
-                }
+                )
             )
         elif age_at_birth > _MAX_PARENT_AGE:
             issues.append(
-                {
-                    "issue_type": "parent_too_old",
-                    "severity": "warning",
-                    "member_ids": [parent_id, child_id],
-                    "description": (
+                QualityIssue(
+                    id=issue_id_for("parent_too_old", [parent_id, child_id]),
+                    issue_type="parent_too_old",
+                    severity="warning",
+                    member_ids=[parent_id, child_id],
+                    description=(
                         f"Parent was {age_at_birth} years old when "
                         f"child was born ({child_birth})."
                     ),
-                }
+                )
             )
 
     # --- 3. Relationship cycles (parent-chain) ---
     cycle_members = find_parent_cycle_members(members, relations)
 
     if cycle_members:
+        cycle_member_ids = sorted(cycle_members)
         issues.append(
-            {
-                "issue_type": "relationship_cycle",
-                "severity": "error",
-                "member_ids": sorted(cycle_members),
-                "description": "A cycle exists in the parent-child relationships.",
-            }
+            QualityIssue(
+                id=issue_id_for("relationship_cycle", cycle_member_ids),
+                issue_type="relationship_cycle",
+                severity="error",
+                member_ids=cycle_member_ids,
+                description="A cycle exists in the parent-child relationships.",
+            )
         )
 
     # --- 4. Duplicate-name candidates ---
@@ -208,12 +218,13 @@ def run_quality_checks(
     for _key, ids in name_groups.items():
         if len(ids) > 1:
             issues.append(
-                {
-                    "issue_type": "duplicate_candidate",
-                    "severity": "warning",
-                    "member_ids": ids,
-                    "description": f"{len(ids)} members share the same full name.",
-                }
+                QualityIssue(
+                    id=issue_id_for("duplicate_candidate", ids),
+                    issue_type="duplicate_candidate",
+                    severity="warning",
+                    member_ids=ids,
+                    description=f"{len(ids)} members share the same full name.",
+                )
             )
 
     # --- 5. Disconnected members (no relations at all) ---
@@ -225,12 +236,13 @@ def run_quality_checks(
         for m in members:
             if m.id not in connected:
                 issues.append(
-                    {
-                        "issue_type": "disconnected_member",
-                        "severity": "warning",
-                        "member_ids": [m.id],
-                        "description": "Member has no relationships.",
-                    }
+                    QualityIssue(
+                        id=issue_id_for("disconnected_member", [m.id]),
+                        issue_type="disconnected_member",
+                        severity="warning",
+                        member_ids=[m.id],
+                        description="Member has no relationships.",
+                    )
                 )
 
     # --- 6. Event dated after the member's own death ---
@@ -248,19 +260,16 @@ def run_quality_checks(
             continue
         if ev_year > death:
             issues.append(
-                {
-                    "id": issue_id_for("event_after_death", [member.id, ev.id]),
-                    "issue_type": "event_after_death",
-                    "severity": "warning",
-                    "member_ids": [member.id],
-                    "description": (
+                QualityIssue(
+                    id=issue_id_for("event_after_death", [member.id, ev.id]),
+                    issue_type="event_after_death",
+                    severity="warning",
+                    member_ids=[member.id],
+                    description=(
                         f"A '{ev.event_type}' event ({ev_year}) is dated after "
                         f"this member's death year ({death})."
                     ),
-                }
+                )
             )
-
-    for issue in issues:
-        issue.setdefault("id", issue_id_for(issue["issue_type"], issue["member_ids"]))
 
     return issues

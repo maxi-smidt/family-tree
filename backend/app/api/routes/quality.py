@@ -30,7 +30,7 @@ router = APIRouter(
 
 def _bridge_drift_issues(
     db: Session, user: User, members: list[Member]
-) -> list[dict]:
+) -> list[QualityIssue]:
     """Bridge persons whose two rows have drifted apart.
 
     Needs the db (counterpart rows live in other trees), so it runs here
@@ -53,7 +53,7 @@ def _bridge_drift_issues(
             )
         )
     }
-    issues: list[dict] = []
+    issues: list[QualityIssue] = []
     for m in linked:
         counterpart = counterparts.get(m.linked_member_id)
         if counterpart is None:
@@ -62,18 +62,18 @@ def _bridge_drift_issues(
         if not fields:
             continue
         issues.append(
-            {
+            QualityIssue(
                 # Hash the drifted field set too, so a dismissed note comes
                 # back when *new* fields start to differ.
-                "id": issue_id_for("bridge_person_drift", [m.id, *fields]),
-                "issue_type": "bridge_person_drift",
-                "severity": "warning",
-                "member_ids": [m.id],
-                "description": (
+                id=issue_id_for("bridge_person_drift", [m.id, *fields]),
+                issue_type="bridge_person_drift",
+                severity="warning",
+                member_ids=[m.id],
+                description=(
                     "Differs from the linked copy in another tree: "
                     f"{', '.join(f.replace('_', ' ') for f in fields)}."
                 ),
-            }
+            )
         )
     return issues
 
@@ -114,7 +114,9 @@ def get_quality_report(
         ).all()
     )
 
-    issues = [QualityIssue(**i, dismissed=i["id"] in dismissed_ids) for i in raw_issues]
+    issues = [
+        i.model_copy(update={"dismissed": i.id in dismissed_ids}) for i in raw_issues
+    ]
     if not include_dismissed:
         issues = [i for i in issues if not i.dismissed]
 
@@ -159,16 +161,16 @@ def dismiss_quality_issue(
         ).all()
     )
     raw_issues = run_quality_checks(members, relations, events, event_links)
-    issue = next((i for i in raw_issues if i["id"] == issue_id), None)
+    issue = next((i for i in raw_issues if i.id == issue_id), None)
     if issue is None:
         raise HTTPException(status_code=404, detail="Quality issue not found")
 
     db.add(
         QualityIssueDismissal(
             tree_id=tree.id,
-            issue_id=issue["id"],
-            issue_type=issue["issue_type"],
-            member_ids=json.dumps(issue["member_ids"]),
+            issue_id=issue.id,
+            issue_type=issue.issue_type,
+            member_ids=json.dumps(issue.member_ids),
             dismissed_by_id=user.id,
         )
     )
