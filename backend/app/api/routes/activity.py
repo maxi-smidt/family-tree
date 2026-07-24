@@ -16,8 +16,9 @@ from app.api.deps import (
 )
 from app.db.session import get_db
 from app.models import ActivityLog, Tree, User
-from app.schemas.activity import ActivityPageOut, ActivityUndoOut
+from app.schemas.activity import ActivityPageOut, ActivityUndoOut, UndoSkippedItem
 from app.services.activity import SNAPSHOT_VERSION, record_activity
+from app.services.activity_snapshots import UndoLogDetails
 from app.services.activity_undo import CONTENT_DOMAIN, RESTORERS, UndoConflict
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
@@ -109,6 +110,11 @@ def undo_activity(
 
     try:
         result = restore(db, tree, snapshot)
+        log_details: UndoLogDetails = {
+            "undo_of": entry_id,
+            "restored": result.restored,
+            "skipped": [s.model_dump(exclude_none=True) for s in result.skipped],
+        }
         undo_entry = record_activity(
             db,
             tree_id=tree.id,
@@ -117,11 +123,7 @@ def undo_activity(
             target_type=entry.target_type,
             target_id=result.main_id,
             target_label=entry.target_label,
-            details={
-                "undo_of": entry_id,
-                "restored": result.restored,
-                "skipped": result.skipped,
-            },
+            details=log_details,
         )
         db.flush()
         undo_entry_id = undo_entry.id
@@ -143,7 +145,9 @@ def undo_activity(
     for url in result.media_to_untrash:
         if not untrash_media(url):
             skipped.append(
-                {"table": "media", "reason": "file already purged from trash", "id": url}
+                UndoSkippedItem(
+                    table="media", reason="file already purged from trash", id=url
+                )
             )
 
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
