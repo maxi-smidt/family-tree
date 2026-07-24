@@ -2,24 +2,7 @@
 
 from unittest.mock import patch
 
-import pytest
-
-from tests.conftest import API, add_member, auth, make_tree, make_user
-
-
-@pytest.fixture()
-def owner(db):
-    return make_user(db, "owner")
-
-
-@pytest.fixture()
-def tree(db, owner):
-    return make_tree(db, owner)
-
-
-@pytest.fixture()
-def headers(owner):
-    return auth(owner)
+from tests.conftest import API, add_member
 
 
 def test_save_positions_emits_layout_changed(client, db, tree, headers):

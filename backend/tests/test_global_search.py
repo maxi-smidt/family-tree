@@ -1,3 +1,5 @@
+import pytest
+
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
@@ -98,7 +100,7 @@ def test_global_search_requires_authentication(client):
     assert response.status_code == 401
 
 
-def test_global_search_matches_name_permutation_and_birth_year(client, db):
+def test_global_search_matches_name_permutation(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user, "Family")
     add_member(
@@ -128,16 +130,13 @@ def test_global_search_matches_name_permutation_and_birth_year(client, db):
     assert response.status_code == 200
     assert {hit["id"] for hit in response.json()} == {"anna-mueller", "anna-other"}
 
-    response = client.get(
-        f"{API}/search",
-        params={"q": "Anna Müller 1932"},
-        headers=auth(user),
-    )
-    assert response.status_code == 200
-    assert {hit["id"] for hit in response.json()} == {"anna-mueller"}
 
-
-def test_global_search_matches_death_year_the_same_way_as_birth_year(client, db):
+@pytest.mark.parametrize(
+    ("date_field", "year"),
+    [("date_of_birth", "1932"), ("date_of_death", "1999")],
+    ids=["birth_year", "death_year"],
+)
+def test_global_search_matches_year(client, db, date_field, year):
     user = make_user(db, "alice")
     tree = make_tree(db, user, "Family")
     add_member(
@@ -146,9 +145,8 @@ def test_global_search_matches_death_year_the_same_way_as_birth_year(client, db)
         "anna-mueller",
         first_name="Anna",
         last_name="Müller",
-        date_of_birth="1901",
-        date_of_death="3 Jan 1999",
         gender="f",
+        **{date_field: f"12 May {year}"},
     )
     add_member(
         db,
@@ -156,14 +154,13 @@ def test_global_search_matches_death_year_the_same_way_as_birth_year(client, db)
         "anna-other",
         first_name="Anna",
         last_name="Müller",
-        date_of_birth="1901",
-        date_of_death="1950",
         gender="f",
+        **{date_field: "1901"},
     )
 
     response = client.get(
         f"{API}/search",
-        params={"q": "Anna Müller 1999"},
+        params={"q": f"Anna Müller {year}"},
         headers=auth(user),
     )
     assert response.status_code == 200

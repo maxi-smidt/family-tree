@@ -1,4 +1,9 @@
-"""Tests for the data cleanup in the What's New migration."""
+"""Tests for the data cleanup in the What's New migration.
+
+Retention: data-migration tests are kept for the current + prior minor
+release (currently 1.8/1.7); delete this file once 1.9 ships and this
+migration is more than one minor version old.
+"""
 
 import importlib.util
 from pathlib import Path

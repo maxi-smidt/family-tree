@@ -9,6 +9,10 @@ against a populated legacy schema on SQLite (the same engine the rest of the
 backend tests use; CI has no PostgreSQL service). The helpers contain the
 data-mapping logic that risks losing data, so testing them directly is what
 guards the acceptance criteria.
+
+Retention: data-migration tests are kept for the current + prior minor
+release (currently 1.8/1.7); delete this file once 1.9 ships and this
+migration is more than one minor version old.
 """
 
 import importlib.util

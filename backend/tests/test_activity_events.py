@@ -2,26 +2,9 @@
 
 from unittest.mock import patch
 
-import pytest
-
-from tests.conftest import API, auth, make_tree, make_user
+from tests.conftest import API
 
 _TS = "2000-01-01T00:00:00Z"
-
-
-@pytest.fixture()
-def owner(db):
-    return make_user(db, "owner")
-
-
-@pytest.fixture()
-def tree(db, owner):
-    return make_tree(db, owner)
-
-
-@pytest.fixture()
-def headers(owner):
-    return auth(owner)
 
 
 def _activity_event(mock, tree_id):

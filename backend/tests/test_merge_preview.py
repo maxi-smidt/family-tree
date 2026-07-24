@@ -1,7 +1,7 @@
 """Tests for compute_merge_preview and the resolution-aware merge_trees.
 
-These are *in addition* to the existing test_merge.py tests (which are left
-untouched to verify backward compatibility).
+Basic no-resolution dedupe behavior is covered by test_merge.py; this file
+covers preview computation and explicit MergeResolution handling.
 """
 
 from __future__ import annotations
@@ -244,24 +244,3 @@ def test_merge_possible_candidate_with_merge_resolution(db):
     members = db.query(Member).filter(Member.tree_id == merged.id).all()
     assert len(members) == 1
     assert members[0].date_of_birth == "1961"
-
-
-# ---------------------------------------------------------------------------
-# No resolutions: backward-compatible path unchanged
-# ---------------------------------------------------------------------------
-
-
-def test_merge_no_resolutions_backward_compat(db):
-    user = make_user(db, "alice")
-    ta = make_tree(db, user, "A")
-    tb = make_tree(db, user, "B")
-
-    add_member(db, ta, "a1", first_name="Ada", last_name="Doe", gender="f")
-    add_member(db, tb, "b1", first_name="ada", last_name="doe", gender="f")
-    add_member(db, tb, "b2", first_name="Bob", last_name="Doe", gender="m")
-
-    merged = merge_trees(db, user, "M", ta.id, tb.id, None)
-
-    members = db.query(Member).filter(Member.tree_id == merged.id).all()
-    names = sorted((m.first_name.lower(), m.last_name.lower()) for m in members)
-    assert names == [("ada", "doe"), ("bob", "doe")]

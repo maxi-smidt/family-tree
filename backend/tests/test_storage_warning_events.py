@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from app.core.media_config import MEBIBYTE
-from tests.conftest import API, auth, make_tree, make_user
+from tests.conftest import API, auth
 
 # Minimal 1×1 PNG streamed as a multipart gallery upload.
 _PNG_BYTES = base64.b64decode(
@@ -20,16 +20,6 @@ def _media_root(tmp_path, monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-
-
-@pytest.fixture()
-def owner(db):
-    return make_user(db, "owner")
-
-
-@pytest.fixture()
-def tree(db, owner):
-    return make_tree(db, owner)
 
 
 def _post_image(client, tree_id, headers):

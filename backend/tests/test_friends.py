@@ -1,7 +1,10 @@
-"""Friend requests, the accepted-friends graph and its share side-effects."""
+"""Friend requests and the accepted-friends graph.
 
-from app.models import TreeMembership
-from tests.conftest import API, auth, befriend, make_tree, make_user, share
+Unfriend/block's shared-tree revocation side effects (TreeMembership deletion,
+SSE events, notifications) are covered in test_unfriend_revoke_events.py.
+"""
+
+from tests.conftest import API, auth, befriend, make_user
 
 
 def _send(client, sender, username):
@@ -150,34 +153,13 @@ def test_search_empty_query_returns_nothing(client, db):
     assert client.get(f"{API}/friends/search?q=", headers=auth(alice)).json() == []
 
 
-def test_unfriend_revokes_shared_trees_both_directions(client, db):
+def test_block_gates_requests_and_unblock_restores(client, db):
     alice = make_user(db, "alice")
     bob = make_user(db, "bob")
     befriend(db, alice, bob)
-    alice_tree = make_tree(db, alice, "Alice Tree")
-    bob_tree = make_tree(db, bob, "Bob Tree")
-    share(db, alice_tree, bob, "editor")
-    share(db, bob_tree, alice, "viewer")
-
-    removed = client.delete(f"{API}/friends/{bob.id}", headers=auth(alice))
-    assert removed.status_code == 204
-
-    db.expunge_all()
-    assert db.get(TreeMembership, (alice_tree.id, bob.id)) is None
-    assert db.get(TreeMembership, (bob_tree.id, alice.id)) is None
-
-
-def test_block_prevents_requests_and_revokes_shares(client, db):
-    alice = make_user(db, "alice")
-    bob = make_user(db, "bob")
-    befriend(db, alice, bob)
-    tree = make_tree(db, alice)
-    share(db, tree, bob, "editor")
 
     blocked = client.post(f"{API}/friends/{bob.id}/block", headers=auth(alice))
     assert blocked.status_code == 204
-    db.expunge_all()
-    assert db.get(TreeMembership, (tree.id, bob.id)) is None
 
     # Bob can no longer reach Alice with a request.
     assert _send(client, bob, "alice").status_code == 403
