@@ -1,0 +1,90 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "5daae3f64237",
+  "session_id": "23086e8d-1d76-473c-bd04-a6476b161ad8",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-24T10:26:51.782115762Z",
+  "branch": "test/821-backend-suite-cleanup",
+  "checkpoints_count": 2,
+  "save_step_count": 2,
+  "files_touched": [
+    "backend/tests/conftest.py",
+    "backend/tests/test_activity_events.py",
+    "backend/tests/test_content_events.py",
+    "backend/tests/test_documents_migration.py",
+    "backend/tests/test_event_bus_redis.py",
+    "backend/tests/test_friends.py",
+    "backend/tests/test_global_search.py",
+    "backend/tests/test_layout_events.py",
+    "backend/tests/test_merge_preview.py",
+    "backend/tests/test_presence.py",
+    "backend/tests/test_remove_announcement_settings_migration.py",
+    "backend/tests/test_research_task_links_migration.py",
+    "backend/tests/test_storage.py",
+    "backend/tests/test_storage_warning_events.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "5fecdec2cc1c",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 160,
+    "cache_creation_tokens": 115482,
+    "cache_read_tokens": 7845116,
+    "output_tokens": 40565,
+    "api_call_count": 80
+  },
+  "session_metrics": {
+    "turn_count": 2
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-24T10:26:51.747836044Z",
+    "agent_lines": 178,
+    "agent_removed": 246,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 178,
+    "total_lines_changed": 424,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 164,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 25,
+      "user_lines_removed": 0,
+      "agent_lines_added": 317,
+      "agent_lines_removed": 246,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.local.json": 24
+      }
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 25,
+      "user_lines_removed": 0,
+      "agent_lines_added": 317,
+      "agent_lines_removed": 246,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.local.json": 24
+      }
+    }
+  ]
+}

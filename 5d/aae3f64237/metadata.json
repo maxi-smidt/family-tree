@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "5daae3f64237",
+  "strategy": "manual-commit",
+  "branch": "test/821-backend-suite-cleanup",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "backend/tests/conftest.py",
+    "backend/tests/test_activity_events.py",
+    "backend/tests/test_content_events.py",
+    "backend/tests/test_documents_migration.py",
+    "backend/tests/test_event_bus_redis.py",
+    "backend/tests/test_friends.py",
+    "backend/tests/test_global_search.py",
+    "backend/tests/test_layout_events.py",
+    "backend/tests/test_merge_preview.py",
+    "backend/tests/test_presence.py",
+    "backend/tests/test_remove_announcement_settings_migration.py",
+    "backend/tests/test_research_task_links_migration.py",
+    "backend/tests/test_storage.py",
+    "backend/tests/test_storage_warning_events.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/5d/aae3f64237/0/metadata.json",
+      "transcript": "/5d/aae3f64237/0/full.jsonl",
+      "compact_transcript": "/5d/aae3f64237/0/transcript.jsonl",
+      "content_hash": "/5d/aae3f64237/0/content_hash.txt",
+      "prompt": "/5d/aae3f64237/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 160,
+    "cache_creation_tokens": 115482,
+    "cache_read_tokens": 7845116,
+    "output_tokens": 40565,
+    "api_call_count": 80
+  }
+}
