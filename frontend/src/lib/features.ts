@@ -12,6 +12,7 @@ export const ALL_FEATURES = [
   "map",
   "sources",
   "activity_log",
+  "activity_undo",
   "quality_report",
   "statistics",
   "virtual_views",

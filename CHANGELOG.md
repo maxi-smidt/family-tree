@@ -104,6 +104,16 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   backing a deleted gallery image or document is moved into a per-tree trash
   area and kept for 30 days before a background sweep reclaims it, instead of
   being unlinked immediately (#760).
+- Single-action undo for logged deletes: an "Undo" button on an eligible
+  activity-log entry restores a deleted person, relation, genetic condition,
+  event, story, gallery image, document, or document file straight from its
+  #572/#760 snapshot. The restore is partial and safe — the main row plus
+  every child link that still validates comes back, with a report of
+  anything skipped (e.g. a relation whose other person is gone); trashed
+  media is un-trashed best-effort, degrading gracefully if the 30-day sweep
+  already reclaimed it. The undo itself is logged as a new entry referencing
+  the one it reverses. Gated behind its own `activity_undo` feature flag, so
+  it can be disabled independently of the read-only activity log (#762).
 
 ### Fixed
 

@@ -30,6 +30,27 @@ export interface ActivityPageDB {
   actors: string[];
 }
 
+export interface UndoSkippedItem {
+  table: string;
+  reason: string;
+  id?: string | null;
+}
+
+export interface ActivityUndoDB {
+  undo_entry_id: string;
+  target_type: string;
+  restored: Record<string, unknown>;
+  skipped: UndoSkippedItem[];
+}
+
+/** True for a delete entry whose details carry a snapshot this backend
+ * version knows how to restore — the only entries eligible for undo. */
+export function isUndoableDelete(activity: Activity): boolean {
+  if (activity.action !== "delete" || !activity.details) return false;
+  const snapshot = activity.details.snapshot as { version?: number } | undefined;
+  return !!snapshot && snapshot.version === 1;
+}
+
 export function mapActivityFromDB(row: ActivityDB): Activity {
   let details: Record<string, unknown> | null = null;
   if (row.details) {

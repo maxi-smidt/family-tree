@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Activity, mapActivityFromDB } from "@/types/activity";
+import { Activity, ActivityUndoDB, mapActivityFromDB } from "@/types/activity";
 import { TreeService } from "@/services/TreeService";
 import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
 
@@ -27,6 +27,7 @@ interface ActivityState {
   setFilter: (key: FilterKey, val: string, treeId?: string) => Promise<void>;
   clearFilters: (treeId?: string) => Promise<void>;
   retry: (treeId?: string) => Promise<void>;
+  undo: (entryId: string, treeId?: string) => Promise<ActivityUndoDB>;
   clear: () => void;
 }
 
@@ -118,6 +119,16 @@ export const useActivityStore = create<ActivityState>((set, get) => {
     retry: async (treeId = activeTreeId()) => {
       if (!treeId) return;
       await get().load(treeId, get().page);
+    },
+
+    undo: async (entryId, treeId = activeTreeId()) => {
+      if (!treeId) throw new Error("No active tree");
+      const report = await TreeService.undoActivity(treeId, entryId);
+      // Content stores refresh themselves via the tree.content_changed SSE
+      // event the backend publishes; only the activity list itself needs an
+      // explicit reload here.
+      await get().refreshActivity(treeId);
+      return report;
     },
 
     // Invalidate any in-flight request so its late response can't repopulate a

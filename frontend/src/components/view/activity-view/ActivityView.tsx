@@ -1,11 +1,25 @@
+import { useState } from "react";
+import { toast } from "sonner";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
-import { Activity } from "@/types/activity";
+import { useTreeStore } from "@/hooks/useTreeStore";
+import { useFeature } from "@/hooks/useAuthStore";
+import { Activity, isUndoableDelete } from "@/types/activity";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { ListPagination } from "@/components/view/list-view/ListPagination";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -16,6 +30,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { formatDateWithFallback } from "@/utils/dateUtils";
+import { ApiError } from "@/services/api";
 import {
   Clock,
   Activity as ActivityIcon,
@@ -25,6 +40,7 @@ import {
   ClipboardList,
   FileText,
   Loader2,
+  Undo2,
   X,
 } from "lucide-react";
 
@@ -119,6 +135,11 @@ function ActivityItem({ item }: { item: Activity }) {
     keyPrefix: "activity-view",
   });
   const { navigateTo } = useNavigationStore();
+  const undo = useActivityStore((s) => s.undo);
+  const undoEnabled = useFeature("activity_undo");
+  const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [undoing, setUndoing] = useState(false);
 
   const actor = item.actorUsername ?? t("unknown-actor");
   const action = t(ACTION_KEY[item.action] ?? "action-update");
@@ -128,10 +149,33 @@ function ActivityItem({ item }: { item: Activity }) {
   const destinationView: ViewId | null = TARGET_VIEW[item.targetType] ?? null;
   const canNavigate = destinationView !== null;
   const TargetIcon = TARGET_ICONS[item.targetType] ?? ActivityIcon;
+  const showUndo = undoEnabled && canWrite && isUndoableDelete(item);
 
   const handleNavigate = () => {
     if (canNavigate) {
       navigateTo(destinationView);
+    }
+  };
+
+  const handleUndo = async () => {
+    setUndoing(true);
+    try {
+      const report = await undo(item.id);
+      if (report.skipped.length > 0) {
+        toast.warning(t("undo-partial", { count: report.skipped.length }));
+      } else {
+        toast.success(t("undo-success"));
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        toast.error(t("undo-conflict"));
+      } else if (error instanceof ApiError && error.status === 422) {
+        toast.error(t("undo-invalid"));
+      } else {
+        toast.error(t("undo-error"));
+      }
+    } finally {
+      setUndoing(false);
     }
   };
 
@@ -180,6 +224,21 @@ function ActivityItem({ item }: { item: Activity }) {
           <DiffDisplay details={item.details} />
         )}
       </div>
+      {showUndo && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 flex-shrink-0 gap-1 text-xs"
+          disabled={undoing}
+          onClick={(e) => {
+            e.stopPropagation();
+            setConfirmOpen(true);
+          }}
+        >
+          <Undo2 className="w-3 h-3" />
+          {t("undo")}
+        </Button>
+      )}
       {canNavigate && (
         <div
           className="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -188,6 +247,24 @@ function ActivityItem({ item }: { item: Activity }) {
         >
           <ArrowRight className="w-4 h-4 text-muted-foreground" />
         </div>
+      )}
+      {showUndo && (
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("undo-confirm-title")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("undo-confirm-body")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("undo-cancel")}</AlertDialogCancel>
+              <AlertDialogAction disabled={undoing} onClick={() => void handleUndo()}>
+                {t("undo-confirm-action")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </Card>
   );

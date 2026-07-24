@@ -1196,7 +1196,17 @@
     "navigate-hint": "Go to item",
     "diff-changed": "Changed:",
     "diff-arrow": "→",
-    "target-task": "research task"
+    "target-task": "research task",
+    "undo": "Undo",
+    "undo-confirm-title": "Undo this delete?",
+    "undo-confirm-body": "This restores the deleted item and anything still linked to it. Anything that can't be restored (e.g. a linked item that's since been deleted) will be reported as skipped.",
+    "undo-cancel": "Cancel",
+    "undo-confirm-action": "Undo",
+    "undo-success": "Restored.",
+    "undo-partial": "Restored, but {{count}} item(s) could not be — see the log for details.",
+    "undo-conflict": "Couldn't undo — it looks like this was already restored, or something it depends on is gone.",
+    "undo-invalid": "This entry can't be undone.",
+    "undo-error": "Undo failed."
   },
   "timeline-view": {
     "view": {
@@ -1807,6 +1817,7 @@
         "stories": "Stories",
         "events": "Events & timeline",
         "activity_log": "Activity log",
+        "activity_undo": "Activity undo",
         "quality_report": "Quality report",
         "statistics": "Statistics",
         "virtual_views": "Virtual views",
@@ -1825,6 +1836,7 @@
         "stories": "Stories and biographies on members.",
         "events": "Life events and the timeline view.",
         "activity_log": "Recent-changes log per tree.",
+        "activity_undo": "Lets editors restore a deleted person, relation, event, story, gallery image, or document straight from the activity log.",
         "quality_report": "Data-quality checks per tree.",
         "statistics": "Aggregate statistics per tree.",
         "virtual_views": "Read-only views combining several trees.",
