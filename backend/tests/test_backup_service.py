@@ -169,7 +169,7 @@ def test_backup_validation_rejects_changed_media(db, tmp_path, monkeypatch):
     path.parent.mkdir(parents=True)
     path.write_bytes(b"original")
 
-    bundle = backup_service._collect_bundle(db)
+    bundle = backup_service._collect_bundle(db).model_dump()
     bundle["media"][0]["data"] = "Y2hhbmdlZA=="
 
     with pytest.raises(backup_service.BackupValidationError):
