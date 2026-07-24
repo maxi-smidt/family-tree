@@ -2,6 +2,7 @@
 retention, and feature gating."""
 
 from app.models import Notification
+from app.schemas.notification import FriendRequestReceivedPayload
 from app.services import feature_service, notification_service
 from tests.conftest import API, auth, befriend, make_tree, make_user, share
 
@@ -181,7 +182,7 @@ def test_list_pagination_and_counts(client, db):
         make_user(db, name)
         notification_service.create_notification(
             db, bob.id, "friend_request_received",
-            {"requester_id": "x", "requester_username": name},
+            FriendRequestReceivedPayload(requester_id="x", requester_username=name),
         )
 
     res = client.get(f"{API}/notifications", headers=auth(bob), params={"limit": 2})
@@ -216,7 +217,9 @@ def test_mark_read_marks_one_and_404_for_other_user(client, db):
     bob = make_user(db, "bob")
     notification_service.create_notification(
         db, bob.id, "friend_request_received",
-        {"requester_id": alice.id, "requester_username": "alice"},
+        FriendRequestReceivedPayload(
+            requester_id=alice.id, requester_username="alice"
+        ),
     )
     notif_id = client.get(f"{API}/notifications", headers=auth(bob)).json()[
         "entries"
@@ -243,7 +246,7 @@ def test_mark_all_read_clears_unread(client, db):
     for name in ("alice", "carol"):
         notification_service.create_notification(
             db, bob.id, "friend_request_received",
-            {"requester_id": "x", "requester_username": name},
+            FriendRequestReceivedPayload(requester_id="x", requester_username=name),
         )
 
     res = client.post(f"{API}/notifications/read-all", headers=auth(bob))
@@ -264,7 +267,7 @@ def test_retention_caps_at_100_per_user(db):
     for i in range(105):
         notification_service.create_notification(
             db, alice.id, "friend_request_received",
-            {"requester_id": "x", "requester_username": f"u{i}"},
+            FriendRequestReceivedPayload(requester_id="x", requester_username=f"u{i}"),
         )
     count = (
         db.query(Notification).filter(Notification.user_id == alice.id).count()
@@ -291,7 +294,7 @@ def test_disabled_feature_hides_routes_and_producer_writes_nothing(client, db):
 
     notification_service.create_notification(
         db, alice.id, "friend_request_received",
-        {"requester_id": "x", "requester_username": "x"},
+        FriendRequestReceivedPayload(requester_id="x", requester_username="x"),
     )
     count = (
         db.query(Notification).filter(Notification.user_id == alice.id).count()

@@ -29,6 +29,7 @@ from app.models.family import Member
 from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.job import JobStarted
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
+from app.schemas.notification import TreeSharedPayload, TreeUnsharedPayload
 from app.schemas.tree import (
     LinkedShareTreeOut,
     LinkGraphBridgeMember,
@@ -687,12 +688,12 @@ def share_tree(
             db,
             target.id,
             "tree_shared",
-            {
-                "tree_id": tree.id,
-                "tree_name": tree.name,
-                "role": payload.role,
-                "actor_username": user.username,
-            },
+            TreeSharedPayload(
+                tree_id=tree.id,
+                tree_name=tree.name,
+                role=payload.role,
+                actor_username=user.username,
+            ),
         )
     return list_access(tree=tree, db=db)
 
@@ -725,7 +726,10 @@ def revoke_access(
         )
         publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
         notification_service.create_notification(
-            db, user_id, "tree_unshared", {"tree_id": tree.id, "tree_name": tree.name}
+            db,
+            user_id,
+            "tree_unshared",
+            TreeUnsharedPayload(tree_id=tree.id, tree_name=tree.name),
         )
 
 
@@ -861,12 +865,12 @@ def share_trees_batch(
             db,
             target.id,
             "tree_shared",
-            {
-                "tree_id": t.id,
-                "tree_name": t.name,
-                "role": payload.role,
-                "actor_username": user.username,
-            },
+            TreeSharedPayload(
+                tree_id=t.id,
+                tree_name=t.name,
+                role=payload.role,
+                actor_username=user.username,
+            ),
         )
     return list_access(tree=tree, db=db)
 
@@ -923,7 +927,10 @@ def revoke_access_batch(
         )
         publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
         notification_service.create_notification(
-            db, payload.user_id, "tree_unshared", {"tree_id": t.id, "tree_name": t.name}
+            db,
+            payload.user_id,
+            "tree_unshared",
+            TreeUnsharedPayload(tree_id=t.id, tree_name=t.name),
         )
 
 

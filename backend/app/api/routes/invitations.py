@@ -15,6 +15,7 @@ from app.api.deps import (
 )
 from app.db.session import get_db
 from app.models import Tree, TreeInvitation, User
+from app.schemas.notification import InvitationReceivedPayload
 from app.schemas.tree import (
     InvitationAcceptResult,
     InvitationCreate,
@@ -122,7 +123,7 @@ def create_invitation(
                 db,
                 invited_user.id,
                 "invitation_received",
-                {"tree_id": tree.id, "tree_name": tree.name},
+                InvitationReceivedPayload(tree_id=tree.id, tree_name=tree.name),
             )
     return _inv_out(inv, include_token=True)
 
