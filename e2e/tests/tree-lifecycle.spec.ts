@@ -14,11 +14,7 @@ import type { ApiClient } from "../fixtures/api";
 import { createMember, createTree, deleteTree } from "../fixtures/seed";
 import type { TreeRecord } from "../fixtures/seed";
 import { createTestUser, deleteTestUser } from "../fixtures/users";
-
-interface LoginUser {
-  username: string;
-  password: string;
-}
+import { loginAs, selectTree } from "../fixtures/ui";
 
 interface TreeListItem extends TreeRecord {
   role: string;
@@ -34,26 +30,6 @@ interface MergePreview {
 interface MemberName {
   firstName?: string | null;
   lastName?: string | null;
-}
-
-async function loginAs(page: Page, user: LoginUser): Promise<void> {
-  await page.goto("/");
-  await expect(page.locator("#username")).toBeVisible({ timeout: 15_000 });
-  await page.locator("#username").fill(user.username);
-  await page.locator("#password").fill(user.password);
-  await page.locator('button[type="submit"]').click();
-  await expect(page.locator("#username")).not.toBeVisible({ timeout: 15_000 });
-}
-
-async function selectTree(page: Page, name: string): Promise<void> {
-  const selector = page.locator('[data-testid="tree-selector"]');
-  await expect(selector).toBeVisible({ timeout: 15_000 });
-  await selector.click();
-
-  const option = page.getByRole("option").filter({ hasText: name });
-  await expect(option).toHaveCount(1);
-  await option.click();
-  await expect(selector).toContainText(name, { timeout: 15_000 });
 }
 
 async function openTreeManagement(page: Page): Promise<void> {

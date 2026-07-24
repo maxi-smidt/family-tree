@@ -14,6 +14,7 @@ import {
   createTree,
   deleteTree,
 } from "../fixtures/seed";
+import { loginAs } from "../fixtures/ui";
 
 interface MemberDetails {
   id: string;
@@ -49,12 +50,10 @@ const canvasTest = test.extend<{ ownedTree: TreeRecord }>({
   },
 });
 
+// Every canvas test needs the canvas mounted (not just logged in), so this
+// wraps the shared login helper with that extra, file-specific gate.
 async function login(page: Page, user: UserRecord) {
-  await page.goto("/");
-  await page.locator("#username").fill(user.username);
-  await page.locator("#password").fill(user.password);
-  await page.locator('button[type="submit"]').click();
-  await expect(page.locator("#username")).not.toBeVisible({ timeout: 15_000 });
+  await loginAs(page, user);
   await expect(page.getByLabel("Family tree canvas")).toBeVisible({
     timeout: 15_000,
   });
