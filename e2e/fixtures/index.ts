@@ -21,6 +21,7 @@ import type { UserRecord } from "./users";
 import { createTree, deleteTree } from "./seed";
 import type { TreeRecord } from "./seed";
 import { ADMIN_USERNAME, ADMIN_PASSWORD } from "./users";
+import { loginAs } from "./ui";
 
 export { expect };
 export type { ApiClient, UserRecord, TreeRecord };
@@ -78,18 +79,7 @@ export const test = base.extend<E2EFixtures>({
   },
 
   adminPage: async ({ page }, use) => {
-    // Log in via the UI login form so the SPA's auth store is properly
-    // initialised (JWT stored in memory, not just a network cookie).
-    // Use ID selectors — label text is locale-dependent (e.g. "Benutzername" in DE).
-    await page.goto("/");
-    await expect(page.locator("#username")).toBeVisible({ timeout: 15_000 });
-    await page.locator("#username").fill(ADMIN_USERNAME);
-    await page.locator("#password").fill(ADMIN_PASSWORD);
-    await page.locator('button[type="submit"]').click();
-    // Wait for the login form to disappear (auth store transitions to "authenticated")
-    await expect(page.locator("#username")).not.toBeVisible({
-      timeout: 15_000,
-    });
+    await loginAs(page, { username: ADMIN_USERNAME, password: ADMIN_PASSWORD });
     await use(page);
   },
 

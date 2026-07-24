@@ -2,6 +2,14 @@
  * Foundation smoke tests (#263).
  * Verify the harness, compose stack, and shared fixtures all work before
  * feature-level specs are run.
+ *
+ * The auth-adjacent tests here ("programmatic login returns a valid access
+ * token", "adminPage fixture yields an authenticated session") are
+ * intentionally distinct from auth.spec.ts: they check that the *test
+ * harness's* login plumbing (apiLogin, the adminPage fixture) works at all,
+ * not the app's login behavior as a user-facing feature. Keep both — a
+ * fixture regression here would otherwise hide behind every other spec that
+ * depends on adminPage/adminApi.
  */
 
 import { test, expect } from "../fixtures";

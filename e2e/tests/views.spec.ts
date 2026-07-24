@@ -6,22 +6,12 @@
 
 import { test, expect } from "../fixtures";
 import { seedMinimalFamily, createMember } from "../fixtures/seed";
+import { selectTree } from "../fixtures/ui";
 import { randomUUID } from "crypto";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-async function selectTree(page: import("@playwright/test").Page, name: string) {
-  const selector = page.locator('[data-testid="tree-selector"]');
-  await expect(selector).toBeVisible({ timeout: 15_000 });
-  if ((await selector.textContent())?.includes(name)) return;
-  await selector.click();
-  const option = page.getByRole("option").filter({ hasText: name });
-  await expect(option).toHaveCount(1);
-  await option.click();
-  await expect(selector).toContainText(name, { timeout: 15_000 });
-}
 
 async function clickTab(page: import("@playwright/test").Page, label: RegExp) {
   await page.getByRole("tab", { name: label }).click();
@@ -101,7 +91,11 @@ test("gallery view — renders without errors when no images", async ({
   await expect(
     adminPage.getByRole("heading", { name: /gallery/i }),
   ).toBeVisible();
-  await adminPage.waitForTimeout(2000);
+  // The seeded family has no gallery images, so the view settles on its
+  // empty state — wait for that instead of a fixed delay.
+  await expect(adminPage.getByText("No photos yet")).toBeVisible({
+    timeout: 10_000,
+  });
   expectNoUnexpectedPageErrors(errors);
 });
 
@@ -181,9 +175,12 @@ test("map view — renders without calling external geocode service", async ({
   await selectTree(adminPage, tree.name);
   await clickTab(adminPage, /map/i);
 
-  // Map container should appear without a crash
+  // Map container should appear without a crash — wait for Leaflet to
+  // actually mount rather than a fixed delay.
   await expect(adminPage.getByRole("heading", { name: /map/i })).toBeVisible();
-  await adminPage.waitForTimeout(2000);
+  await expect(adminPage.locator(".leaflet-container")).toBeVisible({
+    timeout: 10_000,
+  });
   expectNoUnexpectedPageErrors(errors);
 });
 
@@ -261,12 +258,13 @@ test("quality report view — members with missing dates are flagged", async ({
   await selectTree(adminPage, tree.name);
   await clickTab(adminPage, /quality/i);
 
-  // Quality report should render without crashing
+  // Quality report should render without crashing. The prior
+  // waitForLoadState + heading assertion already gate on the report being
+  // rendered, so no extra fixed delay is needed here.
   await adminPage.waitForLoadState("networkidle");
   await expect(
     adminPage.getByRole("heading", { name: /quality/i }),
   ).toBeVisible();
-  await adminPage.waitForTimeout(1000);
   expectNoUnexpectedPageErrors(errors);
 });
 
