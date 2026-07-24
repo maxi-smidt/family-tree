@@ -15,6 +15,15 @@ import re
 from datetime import date
 from uuid import uuid4
 
+from app.services.bundle_types import (
+    GedcomCitation,
+    GedcomDocument,
+    GedcomDocumentFile,
+    GedcomMember,
+    GedcomParseResult,
+    GedcomRecord,
+    GedcomRelation,
+)
 from app.services.genealogy_date import sort_key
 
 __all__ = ["serialize_to_gedcom", "parse_gedcom", "decode_gedcom_bytes"]
@@ -172,11 +181,11 @@ def _from_gedcom_date(s: str | None) -> str | None:
 
 def serialize_to_gedcom(
     tree_name: str,
-    members: list[dict],
-    relations: list[dict],
-    documents: list[dict] | None = None,
-    document_files: list[dict] | None = None,
-    citations: list[dict] | None = None,
+    members: list[GedcomMember],
+    relations: list[GedcomRelation],
+    documents: list[GedcomDocument] | None = None,
+    document_files: list[GedcomDocumentFile] | None = None,
+    citations: list[GedcomCitation] | None = None,
     app_version: str | None = None,
 ) -> str:
     """Serialize a family tree to a GEDCOM 5.5.1 LINEAGE-LINKED string.
@@ -245,7 +254,7 @@ def serialize_to_gedcom(
         member_citations.setdefault(mem_id, []).append(xref)
     # document_id → list of file dicts (kind == "file" only; links are external
     # URLs and have no place in a MULTIMEDIA_LINK).
-    files_by_document: dict[str, list[dict]] = {}
+    files_by_document: dict[str, list[GedcomDocumentFile]] = {}
     for f in document_files:
         files_by_document.setdefault(f.get("document_id", ""), []).append(f)
 
@@ -316,7 +325,7 @@ def serialize_to_gedcom(
             spouse_in_fams.setdefault(sp_id, []).append(fx)
 
     # --- Member id map for gender lookup ------------------------------------
-    member_by_id: dict[str, dict] = {m["id"]: m for m in members}
+    member_by_id: dict[str, GedcomMember] = {m["id"]: m for m in members}
 
     # --- INDI records -------------------------------------------------------
     for member in members:
@@ -607,14 +616,14 @@ def _build_record_tree(
     parsed: list[tuple[int, str | None, str, str]],
     start: int,
     base_level: int,
-) -> tuple[dict, int]:
+) -> tuple[GedcomRecord, int]:
     """Recursively build a nested record from the flat parsed lines.
 
     Returns the record dict and the index of the next unprocessed line.
     The record has keys ``"xref"``, ``"tag"``, ``"value"``, and ``"children"``.
     """
     level, xref, tag, value = parsed[start]
-    record: dict = {"xref": xref, "tag": tag, "value": value, "children": []}
+    record: GedcomRecord = {"xref": xref, "tag": tag, "value": value, "children": []}
     idx = start + 1
     while idx < len(parsed):
         child_level = parsed[idx][0]
@@ -625,7 +634,7 @@ def _build_record_tree(
     return record, idx
 
 
-def _child_value(record: dict, tag: str) -> str | None:
+def _child_value(record: GedcomRecord, tag: str) -> str | None:
     """Return the first child's value that matches *tag*, or None."""
     for child in record.get("children", []):
         if child["tag"] == tag:
@@ -633,12 +642,12 @@ def _child_value(record: dict, tag: str) -> str | None:
     return None
 
 
-def _all_child_values(record: dict, tag: str) -> list[str]:
+def _all_child_values(record: GedcomRecord, tag: str) -> list[str]:
     """Return all child values matching *tag*."""
     return [c["value"] for c in record.get("children", []) if c["tag"] == tag]
 
 
-def parse_gedcom(text: str) -> dict:
+def parse_gedcom(text: str) -> GedcomParseResult:
     """Parse a GEDCOM 5.5.1 string into member and relation dicts.
 
     Parameters
@@ -656,7 +665,7 @@ def parse_gedcom(text: str) -> dict:
         return {"members": [], "relations": []}
 
     # Split into top-level records (level 0).
-    top_records: list[dict] = []
+    top_records: list[GedcomRecord] = []
     idx = 0
     while idx < len(parsed):
         if parsed[idx][0] == 0:
@@ -675,7 +684,7 @@ def parse_gedcom(text: str) -> dict:
 
     # --- Pass 1: INDI records -----------------------------------------------
     xref_to_member_id: dict[str, str] = {}  # "@I1@" → new uuid
-    members: list[dict] = []
+    members: list[GedcomMember] = []
 
     for rec in top_records:
         if rec["tag"] != "INDI":
@@ -687,7 +696,7 @@ def parse_gedcom(text: str) -> dict:
         new_id = str(uuid4())
         xref_to_member_id[xref] = new_id
 
-        member: dict = {
+        member: GedcomMember = {
             "id": new_id,
             "academic_title": None,
             "first_name": None,
@@ -833,7 +842,7 @@ def parse_gedcom(text: str) -> dict:
         members.append(member)
 
     # --- Pass 2: FAM records ------------------------------------------------
-    relations: list[dict] = []
+    relations: list[GedcomRelation] = []
     seen_couple_pairs: set[frozenset] = set()
     seen_parent_pairs: set[tuple[str, str]] = set()
 
@@ -927,7 +936,7 @@ def parse_gedcom(text: str) -> dict:
         if rel_entry not in relations:
             relations.append(rel_entry)
 
-    result: dict = {"members": members, "relations": relations}
+    result: GedcomParseResult = {"members": members, "relations": relations}
     if head_file_name:
         result["_head_file"] = head_file_name
     return result
