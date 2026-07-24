@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from app.services import feature_service, presence_service
-from tests.conftest import API, add_member, auth, make_tree, make_user, share
+from tests.conftest import API, add_member, auth, make_user, share
 
 
 def _run(coro):
@@ -77,16 +77,6 @@ def test_touch_refreshes_last_seen(monkeypatch):
 
 
 # --- Route -----------------------------------------------------------------
-
-
-@pytest.fixture()
-def owner(db):
-    return make_user(db, "owner")
-
-
-@pytest.fixture()
-def tree(db, owner):
-    return make_tree(db, owner)
 
 
 def test_heartbeat_returns_roster(client, tree, owner):

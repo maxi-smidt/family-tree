@@ -30,6 +30,21 @@ def run(coro):  # type: ignore[no-untyped-def]
     return asyncio.run(coro)
 
 
+async def _until(predicate, timeout: float = 2.0) -> None:
+    """Poll ``predicate`` every tick until true, or raise after ``timeout``.
+
+    Deterministic replacement for fixed ``asyncio.sleep()`` waits: yields
+    control so the listener/background task can advance, without pinning the
+    test to a specific real-time delay.
+    """
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while not predicate():
+        if loop.time() >= deadline:
+            raise TimeoutError(f"condition not met within {timeout}s")
+        await asyncio.sleep(0)
+
+
 # ---------------------------------------------------------------------------
 # Fake redis objects
 # ---------------------------------------------------------------------------
@@ -164,14 +179,13 @@ def test_redis_listener_delivers_message(monkeypatch):
         event = {"type": "tree.deleted", "data": {"tree_id": "t1"}}
         fake_pubsub.push_message(_channel("user-1"), json.dumps(event))
 
-        # Allow the listener to process the message.
-        await asyncio.sleep(0.3)
+        # Wait deterministically for the listener to enqueue it.
+        received = await asyncio.wait_for(q.get(), timeout=2.0)
 
         await bus.stop_redis_listener()
-        return q
+        return received
 
-    q = run(_run())
-    received = q.get_nowait()
+    received = run(_run())
     assert received == {"type": "tree.deleted", "data": {"tree_id": "t1"}}
 
 
@@ -197,14 +211,21 @@ def test_redis_listener_ignores_unknown_channels(monkeypatch):
         fake_pubsub.push_message("other:stuff", '{"type":"x","data":{}}')
         # Message with bad JSON — should be logged and skipped.
         fake_pubsub.push_message(_channel("user-1"), "not-json")
+        # Sentinel pushed last: messages are processed in FIFO order, so its
+        # arrival deterministically proves the two bad ones were already
+        # processed (and skipped) rather than requiring a fixed real sleep.
+        sentinel = {"type": "sentinel", "data": {}}
+        fake_pubsub.push_message(_channel("user-1"), json.dumps(sentinel))
 
-        await asyncio.sleep(0.2)
+        received = await asyncio.wait_for(q.get(), timeout=2.0)
+
         await bus.stop_redis_listener()
-        return q
+        return received, q.empty()
 
-    q = run(_run())
-    # No events should have been delivered.
-    assert q.empty()
+    received, was_empty = run(_run())
+    # Only the sentinel was delivered — the bad ones were skipped, not queued.
+    assert received == {"type": "sentinel", "data": {}}
+    assert was_empty
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +279,9 @@ def test_subscribe_unsubscribe_dont_touch_redis(monkeypatch):
         q2 = await bus.subscribe("user-1")
         bus.unsubscribe("user-1", q1)
         bus.unsubscribe("user-1", q2)  # last subscriber gone
-        await asyncio.sleep(0.05)
+        # unsubscribe() is synchronous and never touches Redis — one tick is
+        # enough to let any (unwanted) scheduled callback run.
+        await asyncio.sleep(0)
 
         # No per-user (P)UNSUBSCRIBE — the static pattern stays put.
         assert fake_pubsub.punsubscribed == []
@@ -293,8 +316,8 @@ def test_redis_publish_calls_redis_publish(monkeypatch):
         # publish() is sync — it schedules a coroutine on the loop.
         bus.publish(["user-1", "user-2"], "tree.deleted", {"tree_id": "t1"})
 
-        # Let the scheduled coroutine run.
-        await asyncio.sleep(0.1)
+        # Wait deterministically for the scheduled coroutine to run.
+        await _until(lambda: len(fake_redis.published) >= 2)
 
         await bus.stop_redis_listener()
         return q
@@ -327,7 +350,7 @@ def test_redis_publish_payload_is_correct_json(monkeypatch):
         await bus.start_redis_listener()
 
         bus.publish(["user-1"], "tree.updated", {"tree_id": "t2", "name": "Family"})
-        await asyncio.sleep(0.1)
+        await _until(lambda: len(fake_redis.published) >= 1)
 
         await bus.stop_redis_listener()
 

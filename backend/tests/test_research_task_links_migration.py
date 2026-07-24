@@ -1,4 +1,9 @@
-"""Data migration coverage for the early research-task development schema."""
+"""Data migration coverage for the early research-task development schema.
+
+Retention: data-migration tests are kept for the current + prior minor
+release (currently 1.8/1.7); delete this file once 1.10 ships and this
+migration is more than one minor version old.
+"""
 
 import importlib.util
 from pathlib import Path

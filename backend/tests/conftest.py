@@ -1,6 +1,6 @@
 """Pytest fixtures.
 
-Tests run against a throwaway SQLite database (one file per test) with the
+Tests run against a throwaway in-memory SQLite database (one per test) with the
 production ``get_db`` dependency overridden, so no Postgres or Alembic run is
 needed. The ORM models are storage-agnostic, so this exercises the real routes,
 schemas and authorization logic.
@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401  (registers every table on Base.metadata)
 from app.api.router import api_router
@@ -37,10 +38,14 @@ settings.SECRET_KEY = "test-only-secret-key-at-least-32-bytes-long-for-hs256"  #
 
 
 @pytest.fixture()
-def session_factory(tmp_path):
+def session_factory():
+    # StaticPool hands every connection (this fixture, the client, and
+    # background-job sessions) the *same* underlying in-memory database, so it
+    # behaves like a single shared on-disk DB without the per-test fsync cost.
     engine = create_engine(
-        f"sqlite:///{tmp_path / 'test.db'}",
+        "sqlite://",
         connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
         future=True,
     )
 
@@ -99,6 +104,21 @@ def client(session_factory) -> TestClient:
     login_rate_limiter.clear()
     public_unlock_rate_limiter.clear()
     return TestClient(app)
+
+
+@pytest.fixture()
+def owner(db) -> User:
+    return make_user(db, "owner")
+
+
+@pytest.fixture()
+def tree(db, owner) -> Tree:
+    return make_tree(db, owner)
+
+
+@pytest.fixture()
+def headers(owner) -> dict[str, str]:
+    return auth(owner)
 
 
 # --- Helpers ---------------------------------------------------------------

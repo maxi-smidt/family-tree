@@ -221,35 +221,46 @@ def test_default_max_image_dimension_is_documented():
     assert _LIMITS.max_image_dimension == 4096
 
 
-def test_oversized_payload_raises_image_too_large(tmp_path, monkeypatch):
+_BUFFERED_REJECTION_CASES = [
+    pytest.param(
+        lambda: _data_url("image/png", b"x" * (_LIMITS.max_image_bytes + 1)),
+        ImageTooLarge,
+        id="oversized_bytes",
+    ),
+    pytest.param(
+        lambda: _data_url("application/pdf", b"fake"),
+        UnsupportedImageType,
+        id="unsupported_mime",
+    ),
+    pytest.param(
+        lambda: _data_url(
+            "image/png",
+            _make_png(_LIMITS.max_image_dimension + 1, _LIMITS.max_image_dimension + 1),
+        ),
+        UnsupportedImageType,
+        id="oversized_dimensions",
+    ),
+    pytest.param(
+        lambda: _data_url("image/png", b"not-a-real-image"),
+        UnsupportedImageType,
+        id="unparseable_bytes",
+    ),
+]
+
+
+@pytest.mark.parametrize(("build_data_url", "expected_exc"), _BUFFERED_REJECTION_CASES)
+def test_buffered_upload_rejects(tmp_path, monkeypatch, build_data_url, expected_exc):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    oversized = b"x" * (_LIMITS.max_image_bytes + 1)
-    data_url = _data_url("image/png", oversized)
-    with pytest.raises(ImageTooLarge):
-        store_data_url(_TREE_ID, data_url, _LIMITS)
-
-
-def test_unsupported_mime_raises_unsupported_image_type():
-    data_url = _data_url("application/pdf", b"fake")
-    with pytest.raises(UnsupportedImageType):
-        store_data_url(_TREE_ID, data_url, _LIMITS)
+    with pytest.raises(expected_exc):
+        store_data_url(_TREE_ID, build_data_url(), _LIMITS)
 
 
 def test_missing_mime_raises_unsupported_image_type():
     encoded = base64.b64encode(b"fake").decode()
     with pytest.raises(UnsupportedImageType):
         store_data_url(_TREE_ID, f"data:;base64,{encoded}", _LIMITS)
-
-
-def test_unparseable_image_bytes_raises_unsupported_image_type(tmp_path, monkeypatch):
-    from app.core.config import settings
-
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    data_url = _data_url("image/png", b"not-a-real-image")
-    with pytest.raises(UnsupportedImageType):
-        store_data_url(_TREE_ID, data_url, _LIMITS)
 
 
 def test_valid_png_is_stored(tmp_path, monkeypatch):
@@ -261,19 +272,6 @@ def test_valid_png_is_stored(tmp_path, monkeypatch):
     url = store_data_url(_TREE_ID, data_url, _LIMITS)
     assert url.startswith(f"{MEDIA_URL_PREFIX}/{_TREE_ID}/")
     assert url.endswith(".webp")
-
-
-def test_oversized_dimensions_raises_unsupported_image_type(tmp_path, monkeypatch):
-    from app.core.config import settings
-
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    png = _make_png(
-        _LIMITS.max_image_dimension + 1,
-        _LIMITS.max_image_dimension + 1,
-    )
-    data_url = _data_url("image/png", png)
-    with pytest.raises(UnsupportedImageType):
-        store_data_url(_TREE_ID, data_url, _LIMITS)
 
 
 # ---------------------------------------------------------------------------
@@ -595,66 +593,56 @@ def test_streamed_image_both_mode_keeps_display_and_original(tmp_path, monkeypat
     assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
 
 
-def test_streamed_oversized_image_rejected_and_temp_removed(tmp_path, monkeypatch):
+_STREAMED_REJECTION_CASES = [
+    pytest.param(
+        lambda: _image_upload("p.png", "image/png", b"x" * 64),
+        _LIMITS.model_copy(update={"max_image_bytes": 8}),
+        ImageTooLarge,
+        True,
+        id="oversized_bytes",
+    ),
+    pytest.param(
+        lambda: _image_upload("doc.pdf", "application/pdf", b"%PDF-1.4"),
+        _LIMITS,
+        UnsupportedImageType,
+        False,
+        id="unsupported_mime",
+    ),
+    pytest.param(
+        lambda: _image_upload(
+            "p.png",
+            "image/png",
+            _make_png(_LIMITS.max_image_dimension + 1, _LIMITS.max_image_dimension + 1),
+        ),
+        _LIMITS,
+        UnsupportedImageType,
+        True,
+        id="oversized_dimensions",
+    ),
+    pytest.param(
+        lambda: _image_upload("p.png", "image/png", b"not-a-real-image"),
+        _LIMITS,
+        UnsupportedImageType,
+        True,
+        id="unparseable_bytes",
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    ("build_upload", "limits", "expected_exc", "expect_temp_removed"),
+    _STREAMED_REJECTION_CASES,
+)
+def test_streamed_upload_rejects(
+    tmp_path, monkeypatch, build_upload, limits, expected_exc, expect_temp_removed
+):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    limits = _LIMITS.model_copy(update={"max_image_bytes": 8})
-    with pytest.raises(ImageTooLarge):
-        asyncio.run(
-            store_image_upload(
-                _TREE_ID,
-                _image_upload("p.png", "image/png", b"x" * 64),
-                limits,
-            )
-        )
-    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
-
-
-def test_streamed_unsupported_mime_rejected(tmp_path, monkeypatch):
-    from app.core.config import settings
-
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    with pytest.raises(UnsupportedImageType):
-        asyncio.run(
-            store_image_upload(
-                _TREE_ID,
-                _image_upload("doc.pdf", "application/pdf", b"%PDF-1.4"),
-                _LIMITS,
-            )
-        )
-
-
-def test_streamed_oversized_dimensions_rejected_and_temp_removed(tmp_path, monkeypatch):
-    from app.core.config import settings
-
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    png = _make_png(
-        _LIMITS.max_image_dimension + 1,
-        _LIMITS.max_image_dimension + 1,
-    )
-    with pytest.raises(UnsupportedImageType):
-        asyncio.run(
-            store_image_upload(
-                _TREE_ID, _image_upload("p.png", "image/png", png), _LIMITS
-            )
-        )
-    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
-
-
-def test_streamed_unparseable_image_rejected_and_temp_removed(tmp_path, monkeypatch):
-    from app.core.config import settings
-
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    with pytest.raises(UnsupportedImageType):
-        asyncio.run(
-            store_image_upload(
-                _TREE_ID,
-                _image_upload("p.png", "image/png", b"not-a-real-image"),
-                _LIMITS,
-            )
-        )
-    assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
+    with pytest.raises(expected_exc):
+        asyncio.run(store_image_upload(_TREE_ID, build_upload(), limits))
+    if expect_temp_removed:
+        assert not list((tmp_path / "media" / _TREE_ID).glob(".image-upload-*.tmp"))
 
 
 def test_streamed_images_complete_under_concurrent_near_limit_uploads(
