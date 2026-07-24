@@ -39,11 +39,14 @@ class LinkCandidatesOut(BaseModel):
 # --- Resolution types (used in the merge request) --------------------------
 
 
+FieldChoice = Literal["a", "b", "combine"]
+
+
 class MergeResolution(BaseModel):
     member_a_id: str
     member_b_id: str
     action: Literal["merge", "keep_both"] = "merge"
-    fields: dict[str, Literal["a", "b", "combine"]] = {}
+    fields: dict[str, FieldChoice] = {}
 
 
 # --- In-place, same-tree member merge (#729) --------------------------------
@@ -68,4 +71,4 @@ class MemberMergePreviewOut(BaseModel):
 class MemberMergeRequest(BaseModel):
     keep_id: str
     remove_id: str
-    fields: dict[str, Literal["a", "b", "combine"]] = {}
+    fields: dict[str, FieldChoice] = {}
