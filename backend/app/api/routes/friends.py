@@ -18,6 +18,11 @@ from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Friendship, Tree, User
 from app.schemas.friendship import FriendOut, FriendRequestCreate, UserSearchResult
+from app.schemas.notification import (
+    FriendRequestAcceptedPayload,
+    FriendRequestReceivedPayload,
+    TreeUnsharedPayload,
+)
 from app.services import friendships, notification_service
 from app.services.event_bus import event_bus, publish_tree_event
 from app.services.storage import profile_image_path
@@ -67,7 +72,7 @@ def _notify_revoked_memberships(
             db,
             revoked_user_id,
             "tree_unshared",
-            {"tree_id": tree.id, "tree_name": tree.name},
+            TreeUnsharedPayload(tree_id=tree.id, tree_name=tree.name),
         )
 
 
@@ -180,7 +185,9 @@ def send_request(
             db,
             target.id,
             "friend_request_received",
-            {"requester_id": user.id, "requester_username": user.username},
+            FriendRequestReceivedPayload(
+                requester_id=user.id, requester_username=user.username
+            ),
         )
     return friendships.to_friend_out(db, friendship, user.id)
 
@@ -232,7 +239,9 @@ def accept_request(
         db,
         friendship.requester_id,
         "friend_request_accepted",
-        {"addressee_id": user.id, "addressee_username": user.username},
+        FriendRequestAcceptedPayload(
+            addressee_id=user.id, addressee_username=user.username
+        ),
     )
     return friendships.to_friend_out(db, friendship, user.id)
 

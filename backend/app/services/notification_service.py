@@ -7,12 +7,20 @@ triggering request, so every failure is caught, logged, and rolled back here.
 
 import json
 import logging
-from typing import Any
+from typing import Any, Literal, overload
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.models import Notification
+from app.schemas.notification import (
+    FriendRequestAcceptedPayload,
+    FriendRequestReceivedPayload,
+    InvitationReceivedPayload,
+    NotificationPayload,
+    TreeSharedPayload,
+    TreeUnsharedPayload,
+)
 from app.services import feature_service
 from app.services.event_bus import event_bus
 
@@ -32,11 +40,46 @@ def _serialize(n: Notification) -> dict[str, Any]:
     }
 
 
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["invitation_received"],
+    payload: InvitationReceivedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["tree_unshared"],
+    payload: TreeUnsharedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["friend_request_received"],
+    payload: FriendRequestReceivedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["friend_request_accepted"],
+    payload: FriendRequestAcceptedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["tree_shared"],
+    payload: TreeSharedPayload,
+) -> None: ...
 def create_notification(
     db: Session,
     user_id: str,
     type: str,
-    payload: dict[str, Any] | None = None,
+    payload: NotificationPayload | None = None,
 ) -> None:
     """Persist a notification for user_id and push it live over SSE.
 
@@ -48,7 +91,7 @@ def create_notification(
         n = Notification(
             user_id=user_id,
             type=type,
-            payload=json.dumps(payload) if payload is not None else None,
+            payload=json.dumps(payload.model_dump()) if payload is not None else None,
         )
         db.add(n)
         db.flush()

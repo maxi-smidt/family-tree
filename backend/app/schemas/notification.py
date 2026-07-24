@@ -1,14 +1,61 @@
-"""Schema for the persistent notification inbox."""
+"""Schema for the persistent notification inbox.
 
-from typing import Any
+``Notification.payload`` (see ``app.models.notification``) is one JSON-encoded
+``Text`` column shared by every notification ``type``; the payload shape it
+holds depends on that type. Each shape below is its own small model, unioned
+into ``NotificationPayload`` for ``NotificationOut.payload`` and for
+``notification_service.create_notification``'s per-type overloads, so a
+caller can't pass the wrong shape for a given type string and a bad payload
+can't reach the ``Text`` column unvalidated.
+"""
 
 from pydantic import BaseModel
+
+
+class InvitationReceivedPayload(BaseModel):
+    tree_id: str
+    tree_name: str
+
+
+class TreeUnsharedPayload(BaseModel):
+    tree_id: str
+    tree_name: str
+
+
+class FriendRequestReceivedPayload(BaseModel):
+    requester_id: str
+    requester_username: str
+
+
+class FriendRequestAcceptedPayload(BaseModel):
+    addressee_id: str
+    addressee_username: str
+
+
+class TreeSharedPayload(BaseModel):
+    tree_id: str
+    tree_name: str
+    role: str
+    actor_username: str
+
+
+# Structurally overlapping members (e.g. InvitationReceivedPayload and
+# TreeUnsharedPayload both are {tree_id, tree_name}) still round-trip the
+# same JSON either way pydantic's smart-union picks, since Pydantic favors
+# the member that consumes every key with none discarded.
+NotificationPayload = (
+    InvitationReceivedPayload
+    | TreeUnsharedPayload
+    | FriendRequestReceivedPayload
+    | FriendRequestAcceptedPayload
+    | TreeSharedPayload
+)
 
 
 class NotificationOut(BaseModel):
     id: str
     type: str
-    payload: dict[str, Any] | None = None
+    payload: NotificationPayload | None = None
     created_at: str
     read_at: str | None = None
 
