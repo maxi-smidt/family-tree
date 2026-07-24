@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
 from app.core.config import settings
+from app.services.bundle_types import TreeBundle, TreeBundleV6
 
 MAGIC = b"FTREE1"
 FLAG_PASSWORD = 0x01
@@ -24,7 +25,7 @@ def _derive_key(secret: str, salt: bytes) -> bytes:
     return kdf.derive(secret.encode("utf-8"))
 
 
-def encrypt_bundle(bundle: dict, password: str | None) -> bytes:
+def encrypt_bundle(bundle: TreeBundleV6, password: str | None) -> bytes:
     plaintext = json.dumps(bundle).encode("utf-8")
     salt = os.urandom(16)
     nonce = os.urandom(12)
@@ -35,7 +36,7 @@ def encrypt_bundle(bundle: dict, password: str | None) -> bytes:
     return MAGIC + bytes([flags]) + salt + nonce + ciphertext
 
 
-def decrypt_bundle(blob: bytes, password: str | None) -> dict:
+def decrypt_bundle(blob: bytes, password: str | None) -> TreeBundle:
     if blob[: len(MAGIC)] != MAGIC:
         raise ValueError("Not a Family Tree export file")
     flags = blob[len(MAGIC)]

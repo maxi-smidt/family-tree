@@ -52,6 +52,19 @@ from app.models import (
 from app.schemas.job import JobStarted
 from app.services import crypto_export, gedcom
 from app.services.activity import record_activity
+from app.services.bundle_types import (
+    BundleCitationRow,
+    BundleDocumentFileRow,
+    BundleDocumentRow,
+    BundleGalleryImageRow,
+    BundleMemberRow,
+    BundleRelationRow,
+    GedcomParseResult,
+    TreeBundle,
+    TreeBundleV2,
+    TreeBundleV3,
+    TreeBundleV6,
+)
 from app.services.event_bus import publish_tree_event
 from app.services.genealogy_date import sort_key as _sort_key
 from app.services.job_service import ProgressCallback, create_job, run_job
@@ -122,7 +135,7 @@ def _fold_source_description(source: dict, citation_lines: list[str]) -> str | N
     return "\n\n".join(parts) or None
 
 
-def _migrate_v2_to_v3(bundle: dict) -> dict:
+def _migrate_v2_to_v3(bundle: TreeBundleV2) -> TreeBundleV3:
     """Map a v1.6 (bundle v2) source/citation/attachment payload into Documents.
 
     Without this, v1.7's ``_do_import`` only reads the ``documents`` keys, so a
@@ -230,7 +243,7 @@ def _migrate_v2_to_v3(bundle: dict) -> dict:
     return migrated
 
 
-def migrate_bundle(bundle: dict) -> dict:
+def migrate_bundle(bundle: TreeBundle) -> TreeBundleV6:
     """Bring an older bundle up to BUNDLE_VERSION.
 
     Add a migration step here and bump BUNDLE_VERSION when the bundle schema
@@ -267,7 +280,7 @@ def migrate_bundle(bundle: dict) -> dict:
     return bundle
 
 
-def _validate_and_migrate(bundle: dict) -> dict:
+def _validate_and_migrate(bundle: TreeBundle) -> TreeBundleV6:
     version = bundle.get("version", 1)
     if version > BUNDLE_VERSION:
         raise HTTPException(
@@ -280,7 +293,7 @@ def _validate_and_migrate(bundle: dict) -> dict:
     return migrate_bundle(bundle)
 
 
-def _rows(db: Session, model, tree_id: str) -> list[dict]:
+def _rows(db: Session, model, tree_id: str) -> list[dict[str, object]]:
     from sqlalchemy import inspect as sa_inspect
 
     items = db.scalars(select(model).where(model.tree_id == tree_id)).all()
@@ -294,19 +307,19 @@ def export_tree(
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
 ):
-    members = _rows(db, Member, tree.id)
+    members: list[BundleMemberRow] = _rows(db, Member, tree.id)
     for m in members:
         m["image_data"] = media_url_to_data_url(m.get("image_data"))
-    gallery = _rows(db, GalleryImage, tree.id)
+    gallery: list[BundleGalleryImageRow] = _rows(db, GalleryImage, tree.id)
     for g in gallery:
         g["image_data"] = media_url_to_data_url(g.get("image_data"))
 
-    document_files = _rows(db, DocumentFile, tree.id)
+    document_files: list[BundleDocumentFileRow] = _rows(db, DocumentFile, tree.id)
     for f in document_files:
         if f.get("kind") == "file":
             f["url"] = media_url_to_data_url(f.get("url"))
 
-    bundle = {
+    bundle: TreeBundleV6 = {
         "version": BUNDLE_VERSION,
         "app_version": settings.APP_VERSION,
         "exported_at": utcnow_iso(),
@@ -348,7 +361,9 @@ def export_tree(
     )
 
 
-def _link_rows(db: Session, link_model, parent_model, tree_id: str) -> list[dict]:
+def _link_rows(
+    db: Session, link_model, parent_model, tree_id: str
+) -> list[dict[str, object]]:
     from sqlalchemy import inspect as sa_inspect
 
     parent_id_col = next(
@@ -363,7 +378,7 @@ def _link_rows(db: Session, link_model, parent_model, tree_id: str) -> list[dict
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
-def _unknown_face_rows(db: Session, tree_id: str) -> list[dict]:
+def _unknown_face_rows(db: Session, tree_id: str) -> list[dict[str, object]]:
     """Gallery unknown-face rows for *tree_id*, reached through GalleryImage
     since the table itself carries no ``tree_id`` (mirrors ``_link_rows``)."""
     from sqlalchemy import inspect as sa_inspect
@@ -377,7 +392,7 @@ def _unknown_face_rows(db: Session, tree_id: str) -> list[dict]:
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
-def _document_link_rows(db: Session, link_model, tree_id: str) -> list[dict]:
+def _document_link_rows(db: Session, link_model, tree_id: str) -> list[dict[str, object]]:
     """Rows of a document_id-keyed link table (member/event/story) scoped to
     *tree_id* via the Document side — every such link table has a
     ``document_id`` column and Document always carries ``tree_id``."""
@@ -447,7 +462,7 @@ async def import_tree(
 
 def _do_import(
     progress_cb: ProgressCallback,
-    bundle: dict,
+    bundle: TreeBundleV6,
     name: str | None,
     user_id: str,
 ) -> str:
@@ -736,17 +751,19 @@ def export_tree_gedcom(
     db: Session = Depends(get_db),
 ) -> Response:
     """Export the tree as a plain-text GEDCOM 5.5.1 file."""
-    members = _rows(db, Member, tree.id)
-    relations = _rows(db, Relation, tree.id)
-    documents_ged = _rows(db, Document, tree.id)
-    document_files_ged = [
+    members_ged: list[BundleMemberRow] = _rows(db, Member, tree.id)
+    relations_ged: list[BundleRelationRow] = _rows(db, Relation, tree.id)
+    documents_ged: list[BundleDocumentRow] = _rows(db, Document, tree.id)
+    document_files_ged: list[BundleDocumentFileRow] = [
         f for f in _rows(db, DocumentFile, tree.id) if f.get("kind") == "file"
     ]
-    citations_ged = _document_link_rows(db, DocumentMemberLink, tree.id)
+    citations_ged: list[BundleCitationRow] = _document_link_rows(
+        db, DocumentMemberLink, tree.id
+    )
     text = gedcom.serialize_to_gedcom(
         tree.name or "family-tree",
-        members,
-        relations,
+        members_ged,
+        relations_ged,
         documents=documents_ged,
         document_files=document_files_ged,
         citations=citations_ged,
@@ -799,7 +816,7 @@ async def import_tree_gedcom(
 
 def _do_import_gedcom(
     progress_cb: ProgressCallback,
-    parsed: dict,
+    parsed: GedcomParseResult,
     tree_name: str,
     user_id: str,
 ) -> str:
