@@ -57,10 +57,10 @@ from app.schemas.merge import (
 )
 from app.schemas.tree import TreeOut
 from app.services.activity import (
-    delete_snapshot,
+    disease_delete_snapshot,
     member_delete_snapshot,
     record_activity,
-    row_to_dict,
+    relation_delete_snapshot,
 )
 from app.services.bridge import BRIDGE_SYNC_FIELDS, copy_bridge_fields
 from app.services.cache import invalidate_stats
@@ -1470,7 +1470,7 @@ def remove_relation(
             action="delete",
             target_type="relation",
             target_label=label,
-            details=delete_snapshot(relation=row_to_dict(relation)),
+            details=relation_delete_snapshot(relation),
         )
         db.delete(relation)
         db.commit()
@@ -1604,7 +1604,7 @@ def delete_disease(
         target_type="disease",
         target_id=disease_id,
         target_label=disease.name,
-        details=delete_snapshot(disease=row_to_dict(disease)),
+        details=disease_delete_snapshot(disease),
     )
     db.delete(disease)
     db.commit()

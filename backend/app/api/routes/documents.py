@@ -44,10 +44,9 @@ from app.schemas.content import (
     LinksSet,
 )
 from app.services.activity import (
-    delete_snapshot,
     document_delete_snapshot,
+    document_file_delete_snapshot,
     record_activity,
-    row_to_dict,
 )
 from app.services.content_links import replace_member_links
 from app.services.document_service import (
@@ -553,10 +552,7 @@ def delete_file(
         target_type="document_file",
         target_id=file.id,
         target_label=file.filename,
-        details=delete_snapshot(
-            document_file=row_to_dict(file),
-            trashed_media=[url] if url else [],
-        ),
+        details=document_file_delete_snapshot(file, url),
     )
     db.delete(file)
     db.commit()

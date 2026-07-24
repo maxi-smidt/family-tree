@@ -32,6 +32,18 @@ from app.models.content import (
 )
 from app.models.family import Member, MemberDisease, Relation
 from app.models.tree import Tree
+from app.schemas.activity import UndoSkippedItem
+from app.services.activity_snapshots import (
+    DiseaseSnapshot,
+    DocumentFileSnapshot,
+    DocumentSnapshot,
+    EventSnapshot,
+    GalleryImageSnapshot,
+    MemberSnapshot,
+    RelationSnapshot,
+    RowSnapshot,
+    StorySnapshot,
+)
 
 
 class UndoConflict(Exception):
@@ -52,15 +64,12 @@ class RestoreResult:
     """What a ``restore_*`` call actually did, for the undo response/log."""
 
     main_id: str | None
-    restored: dict[str, object] = field(default_factory=dict)
-    skipped: list[dict[str, object]] = field(default_factory=list)
+    restored: dict[str, str | int] = field(default_factory=dict)
+    skipped: list[UndoSkippedItem] = field(default_factory=list)
     media_to_untrash: list[str] = field(default_factory=list)
 
     def add_skip(self, table: str, reason: str, row_id: str | None = None) -> None:
-        entry: dict[str, object] = {"table": table, "reason": reason}
-        if row_id is not None:
-            entry["id"] = row_id
-        self.skipped.append(entry)
+        self.skipped.append(UndoSkippedItem(table=table, reason=reason, id=row_id))
 
 
 def _instantiate(
@@ -103,7 +112,7 @@ def _in_tree(db: Session, model: type, row_id: str, tree_id: str) -> object | No
 # ---------------------------------------------------------------------------
 
 
-def restore_member(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_member(db: Session, tree: Tree, snapshot: MemberSnapshot) -> RestoreResult:
     member_data = snapshot["member"]
     member_id = member_data["id"]
     if db.get(Member, member_id) is not None:
@@ -237,7 +246,7 @@ def _restore_member_links(
     db: Session,
     tree: Tree,
     result: RestoreResult,
-    links: list[dict],
+    links: list[RowSnapshot],
     *,
     link_model: type,
     parent_model: type,
@@ -266,7 +275,9 @@ def _restore_member_links(
 # ---------------------------------------------------------------------------
 
 
-def restore_relation(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_relation(
+    db: Session, tree: Tree, snapshot: RelationSnapshot
+) -> RestoreResult:
     rel = snapshot["relation"]
     key = (tree.id, rel["from_member_id"], rel["to_member_id"], rel["relation_type"])
     if db.get(Relation, key) is not None:
@@ -278,7 +289,7 @@ def restore_relation(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     return RestoreResult(main_id=None, restored={"relation": 1})
 
 
-def restore_disease(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_disease(db: Session, tree: Tree, snapshot: DiseaseSnapshot) -> RestoreResult:
     disease = snapshot["disease"]
     if db.get(MemberDisease, disease["id"]) is not None:
         raise UndoConflict(f"disease {disease['id']} already exists")
@@ -293,7 +304,7 @@ def restore_disease(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 # ---------------------------------------------------------------------------
 
 
-def restore_event(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_event(db: Session, tree: Tree, snapshot: EventSnapshot) -> RestoreResult:
     event_data = snapshot["event"]
     event_id = event_data["id"]
     if db.get(Event, event_id) is not None:
@@ -333,7 +344,7 @@ def restore_event(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     return result
 
 
-def restore_story(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_story(db: Session, tree: Tree, snapshot: StorySnapshot) -> RestoreResult:
     story_data = snapshot["story"]
     story_id = story_data["id"]
     if db.get(Story, story_id) is not None:
@@ -378,7 +389,9 @@ def restore_story(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
 # ---------------------------------------------------------------------------
 
 
-def restore_gallery_image(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_gallery_image(
+    db: Session, tree: Tree, snapshot: GalleryImageSnapshot
+) -> RestoreResult:
     image_data = snapshot["gallery_image"]
     image_id = image_data["id"]
     if db.get(GalleryImage, image_id) is not None:
@@ -407,7 +420,9 @@ def restore_gallery_image(db: Session, tree: Tree, snapshot: dict) -> RestoreRes
     return result
 
 
-def restore_document(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_document(
+    db: Session, tree: Tree, snapshot: DocumentSnapshot
+) -> RestoreResult:
     doc_data = snapshot["document"]
     doc_id = doc_data["id"]
     if db.get(Document, doc_id) is not None:
@@ -472,7 +487,9 @@ def restore_document(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
     return result
 
 
-def restore_document_file(db: Session, tree: Tree, snapshot: dict) -> RestoreResult:
+def restore_document_file(
+    db: Session, tree: Tree, snapshot: DocumentFileSnapshot
+) -> RestoreResult:
     file_data = snapshot["document_file"]
     file_id = file_data["id"]
     if db.get(DocumentFile, file_id) is not None:
