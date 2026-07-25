@@ -21,6 +21,7 @@ from app.models import Tree, User
 from app.schemas.presence import PresenceHeartbeat, PresenceRoster, PresenceUser
 from app.services import presence_service
 from app.services.event_bus import publish_tree_event
+from app.services.event_payloads import PresenceUserSnapshot
 from app.services.presence_service import PresenceEntry
 
 router = APIRouter(
@@ -78,7 +79,19 @@ def _resolve_and_publish(
         db,
         tree,
         "presence.updated",
-        {"tree_id": tree.id, "users": [u.model_dump() for u in roster]},
+        {
+            "tree_id": tree.id,
+            "users": [
+                PresenceUserSnapshot(
+                    user_id=u.user_id,
+                    display_name=u.display_name,
+                    first_name=u.first_name,
+                    last_name=u.last_name,
+                    editing_member_id=u.editing_member_id,
+                )
+                for u in roster
+            ],
+        },
     )
     return roster
 

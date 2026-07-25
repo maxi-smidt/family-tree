@@ -6,14 +6,11 @@ Each ``TypedDict`` mirrors the ``data`` shape a frontend
 is kept in sync with). They are plain ``dict``s at runtime — JSON-serialized
 for Redis pub/sub or queued directly in-process, unchanged either way.
 
-``EventPayload`` still includes a ``dict[str, Any]`` fallback member: not
-every event type ``EventBus`` publishes has a typed variant here yet (this is
-being migrated incrementally, by event-type group — see the SSE/event-bus
-typing sub-issue of #774/#823). Remove the fallback once every event type
-published anywhere in the backend has a variant below.
+Every event type published anywhere in the backend has a variant below, so
+``EventPayload`` has no ``dict[str, Any]`` fallback member.
 """
 
-from typing import Any, NotRequired, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 
 class ActivityEntryAddedData(TypedDict):
@@ -63,6 +60,68 @@ class JobFailedData(TypedDict):
     error: str
 
 
+class NotificationCreatedData(TypedDict):
+    """Mirrors ``schemas.notification.NotificationOut`` — see
+    ``notification_service._serialize``. ``payload``'s shape depends on
+    ``type`` (see ``NotificationPayload``); it isn't re-validated at this
+    JSON-decode boundary."""
+
+    id: str
+    type: str
+    payload: dict[str, object] | None
+    created_at: str
+    read_at: str | None
+
+
+class PresenceUserSnapshot(TypedDict):
+    """Mirrors ``schemas.presence.PresenceUser``."""
+
+    user_id: str
+    display_name: str
+    first_name: str | None
+    last_name: str | None
+    editing_member_id: str | None
+
+
+class PresenceUpdatedData(TypedDict):
+    tree_id: str
+    users: list[PresenceUserSnapshot]
+
+
+class StorageWarningData(TypedDict):
+    """Mirrors ``storage_usage.MediaQuotaWarning`` — kept as a separate
+    TypedDict here (rather than imported) so this module has no dependency
+    on ``storage_usage``; the two are structurally identical by
+    construction."""
+
+    tree_id: str
+    used_bytes: int
+    quota_bytes: int
+
+
+class BackupCompletedData(TypedDict):
+    trigger: str
+    filename: str | None
+
+
+class PurgeRanData(TypedDict):
+    purged_count: int
+
+
+class SessionInvalidateData(TypedDict):
+    reason: Literal["deactivated", "pending_deletion"]
+
+
+class FriendRequestReceivedData(TypedDict):
+    requester_id: str
+    requester_username: str
+
+
+class InvitationReceivedData(TypedDict):
+    tree_id: str
+    tree_name: str
+
+
 EventPayload = (
     ActivityEntryAddedData
     | TreeContentChangedData
@@ -73,13 +132,17 @@ EventPayload = (
     | JobProgressData
     | JobDoneData
     | JobFailedData
-    | dict[str, Any]
+    | NotificationCreatedData
+    | PresenceUpdatedData
+    | StorageWarningData
+    | BackupCompletedData
+    | PurgeRanData
+    | SessionInvalidateData
+    | FriendRequestReceivedData
+    | InvitationReceivedData
 )
-"""Every payload shape ``EventBus``/``publish_tree_event`` accepts.
-
-The bare ``dict[str, Any]`` member is a transitional fallback for event
-types not yet migrated to a typed variant above.
-"""
+"""Every payload shape ``EventBus``/``publish_tree_event`` accepts — one
+variant per event-type string published anywhere in the backend."""
 
 
 class SSEEnvelope(TypedDict):
