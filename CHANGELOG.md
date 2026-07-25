@@ -7,7 +7,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Releases are cut from `vX.Y.Z` Git tags; pushing a tag publishes the matching
 Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
-## [Unreleased]
+## [1.8.0] - 2026-07-25
 
 ### Added
 
@@ -58,6 +58,45 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 - Gallery images now default their "Date Taken" to the photo's EXIF capture
   date when available; extraction is best-effort and never blocks or slows an
   upload if the metadata is missing or unreadable (#778).
+- Media now opens Gallery and Documents from one tab menu. Documents have a
+  tree-wide archive with search, filtering for unlinked records, pagination,
+  direct links to people and linked timeline items, and editor controls. They
+  can be saved without linked people, and document-card details are collapsed
+  by default while still showing attachment and people counts, and listing
+  uploaded attachments and external links in separate expanded sections (#722).
+- The tree-view people search now shows current-tree matches first, then
+  searches every other tree shared with the user; selecting an outside match
+  opens and centers that person in its tree (#724).
+- Live collaboration presence: avatar chips in the tree canvas show who else is
+  currently viewing the open tree — including yourself and accepted friends
+  with profile pictures, and other collaborators with initials/icon fallbacks —
+  once another person joins, and highlight anyone editing; a member sheet also
+  shows an indicator when someone else has it open in edit mode.
+  Backed by heartbeats with TTL expiry, works single-worker (in-process) and
+  multi-worker (`REDIS_URL`), and is gated behind a new admin-toggleable
+  `presence` feature flag (#723).
+- Friends can now see an accepted friend's profile picture in the Friends view;
+  images continue to be served through an authenticated friendship-only route
+  (#739).
+- The Statistics view now has an “On this day” widget for upcoming birthdays,
+  death anniversaries, dated events, and stories, with direct links to people
+  in the tree (#727).
+- Generation lines can now be adjusted per tree from the sidebar with None and
+  four snap-aligned spacing presets, while preserving node-center alignment
+  (#743).
+- Linking a person who is already attached to a gallery image now confirms that
+  existing link instead of failing without feedback (#728).
+- Gallery images opened from a member's detail view now show linked people and
+  their face-tag regions (#728).
+- Uploading photos from a member's edit view now opens face tagging for each
+  new image, so a face can be marked immediately (#728).
+- Users can now set first and last profile names and select an adjustable crop
+  when uploading, replacing, or removing a private profile picture. Account
+  avatars consistently prefer the picture, then name initials, then a generic
+  user icon (#737).
+- Gallery photos can now be annotated with manual, normalized face regions
+  linked to people in the tree. Face tags remain accurate at every display
+  size, and existing whole-image links continue to work unchanged (#728).
 
 ### Changed
 
@@ -114,6 +153,15 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
   already reclaimed it. The undo itself is logged as a new entry referencing
   the one it reverses. Gated behind its own `activity_undo` feature flag, so
   it can be disabled independently of the read-only activity log (#762).
+- Deleting a person, relation, or disease record now stores a full snapshot of
+  the deleted data (including a person's relations, disease records, and
+  event/story/gallery/document links) in the tree activity log, laying the
+  groundwork for a future undo of accidental deletes (#572).
+- Member-selection lists (gallery image links, and the people selectors in the
+  document, story, and event dialogs) no longer offer people who are already
+  linked. Selected people remain visible and removable, while the dropdown and
+  its search results only show candidates that can still be added. The same
+  filtering applies to the linked-documents selector (#735).
 
 ### Fixed
 
@@ -189,63 +237,6 @@ Docker images to GHCR (see [docs/OPERATIONS.md](docs/OPERATIONS.md)).
 
 - Shared members restricted from research tasks can no longer infer task titles
   from the activity log, including in virtual tree views (#725).
-
-### Changed
-
-- Deleting a person, relation, or disease record now stores a full snapshot of
-  the deleted data (including a person's relations, disease records, and
-  event/story/gallery/document links) in the tree activity log, laying the
-  groundwork for a future undo of accidental deletes (#572).
-
-### Added
-
-- Media now opens Gallery and Documents from one tab menu. Documents have a
-  tree-wide archive with search, filtering for unlinked records, pagination,
-  direct links to people and linked timeline items, and editor controls. They
-  can be saved without linked people, and document-card details are collapsed
-  by default while still showing attachment and people counts, and listing
-  uploaded attachments and external links in separate expanded sections (#722).
-- The tree-view people search now shows current-tree matches first, then
-  searches every other tree shared with the user; selecting an outside match
-  opens and centers that person in its tree (#724).
-- Live collaboration presence: avatar chips in the tree canvas show who else is
-  currently viewing the open tree — including yourself and accepted friends
-  with profile pictures, and other collaborators with initials/icon fallbacks —
-  once another person joins, and highlight anyone editing; a member sheet also
-  shows an indicator when someone else has it open in edit mode.
-  Backed by heartbeats with TTL expiry, works single-worker (in-process) and
-  multi-worker (`REDIS_URL`), and is gated behind a new admin-toggleable
-  `presence` feature flag (#723).
-- Friends can now see an accepted friend's profile picture in the Friends view;
-  images continue to be served through an authenticated friendship-only route
-  (#739).
-- The Statistics view now has an “On this day” widget for upcoming birthdays,
-  death anniversaries, dated events, and stories, with direct links to people
-  in the tree (#727).
-- Generation lines can now be adjusted per tree from the sidebar with None and
-  four snap-aligned spacing presets, while preserving node-center alignment
-  (#743).
-- Linking a person who is already attached to a gallery image now confirms that
-  existing link instead of failing without feedback (#728).
-- Gallery images opened from a member's detail view now show linked people and
-  their face-tag regions (#728).
-- Uploading photos from a member's edit view now opens face tagging for each
-  new image, so a face can be marked immediately (#728).
-- Users can now set first and last profile names and select an adjustable crop
-  when uploading, replacing, or removing a private profile picture. Account
-  avatars consistently prefer the picture, then name initials, then a generic
-  user icon (#737).
-- Gallery photos can now be annotated with manual, normalized face regions
-  linked to people in the tree. Face tags remain accurate at every display
-  size, and existing whole-image links continue to work unchanged (#728).
-
-### Changed
-
-- Member-selection lists (gallery image links, and the people selectors in the
-  document, story, and event dialogs) no longer offer people who are already
-  linked. Selected people remain visible and removable, while the dropdown and
-  its search results only show candidates that can still be added. The same
-  filtering applies to the linked-documents selector (#735).
 
 ## [1.7.1] - 2026-07-14
 

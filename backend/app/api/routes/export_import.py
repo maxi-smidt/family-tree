@@ -64,7 +64,7 @@ from app.services.bundle_types import (
     TreeBundle,
     TreeBundleV2,
     TreeBundleV3,
-    TreeBundleV6,
+    TreeBundleV4,
 )
 from app.services.event_bus import publish_tree_event
 from app.services.genealogy_date import sort_key as _sort_key
@@ -86,8 +86,10 @@ router = APIRouter(prefix="/trees", tags=["export"])
 # which is exactly what let a v1.6 bundle silently drop data — see #661).
 #   v2 (<= v1.6): sources / source_evidence / citations / story_attachments
 #   v3 (v1.7+):   documents / document_files / *_document_links
-#   v6 (v1.8+):   unknown_faces (gallery unknown-person tags, issue #736)
-BUNDLE_VERSION = 6
+#   v4 (v1.8+):   gallery_links gain face regions; tasks / task_links
+#                 (research tasks); unknown_faces (gallery unknown-person
+#                 tags, issue #736)
+BUNDLE_VERSION = 4
 
 # Number of rows to write per bulk-insert batch.
 _BULK_CHUNK = 1000
@@ -244,7 +246,7 @@ def _migrate_v2_to_v3(bundle: TreeBundleV2) -> TreeBundleV3:
     return migrated
 
 
-def migrate_bundle(bundle: TreeBundle) -> TreeBundleV6:
+def migrate_bundle(bundle: TreeBundle) -> TreeBundleV4:
     """Bring an older bundle up to BUNDLE_VERSION.
 
     Add a migration step here and bump BUNDLE_VERSION when the bundle schema
@@ -257,31 +259,23 @@ def migrate_bundle(bundle: TreeBundle) -> TreeBundleV6:
         bundle = _migrate_v2_to_v3(bundle)
     if bundle.get("version", 1) < 4:
         # v3 → v4: gallery member links gained optional normalized face
-        # regions. Existing whole-image links deliberately remain null.
+        # regions (existing whole-image links deliberately remain null);
+        # research tasks (tasks/task_links); gallery unknown-person face
+        # tags (unknown_faces). Older bundles simply have none of these.
         migrated = dict(bundle)
         migrated["gallery_links"] = [
             {"x": None, "y": None, "w": None, "h": None, **link}
             for link in bundle.get("gallery_links", [])
         ]
-        migrated["version"] = 4
-        bundle = migrated
-    if bundle.get("version", 1) < 5:
-        # v4 → v5: research tasks. Older bundles simply have none.
-        migrated = dict(bundle)
         migrated["tasks"] = bundle.get("tasks", [])
         migrated["task_links"] = bundle.get("task_links", [])
-        migrated["version"] = 5
-        bundle = migrated
-    if bundle.get("version", 1) < 6:
-        # v5 → v6: gallery unknown-person face tags. Older bundles have none.
-        migrated = dict(bundle)
         migrated["unknown_faces"] = bundle.get("unknown_faces", [])
-        migrated["version"] = 6
+        migrated["version"] = 4
         bundle = migrated
     return bundle
 
 
-def _validate_and_migrate(bundle: TreeBundle) -> TreeBundleV6:
+def _validate_and_migrate(bundle: TreeBundle) -> TreeBundleV4:
     version = bundle.get("version", 1)
     if version > BUNDLE_VERSION:
         raise HTTPException(
@@ -320,7 +314,7 @@ def export_tree(
         if f.get("kind") == "file":
             f["url"] = media_url_to_data_url(f.get("url"))
 
-    bundle: TreeBundleV6 = {
+    bundle: TreeBundleV4 = {
         "version": BUNDLE_VERSION,
         "app_version": settings.APP_VERSION,
         "exported_at": utcnow_iso(),
@@ -466,7 +460,7 @@ async def import_tree(
 
 def _do_import(
     progress_cb: ProgressCallback,
-    bundle: TreeBundleV6,
+    bundle: TreeBundleV4,
     name: str | None,
     user_id: str,
 ) -> str:
