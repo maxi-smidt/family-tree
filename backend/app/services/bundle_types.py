@@ -311,52 +311,6 @@ class TreeBundleV3(TypedDict, total=False):
 
 
 class TreeBundleV4(TypedDict, total=False):
-    version: int
-    app_version: str
-    exported_at: str
-    tree: dict[str, str]
-    members: list[BundleMemberRow]
-    relations: list[BundleRelationRow]
-    relation_types: list[BundleRelationTypeRow]
-    diseases: list[BundleDiseaseRow]
-    gallery_images: list[BundleGalleryImageRow]
-    gallery_links: list[BundleGalleryLinkRow]
-    events: list[BundleEventRow]
-    event_links: list[BundleEventLinkRow]
-    stories: list[BundleStoryRow]
-    story_links: list[BundleStoryLinkRow]
-    documents: list[BundleDocumentRow]
-    document_files: list[BundleDocumentFileRow]
-    document_member_links: list[BundleDocumentMemberLinkRow]
-    event_document_links: list[BundleEventDocumentLinkRow]
-    story_document_links: list[BundleStoryDocumentLinkRow]
-
-
-class TreeBundleV5(TypedDict, total=False):
-    version: int
-    app_version: str
-    exported_at: str
-    tree: dict[str, str]
-    members: list[BundleMemberRow]
-    relations: list[BundleRelationRow]
-    relation_types: list[BundleRelationTypeRow]
-    diseases: list[BundleDiseaseRow]
-    tasks: list[BundleTaskRow]
-    task_links: list[BundleTaskLinkRow]
-    gallery_images: list[BundleGalleryImageRow]
-    gallery_links: list[BundleGalleryLinkRow]
-    events: list[BundleEventRow]
-    event_links: list[BundleEventLinkRow]
-    stories: list[BundleStoryRow]
-    story_links: list[BundleStoryLinkRow]
-    documents: list[BundleDocumentRow]
-    document_files: list[BundleDocumentFileRow]
-    document_member_links: list[BundleDocumentMemberLinkRow]
-    event_document_links: list[BundleEventDocumentLinkRow]
-    story_document_links: list[BundleStoryDocumentLinkRow]
-
-
-class TreeBundleV6(TypedDict, total=False):
     """Current bundle shape produced by ``export_tree``."""
 
     version: int
@@ -383,5 +337,5 @@ class TreeBundleV6(TypedDict, total=False):
     story_document_links: list[BundleStoryDocumentLinkRow]
 
 
-TreeBundle = TreeBundleV2 | TreeBundleV3 | TreeBundleV4 | TreeBundleV5 | TreeBundleV6
+TreeBundle = TreeBundleV2 | TreeBundleV3 | TreeBundleV4
 """Any bundle version that ``migrate_bundle`` knows how to read."""

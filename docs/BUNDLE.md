@@ -55,12 +55,22 @@ passes while a heavy dependency re-entering the initial load fails the build.
 
 | Budget (gzip)            | Limit   | Measured |
 | ------------------------ | ------- | -------- |
-| entry chunk (`index`)    | 95 KiB  | ~77 KiB  |
-| `vendor` chunk           | 190 KiB | ~157 KiB |
-| initial JS (eager total) | 360 KiB | ~300 KiB |
+| entry chunk (`index`)    | 115 KiB | ~99 KiB  |
+| `vendor` chunk           | 190 KiB | ~137 KiB |
+| initial JS (eager total) | 360 KiB | ~334 KiB |
 
 The checker also fails if `@xyflow`, `leaflet` or `recharts` are detected inside
 any eager chunk, regardless of the size numbers.
+
+The entry budget was raised from 95 to 115 KiB in the v1.8.0 release-prep PR:
+`frontend/src/data/changelog.json` (bundled eagerly — see the in-app changelog
+note above) is generated from `CHANGELOG.md` and excludes the `Unreleased`
+section, so promoting a release's worth of notes from `Unreleased` into a
+real `## [x.y.z]` heading grows the entry chunk by construction. This
+recurs at every release; since `changelog.json` accumulates the full
+history rather than just the latest entries, the entry chunk will keep
+trending upward and the budget may need another bump (or the changelog data
+should move behind a lazy boundary) in a future release.
 
 Authenticated-view chunks are intentionally **not** budgeted by size — they load
 on demand, so their weight does not affect initial load. Keep an eye on them via
