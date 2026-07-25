@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from app.models import TreeMembership
 from app.models.tree import Tree
 from app.models.user import User
+from app.services.event_payloads import EventPayload, SSEEnvelope
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +54,7 @@ def _channel(user_id: str) -> str:
 
 class EventBus:
     def __init__(self) -> None:
-        self._subscribers: dict[str, set[asyncio.Queue[dict[str, Any]]]] = defaultdict(
+        self._subscribers: dict[str, set[asyncio.Queue[SSEEnvelope]]] = defaultdict(
             set
         )
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -74,18 +75,18 @@ class EventBus:
     # Subscribe / unsubscribe (async, runs on the event loop thread)
     # ------------------------------------------------------------------
 
-    async def subscribe(self, user_id: str) -> "asyncio.Queue[dict[str, Any]]":
+    async def subscribe(self, user_id: str) -> "asyncio.Queue[SSEEnvelope]":
         """Create a queue for *user_id* and register it.  Returns the queue.
 
         No Redis interaction here: the listener holds a single static pattern
         subscription, so a new local subscriber just needs a local queue.
         """
-        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=100)
+        queue: asyncio.Queue[SSEEnvelope] = asyncio.Queue(maxsize=100)
         self._subscribers[user_id].add(queue)
         return queue
 
     def unsubscribe(
-        self, user_id: str, queue: "asyncio.Queue[dict[str, Any]]"
+        self, user_id: str, queue: "asyncio.Queue[SSEEnvelope]"
     ) -> None:
         """Remove *queue* from the user's subscriber set.
 
@@ -103,7 +104,7 @@ class EventBus:
     # ------------------------------------------------------------------
 
     def publish(
-        self, user_ids: Iterable[str], event_type: str, data: dict[str, Any]
+        self, user_ids: Iterable[str], event_type: str, data: EventPayload
     ) -> None:
         """Thread-safe entry point for sync route handlers.
 
@@ -119,7 +120,7 @@ class EventBus:
 
         from app.db.redis import get_redis  # local import
 
-        event: dict[str, Any] = {"type": event_type, "data": data}
+        event: SSEEnvelope = {"type": event_type, "data": data}
         user_id_list = list(user_ids)
 
         redis = get_redis()
@@ -150,7 +151,7 @@ class EventBus:
     # ------------------------------------------------------------------
 
     def _dispatch(
-        self, user_ids: list[str], event: dict[str, Any]
+        self, user_ids: list[str], event: SSEEnvelope
     ) -> None:
         """Runs on the event-loop thread; never blocks."""
         for user_id in user_ids:
@@ -263,7 +264,7 @@ class EventBus:
             user_id = channel[len(_CHANNEL_PREFIX):]
 
             try:
-                event: dict[str, Any] = json.loads(payload)
+                event: SSEEnvelope = json.loads(payload)
             except (json.JSONDecodeError, TypeError):
                 logger.warning(
                     "Redis listener: could not parse payload on %s: %r",
@@ -316,7 +317,7 @@ def publish_tree_event(
     db: Session,
     tree: Tree,
     event_type: str,
-    data: dict[str, Any],
+    data: EventPayload,
     extra_user_ids: Iterable[str] = (),
 ) -> None:
     """Compute the audience for *tree* and publish *event_type*.
