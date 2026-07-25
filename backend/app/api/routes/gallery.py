@@ -35,6 +35,7 @@ from app.schemas.content import (
     UnknownFaceResolve,
     UnknownFaceUpdate,
 )
+from app.schemas.user import StoredUserPreferences
 from app.services.activity import gallery_delete_snapshot, record_activity
 from app.services.content_links import (
     replace_gallery_member_links,
@@ -123,7 +124,9 @@ async def create_image(
     unit; a rejection or a failed commit removes the stored bytes.
     """
     limits = get_media_limits(db)
-    user_mode = (user.preferences or {}).get("image_storage_mode")
+    user_mode = StoredUserPreferences.model_validate(
+        user.preferences or {}
+    ).image_storage_mode
     mode = effective_storage_mode(
         limits.image_storage_mode,
         limits.image_storage_allowed_modes,

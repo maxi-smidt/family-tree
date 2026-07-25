@@ -40,6 +40,7 @@ from app.schemas.user import (
     AccountSelfDelete,
     CurrentUserOut,
     PasswordChange,
+    StoredUserPreferences,
     UserCreate,
     UserOut,
     UserProfileUpdate,
@@ -68,7 +69,9 @@ def _current_user_out(db: Session, user: User) -> CurrentUserOut:
     out = CurrentUserOut.model_validate(user)
     out.features = feature_service.enabled_for(db, user)
     limits = get_media_limits(db)
-    user_mode = (user.preferences or {}).get("image_storage_mode")
+    user_mode = StoredUserPreferences.model_validate(
+        user.preferences or {}
+    ).image_storage_mode
     out.image_storage_allowed_modes = list(limits.image_storage_allowed_modes)  # type: ignore[assignment]
     out.image_storage_mode = effective_storage_mode(  # type: ignore[assignment]
         limits.image_storage_mode, limits.image_storage_allowed_modes, user_mode
