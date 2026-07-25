@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.admin_audit import AdminAuditLog
 from app.models.user import User
+from app.services.admin_audit_details import AdminAuditDetails
 
 
 def record_admin_audit(
@@ -14,7 +15,7 @@ def record_admin_audit(
     subject_type: str,
     subject_id: str | None = None,
     subject_label: str | None = None,
-    details: dict | None = None,
+    details: AdminAuditDetails | None = None,
 ) -> None:
     """Stage an audit row in the caller's current transaction.
 
