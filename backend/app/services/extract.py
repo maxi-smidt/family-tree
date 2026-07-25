@@ -60,6 +60,9 @@ from app.services.storage import (
     move_media_to_tree,
 )
 
+MemberIdSet = dict[str, set[str]]
+IdMap = dict[str, str]
+
 
 def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
     tree = db.get(Tree, tree_id)
@@ -115,7 +118,7 @@ def _collect_direct_family_ids(
     """
     relations = _load_relations(db, tree_id)
 
-    vertical: dict[str, set[str]] = {}
+    vertical: MemberIdSet = {}
 
     def link(a: str, b: str) -> None:
         vertical.setdefault(a, set()).add(b)
@@ -172,7 +175,7 @@ def _collect_partnership_ids(
     """
     relations = _load_relations(db, tree_id)
 
-    adjacency: dict[str, set[str]] = {}
+    adjacency: MemberIdSet = {}
 
     def link(a: str, b: str) -> None:
         adjacency.setdefault(a, set()).add(b)
@@ -424,7 +427,7 @@ def _copy_documents_for_move(
     if not doc_ids:
         return
 
-    doc_copy_map: dict[str, str] = {}
+    doc_copy_map: IdMap = {}
     for old_doc_id in doc_ids:
         doc = db.get(Document, old_doc_id)
         if doc is None:
