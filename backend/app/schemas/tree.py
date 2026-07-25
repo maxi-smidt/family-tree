@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
+from app.schemas.base import FamilyTreeBaseModel
+
 
 class TreeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -22,6 +24,13 @@ class TreeOut(BaseModel):
     public_password_protected: bool = False
     # Domains the requesting member may not see. Empty for owner/admin.
     restrictions: list[str] = []
+
+
+class TreeMetadataOut(FamilyTreeBaseModel):
+    id: str
+    name: str
+    created_at: str
+    last_opened: str | None = None
 
 
 class TreeCreate(BaseModel):

@@ -7,7 +7,7 @@ columns (NULL → fall back to instance default; 0 or None after fallback = unli
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, TypedDict
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Session
@@ -38,6 +38,26 @@ from app.models.family import Member, MemberDisease, Relation
 from app.models.tree import Tree
 from app.services.settings_service import get_int_setting
 from app.services.storage import MEDIA_TRASH_DIR_NAME
+
+
+class UsageBreakdown(TypedDict):
+    tree_bytes: int
+    media_bytes: int
+    total_bytes: int
+
+
+class OwnerQuotas(TypedDict):
+    """Effective quota limits for a tree's owner (None = unlimited)."""
+
+    tree_quota_bytes: int | None
+    media_quota_bytes: int | None
+
+
+class MediaQuotaWarning(TypedDict):
+    tree_id: str
+    used_bytes: int
+    quota_bytes: int
+
 
 # ---------------------------------------------------------------------------
 # Usage calculation
@@ -191,14 +211,14 @@ def _media_bytes(tree_id: str) -> int:
     return total
 
 
-def compute_usage(db: Session, tree_id: str) -> dict[str, int]:
+def compute_usage(db: Session, tree_id: str) -> UsageBreakdown:
     """Return ``{tree_bytes, media_bytes, total_bytes}`` for *tree_id*."""
     tb = _tree_model_bytes(db, tree_id)
     mb = _media_bytes(tree_id)
     return {"tree_bytes": tb, "media_bytes": mb, "total_bytes": tb + mb}
 
 
-def compute_owner_usage(db: Session, owner_id: str) -> dict[str, int]:
+def compute_owner_usage(db: Session, owner_id: str) -> UsageBreakdown:
     """Return combined usage for every tree owned by *owner_id*.
 
     Structured rows are summed using one query per model across all owned tree
@@ -228,7 +248,7 @@ def _instance_quota_bytes(db: Session, key_mb: str, default_mb: int) -> int | No
     return mb * MEBIBYTE
 
 
-def owner_quotas(db: Session, tree) -> dict[str, int | None]:
+def owner_quotas(db: Session, tree) -> OwnerQuotas:
     """Resolve effective quota limits for *tree*'s owner.
 
     Reads the three quota columns from the owner User row; falls back to the
@@ -321,7 +341,7 @@ def check_tree_quota(db: Session, tree, incoming_bytes: int) -> None:
 _WARNING_THRESHOLD = 0.9
 
 
-def media_warning(db: Session, tree) -> dict | None:
+def media_warning(db: Session, tree) -> MediaQuotaWarning | None:
     """Return a warning when owner media usage reaches 90 % of quota.
 
     Returns None when the quota is unlimited or usage is below the threshold.

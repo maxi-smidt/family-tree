@@ -46,6 +46,7 @@ from app.schemas.tree import (
     TreeCreate,
     TreeMemberOut,
     TreeMerge,
+    TreeMetadataOut,
     TreeOut,
     TreeShare,
     TreeShareBatch,
@@ -248,14 +249,14 @@ def get_tree(
     return _tree_out(db, tree, user)
 
 
-@router.get("/{tree_id}/metadata")
-def get_metadata(tree: Tree = Depends(get_readable_tree_public)):
-    return {
-        "id": tree.id,
-        "name": tree.name,
-        "createdAt": tree.created_at,
-        "lastOpened": tree.last_opened,
-    }
+@router.get("/{tree_id}/metadata", response_model=TreeMetadataOut)
+def get_metadata(tree: Tree = Depends(get_readable_tree_public)) -> TreeMetadataOut:
+    return TreeMetadataOut(
+        id=tree.id,
+        name=tree.name,
+        created_at=tree.created_at,
+        last_opened=tree.last_opened,
+    )
 
 
 @router.get("/{tree_id}/storage", response_model=TreeStorageUsageOut)
