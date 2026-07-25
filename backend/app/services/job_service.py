@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Concatenate
 
 from fastapi import HTTPException
 
@@ -40,18 +40,21 @@ def create_job(db: Any, user_id: str, job_type: str) -> BackgroundJob:
     return job
 
 
-def run_job(
+def run_job[**P](
     job_id: str,
     user_id: str,
-    fn: Callable[..., str],
-    *args: Any,
-    **kwargs: Any,
+    fn: Callable[Concatenate[ProgressCallback, P], str],
+    *args: P.args,
+    **kwargs: P.kwargs,
 ) -> None:
     """Run fn(progress_cb, *args, **kwargs) and track it as a background job.
 
     Called from a Starlette background task (runs in a threadpool thread).
     fn must return the result_tree_id (str) on success and raise on failure.
-    fn is responsible for its own DB session.
+    fn is responsible for its own DB session. ``*args``/``**kwargs`` are tied
+    via ``ParamSpec`` to fn's own parameters (everything after its leading
+    ``progress_cb``), so a call-site/fn signature mismatch is a static type
+    error instead of a runtime one inside the background thread.
     """
     job_db = SessionLocal()
     job = None
