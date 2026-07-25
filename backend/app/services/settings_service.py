@@ -5,6 +5,7 @@ database is the source of truth so admins can change them at runtime.
 """
 
 import hashlib
+from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -31,6 +32,7 @@ from app.core.media_config import (
 from app.models import AppSetting, LegalAcceptance, LegalDocumentVersion, User
 from app.schemas.setting import MediaLimits, SettingsOut, SettingsUpdate
 from app.services.admin_audit import record_admin_audit
+from app.services.admin_audit_details import SettingsChanges
 from app.services.legal_defaults import (
     DEFAULT_LEGAL_BODIES,
     LEGAL_DEFAULT_LOCALE,
@@ -443,11 +445,14 @@ def update_settings(
         set_setting(db, "legal_version", next_version)
     db.flush()
     result = get_settings_out(db)
-    changed = {
-        key: {"before": before[key], "after": value}
-        for key, value in result.model_dump().items()
-        if before[key] != value
-    }
+    changed = cast(
+        SettingsChanges,
+        {
+            key: {"before": before[key], "after": value}
+            for key, value in result.model_dump().items()
+            if before[key] != value
+        },
+    )
     if changed:
         record_admin_audit(
             db,
