@@ -53,11 +53,14 @@ from app.schemas.family import DiseaseOut, MemberOut, RelationOut
 from app.schemas.quality import QualityReport
 from app.schemas.statistics import StatisticsReport
 from app.schemas.virtual_view import (
+    RecomputeMatchesResult,
     VirtualMemberOut,
     VirtualPositionItem,
     VirtualViewCreate,
+    VirtualViewMetadataOut,
     VirtualViewOut,
     VirtualViewSourceOut,
+    VirtualViewSourceTreeRef,
     VirtualViewUpdate,
 )
 from app.services.admin_audit import record_admin_audit
@@ -572,12 +575,12 @@ def delete_virtual_view(
     db.commit()
 
 
-@router.post("/{view_id}/recompute-matches")
+@router.post("/{view_id}/recompute-matches", response_model=RecomputeMatchesResult)
 def recompute_matches(
     view_id: str,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> dict:
+) -> RecomputeMatchesResult:
     view = _resolve_view(db, view_id, user)
     if view.owner_id != user.id and not user.is_admin:
         raise HTTPException(
@@ -592,7 +595,9 @@ def recompute_matches(
             )
         ).fetchall()
     )
-    return {"groupCount": group_count, "mergedMemberCount": merged_count}
+    return RecomputeMatchesResult(
+        group_count=group_count, merged_member_count=merged_count
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -600,19 +605,21 @@ def recompute_matches(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/{view_id}/metadata")
+@router.get("/{view_id}/metadata", response_model=VirtualViewMetadataOut)
 def get_virtual_view_metadata(
     view_id: str,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> dict:
+) -> VirtualViewMetadataOut:
     view = _resolve_view(db, view_id, user)
     _ensure_matches(db, view)
     # The underlying real trees (nested views flattened) are the actual data
     # sources of the composite.
     source_ids = flatten_tree_ids(db, view)
     source_trees = [
-        {"id": tid, "name": (db.get(Tree, tid) or Tree(name="")).name}
+        VirtualViewSourceTreeRef(
+            id=tid, name=(db.get(Tree, tid) or Tree(name="")).name
+        )
         for tid in source_ids
     ]
     # Count distinct nodes in the composite.
@@ -633,15 +640,15 @@ def get_virtual_view_metadata(
     ).fetchall().__len__()
     has_layout = pos_count > 0 and pos_count >= len(node_ids)
     db.commit()
-    return {
-        "id": view.id,
-        "name": view.name,
-        "createdAt": view.created_at,
-        "lastOpened": view.last_opened,
-        "sourceTrees": source_trees,
-        "overlapCount": overlap_count,
-        "hasLayout": has_layout,
-    }
+    return VirtualViewMetadataOut(
+        id=view.id,
+        name=view.name,
+        created_at=view.created_at,
+        last_opened=view.last_opened,
+        source_trees=source_trees,
+        overlap_count=overlap_count,
+        has_layout=has_layout,
+    )
 
 
 @router.get("/{view_id}/members", response_model=list[VirtualMemberOut])

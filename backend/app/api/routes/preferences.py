@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import (
+    StoredUserPreferences,
     TabPreferences,
     TutorialPreferences,
     UserPreferences,
@@ -42,10 +43,13 @@ def reset_tab_preferences(
     return TabPreferences()
 
 
+def _stored_preferences(user: User) -> StoredUserPreferences:
+    return StoredUserPreferences.model_validate(user.preferences or {})
+
+
 @router.get("/tutorial", response_model=TutorialPreferences)
 def get_tutorial_preferences(user: User = Depends(get_current_user)):
-    prefs = user.preferences or {}
-    return TutorialPreferences(completed=bool(prefs.get("tutorial_completed", False)))
+    return TutorialPreferences(completed=_stored_preferences(user).tutorial_completed)
 
 
 @router.put("/tutorial", response_model=TutorialPreferences)
@@ -54,17 +58,17 @@ def put_tutorial_preferences(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    prefs = dict(user.preferences or {})
-    prefs["tutorial_completed"] = payload.completed
-    user.preferences = prefs
+    prefs = _stored_preferences(user)
+    prefs.tutorial_completed = payload.completed
+    user.preferences = prefs.model_dump()
     db.commit()
     return TutorialPreferences(completed=payload.completed)
 
 
 @router.get("/settings", response_model=UserPreferences)
 def get_user_preferences(user: User = Depends(get_current_user)):
-    prefs = user.preferences or {}
-    return UserPreferences(image_storage_mode=prefs.get("image_storage_mode"))
+    prefs = _stored_preferences(user)
+    return UserPreferences(image_storage_mode=prefs.image_storage_mode)
 
 
 @router.put("/settings", response_model=UserPreferences)
@@ -81,20 +85,18 @@ def put_user_preferences(
                 detail=f"image_storage_mode '{payload.image_storage_mode}' is not "
                 f"in the allowed modes {limits.image_storage_allowed_modes}.",
             )
-    prefs = dict(user.preferences or {})
-    if payload.image_storage_mode is None:
-        prefs.pop("image_storage_mode", None)
-    else:
-        prefs["image_storage_mode"] = payload.image_storage_mode
-    user.preferences = prefs
+    prefs = _stored_preferences(user)
+    prefs.image_storage_mode = payload.image_storage_mode
+    user.preferences = prefs.model_dump()
     db.commit()
-    return UserPreferences(image_storage_mode=prefs.get("image_storage_mode"))
+    return UserPreferences(image_storage_mode=prefs.image_storage_mode)
 
 
 @router.get("/whats-new", response_model=WhatsNewState)
 def get_whats_new_state(user: User = Depends(get_current_user)):
-    prefs = user.preferences or {}
-    return WhatsNewState(last_read_version=prefs.get("whats_new_last_read_version"))
+    return WhatsNewState(
+        last_read_version=_stored_preferences(user).whats_new_last_read_version
+    )
 
 
 @router.put("/whats-new", response_model=WhatsNewState)
@@ -102,8 +104,8 @@ def put_whats_new_state(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    prefs = dict(user.preferences or {})
-    prefs["whats_new_last_read_version"] = settings.APP_VERSION
-    user.preferences = prefs
+    prefs = _stored_preferences(user)
+    prefs.whats_new_last_read_version = settings.APP_VERSION
+    user.preferences = prefs.model_dump()
     db.commit()
-    return WhatsNewState(last_read_version=prefs.get("whats_new_last_read_version"))
+    return WhatsNewState(last_read_version=prefs.whats_new_last_read_version)
