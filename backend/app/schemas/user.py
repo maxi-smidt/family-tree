@@ -80,6 +80,22 @@ class WhatsNewState(BaseModel):
     last_read_version: str | None = None
 
 
+class StoredUserPreferences(BaseModel):
+    """The validated shape of the ``User.preferences`` JSON blob.
+
+    Multiplexes three unrelated concerns (tutorial progress, image storage
+    choice, changelog read state) into one column; this model is the single
+    source of truth for what's actually persisted there, read and written
+    through ``model_validate``/``model_dump`` instead of raw ``dict``
+    access. ``tab_preferences`` is a separate, genuinely free-form per-user
+    layout column and is intentionally not covered here.
+    """
+
+    tutorial_completed: bool = False
+    image_storage_mode: ImageStorageMode | None = None
+    whats_new_last_read_version: str | None = None
+
+
 class UserCreate(BaseModel):
     username: str
     password: str

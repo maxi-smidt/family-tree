@@ -4,6 +4,26 @@ from app.schemas.base import FamilyTreeBaseModel
 from app.schemas.family import MemberOut
 
 
+class RecomputeMatchesResult(FamilyTreeBaseModel):
+    group_count: int
+    merged_member_count: int
+
+
+class VirtualViewSourceTreeRef(FamilyTreeBaseModel):
+    id: str
+    name: str
+
+
+class VirtualViewMetadataOut(FamilyTreeBaseModel):
+    id: str
+    name: str
+    created_at: str
+    last_opened: str | None = None
+    source_trees: list[VirtualViewSourceTreeRef]
+    overlap_count: int
+    has_layout: bool
+
+
 class VirtualViewSourceOut(BaseModel):
     # ``tree_id`` carries the source id regardless of kind (a real tree id or a
     # ``vv_`` view id) so existing clients keep working.
