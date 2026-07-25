@@ -48,6 +48,21 @@ class TreeLayoutChangedData(TypedDict):
     actor_user_id: NotRequired[str]
 
 
+class JobProgressData(TypedDict):
+    job_id: str
+    pct: int
+
+
+class JobDoneData(TypedDict):
+    job_id: str
+    tree_id: str
+
+
+class JobFailedData(TypedDict):
+    job_id: str
+    error: str
+
+
 EventPayload = (
     ActivityEntryAddedData
     | TreeContentChangedData
@@ -55,6 +70,9 @@ EventPayload = (
     | TreeDeletedData
     | TreeOwnershipChangedData
     | TreeLayoutChangedData
+    | JobProgressData
+    | JobDoneData
+    | JobFailedData
     | dict[str, Any]
 )
 """Every payload shape ``EventBus``/``publish_tree_event`` accepts.
