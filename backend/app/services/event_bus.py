@@ -25,7 +25,7 @@ import json
 import logging
 from collections import defaultdict
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -328,9 +328,12 @@ def publish_tree_event(
     try:
         audience = tree_audience(db, tree) | set(extra_user_ids)
         actor_id = db.info.get("tree_event_actor_id")
-        event_data = data
+        event_data: EventPayload = data
         if event_type in _PRESENCE_ACTIVITY_EVENTS and isinstance(actor_id, str):
-            event_data = {**data, "actor_user_id": actor_id}
+            # Both members of _PRESENCE_ACTIVITY_EVENTS declare actor_user_id
+            # as NotRequired, so this merge always produces a valid member of
+            # EventPayload — mypy just can't see that through **-unpacking.
+            event_data = cast(EventPayload, {**data, "actor_user_id": actor_id})
         event_bus.publish(audience, event_type, event_data)
     except Exception:
         logger.exception("publish_tree_event failed (event_type=%s)", event_type)

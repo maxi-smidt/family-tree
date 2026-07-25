@@ -7,7 +7,7 @@ triggering request, so every failure is caught, logged, and rolled back here.
 
 import json
 import logging
-from typing import Any, Literal, overload
+from typing import Literal, overload
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -23,6 +23,7 @@ from app.schemas.notification import (
 )
 from app.services import feature_service
 from app.services.event_bus import event_bus
+from app.services.event_payloads import NotificationCreatedData
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 MAX_PER_USER = 100
 
 
-def _serialize(n: Notification) -> dict[str, Any]:
+def _serialize(n: Notification) -> NotificationCreatedData:
     return {
         "id": n.id,
         "type": n.type,
