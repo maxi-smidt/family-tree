@@ -7,6 +7,7 @@ user, with every id remapped so re-importing never collides with existing data.
 """
 
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from fastapi import (
@@ -419,7 +420,9 @@ async def inspect_import(file: UploadFile, db: Session = Depends(get_db)):
                 "exported_at": None,
                 "bundle_version": None,
             }
-        bundle = await run_in_threadpool(crypto_export.decrypt_bundle, blob, None)
+        bundle = cast(
+            TreeBundle, await run_in_threadpool(crypto_export.decrypt_bundle, blob, None)
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     bundle = _validate_and_migrate(bundle)
@@ -444,8 +447,9 @@ async def import_tree(
     blob = await file.read()
     # Validate synchronously so bad/future files get an immediate error response.
     try:
-        bundle = await run_in_threadpool(
-            crypto_export.decrypt_bundle, blob, password or None
+        bundle = cast(
+            TreeBundle,
+            await run_in_threadpool(crypto_export.decrypt_bundle, blob, password or None),
         )
     except PermissionError as exc:
         raise HTTPException(status_code=401, detail="Password required") from exc
