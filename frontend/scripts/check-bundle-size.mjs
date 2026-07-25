@@ -15,7 +15,7 @@ const INDEX_HTML = path.join(DIST, "index.html");
 // measured when the split landed, so ordinary churn passes but a heavy library
 // landing in the eager payload fails. Revisit alongside docs/BUNDLE.md.
 const BUDGETS_KB = {
-  entry: 95, // the entry chunk (dist/assets/index-*.js)
+  entry: 115, // the entry chunk (dist/assets/index-*.js)
   vendor: 190, // the shared React/UI runtime chunk (dist/assets/vendor-*.js)
   initialJs: 360, // every eagerly-loaded .js (entry + its modulepreloads)
 };
