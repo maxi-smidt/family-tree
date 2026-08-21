@@ -162,8 +162,8 @@ def save_document(
 
     ``document_id`` is client-supplied and used as the upsert key, so a create
     that is retried updates in place instead of duplicating. Raises
-    ``InvalidInputError``, ``NotFoundError``, or ``storage_usage.QuotaExceeded``
-    on validation, ownership, or quota errors — always *before* any rows are
+    ``InvalidInputError``, ``NotFoundError``, or ``QuotaExceeded`` on
+    validation, ownership, or quota errors — always *before* any rows are
     mutated.
     """
     existing = db.get(Document, document_id)
@@ -208,8 +208,8 @@ def save_document(
 
     # 1d. A create adds a metadata row; the attached bytes were already
     #     quota-checked when they were staged, so no media check is needed here.
-    # check_tree_quota raises storage_usage.QuotaExceeded (a DomainError),
-    # mapped to its HTTP response by the centralized handler.
+    # check_tree_quota raises QuotaExceeded, mapped to its HTTP response by
+    # the centralized handler.
     if is_create:
         check_tree_quota(db, tree, _estimated_document_bytes(payload))
 

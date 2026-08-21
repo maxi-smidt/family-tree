@@ -6,6 +6,8 @@ jobs, testable in isolation). ``app.api.exception_handlers`` maps every
 ``DomainError`` subclass to its HTTP response.
 """
 
+from typing import Literal
+
 
 class DomainError(Exception):
     """Base class for application-level errors.
@@ -34,3 +36,22 @@ class AccessDeniedError(DomainError):
 
 class ConflictError(DomainError):
     status_code = 409
+
+
+class QuotaExceeded(DomainError):
+    """Raised when a write would push usage past a quota limit."""
+
+    status_code = 413
+
+    def __init__(
+        self,
+        bucket: Literal["tree", "media"],
+        limit_bytes: int,
+        current_bytes: int,
+        would_be_bytes: int,
+    ) -> None:
+        self.bucket = bucket
+        self.limit_bytes = limit_bytes
+        self.current_bytes = current_bytes
+        self.would_be_bytes = would_be_bytes
+        super().__init__(f"quota_exceeded_{bucket}")

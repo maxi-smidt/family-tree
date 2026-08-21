@@ -26,6 +26,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree, require_feature
 from app.core.config import settings
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import SessionLocal, get_db
 from app.models import (
@@ -76,7 +77,7 @@ from app.services.storage import (
     process_image_field,
     store_document,
 )
-from app.services.storage_usage import QuotaExceeded, check_full_usage_quota
+from app.services.storage_usage import check_full_usage_quota
 from app.services.tree_state import mark_tree_opened
 
 router = APIRouter(prefix="/trees", tags=["export"])

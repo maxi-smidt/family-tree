@@ -14,6 +14,7 @@ from app.api.deps import (
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -51,7 +52,6 @@ from app.services.storage import (
     trash_media,
 )
 from app.services.storage_usage import (
-    QuotaExceeded,
     check_media_quota,
     check_tree_quota,
     media_warning,

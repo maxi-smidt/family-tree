@@ -17,6 +17,7 @@ from app.api.deps import (
     role_for,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -77,7 +78,7 @@ from app.services.storage import (
     delete_media,
     process_image_field,
 )
-from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
+from app.services.storage_usage import check_media_quota, check_tree_quota
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 

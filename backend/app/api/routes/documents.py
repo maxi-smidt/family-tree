@@ -20,6 +20,7 @@ from app.api.deps import (
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -64,7 +65,7 @@ from app.services.storage import (
     store_document_upload,
     trash_media,
 )
-from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
+from app.services.storage_usage import check_media_quota, check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/documents",

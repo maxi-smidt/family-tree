@@ -1,13 +1,15 @@
 """The centralized DomainError -> HTTP mapping (#896).
 
-Application services raise typed domain exceptions (``app.core.exceptions``,
-which stays free of any FastAPI import) instead of importing FastAPI's
-``HTTPException`` directly. ``app.api.exception_handlers.
-install_domain_error_handler`` (used by both ``app.main`` and the ``client``
-test fixture) is what turns those back into HTTP responses, so the mapping
-itself lives in the API layer, not next to the exception types. Exercised
-end-to-end elsewhere (e.g. test_extract_move.py, test_documents_atomic.py);
-this file tests the mapping and the import boundary in isolation.
+Application services raise typed domain exceptions (``app.core.exceptions``
+— NotFoundError, InvalidInputError, AccessDeniedError, ConflictError, and
+QuotaExceeded all live there, and that module stays free of any FastAPI
+import) instead of importing FastAPI's ``HTTPException`` directly.
+``app.api.exception_handlers.install_domain_error_handler`` (used by both
+``app.main`` and the ``client`` test fixture) is what turns those back into
+HTTP responses, so the mapping itself lives in the API layer, not next to the
+exception types. Exercised end-to-end elsewhere (e.g. test_extract_move.py,
+test_documents_atomic.py); this file tests the mapping and the import
+boundary in isolation.
 """
 
 import ast
@@ -26,6 +28,7 @@ from app.core.exceptions import (
     DomainError,
     InvalidInputError,
     NotFoundError,
+    QuotaExceeded,
 )
 
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
@@ -140,14 +143,11 @@ def test_domain_error_subclasses_share_the_base_handler():
     assert resp.json() == {"detail": "over quota"}
 
 
-def test_quota_exceeded_is_a_domain_error_mapped_by_the_shared_handler():
-    """storage_usage.QuotaExceeded is a DomainError (413) too, so routers no
-    longer hand-roll ``except QuotaExceeded: raise HTTPException(413, ...)``
+def test_quota_exceeded_is_mapped_by_the_shared_handler():
+    """QuotaExceeded lives in app.core.exceptions with the other DomainError
+    subclasses (storage_usage imports it, it isn't defined there), so routers
+    no longer hand-roll ``except QuotaExceeded: raise HTTPException(413, ...)``
     — the shared handler covers it like every other domain exception."""
-    from app.services.storage_usage import QuotaExceeded
-
-    assert issubclass(QuotaExceeded, DomainError)
-
     app = FastAPI()
     install_domain_error_handler(app)
 
