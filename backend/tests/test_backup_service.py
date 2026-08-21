@@ -3,7 +3,7 @@
 import shutil
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from app.core.config import settings
 from app.db.base import Base
@@ -24,7 +24,7 @@ from app.models import (
     VirtualViewSource,
 )
 from app.services import backup_service
-from app.services.crypto_export import decrypt_bundle
+from app.services.crypto_export import decrypt_bundle, encrypt_bundle
 from tests.conftest import add_member, make_tree, make_user
 
 
@@ -220,6 +220,45 @@ def test_backup_restores_staged_document_upload(db, tmp_path, monkeypatch):
     assert restored is not None
     assert restored.tree_id == tree.id
     assert (tree_media / "staged.pdf").read_bytes() == b"stag"
+
+
+def test_restore_backup_file_accepts_legacy_bundle_missing_document_uploads(
+    db, tmp_path, monkeypatch
+):
+    """A v2 backup taken before #871 (no document_uploads table) still restores.
+
+    Simulates a backup file written by a pre-#871 build: the same version
+    number, but with the table and its manifest count absent entirely rather
+    than present-and-empty.
+    """
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    backup_path = tmp_path / "legacy.ftbackup"
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    db.commit()
+
+    tree_media = media_root / tree.id
+    tree_media.mkdir(parents=True)
+    (tree_media / "photo.jpg").write_bytes(b"photo-bytes")
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    del bundle["tables"]["document_uploads"]
+    del bundle["manifest"]["table_row_counts"]["document_uploads"]
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    for model in reversed(backup_service.BACKUP_MODELS):
+        db.execute(delete(model))
+    db.commit()
+    shutil.rmtree(media_root, ignore_errors=True)
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=False, media_root=media_root
+    )
+
+    assert db.scalar(select(func.count()).select_from(DocumentUpload)) == 0
+    assert (tree_media / "photo.jpg").read_bytes() == b"photo-bytes"
 
 
 def test_backup_validation_rejects_changed_media(db, tmp_path, monkeypatch):
