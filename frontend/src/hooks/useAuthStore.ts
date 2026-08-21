@@ -85,6 +85,10 @@ interface AuthState {
   acceptPendingInvite: () => Promise<string | null>;
 }
 
+// Bounds the startup /auth/config and /auth/me requests so a stalled
+// connection reaches the "unreachable" retry state instead of hanging on
+// the loading spinner forever.
+const AUTH_CHECK_TIMEOUT_MS = 10_000;
 const SESSION_WARNING_MS = 60 * 60 * 1000;
 const SESSION_REFRESH_AHEAD_MS = 5 * 60 * 1000;
 const SESSION_REFRESH_RETRY_MS = 60 * 1000;
@@ -143,7 +147,11 @@ function startSessionMaintenance() {
 // errors, timeouts, and 5xx responses are transient and leave it in place.
 async function checkAuthSession(): Promise<void> {
   try {
-    const user = await api.get<User>("/auth/me");
+    const user = await api.get<User>(
+      "/auth/me",
+      undefined,
+      AUTH_CHECK_TIMEOUT_MS,
+    );
     useAuthStore.setState({
       user,
       features: user.features ?? [],
@@ -220,7 +228,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const config = await api.get<AuthConfig>("/auth/config");
+      const config = await api.get<AuthConfig>(
+        "/auth/config",
+        undefined,
+        AUTH_CHECK_TIMEOUT_MS,
+      );
       set({ config });
     } catch {
       // backend unreachable; keep going so the login screen can still render

@@ -240,6 +240,18 @@ describe("useAuthStore init", () => {
     expect(useAuthStore.getState().status).toBe("unreachable");
   });
 
+  it("bounds the startup /auth/config and /auth/me requests with a timeout", async () => {
+    mocks.get.mockResolvedValue(USER);
+
+    await useAuthStore.getState().init();
+
+    for (const call of mocks.get.mock.calls) {
+      const [, , timeoutMs] = call;
+      expect(typeof timeoutMs).toBe("number");
+      expect(timeoutMs).toBeGreaterThan(0);
+    }
+  });
+
   it("resumes the session on a successful retry after a transient failure", async () => {
     mocks.get.mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await useAuthStore.getState().init();

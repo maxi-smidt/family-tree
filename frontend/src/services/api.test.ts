@@ -47,3 +47,33 @@ describe("api — postForm timeout", () => {
     expect(result).toEqual({ id: "upload-1" });
   });
 });
+
+describe("api — get timeout", () => {
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    globalThis.fetch = originalFetch;
+  });
+
+  it("aborts a stalled GET once the timeout elapses instead of hanging forever", async () => {
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      });
+    }) as unknown as typeof fetch;
+
+    const assertion = expect(
+      api.get("/auth/me", undefined, 1000),
+    ).rejects.toThrow();
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await assertion;
+  });
+});
