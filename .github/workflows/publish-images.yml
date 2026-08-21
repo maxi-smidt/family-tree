@@ -7,6 +7,13 @@ name: Publish Images
 on:
   workflow_call:
     inputs:
+      ref:
+        description: >-
+          Commit/branch/tag to check out and build. Defaults to the ref that
+          triggered the caller.
+        type: string
+        default: ""
+        required: false
       version:
         description: "Image version tag. Falls back to a git-ref-derived value when empty."
         type: string
@@ -53,6 +60,8 @@ jobs:
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: "Resolve build metadata"
         id: build-meta

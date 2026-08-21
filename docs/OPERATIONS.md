@@ -201,7 +201,11 @@ repo and run `docker compose up -d --build` (using the default `docker-compose.y
 Published release images are preferred for production because a pinned
 `APP_IMAGE_TAG` gives you a clear rollback target.
 
-> **Note:** The `:latest` tag and versioned image tags are published to GHCR when a `vX.Y.Z` release tag is pushed. If no release tag exists yet, build from source as described above.
+> **Note:** The `:latest` tag and versioned image tags are published to GHCR by
+> the [release workflow](../.github/workflows/release.yml) when a maintainer
+> dispatches it, which also creates the matching
+> [GitHub Release](https://github.com/maxi-smidt/family-tree/releases) with
+> notes. If no release exists yet, build from source as described above.
 
 ### If a migration fails
 
@@ -218,7 +222,7 @@ docker compose logs backend --tail 100   # the Alembic error is at the top of th
 2. **Pin back to the previous image** to get the app running again while you
    investigate, e.g. set `APP_IMAGE_TAG` in `.env` to the last working version
    tag, then `docker compose up -d`.
-3. **Check the [release notes](../CHANGELOG.md) / open an issue** with the logged error. Typical
+3. **Check the [release notes](https://github.com/maxi-smidt/family-tree/releases) / open an issue** with the logged error. Typical
    causes are environment-specific (out of disk, custom schema changes made
    directly in the database).
 4. After a fix is released (or the cause is removed), set `APP_IMAGE_TAG` to the
