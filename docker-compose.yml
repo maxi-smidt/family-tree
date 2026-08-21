@@ -13,6 +13,10 @@
 #   DATA_PATH      host path for the "real" data (member photos, gallery media)
 #   POSTGRES_*     where to reach your PostgreSQL instance
 #   REDIS_URL      optional external Redis (leave unset to run without Redis)
+#
+# Every documented backend setting (see backend/app/core/config.py and
+# .env.example) is listed in the backend service's `environment:` below — a
+# .env value only reaches the container if its variable is listed there too.
 
 services:
   backend:
@@ -26,6 +30,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-familytree}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-familytree}
       POSTGRES_DB: ${POSTGRES_DB:-familytree}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
+      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
       DATA_PATH: /data
       APP_DATA_PATH: /appdata
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:${UI_PORT:-8080}}
@@ -37,6 +44,8 @@ services:
       AUTHENTIK_CLIENT_ID: ${AUTHENTIK_CLIENT_ID:-}
       AUTHENTIK_CLIENT_SECRET: ${AUTHENTIK_CLIENT_SECRET:-}
       AUTHENTIK_DISCOVERY_URL: ${AUTHENTIK_DISCOVERY_URL:-}
+      AUTHENTIK_SCOPES: ${AUTHENTIK_SCOPES:-openid email profile}
+      AUTHENTIK_AUTO_CREATE_USERS: ${AUTHENTIK_AUTO_CREATE_USERS:-true}
       AUTHENTIK_ADMIN_GROUP: ${AUTHENTIK_ADMIN_GROUP:-family-tree-admins}
       REDIS_URL: ${REDIS_URL:-} # optional external Redis; leave unset to disable
       WORKERS: ${WORKERS:-1} # uvicorn worker processes; WORKERS > 1 requires REDIS_URL
