@@ -1,0 +1,4 @@
+[P1] Domain services still depend on FastAPI
+File: backend/app/core/exceptions.py, lines 11–12
+The new exception module imports FastAPI, Request, and JSONResponse at module load. Because every migrated service and job_service imports its exceptions from this module, importing those services still imports the HTTP framework. This contradicts the main acceptance criterion that background jobs receive domain exceptions without an HTTP dependency.
+Keep DomainError and its subclasses in a framework-neutral module. Move install_domain_error_handler and the HTTP status mapping into the API layer, such as app/api/exception_handlers.py.

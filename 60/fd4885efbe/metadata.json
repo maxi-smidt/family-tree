@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "60fd4885efbe",
+  "strategy": "manual-commit",
+  "branch": "fix/896-decouple-domain-services-from-http",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/exception_handlers.py",
+    "backend/app/core/exceptions.py",
+    "backend/app/main.py",
+    "backend/tests/conftest.py",
+    "backend/tests/test_domain_exceptions.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/60/fd4885efbe/0/metadata.json",
+      "transcript": "/60/fd4885efbe/0/full.jsonl",
+      "compact_transcript": "/60/fd4885efbe/0/transcript.jsonl",
+      "content_hash": "/60/fd4885efbe/0/content_hash.txt",
+      "prompt": "/60/fd4885efbe/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 70,
+    "cache_creation_tokens": 31983,
+    "cache_read_tokens": 10146936,
+    "output_tokens": 12402,
+    "api_call_count": 35
+  }
+}
