@@ -78,7 +78,6 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore, useIncomingFriendCount } from "@/hooks/useFriendStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
-import { useWhatsNewStore } from "@/hooks/useWhatsNewStore";
 import { useLegalStore } from "@/hooks/useLegalStore";
 import { LEGAL_DEFAULT_LOCALE } from "@/lib/legalLocale";
 import {
@@ -189,7 +188,6 @@ export const MainPanel = () => {
   const tutorialEnabled = features.includes("onboarding_tour");
   const legalGateOpen =
     !!user?.legal_acceptance_required && !user?.legal_accepted;
-  const loadWhatsNew = useWhatsNewStore((s) => s.load);
   const loadLegalDocuments = useLegalStore((s) => s.load);
   const [manageOpen, setManageOpen] = useState(false);
   const loadIncomingFriends = useFriendStore((s) => s.loadIncoming);
@@ -203,17 +201,9 @@ export const MainPanel = () => {
     if (user) void loadTutorial();
   }, [user, loadTutorial]);
 
-  // Only fetch the What's New state once onboarding is complete, so
-  // brand-new users mid-tutorial never trigger or flash the popup.
-  useEffect(() => {
-    if (user && tutorialLoaded && tutorialCompleted) {
-      void loadWhatsNew();
-    }
-  }, [user, tutorialLoaded, tutorialCompleted, loadWhatsNew]);
-
-  // Unlike What's New, the legal gate must take priority over
-  // onboarding — it's a compliance requirement, not a UX nicety — so it loads
-  // as soon as a user is present, regardless of tutorial state.
+  // The legal gate takes priority over onboarding — it's a compliance
+  // requirement, not a UX nicety — so it loads as soon as a user is
+  // present, regardless of tutorial state.
   useEffect(() => {
     if (user && user.legal_acceptance_required && !user.legal_accepted) {
       void loadLegalDocuments(LEGAL_DEFAULT_LOCALE);
