@@ -1,0 +1,4 @@
+[P1] Transfer controls still overflow phone widths
+The transfer row remains non-wrapping. SelectTrigger uses w-fit whitespace-nowrap, while the transfer button cannot shrink enough. Together they exceed the roughly 240px content width available at a 320px viewport, especially with German labels.
+This leaves horizontal overflow despite the dialog-width fix. Stack the controls on mobile using flex-col sm:flex-row, or allow wrapping and give the trigger min-w-0 w-full.
+File: frontend/src/components/view/database-management-view/dialog/ShareTreeDialog.tsx, line 1092.
