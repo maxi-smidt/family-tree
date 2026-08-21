@@ -175,12 +175,12 @@ jobs:
           ref: ${{ needs.land.outputs.sha }}
 
       - name: "Download release notes"
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: release-notes
 
       - name: "Download SBOMs"
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           pattern: sbom-*
           merge-multiple: true
