@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { useTranslation } from "react-i18next";
-import { ApiError } from "@/services/api";
+import { ApiError, PUBLIC_PASSWORD_REQUIRED } from "@/services/api";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,7 +67,7 @@ export const PublicTreeViewer = ({ treeId }: Props) => {
       if (
         err instanceof ApiError &&
         err.status === 401 &&
-        err.message === "public_password_required"
+        err.message === PUBLIC_PASSWORD_REQUIRED
       ) {
         setState("password");
         return;
