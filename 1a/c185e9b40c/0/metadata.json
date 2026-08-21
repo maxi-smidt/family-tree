@@ -1,0 +1,51 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "1ac185e9b40c",
+  "session_id": "0609491b-9746-4e79-baab-fb2b5c27c666",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T20:07:01.564085399Z",
+  "branch": "fix/871-backup-staged-document-uploads",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/backup_service.py",
+    "backend/tests/test_backup_service.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "6d7b3762c3eb",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 96,
+    "cache_creation_tokens": 67138,
+    "cache_read_tokens": 3377781,
+    "output_tokens": 12883,
+    "api_call_count": 48
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T20:07:01.543172084Z",
+    "agent_lines": 76,
+    "agent_removed": 4,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 76,
+    "total_lines_changed": 80,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

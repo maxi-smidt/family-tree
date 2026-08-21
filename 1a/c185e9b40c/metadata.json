@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "1ac185e9b40c",
+  "strategy": "manual-commit",
+  "branch": "fix/871-backup-staged-document-uploads",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/backup_service.py",
+    "backend/tests/test_backup_service.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/1a/c185e9b40c/0/metadata.json",
+      "transcript": "/1a/c185e9b40c/0/full.jsonl",
+      "compact_transcript": "/1a/c185e9b40c/0/transcript.jsonl",
+      "content_hash": "/1a/c185e9b40c/0/content_hash.txt",
+      "prompt": "/1a/c185e9b40c/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 96,
+    "cache_creation_tokens": 67138,
+    "cache_read_tokens": 3377781,
+    "output_tokens": 12883,
+    "api_call_count": 48
+  }
+}
