@@ -1,8 +1,8 @@
 name: Publish Images
 
 # Reusable: build, Trivy-scan, and (optionally) push the backend/frontend
-# images. Called by check-build.yml on push/tag, and (once #904 lands) by
-# release.yml with the version it just tagged.
+# images. Called by check-build.yml on push/tag, and by release.yml once its
+# release PR has merged, with the version about to be tagged.
 
 on:
   workflow_call:
