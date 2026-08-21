@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "b8bbbce816be",
+  "strategy": "manual-commit",
+  "branch": "fix/888-schema-import-cycle",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/members.py",
+    "backend/app/schemas/family.py",
+    "backend/app/schemas/tree.py",
+    "backend/tests/test_schema_imports.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b8/bbbce816be/0/metadata.json",
+      "transcript": "/b8/bbbce816be/0/full.jsonl",
+      "compact_transcript": "/b8/bbbce816be/0/transcript.jsonl",
+      "content_hash": "/b8/bbbce816be/0/content_hash.txt",
+      "prompt": "/b8/bbbce816be/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 72,
+    "cache_creation_tokens": 52587,
+    "cache_read_tokens": 4661571,
+    "output_tokens": 17193,
+    "api_call_count": 36
+  }
+}

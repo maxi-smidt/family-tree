@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "b8bbbce816be",
+  "session_id": "0d31f723-811b-4b7e-810e-e4656d38fed2",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T22:23:41.00564518Z",
+  "branch": "fix/888-schema-import-cycle",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/schemas/family.py",
+    "backend/app/schemas/tree.py",
+    "backend/app/api/routes/members.py",
+    "backend/tests/test_schema_imports.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "4a8589b72be4",
+  "checkpoint_transcript_start": 225,
+  "transcript_lines_at_start": 225,
+  "compact_transcript_start": 42,
+  "token_usage": {
+    "input_tokens": 72,
+    "cache_creation_tokens": 52587,
+    "cache_read_tokens": 4661571,
+    "output_tokens": 17193,
+    "api_call_count": 36
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T22:23:40.963186128Z",
+    "agent_lines": 46,
+    "agent_removed": 16,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 46,
+    "total_lines_changed": 62,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
