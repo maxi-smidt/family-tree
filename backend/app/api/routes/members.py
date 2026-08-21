@@ -41,7 +41,6 @@ from app.schemas.family import (
     MemberOut,
     MemberPositionUpdate,
     MemberSubtreeCreate,
-    MemberSubtreeOut,
     MemberSurfaceOut,
     MemberUpdate,
     NeighborhoodOut,
@@ -55,7 +54,7 @@ from app.schemas.merge import (
     MemberMergePreviewOut,
     MemberMergeRequest,
 )
-from app.schemas.tree import TreeOut
+from app.schemas.tree import MemberSubtreeOut, TreeOut
 from app.services.activity import (
     disease_delete_snapshot,
     member_delete_snapshot,
