@@ -342,9 +342,18 @@ def _swap_media(media_root: Path, staging: Path, rollback: Path) -> None:
     _rename_dir(staging, media_root)
 
 
-def _revert_media_swap(media_root: Path, rollback: Path) -> None:
-    """Undo ``_swap_media``, regardless of how far it got."""
-    if media_root.exists():
+def _revert_media_swap(media_root: Path, staging: Path, rollback: Path) -> None:
+    """Undo ``_swap_media``, regardless of how far it got.
+
+    ``media_root`` existing is not on its own proof that the swap installed
+    new content there — if the crash happened before the second rename, it
+    still holds the untouched original and must not be deleted. The second
+    rename (``staging`` -> ``media_root``) is what actually replaces the
+    content, so ``staging`` having already been consumed (no longer exists)
+    is the only reliable signal that ``media_root`` now holds the staged
+    data rather than the original.
+    """
+    if not staging.exists() and media_root.exists():
         shutil.rmtree(media_root, ignore_errors=True)
     if rollback.exists():
         _rename_dir(rollback, media_root)
@@ -455,7 +464,7 @@ def restore_bundle(
     except Exception:
         db.rollback()
         if journal_written:
-            _revert_media_swap(target_media, rollback)
+            _revert_media_swap(target_media, staging, rollback)
             _delete_journal(journal_path)
         shutil.rmtree(staging, ignore_errors=True)
         raise
@@ -478,8 +487,21 @@ def reconcile_interrupted_restore(db: Session, media_root: Path | None = None) -
     """
     target_media = media_root or settings.media_root
     journal_path = _journal_path(target_media)
-    journal = _read_journal(journal_path)
-    if journal is not None:
+
+    if journal_path.is_file():
+        journal = _read_journal(journal_path)
+        if journal is None:
+            # Corrupt/unreadable journal: we cannot tell what state the swap
+            # is in, so don't touch anything — in particular, don't let the
+            # sweep below guess and delete a rollback directory that may hold
+            # the only surviving copy of the pre-restore media.
+            logger.error(
+                "Restore journal at %s exists but could not be read; leaving "
+                "all restore-* directories in place for manual recovery.",
+                journal_path,
+            )
+            return
+
         restore_id = journal["id"]
         staging = Path(journal["staging"])
         rollback = Path(journal["rollback"])
@@ -491,7 +513,7 @@ def reconcile_interrupted_restore(db: Session, media_root: Path | None = None) -
                 "rolling media back to the pre-restore state.",
                 restore_id,
             )
-            _revert_media_swap(target_media, rollback)
+            _revert_media_swap(target_media, staging, rollback)
         else:
             logger.warning(
                 "Restore %s had committed before the interruption; finishing cleanup.",

@@ -445,3 +445,70 @@ def test_reconcile_sweeps_orphaned_staging_dir_with_no_journal(db, tmp_path, mon
 
     assert (media_root / "keep.jpg").is_file()
     assert not orphan.exists()
+
+
+def test_reconcile_preserves_original_media_when_swap_never_started(
+    db, tmp_path, monkeypatch
+):
+    """A journal written just before the swap, but a crash before either
+    rename runs, must not delete the still-original media root."""
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+
+    tree_media = media_root / "tree-1"
+    tree_media.mkdir(parents=True)
+    (tree_media / "old.jpg").write_bytes(b"old-bytes")
+
+    restore_id = "restore-1"
+    staging = media_root.with_name(f"{media_root.name}.restore-stage-{restore_id}")
+    (staging / "tree-1").mkdir(parents=True)
+    (staging / "tree-1" / "new.jpg").write_bytes(b"new-bytes")
+    rollback = media_root.with_name(f"{media_root.name}.restore-rollback-{restore_id}")
+    journal_path = backup_service._journal_path(media_root)
+
+    backup_service._write_journal(
+        journal_path,
+        {
+            "id": restore_id,
+            "media_root": str(media_root),
+            "staging": str(staging),
+            "rollback": str(rollback),
+            "created_at": "now",
+        },
+    )
+    # No _swap_media call and no RestoreMarker: simulates a crash between
+    # writing the journal and the first rename ever running.
+
+    backup_service.reconcile_interrupted_restore(db, media_root=media_root)
+
+    assert (tree_media / "old.jpg").read_bytes() == b"old-bytes"
+    assert not journal_path.is_file()
+    assert not staging.exists()
+    assert not rollback.exists()
+
+
+def test_reconcile_leaves_directories_alone_on_unreadable_journal(
+    db, tmp_path, monkeypatch
+):
+    """A corrupt journal must not lead to guessing and sweeping away the
+    rollback directory, which may be the only surviving copy of the original
+    media."""
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+
+    restore_id = "restore-1"
+    staging = media_root.with_name(f"{media_root.name}.restore-stage-{restore_id}")
+    staging.mkdir(parents=True)
+    (staging / "new.jpg").write_bytes(b"new-bytes")
+    rollback = media_root.with_name(f"{media_root.name}.restore-rollback-{restore_id}")
+    rollback.mkdir(parents=True)
+    (rollback / "old.jpg").write_bytes(b"only-surviving-copy")
+
+    journal_path = backup_service._journal_path(media_root)
+    journal_path.write_text("{not valid json")
+
+    backup_service.reconcile_interrupted_restore(db, media_root=media_root)
+
+    assert journal_path.is_file()
+    assert (staging / "new.jpg").read_bytes() == b"new-bytes"
+    assert (rollback / "old.jpg").read_bytes() == b"only-surviving-copy"
