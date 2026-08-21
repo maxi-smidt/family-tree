@@ -20,11 +20,16 @@ from __future__ import annotations
 from collections import deque
 from uuid import uuid4
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import role_for
+from app.core.exceptions import (
+    AccessDeniedError,
+    ConflictError,
+    InvalidInputError,
+    NotFoundError,
+)
 from app.db.base import utcnow_iso
 from app.models import (
     Document,
@@ -68,7 +73,7 @@ IdMap = dict[str, str]
 def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
     tree = db.get(Tree, tree_id)
     if tree is None or role_for(db, tree, user) is None:
-        raise HTTPException(status_code=404, detail="Source tree not found")
+        raise NotFoundError("Source tree not found")
     return tree
 
 
@@ -220,7 +225,7 @@ def _collect_member_ids(
         select(Member).where(Member.tree_id == tree_id, Member.id == root_id)
     )
     if root is None:
-        raise HTTPException(status_code=404, detail="Root member not found in tree")
+        raise NotFoundError("Root member not found in tree")
 
     if direction == "partnership":
         return _collect_partnership_ids(db, tree_id, root_id)
@@ -242,12 +247,11 @@ def validate_move_request(
     # already one of the valid choices — no runtime check needed.
     # Extraction creates a tree-in-tree link; gate exactly like member subtrees.
     if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
+        raise NotFoundError("Not found")
     tree = _require_readable(db, user, req.source_tree_id)
     if tree.owner_id != user.id:
-        raise HTTPException(
-            status_code=403,
-            detail="Only the tree owner can extract a branch into a new tree",
+        raise AccessDeniedError(
+            "Only the tree owner can extract a branch into a new tree"
         )
     root = db.scalar(
         select(Member).where(
@@ -255,11 +259,9 @@ def validate_move_request(
         )
     )
     if root is None:
-        raise HTTPException(status_code=404, detail="Root member not found in tree")
+        raise NotFoundError("Root member not found in tree")
     if root.linked_tree_id is not None:
-        raise HTTPException(
-            status_code=409, detail="Member is already linked to a tree"
-        )
+        raise ConflictError("Member is already linked to a tree")
     return tree, root
 
 
@@ -648,9 +650,8 @@ def extract_subtree(
     member_ids = _collect_member_ids(db, tree.id, root.id, req.direction)
     moved = member_ids - {root.id}
     if not moved:
-        raise HTTPException(
-            status_code=400,
-            detail="Nothing to move: the selection contains only the root member",
+        raise InvalidInputError(
+            "Nothing to move: the selection contains only the root member"
         )
     _progress(10)
 

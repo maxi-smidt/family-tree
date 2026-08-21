@@ -271,9 +271,12 @@ def save_document_route(
     and replaying the same request is a no-op (see
     ``app.services.document_service.save_document``).
     """
-    document = save_document(
-        db, tree=tree, user=user, document_id=document_id, payload=payload
-    )
+    try:
+        document = save_document(
+            db, tree=tree, user=user, document_id=document_id, payload=payload
+        )
+    except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
     return _document_out(db, document)
 
 

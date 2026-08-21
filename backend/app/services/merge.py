@@ -17,11 +17,11 @@ import re
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import role_for
+from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
 from app.models import (
     Document,
@@ -107,7 +107,7 @@ def member_name_key(m: Member) -> tuple:
 def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
     tree = db.get(Tree, tree_id)
     if tree is None or role_for(db, tree, user) is None:
-        raise HTTPException(status_code=404, detail="Source tree not found")
+        raise NotFoundError("Source tree not found")
     return tree
 
 

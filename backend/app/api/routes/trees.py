@@ -15,6 +15,7 @@ from app.api.deps import (
     get_writable_tree,
     role_for,
 )
+from app.core.exceptions import NotFoundError
 from app.core.rate_limit import public_unlock_rate_limiter
 from app.core.security import (
     create_public_tree_token,
@@ -201,7 +202,7 @@ def _do_merge(
     try:
         user = db.get(User, user_id)
         if user is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise NotFoundError("User not found")
         tree = merge_trees(db, user, name, source_a, source_b, resolutions, progress_cb)
         return tree.id
     except Exception:
@@ -247,7 +248,7 @@ def _do_extract(
     try:
         user = db.get(User, user_id)
         if user is None:
-            raise HTTPException(status_code=404, detail="User not found")
+            raise NotFoundError("User not found")
         tree = extract_subtree(db, user, payload, progress_cb)
         return tree.id
     except Exception:
