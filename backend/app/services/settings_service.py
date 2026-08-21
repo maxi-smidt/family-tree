@@ -144,10 +144,16 @@ def ensure_defaults(db: Session) -> None:
             db.add(AppSetting(key=key, value=value))
             changed = True
     if changed:
-        db.commit()
+        # ``Session.get()`` (used throughout this module) does not autoflush,
+        # so the freshly seeded rows must be flushed before the snapshot
+        # below can see them via get_setting().
+        db.flush()
     # Snapshot whatever legal text now exists (freshly seeded or already
-    # there from a prior boot) so v1 is always immutably recorded.
-    snapshot_current_legal_versions(db)
+    # there from a prior boot) so v1 is always immutably recorded, in the
+    # same transaction as the seeded defaults.
+    created = snapshot_current_legal_versions(db)
+    if changed or created:
+        db.commit()
 
 
 def content_hash(body: str) -> str:
@@ -182,6 +188,10 @@ def snapshot_current_legal_versions(db: Session) -> list[LegalDocumentVersion]:
     still creates a new row (the hash changed), so no edit is ever lost; an
     unchanged body re-saved under a bumped version is de-duplicated by hash
     (per locale).
+
+    Stages rows in the caller's current transaction — the caller remains
+    responsible for committing, so this can share a commit boundary with
+    whatever settings/version change it is snapshotting.
     """
     current_version = (
         get_setting(db, "legal_version", DEFAULT_LEGAL_VERSION) or DEFAULT_LEGAL_VERSION
@@ -213,8 +223,6 @@ def snapshot_current_legal_versions(db: Session) -> list[LegalDocumentVersion]:
             )
             db.add(row)
             created.append(row)
-    if created:
-        db.commit()
     return created
 
 
@@ -465,8 +473,10 @@ def update_settings(
             ),
             details={"changes": changed},
         )
-    db.commit()
     if legal_body_changed:
-        # Immutably snapshot the now-live text under the freshly bumped version.
+        # Immutably snapshot the now-live text under the freshly bumped
+        # version, in the same transaction as the settings/audit changes so
+        # a mid-way failure rolls back both together.
         snapshot_current_legal_versions(db)
+    db.commit()
     return result
