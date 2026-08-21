@@ -48,6 +48,7 @@ services:
       AUTHENTIK_AUTO_CREATE_USERS: ${AUTHENTIK_AUTO_CREATE_USERS:-true}
       AUTHENTIK_ADMIN_GROUP: ${AUTHENTIK_ADMIN_GROUP:-family-tree-admins}
       REDIS_URL: ${REDIS_URL:-} # optional external Redis; leave unset to disable
+      REDIS_REQUIRED: ${REDIS_REQUIRED:-false} # true = a Redis outage fails /health/ready (503) instead of degrading
       WORKERS: ${WORKERS:-1} # uvicorn worker processes; WORKERS > 1 requires REDIS_URL
     volumes:
       - ${DATA_PATH:-./data}:/data

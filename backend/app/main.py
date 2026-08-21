@@ -164,11 +164,13 @@ async def health_ready():
     }
 
     # --- redis check (only when configured) -----------------------------------
+    # Redis is optional: an outage degrades readiness rather than failing it,
+    # unless REDIS_REQUIRED opts into treating it as a hard dependency.
     if settings.redis_enabled:
         redis_ok = await ping_redis()
         body["redis"] = "ok" if redis_ok else "unavailable"
-        if not redis_ok:
-            body["status"] = "error"
+        if not redis_ok and body["status"] != "error":
+            body["status"] = "error" if settings.REDIS_REQUIRED else "degraded"
 
     if body["status"] == "error":
         return JSONResponse(status_code=503, content=body)
