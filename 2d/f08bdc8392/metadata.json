@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2df08bdc8392",
+  "strategy": "manual-commit",
+  "branch": "fix/879-share-dialog-mobile-width",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/view/database-management-view/dialog/ShareTreeDialog.test.tsx",
+    "frontend/src/components/view/database-management-view/dialog/ShareTreeDialog.tsx"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2d/f08bdc8392/0/metadata.json",
+      "transcript": "/2d/f08bdc8392/0/full.jsonl",
+      "compact_transcript": "/2d/f08bdc8392/0/transcript.jsonl",
+      "content_hash": "/2d/f08bdc8392/0/content_hash.txt",
+      "prompt": "/2d/f08bdc8392/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 90,
+    "cache_creation_tokens": 78695,
+    "cache_read_tokens": 3678586,
+    "output_tokens": 14720,
+    "api_call_count": 45
+  }
+}

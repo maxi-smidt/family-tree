@@ -1,0 +1,51 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2df08bdc8392",
+  "session_id": "698da72e-4623-4b1a-b83b-55985f9e7d81",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T21:46:47.195720405Z",
+  "branch": "fix/879-share-dialog-mobile-width",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/view/database-management-view/dialog/ShareTreeDialog.tsx",
+    "frontend/src/components/view/database-management-view/dialog/ShareTreeDialog.test.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "3107063f33f1",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 90,
+    "cache_creation_tokens": 78695,
+    "cache_read_tokens": 3678586,
+    "output_tokens": 14720,
+    "api_call_count": 45
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T21:46:47.170932863Z",
+    "agent_lines": 43,
+    "agent_removed": 5,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 43,
+    "total_lines_changed": 48,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
