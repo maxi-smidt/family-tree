@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "e26282175375",
+  "strategy": "manual-commit",
+  "branch": "fix/872-classify-semantic-401s",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/services/api.test.ts",
+    "frontend/src/services/api.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e2/6282175375/0/metadata.json",
+      "transcript": "/e2/6282175375/0/full.jsonl",
+      "compact_transcript": "/e2/6282175375/0/transcript.jsonl",
+      "content_hash": "/e2/6282175375/0/content_hash.txt",
+      "prompt": "/e2/6282175375/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 42,
+    "cache_creation_tokens": 18080,
+    "cache_read_tokens": 1751176,
+    "output_tokens": 9908,
+    "api_call_count": 21
+  }
+}
