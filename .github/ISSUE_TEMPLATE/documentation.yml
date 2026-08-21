@@ -1,13 +1,24 @@
 name: 📚 Documentation
 description: Report an issue with documentation or suggest documentation improvements
-title: "[Docs]: "
 labels: ["documentation"]
 body:
   - type: markdown
     attributes:
       value: |
+        **Title format:** `area: short imperative summary` — for example
+        `docs: document the manual release workflow`.
+        Lowercase after the colon, no trailing period, and keep it under
+        ~72 characters.
+
+        Please do **not** put a severity or priority in the title
+        (`[High]`, `[Medium]`, …) — maintainers apply `priority:*` labels
+        instead, so the title stays about *what* the issue is.
+
+  - type: markdown
+    attributes:
+      value: |
         Thanks for helping improve our documentation! Please provide details about the documentation issue or enhancement.
-        
+
         💡 **Tip for Copilot**: Specific file paths and clear descriptions help Copilot make accurate documentation updates.
 
   - type: textarea

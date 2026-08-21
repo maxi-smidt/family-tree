@@ -238,11 +238,15 @@ The `config.yml` file:
 
 ## Example Issue Title Formats
 
-Templates pre-fill titles with:
+Templates do not pre-fill titles. Each form opens with the title convention
+instead:
 
-- `[Bug]: ` for bug reports
-- `[Feature]: ` for feature requests
-- `[Docs]: ` for documentation
+- `area: short imperative summary` — e.g. `gallery: dismiss the upload panel
+once uploads finish`
+- Type is carried by the auto-applied label (`bug`, `enhancement`,
+  `documentation`), not by a `[Bug]:`-style prefix
+- Severity/priority never goes in the title; maintainers apply `priority:*`
+  labels
 
 This helps with:
 

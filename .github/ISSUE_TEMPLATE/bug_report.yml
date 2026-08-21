@@ -1,13 +1,24 @@
 name: 🐛 Bug Report
 description: Report a bug or unexpected behavior in the Family Tree application
-title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
+        **Title format:** `area: short imperative summary` — for example
+        `gallery: dismiss the upload panel once uploads finish`.
+        Lowercase after the colon, no trailing period, and keep it under
+        ~72 characters.
+
+        Please do **not** put a severity or priority in the title
+        (`[High]`, `[Medium]`, …) — maintainers apply `priority:*` labels
+        instead, so the title stays about *what* the issue is.
+
+  - type: markdown
+    attributes:
+      value: |
         Thanks for taking the time to report a bug! Please fill out the information below to help GitHub Copilot and maintainers understand and fix the issue.
-        
+
         💡 **Tip for Copilot**: The more specific you are about file paths, error messages, and expected behavior, the better Copilot can assist in fixing the issue.
 
   - type: textarea
@@ -34,7 +45,7 @@ body:
       value: |
         1. 
         2. 
-        3. 
+        3.
     validations:
       required: true
 
@@ -68,7 +79,7 @@ body:
       value: |
         - OS: 
         - App Version: 
-        - Database: 
+        - Database:
     validations:
       required: true
 
