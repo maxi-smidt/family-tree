@@ -109,6 +109,40 @@ describe("api — 401 classification", () => {
     expect(unauthorizedHandler).not.toHaveBeenCalled();
   });
 
+  it("routes a wrong public-tree password 401 (invalid_public_password) without invalidating the session", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: "invalid_public_password" }), {
+          status: 401,
+        }),
+      ),
+    ) as unknown as typeof fetch;
+
+    const error = await api
+      .post("/trees/public-tree-1/public/unlock", { password: "wrong" })
+      .catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
+  it("routes a wrong import-file password 401 (Password required) without invalidating the session", async () => {
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ detail: "Password required" }), {
+          status: 401,
+        }),
+      ),
+    ) as unknown as typeof fetch;
+
+    const error = await api
+      .postForm("/trees/import", new FormData())
+      .catch((err: unknown) => err);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(unauthorizedHandler).not.toHaveBeenCalled();
+  });
+
   it("invokes the unauthorized handler for a genuine invalid/expired token 401", async () => {
     globalThis.fetch = vi.fn(() =>
       Promise.resolve(

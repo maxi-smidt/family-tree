@@ -13,6 +13,15 @@ const TOKEN_KEY = "ft_token";
  *  public-password prompt instead of the global re-login handler. */
 export const PUBLIC_PASSWORD_REQUIRED = "public_password_required";
 
+/** 401 details that describe an application flow (a password prompt) rather
+ *  than an invalid/expired session — none of these should invalidate the
+ *  signed-in user's session or open the global re-login dialog. */
+const SEMANTIC_401_DETAILS = new Set([
+  PUBLIC_PASSWORD_REQUIRED,
+  "invalid_public_password",
+  "Password required",
+]);
+
 /** Hang ceiling for a staged file upload — bounds a stalled/dead connection,
  *  not the time a large-but-healthy transfer may take. */
 export const UPLOAD_STAGE_TIMEOUT_MS = 120_000;
@@ -132,10 +141,7 @@ async function request<T>(
     } catch {
       // non-JSON error body
     }
-    // Some 401s describe an application flow rather than an invalid session
-    // (e.g. a password-protected public tree) — only genuine credential
-    // failures should trigger the global re-login handler.
-    if (response.status === 401 && detail !== PUBLIC_PASSWORD_REQUIRED) {
+    if (response.status === 401 && !SEMANTIC_401_DETAILS.has(detail)) {
       unauthorizedHandler?.();
     }
     throw new ApiError(response.status, detail);
