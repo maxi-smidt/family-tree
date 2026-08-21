@@ -1,0 +1,56 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "7ad63688a6b2",
+  "session_id": "0dc5d726-8260-45ae-96a2-d5921daffcb9",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T20:54:35.41656516Z",
+  "branch": "fix/876-optional-redis-degraded",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/core/config.py",
+    "backend/app/main.py",
+    "backend/tests/test_redis.py",
+    ".env.example",
+    "docker-compose.yml",
+    "docker-compose.prod.yml",
+    "docs/OPERATIONS.md"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "1afe178a9a46",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 82,
+    "cache_creation_tokens": 60940,
+    "cache_read_tokens": 2584284,
+    "output_tokens": 13185,
+    "api_call_count": 41
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T20:54:35.398018104Z",
+    "agent_lines": 70,
+    "agent_removed": 7,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 70,
+    "total_lines_changed": 77,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

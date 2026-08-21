@@ -1,0 +1,32 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "7ad63688a6b2",
+  "strategy": "manual-commit",
+  "branch": "fix/876-optional-redis-degraded",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    "backend/app/core/config.py",
+    "backend/app/main.py",
+    "backend/tests/test_redis.py",
+    "docker-compose.prod.yml",
+    "docker-compose.yml",
+    "docs/OPERATIONS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7a/d63688a6b2/0/metadata.json",
+      "transcript": "/7a/d63688a6b2/0/full.jsonl",
+      "compact_transcript": "/7a/d63688a6b2/0/transcript.jsonl",
+      "content_hash": "/7a/d63688a6b2/0/content_hash.txt",
+      "prompt": "/7a/d63688a6b2/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 82,
+    "cache_creation_tokens": 60940,
+    "cache_read_tokens": 2584284,
+    "output_tokens": 13185,
+    "api_call_count": 41
+  }
+}
