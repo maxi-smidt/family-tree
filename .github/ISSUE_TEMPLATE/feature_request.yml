@@ -1,13 +1,24 @@
 name: ✨ Feature Request
 description: Suggest a new feature or enhancement for the Family Tree application
-title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
+        **Title format:** `area: short imperative summary` — for example
+        `export: print-ready genealogy charts and family books`.
+        Lowercase after the colon, no trailing period, and keep it under
+        ~72 characters.
+
+        Please do **not** put a severity or priority in the title
+        (`[High]`, `[Medium]`, …) — maintainers apply `priority:*` labels
+        instead, so the title stays about *what* the issue is.
+
+  - type: markdown
+    attributes:
+      value: |
         Thanks for suggesting a new feature! Please provide detailed information to help GitHub Copilot and maintainers understand and implement your idea.
-        
+
         💡 **Tip for Copilot**: Clear technical requirements, file paths, and UI mockups help Copilot generate accurate implementations.
 
   - type: textarea
@@ -108,7 +119,7 @@ body:
       value: |
         - [ ] 
         - [ ] 
-        - [ ] 
+        - [ ]
 
   - type: textarea
     id: alternatives

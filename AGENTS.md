@@ -81,6 +81,20 @@ Commits](https://www.conventionalcommits.org/) category (`feat`, `fix`, `perf`,
 its slash when there's no issue), and `short-description` is a few kebab-case
 words — e.g. `perf/123-faster-tree-layout` or `docs/update-branching` (no issue).
 
+## Issue titles
+
+Issues follow `area: short imperative summary` — e.g. `release: attest build
+provenance and publish an SBOM for GHCR images`, `trees: track last-opened tree
+per user instead of globally`. `area` is the domain or workstream the work sits
+in (`ci`, `release`, `security`, `backend`, `gedcom`, `gallery`, `trees`,
+`sharing`, `auth`, `documents`, `quality`, …), or `epic:` for a tracking issue
+that groups sub-issues. Lowercase after the colon, no trailing period, under
+~72 characters.
+
+**Type and severity live in labels, not in the title** — `bug`, `enhancement`,
+`refactor`, `epic`, plus `priority:high|medium|low`. Don't write `[Bug]:` or
+`[Medium]` into a title.
+
 ## New features — always-on or admin-toggleable?
 
 Before building a user-facing feature, **decide whether it should be gated by an
