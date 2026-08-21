@@ -6,7 +6,7 @@ so that table creation / migrations see the full schema.
 
 from app.models.activity import ActivityLog
 from app.models.admin_audit import AdminAuditLog
-from app.models.backup import BackupRecord
+from app.models.backup import BackupRecord, RestoreMarker
 from app.models.content import (
     Document,
     DocumentFile,
@@ -77,6 +77,7 @@ __all__ = [
     "AppSetting",
     "FeatureFlagOverride",
     "BackupRecord",
+    "RestoreMarker",
     "LegalAcceptance",
     "LegalDocumentVersion",
     "QualityIssueDismissal",

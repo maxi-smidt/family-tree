@@ -71,6 +71,20 @@ After the command reports completion, start the stack and verify that users can
 sign in and media loads. Do not use the regular in-app backup file as a way to
 merge data into an existing instance.
 
+**Atomicity**: a `--replace` restore swaps the database and the media
+directory together. Media is staged and hash-verified next to
+`${DATA_PATH}/media` first; the old media directory is only renamed aside
+(not deleted) once the restored rows have been validated in an uncommitted
+transaction, and it is kept until that transaction — including a small
+internal marker row — commits. If the process is interrupted at any point
+after the swap starts, the next `docker compose up` reconciles it
+automatically on startup: it either finishes installing the restored media
+(if the database commit had already landed) or rolls the media directory back
+to what it was before the restore (if it hadn't), so you never end up with a
+database and media directory from two different restores. This shows up as a
+`Reconciling interrupted restore ...` warning in the backend logs; no manual
+cleanup is needed.
+
 ### Online backup (no downtime)
 
 Dump the database from your Postgres instance and archive the media directory.
