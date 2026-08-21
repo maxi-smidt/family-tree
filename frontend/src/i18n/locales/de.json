@@ -1608,7 +1608,10 @@
       "relogin-cancel": "Abmelden",
       "relogin-error": "Anmeldung fehlgeschlagen. Bitte versuche es erneut.",
       "invalidated-deactivated": "Ihr Konto wurde deaktiviert. Sie wurden abgemeldet.",
-      "invalidated-pending-deletion": "Ihr Konto wird gelöscht. Sie wurden abgemeldet."
+      "invalidated-pending-deletion": "Ihr Konto wird gelöscht. Sie wurden abgemeldet.",
+      "unreachable-title": "Server nicht erreichbar",
+      "unreachable-description": "Ihre Sitzung konnte nicht überprüft werden. Ihre Anmeldung bleibt gespeichert – prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+      "unreachable-retry": "Erneut versuchen"
     },
     "login": {
       "title": "Stammbaum",

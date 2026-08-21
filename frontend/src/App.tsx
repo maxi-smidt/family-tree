@@ -15,6 +15,7 @@ import { UserSettingsView } from "@/components/settings/UserSettingsView";
 import { ErrorBoundary } from "@/components/layout/ErrorBoundary";
 import { UnsavedChangesGuard } from "@/components/layout/UnsavedChangesGuard";
 import { LoginPage } from "@/components/auth/LoginPage";
+import { AuthUnreachableScreen } from "@/components/auth/AuthUnreachableScreen";
 import { PublicTreeViewer } from "@/components/public/PublicTreeViewer";
 import { ReloginDialog } from "@/components/auth/ReloginDialog";
 import { Spinner } from "@/components/ui/spinner";
@@ -123,6 +124,10 @@ export const App = () => {
           <Spinner className="size-8" />
         </div>
       );
+    }
+
+    if (status === "unreachable") {
+      return <AuthUnreachableScreen />;
     }
 
     if (status === "unauthenticated") {

@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import {
+  ApiError,
   api,
   getAuthToken,
   onUnauthorized,
@@ -12,7 +13,8 @@ import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
 import { FeatureName } from "@/lib/features";
 import { decodeJwtExp } from "@/lib/utils";
 
-type AuthStatus = "loading" | "authenticated" | "unauthenticated";
+type AuthStatus =
+  "loading" | "authenticated" | "unauthenticated" | "unreachable";
 type AccountOperation =
   | "idle"
   | "setting-up-two-factor"
@@ -45,6 +47,8 @@ interface AuthState {
   /** Last account-management operation failure, cleared when a new one begins. */
   accountError: string | null;
   init: () => Promise<void>;
+  /** Re-runs the /auth/me check after a transient (network/5xx) failure. */
+  retryAuthCheck: () => Promise<void>;
   refreshConfig: () => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
   verifyTotp: (code: string) => Promise<void>;
@@ -81,6 +85,10 @@ interface AuthState {
   acceptPendingInvite: () => Promise<string | null>;
 }
 
+// Bounds the startup /auth/config and /auth/me requests so a stalled
+// connection reaches the "unreachable" retry state instead of hanging on
+// the loading spinner forever.
+const AUTH_CHECK_TIMEOUT_MS = 10_000;
 const SESSION_WARNING_MS = 60 * 60 * 1000;
 const SESSION_REFRESH_AHEAD_MS = 5 * 60 * 1000;
 const SESSION_REFRESH_RETRY_MS = 60 * 1000;
@@ -133,6 +141,38 @@ function startSessionMaintenance() {
     refresh,
     Math.max(0, millisecondsUntilExpiry - SESSION_REFRESH_AHEAD_MS),
   );
+}
+
+// Only a 401 (a definitive credential rejection) clears the token; network
+// errors, timeouts, and 5xx responses are transient and leave it in place.
+async function checkAuthSession(): Promise<void> {
+  try {
+    const user = await api.get<User>(
+      "/auth/me",
+      undefined,
+      AUTH_CHECK_TIMEOUT_MS,
+    );
+    useAuthStore.setState({
+      user,
+      features: user.features ?? [],
+      status: "authenticated",
+      reloginRequired: false,
+      sessionExpiringSoon: false,
+      sessionRefreshFailed: false,
+    });
+    startSessionMaintenance();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      setAuthToken(null);
+      useAuthStore.setState({
+        user: null,
+        features: [],
+        status: "unauthenticated",
+      });
+      return;
+    }
+    useAuthStore.setState({ status: "unreachable" });
+  }
 }
 
 function applyToken(res: TokenResponse) {
@@ -188,28 +228,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     try {
-      const config = await api.get<AuthConfig>("/auth/config");
+      const config = await api.get<AuthConfig>(
+        "/auth/config",
+        undefined,
+        AUTH_CHECK_TIMEOUT_MS,
+      );
       set({ config });
     } catch {
       // backend unreachable; keep going so the login screen can still render
     }
 
-    try {
-      const user = await api.get<User>("/auth/me");
-      set({
-        user,
-        features: user.features ?? [],
-        status: "authenticated",
-        reloginRequired: false,
-        sessionExpiringSoon: false,
-        sessionRefreshFailed: false,
-      });
-      startSessionMaintenance();
-    } catch {
-      setAuthToken(null);
-      set({ user: null, features: [], status: "unauthenticated" });
-    }
+    await checkAuthSession();
   },
+
+  retryAuthCheck: () => checkAuthSession(),
 
   login: async (username: string, password: string) => {
     const res = await api.post<LoginResponse>("/auth/login", {
