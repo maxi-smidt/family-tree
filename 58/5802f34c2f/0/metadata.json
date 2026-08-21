@@ -1,0 +1,52 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "585802f34c2f",
+  "session_id": "2fbc3991-8382-4100-8d2c-03f400b7c17f",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T20:33:55.956393776Z",
+  "branch": "fix/872-classify-semantic-401s",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/services/api.ts",
+    "frontend/src/components/public/PublicTreeViewer.tsx",
+    "frontend/src/services/api.test.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "ce2136715c38",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 64,
+    "cache_creation_tokens": 45732,
+    "cache_read_tokens": 1844088,
+    "output_tokens": 10203,
+    "api_call_count": 32
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T20:33:55.941425786Z",
+    "agent_lines": 60,
+    "agent_removed": 7,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 60,
+    "total_lines_changed": 67,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

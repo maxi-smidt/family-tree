@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "585802f34c2f",
+  "strategy": "manual-commit",
+  "branch": "fix/872-classify-semantic-401s",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/public/PublicTreeViewer.tsx",
+    "frontend/src/services/api.test.ts",
+    "frontend/src/services/api.ts"
+  ],
+  "sessions": [
+    {
+      "metadata": "/58/5802f34c2f/0/metadata.json",
+      "transcript": "/58/5802f34c2f/0/full.jsonl",
+      "compact_transcript": "/58/5802f34c2f/0/transcript.jsonl",
+      "content_hash": "/58/5802f34c2f/0/content_hash.txt",
+      "prompt": "/58/5802f34c2f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 64,
+    "cache_creation_tokens": 45732,
+    "cache_read_tokens": 1844088,
+    "output_tokens": 10203,
+    "api_call_count": 32
+  }
+}
