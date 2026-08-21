@@ -1,37 +1,18 @@
-name: E2E
+name: Release E2E
+
+# Reusable: builds the full compose stack and runs the Playwright suite
+# against it. Called by check-build.yml before a tag publishes images, and
+# (once #904 lands) by release.yml on the commit it just tagged.
 
 on:
-  pull_request:
-    branches:
-      - main
-    # Skip the (expensive) full-stack run for changes that can't affect it,
-    # e.g. docs-only PRs. Safe to gate at the workflow level because E2E is
-    # not a required check.
-    paths:
-      - "frontend/**"
-      - "backend/**"
-      - "e2e/**"
-      - "docker-compose.e2e.yml"
-      - ".github/workflows/e2e.yml"
-      - ".github/workflows/check-build.yml"
-      - ".github/workflows/release-e2e.yml"
-  workflow_dispatch:
-
-# Day-to-day PRs run E2E alongside CI when app/test-stack files change. Release
-# tags are gated inside check-build.yml so images are not published unless the
-# same Playwright suite passes.
+  workflow_call: {}
 
 permissions:
   contents: read
 
-# A new push to a PR cancels the previous, still-running E2E build.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   e2e:
-    name: "Playwright E2E"
+    name: "Release Playwright E2E"
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -97,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: playwright-report
+          name: release-playwright-report
           path: e2e/playwright-report/
           retention-days: 14
 
@@ -105,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v7
         if: failure()
         with:
-          name: playwright-traces
+          name: release-playwright-traces
           path: e2e/test-results/
           retention-days: 7
 
