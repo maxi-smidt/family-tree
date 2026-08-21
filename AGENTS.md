@@ -109,15 +109,22 @@ intentionally not flaggable. The four-step recipe is at the top of
 `feature_service.py`. **If it's unclear which way to go, ask the requester** — it
 is hard to reverse once the UI and data model assume one.
 
-## Changelog entries
+## PR titles & changelog
 
-User-facing changes — features, bug fixes, notable behaviour/security changes —
-**must add a [`CHANGELOG.md`](CHANGELOG.md) entry** in the same PR, under a top
-`## [Unreleased]` heading (create it if missing), using the file's existing
-[Keep a Changelog](https://keepachangelog.com/) groups (`Added` / `Changed` /
-`Fixed` / `Security`); the release bump promotes it to the new `vX.Y.Z` section.
-Internal-only work users never see — refactors, tests, tooling, CI, docs — is
-exempt.
+PRs are squash-merged, so **the PR title becomes a commit subject on `main` —
+and release notes are generated from that history**, not hand-written. There is
+no manual `CHANGELOG.md` entry to add.
+
+PR titles **must be a [Conventional Commit](https://www.conventionalcommits.org/)
+subject** — `type(scope): summary`, e.g. `feat(gallery): add face-tag search`
+or `fix(sharing): revoke access for open sessions`; a CI lint job
+([`amannn/action-semantic-pull-request`](.github/workflows/pr-title-lint.yml))
+rejects PRs whose title doesn't parse. [`cliff.toml`](cliff.toml) maps types to
+[Keep a Changelog](https://keepachangelog.com/) groups when a release is cut:
+`feat` → Added, `fix` → Fixed, `perf`/`refactor` → Changed, `security` →
+Security. `chore`, `typing`, `test`, `docs`, `ci`, `build`, and `style` are
+internal-only and excluded from generated notes — pick one of those types for
+work users never see instead of `feat`/`fix`.
 
 ## Golden rules — CI enforces these; a PR fails without them
 
@@ -210,4 +217,5 @@ uv run alembic upgrade head
 - [ ] `uv run ruff check` + `uv run pytest` pass (backend)
 - [ ] `npm run check-i18n` passes; new strings translated in **all** locales
 - [ ] Schema changes have an Alembic migration
-- [ ] User-facing changes have a `CHANGELOG.md` entry under `## [Unreleased]`
+- [ ] PR title is a Conventional Commit subject (`type(scope): summary`) — it
+      becomes the changelog line for this change

@@ -1,0 +1,45 @@
+name: PR Title Lint
+
+# PRs are squash-merged, so the PR title becomes a commit subject on `main`
+# and, in turn, a changelog line (see cliff.toml / AGENTS.md "PR titles &
+# changelog"). Reject titles that don't parse as a Conventional Commit.
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - synchronize
+      - reopened
+    branches:
+      - main
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint-pr-title:
+    name: "Lint PR title"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "Check for a Conventional Commit subject"
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Kept in sync with the commit_parsers types in cliff.toml.
+          types: |
+            feat
+            fix
+            perf
+            refactor
+            security
+            chore
+            typing
+            test
+            docs
+            ci
+            build
+            style
+          requireScope: false
