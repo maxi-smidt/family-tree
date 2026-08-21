@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "b56c8e576683",
+  "strategy": "manual-commit",
+  "branch": "fix/875-prod-compose-backend-env",
+  "checkpoints_count": 1,
+  "files_touched": [
+    ".env.example",
+    ".github/workflows/checks.yml",
+    "docker-compose.prod.yml",
+    "docker-compose.yml"
+  ],
+  "sessions": [
+    {
+      "metadata": "/b5/6c8e576683/0/metadata.json",
+      "transcript": "/b5/6c8e576683/0/full.jsonl",
+      "compact_transcript": "/b5/6c8e576683/0/transcript.jsonl",
+      "content_hash": "/b5/6c8e576683/0/content_hash.txt",
+      "prompt": "/b5/6c8e576683/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 70,
+    "cache_creation_tokens": 62125,
+    "cache_read_tokens": 2364358,
+    "output_tokens": 18205,
+    "api_call_count": 36
+  }
+}
