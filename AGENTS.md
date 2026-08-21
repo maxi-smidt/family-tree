@@ -113,7 +113,8 @@ is hard to reverse once the UI and data model assume one.
 
 PRs are squash-merged, so **the PR title becomes a commit subject on `main` —
 and release notes are generated from that history**, not hand-written. There is
-no manual `CHANGELOG.md` entry to add.
+no changelog file to hand-edit; generated notes are published only to
+[GitHub Releases](https://github.com/maxi-smidt/family-tree/releases).
 
 PR titles **must be a [Conventional Commit](https://www.conventionalcommits.org/)
 subject** — `type(scope): summary`, e.g. `feat(gallery): add face-tag search`
