@@ -1,0 +1,56 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "8e59c8fa1c9d",
+  "session_id": "0dc5d726-8260-45ae-96a2-d5921daffcb9",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T21:03:26.14499184Z",
+  "branch": "fix/876-optional-redis-degraded",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/db/redis.py",
+    "backend/tests/test_redis.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "82de4a8d82ac",
+  "checkpoint_transcript_start": 238,
+  "transcript_lines_at_start": 238,
+  "compact_transcript_start": 47,
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 18352,
+    "cache_read_tokens": 1755475,
+    "output_tokens": 9142,
+    "api_call_count": 18
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T21:03:26.114935774Z",
+    "agent_lines": 45,
+    "agent_removed": 3,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 45,
+    "total_lines_changed": 48,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

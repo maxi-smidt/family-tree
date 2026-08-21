@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "8e59c8fa1c9d",
+  "strategy": "manual-commit",
+  "branch": "fix/876-optional-redis-degraded",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/db/redis.py",
+    "backend/tests/test_redis.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/8e/59c8fa1c9d/0/metadata.json",
+      "transcript": "/8e/59c8fa1c9d/0/full.jsonl",
+      "compact_transcript": "/8e/59c8fa1c9d/0/transcript.jsonl",
+      "content_hash": "/8e/59c8fa1c9d/0/content_hash.txt",
+      "prompt": "/8e/59c8fa1c9d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 36,
+    "cache_creation_tokens": 18352,
+    "cache_read_tokens": 1755475,
+    "output_tokens": 9142,
+    "api_call_count": 18
+  }
+}
