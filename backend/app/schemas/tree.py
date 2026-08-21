@@ -3,6 +3,8 @@ from __future__ import annotations
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.schemas.base import FamilyTreeBaseModel
+from app.schemas.family import MemberOut
+from app.schemas.merge import MergeResolution
 
 
 class TreeOut(BaseModel):
@@ -70,10 +72,6 @@ class TreeMerge(BaseModel):
     resolutions: list[MergeResolution] | None = None
 
 
-# Import here to avoid circular imports; MergeResolution is defined in merge.py
-from app.schemas.merge import MergeResolution  # noqa: E402
-
-
 class TreeMemberOut(BaseModel):
     """A user that has access to a tree, with their role."""
 
@@ -81,6 +79,15 @@ class TreeMemberOut(BaseModel):
     username: str
     role: str  # "owner", "editor" or "viewer"
     restrictions: list[str] = []
+
+
+class MemberSubtreeOut(FamilyTreeBaseModel):
+    """Result of creating a linked subtree: the new tree plus the updated
+    anchor member (whose linked_tree_id/linked_member_id now point at the
+    seeded counterpart)."""
+
+    tree: TreeOut
+    anchor: MemberOut
 
 
 class MemberRestrictionsUpdate(BaseModel):
