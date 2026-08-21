@@ -85,6 +85,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     with:
       push: true
       tag-latest: ${{ startsWith(github.ref, 'refs/tags/v') }}

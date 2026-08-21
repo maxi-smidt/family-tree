@@ -157,6 +157,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
 
   github-release:
     name: "Tag and create GitHub Release"
@@ -177,6 +179,12 @@ jobs:
         with:
           name: release-notes
 
+      - name: "Download SBOMs"
+        uses: actions/download-artifact@v7
+        with:
+          pattern: sbom-*
+          merge-multiple: true
+
       - name: "Create GitHub Release"
         env:
           GH_TOKEN: ${{ github.token }}
@@ -186,4 +194,5 @@ jobs:
             --title "v${{ needs.bump.outputs.version }}" \
             --notes-file RELEASE_NOTES.md \
             docker-compose.prod.yml \
-            .env.example
+            .env.example \
+            sbom-*.cdx.json

@@ -190,6 +190,37 @@ place data leaves the server.
 > password is lost. Server-key-encrypted exports can only be imported by the same
 > instance (same `SECRET_KEY`).
 
+## Container image provenance & SBOM
+
+Every image the [release workflow](../.github/workflows/release.yml) publishes
+to GHCR is signed with a keyless [SLSA build provenance
+attestation](https://slsa.dev/) (`actions/attest-build-provenance`, signed via
+the runner's GitHub OIDC identity — no key to leak or rotate) and ships with a
+CycloneDX SBOM, both attached to the image as OCI referrers and to the
+matching [GitHub Release](https://github.com/maxi-smidt/family-tree/releases)
+as downloadable assets.
+
+**Verify an image was built by this repository's workflow**, rather than
+pushed with a leaked `packages: write` token:
+
+```bash
+gh attestation verify oci://ghcr.io/maxi-smidt/family-tree-backend:1.8.0 \
+  --repo maxi-smidt/family-tree
+```
+
+Repeat for `family-tree-frontend`, and for any tag/digest you have pulled.
+
+**Re-scan a release's SBOM against current advisories** without rebuilding
+the image (download `sbom-backend.cdx.json` / `sbom-frontend.cdx.json` from
+the release's assets first):
+
+```bash
+trivy sbom sbom-backend.cdx.json
+```
+
+This is the point of keeping an SBOM: an advisory published after a release
+shipped can be checked against exactly what that release contained, offline.
+
 ## Reporting security issues
 
 If you discover a vulnerability, please **do not** open a public issue. Email the
