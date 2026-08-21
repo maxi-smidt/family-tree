@@ -1,0 +1,13 @@
+<task-notification>
+<task-id>bqqiwytjm</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>/tmp/claude-1000/-home-codex-projects-family-tree/e7fae60e-932b-423d-966a-e65a6082cc1b/tasks/bqqiwytjm.output</output-file>
+<status>completed</status>
+<summary>Background command "uv run pytest -q 2&gt;&amp;1 | tail -5" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+[P2] Concurrent first opens can fail with a primary-key violation. mark_tree_opened() performs a check-then-insert against (tree_id, user_id). Two tabs opening the same previously unopened tree can both observe no row and attempt the insert; one request then fails with a uniqueness error and returns 500. The virtual-view helper has the same race. Use a database upsert (ON CONFLICT DO UPDATE) or an equivalent concurrency-safe operation. tree_state.py:12
+
+[P2] Restoring older backups discards their existing recent ordering. Legacy normalization creates empty state tables, but it does not convert trees[*].last_opened and virtual_views[*].last_opened into owner-state rows. SQLAlchemy ignores those now-unmapped row keys during bulk insertion, so the timestamps silently disappear. Mirror the Alembic migration during legacy-bundle normalization and test restoration of a pre-migration backup containing timestamps. backup_service.py:258
