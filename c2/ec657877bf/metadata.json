@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "c2ec657877bf",
+  "strategy": "manual-commit",
+  "branch": "fix/889-atomic-settings-legal-snapshot",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/settings_service.py",
+    "backend/tests/test_legal.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/c2/ec657877bf/0/metadata.json",
+      "transcript": "/c2/ec657877bf/0/full.jsonl",
+      "compact_transcript": "/c2/ec657877bf/0/transcript.jsonl",
+      "content_hash": "/c2/ec657877bf/0/content_hash.txt",
+      "prompt": "/c2/ec657877bf/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 70,
+    "cache_creation_tokens": 73845,
+    "cache_read_tokens": 2472480,
+    "output_tokens": 16392,
+    "api_call_count": 35
+  }
+}
