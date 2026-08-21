@@ -15,11 +15,18 @@ its immutable version-history extension.
 
 from uuid import uuid4
 
-from app.models import LegalAcceptance, LegalDocumentVersion
+import pytest
+
+from app.models import AdminAuditLog, LegalAcceptance, LegalDocumentVersion
+from app.schemas.setting import SettingsUpdate
+from app.services import settings_service
 from app.services.settings_service import (
     content_hash,
     ensure_defaults,
+    get_setting,
+    legal_body_setting_key,
     snapshot_current_legal_versions,
+    update_settings,
 )
 from tests.conftest import API, auth, make_tree, make_user
 
@@ -338,6 +345,73 @@ def test_editing_a_document_creates_a_new_immutable_snapshot(client, db):
     assert rows[0].body != rows[1].body
     assert rows[1].body == "Updated terms text"
     assert rows[1].version == "1"
+
+
+# --- Atomic commit boundary (#889) ------------------------------------------
+
+
+def test_update_settings_rolls_back_everything_if_snapshot_fails(
+    db, session_factory, monkeypatch
+):
+    """A failure while snapshotting must not leave the version bump or the
+    audit entry committed — settings, version, audit and snapshot rise or
+    fall together."""
+    admin = make_user(db, "admin", is_admin=True)
+    ensure_defaults(db)
+    db.commit()
+
+    def boom(_db):
+        raise RuntimeError("simulated snapshot failure")
+
+    monkeypatch.setattr(settings_service, "snapshot_current_legal_versions", boom)
+
+    payload = SettingsUpdate(legal_terms_body_de="Text that must not survive")
+    with pytest.raises(RuntimeError):
+        update_settings(db, payload, actor=admin)
+    db.rollback()
+
+    fresh = session_factory()
+    try:
+        assert (
+            get_setting(fresh, legal_body_setting_key("terms", "de"), "")
+            != "Text that must not survive"
+        )
+        assert get_setting(fresh, "legal_version", None) == "0"
+        assert fresh.query(AdminAuditLog).count() == 0
+    finally:
+        fresh.close()
+
+
+def test_update_settings_rolls_back_snapshot_if_final_commit_fails(
+    db, session_factory, monkeypatch
+):
+    """A failure at the single commit boundary must roll back the snapshot
+    rows too, not just the settings — proving they share one transaction."""
+    admin = make_user(db, "admin", is_admin=True)
+    ensure_defaults(db)
+    db.commit()
+    versions_before = db.query(LegalDocumentVersion).count()
+
+    def boom():
+        raise RuntimeError("simulated commit failure")
+
+    monkeypatch.setattr(db, "commit", boom)
+
+    payload = SettingsUpdate(legal_terms_body_de="Text that must not survive either")
+    with pytest.raises(RuntimeError):
+        update_settings(db, payload, actor=admin)
+    db.rollback()
+
+    fresh = session_factory()
+    try:
+        assert (
+            get_setting(fresh, legal_body_setting_key("terms", "de"), "")
+            != "Text that must not survive either"
+        )
+        assert get_setting(fresh, "legal_version", None) == "0"
+        assert fresh.query(LegalDocumentVersion).count() == versions_before
+    finally:
+        fresh.close()
 
 
 def test_resaving_unchanged_text_does_not_bump_or_duplicate(client, db):
