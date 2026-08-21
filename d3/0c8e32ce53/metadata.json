@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "d30c8e32ce53",
+  "strategy": "manual-commit",
+  "branch": "fix/877-rename-viewer-error-handling",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/components/view/database-management-view/DatabaseManagementView.test.tsx",
+    "frontend/src/components/view/database-management-view/DatabaseManagementView.tsx",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d3/0c8e32ce53/0/metadata.json",
+      "transcript": "/d3/0c8e32ce53/0/full.jsonl",
+      "compact_transcript": "/d3/0c8e32ce53/0/transcript.jsonl",
+      "content_hash": "/d3/0c8e32ce53/0/content_hash.txt",
+      "prompt": "/d3/0c8e32ce53/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 106,
+    "cache_creation_tokens": 70610,
+    "cache_read_tokens": 3742445,
+    "output_tokens": 12714,
+    "api_call_count": 53
+  }
+}

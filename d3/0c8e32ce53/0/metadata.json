@@ -1,0 +1,53 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "d30c8e32ce53",
+  "session_id": "7557e182-9318-4683-aa93-cefaf4352297",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T19:01:41.814707448Z",
+  "branch": "fix/877-rename-viewer-error-handling",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/i18n/locales/en.json",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/components/view/database-management-view/DatabaseManagementView.tsx",
+    "frontend/src/components/view/database-management-view/DatabaseManagementView.test.tsx"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "8de812f6824a",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 106,
+    "cache_creation_tokens": 70610,
+    "cache_read_tokens": 3742445,
+    "output_tokens": 12714,
+    "api_call_count": 53
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T19:01:41.781265933Z",
+    "agent_lines": 128,
+    "agent_removed": 15,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 128,
+    "total_lines_changed": 143,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
