@@ -49,6 +49,7 @@ DOMAIN_SERVICE_MODULES = [
     "app.services.extract",
     "app.services.merge",
     "app.services.member_merge",
+    "app.services.storage_usage",
 ]
 
 
@@ -137,3 +138,24 @@ def test_domain_error_subclasses_share_the_base_handler():
     resp = client.get("/quota")
     assert resp.status_code == 413
     assert resp.json() == {"detail": "over quota"}
+
+
+def test_quota_exceeded_is_a_domain_error_mapped_by_the_shared_handler():
+    """storage_usage.QuotaExceeded is a DomainError (413) too, so routers no
+    longer hand-roll ``except QuotaExceeded: raise HTTPException(413, ...)``
+    — the shared handler covers it like every other domain exception."""
+    from app.services.storage_usage import QuotaExceeded
+
+    assert issubclass(QuotaExceeded, DomainError)
+
+    app = FastAPI()
+    install_domain_error_handler(app)
+
+    @app.get("/quota")
+    def raise_quota():
+        raise QuotaExceeded("tree", 100, 90, 120)
+
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.get("/quota")
+    assert resp.status_code == 413
+    assert resp.json() == {"detail": "quota_exceeded_tree"}

@@ -26,7 +26,7 @@ from app.schemas.content import (
 from app.services.activity import event_delete_snapshot, record_activity
 from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
-from app.services.storage_usage import QuotaExceeded, check_tree_quota
+from app.services.storage_usage import check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/events",
@@ -118,10 +118,7 @@ def create_event(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
-    try:
-        check_tree_quota(db, tree, len(str(data).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str(data).encode()))
     event = Event(tree_id=tree.id, **data)
     db.add(event)
     db.flush()  # event row must exist before its links reference it

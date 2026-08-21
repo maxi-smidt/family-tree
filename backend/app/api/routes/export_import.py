@@ -664,10 +664,10 @@ def _enforce_import_quota(db: Session, tree: Tree) -> None:
     db.flush()
     try:
         check_full_usage_quota(db, tree)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         db.rollback()
         delete_tree_media(tree_id)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
 
 def _remap(rows: list[dict]) -> dict[str, str]:

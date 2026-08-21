@@ -208,8 +208,8 @@ def save_document(
 
     # 1d. A create adds a metadata row; the attached bytes were already
     #     quota-checked when they were staged, so no media check is needed here.
-    # check_tree_quota raises storage_usage.QuotaExceeded, left to the caller
-    # (route) to map to its HTTP response.
+    # check_tree_quota raises storage_usage.QuotaExceeded (a DomainError),
+    # mapped to its HTTP response by the centralized handler.
     if is_create:
         check_tree_quota(db, tree, _estimated_document_bytes(payload))
 

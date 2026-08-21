@@ -13,6 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.exceptions import DomainError
 from app.core.media_config import (
     DEFAULT_MEDIA_QUOTA_MB,
     DEFAULT_TREE_QUOTA_MB,
@@ -282,8 +283,10 @@ def owner_quotas(db: Session, tree) -> OwnerQuotas:
 # Quota enforcement
 # ---------------------------------------------------------------------------
 
-class QuotaExceeded(ValueError):
+class QuotaExceeded(DomainError):
     """Raised when a write would push usage past a quota limit."""
+
+    status_code = 413
 
     def __init__(
         self,

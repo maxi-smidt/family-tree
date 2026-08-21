@@ -147,9 +147,9 @@ async def create_image(
     # compute_usage, so pass 0 to avoid double-counting it.
     try:
         check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         delete_media(new_image_url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     now = utcnow_iso()
     image_row = GalleryImage(
@@ -355,10 +355,7 @@ def create_unknown_face(
         f'Identify unknown person in "{image.title or image_id}"'
     )
     notes = payload.task_notes or None
-    try:
-        check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
 
     task = MemberTask(
         id=str(uuid4()),
