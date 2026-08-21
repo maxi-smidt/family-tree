@@ -18,10 +18,12 @@ from app.models import (
     Member,
     QualityIssueDismissal,
     TreeInvitation,
+    TreeUserState,
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
+    VirtualViewUserState,
 )
 from app.services import backup_service
 from app.services.crypto_export import decrypt_bundle, encrypt_bundle
@@ -259,6 +261,58 @@ def test_restore_backup_file_accepts_legacy_bundle_missing_document_uploads(
 
     assert db.scalar(select(func.count()).select_from(DocumentUpload)) == 0
     assert (tree_media / "photo.jpg").read_bytes() == b"photo-bytes"
+
+
+def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypatch):
+    """A pre-#878 backup still has ``last_opened`` inline on its ``trees`` /
+    ``virtual_views`` rows (dropped from those tables by the #878 migration)
+    and lacks ``tree_user_states`` / ``virtual_view_user_states`` entirely.
+
+    ``bulk_insert_mappings`` silently ignores unmapped dict keys, so without
+    recovering it first, restoring such a backup would drop that data. It
+    must land as an owner-attributed row in the new tables instead.
+    """
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    backup_path = tmp_path / "legacy.ftbackup"
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    view = VirtualView(name="Legacy View", owner_id=admin.id)
+    db.add(view)
+    db.commit()
+
+    tree_media = media_root / tree.id
+    tree_media.mkdir(parents=True)
+    (tree_media / "photo.jpg").write_bytes(b"photo-bytes")
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    # Simulate the pre-#878 row shape: last_opened still inline, and the new
+    # per-user state tables absent entirely (as if this build never had them).
+    bundle["tables"]["trees"][0]["last_opened"] = "2026-01-01T00:00:00+00:00"
+    bundle["tables"]["virtual_views"][0]["last_opened"] = "2026-02-02T00:00:00+00:00"
+    del bundle["tables"]["tree_user_states"]
+    del bundle["manifest"]["table_row_counts"]["tree_user_states"]
+    del bundle["tables"]["virtual_view_user_states"]
+    del bundle["manifest"]["table_row_counts"]["virtual_view_user_states"]
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    for model in reversed(backup_service.BACKUP_MODELS):
+        db.execute(delete(model))
+    db.commit()
+    shutil.rmtree(media_root, ignore_errors=True)
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=False, media_root=media_root
+    )
+
+    tree_state = db.get(TreeUserState, (tree.id, admin.id))
+    assert tree_state is not None
+    assert tree_state.last_opened == "2026-01-01T00:00:00+00:00"
+
+    view_state = db.get(VirtualViewUserState, (view.id, admin.id))
+    assert view_state is not None
+    assert view_state.last_opened == "2026-02-02T00:00:00+00:00"
 
 
 def test_backup_validation_rejects_changed_media(db, tmp_path, monkeypatch):

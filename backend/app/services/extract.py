@@ -59,6 +59,7 @@ from app.services.storage import (
     media_disk_usage,
     move_media_to_tree,
 )
+from app.services.tree_state import mark_tree_opened
 
 MemberIdSet = dict[str, set[str]]
 IdMap = dict[str, str]
@@ -658,10 +659,10 @@ def extract_subtree(
         name=req.name,
         owner_id=user.id,
         created_at=utcnow_iso(),
-        last_opened=utcnow_iso(),
     )
     db.add(new_tree)
     db.flush()
+    mark_tree_opened(db, new_tree.id, user.id)
 
     # --- Bridge person ---
     # The root stays in the source tree; a clone (photo copied, not moved)

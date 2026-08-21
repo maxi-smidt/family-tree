@@ -61,11 +61,41 @@ def test_list_trees_for_admin_excludes_unshared_user_trees(client, db):
 def test_get_tree_updates_last_opened(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
-    assert tree.last_opened is None  # helper leaves it unset
     res = client.get(f"{API}/trees/{tree.id}", headers=auth(user))
     assert res.status_code == 200
-    # Opening the tree stamps last_opened.
+    # Opening the tree stamps last_opened for the requesting user.
     assert res.json()["last_opened"] is not None
+
+
+def test_collaborator_opening_shared_tree_does_not_reorder_owners_list(client, db):
+    """#878: last-opened is per user, so one collaborator opening a shared
+    tree must not change another collaborator's — or the owner's — ordering
+    of their own recent-tree list."""
+    owner = make_user(db, "owner")
+    collaborator = make_user(db, "collaborator")
+    older = make_tree(db, owner, "Older")
+    newer = make_tree(db, owner, "Newer")
+    share(db, older, collaborator, "viewer")
+    share(db, newer, collaborator, "viewer")
+
+    # The owner opens "Older" last, so it should sort first for the owner.
+    assert client.get(f"{API}/trees/{newer.id}", headers=auth(owner)).status_code == 200
+    assert client.get(f"{API}/trees/{older.id}", headers=auth(owner)).status_code == 200
+
+    # The collaborator opens "Newer" afterwards — this is their own activity
+    # and must not affect the owner's ordering computed above.
+    assert (
+        client.get(f"{API}/trees/{newer.id}", headers=auth(collaborator)).status_code
+        == 200
+    )
+
+    owner_ids = [t["id"] for t in client.get(f"{API}/trees", headers=auth(owner)).json()]
+    assert owner_ids == [older.id, newer.id]
+
+    collaborator_ids = [
+        t["id"] for t in client.get(f"{API}/trees", headers=auth(collaborator)).json()
+    ]
+    assert collaborator_ids == [newer.id, older.id]
 
 
 def test_only_owner_can_delete_tree(client, db):

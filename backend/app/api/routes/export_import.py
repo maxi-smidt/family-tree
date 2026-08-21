@@ -77,6 +77,7 @@ from app.services.storage import (
     store_document,
 )
 from app.services.storage_usage import QuotaExceeded, check_full_usage_quota
+from app.services.tree_state import mark_tree_opened
 
 router = APIRouter(prefix="/trees", tags=["export"])
 
@@ -477,10 +478,10 @@ def _do_import(
             name=name or bundle.get("tree", {}).get("name") or "Imported tree",
             owner_id=user_id,
             created_at=utcnow_iso(),
-            last_opened=utcnow_iso(),
         )
         db.add(tree)
         db.flush()
+        mark_tree_opened(db, tree.id, user_id)
         tree_id = tree.id
         progress_cb(15)
 
@@ -828,10 +829,10 @@ def _do_import_gedcom(
             name=tree_name,
             owner_id=user_id,
             created_at=utcnow_iso(),
-            last_opened=utcnow_iso(),
         )
         db.add(tree)
         db.flush()
+        mark_tree_opened(db, tree.id, user_id)
         tree_id = tree.id
         progress_cb(15)
 

@@ -70,12 +70,24 @@ from app.services.merge import compute_merge_preview, merge_trees
 from app.services.storage import delete_tree_media
 from app.services.storage_usage import compute_owner_usage, owner_quotas
 from app.services.tree_links import reachable_linked_trees
+from app.services.tree_state import (
+    bulk_tree_last_opened,
+    mark_tree_opened,
+    tree_last_opened,
+)
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
 
+_UNSET = object()  # distinguishes "not computed yet" from an explicit None
+
+
 def _tree_out(
-    db: Session, tree: Tree, user: User | None, shared_count: int | None = None
+    db: Session,
+    tree: Tree,
+    user: User | None,
+    shared_count: int | None = None,
+    last_opened: object = _UNSET,
 ) -> TreeOut:
     out = TreeOut.model_validate(tree)
     out.role = role_for(db, tree, user) if user is not None else "viewer"
@@ -90,6 +102,9 @@ def _tree_out(
         membership = db.get(TreeMembership, (tree.id, user.id))
         out.restrictions = list(membership.restrictions or []) if membership else []
     out.public_password_protected = tree.public_password_hash is not None
+    if last_opened is _UNSET:
+        last_opened = tree_last_opened(db, tree.id, user.id) if user is not None else None
+    out.last_opened = last_opened  # type: ignore[assignment]
     return out
 
 
@@ -100,7 +115,10 @@ def list_trees(
 ):
     ids = explicit_tree_ids(db, user)
     trees = list(db.scalars(select(Tree).where(Tree.id.in_(ids))).all()) if ids else []
-    trees.sort(key=lambda t: (t.last_opened or "", t.created_at), reverse=True)
+    # Each user has their own last-opened stamp per tree (#878) — bulk-fetch it
+    # to avoid one query per tree.
+    last_opened = bulk_tree_last_opened(db, ids, user.id)
+    trees.sort(key=lambda t: (last_opened.get(t.id) or "", t.created_at), reverse=True)
     # Bulk-count memberships to avoid one query per tree.
     counts: dict[str, int] = (
         dict(
@@ -113,7 +131,10 @@ def list_trees(
         if ids
         else {}
     )
-    return [_tree_out(db, t, user, counts.get(t.id, 0)) for t in trees]
+    return [
+        _tree_out(db, t, user, counts.get(t.id, 0), last_opened.get(t.id))
+        for t in trees
+    ]
 
 
 @router.post("", response_model=TreeOut, status_code=201)
@@ -127,10 +148,10 @@ def create_tree(
         name=payload.name,
         owner_id=user.id,
         created_at=utcnow_iso(),
-        last_opened=utcnow_iso(),
     )
     db.add(tree)
     db.flush()
+    mark_tree_opened(db, tree.id, user.id)
     record_activity(
         db, tree_id=tree.id, actor=user, action="create",
         target_type="tree", target_id=tree.id, target_label=tree.name,
@@ -244,18 +265,22 @@ def get_tree(
 ):
     # Selecting a tree counts as "opening" it (only for authenticated users).
     if user is not None:
-        tree.last_opened = utcnow_iso()
+        mark_tree_opened(db, tree.id, user.id)
         db.commit()
     return _tree_out(db, tree, user)
 
 
 @router.get("/{tree_id}/metadata", response_model=TreeMetadataOut)
-def get_metadata(tree: Tree = Depends(get_readable_tree_public)) -> TreeMetadataOut:
+def get_metadata(
+    tree: Tree = Depends(get_readable_tree_public),
+    user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+) -> TreeMetadataOut:
     return TreeMetadataOut(
         id=tree.id,
         name=tree.name,
         created_at=tree.created_at,
-        last_opened=tree.last_opened,
+        last_opened=tree_last_opened(db, tree.id, user.id) if user is not None else None,
     )
 
 
