@@ -99,6 +99,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # No type=sha tag: nothing pulls a commit-pinned image (branch tags
+      # cover "current main", semver + latest cover releases), and it was
+      # the single biggest source of untagged/unreferenced clutter on the
+      # GHCR package pages (#909).
       - name: "Docker metadata"
         id: meta
         uses: docker/metadata-action@v6
@@ -109,7 +113,6 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}},value=v${{ steps.build-meta.outputs.version }}
             type=raw,value=latest,enable=${{ inputs.tag-latest }}
-            type=sha,format=short
 
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@v4
