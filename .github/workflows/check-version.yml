@@ -14,6 +14,7 @@ jobs:
     # spend a version number. Releases are cut from v* tags instead.
     name: "Check Version Bump"
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7

@@ -32,6 +32,7 @@ jobs:
   changes:
     name: "Detect changed areas"
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
@@ -58,6 +59,7 @@ jobs:
     needs: changes
     if: ${{ inputs.run-all || github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -95,6 +97,7 @@ jobs:
     needs: changes
     if: ${{ inputs.run-all || github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -127,6 +130,7 @@ jobs:
   version-policy:
     name: "Version metadata policy"
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
@@ -171,6 +175,7 @@ jobs:
     needs: [changes, frontend, backend, version-policy]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       frontend_result: ${{ needs.frontend.result }}
       passed: ${{ steps.gate.outputs.passed }}
