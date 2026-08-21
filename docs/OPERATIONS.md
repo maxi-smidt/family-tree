@@ -206,6 +206,9 @@ Published release images are preferred for production because a pinned
 > dispatches it, which also creates the matching
 > [GitHub Release](https://github.com/maxi-smidt/family-tree/releases) with
 > notes. If no release exists yet, build from source as described above.
+> Every published image carries a signed provenance attestation and an SBOM —
+> see [SECURITY.md](./SECURITY.md#container-image-provenance--sbom) to verify
+> one before deploying it.
 
 ### If a migration fails
 

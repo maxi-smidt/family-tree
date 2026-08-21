@@ -1,0 +1,28 @@
+# Release smoke test only — layers a throwaway Postgres onto
+# docker-compose.prod.yml so the release workflow can exercise the exact
+# published images end to end:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml up -d
+#
+# docker-compose.prod.yml deliberately has no Postgres of its own (self-hosters
+# bring their own); this file exists only to give the smoke test one.
+# All credentials here are throwaway values, safe for CI only.
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: familytree
+      POSTGRES_PASSWORD: familytree
+      POSTGRES_DB: familytree
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U familytree"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    tmpfs:
+      - /var/lib/postgresql/data # ephemeral: wiped on every compose down
+
+  backend:
+    depends_on:
+      db:
+        condition: service_healthy
