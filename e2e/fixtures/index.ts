@@ -60,16 +60,6 @@ export const test = base.extend<E2EFixtures>({
     // settling and hangs every `waitUntil: "networkidle"` navigation. Abort it so
     // those waits resolve; the realtime client is covered by unit tests, not E2E.
     await page.route("**/api/sse/events*", (route) => route.abort());
-    // E2E images always use the Dockerfile's default `dev` version. Treat it
-    // as already acknowledged so the release-notes modal cannot obscure
-    // unrelated UI scenarios; the modal itself is covered by frontend tests.
-    await page.route("**/api/users/me/preferences/whats-new", async (route) => {
-      if (route.request().method() === "GET") {
-        await route.fulfill({ json: { last_read_version: "dev" } });
-      } else {
-        await route.continue();
-      }
-    });
     await use(page);
   },
 
