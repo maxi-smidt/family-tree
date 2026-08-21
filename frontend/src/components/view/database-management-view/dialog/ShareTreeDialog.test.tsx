@@ -158,6 +158,27 @@ describe("ShareTreeDialog", () => {
     expect(screen.getByText(OTHER_USER.username)).toHaveClass("truncate");
   });
 
+  it("stacks the transfer-ownership controls on mobile instead of overflowing (#879)", async () => {
+    render(
+      <ShareTreeDialog
+        tree={TREE}
+        isOpen
+        onClose={vi.fn()}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
+
+    const transferSelect = await screen.findByRole("combobox", {
+      name: /Select a new owner/,
+    });
+
+    expect(transferSelect.closest("div.flex")).toHaveClass(
+      "flex-col",
+      "sm:flex-row",
+    );
+    expect(transferSelect).toHaveClass("w-full", "min-w-0");
+  });
+
   it("does not reload sharing data when the tree's public role changes while open", async () => {
     const load = vi.fn().mockResolvedValue(undefined);
     useTreeSharingStore.setState({ load });

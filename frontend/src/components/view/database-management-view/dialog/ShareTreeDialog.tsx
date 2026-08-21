@@ -1089,14 +1089,14 @@ export const ShareTreeDialog = ({
         <div className="space-y-2 border-t pt-4">
           <p className="text-sm font-medium">{t("transfer-title")}</p>
           <p className="text-xs text-muted-foreground">{t("transfer-hint")}</p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Select
               value={transferTo}
               onValueChange={setTransferTo}
               disabled={transferTargets.length === 0}
             >
               <SelectTrigger
-                className="flex-1"
+                className="w-full min-w-0 sm:w-auto sm:flex-1"
                 aria-label={t("transfer-select")}
               >
                 <SelectValue
@@ -1117,6 +1117,7 @@ export const ShareTreeDialog = ({
             </Select>
             <Button
               variant="outline"
+              className="w-full sm:w-auto"
               disabled={!transferTo}
               onClick={() => {
                 setConfirmTransferOpen(true);
