@@ -1,0 +1,64 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "230c6737c9fa",
+  "session_id": "0d31f723-811b-4b7e-810e-e4656d38fed2",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T23:00:02.830096411Z",
+  "branch": "fix/896-decouple-domain-services-from-http",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/storage_usage.py",
+    "backend/app/api/routes/tasks.py",
+    "backend/app/api/routes/events.py",
+    "backend/app/api/routes/stories.py",
+    "backend/app/api/routes/documents.py",
+    "backend/app/api/routes/gallery.py",
+    "backend/app/api/routes/export_import.py",
+    "backend/app/api/routes/members.py",
+    "backend/app/services/document_service.py",
+    "backend/tests/test_domain_exceptions.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "b944332dc2e8",
+  "checkpoint_transcript_start": 1182,
+  "transcript_lines_at_start": 1182,
+  "compact_transcript_start": 218,
+  "token_usage": {
+    "input_tokens": 132,
+    "cache_creation_tokens": 59514,
+    "cache_read_tokens": 22206604,
+    "output_tokens": 20275,
+    "api_call_count": 66
+  },
+  "session_metrics": {
+    "turn_count": 4
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T23:00:02.715242558Z",
+    "agent_lines": 55,
+    "agent_removed": 54,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 55,
+    "total_lines_changed": 109,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

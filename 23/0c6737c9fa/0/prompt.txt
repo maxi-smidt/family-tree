@@ -1,0 +1,2 @@
+why is this not a core exception? except QuotaExceeded as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
