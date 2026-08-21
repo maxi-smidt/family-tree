@@ -1,18 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TokenResponse, User } from "@/types/user";
+import { ApiError } from "@/services/api";
 
-const mocks = vi.hoisted(() => ({
-  token: null as string | null,
-  get: vi.fn(),
-  post: vi.fn(),
-  unauthorizedHandler: null as (() => void) | null,
-}));
+const mocks = vi.hoisted(() => {
+  class MockApiError extends Error {
+    status: number;
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  }
+  return {
+    token: null as string | null,
+    get: vi.fn(),
+    post: vi.fn(),
+    unauthorizedHandler: null as (() => void) | null,
+    ApiError: MockApiError,
+  };
+});
 
 vi.mock("@/services/api", () => ({
   api: {
     get: mocks.get,
     post: mocks.post,
   },
+  ApiError: mocks.ApiError,
   getAuthToken: () => mocks.token,
   setAuthToken: (token: string | null) => {
     mocks.token = token;
@@ -162,5 +174,84 @@ describe("useAuthStore account workflows", () => {
       status: "unauthenticated",
       user: null,
     });
+  });
+});
+
+describe("useAuthStore init", () => {
+  beforeEach(() => {
+    mocks.token = "current-token";
+    mocks.get.mockReset();
+    mocks.post.mockReset();
+    useAuthStore.setState({ status: "loading", user: null, features: [] });
+  });
+
+  afterEach(() => {
+    useAuthStore.getState().logout();
+  });
+
+  it("authenticates on a successful /auth/me check", async () => {
+    mocks.get.mockResolvedValue(USER);
+
+    await useAuthStore.getState().init();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      status: "authenticated",
+      user: USER,
+    });
+    expect(mocks.token).toBe("current-token");
+  });
+
+  it("clears the token and logs out on a definitive 401", async () => {
+    mocks.get.mockRejectedValue(new ApiError(401, "Invalid token"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBeNull();
+    expect(useAuthStore.getState()).toMatchObject({
+      status: "unauthenticated",
+      user: null,
+    });
+  });
+
+  it("retains the token and exposes a retryable state on a 500", async () => {
+    mocks.get.mockRejectedValue(new ApiError(500, "Internal error"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("unreachable");
+  });
+
+  it("retains the token and exposes a retryable state on a network error", async () => {
+    mocks.get.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("unreachable");
+  });
+
+  it("retains the token and exposes a retryable state on a timeout", async () => {
+    mocks.get.mockRejectedValue(new DOMException("Timeout", "AbortError"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("unreachable");
+  });
+
+  it("resumes the session on a successful retry after a transient failure", async () => {
+    mocks.get.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    await useAuthStore.getState().init();
+    expect(useAuthStore.getState().status).toBe("unreachable");
+
+    mocks.get.mockResolvedValueOnce(USER);
+    await useAuthStore.getState().retryAuthCheck();
+
+    expect(useAuthStore.getState()).toMatchObject({
+      status: "authenticated",
+      user: USER,
+    });
+    expect(mocks.token).toBe("current-token");
   });
 });
