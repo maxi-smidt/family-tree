@@ -8,9 +8,15 @@ When ``REDIS_URL`` is unset every function degrades gracefully:
 * ``close_redis()`` is a no-op
 
 When ``REDIS_URL`` is set a single pooled client is created on first use
-and cached for the lifetime of the process.
+and cached for the lifetime of the process. Every operation is bounded by a
+short socket timeout so a Redis host that accepts connections but never
+responds (traffic silently dropped, not refused) fails fast instead of
+hanging — that matters most for ``/health/ready``, which must return well
+inside the Compose healthcheck's timeout even when Redis is optional and
+degraded.
 """
 
+import asyncio
 import logging
 
 from redis.asyncio import Redis
@@ -21,6 +27,11 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 _client: Redis | None = None
+
+# Applied both at the socket level (connect/read) and as an application-level
+# ceiling around ping_redis() itself, well under the Compose healthcheck's
+# 5s timeout.
+_TIMEOUT_SECONDS = 2.0
 
 
 def get_redis() -> Redis | None:
@@ -34,7 +45,12 @@ def get_redis() -> Redis | None:
         return None
 
     if _client is None:
-        _client = _from_url(settings.REDIS_URL, decode_responses=True)
+        _client = _from_url(
+            settings.REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=_TIMEOUT_SECONDS,
+            socket_timeout=_TIMEOUT_SECONDS,
+        )
         logger.info("Redis client initialised (url configured)")
 
     return _client
@@ -68,7 +84,7 @@ async def ping_redis() -> bool:
     if client is None:
         return False
     try:
-        return bool(await client.ping())
+        return bool(await asyncio.wait_for(client.ping(), timeout=_TIMEOUT_SECONDS))
     except Exception:
         logger.warning("Redis ping failed", exc_info=True)
         return False

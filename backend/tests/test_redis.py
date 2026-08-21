@@ -5,6 +5,8 @@ Redis instance — it relies on monkeypatching ``ping_redis`` and the
 ``REDIS_URL`` setting.
 """
 
+import asyncio
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -35,6 +37,30 @@ def test_get_redis_returns_client_when_url_set(monkeypatch):
     assert client is not None
     # Clean up: reset the module singleton so we don't leak state.
     monkeypatch.setattr(redis_module, "_client", None)
+
+
+# ---------------------------------------------------------------------------
+# ping_redis() — connection stalls
+# ---------------------------------------------------------------------------
+
+
+def test_ping_redis_times_out_when_connection_stalls(monkeypatch):
+    """ping_redis() must not hang forever when Redis accepts the connection
+    but never responds (e.g. traffic silently dropped rather than refused) —
+    otherwise /health/ready would stall past the Compose healthcheck's 5s
+    timeout even though the outage is meant to be non-fatal."""
+    monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+
+    class _HangingClient:
+        async def ping(self):
+            await asyncio.Event().wait()  # never resolves
+
+    monkeypatch.setattr(redis_module, "get_redis", lambda: _HangingClient())
+
+    # Outer bound is just a test safety net; ping_redis() should return well
+    # before it via its own internal timeout.
+    result = asyncio.run(asyncio.wait_for(redis_module.ping_redis(), timeout=5.0))
+    assert result is False
 
 
 # ---------------------------------------------------------------------------
