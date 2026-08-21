@@ -1,8 +1,8 @@
 name: Publish Images
 
 # Reusable: build, Trivy-scan, and (optionally) push the backend/frontend
-# images. Called by check-build.yml on push/tag, and (once #904 lands) by
-# release.yml with the version it just tagged.
+# images. Called by check-build.yml on push/tag, and by release.yml once its
+# release PR has merged, with the version about to be tagged.
 
 on:
   workflow_call:
@@ -43,6 +43,7 @@ jobs:
   images:
     name: "Build & push ${{ matrix.service }} image"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     concurrency:
       group: publish-images-${{ github.ref }}-${{ matrix.service }}
       cancel-in-progress: false
@@ -88,7 +89,7 @@ jobs:
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@v4.5.2
+        uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

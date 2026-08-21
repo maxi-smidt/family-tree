@@ -31,6 +31,7 @@ jobs:
     # Dependency review requires the dependency graph + GitHub Advanced Security, which private personal repos don't have.
     if: ${{ !github.event.repository.private && github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
@@ -43,6 +44,7 @@ jobs:
   npm-audit:
     name: "Frontend (npm audit)"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: frontend
@@ -68,6 +70,7 @@ jobs:
   pip-audit:
     name: "Backend (pip-audit)"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: backend

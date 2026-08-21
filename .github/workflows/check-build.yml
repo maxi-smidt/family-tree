@@ -36,6 +36,7 @@ jobs:
     needs: [checks]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: "Require all checks to pass"
         run: |
@@ -52,6 +53,7 @@ jobs:
     needs: [checks]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: "Require frontend i18n step to pass"
         run: |
@@ -76,6 +78,7 @@ jobs:
     if: |
       always() &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')) &&
       needs.check-build.result == 'success' &&
       (!startsWith(github.ref, 'refs/tags/v') || needs.release-e2e.result == 'success')
     uses: ./.github/workflows/publish-images.yml
