@@ -1,0 +1,171 @@
+name: Release
+
+# Manual release pipeline: verify -> bump -> commit -> checks -> E2E ->
+# publish images -> tag + GitHub Release. One linear, observable run.
+#
+# Reusable jobs (checks.yml / release-e2e.yml / publish-images.yml) are
+# invoked directly via workflow_call rather than by pushing a v* tag and
+# relying on check-build.yml's tag trigger, because a tag pushed with the
+# default GITHUB_TOKEN does not trigger other workflow runs (see #899, #902).
+#
+# Requires "GitHub Actions" to be allowed to bypass the "Main" ruleset's
+# pull_request requirement (bypass_actors), since this pushes the release
+# commit straight to main. See the #904 PR description for the exact setting.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version segment to bump"
+        type: choice
+        options: [patch, minor, major]
+        required: true
+      dry_run:
+        description: "Compute the version and notes only — no commit, tag, or publish"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: "Bump version"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.commit.outputs.sha || github.sha }}
+    steps:
+      - name: "Require main"
+        run: |
+          if [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            echo "Releases can only be dispatched from main (got ${{ github.ref }})."
+            exit 1
+          fi
+
+      - name: "Checkout main"
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          # Full history + tags: git-cliff needs to find the previous tag.
+          fetch-depth: 0
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+
+      - name: "Bump version files"
+        id: bump
+        working-directory: frontend
+        run: |
+          node scripts/bump-version.js ${{ inputs.bump }}
+          echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
+
+      - name: "Generate release notes"
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --unreleased --tag v${{ steps.bump.outputs.version }} --strip header -o RELEASE_NOTES.md
+
+      - name: "Write dry-run summary"
+        if: ${{ inputs.dry_run }}
+        run: |
+          {
+            echo "## Dry run: v${{ steps.bump.outputs.version }}"
+            echo
+            echo "No commit, tag, or publish happened."
+            echo
+            cat RELEASE_NOTES.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: "Commit release"
+        if: ${{ !inputs.dry_run }}
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add frontend/package.json frontend/package-lock.json backend/pyproject.toml backend/uv.lock
+          git commit -m "chore(release): v${{ steps.bump.outputs.version }}"
+          git push origin HEAD:main
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: "Upload release notes"
+        if: ${{ !inputs.dry_run }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: RELEASE_NOTES.md
+          retention-days: 5
+
+  checks:
+    name: "Checks"
+    needs: bump
+    if: ${{ !inputs.dry_run }}
+    uses: ./.github/workflows/checks.yml
+    with:
+      ref: ${{ needs.bump.outputs.sha }}
+      run-all: true
+    permissions:
+      contents: read
+      pull-requests: read
+
+  e2e:
+    name: "Release E2E"
+    needs: [bump, checks]
+    if: ${{ !inputs.dry_run }}
+    uses: ./.github/workflows/release-e2e.yml
+    with:
+      ref: ${{ needs.bump.outputs.sha }}
+
+  publish:
+    name: "Publish images"
+    needs: [bump, checks, e2e]
+    if: ${{ !inputs.dry_run }}
+    uses: ./.github/workflows/publish-images.yml
+    with:
+      ref: ${{ needs.bump.outputs.sha }}
+      version: ${{ needs.bump.outputs.version }}
+      revision: ${{ needs.bump.outputs.sha }}
+      push: true
+      tag-latest: true
+    permissions:
+      contents: read
+      packages: write
+
+  github-release:
+    name: "Tag and create GitHub Release"
+    needs: [bump, checks, e2e, publish]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: "Checkout release commit"
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.bump.outputs.sha }}
+
+      - name: "Download release notes"
+        uses: actions/download-artifact@v7
+        with:
+          name: release-notes
+
+      - name: "Create GitHub Release"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ needs.bump.outputs.version }}" \
+            --target "${{ needs.bump.outputs.sha }}" \
+            --title "v${{ needs.bump.outputs.version }}" \
+            --notes-file RELEASE_NOTES.md \
+            docker-compose.prod.yml \
+            .env.example

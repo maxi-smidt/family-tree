@@ -128,12 +128,15 @@ work users never see instead of `feat`/`fix`.
 
 ## Golden rules — CI enforces these; a PR fails without them
 
-1. **Do not bump the app version on ordinary PRs.** Release preparation is the
-   exception: from `frontend/` run `npm run bump:patch` (or `bump:minor` /
-   `bump:major`; `release:*` also commits + tags) — it updates
-   `frontend/package.json` + lockfile + `backend/pyproject.toml` + `uv.lock`.
-   Merge that release commit, then create a matching `vX.Y.Z` tag; CI verifies
-   the tag matches `frontend/package.json` and the lockfile.
+1. **Do not bump the app version on ordinary PRs.** Cutting a release is a
+   maintainer action, not a local step: dispatch the
+   [`release.yml`](.github/workflows/release.yml) workflow (Actions tab →
+   "Release" → Run workflow) with the version segment to bump. It bumps
+   `frontend/package.json` + lockfile + `backend/pyproject.toml` + `uv.lock`,
+   commits `chore(release): vX.Y.Z` straight to `main`, re-runs the full check
+   suite and E2E against that commit, publishes GHCR images tagged `X.Y.Z` and
+   `latest`, and creates the matching GitHub Release with generated notes. Use
+   `dry_run: true` to preview the version and notes without changing anything.
 2. **All user-facing text goes through i18next** and must exist in every locale
    under `frontend/src/i18n/locales/`. Run `npm run check-i18n` (from
    `frontend/`); the [CI](.github/workflows/check-build.yml) workflow gates it.

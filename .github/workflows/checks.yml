@@ -7,6 +7,14 @@ name: Checks
 on:
   workflow_call:
     inputs:
+      ref:
+        description: >-
+          Commit/branch/tag to check out. Defaults to the ref that triggered
+          the caller. release.yml passes the release commit it just created,
+          since that content hasn't been checked out by the triggering event.
+        type: string
+        default: ""
+        required: false
       run-all:
         description: >-
           Run every area's checks regardless of changed paths. Release runs
@@ -38,6 +46,8 @@ jobs:
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: "Filter changed paths"
         uses: dorny/paths-filter@v4
@@ -64,6 +74,8 @@ jobs:
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: "Set up Node.js"
         uses: actions/setup-node@v7
@@ -101,6 +113,8 @@ jobs:
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: "Set up uv"
         uses: astral-sh/setup-uv@v7
@@ -130,6 +144,8 @@ jobs:
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: "Check package metadata"
         run: |
