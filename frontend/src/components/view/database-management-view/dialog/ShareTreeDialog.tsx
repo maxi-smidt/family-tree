@@ -607,7 +607,7 @@ export const ShareTreeDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
-        className="max-h-[90vh] min-w-[600px] overflow-y-auto"
+        className="max-h-[90vh] overflow-y-auto sm:min-w-[600px]"
         onInteractOutside={(e) => {
           // The public-access / transfer confirmations render as sibling
           // AlertDialog portals. Radix treats a pointer-down or focus change
@@ -633,9 +633,11 @@ export const ShareTreeDialog = ({
           {access.map((a) => (
             <div
               key={a.user_id}
-              className="flex items-center justify-between rounded-md border p-2"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-2"
             >
-              <span className="text-sm font-medium">{a.username}</span>
+              <span className="min-w-0 truncate text-sm font-medium">
+                {a.username}
+              </span>
               {a.role === "owner" ? (
                 <Badge variant="secondary">{t("role-owner")}</Badge>
               ) : (
@@ -775,9 +777,11 @@ export const ShareTreeDialog = ({
               {staged.map((s) => (
                 <div
                   key={s.user_id}
-                  className="flex items-center justify-between rounded-md border border-dashed p-2"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2"
                 >
-                  <span className="text-sm font-medium">{s.username}</span>
+                  <span className="min-w-0 truncate text-sm font-medium">
+                    {s.username}
+                  </span>
                   <div className="flex items-center gap-2">
                     <Select
                       value={s.role}

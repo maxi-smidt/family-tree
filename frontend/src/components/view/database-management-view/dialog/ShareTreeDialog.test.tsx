@@ -124,6 +124,40 @@ describe("ShareTreeDialog", () => {
     expect(await screen.findByText(/#public=tree-1$/)).toBeInTheDocument();
   });
 
+  it("only applies the wide minimum width from the sm breakpoint up, so phone-width viewports aren't forced to overflow (#879)", async () => {
+    render(
+      <ShareTreeDialog
+        tree={TREE}
+        isOpen
+        onClose={vi.fn()}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
+
+    const dialog = await screen.findByRole("dialog");
+
+    expect(dialog).toHaveClass("sm:min-w-[600px]");
+    expect(dialog).not.toHaveClass("min-w-[600px]");
+  });
+
+  it("lets a member row wrap its controls instead of forcing horizontal overflow (#879)", async () => {
+    render(
+      <ShareTreeDialog
+        tree={TREE}
+        isOpen
+        onClose={vi.fn()}
+        onTreeUpdated={vi.fn()}
+      />,
+    );
+
+    const row = (await screen.findByText(OTHER_USER.username)).closest(
+      "div.flex",
+    ) as HTMLElement;
+
+    expect(row).toHaveClass("flex-wrap");
+    expect(screen.getByText(OTHER_USER.username)).toHaveClass("truncate");
+  });
+
   it("does not reload sharing data when the tree's public role changes while open", async () => {
     const load = vi.fn().mockResolvedValue(undefined);
     useTreeSharingStore.setState({ load });
