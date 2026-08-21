@@ -1,0 +1,40 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "610827a51a89",
+  "strategy": "manual-commit",
+  "branch": "fix/896-decouple-domain-services-from-http",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/documents.py",
+    "backend/app/api/routes/trees.py",
+    "backend/app/core/exceptions.py",
+    "backend/app/main.py",
+    "backend/app/services/document_service.py",
+    "backend/app/services/extract.py",
+    "backend/app/services/job_service.py",
+    "backend/app/services/member_merge.py",
+    "backend/app/services/merge.py",
+    "backend/tests/conftest.py",
+    "backend/tests/test_domain_exceptions.py",
+    "backend/tests/test_extract_move.py",
+    "backend/tests/test_member_merge.py",
+    "backend/tests/test_merge.py",
+    "backend/tests/test_merge_preview.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/61/0827a51a89/0/metadata.json",
+      "transcript": "/61/0827a51a89/0/full.jsonl",
+      "compact_transcript": "/61/0827a51a89/0/transcript.jsonl",
+      "content_hash": "/61/0827a51a89/0/content_hash.txt",
+      "prompt": "/61/0827a51a89/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 180,
+    "cache_creation_tokens": 119140,
+    "cache_read_tokens": 18747304,
+    "output_tokens": 34938,
+    "api_call_count": 90
+  }
+}
