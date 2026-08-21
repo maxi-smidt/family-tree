@@ -1,9 +1,10 @@
-# git-cliff configuration — generates release notes / CHANGELOG.md entries
-# from Conventional Commit history instead of hand-maintained bullets.
+# git-cliff configuration — generates GitHub Release notes from Conventional
+# Commit history instead of hand-maintained bullets. There is no CHANGELOG.md
+# in this repo; generated notes live only on the GitHub Releases page.
 #
-# Usage (see docs in AGENTS.md "Changelog entries"):
-#   git cliff --unreleased --tag "v$NEW" -o RELEASE_NOTES.md   # notes for one release
-#   git cliff --tag "v$NEW" --prepend CHANGELOG.md              # add that release to the file
+# Usage (see docs in AGENTS.md "PR titles & changelog"), invoked by
+# release.yml:
+#   git cliff --unreleased --tag "v$NEW" --strip header -o RELEASE_NOTES.md
 #
 # https://git-cliff.org/docs/configuration
 
