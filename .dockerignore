@@ -1,6 +1,5 @@
-# The frontend image needs only its source tree and the canonical changelog.
+# The frontend image needs only its source tree.
 *
-!CHANGELOG.md
 !frontend/
 !frontend/**
 
@@ -9,4 +8,3 @@ frontend/node_modules
 frontend/dist
 frontend/dist-ssr
 frontend/.env
-frontend/src/data/changelog.json

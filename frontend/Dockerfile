@@ -15,7 +15,6 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 COPY frontend/ .
-COPY CHANGELOG.md /app/CHANGELOG.md
 RUN npm run build
 
 FROM nginxinc/nginx-unprivileged:alpine
