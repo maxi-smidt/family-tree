@@ -243,6 +243,41 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
 )
 
 
+def _migrate_legacy_last_opened(
+    tables: dict[str, Any], source_table: str, target_table: str, fk_field: str
+) -> None:
+    """Recover *target_table* rows from a pre-#878 backup's now-dropped
+    per-row ``last_opened`` column on *source_table*.
+
+    ``bulk_insert_mappings`` silently ignores dict keys that aren't mapped
+    columns, so without this the ``last_opened`` values embedded in an old
+    ``trees``/``virtual_views`` row would just vanish on restore instead of
+    landing in the new per-user state table. Mirrors the owner-seeding the
+    Alembic migration did for rows already in the live database. No-op when
+    *target_table* is already present — that backup was taken by a build new
+    enough to have its own (authoritative) rows for it.
+    """
+    if target_table in tables:
+        return
+    rows = tables.get(source_table)
+    if not isinstance(rows, list):
+        return
+    state_rows = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        last_opened = row.pop("last_opened", None)
+        if last_opened is not None:
+            state_rows.append(
+                {
+                    fk_field: row.get("id"),
+                    "user_id": row.get("owner_id"),
+                    "last_opened": last_opened,
+                }
+            )
+    tables[target_table] = state_rows
+
+
 def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, Any]:
     """Add any ``LEGACY_OPTIONAL_TABLES`` missing from an older backup file.
 
@@ -254,9 +289,13 @@ def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, A
     counts = manifest.get("table_row_counts") if isinstance(manifest, dict) else None
     if not isinstance(tables, dict) or not isinstance(counts, dict):
         return bundle_dict
+    _migrate_legacy_last_opened(tables, "trees", "tree_user_states", "tree_id")
+    _migrate_legacy_last_opened(
+        tables, "virtual_views", "virtual_view_user_states", "view_id"
+    )
     for name in LEGACY_OPTIONAL_TABLES:
         tables.setdefault(name, [])
-        counts.setdefault(name, 0)
+        counts.setdefault(name, len(tables[name]))
     return bundle_dict
 
 

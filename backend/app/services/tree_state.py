@@ -4,16 +4,18 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.base import utcnow_iso
+from app.db.upsert import upsert_row
 from app.models.tree import TreeUserState
 
 
 def mark_tree_opened(db: Session, tree_id: str, user_id: str) -> None:
     """Stamp ``tree_id`` as just-opened for ``user_id``."""
-    state = db.get(TreeUserState, (tree_id, user_id))
-    if state is None:
-        db.add(TreeUserState(tree_id=tree_id, user_id=user_id, last_opened=utcnow_iso()))
-    else:
-        state.last_opened = utcnow_iso()
+    upsert_row(
+        db,
+        TreeUserState,
+        {"tree_id": tree_id, "user_id": user_id, "last_opened": utcnow_iso()},
+        index_elements=["tree_id", "user_id"],
+    )
 
 
 def bulk_tree_last_opened(

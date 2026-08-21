@@ -14,6 +14,7 @@ from app.api.deps import (
 from app.api.routes.statistics import compute_statistics
 from app.db.base import utcnow_iso
 from app.db.session import get_db
+from app.db.upsert import upsert_row
 from app.models import (
     Document,
     DocumentMemberLink,
@@ -130,15 +131,12 @@ def _check_source_access(
 def _mark_view_opened(db: Session, view_id: str, user_id: str) -> None:
     """Stamp ``view_id`` as just-opened for ``user_id`` (#878: an admin
     opening someone else's view must not reorder the owner's own list)."""
-    state = db.get(VirtualViewUserState, (view_id, user_id))
-    if state is None:
-        db.add(
-            VirtualViewUserState(
-                view_id=view_id, user_id=user_id, last_opened=utcnow_iso()
-            )
-        )
-    else:
-        state.last_opened = utcnow_iso()
+    upsert_row(
+        db,
+        VirtualViewUserState,
+        {"view_id": view_id, "user_id": user_id, "last_opened": utcnow_iso()},
+        index_elements=["view_id", "user_id"],
+    )
 
 
 def _view_last_opened(db: Session, view_id: str, user_id: str) -> str | None:
