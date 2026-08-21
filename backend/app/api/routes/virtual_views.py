@@ -782,7 +782,7 @@ def list_virtual_diseases(
             continue
         seen.add(key)
         out = DiseaseOut.model_validate(d)
-        result.append(DiseaseOut(member_id=node_id, name=out.name))
+        result.append(out.model_copy(update={"member_id": node_id}))
     return result
 
 

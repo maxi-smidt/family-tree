@@ -8,6 +8,7 @@ from app.models import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    MemberDisease,
     Relation,
 )
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
@@ -615,6 +616,40 @@ def test_composite_gallery_and_events_remap_member_links(
         f"{API}/virtual-views/{view_id}/events/links", headers=auth(alice)
     ).json()
     assert elinks == [{"event_id": "ev1", "member_id": merged_id}]
+
+
+def test_composite_diseases_remaps_member_id(client: TestClient, db: Session):
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    _add_homer(db, tree_a, tree_b)
+    db.add(
+        MemberDisease(
+            id="dis1", tree_id=tree_a.id, member_id="homer-a", name="Gout",
+            carrier_status="affected", inheritance_pattern="autosomal_dominant",
+        )
+    )
+    db.commit()
+
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+    members = client.get(
+        f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
+    ).json()
+    merged_id = next(m["id"] for m in members if m["isMerged"])
+
+    r = client.get(f"{API}/virtual-views/{view_id}/diseases", headers=auth(alice))
+    assert r.status_code == 200
+    assert r.json() == [
+        {
+            "id": "dis1",
+            "member_id": merged_id,
+            "name": "Gout",
+            "carrier_status": "affected",
+            "inheritance_pattern": "autosomal_dominant",
+            "diagnosis_date": None,
+            "notes": None,
+        }
+    ]
 
 
 def test_composite_statistics_dedupes_merged_people(
