@@ -2,6 +2,7 @@
   "sidebar": {
     "appearance": "Erscheinung",
     "dataManagement": "Datenmanagement",
+    "version-link-label": "Release-Notes auf GitHub ansehen",
     "edge-type": "Kanten Typ",
     "generation-line-spacing": "Abstand der Generationslinien",
     "generation-line-spacing-options": {
@@ -2004,18 +2005,6 @@
     "legal-history-view": "Ansehen",
     "legal-history-detail-title": "Version {{version}}"
   },
-  "whats-new": {
-    "title": "Neuigkeiten in v{{version}}",
-    "description": "Eine neue Version von Family Tree ist verfügbar.",
-    "view-changelog": "Änderungsprotokoll anzeigen",
-    "dismiss": "Verstanden"
-  },
-  "changelog": {
-    "title": "Neuigkeiten",
-    "trigger-label": "Änderungsprotokoll anzeigen",
-    "empty": "Keine Einträge im Änderungsprotokoll verfügbar.",
-    "load-more": "Mehr laden"
-  },
   "legal": {
     "legal-link": "AGB · Datenschutz · Impressum",
     "legal-link-public": "Datenschutz · Impressum",
@@ -2146,9 +2135,6 @@
     },
     "two-factor": {
       "section": "Zwei-Faktor-Authentifizierung"
-    },
-    "changelog": {
-      "section": "Neuigkeiten"
     },
     "delete-account": {
       "section": "Konto löschen"

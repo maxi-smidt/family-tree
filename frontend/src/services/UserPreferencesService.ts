@@ -14,10 +14,6 @@ export interface TutorialState {
   completed: boolean;
 }
 
-export interface WhatsNewState {
-  last_read_version: string | null;
-}
-
 const BASE = "/users/me/preferences";
 
 export const UserPreferencesService = {
@@ -47,13 +43,5 @@ export const UserPreferencesService = {
 
   setTutorialCompleted(completed: boolean): Promise<TutorialState> {
     return api.put<TutorialState>(`${BASE}/tutorial`, { completed });
-  },
-
-  getWhatsNewState(): Promise<WhatsNewState> {
-    return api.get<WhatsNewState>(`${BASE}/whats-new`);
-  },
-
-  markWhatsNewAsRead(): Promise<WhatsNewState> {
-    return api.put<WhatsNewState>(`${BASE}/whats-new`);
   },
 };

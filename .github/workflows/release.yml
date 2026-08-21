@@ -1,16 +1,20 @@
 name: Release
 
-# Manual release pipeline: verify -> bump -> commit -> checks -> E2E ->
-# publish images -> tag + GitHub Release. One linear, observable run.
+# Manual release pipeline: verify -> bump -> PR -> checks + E2E (via the
+# normal PR trigger) -> merge -> publish images -> tag + GitHub Release.
 #
-# Reusable jobs (checks.yml / release-e2e.yml / publish-images.yml) are
-# invoked directly via workflow_call rather than by pushing a v* tag and
-# relying on check-build.yml's tag trigger, because a tag pushed with the
-# default GITHUB_TOKEN does not trigger other workflow runs (see #899, #902).
+# The release commit lands on `main` through a normal PR/squash-merge rather
+# than a direct push, because the "Main" ruleset requires every change to go
+# through a PR and has no bypass actors configured. required_approving_review
+# _count is 0 and no CODEOWNERS file exists, so the PR merges automatically
+# once its checks (the existing check-build.yml + e2e.yml, triggered exactly
+# as they are for any other PR) pass — no bypass, no extra token, no settings
+# change needed.
 #
-# Requires "GitHub Actions" to be allowed to bypass the "Main" ruleset's
-# pull_request requirement (bypass_actors), since this pushes the release
-# commit straight to main. See the #904 PR description for the exact setting.
+# publish-images.yml is still called directly (not left to main's push
+# trigger) because a push produced by GITHUB_TOKEN — which is what merging a
+# PR via the API does — does not trigger other workflow runs either. See the
+# epic's constraint note (#899, #902).
 
 on:
   workflow_dispatch:
@@ -21,13 +25,14 @@ on:
         options: [patch, minor, major]
         required: true
       dry_run:
-        description: "Compute the version and notes only — no commit, tag, or publish"
+        description: "Compute the version and notes only — no commit, PR, or publish"
         type: boolean
         default: false
 
 permissions:
   contents: write
   packages: write
+  pull-requests: write
 
 concurrency:
   group: release
@@ -35,12 +40,14 @@ concurrency:
 
 jobs:
   bump:
-    name: "Bump version"
+    name: "Bump version & open release PR"
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
     outputs:
       version: ${{ steps.bump.outputs.version }}
-      sha: ${{ steps.commit.outputs.sha || github.sha }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
     steps:
       - name: "Require main"
         run: |
@@ -81,21 +88,27 @@ jobs:
           {
             echo "## Dry run: v${{ steps.bump.outputs.version }}"
             echo
-            echo "No commit, tag, or publish happened."
+            echo "No commit, PR, or publish happened."
             echo
             cat RELEASE_NOTES.md
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: "Commit release"
+      - name: "Commit and open release PR"
         if: ${{ !inputs.dry_run }}
-        id: commit
+        id: pr
         run: |
+          BRANCH="release/v${{ steps.bump.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
           git add frontend/package.json frontend/package-lock.json backend/pyproject.toml backend/uv.lock
           git commit -m "chore(release): v${{ steps.bump.outputs.version }}"
-          git push origin HEAD:main
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create --base main --head "$BRANCH" \
+            --title "chore(release): v${{ steps.bump.outputs.version }}" \
+            --body-file RELEASE_NOTES.md)
+          echo "pr_number=$(basename "$PR_URL")" >> "$GITHUB_OUTPUT"
 
       - name: "Upload release notes"
         if: ${{ !inputs.dry_run }}
@@ -105,44 +118,51 @@ jobs:
           path: RELEASE_NOTES.md
           retention-days: 5
 
-  checks:
-    name: "Checks"
+  land:
+    name: "Wait for checks & merge release PR"
     needs: bump
     if: ${{ !inputs.dry_run }}
-    uses: ./.github/workflows/checks.yml
-    with:
-      ref: ${{ needs.bump.outputs.sha }}
-      run-all: true
-    permissions:
-      contents: read
-      pull-requests: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    outputs:
+      sha: ${{ steps.merge.outputs.sha }}
+    steps:
+      # PR checks include the normal required checks (Check Application Build,
+      # Check Version Bump, Check for Missing i18n Keys) plus the non-required
+      # ones this release still needs to gate on — Playwright E2E and the
+      # PR-title lint on this job's own generated title.
+      - name: "Wait for PR checks"
+        run: gh pr checks "${{ needs.bump.outputs.pr_number }}" --watch --fail-fast
 
-  e2e:
-    name: "Release E2E"
-    needs: [bump, checks]
-    if: ${{ !inputs.dry_run }}
-    uses: ./.github/workflows/release-e2e.yml
-    with:
-      ref: ${{ needs.bump.outputs.sha }}
+      - name: "Squash-merge release PR"
+        id: merge
+        run: |
+          gh pr merge "${{ needs.bump.outputs.pr_number }}" --squash
+          echo "sha=$(gh api repos/${{ github.repository }}/git/ref/heads/main -q .object.sha)" >> "$GITHUB_OUTPUT"
 
   publish:
     name: "Publish images"
-    needs: [bump, checks, e2e]
+    needs: [bump, land]
     if: ${{ !inputs.dry_run }}
     uses: ./.github/workflows/publish-images.yml
     with:
-      ref: ${{ needs.bump.outputs.sha }}
+      ref: ${{ needs.land.outputs.sha }}
       version: ${{ needs.bump.outputs.version }}
-      revision: ${{ needs.bump.outputs.sha }}
+      revision: ${{ needs.land.outputs.sha }}
       push: true
       tag-latest: true
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
 
   github-release:
     name: "Tag and create GitHub Release"
-    needs: [bump, checks, e2e, publish]
+    needs: [bump, land, publish]
     if: ${{ !inputs.dry_run }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -152,20 +172,150 @@ jobs:
       - name: "Checkout release commit"
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.bump.outputs.sha }}
+          ref: ${{ needs.land.outputs.sha }}
 
       - name: "Download release notes"
         uses: actions/download-artifact@v7
         with:
           name: release-notes
 
+      - name: "Download SBOMs"
+        uses: actions/download-artifact@v7
+        with:
+          pattern: sbom-*
+          merge-multiple: true
+
       - name: "Create GitHub Release"
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "v${{ needs.bump.outputs.version }}" \
-            --target "${{ needs.bump.outputs.sha }}" \
+            --target "${{ needs.land.outputs.sha }}" \
             --title "v${{ needs.bump.outputs.version }}" \
             --notes-file RELEASE_NOTES.md \
             docker-compose.prod.yml \
-            .env.example
+            .env.example \
+            sbom-*.cdx.json
+
+  # Everything above this point can pass while the *published* artifact is
+  # still broken: release-e2e builds from source with different build args
+  # than publish-images pushes, and no prior job pulls the actual GHCR image.
+  # This is the one job that does — a failure here means self-hosters would
+  # pull a release that cannot come up.
+  smoke-test:
+    name: "Smoke-test published images"
+    needs: [bump, land, github-release]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      APP_IMAGE_TAG: ${{ needs.bump.outputs.version }}
+      SECRET_KEY: smoke-test-not-for-production-use-only
+      POSTGRES_HOST: db
+      FIRST_ADMIN_USERNAME: e2e-admin
+      FIRST_ADMIN_PASSWORD: e2e-admin-password
+      E2E_ADMIN_USERNAME: e2e-admin
+      E2E_ADMIN_PASSWORD: e2e-admin-password
+      E2E_BASE_URL: http://localhost:8080
+      E2E_API_URL: http://localhost:8080/api
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.land.outputs.sha }}
+
+      - name: "Pull published images and start the stack"
+        run: |
+          docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml pull
+          docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml up -d
+
+      - name: "Wait for stack to be healthy"
+        run: |
+          echo "Waiting for frontend to be reachable..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080 > /dev/null 2>&1; then
+              echo "Stack is up after ${i} attempts"
+              break
+            fi
+            echo "  attempt $i/30 — waiting 5s"
+            sleep 5
+          done
+          curl -sf http://localhost:8080/api/health/ready || {
+            echo "Backend health check failed — the published image likely could not migrate a fresh database."
+            docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml logs
+            exit 1
+          }
+
+      - name: "Assert the reported version matches the release"
+        run: |
+          REPORTED=$(curl -sf http://localhost:8080/api/health | jq -r .version)
+          echo "Reported version: $REPORTED (expected ${{ needs.bump.outputs.version }})"
+          if [ "$REPORTED" != "${{ needs.bump.outputs.version }}" ]; then
+            echo "Published image reports version '$REPORTED', expected '${{ needs.bump.outputs.version }}'."
+            exit 1
+          fi
+
+      - name: "Set up Node.js"
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: "Install dependencies"
+        working-directory: e2e
+        run: npm ci
+
+      - name: "Install Playwright browsers"
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      # A minimal subset (login, create a tree, see it in the UI), not the
+      # full suite — this exists to catch packaging failures, not to re-run
+      # feature tests that already passed against a from-source build.
+      - name: "Run smoke subset"
+        working-directory: e2e
+        run: npx playwright test smoke.spec.ts
+
+      - name: "Upload test report"
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: release-smoke-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: "Dump compose logs on failure"
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml logs
+
+      - name: "Tear down"
+        if: always()
+        run: docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml down -v
+
+  # Images are already pushed and the release already exists by this point —
+  # there is nothing left to unpublish. Flag it instead: mark the release as
+  # a prerelease so it stays visible (self-hosters can still investigate the
+  # published assets) but is clearly not something to pin APP_IMAGE_TAG to.
+  flag-release-on-smoke-failure:
+    name: "Flag release as prerelease on smoke-test failure"
+    needs: [bump, github-release, smoke-test]
+    if: ${{ !inputs.dry_run && failure() && needs.github-release.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: "Mark release as prerelease"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TAG="v${{ needs.bump.outputs.version }}"
+          gh release view "$TAG" --repo "${{ github.repository }}" --json body -q .body > notes.md
+          {
+            echo
+            echo
+            echo "⚠️ **Smoke test failed**: the published images could not come up and migrate a fresh database (or served the wrong version). Investigate the [smoke-test job]($RUN_URL) before relying on this release."
+          } >> notes.md
+          gh release edit "$TAG" --repo "${{ github.repository }}" --prerelease --notes-file notes.md

@@ -8,7 +8,6 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
-import { useWhatsNewStore } from "@/hooks/useWhatsNewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
 import { useTreeStore } from "@/hooks/useTreeStore";
@@ -109,12 +108,6 @@ describe("MainPanel", () => {
       completed: false,
       loaded: false,
       isRunning: false,
-    });
-    useWhatsNewStore.setState({
-      lastReadVersion: null,
-      loaded: false,
-      dismissed: false,
-      load: vi.fn().mockResolvedValue(undefined),
     });
   });
 
@@ -252,51 +245,6 @@ describe("MainPanel", () => {
 
     await waitFor(() => {
       expect(useTutorialStore.getState().isRunning).toBe(true);
-    });
-  });
-
-  it("does not load What's New before onboarding is complete", async () => {
-    const loadIncomingFriends = vi.fn().mockResolvedValue(undefined);
-    useAuthStore.setState({
-      user: USER,
-      features: [],
-    });
-    useFriendStore.setState({
-      loadIncoming: loadIncomingFriends,
-    });
-    useTutorialStore.setState({
-      completed: false,
-      loaded: true,
-      isRunning: false,
-    });
-    const loadWhatsNew = vi.fn().mockResolvedValue(undefined);
-    useWhatsNewStore.setState({ load: loadWhatsNew });
-
-    render(<MainPanel />);
-
-    await waitFor(() => {
-      expect(loadIncomingFriends).toHaveBeenCalled();
-    });
-    expect(loadWhatsNew).not.toHaveBeenCalled();
-  });
-
-  it("loads What's New after onboarding is complete", async () => {
-    useAuthStore.setState({
-      user: USER,
-      features: [],
-    });
-    useTutorialStore.setState({
-      completed: true,
-      loaded: true,
-      isRunning: false,
-    });
-    const loadWhatsNew = vi.fn().mockResolvedValue(undefined);
-    useWhatsNewStore.setState({ load: loadWhatsNew });
-
-    render(<MainPanel />);
-
-    await waitFor(() => {
-      expect(loadWhatsNew).toHaveBeenCalledTimes(1);
     });
   });
 });

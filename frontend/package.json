@@ -4,9 +4,7 @@
   "version": "1.8.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/gen-changelog.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/gen-changelog.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "bump:patch": "node scripts/bump-version.js patch",
@@ -19,8 +17,7 @@
     "check-i18n": "node scripts/check-i18n.mjs",
     "check-bundle-size": "node scripts/check-bundle-size.mjs",
     "check-no-any": "node scripts/check-no-any.mjs",
-    "check-transport-boundary": "node scripts/check-transport-boundary.mjs",
-    "gen-changelog": "node scripts/gen-changelog.mjs"
+    "check-transport-boundary": "node scripts/check-transport-boundary.mjs"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.1.1",

@@ -1,8 +1,8 @@
 name: Publish Images
 
 # Reusable: build, Trivy-scan, and (optionally) push the backend/frontend
-# images. Called by check-build.yml on push/tag, and (once #904 lands) by
-# release.yml with the version it just tagged.
+# images. Called by check-build.yml on push/tag, and by release.yml once its
+# release PR has merged, with the version about to be tagged.
 
 on:
   workflow_call:
@@ -38,11 +38,16 @@ on:
 permissions:
   contents: read
   packages: write
+  # Keyless OIDC signing for the provenance/SBOM attestations below — no key
+  # to manage or rotate.
+  id-token: write
+  attestations: write
 
 jobs:
   images:
     name: "Build & push ${{ matrix.service }} image"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     concurrency:
       group: publish-images-${{ github.ref }}-${{ matrix.service }}
       cancel-in-progress: false
@@ -88,12 +93,16 @@ jobs:
           echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
 
       - name: "Log in to GHCR"
-        uses: docker/login-action@v4.5.2
+        uses: docker/login-action@v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # No type=sha tag: nothing pulls a commit-pinned image (branch tags
+      # cover "current main", semver + latest cover releases), and it was
+      # the single biggest source of untagged/unreferenced clutter on the
+      # GHCR package pages (#909).
       - name: "Docker metadata"
         id: meta
         uses: docker/metadata-action@v6
@@ -104,7 +113,6 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}},value=v${{ steps.build-meta.outputs.version }}
             type=raw,value=latest,enable=${{ inputs.tag-latest }}
-            type=sha,format=short
 
       - name: "Set up Docker Buildx"
         uses: docker/setup-buildx-action@v4
@@ -146,6 +154,7 @@ jobs:
           skip-setup-trivy: true
 
       - name: "Build and push"
+        id: push
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
@@ -159,3 +168,47 @@ jobs:
             APP_BUILD_DATE=${{ steps.build-meta.outputs.build_date }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Keyless-signed via the runner's OIDC identity, bound to the exact
+      # digest just pushed, and attached to the image as an OCI referrer so
+      # `gh attestation verify` works against the published tag later.
+      - name: "Attest build provenance"
+        if: inputs.push
+        uses: actions/attest-build-provenance@v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-${{ matrix.service }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: "Generate SBOM"
+        if: inputs.push
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}-${{ matrix.service }}@${{ steps.push.outputs.digest }}
+          format: cyclonedx
+          output: sbom-${{ matrix.service }}.cdx.json
+          skip-setup-trivy: true
+
+      # actions/attest-sbom is deprecated in favor of the generic
+      # actions/attest action with sbom-path set (same predicate, no
+      # deprecation warning on every release run).
+      - name: "Attest SBOM"
+        if: inputs.push
+        uses: actions/attest@v3
+        with:
+          subject-name: ghcr.io/${{ github.repository }}-${{ matrix.service }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          sbom-path: sbom-${{ matrix.service }}.cdx.json
+          push-to-registry: true
+
+      # Also kept as a plain file so release.yml can attach it to the GitHub
+      # Release as a downloadable asset, and so it can be rescanned offline
+      # later (`trivy sbom sbom-<service>.cdx.json`) against a fresh advisory
+      # database — the whole point of keeping one.
+      - name: "Upload SBOM artifact"
+        if: inputs.push
+        uses: actions/upload-artifact@v7
+        with:
+          name: sbom-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.cdx.json
+          retention-days: 90
