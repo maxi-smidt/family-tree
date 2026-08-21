@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.core.config import settings
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import (
@@ -10,7 +9,6 @@ from app.schemas.user import (
     TabPreferences,
     TutorialPreferences,
     UserPreferences,
-    WhatsNewState,
 )
 from app.services.settings_service import get_media_limits
 
@@ -90,22 +88,3 @@ def put_user_preferences(
     user.preferences = prefs.model_dump()
     db.commit()
     return UserPreferences(image_storage_mode=prefs.image_storage_mode)
-
-
-@router.get("/whats-new", response_model=WhatsNewState)
-def get_whats_new_state(user: User = Depends(get_current_user)):
-    return WhatsNewState(
-        last_read_version=_stored_preferences(user).whats_new_last_read_version
-    )
-
-
-@router.put("/whats-new", response_model=WhatsNewState)
-def put_whats_new_state(
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    prefs = _stored_preferences(user)
-    prefs.whats_new_last_read_version = settings.APP_VERSION
-    user.preferences = prefs.model_dump()
-    db.commit()
-    return WhatsNewState(last_read_version=prefs.whats_new_last_read_version)

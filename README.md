@@ -142,7 +142,7 @@ Browser (React SPA)
 
 ## Documentation
 
-- **[CHANGELOG.md](./CHANGELOG.md)** — Release notes and version history
+- **[GitHub Releases](https://github.com/maxi-smidt/family-tree/releases)** — Release notes and version history
 - **[SETUP.md](./docs/SETUP.md)** — Development environment setup
 - **[OPERATIONS.md](./docs/OPERATIONS.md)** — Self-hosting operations: backup/restore, upgrades, HTTPS, Authentik
 - **[AGENTS.md](./docs/AGENTS.md)** — Architecture and development guidelines

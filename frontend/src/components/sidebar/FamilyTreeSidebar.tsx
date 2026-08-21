@@ -17,21 +17,24 @@ import { ThemeSelector } from "@/components/sidebar/ThemeSelector.tsx";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { StorageUsagePanel } from "@/components/shared/StorageUsagePanel";
 import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
-import { WhatsNewDialog } from "@/components/changelog/WhatsNewDialog";
 import { APP_VERSION } from "@/lib/buildInfo";
 import { useTranslation } from "react-i18next";
 import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
 
+const RELEASES_URL = "https://github.com/maxi-smidt/family-tree/releases";
+// Only a tagged vX.Y.Z build has a matching GitHub release; dev/branch
+// builds (e.g. "dev", "main-abc1234") link to the releases index instead.
+const RELEASE_VERSION_RE = /^\d+\.\d+\.\d+$/;
+
 export function FamilyTreeSidebar() {
   const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
   const { t: tLegal } = useTranslation(undefined, { keyPrefix: "legal" });
-  const { t: tChangelog } = useTranslation(undefined, {
-    keyPrefix: "changelog",
-  });
   const selectedTree = useTreeStore((s) => s.selectedTree);
   const showStorage = !!selectedTree?.id && !isVirtualId(selectedTree.id);
   const [legalDocsOpen, setLegalDocsOpen] = useState(false);
-  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const releaseUrl = RELEASE_VERSION_RE.test(APP_VERSION)
+    ? `${RELEASES_URL}/tag/v${APP_VERSION}`
+    : RELEASES_URL;
 
   return (
     <Sidebar>
@@ -78,18 +81,18 @@ export function FamilyTreeSidebar() {
           >
             {tLegal("legal-link")}
           </button>
-          <button
-            type="button"
+          <a
+            href={releaseUrl}
+            target="_blank"
+            rel="noreferrer"
             className="block w-full hover:text-foreground"
-            aria-label={tChangelog("trigger-label")}
-            onClick={() => setWhatsNewOpen(true)}
+            aria-label={t("version-link-label")}
           >
             v{APP_VERSION}
-          </button>
+          </a>
         </div>
       </SidebarFooter>
       <LegalDocsDialog open={legalDocsOpen} onOpenChange={setLegalDocsOpen} />
-      <WhatsNewDialog open={whatsNewOpen} onOpenChange={setWhatsNewOpen} />
     </Sidebar>
   );
 }

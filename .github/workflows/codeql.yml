@@ -1,0 +1,95 @@
+name: CodeQL
+
+# Static analysis of this repository's own source (not its dependencies —
+# see security-scan.yml for that). Triggers mirror security-scan.yml: PRs to
+# main, a weekly full scan, and manual dispatch.
+
+on:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly, Monday 06:00 UTC - offset an hour from security-scan.yml's scan
+    # so the two don't contend for runners.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+# A new push to a PR cancels the previous, still-running scan; scheduled/
+# dispatch runs are left alone.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Detect which language's area a PR touched, so an unrelated PR only pays
+  # for the language it actually changed. Non-PR runs always analyze both.
+  changes:
+    name: "Detect changed areas"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v7
+
+      - name: "Filter changed paths"
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/codeql.yml'
+            backend:
+              - 'backend/**'
+              - '.github/workflows/codeql.yml'
+
+  analyze-frontend:
+    name: "Analyze (javascript-typescript)"
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v7
+
+      # No queries: input - starting with the default query suite, not
+      # security-extended, to keep the initial alert volume manageable.
+      - name: "Initialize CodeQL"
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+
+      - name: "Perform CodeQL Analysis"
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
+
+  analyze-backend:
+    name: "Analyze (python)"
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v7
+
+      - name: "Initialize CodeQL"
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          build-mode: none
+
+      - name: "Perform CodeQL Analysis"
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:python"

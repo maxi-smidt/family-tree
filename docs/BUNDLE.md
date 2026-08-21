@@ -53,24 +53,22 @@ Enforced by [`scripts/check-bundle-size.mjs`](../frontend/scripts/check-bundle-s
 transfer sizes and sit ~15–20 % above the measured sizes so ordinary churn
 passes while a heavy dependency re-entering the initial load fails the build.
 
-| Budget (gzip)            | Limit   | Measured |
-| ------------------------ | ------- | -------- |
-| entry chunk (`index`)    | 115 KiB | ~99 KiB  |
-| `vendor` chunk           | 190 KiB | ~137 KiB |
-| initial JS (eager total) | 360 KiB | ~334 KiB |
+| Budget (gzip)            | Limit  | Measured |
+| ------------------------ | ------ | -------- |
+| entry chunk (`index`)    | 90 KiB | ~75 KiB  |
+| `vendor` chunk           | 190 KiB | ~139 KiB |
+| initial JS (eager total) | 360 KiB | ~311 KiB |
 
 The checker also fails if `@xyflow`, `leaflet` or `recharts` are detected inside
 any eager chunk, regardless of the size numbers.
 
-The entry budget was raised from 95 to 115 KiB in the v1.8.0 release-prep PR:
-`frontend/src/data/changelog.json` (bundled eagerly — see the in-app changelog
-note above) is generated from `CHANGELOG.md` and excludes the `Unreleased`
-section, so promoting a release's worth of notes from `Unreleased` into a
-real `## [x.y.z]` heading grows the entry chunk by construction. This
-recurs at every release; since `changelog.json` accumulates the full
-history rather than just the latest entries, the entry chunk will keep
-trending upward and the budget may need another bump (or the changelog data
-should move behind a lazy boundary) in a future release.
+The entry budget was raised from 95 to 115 KiB in the v1.8.0 release-prep PR to
+accommodate the in-app changelog (`frontend/src/data/changelog.json`, generated
+from `CHANGELOG.md` and bundled eagerly), which grew the entry chunk a little
+more at every release. #905 removed the in-app changelog entirely — the app
+now links out to GitHub Releases instead — so the entry budget came back down
+to 90 KiB (~15% above the new measured size, matching the other two budgets'
+headroom).
 
 Authenticated-view chunks are intentionally **not** budgeted by size — they load
 on demand, so their weight does not affect initial load. Keep an eye on them via
