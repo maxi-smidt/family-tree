@@ -22,78 +22,40 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # Detect which areas a PR touched so the irrelevant heavy jobs can be skipped.
-  # On push/tag we always run everything (full validation before publishing).
-  changes:
-    name: "Detect changed areas"
+  checks:
+    name: "Checks"
+    uses: ./.github/workflows/checks.yml
+    permissions:
+      contents: read
+      pull-requests: read
+
+  # Aggregate gate so the existing required status check named
+  # "Check Application Build" (branch protection) keeps being reported.
+  check-build:
+    name: "Check Application Build"
+    needs: [checks]
+    if: always()
     runs-on: ubuntu-latest
-    outputs:
-      frontend: ${{ steps.filter.outputs.frontend }}
-      backend: ${{ steps.filter.outputs.backend }}
     steps:
-      - name: "Checkout Code"
-        uses: actions/checkout@v7
+      - name: "Require all checks to pass"
+        run: |
+          if [ "${{ needs.checks.result }}" != "success" ]; then
+            echo "One or more required checks failed (${{ needs.checks.result }})."
+            exit 1
+          fi
+          echo "All checks passed."
 
-      - name: "Filter changed paths"
-        uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: |
-            frontend:
-              - 'frontend/**'
-              - '.github/workflows/check-build.yml'
-            backend:
-              - 'backend/**'
-              - '.github/workflows/check-build.yml'
-
-  frontend:
-    name: "Frontend (build + test + i18n)"
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - name: "Checkout Code"
-        uses: actions/checkout@v7
-
-      - name: "Set up Node.js"
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: "Install dependencies"
-        run: npm ci
-
-      - name: "Type-check & build"
-        run: npm run build
-
-      - name: "Bundle size budget"
-        run: npm run check-bundle-size
-
-      - name: "Unit tests"
-        run: npx vitest run
-
-      - name: "Translation parity"
-        run: npm run check-i18n
-
-      - name: "No explicit any"
-        run: npm run check-no-any
-
+  # Compatibility status for existing branch protection. The actual
+  # `npm run check-i18n` command runs in the frontend job inside checks.yml.
   i18n-status:
-    # Compatibility status for existing branch protection. The actual
-    # `npm run check-i18n` command runs in the frontend job above.
     name: "Check for Missing i18n Keys"
-    needs: [frontend]
+    needs: [checks]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: "Require frontend i18n step to pass"
         run: |
-          res="${{ needs.frontend.result }}"
+          res="${{ needs.checks.outputs.frontend_result }}"
           echo "frontend=$res"
           # "skipped" means the PR touched no frontend files — nothing to check.
           if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
@@ -102,316 +64,24 @@ jobs:
           fi
           echo "i18n OK (frontend job: $res)."
 
-  backend:
-    name: "Backend (deps + checks)"
-    needs: changes
-    if: ${{ github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - name: "Checkout Code"
-        uses: actions/checkout@v7
-
-      - name: "Set up uv"
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-          python-version: "3.12"
-
-      - name: "Install dependencies"
-        run: uv sync --frozen
-
-      - name: "Lint (ruff)"
-        run: uv run ruff check
-
-      - name: "Compile & import checks"
-        run: |
-          uv run python -m compileall -q app alembic
-          uv run python -c "import app.main; print('app imports OK')"
-
-      - name: "Unit tests"
-        # -n auto fans the suite across the runner's cores (pytest-xdist).
-        # Tests are isolation-safe: each gets its own SQLite DB via tmp_path.
-        run: uv run pytest -n auto
-
-  version-policy:
-    name: "Version metadata policy"
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout Code"
-        uses: actions/checkout@v7
-
-      - name: "Check package metadata"
-        run: |
-          PACKAGE_VERSION=$(jq -r .version frontend/package.json)
-          LOCK_VERSION=$(jq -r .version frontend/package-lock.json)
-          LOCK_ROOT_VERSION=$(jq -r '.packages[""].version' frontend/package-lock.json)
-          PYPROJECT_VERSION=$(sed -n 's/^version = "\(.*\)"$/\1/p' backend/pyproject.toml | head -1)
-          UV_LOCK_VERSION=$(grep -A1 '^name = "family-tree-backend"$' backend/uv.lock | sed -n 's/^version = "\(.*\)"$/\1/p')
-
-          echo "frontend/package.json:      $PACKAGE_VERSION"
-          echo "frontend/package-lock.json: $LOCK_VERSION"
-          echo "lock root package:          $LOCK_ROOT_VERSION"
-          echo "backend/pyproject.toml:     $PYPROJECT_VERSION"
-          echo "backend/uv.lock:            $UV_LOCK_VERSION"
-
-          if [ "$PACKAGE_VERSION" != "$LOCK_VERSION" ] || [ "$PACKAGE_VERSION" != "$LOCK_ROOT_VERSION" ] \
-            || [ "$PACKAGE_VERSION" != "$PYPROJECT_VERSION" ] || [ "$PACKAGE_VERSION" != "$UV_LOCK_VERSION" ]; then
-            echo "Version metadata is out of sync across frontend/backend."
-            echo "Run 'npm run bump:patch|minor|major' from frontend/ — it updates all four files."
-            exit 1
-          fi
-
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            TAG_VERSION="${GITHUB_REF_NAME#v}"
-            echo "Release tag:                $TAG_VERSION"
-            if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ] || [ "$TAG_VERSION" != "$LOCK_VERSION" ] \
-              || [ "$TAG_VERSION" != "$LOCK_ROOT_VERSION" ] || [ "$TAG_VERSION" != "$PYPROJECT_VERSION" ] \
-              || [ "$TAG_VERSION" != "$UV_LOCK_VERSION" ]; then
-              echo "Release tag v$TAG_VERSION does not match all release metadata."
-              exit 1
-            fi
-          else
-            echo "Ordinary PRs and main pushes do not need a version bump."
-          fi
-
-  # Aggregate gate so the existing required status check named
-  # "Check Application Build" (branch protection) keeps being reported.
-  check-build:
-    name: "Check Application Build"
-    needs: [changes, frontend, i18n-status, backend, version-policy]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Require all checks to pass"
-        run: |
-          echo "changes=${{ needs.changes.result }} frontend=${{ needs.frontend.result }} i18n-status=${{ needs.i18n-status.result }} backend=${{ needs.backend.result }} version-policy=${{ needs.version-policy.result }}"
-          # Change-detection must succeed, else we'd skip everything and pass blindly.
-          if [ "${{ needs.changes.result }}" != "success" ]; then
-            echo "Change detection failed."
-            exit 1
-          fi
-          # frontend/backend may be legitimately "skipped" when their area was untouched.
-          for res in "${{ needs.frontend.result }}" "${{ needs.backend.result }}"; do
-            if [ "$res" != "success" ] && [ "$res" != "skipped" ]; then
-              echo "A build/test job failed ($res)."
-              exit 1
-            fi
-          done
-          # The always-on gate jobs must pass outright.
-          if [ "${{ needs.i18n-status.result }}" != "success" ] || [ "${{ needs.version-policy.result }}" != "success" ]; then
-            echo "A required gate job failed."
-            exit 1
-          fi
-          echo "All checks passed (skipped = no changes in that area)."
-
   release-e2e:
     name: "Release Playwright E2E"
     needs: [check-build]
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    env:
-      E2E_ADMIN_USERNAME: e2e-admin
-      E2E_ADMIN_PASSWORD: e2e-admin-password
-      E2E_BASE_URL: http://localhost:8080
-      E2E_API_URL: http://localhost:8080/api
-
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v7
-
-      - name: "Build & start compose stack"
-        run: |
-          docker compose -f docker-compose.e2e.yml up --build -d
-        env:
-          E2E_ADMIN_USERNAME: ${{ env.E2E_ADMIN_USERNAME }}
-          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
-
-      - name: "Wait for stack to be healthy"
-        run: |
-          echo "Waiting for frontend to be reachable..."
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080 > /dev/null 2>&1; then
-              echo "Stack is up after ${i} attempts"
-              break
-            fi
-            echo "  attempt $i/30 — waiting 5s"
-            sleep 5
-          done
-          curl -sf http://localhost:8080/api/health/ready || {
-            echo "Backend health check failed"
-            docker compose -f docker-compose.e2e.yml logs
-            exit 1
-          }
-
-      - name: "Set up Node.js"
-        uses: actions/setup-node@v7
-        with:
-          node-version: "24"
-          cache: "npm"
-          cache-dependency-path: e2e/package-lock.json
-
-      - name: "Install dependencies"
-        working-directory: e2e
-        run: npm ci
-
-      - name: "Install Playwright browsers"
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium
-
-      - name: "Run Playwright tests"
-        working-directory: e2e
-        run: npx playwright test
-        env:
-          E2E_ADMIN_USERNAME: ${{ env.E2E_ADMIN_USERNAME }}
-          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
-          E2E_BASE_URL: ${{ env.E2E_BASE_URL }}
-          E2E_API_URL: ${{ env.E2E_API_URL }}
-
-      - name: "Upload test report"
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: release-playwright-report
-          path: e2e/playwright-report/
-          retention-days: 14
-
-      - name: "Upload traces on failure"
-        uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: release-playwright-traces
-          path: e2e/test-results/
-          retention-days: 7
-
-      - name: "Dump compose logs on failure"
-        if: failure()
-        run: docker compose -f docker-compose.e2e.yml logs
-
-      - name: "Tear down compose stack"
-        if: always()
-        run: docker compose -f docker-compose.e2e.yml down -v
+    uses: ./.github/workflows/release-e2e.yml
 
   images:
-    name: "Build & push ${{ matrix.service }} image"
+    name: "Publish images"
     needs: [check-build, release-e2e]
     if: |
       always() &&
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       needs.check-build.result == 'success' &&
       (!startsWith(github.ref, 'refs/tags/v') || needs.release-e2e.result == 'success')
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/publish-images.yml
     permissions:
       contents: read
       packages: write
-    concurrency:
-      group: publish-images-${{ github.ref }}-${{ matrix.service }}
-      cancel-in-progress: false
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - service: backend
-            context: ./backend
-            dockerfile: ./backend/Dockerfile
-          - service: frontend
-            context: .
-            dockerfile: ./frontend/Dockerfile
-
-    steps:
-      - name: "Checkout Code"
-        uses: actions/checkout@v7
-
-      - name: "Resolve build metadata"
-        id: build-meta
-        run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
-          elif [[ "$GITHUB_REF" == refs/heads/* ]]; then
-            REF_NAME="${GITHUB_REF_NAME//\//-}"
-            VERSION="${REF_NAME}-${SHORT_SHA}"
-          else
-            VERSION="manual-${SHORT_SHA}"
-          fi
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "revision=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-          echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
-
-      - name: "Log in to GHCR"
-        uses: docker/login-action@v4.5.2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: "Docker metadata"
-        id: meta
-        uses: docker/metadata-action@v6
-        with:
-          images: ghcr.io/${{ github.repository }}-${{ matrix.service }}
-          flavor: latest=false
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-            type=sha,format=short
-
-      - name: "Set up Docker Buildx"
-        uses: docker/setup-buildx-action@v4
-
-      # Build into the local Docker daemon first so Trivy can scan the image
-      # before anything is pushed. The push step below is a pure cache hit.
-      - name: "Build for scanning"
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          load: true
-          tags: scan-target/${{ matrix.service }}:ci
-          build-args: |
-            APP_VERSION=${{ steps.build-meta.outputs.version }}
-            APP_REVISION=${{ steps.build-meta.outputs.revision }}
-            APP_BUILD_DATE=${{ steps.build-meta.outputs.build_date }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: "Report vulnerabilities (Trivy)"
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: scan-target/${{ matrix.service }}:ci
-          format: table
-          severity: HIGH,CRITICAL
-          exit-code: "0"
-
-      - name: "Gate on fixable CRITICAL vulnerabilities (Trivy)"
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: scan-target/${{ matrix.service }}:ci
-          format: table
-          severity: CRITICAL
-          # Only fixable CRITICALs block the publish; a CVE with no patched
-          # package available yet shouldn't stall releases.
-          ignore-unfixed: true
-          exit-code: "1"
-          skip-setup-trivy: true
-
-      - name: "Build and push"
-        uses: docker/build-push-action@v7
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            APP_VERSION=${{ steps.build-meta.outputs.version }}
-            APP_REVISION=${{ steps.build-meta.outputs.revision }}
-            APP_BUILD_DATE=${{ steps.build-meta.outputs.build_date }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+    with:
+      push: true
+      tag-latest: ${{ startsWith(github.ref, 'refs/tags/v') }}
