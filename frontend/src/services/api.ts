@@ -9,6 +9,19 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 const TOKEN_KEY = "ft_token";
 
+/** Semantic 401 detail for a password-protected public tree — routed to the
+ *  public-password prompt instead of the global re-login handler. */
+export const PUBLIC_PASSWORD_REQUIRED = "public_password_required";
+
+/** 401 details that describe an application flow (a password prompt) rather
+ *  than an invalid/expired session — none of these should invalidate the
+ *  signed-in user's session or open the global re-login dialog. */
+const SEMANTIC_401_DETAILS = new Set([
+  PUBLIC_PASSWORD_REQUIRED,
+  "invalid_public_password",
+  "Password required",
+]);
+
 /** Hang ceiling for a staged file upload — bounds a stalled/dead connection,
  *  not the time a large-but-healthy transfer may take. */
 export const UPLOAD_STAGE_TIMEOUT_MS = 120_000;
@@ -120,10 +133,6 @@ async function request<T>(
     if (timeoutId !== undefined) clearTimeout(timeoutId);
   }
 
-  if (response.status === 401) {
-    unauthorizedHandler?.();
-  }
-
   if (!response.ok) {
     let detail = response.statusText;
     try {
@@ -131,6 +140,9 @@ async function request<T>(
       detail = data.detail || detail;
     } catch {
       // non-JSON error body
+    }
+    if (response.status === 401 && !SEMANTIC_401_DETAILS.has(detail)) {
+      unauthorizedHandler?.();
     }
     throw new ApiError(response.status, detail);
   }
