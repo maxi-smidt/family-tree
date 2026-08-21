@@ -26,7 +26,6 @@ class VirtualView(Base):
         String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     created_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso)
-    last_opened: Mapped[str | None] = mapped_column(String(40), nullable=True)
     matches_computed_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     sources: Mapped[list["VirtualViewSource"]] = relationship(
@@ -41,6 +40,25 @@ class VirtualView(Base):
     positions: Mapped[list["VirtualViewPosition"]] = relationship(
         cascade="all, delete-orphan",
     )
+
+
+class VirtualViewUserState(Base):
+    """Per-user "recently opened" timestamp for a virtual view.
+
+    A view only ever has one owner, but an admin can open someone else's view
+    (see ``_resolve_view``); keeping this per-user, like ``TreeUserState``,
+    stops that from reordering the owner's own recent-views list (#878).
+    """
+
+    __tablename__ = "virtual_view_user_states"
+
+    view_id: Mapped[str] = mapped_column(
+        String(40), ForeignKey("virtual_views.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_opened: Mapped[str] = mapped_column(String(40))
 
 
 class VirtualViewSource(Base):

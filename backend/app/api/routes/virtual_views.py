@@ -36,6 +36,7 @@ from app.models.virtual_view import (
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
+    VirtualViewUserState,
 )
 from app.schemas.activity import ActivityPageOut
 from app.schemas.content import (
@@ -126,6 +127,25 @@ def _check_source_access(
             _check_source_access(db, nested, user, _seen)
 
 
+def _mark_view_opened(db: Session, view_id: str, user_id: str) -> None:
+    """Stamp ``view_id`` as just-opened for ``user_id`` (#878: an admin
+    opening someone else's view must not reorder the owner's own list)."""
+    state = db.get(VirtualViewUserState, (view_id, user_id))
+    if state is None:
+        db.add(
+            VirtualViewUserState(
+                view_id=view_id, user_id=user_id, last_opened=utcnow_iso()
+            )
+        )
+    else:
+        state.last_opened = utcnow_iso()
+
+
+def _view_last_opened(db: Session, view_id: str, user_id: str) -> str | None:
+    state = db.get(VirtualViewUserState, (view_id, user_id))
+    return state.last_opened if state else None
+
+
 def _resolve_view(db: Session, view_id: str, user: User) -> VirtualView:
     view = db.get(VirtualView, view_id)
     if view is None:
@@ -178,7 +198,7 @@ def _view_out(
         name=view.name,
         owner_id=view.owner_id,
         created_at=view.created_at,
-        last_opened=view.last_opened,
+        last_opened=_view_last_opened(db, view.id, user.id),
         sources=sources,
     )
 
@@ -445,7 +465,8 @@ def list_virtual_views(
             ).all()
         )
     views.sort(
-        key=lambda v: (v.last_opened or "", v.created_at), reverse=True
+        key=lambda v: (_view_last_opened(db, v.id, user.id) or "", v.created_at),
+        reverse=True,
     )
     accessible_ids = set(accessible_tree_ids(db, user))
     return [_view_out(db, v, user, accessible_ids) for v in views]
@@ -495,7 +516,7 @@ def get_virtual_view(
     db: Session = Depends(get_db),
 ) -> VirtualViewOut:
     view = _resolve_view(db, view_id, user)
-    view.last_opened = utcnow_iso()
+    _mark_view_opened(db, view.id, user.id)
     db.commit()
     return _view_out(db, view, user)
 
@@ -644,7 +665,7 @@ def get_virtual_view_metadata(
         id=view.id,
         name=view.name,
         created_at=view.created_at,
-        last_opened=view.last_opened,
+        last_opened=_view_last_opened(db, view.id, user.id),
         source_trees=source_trees,
         overlap_count=overlap_count,
         has_layout=has_layout,

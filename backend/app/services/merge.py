@@ -55,6 +55,7 @@ from app.services.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback
 from app.services.storage import copy_media_to_tree
+from app.services.tree_state import mark_tree_opened
 
 if TYPE_CHECKING:
     pass
@@ -438,10 +439,10 @@ def merge_trees(
         name=name,
         owner_id=user.id,
         created_at=utcnow_iso(),
-        last_opened=utcnow_iso(),
     )
     db.add(new_tree)
     db.flush()
+    mark_tree_opened(db, new_tree.id, user.id)
     _progress(10)
 
     # --- Members (with de-duplication across both sources) -----------------

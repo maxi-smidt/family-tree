@@ -62,11 +62,13 @@ from app.models import (
     Tree,
     TreeInvitation,
     TreeMembership,
+    TreeUserState,
     User,
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
+    VirtualViewUserState,
 )
 from app.models.backup import BackupRecord
 from app.schemas.backup import BackupBundle, MediaItem
@@ -92,6 +94,7 @@ BACKUP_MODELS: tuple[type, ...] = (
     Member,
     TreeMembership,
     TreeInvitation,
+    TreeUserState,
     Friendship,
     FeatureFlagOverride,
     Relation,
@@ -120,6 +123,7 @@ BACKUP_MODELS: tuple[type, ...] = (
     VirtualViewSource,
     VirtualViewMemberMatch,
     VirtualViewPosition,
+    VirtualViewUserState,
 )
 
 # Every other model registered on Base must be listed here, with a reason it
@@ -230,7 +234,13 @@ def _expected_table_names() -> set[str]:
 # backups stay restorable. Only ever grows going forward: once a table is
 # added here it must never be removed, even if it is later dropped from
 # BACKUP_MODELS.
-LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset({DocumentUpload.__tablename__})
+LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
+    {
+        DocumentUpload.__tablename__,
+        TreeUserState.__tablename__,
+        VirtualViewUserState.__tablename__,
+    }
+)
 
 
 def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, Any]:
