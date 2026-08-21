@@ -35,6 +35,7 @@ from app.models import (
     Document,
     DocumentFile,
     DocumentMemberLink,
+    DocumentUpload,
     Event,
     EventDocumentLink,
     EventMemberLink,
@@ -50,6 +51,7 @@ from app.models import (
     MemberDisease,
     MemberTask,
     MemberTaskLink,
+    Notification,
     QualityIssueDismissal,
     Relation,
     RelationType,
@@ -77,10 +79,9 @@ BACKUP_VERSION = 2
 BACKUP_FORMAT = "family-tree-instance-backup"
 BACKUP_DIR: Path = settings.APP_DATA_PATH / "backups"
 
-# Parent tables always precede tables that reference them.  BackupRecord is
-# deliberately excluded: its files live in BACKUP_DIR, and including backups
-# inside a backup would recurse indefinitely.  It is operational metadata, not
-# restored instance content.
+# Parent tables always precede tables that reference them. See
+# BACKUP_EXCLUDED_MODELS below for the models deliberately left out of this
+# tuple.
 BACKUP_MODELS: tuple[type, ...] = (
     User,
     RelationType,
@@ -107,6 +108,7 @@ BACKUP_MODELS: tuple[type, ...] = (
     Document,
     DocumentFile,
     DocumentMemberLink,
+    DocumentUpload,
     EventDocumentLink,
     StoryDocumentLink,
     ActivityLog,
@@ -118,6 +120,21 @@ BACKUP_MODELS: tuple[type, ...] = (
     VirtualViewSource,
     VirtualViewMemberMatch,
     VirtualViewPosition,
+)
+
+# Every other model registered on Base must be listed here, with a reason it
+# is not restorable instance content. A model that is neither backed up nor
+# excluded here is a backup-completeness bug (see test_backup_service.py).
+BACKUP_EXCLUDED_MODELS: tuple[type, ...] = (
+    # Its files live in BACKUP_DIR, and including backups inside a backup
+    # would recurse indefinitely. Operational metadata, not instance content.
+    BackupRecord,
+    # A commit witness written *during* a restore; it would be meaningless
+    # (and misleading) replayed into a later restore.
+    RestoreMarker,
+    # A per-user activity inbox that is safe to lose: restoring an instance
+    # without it just means read/unread badges reset, nothing is orphaned.
+    Notification,
 )
 
 
@@ -207,6 +224,32 @@ def _expected_table_names() -> set[str]:
     return {model.__tablename__ for model in BACKUP_MODELS}
 
 
+# Tables added to BACKUP_MODELS after BACKUP_VERSION 2 was first shipped. A v2
+# backup taken before the table existed is still a valid v2 backup; treat the
+# table as empty on restore rather than rejecting the whole file, so pre-#871
+# backups stay restorable. Only ever grows going forward: once a table is
+# added here it must never be removed, even if it is later dropped from
+# BACKUP_MODELS.
+LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset({DocumentUpload.__tablename__})
+
+
+def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, Any]:
+    """Add any ``LEGACY_OPTIONAL_TABLES`` missing from an older backup file.
+
+    Mutates and returns *bundle_dict* in place. A no-op for a backup that
+    already has every table, i.e. every backup created by this build.
+    """
+    tables = bundle_dict.get("tables")
+    manifest = bundle_dict.get("manifest")
+    counts = manifest.get("table_row_counts") if isinstance(manifest, dict) else None
+    if not isinstance(tables, dict) or not isinstance(counts, dict):
+        return bundle_dict
+    for name in LEGACY_OPTIONAL_TABLES:
+        tables.setdefault(name, [])
+        counts.setdefault(name, 0)
+    return bundle_dict
+
+
 def validate_bundle(bundle: BackupBundle | dict[str, Any]) -> BackupBundle:
     """Validate format, all table counts, and every embedded media hash.
 
@@ -214,6 +257,7 @@ def validate_bundle(bundle: BackupBundle | dict[str, Any]) -> BackupBundle:
     an existing file). Returns the validated model.
     """
     if isinstance(bundle, dict):
+        bundle = _backfill_legacy_optional_tables(bundle)
         try:
             bundle = BackupBundle.model_validate(bundle)
         except ValidationError as exc:
@@ -535,6 +579,7 @@ def restore_backup_file(
         bundle_dict = decrypt_bundle(filepath.read_bytes(), None)
     except Exception as exc:  # noqa: BLE001
         raise BackupValidationError("Could not decrypt backup file") from exc
+    bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
     try:
         bundle = BackupBundle.model_validate(bundle_dict)
     except ValidationError as exc:
