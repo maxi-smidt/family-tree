@@ -127,6 +127,64 @@ jobs:
         # Tests are isolation-safe: each gets its own SQLite DB via tmp_path.
         run: uv run pytest -n auto
 
+  compose-config:
+    name: "Compose backend env propagation"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: "Checkout Code"
+        uses: actions/checkout@v7
+
+      # Renders docker-compose.yml / docker-compose.prod.yml with sentinel
+      # values for every documented backend setting and asserts each one
+      # reaches the backend service's *rendered* environment — catches
+      # settings that are readable via .env but missing from a compose
+      # file's `environment:` list (and so never reach the container).
+      - name: "Render compose configs with sentinel values"
+        run: |
+          set -euo pipefail
+          cat > /tmp/sentinel.env <<'EOF'
+          SECRET_KEY=sentinel-secret-key-0123456789abcdef
+          DATABASE_URL=sentinel-database-url
+          POSTGRES_HOST=sentinel-postgres-host
+          POSTGRES_PORT=15432
+          POSTGRES_USER=sentinel-postgres-user
+          POSTGRES_PASSWORD=sentinel-postgres-password
+          POSTGRES_DB=sentinel-postgres-db
+          DB_POOL_SIZE=42
+          DB_MAX_OVERFLOW=43
+          DB_POOL_RECYCLE=4400
+          FRONTEND_URL=http://sentinel-frontend
+          CORS_ORIGINS=http://sentinel-cors
+          ALLOW_SELF_REGISTRATION=true
+          FIRST_ADMIN_USERNAME=sentinel-admin-user
+          FIRST_ADMIN_PASSWORD=sentinel-admin-password
+          FIRST_ADMIN_EMAIL=sentinel@example.com
+          AUTHENTIK_CLIENT_ID=sentinel-client-id
+          AUTHENTIK_CLIENT_SECRET=sentinel-client-secret
+          AUTHENTIK_DISCOVERY_URL=http://sentinel-discovery-url
+          AUTHENTIK_SCOPES=sentinel-scopes
+          AUTHENTIK_AUTO_CREATE_USERS=false
+          AUTHENTIK_ADMIN_GROUP=sentinel-admin-group
+          REDIS_URL=redis://sentinel-redis:6379/0
+          WORKERS=7
+          EOF
+
+          for f in docker-compose.yml docker-compose.prod.yml; do
+            echo "== $f =="
+            docker compose --env-file /tmp/sentinel.env -f "$f" config --format json \
+              | jq '.services.backend.environment' > /tmp/backend-env.json
+            while IFS='=' read -r key expected; do
+              [ -z "$key" ] && continue
+              actual=$(jq -r --arg k "$key" '.[$k]' /tmp/backend-env.json)
+              if [ "$actual" != "$expected" ]; then
+                echo "::error::$f: backend service environment has $key='$actual', expected the sentinel '$expected' — is $key missing from environment: in $f?"
+                exit 1
+              fi
+            done < /tmp/sentinel.env
+          done
+          echo "Every documented backend setting reaches the backend service environment in both compose files."
+
   version-policy:
     name: "Version metadata policy"
     runs-on: ubuntu-latest
@@ -172,7 +230,7 @@ jobs:
   # Aggregate gate exposed to callers as outputs.passed / outputs.frontend_result.
   result:
     name: "Aggregate result"
-    needs: [changes, frontend, backend, version-policy]
+    needs: [changes, frontend, backend, compose-config, version-policy]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -183,7 +241,7 @@ jobs:
       - name: "Require all checks to pass"
         id: gate
         run: |
-          echo "changes=${{ needs.changes.result }} frontend=${{ needs.frontend.result }} backend=${{ needs.backend.result }} version-policy=${{ needs.version-policy.result }}"
+          echo "changes=${{ needs.changes.result }} frontend=${{ needs.frontend.result }} backend=${{ needs.backend.result }} compose-config=${{ needs.compose-config.result }} version-policy=${{ needs.version-policy.result }}"
           # Change-detection must succeed, else we'd skip everything and pass blindly.
           if [ "${{ needs.changes.result }}" != "success" ]; then
             echo "Change detection failed."
@@ -196,8 +254,8 @@ jobs:
               exit 1
             fi
           done
-          # The always-on gate job must pass outright.
-          if [ "${{ needs.version-policy.result }}" != "success" ]; then
+          # The always-on gate jobs must pass outright.
+          if [ "${{ needs.compose-config.result }}" != "success" ] || [ "${{ needs.version-policy.result }}" != "success" ]; then
             echo "A required gate job failed."
             exit 1
           fi
