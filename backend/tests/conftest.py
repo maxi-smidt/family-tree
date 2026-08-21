@@ -14,9 +14,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401  (registers every table on Base.metadata)
+from app.api.exception_handlers import install_domain_error_handler
 from app.api.router import api_router
 from app.core.config import settings
-from app.core.exceptions import install_domain_error_handler
 from app.core.rate_limit import login_rate_limiter, public_unlock_rate_limiter
 from app.core.security import create_access_token, hash_password
 from app.db.base import Base, utcnow_iso
