@@ -1,20 +1,12 @@
 name: Checks
 
-# Reusable: build/test/lint everything and report whether it passed. Called by
-# check-build.yml on every push/PR, and (once #904 lands) by release.yml so a
-# release run exercises the exact same checks before it tags and publishes.
+# Reusable: build/test/lint everything and report whether it passed. Called
+# by check-build.yml on every push/PR — including the release workflow's
+# release PRs, so a release exercises this exact suite before it can merge.
 
 on:
   workflow_call:
     inputs:
-      ref:
-        description: >-
-          Commit/branch/tag to check out. Defaults to the ref that triggered
-          the caller. release.yml passes the release commit it just created,
-          since that content hasn't been checked out by the triggering event.
-        type: string
-        default: ""
-        required: false
       run-all:
         description: >-
           Run every area's checks regardless of changed paths. Release runs
@@ -40,14 +32,13 @@ jobs:
   changes:
     name: "Detect changed areas"
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
       backend: ${{ steps.filter.outputs.backend }}
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.ref }}
 
       - name: "Filter changed paths"
         uses: dorny/paths-filter@v4
@@ -68,14 +59,13 @@ jobs:
     needs: changes
     if: ${{ inputs.run-all || github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.ref }}
 
       - name: "Set up Node.js"
         uses: actions/setup-node@v7
@@ -107,14 +97,13 @@ jobs:
     needs: changes
     if: ${{ inputs.run-all || github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.ref }}
 
       - name: "Set up uv"
         uses: astral-sh/setup-uv@v7
@@ -141,11 +130,10 @@ jobs:
   version-policy:
     name: "Version metadata policy"
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: "Checkout Code"
         uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.ref }}
 
       - name: "Check package metadata"
         run: |
@@ -187,6 +175,7 @@ jobs:
     needs: [changes, frontend, backend, version-policy]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       frontend_result: ${{ needs.frontend.result }}
       passed: ${{ steps.gate.outputs.passed }}
