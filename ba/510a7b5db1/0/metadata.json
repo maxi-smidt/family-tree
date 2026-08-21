@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "ba510a7b5db1",
+  "session_id": "28404214-1d5c-4742-a05f-cdd13e8401b4",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-21T19:27:40.970367102Z",
+  "branch": "fix/873-preserve-auth-on-transient-me-failure",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/hooks/useAuthStore.ts",
+    "frontend/src/components/auth/AuthUnreachableScreen.tsx",
+    "frontend/src/App.tsx",
+    "frontend/src/i18n/locales/en.json",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/hooks/useAuthStore.test.ts"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "80ebf156954a",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 172,
+    "cache_creation_tokens": 99819,
+    "cache_read_tokens": 7678384,
+    "output_tokens": 28711,
+    "api_call_count": 86
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-21T19:27:40.924042826Z",
+    "agent_lines": 196,
+    "agent_removed": 24,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 196,
+    "total_lines_changed": 220,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

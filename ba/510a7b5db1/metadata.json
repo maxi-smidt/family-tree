@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "ba510a7b5db1",
+  "strategy": "manual-commit",
+  "branch": "fix/873-preserve-auth-on-transient-me-failure",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "frontend/src/App.tsx",
+    "frontend/src/components/auth/AuthUnreachableScreen.tsx",
+    "frontend/src/hooks/useAuthStore.test.ts",
+    "frontend/src/hooks/useAuthStore.ts",
+    "frontend/src/i18n/locales/de.json",
+    "frontend/src/i18n/locales/en.json"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ba/510a7b5db1/0/metadata.json",
+      "transcript": "/ba/510a7b5db1/0/full.jsonl",
+      "compact_transcript": "/ba/510a7b5db1/0/transcript.jsonl",
+      "content_hash": "/ba/510a7b5db1/0/content_hash.txt",
+      "prompt": "/ba/510a7b5db1/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 172,
+    "cache_creation_tokens": 99819,
+    "cache_read_tokens": 7678384,
+    "output_tokens": 28711,
+    "api_call_count": 86
+  }
+}
