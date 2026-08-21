@@ -1,0 +1,36 @@
+name: Prune GHCR Versions
+
+# Registry hygiene, not cost control (GHCR is free on this public repo).
+# Deletes only *untagged* container versions — ones no `docker pull` can ever
+# reach, because every reachable tag (a version, `latest`, or a branch name
+# like `main`) was moved off them by a later push. This never touches a
+# version that still carries a tag: semver releases, `latest`, and `main`
+# are always tagged, so they can never be selected here regardless of age.
+
+on:
+  schedule:
+    # Monthly, 1st at 07:00 UTC.
+    - cron: "0 7 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prune:
+    name: "Prune untagged ${{ matrix.service }} versions"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - name: "Delete untagged versions"
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: "family-tree-${{ matrix.service }}"
+          package-type: "container"
+          delete-only-untagged-versions: "true"
+          min-versions-to-keep: "0"
