@@ -13,12 +13,12 @@ opt-in before removing existing data.
 
 import base64
 import hashlib
+import json
 import logging
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
-from uuid import uuid4
 
 from pydantic import ValidationError
 from sqlalchemy import delete, func, select
@@ -53,6 +53,7 @@ from app.models import (
     QualityIssueDismissal,
     Relation,
     RelationType,
+    RestoreMarker,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -241,8 +242,10 @@ def _verify_database_counts(db: Session, expected_counts: dict[str, int]) -> Non
             )
 
 
-def _write_staged_media(media: list[MediaItem], media_root: Path) -> Path:
-    staging = media_root.with_name(f"{media_root.name}.restore-{uuid4().hex}")
+def _write_staged_media(
+    media: list[MediaItem], media_root: Path, restore_id: str
+) -> Path:
+    staging = media_root.with_name(f"{media_root.name}.restore-stage-{restore_id}")
     try:
         for item in media:
             relative = _safe_media_relative(item.path)
@@ -253,6 +256,22 @@ def _write_staged_media(media: list[MediaItem], media_root: Path) -> Path:
     except Exception:
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+
+def _verify_staged_media(staging: Path, media: list[MediaItem]) -> None:
+    """Re-read every staged file from disk and confirm it matches the backup.
+
+    The in-memory bytes were already hash-checked while the bundle was
+    validated; this catches corruption introduced by the write to disk itself
+    before anything live is touched.
+    """
+    for item in media:
+        relative = _safe_media_relative(item.path)
+        raw = staging.joinpath(*relative.parts).read_bytes()
+        if len(raw) != item.size_bytes or _file_digest(raw) != item.sha256:
+            raise BackupValidationError(
+                f"Staged media does not match backup for {item.path}"
+            )
 
 
 def _media_root_is_empty(media_root: Path) -> bool:
@@ -266,13 +285,89 @@ def _database_is_empty(db: Session) -> bool:
     )
 
 
-def _clear_instance(db: Session, media_root: Path) -> None:
-    """Remove restorable data in dependency-safe reverse order."""
+def _clear_instance(db: Session) -> None:
+    """Remove restorable rows in dependency-safe reverse order.
+
+    Media is handled separately by the journaled swap in ``restore_bundle``;
+    this only ever touches the (uncommitted) database transaction.
+    """
     for model in reversed(BACKUP_MODELS):
         db.execute(delete(model))
     db.flush()
+
+
+def _journal_path(media_root: Path) -> Path:
+    return media_root.with_name(f"{media_root.name}.restore-journal.json")
+
+
+def _write_journal(journal_path: Path, data: dict[str, str]) -> None:
+    """Write the journal atomically (write-tmp, then rename) so a crash mid
+    write never leaves a half-written, unparseable journal behind."""
+    tmp = journal_path.with_suffix(journal_path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data))
+    tmp.replace(journal_path)
+
+
+def _read_journal(journal_path: Path) -> dict[str, str] | None:
+    if not journal_path.is_file():
+        return None
+    try:
+        return json.loads(journal_path.read_text())
+    except (OSError, json.JSONDecodeError):
+        logger.exception(
+            "Could not read restore journal at %s; leaving it for manual inspection",
+            journal_path,
+        )
+        return None
+
+
+def _delete_journal(journal_path: Path) -> None:
+    journal_path.unlink(missing_ok=True)
+    journal_path.with_suffix(journal_path.suffix + ".tmp").unlink(missing_ok=True)
+
+
+def _rename_dir(src: Path, dest: Path) -> None:
+    src.rename(dest)
+
+
+def _swap_media(media_root: Path, staging: Path, rollback: Path) -> None:
+    """Move any existing media root aside, then install the staged directory.
+
+    Both renames are filesystem-atomic. If the second one fails, the first
+    has already landed and ``rollback`` holds the original content, which
+    ``_revert_media_swap`` (and startup reconciliation) know how to undo.
+    """
     if media_root.exists():
-        shutil.rmtree(media_root)
+        _rename_dir(media_root, rollback)
+    _rename_dir(staging, media_root)
+
+
+def _revert_media_swap(media_root: Path, rollback: Path) -> None:
+    """Undo ``_swap_media``, regardless of how far it got."""
+    if media_root.exists():
+        shutil.rmtree(media_root, ignore_errors=True)
+    if rollback.exists():
+        _rename_dir(rollback, media_root)
+
+
+def _finalize_restore(rollback: Path, journal_path: Path) -> None:
+    """Drop the preserved pre-restore media and the journal after a commit."""
+    shutil.rmtree(rollback, ignore_errors=True)
+    _delete_journal(journal_path)
+
+
+def _sweep_orphaned_media_dirs(media_root: Path) -> None:
+    """Remove staging/rollback directories left by a restore that crashed
+    before it ever wrote a journal entry (nothing to reconcile against)."""
+    if not media_root.parent.is_dir():
+        return
+    patterns = (
+        f"{media_root.name}.restore-stage-*",
+        f"{media_root.name}.restore-rollback-*",
+    )
+    for pattern in patterns:
+        for path in media_root.parent.glob(pattern):
+            shutil.rmtree(path, ignore_errors=True)
 
 
 def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
@@ -305,6 +400,18 @@ def restore_bundle(
     ``replace`` is intentionally false by default.  This guard makes the safe
     operator path a fresh database/media volume, while still allowing a fully
     scripted disaster-recovery replacement with an explicit flag.
+
+    The swap is journaled so a crash never leaves a half-restored instance:
+    media is staged and hash-verified on disk, then the database is populated
+    and verified inside an *uncommitted* transaction — nothing live has been
+    touched yet, so any failure up to here is a plain rollback. Only once the
+    database side is known-good does the journal get written and the live
+    media directory get swapped (old content preserved at ``rollback``), and
+    a ``RestoreMarker`` row is inserted and committed with the restored data
+    in the same transaction — so the marker's presence *is* the proof the
+    commit landed. If the process dies anywhere after the journal is written,
+    ``reconcile_interrupted_restore`` uses that marker on the next startup to
+    finish the swap forward or roll it back.
     """
     validated = validate_bundle(bundle)
     target_media = media_root or settings.media_root
@@ -315,23 +422,87 @@ def restore_bundle(
             "Restore target is not empty; use replace=True only for deliberate recovery"
         )
 
-    staging = _write_staged_media(validated.media, target_media)
+    restore_id = new_uuid()
+    staging = _write_staged_media(validated.media, target_media, restore_id)
+    rollback = target_media.with_name(
+        f"{target_media.name}.restore-rollback-{restore_id}"
+    )
+    journal_path = _journal_path(target_media)
+    journal_written = False
+
     try:
+        _verify_staged_media(staging, validated.media)
         if replace:
-            _clear_instance(db, target_media)
+            _clear_instance(db)
         _insert_rows(db, validated.tables)
         db.flush()
         _verify_database_counts(db, validated.manifest.table_row_counts)
+
+        _write_journal(
+            journal_path,
+            {
+                "id": restore_id,
+                "media_root": str(target_media),
+                "staging": str(staging),
+                "rollback": str(rollback),
+                "created_at": utcnow_iso(),
+            },
+        )
+        journal_written = True
+        _swap_media(target_media, staging, rollback)
+        db.add(RestoreMarker(id=restore_id))
         db.commit()
-        target_media.parent.mkdir(parents=True, exist_ok=True)
-        if target_media.exists():
-            # A blank running instance creates this directory at startup.
-            target_media.rmdir()
-        staging.replace(target_media)
     except Exception:
         db.rollback()
+        if journal_written:
+            _revert_media_swap(target_media, rollback)
+            _delete_journal(journal_path)
         shutil.rmtree(staging, ignore_errors=True)
         raise
+
+    # The database and media are now consistent regardless of what happens
+    # from here; a failure finalizing cleanup just leaves the rollback copy
+    # and journal for the next startup's reconcile_interrupted_restore to
+    # clear away (see the "marker present" branch there).
+    _finalize_restore(rollback, journal_path)
+
+
+def reconcile_interrupted_restore(db: Session, media_root: Path | None = None) -> None:
+    """Finish or roll back a restore interrupted by a crash, on startup.
+
+    Called from ``init_db`` after migrations run (the ``restore_markers``
+    table and any restored tables must exist) and before the media root is
+    (re)created. A restore that never wrote a journal entry needs no
+    reconciliation: it never reached the swap, or it already cleaned up after
+    itself.
+    """
+    target_media = media_root or settings.media_root
+    journal_path = _journal_path(target_media)
+    journal = _read_journal(journal_path)
+    if journal is not None:
+        restore_id = journal["id"]
+        staging = Path(journal["staging"])
+        rollback = Path(journal["rollback"])
+
+        logger.warning("Reconciling interrupted restore %s", restore_id)
+        if db.get(RestoreMarker, restore_id) is None:
+            logger.warning(
+                "Restore %s was interrupted before its transaction committed; "
+                "rolling media back to the pre-restore state.",
+                restore_id,
+            )
+            _revert_media_swap(target_media, rollback)
+        else:
+            logger.warning(
+                "Restore %s had committed before the interruption; finishing cleanup.",
+                restore_id,
+            )
+            shutil.rmtree(rollback, ignore_errors=True)
+
+        shutil.rmtree(staging, ignore_errors=True)
+        _delete_journal(journal_path)
+
+    _sweep_orphaned_media_dirs(target_media)
 
 
 def restore_backup_file(
