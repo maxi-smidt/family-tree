@@ -1,0 +1,39 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "bbfb4543ac50",
+  "strategy": "manual-commit",
+  "branch": "fix/878-per-user-tree-last-opened",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/alembic/versions/v1_9_0_tree_last_opened_per_user.py",
+    "backend/app/api/routes/export_import.py",
+    "backend/app/api/routes/trees.py",
+    "backend/app/api/routes/virtual_views.py",
+    "backend/app/models/__init__.py",
+    "backend/app/models/tree.py",
+    "backend/app/models/virtual_view.py",
+    "backend/app/services/backup_service.py",
+    "backend/app/services/extract.py",
+    "backend/app/services/member_subtrees.py",
+    "backend/app/services/merge.py",
+    "backend/app/services/tree_state.py",
+    "backend/tests/test_trees.py",
+    "backend/tests/test_virtual_views.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/bb/fb4543ac50/0/metadata.json",
+      "transcript": "/bb/fb4543ac50/0/full.jsonl",
+      "compact_transcript": "/bb/fb4543ac50/0/transcript.jsonl",
+      "content_hash": "/bb/fb4543ac50/0/content_hash.txt",
+      "prompt": "/bb/fb4543ac50/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 308,
+    "cache_creation_tokens": 171812,
+    "cache_read_tokens": 17586642,
+    "output_tokens": 54487,
+    "api_call_count": 154
+  }
+}
