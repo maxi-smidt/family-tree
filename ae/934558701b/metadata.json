@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "ae934558701b",
+  "strategy": "manual-commit",
+  "branch": "fix/870-virtual-view-diseases-500",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/virtual_views.py",
+    "backend/tests/test_virtual_views.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ae/934558701b/0/metadata.json",
+      "transcript": "/ae/934558701b/0/full.jsonl",
+      "compact_transcript": "/ae/934558701b/0/transcript.jsonl",
+      "content_hash": "/ae/934558701b/0/content_hash.txt",
+      "prompt": "/ae/934558701b/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 34,
+    "cache_creation_tokens": 53565,
+    "cache_read_tokens": 1080775,
+    "output_tokens": 3874,
+    "api_call_count": 17
+  }
+}
