@@ -208,7 +208,10 @@ That is the whole procedure, because of two properties of the stack:
 - **Health-gated startup.** The frontend container only starts once the
   backend reports ready (`/api/health/ready`), and the backend retries until
   it can reach the database, so a normal upgrade never serves the UI against a
-  half-migrated schema.
+  half-migrated schema. An optional, configured Redis that's unreachable
+  reports ready-but-degraded (200) rather than blocking startup; set
+  `REDIS_REQUIRED=true` if your deployment needs Redis to be a hard
+  dependency instead.
 
 If you intentionally build locally instead of pulling published images, clone the
 repo and run `docker compose up -d --build` (using the default `docker-compose.yml`).
