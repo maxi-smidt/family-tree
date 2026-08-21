@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "7a71006d13af",
+  "strategy": "manual-commit",
+  "branch": "docs/issue-title-convention",
+  "checkpoints_count": 3,
+  "files_touched": [
+    ".github/ISSUE_TEMPLATE/PREVIEW.md",
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/ISSUE_TEMPLATE/documentation.yml",
+    ".github/ISSUE_TEMPLATE/feature_request.yml",
+    "AGENTS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7a/71006d13af/0/metadata.json",
+      "transcript": "/7a/71006d13af/0/full.jsonl",
+      "compact_transcript": "/7a/71006d13af/0/transcript.jsonl",
+      "content_hash": "/7a/71006d13af/0/content_hash.txt",
+      "prompt": "/7a/71006d13af/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 154,
+    "cache_creation_tokens": 133424,
+    "cache_read_tokens": 8798295,
+    "output_tokens": 74975,
+    "api_call_count": 77
+  }
+}
