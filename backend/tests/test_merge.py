@@ -125,8 +125,9 @@ def test_merge_requires_owned_or_shared_source(db):
     private_tree = make_tree(db, owner, "Private")
 
     import pytest
-    from fastapi import HTTPException
 
-    with pytest.raises(HTTPException) as exc:
+    from app.core.exceptions import DomainError
+
+    with pytest.raises(DomainError) as exc:
         merge_trees(db, stranger, "Steal", private_tree.id, None)
     assert exc.value.status_code == 404

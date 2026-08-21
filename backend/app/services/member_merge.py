@@ -13,11 +13,11 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Literal
 
-from fastapi import HTTPException
 from pydantic.alias_generators import to_camel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import InvalidInputError
 from app.models import (
     DocumentMemberLink,
     Event,
@@ -329,9 +329,7 @@ def merge_members_in_place(
     had its own link) so the route can log it and notify that other tree.
     """
     if keep.id == remove.id:
-        raise HTTPException(
-            status_code=400, detail="Cannot merge a member with itself"
-        )
+        raise InvalidInputError("Cannot merge a member with itself")
 
     normalized_fields: dict[str, FieldChoice] = {
         snake: choice
@@ -346,9 +344,8 @@ def merge_members_in_place(
         db.scalars(select(Relation).where(Relation.tree_id == tree.id))
     )
     if _merge_creates_cycle_through_keep(all_relations, keep.id, remove.id):
-        raise HTTPException(
-            status_code=400,
-            detail="This merge would make this member their own ancestor",
+        raise InvalidInputError(
+            "This merge would make this member their own ancestor"
         )
 
     # --- Pre-image for the activity log, captured before any mutation -------

@@ -26,10 +26,10 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import InvalidInputError, NotFoundError
 from app.db.base import utcnow_iso
 from app.models import (
     Document,
@@ -44,7 +44,7 @@ from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.storage import delete_media
-from app.services.storage_usage import QuotaExceeded, check_tree_quota
+from app.services.storage_usage import check_tree_quota
 
 # How long a staged upload may sit unclaimed before it is eligible for reaping.
 # Generous enough to cover a slow multi-file upload session, short enough that
@@ -63,20 +63,20 @@ def external_link_url(raw_url: str) -> str:
     if not url or "\\" in url or any(
         char.isspace() or ord(char) == 127 for char in url
     ):
-        raise HTTPException(status_code=400, detail="Invalid link URL")
+        raise InvalidInputError("Invalid link URL")
     try:
         parsed = urlsplit(url)
         # Accessing port performs urllib's range and syntax validation.
         _ = parsed.port
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid link URL") from exc
+        raise InvalidInputError("Invalid link URL") from exc
     if (
         parsed.scheme.lower() not in {"http", "https"}
         or not parsed.hostname
         or parsed.username is not None
         or parsed.password is not None
     ):
-        raise HTTPException(status_code=400, detail="Invalid link URL")
+        raise InvalidInputError("Invalid link URL")
     return url
 
 
@@ -162,12 +162,13 @@ def save_document(
 
     ``document_id`` is client-supplied and used as the upsert key, so a create
     that is retried updates in place instead of duplicating. Raises
-    ``HTTPException`` (400/404/413) on validation, ownership, or quota errors —
-    always *before* any rows are mutated.
+    ``InvalidInputError``, ``NotFoundError``, or ``QuotaExceeded`` on
+    validation, ownership, or quota errors — always *before* any rows are
+    mutated.
     """
     existing = db.get(Document, document_id)
     if existing is not None and existing.tree_id != tree.id:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise NotFoundError("Document not found")
     is_create = existing is None
 
     # 1a. Validate external links up-front. Skip ids already present so a retry
@@ -207,11 +208,10 @@ def save_document(
 
     # 1d. A create adds a metadata row; the attached bytes were already
     #     quota-checked when they were staged, so no media check is needed here.
+    # check_tree_quota raises QuotaExceeded, mapped to its HTTP response by
+    # the centralized handler.
     if is_create:
-        try:
-            check_tree_quota(db, tree, _estimated_document_bytes(payload))
-        except QuotaExceeded as exc:
-            raise HTTPException(status_code=413, detail=str(exc)) from exc
+        check_tree_quota(db, tree, _estimated_document_bytes(payload))
 
     now = utcnow_iso()
     delete_urls: list[str] = []

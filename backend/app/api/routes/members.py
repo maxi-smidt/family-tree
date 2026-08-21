@@ -17,6 +17,7 @@ from app.api.deps import (
     role_for,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -77,7 +78,7 @@ from app.services.storage import (
     delete_media,
     process_image_field,
 )
-from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
+from app.services.storage_usage import check_media_quota, check_tree_quota
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -290,17 +291,17 @@ def create_member(
     if new_image_url:
         try:
             check_media_quota(db, tree, 0)
-        except QuotaExceeded as exc:
+        except QuotaExceeded:
             delete_media(new_image_url)
-            raise HTTPException(status_code=413, detail=str(exc)) from exc
+            raise
 
     # Check tree-data quota (pre-write estimate).
     try:
         check_tree_quota(db, tree, len(str(data).encode()))
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         if new_image_url:
             delete_media(new_image_url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     member = Member(tree_id=tree.id, **data)
     db.add(member)
@@ -922,9 +923,9 @@ def update_member(
     if new_image_url:
         try:
             check_media_quota(db, tree, 0)
-        except QuotaExceeded as exc:
+        except QuotaExceeded:
             delete_media(new_image_url)
-            raise HTTPException(status_code=413, detail=str(exc)) from exc
+            raise
     # Capture before-state for diff details (skip noisy positional/internal fields).
     _SKIP_DIFF = {"position_x", "position_y", "is_collapsed", "image_data"}
     before = {k: getattr(member, k) for k in changes if k not in _SKIP_DIFF}
@@ -1421,10 +1422,7 @@ def add_relation(
     key = (tree.id, payload.from_member_id, payload.to_member_id, payload.relation_type)
     relation = db.get(Relation, key)
     if relation is None:
-        try:
-            check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
-        except QuotaExceeded as exc:
-            raise HTTPException(status_code=413, detail=str(exc)) from exc
+        check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
         relation = Relation(tree_id=tree.id, **payload.model_dump())
         db.add(relation)
         label = (
@@ -1515,10 +1513,7 @@ def add_disease(
     db: Session = Depends(get_db),
 ):
     _get_member(db, tree, payload.member_id)
-    try:
-        check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
     disease = MemberDisease(tree_id=tree.id, **payload.model_dump())
     db.add(disease)
     record_activity(

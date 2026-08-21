@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401  (registers every table on Base.metadata)
+from app.api.exception_handlers import install_domain_error_handler
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter, public_unlock_rate_limiter
@@ -92,6 +93,7 @@ def patch_background_session(session_factory, monkeypatch):
 def client(session_factory) -> TestClient:
     app = FastAPI()
     app.include_router(api_router, prefix=settings.API_PREFIX)
+    install_domain_error_handler(app)
 
     def override_get_db():
         session = session_factory()

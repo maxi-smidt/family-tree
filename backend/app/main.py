@@ -14,6 +14,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.api.exception_handlers import install_domain_error_handler
 from app.api.router import api_router
 from app.core.config import settings, validate_production_credentials
 from app.core.logging_config import setup_logging
@@ -114,6 +115,7 @@ app.add_middleware(
 settings.media_root.mkdir(parents=True, exist_ok=True)
 
 app.include_router(api_router, prefix=settings.API_PREFIX)
+install_domain_error_handler(app)
 
 
 @app.exception_handler(InvalidImageURL)

@@ -19,8 +19,7 @@ import logging
 from collections.abc import Callable
 from typing import Any, Concatenate
 
-from fastapi import HTTPException
-
+from app.core.exceptions import DomainError
 from app.db.base import utcnow_iso
 from app.db.session import SessionLocal
 from app.models.job import BackgroundJob
@@ -87,7 +86,7 @@ def run_job[**P](
 
     except Exception as exc:
         logger.exception("Background job %s failed", job_id)
-        error_msg = str(exc.detail) if isinstance(exc, HTTPException) else str(exc)
+        error_msg = str(exc.detail) if isinstance(exc, DomainError) else str(exc)
         try:
             job_db.rollback()
             if job is not None:

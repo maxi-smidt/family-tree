@@ -13,6 +13,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.exceptions import QuotaExceeded
 from app.core.media_config import (
     DEFAULT_MEDIA_QUOTA_MB,
     DEFAULT_TREE_QUOTA_MB,
@@ -281,24 +282,8 @@ def owner_quotas(db: Session, tree) -> OwnerQuotas:
 # ---------------------------------------------------------------------------
 # Quota enforcement
 # ---------------------------------------------------------------------------
-
-class QuotaExceeded(ValueError):
-    """Raised when a write would push usage past a quota limit."""
-
-    def __init__(
-        self,
-        bucket: Literal["tree", "media"],
-        limit_bytes: int,
-        current_bytes: int,
-        would_be_bytes: int,
-    ) -> None:
-        self.bucket = bucket
-        self.limit_bytes = limit_bytes
-        self.current_bytes = current_bytes
-        self.would_be_bytes = would_be_bytes
-        super().__init__(
-            f"quota_exceeded_{bucket}"
-        )
+# QuotaExceeded itself lives in app.core.exceptions, alongside the other
+# DomainError subclasses; imported above and re-raised here.
 
 
 def _check_bucket(

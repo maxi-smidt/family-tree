@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy import select
 
+from app.core.exceptions import DomainError
 from app.models import (
     DocumentMemberLink,
     EventMemberLink,
@@ -166,7 +166,7 @@ def test_self_merge_rejected(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="A")
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         merge_members_in_place(db, tree, keep, keep, {})
     assert exc.value.status_code == 400
 
@@ -204,7 +204,7 @@ def test_merge_creates_cycle_is_rejected(db):
                      relation_type="parent"))
     db.commit()
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         merge_members_in_place(db, tree, keep, remove, {})
     assert exc.value.status_code == 400
 

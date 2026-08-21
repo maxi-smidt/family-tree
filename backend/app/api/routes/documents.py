@@ -20,6 +20,7 @@ from app.api.deps import (
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -64,7 +65,7 @@ from app.services.storage import (
     store_document_upload,
     trash_media,
 )
-from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
+from app.services.storage_usage import check_media_quota, check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/documents",
@@ -183,10 +184,7 @@ def create_document(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
-    try:
-        check_tree_quota(db, tree, len(str(data).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str(data).encode()))
     now = utcnow_iso()
     document = Document(
         id=str(uuid4()),
@@ -386,9 +384,9 @@ async def stage_upload(
     # compute_usage, so pass 0 to avoid double-counting it.
     try:
         check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         delete_media(url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     upload = DocumentUpload(
         id=str(uuid4()),
@@ -446,9 +444,9 @@ async def add_file(
     # compute_usage, so pass 0 to avoid double-counting it.
     try:
         check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         delete_media(url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     file = DocumentFile(
         id=str(uuid4()),

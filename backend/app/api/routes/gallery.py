@@ -14,6 +14,7 @@ from app.api.deps import (
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -51,7 +52,6 @@ from app.services.storage import (
     trash_media,
 )
 from app.services.storage_usage import (
-    QuotaExceeded,
     check_media_quota,
     check_tree_quota,
     media_warning,
@@ -147,9 +147,9 @@ async def create_image(
     # compute_usage, so pass 0 to avoid double-counting it.
     try:
         check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         delete_media(new_image_url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     now = utcnow_iso()
     image_row = GalleryImage(
@@ -355,10 +355,7 @@ def create_unknown_face(
         f'Identify unknown person in "{image.title or image_id}"'
     )
     notes = payload.task_notes or None
-    try:
-        check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
 
     task = MemberTask(
         id=str(uuid4()),
