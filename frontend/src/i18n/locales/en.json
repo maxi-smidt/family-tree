@@ -1521,6 +1521,7 @@
     "import-gedcom-button": "Import GEDCOM",
     "toast-rename-success": "Tree renamed successfully!",
     "toast-rename-empty": "Tree name cannot be empty.",
+    "toast-rename-error": "Could not rename the tree.",
     "share-button": "Share",
     "toast-export-error": "Could not export the tree.",
     "toast-id-copied": "Tree ID copied to clipboard.",

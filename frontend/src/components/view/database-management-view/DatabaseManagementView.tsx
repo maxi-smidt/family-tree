@@ -205,10 +205,15 @@ export const DatabaseManagementView = () => {
       toast.error(t("toast-rename-empty"));
       return;
     }
-    await renameTree(database, editingName.trim());
-    toast.success(t("toast-rename-success"));
-    setEditingDatabaseId(null);
-    setEditingName("");
+    try {
+      await renameTree(database, editingName.trim());
+      toast.success(t("toast-rename-success"));
+      setEditingDatabaseId(null);
+      setEditingName("");
+    } catch (err) {
+      console.error(err);
+      toast.error(t("toast-rename-error"));
+    }
   };
 
   const handleSelectDatabase = async (database: Tree) => {
@@ -271,10 +276,15 @@ export const DatabaseManagementView = () => {
       toast.error(t("toast-rename-empty"));
       return;
     }
-    await renameVirtualView(view, name.trim());
-    toast.success(t("toast-rename-success"));
-    setEditingDatabaseId(null);
-    setEditingName("");
+    try {
+      await renameVirtualView(view, name.trim());
+      toast.success(t("toast-rename-success"));
+      setEditingDatabaseId(null);
+      setEditingName("");
+    } catch (err) {
+      console.error(err);
+      toast.error(t("toast-rename-error"));
+    }
   };
 
   const ownedDatabases = trees.filter((d) => d.role === "owner");
@@ -414,13 +424,15 @@ export const DatabaseManagementView = () => {
                     {t("linked-trees-graph-button")}
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  disabled={editingDatabaseId !== null}
-                  onSelect={() => handleStartRename(database)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                  {t("rename-button")}
-                </DropdownMenuItem>
+                {database.role !== "viewer" && (
+                  <DropdownMenuItem
+                    disabled={editingDatabaseId !== null}
+                    onSelect={() => handleStartRename(database)}
+                  >
+                    <Edit2 className="h-4 w-4" />
+                    {t("rename-button")}
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onSelect={() => void handleExportDatabase(database)}
                 >

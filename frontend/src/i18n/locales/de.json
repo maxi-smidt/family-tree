@@ -1521,6 +1521,7 @@
     "import-gedcom-button": "GEDCOM importieren",
     "toast-rename-success": "Stammbaum erfolgreich umbenannt!",
     "toast-rename-empty": "Stammbaumname darf nicht leer sein.",
+    "toast-rename-error": "Stammbaum konnte nicht umbenannt werden.",
     "share-button": "Teilen",
     "toast-export-error": "Stammbaum konnte nicht exportiert werden.",
     "toast-id-copied": "Stammbaum-ID in die Zwischenablage kopiert.",
