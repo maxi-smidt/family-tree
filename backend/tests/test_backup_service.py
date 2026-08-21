@@ -6,10 +6,12 @@ import pytest
 from sqlalchemy import delete
 
 from app.core.config import settings
+from app.db.base import Base
 from app.models import (
     BackgroundJob,
     Document,
     DocumentFile,
+    DocumentUpload,
     Friendship,
     GeocodeCache,
     LegalDocumentVersion,
@@ -24,6 +26,19 @@ from app.models import (
 from app.services import backup_service
 from app.services.crypto_export import decrypt_bundle
 from tests.conftest import add_member, make_tree, make_user
+
+
+def test_backup_models_cover_every_registered_model():
+    """Every model registered on Base is either backed up or explicitly excluded.
+
+    Guards against the class of bug reported in #871: a new durable model
+    landing without anyone deciding whether it belongs in an instance backup.
+    """
+    registered = {mapper.class_ for mapper in Base.registry.mappers}
+    accounted_for = set(backup_service.BACKUP_MODELS) | set(
+        backup_service.BACKUP_EXCLUDED_MODELS
+    )
+    assert registered == accounted_for
 
 
 def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
@@ -165,6 +180,46 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     # the restore has fully committed.
     assert not backup_service._journal_path(media_root).is_file()
     assert not list(media_root.parent.glob(f"{media_root.name}.restore-*"))
+
+
+def test_backup_restores_staged_document_upload(db, tmp_path, monkeypatch):
+    """A staged, not-yet-attached upload survives backup/restore intact.
+
+    Without the ``DocumentUpload`` row, a restore would recreate the staged
+    bytes with no bookkeeping to ever claim or reap them (#871).
+    """
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    upload_url = f"{settings.API_PREFIX}/media/{tree.id}/staged.pdf"
+    db.add(
+        DocumentUpload(
+            id="upload-1",
+            tree_id=tree.id,
+            filename="staged.pdf",
+            url=upload_url,
+            mime_type="application/pdf",
+            size=4,
+            created_at="now",
+        )
+    )
+    db.commit()
+
+    tree_media = media_root / tree.id
+    tree_media.mkdir(parents=True)
+    (tree_media / "staged.pdf").write_bytes(b"stag")
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    backup_service.validate_bundle(bundle)
+
+    backup_service.restore_bundle(db, bundle, replace=True, media_root=media_root)
+
+    restored = db.get(DocumentUpload, "upload-1")
+    assert restored is not None
+    assert restored.tree_id == tree.id
+    assert (tree_media / "staged.pdf").read_bytes() == b"stag"
 
 
 def test_backup_validation_rejects_changed_media(db, tmp_path, monkeypatch):

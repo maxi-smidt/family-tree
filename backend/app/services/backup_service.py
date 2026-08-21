@@ -35,6 +35,7 @@ from app.models import (
     Document,
     DocumentFile,
     DocumentMemberLink,
+    DocumentUpload,
     Event,
     EventDocumentLink,
     EventMemberLink,
@@ -50,6 +51,7 @@ from app.models import (
     MemberDisease,
     MemberTask,
     MemberTaskLink,
+    Notification,
     QualityIssueDismissal,
     Relation,
     RelationType,
@@ -77,10 +79,9 @@ BACKUP_VERSION = 2
 BACKUP_FORMAT = "family-tree-instance-backup"
 BACKUP_DIR: Path = settings.APP_DATA_PATH / "backups"
 
-# Parent tables always precede tables that reference them.  BackupRecord is
-# deliberately excluded: its files live in BACKUP_DIR, and including backups
-# inside a backup would recurse indefinitely.  It is operational metadata, not
-# restored instance content.
+# Parent tables always precede tables that reference them. See
+# BACKUP_EXCLUDED_MODELS below for the models deliberately left out of this
+# tuple.
 BACKUP_MODELS: tuple[type, ...] = (
     User,
     RelationType,
@@ -107,6 +108,7 @@ BACKUP_MODELS: tuple[type, ...] = (
     Document,
     DocumentFile,
     DocumentMemberLink,
+    DocumentUpload,
     EventDocumentLink,
     StoryDocumentLink,
     ActivityLog,
@@ -118,6 +120,21 @@ BACKUP_MODELS: tuple[type, ...] = (
     VirtualViewSource,
     VirtualViewMemberMatch,
     VirtualViewPosition,
+)
+
+# Every other model registered on Base must be listed here, with a reason it
+# is not restorable instance content. A model that is neither backed up nor
+# excluded here is a backup-completeness bug (see test_backup_service.py).
+BACKUP_EXCLUDED_MODELS: tuple[type, ...] = (
+    # Its files live in BACKUP_DIR, and including backups inside a backup
+    # would recurse indefinitely. Operational metadata, not instance content.
+    BackupRecord,
+    # A commit witness written *during* a restore; it would be meaningless
+    # (and misleading) replayed into a later restore.
+    RestoreMarker,
+    # A per-user activity inbox that is safe to lose: restoring an instance
+    # without it just means read/unread badges reset, nothing is orphaned.
+    Notification,
 )
 
 
