@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 import app.models  # noqa: F401  (registers every table on Base.metadata)
+from app.api.exception_handlers import install_domain_error_handler
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter, public_unlock_rate_limiter
@@ -30,7 +31,7 @@ from app.models import (
     TreeMembership,
     User,
 )
-from app.services.settings_service import DEFAULT_LEGAL_VERSION, get_setting
+from app.services.system.settings_service import DEFAULT_LEGAL_VERSION, get_setting
 
 # The dev .env uses a short key; patch before any JWT operation so
 # PyJWT's InsecureKeyLengthWarning (RFC 7518 §3.2, 32-byte minimum) is silent.
@@ -79,19 +80,22 @@ def db(session_factory) -> Session:
 @pytest.fixture(autouse=True)
 def patch_background_session(session_factory, monkeypatch):
     """Background tasks create their own SessionLocal; redirect to the test DB."""
-    import app.api.routes.export_import as _exp_imp
-    import app.api.routes.trees as _trees_routes
-    import app.services.job_service as _job_svc
+    import app.api.routes.tree_jobs as _tree_jobs_routes
+    import app.services.interchange.bundles.tree_bundle_import as _bundle_import
+    import app.services.interchange.gedcom.tree_gedcom_import as _gedcom_import
+    import app.services.system.job_service as _job_svc
 
     monkeypatch.setattr(_job_svc, "SessionLocal", session_factory)
-    monkeypatch.setattr(_exp_imp, "SessionLocal", session_factory)
-    monkeypatch.setattr(_trees_routes, "SessionLocal", session_factory)
+    monkeypatch.setattr(_bundle_import, "SessionLocal", session_factory)
+    monkeypatch.setattr(_gedcom_import, "SessionLocal", session_factory)
+    monkeypatch.setattr(_tree_jobs_routes, "SessionLocal", session_factory)
 
 
 @pytest.fixture()
 def client(session_factory) -> TestClient:
     app = FastAPI()
     app.include_router(api_router, prefix=settings.API_PREFIX)
+    install_domain_error_handler(app)
 
     def override_get_db():
         session = session_factory()

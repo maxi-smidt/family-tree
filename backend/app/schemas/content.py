@@ -30,7 +30,7 @@ class GalleryImageUpdate(FamilyTreeBaseModel):
 class LinksSet(BaseModel):
     """Replace the full set of members linked to a content item."""
 
-    member_ids: list[str] = []
+    member_ids: list[str] = Field(default_factory=list)
 
 
 class GalleryLinkIn(BaseModel):
@@ -135,7 +135,7 @@ class EventOut(BaseModel):
     location: str | None = None
     description: str | None = None
     created_at: str
-    document_ids: list[str] = []
+    document_ids: list[str] = Field(default_factory=list)
 
 
 class EventCreate(BaseModel):
@@ -145,7 +145,7 @@ class EventCreate(BaseModel):
     location: str | None = None
     description: str | None = None
     created_at: str
-    member_ids: list[str] = []
+    member_ids: list[str] = Field(default_factory=list)
 
 
 class EventUpdate(BaseModel):
@@ -165,7 +165,7 @@ class StoryOut(BaseModel):
     date: str | None = None
     created_at: str
     updated_at: str
-    document_ids: list[str] = []
+    document_ids: list[str] = Field(default_factory=list)
 
 
 class StoryCreate(BaseModel):
@@ -175,7 +175,7 @@ class StoryCreate(BaseModel):
     date: str | None = None
     created_at: str
     updated_at: str
-    member_ids: list[str] = []
+    member_ids: list[str] = Field(default_factory=list)
 
 
 class StoryUpdate(BaseModel):
@@ -196,7 +196,7 @@ class MemberTaskOut(BaseModel):
     created_at: str
     done_at: str | None = None
     # Empty = tree-level task.
-    member_ids: list[str] = []
+    member_ids: list[str] = Field(default_factory=list)
 
 
 class MemberTaskCreate(BaseModel):
@@ -204,7 +204,7 @@ class MemberTaskCreate(BaseModel):
     title: str
     notes: str | None = None
     created_at: str
-    member_ids: list[str] = []
+    member_ids: list[str] = Field(default_factory=list)
 
 
 class MemberTaskUpdate(BaseModel):
@@ -217,7 +217,7 @@ class MemberTaskUpdate(BaseModel):
 class DocumentIdsSet(BaseModel):
     """Replace the full set of documents linked to an event or story."""
 
-    document_ids: list[str] = []
+    document_ids: list[str] = Field(default_factory=list)
 
 
 # --- Geocode ---------------------------------------------------------------
@@ -231,7 +231,7 @@ class GeocodeOut(BaseModel):
 
 
 class GeocodeRequest(BaseModel):
-    locations: list[str] = []
+    locations: list[str] = Field(default_factory=list)
 
 
 class GeocodeOverrideRequest(BaseModel):
@@ -304,17 +304,17 @@ class DocumentOut(BaseModel):
     document_date: str | None = None
     created_at: str
     updated_at: str
-    files: list[DocumentFileOut] = []
-    member_ids: list[str] = []
-    event_ids: list[str] = []
-    story_ids: list[str] = []
+    files: list[DocumentFileOut] = Field(default_factory=list)
+    member_ids: list[str] = Field(default_factory=list)
+    event_ids: list[str] = Field(default_factory=list)
+    story_ids: list[str] = Field(default_factory=list)
 
 
 class DocumentCreate(BaseModel):
     title: str
     description: str | None = None
     document_date: str | None = None
-    member_ids: list[str] = []
+    member_ids: list[str] = Field(default_factory=list)
 
 
 class DocumentUpdate(BaseModel):
@@ -365,8 +365,8 @@ class DocumentSave(BaseModel):
     title: str
     description: str | None = None
     document_date: str | None = None
-    member_ids: list[str] = []
-    attached_upload_ids: list[str] = []
-    added_links: list[DocumentLinkAdd] = []
-    removed_file_ids: list[str] = []
-    renamed_files: list[DocumentFileRename] = []
+    member_ids: list[str] = Field(default_factory=list)
+    attached_upload_ids: list[str] = Field(default_factory=list)
+    added_links: list[DocumentLinkAdd] = Field(default_factory=list)
+    removed_file_ids: list[str] = Field(default_factory=list)
+    renamed_files: list[DocumentFileRename] = Field(default_factory=list)

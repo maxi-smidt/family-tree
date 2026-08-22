@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # Leave unset to disable Redis entirely (graceful degradation).
     # Supported schemes: redis://, rediss:// (TLS), redis://:password@host/db
     REDIS_URL: str | None = None
+    # When REDIS_URL is set but Redis is unreachable, /health/ready normally
+    # reports a ready-but-degraded 200 (cross-worker SSE fan-out is affected,
+    # nothing else). Set REDIS_REQUIRED=true to instead treat that outage as
+    # a hard readiness failure (503). Ignored when REDIS_URL is unset.
+    REDIS_REQUIRED: bool = False
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str = "familytree"

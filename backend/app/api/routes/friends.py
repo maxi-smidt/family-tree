@@ -23,9 +23,9 @@ from app.schemas.notification import (
     FriendRequestReceivedPayload,
     TreeUnsharedPayload,
 )
-from app.services import friendships, notification_service
+from app.services.collaboration import friendships, notification_service
 from app.services.event_bus import event_bus, publish_tree_event
-from app.services.storage import profile_image_path
+from app.services.media.storage import profile_image_path
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 

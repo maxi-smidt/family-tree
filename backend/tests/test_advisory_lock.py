@@ -97,7 +97,7 @@ def _patch_leader(monkeypatch, module, is_leader: bool):
 
 
 def test_sweep_runs_only_when_leader(monkeypatch):
-    import app.services.deletion_sweeper as ds
+    import app.services.system.deletion_sweeper as ds
 
     calls: list[bool] = []
     monkeypatch.setattr(ds, "_run_sweep_once", lambda: calls.append(True))
@@ -112,7 +112,7 @@ def test_sweep_runs_only_when_leader(monkeypatch):
 
 
 def test_backup_check_runs_only_when_leader(monkeypatch):
-    import app.services.backup_scheduler as bs
+    import app.services.system.backups.backup_scheduler as bs
 
     calls: list[bool] = []
     monkeypatch.setattr(bs, "_run_if_due", lambda: calls.append(True))

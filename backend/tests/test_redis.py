@@ -5,6 +5,8 @@ Redis instance — it relies on monkeypatching ``ping_redis`` and the
 ``REDIS_URL`` setting.
 """
 
+import asyncio
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -35,6 +37,30 @@ def test_get_redis_returns_client_when_url_set(monkeypatch):
     assert client is not None
     # Clean up: reset the module singleton so we don't leak state.
     monkeypatch.setattr(redis_module, "_client", None)
+
+
+# ---------------------------------------------------------------------------
+# ping_redis() — connection stalls
+# ---------------------------------------------------------------------------
+
+
+def test_ping_redis_times_out_when_connection_stalls(monkeypatch):
+    """ping_redis() must not hang forever when Redis accepts the connection
+    but never responds (e.g. traffic silently dropped rather than refused) —
+    otherwise /health/ready would stall past the Compose healthcheck's 5s
+    timeout even though the outage is meant to be non-fatal."""
+    monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+
+    class _HangingClient:
+        async def ping(self):
+            await asyncio.Event().wait()  # never resolves
+
+    monkeypatch.setattr(redis_module, "get_redis", lambda: _HangingClient())
+
+    # Outer bound is just a test safety net; ping_redis() should return well
+    # before it via its own internal timeout.
+    result = asyncio.run(asyncio.wait_for(redis_module.ping_redis(), timeout=5.0))
+    assert result is False
 
 
 # ---------------------------------------------------------------------------
@@ -80,8 +106,8 @@ def health_app(tmp_path):
         if settings.redis_enabled:
             redis_ok = await _redis_mod.ping_redis()
             body["redis"] = "ok" if redis_ok else "unavailable"
-            if not redis_ok:
-                body["status"] = "error"
+            if not redis_ok and body["status"] != "error":
+                body["status"] = "error" if settings.REDIS_REQUIRED else "degraded"
 
         if body["status"] == "error":
             return JSONResponse(status_code=503, content=body)
@@ -145,9 +171,53 @@ def test_health_ready_redis_ok(health_client, monkeypatch):
     assert body["status"] == "ok"
 
 
-def test_health_ready_redis_unavailable_returns_503(health_client, monkeypatch):
-    """When Redis is configured but unreachable the endpoint returns 503."""
+def test_health_ready_redis_unavailable_degrades_by_default(health_client, monkeypatch):
+    """An optional (non-required) Redis outage stays ready, but degraded."""
     monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "REDIS_REQUIRED", False)
+    monkeypatch.setattr(redis_module, "_client", None)
+
+    async def _ping_fail() -> bool:
+        return False
+
+    monkeypatch.setattr(redis_module, "ping_redis", _ping_fail)
+
+    resp = health_client.get(f"{API}/health/ready")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["redis"] == "unavailable"
+    assert body["status"] == "degraded"
+
+
+# ---------------------------------------------------------------------------
+# /health/ready — Redis configured and required
+# ---------------------------------------------------------------------------
+
+
+def test_health_ready_redis_required_and_healthy(health_client, monkeypatch):
+    """A required Redis that is reachable keeps readiness ok."""
+    monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "REDIS_REQUIRED", True)
+    monkeypatch.setattr(redis_module, "_client", None)
+
+    async def _ping_ok() -> bool:
+        return True
+
+    monkeypatch.setattr(redis_module, "ping_redis", _ping_ok)
+
+    resp = health_client.get(f"{API}/health/ready")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["redis"] == "ok"
+    assert body["status"] == "ok"
+
+
+def test_health_ready_redis_required_and_unavailable_returns_503(
+    health_client, monkeypatch
+):
+    """When Redis is required but unreachable the endpoint returns 503."""
+    monkeypatch.setattr(settings, "REDIS_URL", "redis://localhost:6379/0")
+    monkeypatch.setattr(settings, "REDIS_REQUIRED", True)
     monkeypatch.setattr(redis_module, "_client", None)
 
     async def _ping_fail() -> bool:

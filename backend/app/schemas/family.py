@@ -13,7 +13,6 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.base import FamilyTreeBaseModel, FamilyTreeOrmBaseModel
-from app.schemas.tree import TreeOut
 
 # --- Members ---------------------------------------------------------------
 
@@ -231,7 +230,7 @@ class MemberLinkRequest(FamilyTreeBaseModel):
     # when mode="existing" reconciles the bridge pair's conflicting fields.
     # Ignored for mode="create" (nothing to reconcile — the counterpart is a
     # fresh clone of this member).
-    field_choices: dict[str, Literal["a", "b", "combine"]] = {}
+    field_choices: dict[str, Literal["a", "b", "combine"]] = Field(default_factory=dict)
 
 
 class BridgeSyncRequest(FamilyTreeBaseModel):
@@ -242,15 +241,6 @@ class BridgeSyncRequest(FamilyTreeBaseModel):
     """
 
     direction: Literal["push", "pull"]
-
-
-class MemberSubtreeOut(FamilyTreeBaseModel):
-    """Result of creating a linked subtree: the new tree plus the updated
-    anchor member (whose linked_tree_id/linked_member_id now point at the
-    seeded counterpart)."""
-
-    tree: TreeOut
-    anchor: MemberOut
 
 
 # --- Relations -------------------------------------------------------------

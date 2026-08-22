@@ -18,7 +18,7 @@ from app.core.media_config import (
     STORED_IMAGE_WIDTH,
 )
 from app.schemas.setting import MediaLimits
-from app.services.storage import (
+from app.services.media.storage import (
     MEDIA_TRASH_DIR_NAME,
     MEDIA_URL_PREFIX,
     FileTooLarge,

@@ -13,8 +13,8 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import RelationType, User
-from app.services.backup_service import reconcile_interrupted_restore
-from app.services.settings_service import ensure_defaults
+from app.services.system.backups.backup_service import reconcile_interrupted_restore
+from app.services.system.settings_service import ensure_defaults
 
 logger = logging.getLogger("app.init")
 
@@ -91,7 +91,7 @@ def init_db() -> None:
     # Reconcile any restore interrupted by a crash before the media root is
     # (re)created below — an empty directory here would block the rollback
     # rename that reconciliation may need to perform. See
-    # app.services.backup_service.reconcile_interrupted_restore.
+    # app.services.system.backups.backup_service.reconcile_interrupted_restore.
     with SessionLocal() as db:
         reconcile_interrupted_restore(db)
 

@@ -6,10 +6,10 @@ Direction is one of "direct_family" (default) or "partnership".
 """
 
 import pytest
-from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.core.config import settings
+from app.core.exceptions import DomainError
 from app.db.base import utcnow_iso
 from app.models import (
     Document,
@@ -28,9 +28,9 @@ from app.models import (
     Tree,
 )
 from app.schemas.extract import SubtreeExtractRequest
-from app.services import feature_service
-from app.services.extract import compute_subtree_preview, extract_subtree
-from app.services.storage import MEDIA_URL_PREFIX
+from app.services.media.storage import MEDIA_URL_PREFIX
+from app.services.system import feature_service
+from app.services.trees.extract import compute_subtree_preview, extract_subtree
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
@@ -587,7 +587,7 @@ def test_direct_family_no_parents_in_tree_rejected(db):
     add_member(db, tree, "child")
     add_relation(db, tree, "child", "root", "parent")
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         extract_subtree(
             db, user,
             req(source_tree_id=tree.id, root_member_id="root",
@@ -669,7 +669,7 @@ def test_partnership_no_partners_no_children_rejected(db):
     add_member(db, tree, "parent")
     add_relation(db, tree, "root", "parent", "parent")
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         extract_subtree(
             db, user,
             req(source_tree_id=tree.id, root_member_id="root",
@@ -742,7 +742,7 @@ def test_move_requires_ownership(db):
     editor = make_user(db, "bob")
     tree = make_family(db, owner)
     share(db, tree, editor, role="editor")
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         extract_subtree(
             db, editor,
             req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
@@ -756,7 +756,7 @@ def test_move_requires_tree_links_feature(db):
     feature_service.set_state(db, "tree_links", "off")
     db.commit()
     try:
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(DomainError) as exc:
             extract_subtree(
                 db, user,
                 req(source_tree_id=tree.id, root_member_id="root",
@@ -774,7 +774,7 @@ def test_move_rejects_already_linked_root(db):
     other = make_tree(db, user, "Other")
     db.get(Member, "root").linked_tree_id = other.id
     db.commit()
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         extract_subtree(
             db, user,
             req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
@@ -786,7 +786,7 @@ def test_move_rejects_empty_selection(db):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(db, tree, "lonely")
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         extract_subtree(db, user, req(source_tree_id=tree.id, root_member_id="lonely"))
     assert exc.value.status_code == 400
 
@@ -818,7 +818,7 @@ def test_requires_accessible_source(db):
     private = make_tree(db, owner)
     add_member(db, private, "m1")
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         extract_subtree(
             db, stranger, req(source_tree_id=private.id, root_member_id="m1")
         )
@@ -830,7 +830,7 @@ def test_foreign_root_member_raises(db):
     tree = make_tree(db, user)
     add_member(db, tree, "m1")
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         extract_subtree(
             db, user, req(source_tree_id=tree.id, root_member_id="does-not-exist")
         )
@@ -875,7 +875,7 @@ def test_move_preview_enforces_ownership(db):
     editor = make_user(db, "bob")
     tree = make_family(db, owner)
     share(db, tree, editor, role="editor")
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         compute_subtree_preview(
             db, editor,
             req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),

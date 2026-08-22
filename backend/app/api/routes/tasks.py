@@ -23,10 +23,10 @@ from app.schemas.content import (
     MemberTaskOut,
     MemberTaskUpdate,
 )
-from app.services.activity import record_activity
-from app.services.content_links import replace_member_links
+from app.services.activity.activity import record_activity
+from app.services.documents.content_links import replace_member_links
 from app.services.event_bus import publish_tree_event
-from app.services.storage_usage import QuotaExceeded, check_tree_quota
+from app.services.media.storage_usage import check_tree_quota
 
 router = APIRouter(
     prefix="/trees/{tree_id}/tasks",
@@ -111,10 +111,7 @@ def create_task(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
-    try:
-        check_tree_quota(db, tree, len(str(data).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str(data).encode()))
     task = MemberTask(tree_id=tree.id, done=False, **data)
     db.add(task)
     db.flush()  # task row must exist before its links reference it

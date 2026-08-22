@@ -3,27 +3,44 @@
 import shutil
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 
 from app.core.config import settings
+from app.db.base import Base
 from app.models import (
     BackgroundJob,
     Document,
     DocumentFile,
+    DocumentUpload,
     Friendship,
     GeocodeCache,
     LegalDocumentVersion,
     Member,
     QualityIssueDismissal,
     TreeInvitation,
+    TreeUserState,
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
+    VirtualViewUserState,
 )
-from app.services import backup_service
-from app.services.crypto_export import decrypt_bundle
+from app.services.crypto_export import decrypt_bundle, encrypt_bundle
+from app.services.system.backups import backup_service
 from tests.conftest import add_member, make_tree, make_user
+
+
+def test_backup_models_cover_every_registered_model():
+    """Every model registered on Base is either backed up or explicitly excluded.
+
+    Guards against the class of bug reported in #871: a new durable model
+    landing without anyone deciding whether it belongs in an instance backup.
+    """
+    registered = {mapper.class_ for mapper in Base.registry.mappers}
+    accounted_for = set(backup_service.BACKUP_MODELS) | set(
+        backup_service.BACKUP_EXCLUDED_MODELS
+    )
+    assert registered == accounted_for
 
 
 def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
@@ -165,6 +182,137 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     # the restore has fully committed.
     assert not backup_service._journal_path(media_root).is_file()
     assert not list(media_root.parent.glob(f"{media_root.name}.restore-*"))
+
+
+def test_backup_restores_staged_document_upload(db, tmp_path, monkeypatch):
+    """A staged, not-yet-attached upload survives backup/restore intact.
+
+    Without the ``DocumentUpload`` row, a restore would recreate the staged
+    bytes with no bookkeeping to ever claim or reap them (#871).
+    """
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    upload_url = f"{settings.API_PREFIX}/media/{tree.id}/staged.pdf"
+    db.add(
+        DocumentUpload(
+            id="upload-1",
+            tree_id=tree.id,
+            filename="staged.pdf",
+            url=upload_url,
+            mime_type="application/pdf",
+            size=4,
+            created_at="now",
+        )
+    )
+    db.commit()
+
+    tree_media = media_root / tree.id
+    tree_media.mkdir(parents=True)
+    (tree_media / "staged.pdf").write_bytes(b"stag")
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    backup_service.validate_bundle(bundle)
+
+    backup_service.restore_bundle(db, bundle, replace=True, media_root=media_root)
+
+    restored = db.get(DocumentUpload, "upload-1")
+    assert restored is not None
+    assert restored.tree_id == tree.id
+    assert (tree_media / "staged.pdf").read_bytes() == b"stag"
+
+
+def test_restore_backup_file_accepts_legacy_bundle_missing_document_uploads(
+    db, tmp_path, monkeypatch
+):
+    """A v2 backup taken before #871 (no document_uploads table) still restores.
+
+    Simulates a backup file written by a pre-#871 build: the same version
+    number, but with the table and its manifest count absent entirely rather
+    than present-and-empty.
+    """
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    backup_path = tmp_path / "legacy.ftbackup"
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    db.commit()
+
+    tree_media = media_root / tree.id
+    tree_media.mkdir(parents=True)
+    (tree_media / "photo.jpg").write_bytes(b"photo-bytes")
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    del bundle["tables"]["document_uploads"]
+    del bundle["manifest"]["table_row_counts"]["document_uploads"]
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    for model in reversed(backup_service.BACKUP_MODELS):
+        db.execute(delete(model))
+    db.commit()
+    shutil.rmtree(media_root, ignore_errors=True)
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=False, media_root=media_root
+    )
+
+    assert db.scalar(select(func.count()).select_from(DocumentUpload)) == 0
+    assert (tree_media / "photo.jpg").read_bytes() == b"photo-bytes"
+
+
+def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypatch):
+    """A pre-#878 backup still has ``last_opened`` inline on its ``trees`` /
+    ``virtual_views`` rows (dropped from those tables by the #878 migration)
+    and lacks ``tree_user_states`` / ``virtual_view_user_states`` entirely.
+
+    ``bulk_insert_mappings`` silently ignores unmapped dict keys, so without
+    recovering it first, restoring such a backup would drop that data. It
+    must land as an owner-attributed row in the new tables instead.
+    """
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    backup_path = tmp_path / "legacy.ftbackup"
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    view = VirtualView(name="Legacy View", owner_id=admin.id)
+    db.add(view)
+    db.commit()
+
+    tree_media = media_root / tree.id
+    tree_media.mkdir(parents=True)
+    (tree_media / "photo.jpg").write_bytes(b"photo-bytes")
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    # Simulate the pre-#878 row shape: last_opened still inline, and the new
+    # per-user state tables absent entirely (as if this build never had them).
+    bundle["tables"]["trees"][0]["last_opened"] = "2026-01-01T00:00:00+00:00"
+    bundle["tables"]["virtual_views"][0]["last_opened"] = "2026-02-02T00:00:00+00:00"
+    del bundle["tables"]["tree_user_states"]
+    del bundle["manifest"]["table_row_counts"]["tree_user_states"]
+    del bundle["tables"]["virtual_view_user_states"]
+    del bundle["manifest"]["table_row_counts"]["virtual_view_user_states"]
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    for model in reversed(backup_service.BACKUP_MODELS):
+        db.execute(delete(model))
+    db.commit()
+    shutil.rmtree(media_root, ignore_errors=True)
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=False, media_root=media_root
+    )
+
+    tree_state = db.get(TreeUserState, (tree.id, admin.id))
+    assert tree_state is not None
+    assert tree_state.last_opened == "2026-01-01T00:00:00+00:00"
+
+    view_state = db.get(VirtualViewUserState, (view.id, admin.id))
+    assert view_state is not None
+    assert view_state.last_opened == "2026-02-02T00:00:00+00:00"
 
 
 def test_backup_validation_rejects_changed_media(db, tmp_path, monkeypatch):

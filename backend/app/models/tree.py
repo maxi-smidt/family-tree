@@ -13,7 +13,6 @@ class Tree(Base):
         String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     created_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso)
-    last_opened: Mapped[str | None] = mapped_column(String(40), nullable=True)
     # null = private; "viewer" = anyone with the link can read.
     public_role: Mapped[str | None] = mapped_column(String(20), nullable=True)
     # bcrypt hash of the optional password gating anonymous public read access;
@@ -56,6 +55,25 @@ class TreeMembership(Base):
     restrictions: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     tree: Mapped["Tree"] = relationship(back_populates="memberships")
+
+
+class TreeUserState(Base):
+    """Per-user "recently opened" timestamp for a tree.
+
+    Kept separate from ``Tree`` (rather than a single shared column) so that
+    one collaborator opening a shared tree does not reorder another
+    collaborator's — or the owner's — recent-tree list (#878).
+    """
+
+    __tablename__ = "tree_user_states"
+
+    tree_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("trees.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_opened: Mapped[str] = mapped_column(String(40))
 
 
 class TreeInvitation(Base):

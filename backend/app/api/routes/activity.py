@@ -17,12 +17,12 @@ from app.api.deps import (
 from app.db.session import get_db
 from app.models import ActivityLog, Tree, User
 from app.schemas.activity import ActivityPageOut, ActivityUndoOut, UndoSkippedItem
-from app.services.activity import SNAPSHOT_VERSION, record_activity
-from app.services.activity_snapshots import UndoLogDetails
-from app.services.activity_undo import CONTENT_DOMAIN, RESTORERS, UndoConflict
+from app.services.activity.activity import SNAPSHOT_VERSION, record_activity
+from app.services.activity.activity_snapshots import UndoLogDetails
+from app.services.activity.activity_undo import CONTENT_DOMAIN, RESTORERS, UndoConflict
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
-from app.services.storage import untrash_media
+from app.services.media.storage import untrash_media
 
 router = APIRouter(
     prefix="/trees/{tree_id}",
@@ -84,7 +84,7 @@ def undo_activity(
     Dispatches on ``details.snapshot.version``; only version 1 is understood
     today. Restores the main row plus every child reference that still
     validates against the tree's current state, skipping (and reporting) the
-    rest rather than failing outright — see app.services.activity_undo.
+    rest rather than failing outright — see app.services.activity.activity_undo.
     """
     entry = db.get(ActivityLog, entry_id)
     if entry is None or entry.tree_id != tree.id:

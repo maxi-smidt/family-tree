@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token, decode_public_tree_token
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
+from app.services.tree_roles import role_for
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -67,7 +68,7 @@ def require_feature(feature: str):
     surface has to disappear too. Flags apply to admins like everyone else;
     admins can flip the flag via the admin API instead.
     """
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     if feature not in feature_service.FEATURES:  # fail fast on typos at import
         raise ValueError(f"Unknown feature flag: {feature}")
@@ -89,7 +90,7 @@ def require_domain(domain: str):
     indistinguishable from disabled features. Owners, admins, and public
     viewers have no membership row and always pass.
     """
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     if domain not in feature_service.RESTRICTABLE_DOMAINS:
         raise ValueError(f"Unknown restrictable domain: {domain}")
@@ -108,24 +109,6 @@ def require_domain(domain: str):
             raise HTTPException(status_code=404, detail="Not found")
 
     return dependency
-
-
-def role_for(db: Session, tree: Tree, user: User) -> str | None:
-    """The user's genuine relationship to the tree: 'owner' | 'editor' |
-    'viewer', or None when they have no explicit access.
-
-    Admin god-mode is intentionally NOT applied here: an admin who has been
-    granted access to someone else's tree should see their real role (e.g.
-    editor) instead of appearing as the owner. Admin authorization is enforced
-    separately in ``_resolve_tree``. Admins with no explicit grant still fall
-    back to 'owner' so every tree they can see lands in a sensible bucket.
-    """
-    if tree.owner_id == user.id:
-        return "owner"
-    membership = db.get(TreeMembership, (tree.id, user.id))
-    if membership:
-        return membership.role
-    return "owner" if user.is_admin else None
 
 
 def get_current_user_optional(
@@ -233,7 +216,7 @@ def get_writable_tree(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Tree:
-    from app.services.settings_service import user_has_accepted_legal
+    from app.services.system.settings_service import user_has_accepted_legal
 
     if not user_has_accepted_legal(db, user):
         raise HTTPException(

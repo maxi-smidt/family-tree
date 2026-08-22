@@ -1,4 +1,51 @@
+from app.main import app
 from tests.conftest import API, auth, make_tree, make_user, share
+
+# Every (method, path) that used to be defined in the single trees.py before
+# it was split (#894) into trees.py / tree_public.py / tree_sharing.py /
+# tree_jobs.py / tree_transfer.py.
+_SPLIT_OPERATIONS = {
+    ("get", "/api/trees"),
+    ("post", "/api/trees"),
+    ("post", "/api/trees/merge/preview"),
+    ("post", "/api/trees/merge"),
+    ("post", "/api/trees/extract-subtree/preview"),
+    ("post", "/api/trees/extract-subtree"),
+    ("get", "/api/trees/{tree_id}"),
+    ("get", "/api/trees/{tree_id}/metadata"),
+    ("get", "/api/trees/{tree_id}/storage"),
+    ("get", "/api/trees/{tree_id}/link-graph"),
+    ("patch", "/api/trees/{tree_id}"),
+    ("delete", "/api/trees/{tree_id}"),
+    ("patch", "/api/trees/{tree_id}/public"),
+    ("put", "/api/trees/{tree_id}/public/password"),
+    ("post", "/api/trees/{tree_id}/public/unlock"),
+    ("get", "/api/trees/{tree_id}/access"),
+    ("get", "/api/trees/{tree_id}/access/candidates"),
+    ("post", "/api/trees/{tree_id}/access"),
+    ("delete", "/api/trees/{tree_id}/access/{user_id}"),
+    ("get", "/api/trees/{tree_id}/access/linked-trees"),
+    ("post", "/api/trees/{tree_id}/access/batch"),
+    ("post", "/api/trees/{tree_id}/access/batch-revoke"),
+    ("patch", "/api/trees/{tree_id}/access/{user_id}/restrictions"),
+    ("post", "/api/trees/{tree_id}/transfer"),
+    ("post", "/api/trees/{tree_id}/transfer/revert"),
+}
+
+
+def test_split_tree_routers_keep_a_single_openapi_tag():
+    """The router split (#894) must not change the public OpenAPI contract:
+    every operation that used to live in trees.py keeps the single "trees"
+    tag, regardless of which module now defines it, so generated-client
+    grouping by tag is unaffected."""
+    spec = app.openapi()
+    seen = set()
+    for path, methods in spec["paths"].items():
+        for method, operation in methods.items():
+            if (method, path) in _SPLIT_OPERATIONS:
+                seen.add((method, path))
+                assert operation.get("tags") == ["trees"], (method, path)
+    assert seen == _SPLIT_OPERATIONS
 
 
 def test_create_tree(client, db):
@@ -61,11 +108,41 @@ def test_list_trees_for_admin_excludes_unshared_user_trees(client, db):
 def test_get_tree_updates_last_opened(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
-    assert tree.last_opened is None  # helper leaves it unset
     res = client.get(f"{API}/trees/{tree.id}", headers=auth(user))
     assert res.status_code == 200
-    # Opening the tree stamps last_opened.
+    # Opening the tree stamps last_opened for the requesting user.
     assert res.json()["last_opened"] is not None
+
+
+def test_collaborator_opening_shared_tree_does_not_reorder_owners_list(client, db):
+    """#878: last-opened is per user, so one collaborator opening a shared
+    tree must not change another collaborator's — or the owner's — ordering
+    of their own recent-tree list."""
+    owner = make_user(db, "owner")
+    collaborator = make_user(db, "collaborator")
+    older = make_tree(db, owner, "Older")
+    newer = make_tree(db, owner, "Newer")
+    share(db, older, collaborator, "viewer")
+    share(db, newer, collaborator, "viewer")
+
+    # The owner opens "Older" last, so it should sort first for the owner.
+    assert client.get(f"{API}/trees/{newer.id}", headers=auth(owner)).status_code == 200
+    assert client.get(f"{API}/trees/{older.id}", headers=auth(owner)).status_code == 200
+
+    # The collaborator opens "Newer" afterwards — this is their own activity
+    # and must not affect the owner's ordering computed above.
+    assert (
+        client.get(f"{API}/trees/{newer.id}", headers=auth(collaborator)).status_code
+        == 200
+    )
+
+    owner_ids = [t["id"] for t in client.get(f"{API}/trees", headers=auth(owner)).json()]
+    assert owner_ids == [older.id, newer.id]
+
+    collaborator_ids = [
+        t["id"] for t in client.get(f"{API}/trees", headers=auth(collaborator)).json()
+    ]
+    assert collaborator_ids == [newer.id, older.id]
 
 
 def test_only_owner_can_delete_tree(client, db):

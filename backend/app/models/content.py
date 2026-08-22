@@ -172,7 +172,7 @@ class GeocodeCache(Base):
     )
     # True for a user-supplied correction (search pick or manually dropped
     # pin). Manual rows are never re-geocoded or overwritten by the
-    # retry/TTL logic in app.services.geocoding.
+    # retry/TTL logic in app.services.media.geocoding.
     manual: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default="false"
     )

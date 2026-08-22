@@ -8,7 +8,7 @@ from app.models import (
     Story,
     StoryDocumentLink,
 )
-from app.services.merge import merge_trees
+from app.services.trees.merge import merge_trees
 from tests.conftest import add_member, make_tree, make_user
 
 
@@ -125,8 +125,9 @@ def test_merge_requires_owned_or_shared_source(db):
     private_tree = make_tree(db, owner, "Private")
 
     import pytest
-    from fastapi import HTTPException
 
-    with pytest.raises(HTTPException) as exc:
+    from app.core.exceptions import DomainError
+
+    with pytest.raises(DomainError) as exc:
         merge_trees(db, stranger, "Steal", private_tree.id, None)
     assert exc.value.status_code == 404

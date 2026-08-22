@@ -21,7 +21,7 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
-from app.services import feature_service
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 # Minimal 1x1 PNG streamed as a multipart gallery upload.
@@ -45,7 +45,7 @@ def _last_delete_entry(db, tree_id, target_type: str | None = None) -> ActivityL
 def _write_media_file(
     settings, tree_id: str, filename: str, content: bytes = b"data"
 ) -> str:
-    from app.services.storage import MEDIA_URL_PREFIX
+    from app.services.media.storage import MEDIA_URL_PREFIX
 
     tree_dir = settings.media_root / tree_id
     tree_dir.mkdir(parents=True, exist_ok=True)

@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models import BackupRecord, User
-from app.services import backup_service
-from app.services.admin_audit import record_admin_audit
+from app.services.system.admin_audit import record_admin_audit
+from app.services.system.backups import backup_service
 
 router = APIRouter(
     prefix="/admin/backups",

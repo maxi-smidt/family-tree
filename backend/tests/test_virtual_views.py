@@ -8,6 +8,7 @@ from app.models import (
     EventMemberLink,
     GalleryImage,
     GalleryMemberLink,
+    MemberDisease,
     Relation,
 )
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
@@ -160,6 +161,41 @@ def test_get_view_sets_last_opened(client: TestClient, db: Session):
 
     assert (client.get(f"{API}/virtual-views/{view_id}", headers=auth(alice))
             .status_code == 200)
+
+
+def test_admin_opening_view_does_not_reorder_owners_list(client: TestClient, db: Session):
+    """#878: last-opened is per user, so an admin opening someone else's view
+    (allowed since admins can read any view) must not change the owner's own
+    recent-views ordering."""
+    alice = make_user(db, "alice")
+    admin = make_user(db, "admin", is_admin=True)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    add_overlap(db, tree_a, tree_b)
+    view_opened = create_view(client, alice, tree_a.id, tree_b.id, "Opened").json()["id"]
+    tree_c = make_tree(db, alice)
+    tree_d = make_tree(db, alice)
+    add_overlap(db, tree_c, tree_d)
+    view_untouched = create_view(
+        client, alice, tree_c.id, tree_d.id, "Untouched"
+    ).json()["id"]
+
+    # Alice opens one of her views, so it should sort above the other.
+    assert (
+        client.get(f"{API}/virtual-views/{view_opened}", headers=auth(alice))
+        .status_code == 200
+    )
+
+    # The admin opens Alice's *other* view — this is the admin's own activity
+    # and must not affect Alice's ordering.
+    assert (
+        client.get(f"{API}/virtual-views/{view_untouched}", headers=auth(admin))
+        .status_code == 200
+    )
+
+    res = client.get(f"{API}/virtual-views", headers=auth(alice))
+    ids = [v["id"] for v in res.json()]
+    assert ids == [view_opened, view_untouched]
 
 
 def test_get_view_not_found_for_other_user(client: TestClient, db: Session):
@@ -615,6 +651,40 @@ def test_composite_gallery_and_events_remap_member_links(
         f"{API}/virtual-views/{view_id}/events/links", headers=auth(alice)
     ).json()
     assert elinks == [{"event_id": "ev1", "member_id": merged_id}]
+
+
+def test_composite_diseases_remaps_member_id(client: TestClient, db: Session):
+    alice = make_user(db)
+    tree_a = make_tree(db, alice)
+    tree_b = make_tree(db, alice)
+    _add_homer(db, tree_a, tree_b)
+    db.add(
+        MemberDisease(
+            id="dis1", tree_id=tree_a.id, member_id="homer-a", name="Gout",
+            carrier_status="affected", inheritance_pattern="autosomal_dominant",
+        )
+    )
+    db.commit()
+
+    view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
+    members = client.get(
+        f"{API}/virtual-views/{view_id}/members", headers=auth(alice)
+    ).json()
+    merged_id = next(m["id"] for m in members if m["isMerged"])
+
+    r = client.get(f"{API}/virtual-views/{view_id}/diseases", headers=auth(alice))
+    assert r.status_code == 200
+    assert r.json() == [
+        {
+            "id": "dis1",
+            "member_id": merged_id,
+            "name": "Gout",
+            "carrier_status": "affected",
+            "inheritance_pattern": "autosomal_dominant",
+            "diagnosis_date": None,
+            "notes": None,
+        }
+    ]
 
 
 def test_composite_statistics_dedupes_merged_people(

@@ -20,6 +20,7 @@ from app.api.deps import (
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -43,20 +44,19 @@ from app.schemas.content import (
     DocumentUploadOut,
     LinksSet,
 )
-from app.services.activity import (
+from app.services.activity.activity import (
     document_delete_snapshot,
     document_file_delete_snapshot,
     record_activity,
 )
-from app.services.content_links import replace_member_links
-from app.services.document_service import (
+from app.services.documents.content_links import replace_member_links
+from app.services.documents.document_service import (
     external_link_url,
     prune_stale_uploads,
     save_document,
 )
 from app.services.event_bus import publish_tree_event
-from app.services.settings_service import get_media_limits
-from app.services.storage import (
+from app.services.media.storage import (
     ChecksumMismatch,
     FileTooLarge,
     UnsupportedFileType,
@@ -64,7 +64,8 @@ from app.services.storage import (
     store_document_upload,
     trash_media,
 )
-from app.services.storage_usage import QuotaExceeded, check_media_quota, check_tree_quota
+from app.services.media.storage_usage import check_media_quota, check_tree_quota
+from app.services.system.settings_service import get_media_limits
 
 router = APIRouter(
     prefix="/trees/{tree_id}/documents",
@@ -183,10 +184,7 @@ def create_document(
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
-    try:
-        check_tree_quota(db, tree, len(str(data).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str(data).encode()))
     now = utcnow_iso()
     document = Document(
         id=str(uuid4()),
@@ -269,7 +267,7 @@ def save_document_route(
     attachments, removals and renames. They validate and commit as one unit: a
     failure leaves the previously valid document — and its files — untouched,
     and replaying the same request is a no-op (see
-    ``app.services.document_service.save_document``).
+    ``app.services.documents.document_service.save_document``).
     """
     document = save_document(
         db, tree=tree, user=user, document_id=document_id, payload=payload
@@ -386,9 +384,9 @@ async def stage_upload(
     # compute_usage, so pass 0 to avoid double-counting it.
     try:
         check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         delete_media(url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     upload = DocumentUpload(
         id=str(uuid4()),
@@ -446,9 +444,9 @@ async def add_file(
     # compute_usage, so pass 0 to avoid double-counting it.
     try:
         check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         delete_media(url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     file = DocumentFile(
         id=str(uuid4()),

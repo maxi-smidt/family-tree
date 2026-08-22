@@ -55,7 +55,7 @@ and empty `${DATA_PATH}/media` volume:
 
 ```bash
 cd backend
-uv run python -m app.services.restore_backup /secure/backup.ftbackup
+uv run python -m app.services.system.backups.restore_backup /secure/backup.ftbackup
 ```
 
 The command verifies the manifest, row counts, and media hashes before it
@@ -64,7 +64,7 @@ recovery into an existing instance, stop the stack, make an independent copy
 first, then pass the explicit destructive flag:
 
 ```bash
-uv run python -m app.services.restore_backup --replace /secure/backup.ftbackup
+uv run python -m app.services.system.backups.restore_backup --replace /secure/backup.ftbackup
 ```
 
 After the command reports completion, start the stack and verify that users can
@@ -208,7 +208,10 @@ That is the whole procedure, because of two properties of the stack:
 - **Health-gated startup.** The frontend container only starts once the
   backend reports ready (`/api/health/ready`), and the backend retries until
   it can reach the database, so a normal upgrade never serves the UI against a
-  half-migrated schema.
+  half-migrated schema. An optional, configured Redis that's unreachable
+  reports ready-but-degraded (200) rather than blocking startup; set
+  `REDIS_REQUIRED=true` if your deployment needs Redis to be a hard
+  dependency instead.
 
 If you intentionally build locally instead of pulling published images, clone the
 repo and run `docker compose up -d --build` (using the default `docker-compose.yml`).

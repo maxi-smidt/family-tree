@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services import feature_service, presence_service
+from app.services.collaboration import presence_service
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_user, share
 
 
@@ -16,9 +17,9 @@ def _run(coro):
 @pytest.fixture(autouse=True)
 def _clear_presence_store():
     """The in-process registry is a module global — isolate every test."""
-    presence_service._store.clear()
+    presence_service.reset()
     yield
-    presence_service._store.clear()
+    presence_service.reset()
 
 
 # --- Service (in-process backend) ------------------------------------------

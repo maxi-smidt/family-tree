@@ -313,6 +313,38 @@ Features tab).
 3. Commit within the request; let FastAPI return the serialized model.
 4. Update the model in `backend/app/models/` when changing the schema.
 
+For a command that writes rows, records an activity-log entry, and then
+publishes an SSE event / invalidates a cache key, wrap the commit in
+`app.services.unit_of_work.UnitOfWork` instead of hand-sequencing
+`db.commit()` and the side effects: queue the latter with `uow.after_commit(...)`.
+They only run once the wrapped commit actually succeeds, so a failed
+transaction can never publish an event or invalidate a cache key for a
+mutation that didn't land. See `backend/app/api/routes/stories.py` and
+`backend/app/api/routes/events.py` for worked examples.
+
+### Process-wide services
+
+`event_bus` (`backend/app/services/event_bus.py`), the presence registry
+(`backend/app/services/presence_service.py`), the event loop reference
+(`backend/app/core/runtime.py`), and the Redis client
+(`backend/app/db/redis.py`) are process-wide, not per-request. Their
+construction and teardown are owned by the FastAPI `lifespan` in
+`backend/app/main.py`: on shutdown, after the Redis SSE listener task has
+been cancelled and the pooled Redis client closed, it resets `event_bus` and
+the presence registry to a clean state. This is deliberately a shutdown-only
+step, not also a startup one — this app instance's own shutdown is what
+guarantees the shared state is quiescent, so a subsequent lifespan in the
+same process (e.g. a test that builds `app.main.app` more than once) starts
+from a clean baseline without ever clearing state a still-running instance
+might depend on.
+
+Without `REDIS_URL` configured, both `event_bus` and the presence registry
+fall back to in-memory state that only a single worker process can see;
+with it set, they synchronize over Redis pub/sub (`event_bus`) and a Redis
+hash (presence) so every worker observes the same events and roster. Set
+`REDIS_URL` whenever `WORKERS > 1` — the app still runs without it, but
+SSE events and presence stop being visible across workers.
+
 ---
 
 ## Testing

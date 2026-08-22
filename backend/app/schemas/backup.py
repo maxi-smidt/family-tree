@@ -1,6 +1,6 @@
 """Pydantic models for encrypted full-instance backups.
 
-These models describe the JSON shape that ``app.services.backup_service``
+These models describe the JSON shape that ``app.services.system.backups.backup_service``
 encrypts into ``.ftbackup`` files. They replace the previous hand-rolled
 ``isinstance``/``.get()`` validation with declarative Pydantic validation while
 preserving the same rejection semantics.

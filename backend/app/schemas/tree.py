@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.base import FamilyTreeBaseModel
+from app.schemas.family import MemberOut
+from app.schemas.merge import MergeResolution
 
 
 class TreeOut(BaseModel):
@@ -23,7 +25,7 @@ class TreeOut(BaseModel):
     # True when a public tree is password-gated (the hash is never exposed).
     public_password_protected: bool = False
     # Domains the requesting member may not see. Empty for owner/admin.
-    restrictions: list[str] = []
+    restrictions: list[str] = Field(default_factory=list)
 
 
 class TreeMetadataOut(FamilyTreeBaseModel):
@@ -70,21 +72,26 @@ class TreeMerge(BaseModel):
     resolutions: list[MergeResolution] | None = None
 
 
-# Import here to avoid circular imports; MergeResolution is defined in merge.py
-from app.schemas.merge import MergeResolution  # noqa: E402
-
-
 class TreeMemberOut(BaseModel):
     """A user that has access to a tree, with their role."""
 
     user_id: str
     username: str
     role: str  # "owner", "editor" or "viewer"
-    restrictions: list[str] = []
+    restrictions: list[str] = Field(default_factory=list)
+
+
+class MemberSubtreeOut(FamilyTreeBaseModel):
+    """Result of creating a linked subtree: the new tree plus the updated
+    anchor member (whose linked_tree_id/linked_member_id now point at the
+    seeded counterpart)."""
+
+    tree: TreeOut
+    anchor: MemberOut
 
 
 class MemberRestrictionsUpdate(BaseModel):
-    restrictions: list[str] = []
+    restrictions: list[str] = Field(default_factory=list)
 
 
 class ShareCandidate(BaseModel):
@@ -207,7 +214,7 @@ class LinkGraphEdge(BaseModel):
     source_tree_id: str
     target_tree_id: str
     count: int
-    bridge_members: list[LinkGraphBridgeMember] = []
+    bridge_members: list[LinkGraphBridgeMember] = Field(default_factory=list)
 
 
 class LinkGraphOut(BaseModel):

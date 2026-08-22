@@ -1,9 +1,9 @@
 """Tests for GEDCOM 5.5.1 import/export functionality.
 
-Covers:
-1. Unit tests for date helpers ``_to_gedcom_date`` / ``_from_gedcom_date``.
-2. Service-level round-trip: serialize → parse → verify data integrity.
-3. API round-trip: export from a live tree, re-import, verify member/relation counts.
+Date-helper tests live in ``test_gedcom_dates.py`` and byte-encoding-detection
+tests live in ``test_gedcom_encoding.py``. This file covers:
+1. Service-level round-trip: serialize → parse → verify data integrity.
+2. API round-trip: export from a live tree, re-import, verify member/relation counts.
 """
 
 from __future__ import annotations
@@ -11,95 +11,11 @@ from __future__ import annotations
 import io
 from uuid import uuid4
 
-# Date helpers are module-private but testable via direct import.
-from app.services.gedcom import (
-    _from_gedcom_date,
-    _to_gedcom_date,
-    decode_gedcom_bytes,
-    parse_gedcom,
-    serialize_to_gedcom,
-)
+from app.services.interchange.gedcom.gedcom import parse_gedcom, serialize_to_gedcom
 from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 
 # ---------------------------------------------------------------------------
-# 1. Date helper unit tests
-# ---------------------------------------------------------------------------
-
-class TestToGedcomDate:
-    def test_full_date(self):
-        assert _to_gedcom_date("1950-06-15") == "15 JUN 1950"
-
-    def test_year_month(self):
-        assert _to_gedcom_date("1950-06") == "JUN 1950"
-
-    def test_year_only(self):
-        assert _to_gedcom_date("1950") == "1950"
-
-    def test_iso_datetime_stripped(self):
-        assert _to_gedcom_date("1950-06-15T12:34:56") == "15 JUN 1950"
-
-    def test_none_returns_none(self):
-        assert _to_gedcom_date(None) is None
-
-    def test_empty_string_returns_none(self):
-        assert _to_gedcom_date("") is None
-
-    def test_passthrough_unrecognised(self):
-        assert _to_gedcom_date("circa 1900") == "circa 1900"
-
-    def test_first_month(self):
-        assert _to_gedcom_date("2000-01-01") == "01 JAN 2000"
-
-    def test_last_month(self):
-        assert _to_gedcom_date("2000-12-31") == "31 DEC 2000"
-
-    def test_year_only_four_digits(self):
-        assert _to_gedcom_date("2023") == "2023"
-
-
-class TestFromGedcomDate:
-    def test_full_date(self):
-        assert _from_gedcom_date("15 JUN 1950") == "1950-06-15"
-
-    def test_year_month(self):
-        assert _from_gedcom_date("JUN 1950") == "1950-06"
-
-    def test_year_only(self):
-        assert _from_gedcom_date("1950") == "1950"
-
-    def test_none_returns_none(self):
-        assert _from_gedcom_date(None) is None
-
-    def test_case_insensitive(self):
-        assert _from_gedcom_date("15 jun 1950") == "1950-06-15"
-
-    def test_qualifier_passthrough_abt(self):
-        val = _from_gedcom_date("ABT 1900")
-        assert val == "ABT 1900"
-
-    def test_qualifier_passthrough_est(self):
-        assert _from_gedcom_date("EST 1800") == "EST 1800"
-
-    def test_qualifier_passthrough_bef(self):
-        assert _from_gedcom_date("BEF 1900") == "BEF 1900"
-
-    def test_single_digit_day(self):
-        assert _from_gedcom_date("5 MAR 1920") == "1920-03-05"
-
-    def test_january(self):
-        assert _from_gedcom_date("01 JAN 2000") == "2000-01-01"
-
-    def test_december(self):
-        assert _from_gedcom_date("31 DEC 1999") == "1999-12-31"
-
-    def test_round_trip(self):
-        """serialize then parse should recover the original date."""
-        original = "1975-08-20"
-        assert _from_gedcom_date(_to_gedcom_date(original)) == original
-
-
-# ---------------------------------------------------------------------------
-# 2. Service-level round-trip
+# 1. Service-level round-trip
 # ---------------------------------------------------------------------------
 
 def _make_id() -> str:
@@ -397,7 +313,7 @@ class TestServiceRoundTrip:
 
 
 # ---------------------------------------------------------------------------
-# 3. API round-trip test
+# 2. API round-trip test
 # ---------------------------------------------------------------------------
 
 def _post_member(client, tree_id: str, headers: dict, **kw) -> dict:
@@ -603,84 +519,8 @@ def test_api_gedcom_import_uses_filename_stem(client, db):
     assert tree["name"] == "my_family"
 
 
-
-
 # ---------------------------------------------------------------------------
-# 4. decode_gedcom_bytes unit tests
-# ---------------------------------------------------------------------------
-
-# A minimal GEDCOM snippet used across encoding tests.
-_SAMPLE_GEDCOM = (
-    "0 HEAD\n"
-    "1 CHAR UNICODE\n"
-    "0 @I1@ INDI\n"
-    "1 NAME John /Doe/\n"
-    "0 TRLR\n"
-)
-
-
-class TestDecodeGedcomBytes:
-    """decode_gedcom_bytes must recover the original text for each encoding."""
-
-    def _assert_decoded(self, raw: bytes) -> None:
-        result = decode_gedcom_bytes(raw)
-        assert "0 HEAD" in result
-        assert "John /Doe/" in result
-
-    def test_utf8_no_bom(self):
-        raw = _SAMPLE_GEDCOM.encode("utf-8")
-        self._assert_decoded(raw)
-
-    def test_utf8_with_bom(self):
-        raw = _SAMPLE_GEDCOM.encode("utf-8-sig")
-        assert raw[:3] == b"\xef\xbb\xbf"
-        self._assert_decoded(raw)
-
-    def test_utf16_le_with_bom(self):
-        # Python's "utf-16" codec writes a LE BOM on most platforms; we build
-        # the bytes explicitly to guarantee LE+BOM regardless of platform.
-        bom = b"\xff\xfe"
-        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-le")
-        self._assert_decoded(raw)
-
-    def test_utf16_be_with_bom(self):
-        bom = b"\xfe\xff"
-        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-be")
-        self._assert_decoded(raw)
-
-    def test_utf16_stdlib_encode(self):
-        # Python's str.encode("utf-16") writes a BOM automatically.
-        raw = _SAMPLE_GEDCOM.encode("utf-16")
-        self._assert_decoded(raw)
-
-    def test_latin1_fallback(self):
-        # Latin-1 text with no BOM and no NUL bytes.
-        latin_gedcom = "0 HEAD\n0 @I1@ INDI\n1 NAME Jos\xe9 /Garc\xeda/\n0 TRLR\n"
-        raw = latin_gedcom.encode("latin-1")
-        result = decode_gedcom_bytes(raw)
-        assert "0 HEAD" in result
-
-    def test_parse_after_decode_utf16_be(self):
-        """parse_gedcom should find the INDI record after UTF-16-BE decoding."""
-        bom = b"\xfe\xff"
-        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-be")
-        text = decode_gedcom_bytes(raw)
-        parsed = parse_gedcom(text)
-        assert len(parsed["members"]) == 1
-        assert parsed["members"][0]["first_name"] == "John"
-        assert parsed["members"][0]["last_name"] == "Doe"
-
-    def test_parse_after_decode_utf16_le(self):
-        """parse_gedcom should find the INDI record after UTF-16-LE decoding."""
-        bom = b"\xff\xfe"
-        raw = bom + _SAMPLE_GEDCOM.encode("utf-16-le")
-        text = decode_gedcom_bytes(raw)
-        parsed = parse_gedcom(text)
-        assert len(parsed["members"]) == 1
-
-
-# ---------------------------------------------------------------------------
-# 5. API regression test — UTF-16 BE import
+# 3. API regression test — UTF-16 BE import
 # ---------------------------------------------------------------------------
 
 def _minimal_gedcom_utf16be(n_indis: int = 2) -> bytes:
@@ -737,7 +577,7 @@ def test_api_import_gedcom_utf16_be(client, db):
 
 
 # ---------------------------------------------------------------------------
-# 6. Union relation-type defaulting (#295)
+# 4. Union relation-type defaulting (#295)
 # ---------------------------------------------------------------------------
 
 def _fam_gedcom(
@@ -819,68 +659,7 @@ class TestUnionRelationTypeDefaulting:
 
 
 # ---------------------------------------------------------------------------
-# 7. Fuzzy date round-trip (issue #343)
-# ---------------------------------------------------------------------------
-
-class TestFuzzyDateRoundTrip:
-    """Fuzzy / qualified dates must survive a full serialize → parse cycle
-    without losing the qualifier prefix.
-
-    ``serialize_to_gedcom`` calls ``_to_gedcom_date`` which passes through
-    unrecognised strings (e.g. ``"about 1850"``, ``"ABT 1900"``) verbatim, and
-    ``parse_gedcom`` stores them unchanged via ``_from_gedcom_date`` (qualifier
-    passthrough).  The member that comes out of ``parse_gedcom`` must have the
-    same date string as the one that went in.
-    """
-
-    def _round_trip(self, date_value: str) -> str | None:
-        """Round-trip *date_value* through serialize → parse and return result."""
-        member = {
-            "id": str(uuid4()),
-            "first_name": "Test",
-            "last_name": "Person",
-            "gender": "m",
-            "date_of_birth": date_value,
-            "date_of_death": None,
-            "birthplace": None,
-            "hometown": None,
-            "additional_data": None,
-            "places_lived": None,
-            "image_data": None,
-        }
-        gedcom_text = serialize_to_gedcom("TestTree", [member], [])
-        result = parse_gedcom(gedcom_text)
-        imported = result["members"]
-        assert len(imported) == 1
-        return imported[0].get("date_of_birth")
-
-    def test_fuzzy_about_survives_round_trip(self):
-        """``"about 1850"`` must come back as ``"about 1850"``."""
-        assert self._round_trip("about 1850") == "about 1850"
-
-    def test_abt_qualifier_survives_round_trip(self):
-        """GEDCOM ``"ABT 1900"`` must come back as ``"ABT 1900"``."""
-        assert self._round_trip("ABT 1900") == "ABT 1900"
-
-    def test_bef_qualifier_survives_round_trip(self):
-        """GEDCOM ``"BEF 1850"`` must come back as ``"BEF 1850"``."""
-        assert self._round_trip("BEF 1850") == "BEF 1850"
-
-    def test_aft_qualifier_survives_round_trip(self):
-        """GEDCOM ``"AFT 1800"`` must come back as ``"AFT 1800"``."""
-        assert self._round_trip("AFT 1800") == "AFT 1800"
-
-    def test_est_qualifier_survives_round_trip(self):
-        """GEDCOM ``"EST 1880"`` must come back as ``"EST 1880"``."""
-        assert self._round_trip("EST 1880") == "EST 1880"
-
-    def test_exact_iso_date_still_converts(self):
-        """An exact ISO date must still convert to GEDCOM and back correctly."""
-        assert self._round_trip("1975-08-20") == "1975-08-20"
-
-
-# ---------------------------------------------------------------------------
-# 8. parse_gedcom sort key derivation (#433)
+# 5. parse_gedcom sort key derivation (#433)
 # ---------------------------------------------------------------------------
 
 class TestParseGedcomSortKeys:
@@ -937,13 +716,13 @@ class TestParseGedcomSortKeys:
 
     def test_year_only_birth_sort_key(self):
         """Year-only GEDCOM date 1975 should yield sort key 1975-00-00."""
-        # GEDCOM year-only: stored as "1975" by _from_gedcom_date
+        # GEDCOM year-only: stored as "1975" by from_gedcom_date
         member = self._parse_member_with_dates(birt_date="1975")
         assert member["date_of_birth_sort"] == "1975-00-00"
 
 
 # ---------------------------------------------------------------------------
-# 9. Adoption import / export (#502)
+# 6. Adoption import / export (#502)
 # ---------------------------------------------------------------------------
 
 

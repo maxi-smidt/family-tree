@@ -2,7 +2,7 @@
 
 from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
-from app.services.quality_checks import issue_id_for, run_quality_checks
+from app.services.trees.quality_checks import issue_id_for, run_quality_checks
 from tests.conftest import (
     API,
     add_member,
@@ -722,7 +722,7 @@ def test_bridge_drift_resolve_requires_access_to_other_tree(client, db):
 
 def test_bridge_drift_hidden_when_flag_off(client, db):
     from app.models.family import Member as MemberModel
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     user = make_user(db, "alice")
     main, _sub_id, counterpart_id = _make_bridge(client, db, user)

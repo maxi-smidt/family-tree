@@ -32,13 +32,14 @@ from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.notification import Notification
 from app.models.quality import QualityIssueDismissal
 from app.models.setting import AppSetting, FeatureFlagOverride
-from app.models.tree import Tree, TreeInvitation, TreeMembership
+from app.models.tree import Tree, TreeInvitation, TreeMembership, TreeUserState
 from app.models.user import User
 from app.models.virtual_view import (
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
+    VirtualViewUserState,
 )
 
 __all__ = [
@@ -49,11 +50,13 @@ __all__ = [
     "Tree",
     "TreeMembership",
     "TreeInvitation",
+    "TreeUserState",
     "Friendship",
     "VirtualView",
     "VirtualViewSource",
     "VirtualViewMemberMatch",
     "VirtualViewPosition",
+    "VirtualViewUserState",
     "Member",
     "Relation",
     "RelationType",

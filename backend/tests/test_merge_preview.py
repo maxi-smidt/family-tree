@@ -7,11 +7,11 @@ covers preview computation and explicit MergeResolution handling.
 from __future__ import annotations
 
 import pytest
-from fastapi import HTTPException
 
+from app.core.exceptions import DomainError
 from app.models import Member, Relation
 from app.schemas.merge import MergeResolution
-from app.services.merge import compute_merge_preview, merge_trees
+from app.services.trees.merge import compute_merge_preview, merge_trees
 from tests.conftest import add_member, make_tree, make_user, share
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ def test_preview_auth_unreadable_source(db):
     stranger = make_user(db, "stranger")
     ta = make_tree(db, owner, "Private")
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(DomainError) as exc:
         compute_merge_preview(db, stranger, ta.id, None)
     assert exc.value.status_code == 404
 

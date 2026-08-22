@@ -14,6 +14,7 @@ from app.api.deps import (
     require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
@@ -36,26 +37,25 @@ from app.schemas.content import (
     UnknownFaceUpdate,
 )
 from app.schemas.user import StoredUserPreferences
-from app.services.activity import gallery_delete_snapshot, record_activity
-from app.services.content_links import (
+from app.services.activity.activity import gallery_delete_snapshot, record_activity
+from app.services.documents.content_links import (
     replace_gallery_member_links,
     replace_member_links,
 )
 from app.services.event_bus import event_bus, publish_tree_event
-from app.services.settings_service import effective_storage_mode, get_media_limits
-from app.services.storage import (
+from app.services.media.storage import (
     ImageTooLarge,
     UnsupportedImageType,
     delete_media,
     store_image_upload,
     trash_media,
 )
-from app.services.storage_usage import (
-    QuotaExceeded,
+from app.services.media.storage_usage import (
     check_media_quota,
     check_tree_quota,
     media_warning,
 )
+from app.services.system.settings_service import effective_storage_mode, get_media_limits
 
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
@@ -147,9 +147,9 @@ async def create_image(
     # compute_usage, so pass 0 to avoid double-counting it.
     try:
         check_media_quota(db, tree, 0)
-    except QuotaExceeded as exc:
+    except QuotaExceeded:
         delete_media(new_image_url)
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+        raise
 
     now = utcnow_iso()
     image_row = GalleryImage(
@@ -355,10 +355,7 @@ def create_unknown_face(
         f'Identify unknown person in "{image.title or image_id}"'
     )
     notes = payload.task_notes or None
-    try:
-        check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
-    except QuotaExceeded as exc:
-        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
 
     task = MemberTask(
         id=str(uuid4()),

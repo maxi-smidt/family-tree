@@ -8,6 +8,7 @@ exchanges its access token for a one-purpose, short-lived SSE ticket.
 import asyncio
 import json
 import logging
+from collections.abc import AsyncGenerator
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -68,7 +69,7 @@ async def stream_events(
 
     queue = await event_bus.subscribe(user_id)
 
-    async def event_stream():  # type: ignore[return]
+    async def event_stream() -> AsyncGenerator[str, None]:
         try:
             # Signal a successful connection immediately.
             yield "event: connected\ndata: {}\n\n"

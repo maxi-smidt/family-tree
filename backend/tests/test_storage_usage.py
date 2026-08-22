@@ -7,14 +7,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.services.storage import (
+from app.core.exceptions import QuotaExceeded
+from app.services.media.storage import (
     MEDIA_URL_PREFIX,
     _tree_media_dir,
     delete_tree_media,
     trash_media,
 )
-from app.services.storage_usage import (
-    QuotaExceeded,
+from app.services.media.storage_usage import (
     _media_bytes,
     _tree_model_bytes,
     check_full_usage_quota,

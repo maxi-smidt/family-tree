@@ -20,7 +20,7 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
-from app.services.merge import merge_trees
+from app.services.trees.merge import merge_trees
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
 
 # Minimal 1×1 PNG streamed as a multipart gallery upload.
@@ -511,7 +511,7 @@ def test_gallery_set_links_writes_activity(client, db, tmp_path, monkeypatch):
 
 
 # Import (native bundle / GEDCOM) activity logging is exercised indirectly via
-# _do_import / _do_import_gedcom's background-job plumbing (see
+# do_import / do_import_gedcom's background-job plumbing (see
 # tests/test_export_import.py for full import round-trips using
 # wait_for_job). Adding a dedicated activity-log assertion here would mostly
 # duplicate that machinery, so it is intentionally left to a follow-up if
@@ -835,7 +835,7 @@ def test_delete_gallery_image_details_snapshot_trashes_media(
 def _write_media_file(
     settings, tree_id: str, filename: str, content: bytes = b"data"
 ) -> str:
-    from app.services.storage import MEDIA_URL_PREFIX
+    from app.services.media.storage import MEDIA_URL_PREFIX
 
     tree_dir = settings.media_root / tree_id
     tree_dir.mkdir(parents=True, exist_ok=True)

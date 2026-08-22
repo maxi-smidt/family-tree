@@ -14,20 +14,22 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.api.exception_handlers import install_domain_error_handler
 from app.api.router import api_router
 from app.core.config import settings, validate_production_credentials
 from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
-from app.services.authentik import init_oauth
-from app.services.backup_scheduler import backup_schedule_loop
-from app.services.deletion_sweeper import deletion_sweep_loop
-from app.services.storage import (
+from app.services.collaboration import presence_service
+from app.services.media.storage import (
     InvalidImageURL,
     cleanup_document_upload_temps,
     cleanup_image_upload_temps,
 )
+from app.services.system.authentik import init_oauth
+from app.services.system.backups.backup_scheduler import backup_schedule_loop
+from app.services.system.deletion_sweeper import deletion_sweep_loop
 
 setup_logging()
 logger = logging.getLogger("app")
@@ -93,11 +95,21 @@ async def lifespan(app: FastAPI):
             await sweeper
         with contextlib.suppress(asyncio.CancelledError):
             await backup_scheduler
-        # Stop the Redis listener before closing the client.
+        # Stop the Redis listener before closing the client. This must run
+        # before event_bus.reset() below — it's what cancels and awaits the
+        # listener task and closes the pubsub connection; reset() only clears
+        # already-quiesced references, it does not tear anything down itself.
         if settings.redis_enabled:
             await event_bus.stop_redis_listener()
         await close_redis()
         runtime.set_loop(None)
+        # Drop subscriber/loop state so a subsequent lifespan in this same
+        # process (tests build the FastAPI app more than once) starts clean.
+        # Deliberately not done on startup: this app instance's shutdown is
+        # what guarantees the state is quiescent, not the next instance's
+        # startup — resetting on startup would race an overlapping shutdown.
+        event_bus.reset()
+        presence_service.reset()
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
@@ -114,6 +126,7 @@ app.add_middleware(
 settings.media_root.mkdir(parents=True, exist_ok=True)
 
 app.include_router(api_router, prefix=settings.API_PREFIX)
+install_domain_error_handler(app)
 
 
 @app.exception_handler(InvalidImageURL)
@@ -164,11 +177,13 @@ async def health_ready():
     }
 
     # --- redis check (only when configured) -----------------------------------
+    # Redis is optional: an outage degrades readiness rather than failing it,
+    # unless REDIS_REQUIRED opts into treating it as a hard dependency.
     if settings.redis_enabled:
         redis_ok = await ping_redis()
         body["redis"] = "ok" if redis_ok else "unavailable"
-        if not redis_ok:
-            body["status"] = "error"
+        if not redis_ok and body["status"] != "error":
+            body["status"] = "error" if settings.REDIS_REQUIRED else "degraded"
 
     if body["status"] == "error":
         return JSONResponse(status_code=503, content=body)

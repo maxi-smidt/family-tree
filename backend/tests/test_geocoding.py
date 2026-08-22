@@ -1,12 +1,12 @@
-"""Unit tests for the Nominatim geocoding cache (app.services.geocoding)."""
+"""Unit tests for the Nominatim geocoding cache (app.services.media.geocoding)."""
 
 from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from app.models.content import GeocodeCache
-from app.services import geocoding
-from app.services.geocoding import (
+from app.services.media import geocoding
+from app.services.media.geocoding import (
     GeocodeUnavailableError,
     resolve_batch,
     search_candidates,
