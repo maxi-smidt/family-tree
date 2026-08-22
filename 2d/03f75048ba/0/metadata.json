@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2d03f75048ba",
+  "session_id": "dfec6edb-38bf-47f4-abe4-8becd29ed7bf",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T09:51:16.929484479Z",
+  "branch": "refactor/885-split-gedcom-service",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/gedcom_dates.py",
+    "backend/app/services/gedcom_encoding.py",
+    "backend/app/services/gedcom_records.py",
+    "backend/app/services/gedcom_writer.py",
+    "backend/app/services/gedcom_reader.py",
+    "backend/app/services/gedcom.py",
+    "backend/tests/test_gedcom_dates.py",
+    "backend/tests/test_gedcom_encoding.py",
+    "backend/tests/test_gedcom.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "d4405d2f64e9",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 128,
+    "cache_creation_tokens": 111095,
+    "cache_read_tokens": 6554400,
+    "output_tokens": 41538,
+    "api_call_count": 64
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T09:51:16.886758586Z",
+    "agent_lines": 1352,
+    "agent_removed": 1161,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 1352,
+    "total_lines_changed": 2513,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
