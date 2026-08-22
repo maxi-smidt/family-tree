@@ -212,3 +212,10 @@ Invalid property /approval_policy: `none` is not a possible value. Must be one o
 ---
 
 okay, create PR for that and tell me if i need to add any secrets or so
+
+---
+
+0s
+Warning: Unexpected input(s) 'sbom-path', valid inputs are ['subject-path', 'subject-digest', 'subject-name', 'subject-checksums', 'predicate-type', 'predicate', 'predicate-path', 'push-to-registry', 'show-summary', 'github-token']
+Run actions/attest@v3
+Error: Error: predicate-type must be provided
