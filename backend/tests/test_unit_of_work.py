@@ -74,6 +74,27 @@ def test_commit_failure_rolls_back_and_skips_callbacks(db, owner, monkeypatch):
     assert rollback_calls == [True]
 
 
+def test_reusing_uow_after_failure_does_not_replay_stale_callbacks(db, owner):
+    """A callback queued by a rolled-back block must never fire — not even
+    when the same UnitOfWork instance goes on to commit a later mutation."""
+    calls: list[str] = []
+    uow = UnitOfWork(db)
+
+    with pytest.raises(ValueError):
+        with uow:
+            db.add(Tree(id="uow-t3", name="T", owner_id=owner.id))
+            uow.after_commit(lambda: calls.append("stale"))
+            raise ValueError("boom")
+    assert calls == []
+
+    with uow:
+        db.add(Tree(id="uow-t4", name="T", owner_id=owner.id))
+        uow.after_commit(lambda: calls.append("fresh"))
+    assert calls == ["fresh"]
+    assert db.get(Tree, "uow-t3") is None
+    assert db.get(Tree, "uow-t4") is not None
+
+
 # ---------------------------------------------------------------------------
 # Failure injection through the migrated routes
 # ---------------------------------------------------------------------------

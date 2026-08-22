@@ -50,11 +50,17 @@ class UnitOfWork:
     ) -> None:
         if exc_type is not None:
             self._db.rollback()
+            self._callbacks.clear()
             return
         try:
             self._db.commit()
         except BaseException:
             self._db.rollback()
+            self._callbacks.clear()
             raise
-        for callback in self._callbacks:
+        # Drain before running: a callback that re-enters this UnitOfWork
+        # (or an instance reused for a later mutation) must never replay
+        # callbacks queued by this commit.
+        callbacks, self._callbacks = self._callbacks, []
+        for callback in callbacks:
             callback()
