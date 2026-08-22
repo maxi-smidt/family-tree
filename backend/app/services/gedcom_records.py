@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.bundle_types import GedcomRecord
+from app.services.interchange.bundles.bundle_types import GedcomRecord
 
 
 def parse_lines(text: str) -> list[tuple[int, str | None, str, str]]:

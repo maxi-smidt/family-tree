@@ -10,14 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import date
 
-from app.services.bundle_types import (
+from app.services.gedcom_dates import MONTHS, to_gedcom_date
+from app.services.interchange.bundles.bundle_types import (
     GedcomCitation,
     GedcomDocument,
     GedcomDocumentFile,
     GedcomMember,
     GedcomRelation,
 )
-from app.services.gedcom_dates import MONTHS, to_gedcom_date
 
 # Couple relation types that map to FAM records.
 _COUPLE_TYPES: frozenset[str] = frozenset({"married", "partner", "divorced"})

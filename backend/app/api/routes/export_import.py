@@ -1,8 +1,9 @@
 """Encrypted export and import of an entire tree, plus GEDCOM import/export.
 
-Bundle version migration lives in ``app.services.bundle_migration``; the
-background-job orchestration for each import format lives in
-``app.services.tree_bundle_import`` (native) and
+Bundle version migration lives in
+``app.services.interchange.bundles.bundle_migration``; the background-job
+orchestration for each import format lives in
+``app.services.interchange.bundles.tree_bundle_import`` (native) and
 ``app.services.tree_gedcom_import`` (GEDCOM). This module stays thin: request
 validation, kicking off the background job, and the export-side row
 serialization (which has no import-side counterpart to share it with).
@@ -53,8 +54,11 @@ from app.models import (
 )
 from app.schemas.job import JobStarted
 from app.services import crypto_export, gedcom
-from app.services.bundle_migration import BUNDLE_VERSION, validate_and_migrate
-from app.services.bundle_types import (
+from app.services.interchange.bundles.bundle_migration import (
+    BUNDLE_VERSION,
+    validate_and_migrate,
+)
+from app.services.interchange.bundles.bundle_types import (
     BundleCitationRow,
     BundleDocumentFileRow,
     BundleDocumentRow,
@@ -64,9 +68,9 @@ from app.services.bundle_types import (
     TreeBundle,
     TreeBundleV4,
 )
+from app.services.interchange.bundles.tree_bundle_import import do_import
 from app.services.media.storage import media_url_to_data_url
 from app.services.system.job_service import create_job, run_job
-from app.services.tree_bundle_import import do_import
 from app.services.tree_gedcom_import import do_import_gedcom
 
 router = APIRouter(prefix="/trees", tags=["export"])

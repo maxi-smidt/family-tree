@@ -10,12 +10,6 @@ from __future__ import annotations
 import re
 from uuid import uuid4
 
-from app.services.bundle_types import (
-    GedcomMember,
-    GedcomParseResult,
-    GedcomRecord,
-    GedcomRelation,
-)
 from app.services.gedcom_dates import from_gedcom_date
 from app.services.gedcom_records import (
     all_child_values,
@@ -24,6 +18,12 @@ from app.services.gedcom_records import (
     parse_lines,
 )
 from app.services.genealogy_date import sort_key
+from app.services.interchange.bundles.bundle_types import (
+    GedcomMember,
+    GedcomParseResult,
+    GedcomRecord,
+    GedcomRelation,
+)
 
 
 def parse_gedcom(text: str) -> GedcomParseResult:

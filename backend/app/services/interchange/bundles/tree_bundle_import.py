@@ -40,9 +40,9 @@ from app.models import (
     User,
 )
 from app.services.activity.activity import record_activity
-from app.services.bundle_types import TreeBundleV4
 from app.services.event_bus import publish_tree_event
 from app.services.genealogy_date import sort_key as _sort_key
+from app.services.interchange.bundles.bundle_types import TreeBundleV4
 from app.services.media.storage import (
     delete_tree_media,
     process_image_field,
