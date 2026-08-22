@@ -11,8 +11,8 @@ from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
 from app.schemas.tree import TreeTransfer, TreeTransferResult
-from app.services import friendships
 from app.services.activity.activity import record_activity
+from app.services.collaboration import friendships
 from app.services.event_bus import publish_tree_event
 from app.services.tree_access import list_tree_access
 from app.services.tree_transfer import TRANSFER_UNDO_WINDOW_SECONDS, undo_deadline

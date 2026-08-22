@@ -19,10 +19,10 @@ from app.api.deps import get_current_user, get_readable_tree, require_feature
 from app.db.session import get_db
 from app.models import Tree, User
 from app.schemas.presence import PresenceHeartbeat, PresenceRoster, PresenceUser
-from app.services import presence_service
+from app.services.collaboration import presence_service
+from app.services.collaboration.presence_service import PresenceEntry
 from app.services.event_bus import publish_tree_event
 from app.services.event_payloads import PresenceUserSnapshot
-from app.services.presence_service import PresenceEntry
 
 router = APIRouter(
     prefix="/trees/{tree_id}",

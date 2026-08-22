@@ -21,7 +21,7 @@ from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
-from app.services import presence_service
+from app.services.collaboration import presence_service
 from app.services.media.storage import (
     InvalidImageURL,
     cleanup_document_upload_temps,
