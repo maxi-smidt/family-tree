@@ -38,7 +38,11 @@ from app.services.tree_transfer import within_undo_window
 router = APIRouter(prefix="/trees", tags=["trees"])
 
 
-_UNSET = object()  # distinguishes "not computed yet" from an explicit None
+class _Unset:
+    """Sentinel type so ``None`` remains a valid explicit ``last_opened`` value."""
+
+
+_UNSET = _Unset()
 
 
 def tree_out(
@@ -46,7 +50,7 @@ def tree_out(
     tree: Tree,
     user: User | None,
     shared_count: int | None = None,
-    last_opened: object = _UNSET,
+    last_opened: str | None | _Unset = _UNSET,
 ) -> TreeOut:
     out = TreeOut.model_validate(tree)
     out.role = role_for(db, tree, user) if user is not None else "viewer"
@@ -61,9 +65,9 @@ def tree_out(
         membership = db.get(TreeMembership, (tree.id, user.id))
         out.restrictions = list(membership.restrictions or []) if membership else []
     out.public_password_protected = tree.public_password_hash is not None
-    if last_opened is _UNSET:
+    if isinstance(last_opened, _Unset):
         last_opened = tree_last_opened(db, tree.id, user.id) if user is not None else None
-    out.last_opened = last_opened  # type: ignore[assignment]
+    out.last_opened = last_opened
     return out
 
 

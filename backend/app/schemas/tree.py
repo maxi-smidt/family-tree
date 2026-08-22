@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.base import FamilyTreeBaseModel
 from app.schemas.family import MemberOut
@@ -25,7 +25,7 @@ class TreeOut(BaseModel):
     # True when a public tree is password-gated (the hash is never exposed).
     public_password_protected: bool = False
     # Domains the requesting member may not see. Empty for owner/admin.
-    restrictions: list[str] = []
+    restrictions: list[str] = Field(default_factory=list)
 
 
 class TreeMetadataOut(FamilyTreeBaseModel):
@@ -78,7 +78,7 @@ class TreeMemberOut(BaseModel):
     user_id: str
     username: str
     role: str  # "owner", "editor" or "viewer"
-    restrictions: list[str] = []
+    restrictions: list[str] = Field(default_factory=list)
 
 
 class MemberSubtreeOut(FamilyTreeBaseModel):
@@ -91,7 +91,7 @@ class MemberSubtreeOut(FamilyTreeBaseModel):
 
 
 class MemberRestrictionsUpdate(BaseModel):
-    restrictions: list[str] = []
+    restrictions: list[str] = Field(default_factory=list)
 
 
 class ShareCandidate(BaseModel):
@@ -214,7 +214,7 @@ class LinkGraphEdge(BaseModel):
     source_tree_id: str
     target_tree_id: str
     count: int
-    bridge_members: list[LinkGraphBridgeMember] = []
+    bridge_members: list[LinkGraphBridgeMember] = Field(default_factory=list)
 
 
 class LinkGraphOut(BaseModel):

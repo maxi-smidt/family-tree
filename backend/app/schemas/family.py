@@ -230,7 +230,7 @@ class MemberLinkRequest(FamilyTreeBaseModel):
     # when mode="existing" reconciles the bridge pair's conflicting fields.
     # Ignored for mode="create" (nothing to reconcile — the counterpart is a
     # fresh clone of this member).
-    field_choices: dict[str, Literal["a", "b", "combine"]] = {}
+    field_choices: dict[str, Literal["a", "b", "combine"]] = Field(default_factory=dict)
 
 
 class BridgeSyncRequest(FamilyTreeBaseModel):

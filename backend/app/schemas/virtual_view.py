@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.base import FamilyTreeBaseModel
 from app.schemas.family import MemberOut
@@ -45,7 +45,7 @@ class VirtualViewOut(BaseModel):
     role: str = "viewer"
     shared_count: int = 0
     is_virtual: bool = True
-    sources: list[VirtualViewSourceOut] = []
+    sources: list[VirtualViewSourceOut] = Field(default_factory=list)
 
 
 class VirtualViewCreate(BaseModel):
@@ -61,9 +61,9 @@ class VirtualViewUpdate(BaseModel):
 class VirtualMemberOut(MemberOut):
     source_tree_id: str
     source_tree_name: str
-    source_tree_ids: list[str] = []
-    source_tree_names: list[str] = []
-    merged_from_ids: list[str] = []
+    source_tree_ids: list[str] = Field(default_factory=list)
+    source_tree_names: list[str] = Field(default_factory=list)
+    merged_from_ids: list[str] = Field(default_factory=list)
     is_merged: bool = False
 
 
