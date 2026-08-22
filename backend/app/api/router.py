@@ -37,6 +37,7 @@ from app.api.routes import (
     tree_transfer,
     trees,
     users,
+    virtual_view_content,
     virtual_views,
 )
 
@@ -61,6 +62,7 @@ api_router.include_router(tree_transfer.router)
 api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
 api_router.include_router(virtual_views.router)
+api_router.include_router(virtual_view_content.router)
 api_router.include_router(export_import.router)
 api_router.include_router(jobs.router)
 api_router.include_router(members.router)
