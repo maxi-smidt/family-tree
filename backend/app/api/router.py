@@ -18,6 +18,10 @@ from app.api.routes import (
     jobs,
     legal,
     media,
+    member_diseases,
+    member_links,
+    member_relations,
+    member_subtrees,
     members,
     notifications,
     oauth,
@@ -66,6 +70,10 @@ api_router.include_router(virtual_view_content.router)
 api_router.include_router(export_import.router)
 api_router.include_router(jobs.router)
 api_router.include_router(members.router)
+api_router.include_router(member_relations.router)
+api_router.include_router(member_diseases.router)
+api_router.include_router(member_subtrees.router)
+api_router.include_router(member_links.router)
 api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)

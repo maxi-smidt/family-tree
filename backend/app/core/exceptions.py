@@ -38,6 +38,12 @@ class ConflictError(DomainError):
     status_code = 409
 
 
+class PayloadTooLargeError(DomainError):
+    """Raised when a single uploaded asset (e.g. an image) is too large."""
+
+    status_code = 413
+
+
 class QuotaExceeded(DomainError):
     """Raised when a write would push usage past a quota limit."""
 
