@@ -1,9 +1,10 @@
 """GEDCOM 5.5.1 tree import.
 
 Runs the GEDCOM import in a background job (``do_import_gedcom``). Simpler
-than the native bundle import (``app.services.tree_bundle_import``) — GEDCOM
-carries only members and relations — but shares the same quota-enforcement
-and rollback contract.
+than the native bundle import
+(``app.services.interchange.bundles.tree_bundle_import``) — GEDCOM carries
+only members and relations — but shares the same quota-enforcement and
+rollback contract.
 """
 
 from __future__ import annotations
@@ -14,15 +15,15 @@ from app.db.base import utcnow_iso
 from app.db.session import SessionLocal
 from app.models import Member, Relation, Tree, User
 from app.services.activity.activity import record_activity
-from app.services.bundle_types import GedcomParseResult
 from app.services.event_bus import publish_tree_event
-from app.services.media.storage import delete_tree_media
-from app.services.system.job_service import ProgressCallback
-from app.services.tree_bundle_import import (
+from app.services.interchange.bundles.bundle_types import GedcomParseResult
+from app.services.interchange.bundles.tree_bundle_import import (
     BULK_CHUNK,
     bulk_insert_chunked,
     enforce_import_quota,
 )
+from app.services.media.storage import delete_tree_media
+from app.services.system.job_service import ProgressCallback
 from app.services.trees.tree_state import mark_tree_opened
 
 

@@ -4,7 +4,7 @@ Encrypted exports are always encrypted at rest; a user password is optional.
 Imports always land in a brand new tree owned by the importing user, with
 every id remapped so re-importing never collides with existing data. This
 module gets an arbitrary-version bundle up to ``BUNDLE_VERSION`` before
-``app.services.tree_bundle_import.do_import`` writes any rows.
+``app.services.interchange.bundles.tree_bundle_import.do_import`` writes any rows.
 """
 
 from __future__ import annotations
@@ -12,7 +12,12 @@ from __future__ import annotations
 from uuid import uuid4
 
 from app.core.exceptions import InvalidInputError
-from app.services.bundle_types import TreeBundle, TreeBundleV2, TreeBundleV3, TreeBundleV4
+from app.services.interchange.bundles.bundle_types import (
+    TreeBundle,
+    TreeBundleV2,
+    TreeBundleV3,
+    TreeBundleV4,
+)
 
 # Bundle schema version. Bump this **and** add a ``migrate_bundle`` step whenever
 # the exported key set changes; ``test_export_import.py`` snapshots the keys per

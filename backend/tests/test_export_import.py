@@ -311,9 +311,9 @@ def test_import_over_quota_rolls_back_tree_rows_and_media(client, db):
 
     ``do_import`` writes every row and decodes member/gallery images to disk
     before ``enforce_import_quota`` runs a single full-usage check at the end
-    (app.services.tree_bundle_import.enforce_import_quota); on violation it
-    must roll back the DB rows *and* delete the new tree's media directory, or
-    a failed import would silently leak storage forever.
+    (``app.services.interchange.bundles.tree_bundle_import.enforce_import_quota``);
+    on violation it must roll back the DB rows *and* delete the new tree's
+    media directory, or a failed import would silently leak storage forever.
     """
     data_url = f"data:image/png;base64,{base64.b64encode(_PNG_BYTES).decode()}"
 
