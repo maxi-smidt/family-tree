@@ -91,41 +91,15 @@ class DocumentFileSnapshot(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Envelopes — the delete-snapshot `details` payload each builder returns:
-# {"snapshot": {"version": 1, ...}}.
+# Envelope — the delete-snapshot `details` payload each builder returns:
+# {"snapshot": {"version": 1, ...}}. Generic so each builder can declare its
+# own inner shape (e.g. DeleteSnapshot[MemberSnapshot]) without a dedicated
+# wrapper class per domain.
 # ---------------------------------------------------------------------------
 
 
-class MemberDeleteSnapshot(TypedDict):
-    snapshot: MemberSnapshot
-
-
-class RelationDeleteSnapshot(TypedDict):
-    snapshot: RelationSnapshot
-
-
-class DiseaseDeleteSnapshot(TypedDict):
-    snapshot: DiseaseSnapshot
-
-
-class EventDeleteSnapshot(TypedDict):
-    snapshot: EventSnapshot
-
-
-class StoryDeleteSnapshot(TypedDict):
-    snapshot: StorySnapshot
-
-
-class GalleryImageDeleteSnapshot(TypedDict):
-    snapshot: GalleryImageSnapshot
-
-
-class DocumentDeleteSnapshot(TypedDict):
-    snapshot: DocumentSnapshot
-
-
-class DocumentFileDeleteSnapshot(TypedDict):
-    snapshot: DocumentFileSnapshot
+class DeleteSnapshot[T](TypedDict):
+    snapshot: T
 
 
 # ---------------------------------------------------------------------------

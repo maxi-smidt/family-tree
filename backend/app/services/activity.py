@@ -42,21 +42,14 @@ from app.models.family import Member, MemberDisease, Relation
 from app.models.user import User
 from app.services.activity_snapshots import (
     BridgeSnapshot,
-    DiseaseDeleteSnapshot,
+    DeleteSnapshot,
     DiseaseSnapshot,
-    DocumentDeleteSnapshot,
-    DocumentFileDeleteSnapshot,
     DocumentFileSnapshot,
     DocumentSnapshot,
-    EventDeleteSnapshot,
     EventSnapshot,
-    GalleryImageDeleteSnapshot,
     GalleryImageSnapshot,
-    MemberDeleteSnapshot,
     MemberSnapshot,
-    RelationDeleteSnapshot,
     RelationSnapshot,
-    StoryDeleteSnapshot,
     StorySnapshot,
 )
 
@@ -78,7 +71,7 @@ def row_to_dict(obj: Base) -> dict:
 
 def member_delete_snapshot(
     db: Session, member: Member, counterpart: Member | None = None
-) -> MemberDeleteSnapshot:
+) -> DeleteSnapshot[MemberSnapshot]:
     """Full pre-image of a member row and its cascade children.
 
     Must be called BEFORE ``db.delete(member)``. Captures everything the DB
@@ -137,7 +130,7 @@ def member_delete_snapshot(
     return {"snapshot": snapshot}
 
 
-def event_delete_snapshot(db: Session, event: Event) -> EventDeleteSnapshot:
+def event_delete_snapshot(db: Session, event: Event) -> DeleteSnapshot[EventSnapshot]:
     """Full pre-image of an event row and its member/document links.
 
     Must be called BEFORE ``db.delete(event)``. Events own no media directly
@@ -159,7 +152,7 @@ def event_delete_snapshot(db: Session, event: Event) -> EventDeleteSnapshot:
     return {"snapshot": snapshot}
 
 
-def story_delete_snapshot(db: Session, story: Story) -> StoryDeleteSnapshot:
+def story_delete_snapshot(db: Session, story: Story) -> DeleteSnapshot[StorySnapshot]:
     """Full pre-image of a story row and its member/document links.
 
     Must be called BEFORE ``db.delete(story)``. Stories own no media directly,
@@ -182,7 +175,7 @@ def story_delete_snapshot(db: Session, story: Story) -> StoryDeleteSnapshot:
 
 def gallery_delete_snapshot(
     db: Session, image: GalleryImage
-) -> GalleryImageDeleteSnapshot:
+) -> DeleteSnapshot[GalleryImageSnapshot]:
     """Full pre-image of a gallery image row and its member links.
 
     Must be called BEFORE ``db.delete(image)``. ``member_links`` includes any
@@ -204,7 +197,9 @@ def gallery_delete_snapshot(
     return {"snapshot": snapshot}
 
 
-def document_delete_snapshot(db: Session, document: Document) -> DocumentDeleteSnapshot:
+def document_delete_snapshot(
+    db: Session, document: Document
+) -> DeleteSnapshot[DocumentSnapshot]:
     """Full pre-image of a document row, its files, and every link table.
 
     Must be called BEFORE ``db.delete(document)``. ``trashed_media`` records
@@ -234,7 +229,7 @@ def document_delete_snapshot(db: Session, document: Document) -> DocumentDeleteS
     return {"snapshot": snapshot}
 
 
-def relation_delete_snapshot(relation: Relation) -> RelationDeleteSnapshot:
+def relation_delete_snapshot(relation: Relation) -> DeleteSnapshot[RelationSnapshot]:
     """Pre-image of a bare relation delete (no cascade children)."""
     snapshot: RelationSnapshot = {
         "version": SNAPSHOT_VERSION,
@@ -243,7 +238,7 @@ def relation_delete_snapshot(relation: Relation) -> RelationDeleteSnapshot:
     return {"snapshot": snapshot}
 
 
-def disease_delete_snapshot(disease: MemberDisease) -> DiseaseDeleteSnapshot:
+def disease_delete_snapshot(disease: MemberDisease) -> DeleteSnapshot[DiseaseSnapshot]:
     """Pre-image of a bare disease-record delete (no cascade children)."""
     snapshot: DiseaseSnapshot = {
         "version": SNAPSHOT_VERSION,
@@ -254,7 +249,7 @@ def disease_delete_snapshot(disease: MemberDisease) -> DiseaseDeleteSnapshot:
 
 def document_file_delete_snapshot(
     file: DocumentFile, trashed_url: str | None = None
-) -> DocumentFileDeleteSnapshot:
+) -> DeleteSnapshot[DocumentFileSnapshot]:
     """Pre-image of a standalone document-file delete.
 
     ``trashed_url`` is the file's media URL when it was moved to trash
