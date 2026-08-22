@@ -1,0 +1,56 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "1c9dcfa30d90",
+  "session_id": "b1581539-099c-40ed-98f3-86bb0f146732",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T18:12:24.933428742Z",
+  "branch": "refactor/952-unit-of-work-domain-exceptions",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "backend/app/services/collaboration/notification_service.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "12ed5e4a360c",
+  "checkpoint_transcript_start": 1555,
+  "transcript_lines_at_start": 1555,
+  "compact_transcript_start": 319,
+  "token_usage": {
+    "input_tokens": 24,
+    "cache_creation_tokens": 6333,
+    "cache_read_tokens": 4903663,
+    "output_tokens": 3473,
+    "api_call_count": 12
+  },
+  "session_metrics": {
+    "turn_count": 5
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T18:12:24.807491313Z",
+    "agent_lines": 9,
+    "agent_removed": 7,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 9,
+    "total_lines_changed": 16,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 164,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/scheduled_tasks.lock": 1,
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
