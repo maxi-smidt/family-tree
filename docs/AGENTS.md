@@ -313,6 +313,15 @@ Features tab).
 3. Commit within the request; let FastAPI return the serialized model.
 4. Update the model in `backend/app/models/` when changing the schema.
 
+For a command that writes rows, records an activity-log entry, and then
+publishes an SSE event / invalidates a cache key, wrap the commit in
+`app.services.unit_of_work.UnitOfWork` instead of hand-sequencing
+`db.commit()` and the side effects: queue the latter with `uow.after_commit(...)`.
+They only run once the wrapped commit actually succeeds, so a failed
+transaction can never publish an event or invalidate a cache key for a
+mutation that didn't land. See `backend/app/api/routes/stories.py` and
+`backend/app/api/routes/events.py` for worked examples.
+
 ---
 
 ## Testing

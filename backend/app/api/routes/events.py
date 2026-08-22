@@ -27,6 +27,7 @@ from app.services.activity import event_delete_snapshot, record_activity
 from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import check_tree_quota
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/trees/{tree_id}/events",
@@ -130,17 +131,22 @@ def create_event(
         tree=tree,
         member_ids=member_ids,
     )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="create",
-        target_type="event", target_id=event.id, target_label=event.event_type,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="create",
+            target_type="event", target_id=event.id, target_label=event.event_type,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            )
+        )
     db.refresh(event)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "event"},
-    )
     return _event_out(db, event)
 
 
@@ -155,17 +161,22 @@ def update_event(
     event = _get_event(db, tree, event_id)
     for key, value in payload.model_dump().items():
         setattr(event, key, value)
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="event", target_id=event.id, target_label=event.event_type,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="event", target_id=event.id, target_label=event.event_type,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            )
+        )
     db.refresh(event)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "event"},
-    )
     return _event_out(db, event)
 
 
@@ -177,18 +188,23 @@ def delete_event(
     db: Session = Depends(get_db),
 ):
     event = _get_event(db, tree, event_id)
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="delete",
-        target_type="event", target_id=event.id, target_label=event.event_type,
-        details=event_delete_snapshot(db, event),
-    )
-    db.delete(event)
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "event"},
-    )
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="delete",
+            target_type="event", target_id=event.id, target_label=event.event_type,
+            details=event_delete_snapshot(db, event),
+        )
+        db.delete(event)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            )
+        )
 
 
 @router.put("/{event_id}/links", status_code=204)
@@ -209,11 +225,21 @@ def set_links(
         tree=tree,
         member_ids=payload.member_ids,
     )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="event", target_id=event.id, target_label=event.event_type,
-    )
-    db.commit()
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="event", target_id=event.id, target_label=event.event_type,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            )
+        )
 
 
 @router.put("/{event_id}/documents", status_code=204)
@@ -234,13 +260,18 @@ def set_documents(
         tree=tree,
         document_ids=payload.document_ids,
     )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="event", target_id=event.id, target_label=event.event_type,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "event"},
-    )
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="event", target_id=event.id, target_label=event.event_type,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            )
+        )
