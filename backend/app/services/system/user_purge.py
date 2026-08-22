@@ -53,11 +53,8 @@ def purge_user(db: Session, user: User) -> None:
     tree_ids = db.scalars(
         select(Tree.id).where(Tree.owner_id == user.id)
     ).all()
-    # Remove files first; the row-level cascade follows on ``db.delete``.
-    for tree_id in tree_ids:
-        delete_tree_media(tree_id)
-    delete_user_profile_media(user.id)
-    with UnitOfWork(db):
+    user_id = user.id
+    with UnitOfWork(db) as uow:
         record_admin_audit(
             db,
             actor=None,
@@ -68,6 +65,11 @@ def purge_user(db: Session, user: User) -> None:
             details={"purged_after_grace_period": True},
         )
         db.delete(user)
+        # Remove files only once the row-level cascade has actually
+        # committed — deleting them upfront would orphan a rolled-back
+        # user's media on a failed commit.
+        uow.after_commit(lambda: [delete_tree_media(tid) for tid in tree_ids])
+        uow.after_commit(lambda: delete_user_profile_media(user_id))
 
 
 def purge_due_users(db: Session, now: datetime | None = None) -> int:

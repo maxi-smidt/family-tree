@@ -95,10 +95,10 @@ def create_notification(
             type=type,
             payload=json.dumps(payload.model_dump()) if payload is not None else None,
         )
-        db.add(n)
-        db.flush()
-        _enforce_retention(db, user_id)
         with UnitOfWork(db) as uow:
+            db.add(n)
+            db.flush()
+            _enforce_retention(db, user_id)
             uow.after_commit(
                 lambda: event_bus.publish(
                     [user_id], "notification.created", _serialize(n)

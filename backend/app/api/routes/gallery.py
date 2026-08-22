@@ -162,18 +162,8 @@ async def create_image(
         created_at=created_at or exif_date_taken,
         uploaded_at=uploaded_at or now,
     )
-    def _after_create() -> None:
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-        warning = media_warning(db, tree)
-        if warning:
-            event_bus.publish([tree.owner_id], "storage.warning", warning)
-        publish_tree_event(
-            db, tree, "tree.content_changed",
-            {"tree_id": tree.id, "domain": "gallery"},
-        )
-
     try:
-        with UnitOfWork(db) as uow:
+        with UnitOfWork(db):
             db.add(image_row)
             db.flush()  # image row must exist before its links reference it
             replace_member_links(
@@ -189,13 +179,23 @@ async def create_image(
                 target_type="gallery_image", target_id=image_row.id,
                 target_label=image_row.title,
             )
-            uow.after_commit(_after_create)
     except Exception:
-        # The bytes are already on disk; if any persistence step fails, remove
-        # them so a failed create cannot leave an orphan file behind.
+        # The bytes are already on disk; if persistence (through the commit
+        # above) fails, remove them so a failed create cannot leave an orphan
+        # file behind. This must not run for a failure below — the row is
+        # already durable by then, so "compensating" would instead orphan a
+        # live row by deleting the file it points at.
         delete_media(new_image_url)
         raise
     db.refresh(image_row)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    warning = media_warning(db, tree)
+    if warning:
+        event_bus.publish([tree.owner_id], "storage.warning", warning)
+    publish_tree_event(
+        db, tree, "tree.content_changed",
+        {"tree_id": tree.id, "domain": "gallery"},
+    )
     return image_row
 
 
