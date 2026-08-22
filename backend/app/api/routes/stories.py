@@ -27,6 +27,7 @@ from app.services.activity import record_activity, story_delete_snapshot
 from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import check_tree_quota
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/trees/{tree_id}/stories",
@@ -119,26 +120,31 @@ def create_story(
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
     check_tree_quota(db, tree, len(str(data).encode()))
-    story = Story(tree_id=tree.id, **data)
-    db.add(story)
-    db.flush()  # story row must exist before its links reference it
-    replace_member_links(
-        db,
-        link_model=StoryMemberLink,
-        parent_fk=StoryMemberLink.story_id,
-        parent_id=story.id,
-        tree=tree,
-        member_ids=member_ids,
-    )
-    record_activity(db, tree_id=tree.id, actor=user, action="create",
-                    target_type="story", target_id=story.id, target_label=story.title)
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        story = Story(tree_id=tree.id, **data)
+        db.add(story)
+        db.flush()  # story row must exist before its links reference it
+        replace_member_links(
+            db,
+            link_model=StoryMemberLink,
+            parent_fk=StoryMemberLink.story_id,
+            parent_id=story.id,
+            tree=tree,
+            member_ids=member_ids,
+        )
+        record_activity(db, tree_id=tree.id, actor=user, action="create",
+                        target_type="story", target_id=story.id, target_label=story.title)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "story"}
+            )
+        )
     db.refresh(story)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "story"},
-    )
     return _story_out(db, story)
 
 
@@ -151,17 +157,22 @@ def update_story(
     db: Session = Depends(get_db),
 ):
     story = _get_story(db, tree, story_id)
-    for key, value in payload.model_dump().items():
-        setattr(story, key, value)
-    record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="story", target_id=story.id, target_label=story.title)
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        for key, value in payload.model_dump().items():
+            setattr(story, key, value)
+        record_activity(db, tree_id=tree.id, actor=user, action="update",
+                        target_type="story", target_id=story.id, target_label=story.title)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "story"}
+            )
+        )
     db.refresh(story)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "story"},
-    )
     return _story_out(db, story)
 
 
@@ -173,16 +184,21 @@ def delete_story(
     db: Session = Depends(get_db),
 ):
     story = _get_story(db, tree, story_id)
-    record_activity(db, tree_id=tree.id, actor=user, action="delete",
-                    target_type="story", target_id=story.id, target_label=story.title,
-                    details=story_delete_snapshot(db, story))
-    db.delete(story)
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "story"},
-    )
+    with UnitOfWork(db) as uow:
+        record_activity(db, tree_id=tree.id, actor=user, action="delete",
+                        target_type="story", target_id=story.id, target_label=story.title,
+                        details=story_delete_snapshot(db, story))
+        db.delete(story)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "story"}
+            )
+        )
 
 
 @router.put("/{story_id}/links", status_code=204)
@@ -195,24 +211,29 @@ def set_links(
 ):
     """Replace the full set of members linked to this story."""
     story = _get_story(db, tree, story_id)
-    replace_member_links(
-        db,
-        link_model=StoryMemberLink,
-        parent_fk=StoryMemberLink.story_id,
-        parent_id=story_id,
-        tree=tree,
-        member_ids=payload.member_ids,
-    )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="story", target_id=story.id, target_label=story.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "story"},
-    )
+    with UnitOfWork(db) as uow:
+        replace_member_links(
+            db,
+            link_model=StoryMemberLink,
+            parent_fk=StoryMemberLink.story_id,
+            parent_id=story_id,
+            tree=tree,
+            member_ids=payload.member_ids,
+        )
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="story", target_id=story.id, target_label=story.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "story"}
+            )
+        )
 
 
 @router.put("/{story_id}/documents", status_code=204)
@@ -225,21 +246,26 @@ def set_documents(
 ):
     """Replace the full set of documents linked to this story."""
     story = _get_story(db, tree, story_id)
-    replace_document_links(
-        db,
-        link_model=StoryDocumentLink,
-        parent_fk=StoryDocumentLink.story_id,
-        parent_id=story_id,
-        tree=tree,
-        document_ids=payload.document_ids,
-    )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="story", target_id=story.id, target_label=story.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "story"},
-    )
+    with UnitOfWork(db) as uow:
+        replace_document_links(
+            db,
+            link_model=StoryDocumentLink,
+            parent_fk=StoryDocumentLink.story_id,
+            parent_id=story_id,
+            tree=tree,
+            document_ids=payload.document_ids,
+        )
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="story", target_id=story.id, target_label=story.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "story"}
+            )
+        )
