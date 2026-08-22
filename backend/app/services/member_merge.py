@@ -5,7 +5,7 @@ new third tree), this combines two *members of the same tree*: one survives
 (``keep``), the other is removed (``remove``) after everything it owns —
 relations, content links, diseases, and an optional tree-in-tree bridge — has
 been re-pointed onto ``keep``. Field-conflict detection/resolution is reused
-from ``app.services.merge`` rather than forked.
+from ``app.services.member_clone`` rather than forked.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from app.schemas.merge import (
     MemberMergeTransferCounts,
 )
 from app.services.activity import SNAPSHOT_VERSION, member_delete_snapshot
-from app.services.merge import (
+from app.services.member_clone import (
     CONFLICT_FIELDS,
     apply_field_choices,
     compute_conflicts,
@@ -287,8 +287,8 @@ def _repoint_member_links(
 def _transfer_diseases(db: Session, keep_id: str, remove_id: str) -> None:
     """Move ``remove``'s disease records onto ``keep``, deduping by name.
 
-    Mirrors the tree-merge dedup policy (``app.services.merge``, diseases
-    section): two rows naming the same condition on the same person are
+    Mirrors the tree-merge dedup policy (``app.services.merge_copy.copy_diseases``):
+    two rows naming the same condition on the same person are
     noise once the two records describe one person, so the duplicate is
     dropped rather than kept alongside.
     """

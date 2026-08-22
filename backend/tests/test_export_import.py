@@ -1,3 +1,4 @@
+import base64
 import io
 
 from sqlalchemy import select
@@ -9,9 +10,17 @@ from app.models import (
     Member,
     MemberTask,
     MemberTaskLink,
+    Tree,
+    User,
 )
 from app.services import crypto_export
+from app.services.storage_usage import compute_owner_usage
 from tests.conftest import API, auth, make_tree, make_user, wait_for_job
+
+_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
+    "+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+)
 
 # Snapshot of the top-level keys the export bundle carries, per BUNDLE_VERSION.
 # If the exported key set changes you MUST bump BUNDLE_VERSION, add a
@@ -295,6 +304,61 @@ def test_import_rejects_future_bundle_version(client, db):
     )
     assert resp2.status_code == 400
     assert "newer version" in resp2.json()["detail"]
+
+
+def test_import_over_quota_rolls_back_tree_rows_and_media(client, db):
+    """A bundle that lands over the owner's quota must leave no trace.
+
+    ``do_import`` writes every row and decodes member/gallery images to disk
+    before ``enforce_import_quota`` runs a single full-usage check at the end
+    (app.services.tree_bundle_import.enforce_import_quota); on violation it
+    must roll back the DB rows *and* delete the new tree's media directory, or
+    a failed import would silently leak storage forever.
+    """
+    data_url = f"data:image/png;base64,{base64.b64encode(_PNG_BYTES).decode()}"
+
+    owner = make_user(db, "quota-rollback-owner")
+    tree = make_tree(db, owner, "Quota rollback source")
+    headers = auth(owner)
+    db.add(Member(id="m1", tree_id=tree.id, first_name="Alice", image_data=data_url))
+    db.commit()
+
+    exported = client.post(f"{API}/trees/{tree.id}/export", headers=headers, json={})
+    assert exported.status_code == 200
+    baseline_usage = compute_owner_usage(db, owner.id)
+    tree_count_before = len(
+        list(db.scalars(select(Tree.id).where(Tree.owner_id == owner.id)))
+    )
+
+    # A quota this small is blown past by the single member row alone, so the
+    # already-written tree + media get rejected after the fact.
+    db.get(User, owner.id).tree_quota_bytes = 1
+    db.commit()
+
+    imported = client.post(
+        f"{API}/trees/import",
+        headers=headers,
+        files={
+            "file": (
+                "quota-rollback.treedb",
+                io.BytesIO(exported.content),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert imported.status_code == 202, imported.text
+
+    job_resp = client.get(f"{API}/jobs/{imported.json()['job_id']}", headers=headers)
+    assert job_resp.status_code == 200
+    job = job_resp.json()
+    assert job["status"] == "failed"
+    assert "quota_exceeded" in job["error"]
+
+    tree_count_after = len(
+        list(db.scalars(select(Tree.id).where(Tree.owner_id == owner.id)))
+    )
+    assert tree_count_after == tree_count_before
+    assert compute_owner_usage(db, owner.id) == baseline_usage
 
 
 # ---------------------------------------------------------------------------

@@ -9,7 +9,7 @@ from app.models import Member, Tree
 from app.models.user import User
 from app.services.activity import record_activity
 from app.services.event_bus import publish_tree_event
-from app.services.merge import _clone_member, _wire_bridge
+from app.services.member_clone import clone_member, wire_bridge
 from app.services.tree_state import mark_tree_opened
 
 
@@ -27,13 +27,13 @@ def create_linked_subtree(
     db.flush()
     mark_tree_opened(db, new_tree.id, owner.id)
 
-    counterpart = _clone_member(member, new_tree.id, str(uuid4()))
+    counterpart = clone_member(member, new_tree.id, str(uuid4()))
     counterpart.position_x = 0
     counterpart.position_y = 0
     counterpart.is_collapsed = False
     db.add(counterpart)
     db.flush()
-    _wire_bridge(member, counterpart)
+    wire_bridge(member, counterpart)
 
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
     record_activity(

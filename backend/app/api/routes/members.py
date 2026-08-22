@@ -1085,7 +1085,7 @@ def get_link_candidates(
     render the same conflict-resolution UI merge already uses.
     """
     from app.services import feature_service  # noqa: PLC0415
-    from app.services.merge import (  # noqa: PLC0415
+    from app.services.member_clone import (  # noqa: PLC0415
         compute_conflicts,
         member_key,
         member_name_key,
@@ -1149,7 +1149,7 @@ def link_member_to_tree(
     trees, so it requires write access to both.
     """
     from app.services import feature_service  # noqa: PLC0415
-    from app.services.merge import _clone_member, _wire_bridge  # noqa: PLC0415
+    from app.services.member_clone import clone_member, wire_bridge  # noqa: PLC0415
 
     if not feature_service.is_enabled(db, "tree_links", user):
         raise HTTPException(status_code=404, detail="Not found")
@@ -1167,7 +1167,7 @@ def link_member_to_tree(
         raise HTTPException(status_code=403, detail="No write access to the linked tree")
 
     if payload.mode == "create":
-        counterpart = _clone_member(member, target.id, str(uuid4()))
+        counterpart = clone_member(member, target.id, str(uuid4()))
         counterpart.position_x = 0
         counterpart.position_y = 0
         counterpart.is_collapsed = False
@@ -1193,14 +1193,14 @@ def link_member_to_tree(
                 detail="Counterpart member is already linked to a tree",
             )
 
-    _wire_bridge(member, counterpart)
+    wire_bridge(member, counterpart)
     if payload.mode == "existing":
         # The two rows may describe the same person with differing details
         # (dates, places, notes, ...) — reconcile them onto both sides now
         # rather than letting the bridge start out of sync. field_choices is
         # ignored for mode="create": the counterpart there is a fresh clone of
         # `member`, so there is nothing to reconcile.
-        from app.services.merge import reconcile_bridge_fields  # noqa: PLC0415
+        from app.services.member_clone import reconcile_bridge_fields  # noqa: PLC0415
 
         reconcile_bridge_fields(member, counterpart, payload.field_choices)
 

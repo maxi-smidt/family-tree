@@ -80,12 +80,14 @@ def db(session_factory) -> Session:
 @pytest.fixture(autouse=True)
 def patch_background_session(session_factory, monkeypatch):
     """Background tasks create their own SessionLocal; redirect to the test DB."""
-    import app.api.routes.export_import as _exp_imp
     import app.api.routes.tree_jobs as _tree_jobs_routes
     import app.services.job_service as _job_svc
+    import app.services.tree_bundle_import as _bundle_import
+    import app.services.tree_gedcom_import as _gedcom_import
 
     monkeypatch.setattr(_job_svc, "SessionLocal", session_factory)
-    monkeypatch.setattr(_exp_imp, "SessionLocal", session_factory)
+    monkeypatch.setattr(_bundle_import, "SessionLocal", session_factory)
+    monkeypatch.setattr(_gedcom_import, "SessionLocal", session_factory)
     monkeypatch.setattr(_tree_jobs_routes, "SessionLocal", session_factory)
 
 
