@@ -1,0 +1,6 @@
+File: backend/app/api/routes/members.py, line 503
+[P2] Preserve the existing OpenAPI operation ID
+
+Renaming the endpoint function from `get_member` to `get_member_route` changes FastAPI’s generated operationId for GET /trees/{tree_id}/members/{member_id}. This breaks compatibility for clients generated from the OpenAPI schema, despite the PR’s goal of preserving the API contract.
+
+Alias the imported service helper instead and retain `get_member` as the route function name, or explicitly set the endpoint’s existing operation_id.

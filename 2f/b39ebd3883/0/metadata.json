@@ -1,0 +1,55 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2fb39ebd3883",
+  "session_id": "92b1ace8-0a7d-4aed-97af-e96b5dac3406",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T11:13:21.08967832Z",
+  "branch": "refactor/893-split-members-routes",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/members.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "4449b7901896",
+  "checkpoint_transcript_start": 449,
+  "transcript_lines_at_start": 449,
+  "compact_transcript_start": 91,
+  "token_usage": {
+    "input_tokens": 50,
+    "cache_creation_tokens": 16035,
+    "cache_read_tokens": 4263244,
+    "output_tokens": 5170,
+    "api_call_count": 25
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T11:13:21.03453488Z",
+    "agent_lines": 10,
+    "agent_removed": 8,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 10,
+    "total_lines_changed": 18,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
