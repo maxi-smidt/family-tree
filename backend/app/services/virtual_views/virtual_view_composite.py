@@ -23,8 +23,8 @@ from app.models.virtual_view import (
 )
 from app.schemas.family import DiseaseOut, MemberOut, RelationOut
 from app.schemas.virtual_view import VirtualMemberOut
-from app.services.virtual_view_matching import persist_matches
-from app.services.virtual_view_sources import flatten_tree_ids
+from app.services.virtual_views.virtual_view_matching import persist_matches
+from app.services.virtual_views.virtual_view_sources import flatten_tree_ids
 
 
 def ensure_matches(db: Session, view: VirtualView) -> None:

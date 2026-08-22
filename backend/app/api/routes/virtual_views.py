@@ -22,17 +22,20 @@ from app.schemas.virtual_view import (
     VirtualViewUpdate,
 )
 from app.services.admin_audit import record_admin_audit
-from app.services.virtual_view_access import (
+from app.services.virtual_views.virtual_view_access import (
     mark_view_opened,
     resolve_view,
     view_last_opened,
 )
-from app.services.virtual_view_config import (
+from app.services.virtual_views.virtual_view_config import (
     classify_and_validate_sources,
     flatten_resolved,
     persist_sources,
 )
-from app.services.virtual_view_matching import compute_match_groups, persist_matches
+from app.services.virtual_views.virtual_view_matching import (
+    compute_match_groups,
+    persist_matches,
+)
 
 router = APIRouter(
     prefix="/virtual-views",

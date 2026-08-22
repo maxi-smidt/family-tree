@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from app.db.base import utcnow_iso
 from app.models import Member
 from app.models.virtual_view import VirtualViewMemberMatch, VirtualViewPosition
-from app.services.virtual_view_sources import flatten_tree_ids
+from app.services.virtual_views.virtual_view_sources import flatten_tree_ids
 
 if TYPE_CHECKING:
     from app.models.virtual_view import VirtualView

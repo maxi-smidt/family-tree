@@ -2,7 +2,7 @@
 
 Every feature a normal tree exposes works on a virtual tree by reading rows
 whose ``tree_id`` is in the flattened source set and remapping member ids to
-the composite node ids; see ``app.services.virtual_view_composite`` for the
+the composite node ids; see ``app.services.virtual_views.virtual_view_composite`` for the
 aggregation itself. Configuration CRUD (name, sources, match recomputation)
 lives in ``virtual_views.py``.
 """
@@ -55,8 +55,8 @@ from app.services.event_bus import event_bus
 from app.services.geocoding import resolve_batch, resolve_single
 from app.services.quality_checks import run_quality_checks
 from app.services.statistics import compute_statistics
-from app.services.virtual_view_access import resolve_view, view_last_opened
-from app.services.virtual_view_composite import (
+from app.services.virtual_views.virtual_view_access import resolve_view, view_last_opened
+from app.services.virtual_views.virtual_view_composite import (
     aggregate,
     analytics_members,
     analytics_relations,
@@ -68,7 +68,7 @@ from app.services.virtual_view_composite import (
     primary_member_map,
     remap_member_links,
 )
-from app.services.virtual_view_sources import flatten_tree_ids
+from app.services.virtual_views.virtual_view_sources import flatten_tree_ids
 
 router = APIRouter(
     prefix="/virtual-views",

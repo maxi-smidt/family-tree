@@ -1,5 +1,5 @@
 """Focused tests for the composite-construction functions extracted to
-app.services.virtual_view_composite (#887) — exercised directly against the
+app.services.virtual_views.virtual_view_composite (#887) — exercised directly against the
 DB, without going through the HTTP layer.
 """
 
@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.models.family import Relation
 from app.models.virtual_view import VirtualView, VirtualViewSource
-from app.services.virtual_view_composite import (
+from app.services.virtual_views.virtual_view_composite import (
     build_composite_members,
     build_composite_relations,
 )
-from app.services.virtual_view_matching import group_id_for, persist_matches
+from app.services.virtual_views.virtual_view_matching import group_id_for, persist_matches
 from tests.conftest import add_member, make_tree, make_user
 
 

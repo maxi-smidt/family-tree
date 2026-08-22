@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import accessible_tree_ids
 from app.models import User
 from app.models.virtual_view import VirtualView, VirtualViewSource
-from app.services.virtual_view_sources import flatten_tree_ids, view_closure
+from app.services.virtual_views.virtual_view_sources import flatten_tree_ids, view_closure
 
 VIRTUAL_VIEW_SOURCE_CYCLE = "virtual_view_source_cycle"
 
