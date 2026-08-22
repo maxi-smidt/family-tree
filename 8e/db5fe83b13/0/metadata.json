@@ -3,52 +3,43 @@
   "checkpoint_id": "8edb5fe83b13",
   "session_id": "f2709233-33d5-4a6b-8645-898644d1eda6",
   "strategy": "manual-commit",
-  "created_at": "2026-08-22T12:34:40.185126726Z",
+  "created_at": "2026-08-22T13:53:02.011185237Z",
   "branch": "refactor/955-activity-domain",
-  "checkpoints_count": 3,
-  "files_touched": [
-    "docs/AGENTS.md"
-  ],
+  "checkpoints_count": 2,
+  "save_step_count": 1,
+  "files_touched": [],
   "agent": "Claude Code",
   "model": "",
-  "turn_id": "b3c47e22c7d3",
-  "checkpoint_transcript_start": 147,
-  "transcript_lines_at_start": 147,
-  "compact_transcript_start": 31,
+  "turn_id": "71a4fc649c4b",
+  "checkpoint_transcript_start": 1245,
+  "transcript_lines_at_start": 1245,
+  "compact_transcript_start": 265,
   "token_usage": {
-    "input_tokens": 106,
-    "cache_creation_tokens": 58981,
-    "cache_read_tokens": 6026511,
-    "output_tokens": 43131,
-    "api_call_count": 53
+    "input_tokens": 26,
+    "cache_creation_tokens": 13508,
+    "cache_read_tokens": 3336233,
+    "output_tokens": 11742,
+    "api_call_count": 13
   },
   "session_metrics": {
-    "turn_count": 3
-  },
-  "initial_attribution": {
-    "calculated_at": "2026-08-22T12:34:40.145654924Z",
-    "agent_lines": 10,
-    "agent_removed": 53,
-    "human_added": 969,
-    "human_modified": 0,
-    "human_removed": 0,
-    "total_committed": 979,
-    "total_lines_changed": 2001,
-    "agent_percentage": 3.1484257871064467,
-    "metric_version": 2
+    "turn_count": 5
   },
   "prompt_attributions": [
     {
       "checkpoint_number": 1,
-      "user_lines_added": 163,
+      "user_lines_added": 0,
       "user_lines_removed": 0,
       "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 24,
+      "user_lines_removed": 0,
+      "agent_lines_added": 139,
       "agent_lines_removed": 0,
       "user_added_per_file": {
-        ".claude/settings.json": 84,
-        ".claude/settings.local.json": 24,
-        ".codex/config.toml": 3,
-        ".codex/hooks.json": 52
+        ".claude/settings.local.json": 24
       }
     }
   ]
