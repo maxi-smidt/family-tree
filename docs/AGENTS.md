@@ -263,6 +263,65 @@ The backend is a FastAPI app in `backend/app/`. Each resource is a router in
 `backend/app/api/routes/`, returning Pydantic schemas whose field names match
 the frontend `*DB` contracts.
 
+### Service package map
+
+`backend/app/services/` is currently a flat package of 70+ modules mixing
+several independent domains (tracked in #955). New code should already be
+written with the target layout below in mind; the actual file moves happen
+incrementally, one domain per PR, not as a single rewrite.
+
+Target layout:
+
+```
+app/services/
+  # cross-cutting primitives — every domain, and app/api/deps.py, may import
+  # these directly; they must not import from any domain package below
+  cache.py
+  unit_of_work.py
+  tree_roles.py
+  event_bus.py
+  event_payloads.py
+
+  activity/          # activity log + snapshot/undo
+  members/           # member CRUD, vitals, clone, merge, search, bridge sync
+  trees/             # tree lifecycle, sharing, extract/merge, quality, stats
+  virtual_views/     # saved cross-tree views: config, sources, composite read model
+  interchange/
+    gedcom/          # GEDCOM parse/read/write
+    bundles/         # native .ftbundle import/export + crypto envelope
+  media/             # file storage, storage-quota accounting, geocoding
+  documents/         # document upload/save-plan orchestration
+  collaboration/     # presence, notifications, friendships, invitations
+  system/
+    backups/         # backup service, scheduler, restore
+    # settings, feature flags, legal defaults, admin audit, job queue,
+    # account deletion/purge, Authentik integration
+```
+
+Allowed dependency direction: routes → a domain's public entry point →
+models/db/core. A domain must never be imported via one of its private
+submodules from outside the package — routes and other domains only reach a
+migrated domain through its `__init__.py` exports (or, before it's migrated,
+the specific module already documented above).
+
+Two things fell out of the root instead of into a domain, on purpose:
+
+- **`tree_roles.py`** resolves a user's role on a tree and is read directly by
+  `api/deps.py` as well as by both the `members` and `trees` domains
+  (`bridge.py`, `member_access.py`, `tree_view.py`). Filing it under either
+  domain would make the other depend on it, so it stays a dependency-free
+  (models-only) primitive.
+- **`event_bus.py` + `event_payloads.py`** are published to by nearly every
+  domain (`activity`, `members`, `trees`, `interchange`, `documents`,
+  `system/backups`) — they're a pub/sub primitive, not part of
+  `collaboration`. `collaboration` itself (presence, notifications,
+  friendships, invitations) is a *consumer* of the bus, same as everyone else.
+
+`trees` depending on `members` (e.g. `extract.py`/`merge.py` use
+`member_clone.py`) is one-directional and fine; `members` must never import
+back from `trees` — anything it needs from the caller's tree role goes through
+`tree_roles.py` above instead.
+
 ### Adding an endpoint
 
 ```python
