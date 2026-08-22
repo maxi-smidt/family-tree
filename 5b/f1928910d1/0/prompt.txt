@@ -1,0 +1,6 @@
+File: backend/app/main.py, around line 64
+[P2] Keep process-wide state isolated per app instance
+
+The lifespan still uses the module-level event_bus and presence store. Starting a second app in the same process calls reset() on those shared objects, clearing the first app’s subscribers and presence roster. With Redis enabled, it also discards the first app’s listener-task handle without cancelling that task, so the listener can leak and the first app can no longer clean it up.
+
+This also leaves issue #895’s requirement that tests can inject isolated implementations unmet. Construct the event bus and presence backend per lifespan/app instance (for example through app.state and typed dependencies), rather than resetting shared module-level singletons.
