@@ -3,9 +3,9 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import role_for
 from app.models import Tree, TreeMembership, User
 from app.schemas.tree import TreeOut
+from app.services.tree_roles import role_for
 from app.services.tree_state import tree_last_opened
 
 

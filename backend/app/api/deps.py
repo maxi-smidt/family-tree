@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token, decode_public_tree_token
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
+from app.services.tree_roles import role_for
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -108,24 +109,6 @@ def require_domain(domain: str):
             raise HTTPException(status_code=404, detail="Not found")
 
     return dependency
-
-
-def role_for(db: Session, tree: Tree, user: User) -> str | None:
-    """The user's genuine relationship to the tree: 'owner' | 'editor' |
-    'viewer', or None when they have no explicit access.
-
-    Admin god-mode is intentionally NOT applied here: an admin who has been
-    granted access to someone else's tree should see their real role (e.g.
-    editor) instead of appearing as the owner. Admin authorization is enforced
-    separately in ``_resolve_tree``. Admins with no explicit grant still fall
-    back to 'owner' so every tree they can see lands in a sensible bucket.
-    """
-    if tree.owner_id == user.id:
-        return "owner"
-    membership = db.get(TreeMembership, (tree.id, user.id))
-    if membership:
-        return membership.role
-    return "owner" if user.is_admin else None
 
 
 def get_current_user_optional(
