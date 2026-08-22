@@ -1,4 +1,4 @@
-"""Unit tests for ``app.services.genealogy_date``.
+"""Unit tests for ``app.services.interchange.gedcom.genealogy_date``.
 
 Covers:
 1. ISO date sort-key derivation (full / year-month / year-only).
@@ -10,7 +10,7 @@ Covers:
 
 from __future__ import annotations
 
-from app.services.genealogy_date import (
+from app.services.interchange.gedcom.genealogy_date import (
     QUALIFIER_ABOUT,
     QUALIFIER_AFTER,
     QUALIFIER_BEFORE,

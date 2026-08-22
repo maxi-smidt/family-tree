@@ -1,9 +1,10 @@
-"""Unit tests for GEDCOM byte-encoding detection (``app.services.gedcom_encoding``)."""
+"""Unit tests for GEDCOM byte-encoding detection
+(``app.services.interchange.gedcom.gedcom_encoding``)."""
 
 from __future__ import annotations
 
-from app.services.gedcom import parse_gedcom
-from app.services.gedcom_encoding import decode_gedcom_bytes
+from app.services.interchange.gedcom.gedcom import parse_gedcom
+from app.services.interchange.gedcom.gedcom_encoding import decode_gedcom_bytes
 
 # A minimal GEDCOM snippet used across encoding tests.
 _SAMPLE_GEDCOM = (

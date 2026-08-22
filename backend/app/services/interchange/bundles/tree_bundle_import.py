@@ -41,8 +41,8 @@ from app.models import (
 )
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_tree_event
-from app.services.genealogy_date import sort_key as _sort_key
 from app.services.interchange.bundles.bundle_types import TreeBundleV4
+from app.services.interchange.gedcom.genealogy_date import sort_key as _sort_key
 from app.services.media.storage import (
     delete_tree_media,
     process_image_field,
@@ -76,7 +76,7 @@ def enforce_import_quota(db: Session, tree: Tree) -> None:
     The bundle is fully written (rows flushed, media on disk) before this runs,
     so a single full-usage check enforces the owner's quota; on violation we
     undo every inserted row and remove the tree's media directory. Shared by
-    the GEDCOM importer (``app.services.tree_gedcom_import``) too.
+    the GEDCOM importer (``app.services.interchange.gedcom.tree_gedcom_import``) too.
     """
     tree_id = tree.id
     db.flush()

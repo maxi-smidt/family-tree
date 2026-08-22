@@ -11,7 +11,7 @@ from __future__ import annotations
 import io
 from uuid import uuid4
 
-from app.services.gedcom import parse_gedcom, serialize_to_gedcom
+from app.services.interchange.gedcom.gedcom import parse_gedcom, serialize_to_gedcom
 from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 
 # ---------------------------------------------------------------------------

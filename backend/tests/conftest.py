@@ -82,8 +82,8 @@ def patch_background_session(session_factory, monkeypatch):
     """Background tasks create their own SessionLocal; redirect to the test DB."""
     import app.api.routes.tree_jobs as _tree_jobs_routes
     import app.services.interchange.bundles.tree_bundle_import as _bundle_import
+    import app.services.interchange.gedcom.tree_gedcom_import as _gedcom_import
     import app.services.system.job_service as _job_svc
-    import app.services.tree_gedcom_import as _gedcom_import
 
     monkeypatch.setattr(_job_svc, "SessionLocal", session_factory)
     monkeypatch.setattr(_bundle_import, "SessionLocal", session_factory)

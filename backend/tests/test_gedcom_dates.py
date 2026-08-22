@@ -1,11 +1,12 @@
-"""Unit tests for GEDCOM date conversion (``app.services.gedcom_dates``)."""
+"""Unit tests for GEDCOM date conversion
+(``app.services.interchange.gedcom.gedcom_dates``)."""
 
 from __future__ import annotations
 
 from uuid import uuid4
 
-from app.services.gedcom import parse_gedcom, serialize_to_gedcom
-from app.services.gedcom_dates import from_gedcom_date, to_gedcom_date
+from app.services.interchange.gedcom.gedcom import parse_gedcom, serialize_to_gedcom
+from app.services.interchange.gedcom.gedcom_dates import from_gedcom_date, to_gedcom_date
 
 
 class TestToGedcomDate:
