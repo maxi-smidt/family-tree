@@ -19,8 +19,8 @@ parse_gedcom(text) -> {"members": [...], "relations": [...]}
 
 from __future__ import annotations
 
-from app.services.gedcom_encoding import decode_gedcom_bytes
-from app.services.gedcom_reader import parse_gedcom
-from app.services.gedcom_writer import serialize_to_gedcom
+from app.services.interchange.gedcom.gedcom_encoding import decode_gedcom_bytes
+from app.services.interchange.gedcom.gedcom_reader import parse_gedcom
+from app.services.interchange.gedcom.gedcom_writer import serialize_to_gedcom
 
 __all__ = ["serialize_to_gedcom", "parse_gedcom", "decode_gedcom_bytes"]

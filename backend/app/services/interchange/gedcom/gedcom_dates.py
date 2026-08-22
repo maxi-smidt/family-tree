@@ -1,7 +1,7 @@
 """GEDCOM date conversion — stored ISO-ish date strings ↔ GEDCOM date values.
 
-Split out of ``app.services.gedcom`` so the writer and reader modules can
-share date handling without depending on each other.
+Split out of ``app.services.interchange.gedcom.gedcom`` so the writer and
+reader modules can share date handling without depending on each other.
 """
 
 from __future__ import annotations

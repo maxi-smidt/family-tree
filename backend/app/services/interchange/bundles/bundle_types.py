@@ -1,7 +1,7 @@
 """Typed shapes for GEDCOM rows and the encrypted `.treedb` bundle.
 
 These ``TypedDict``s type the plain-dict data that flows through
-``app.services.gedcom``, ``app.api.routes.export_import``, and
+``app.services.interchange.gedcom.gedcom``, ``app.api.routes.export_import``, and
 ``app.services.crypto_export``. A ``TypedDict`` is a plain ``dict`` at runtime,
 so existing ``.get()`` / ``dict(bundle)`` / mutation code keeps working.
 """

@@ -72,7 +72,9 @@ class Member(Base):
         # Lazy import to prevent any potential circular-import issues at
         # module load time (genealogy_date has no DB imports, but being
         # defensive is cheap here).
-        from app.services.genealogy_date import sort_key  # noqa: PLC0415
+        from app.services.interchange.gedcom.genealogy_date import (
+            sort_key,  # noqa: PLC0415
+        )
 
         setattr(self, f"{key}_sort", sort_key(value))
         return value
