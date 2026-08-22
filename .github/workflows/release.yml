@@ -283,6 +283,19 @@ jobs:
         with:
           ref: ${{ needs.land.outputs.sha }}
 
+      # docker-compose.prod.yml bind-mounts host paths into the backend, which
+      # runs as UID 1000 (backend/Dockerfile). An operator creates those
+      # directories themselves — on a typical Linux host that yields UID 1000
+      # and everything matches. CI does not, so Docker auto-creates the bind
+      # source as root:root and the container dies on its first write:
+      # "PermissionError: [Errno 13] Permission denied: '/appdata/logs'".
+      # Paths mirror the compose defaults (APP_DATA_PATH/DATA_PATH are unset
+      # for this job, so ./appdata/backend and ./data apply).
+      - name: "Pre-create bind mounts owned by the container user"
+        run: |
+          mkdir -p appdata/backend data
+          sudo chown -R 1000:1000 appdata data
+
       - name: "Pull published images and start the stack"
         run: |
           docker compose -f docker-compose.prod.yml -f docker-compose.smoke.yml pull
