@@ -50,18 +50,28 @@ def test_exception_in_block_rolls_back_and_skips_callbacks(db, owner, session_fa
         fresh.close()
 
 
-def test_callback_not_run_when_commit_itself_fails(db, owner, monkeypatch):
-    calls: list[int] = []
+def test_commit_failure_rolls_back_and_skips_callbacks(db, owner, monkeypatch):
+    callback_calls: list[int] = []
+    rollback_calls: list[bool] = []
+    real_rollback = db.rollback
 
     def boom():
         raise RuntimeError("simulated commit failure")
 
+    def spy_rollback():
+        rollback_calls.append(True)
+        real_rollback()
+
     monkeypatch.setattr(db, "commit", boom)
+    monkeypatch.setattr(db, "rollback", spy_rollback)
 
     with pytest.raises(RuntimeError):
         with UnitOfWork(db) as uow:
-            uow.after_commit(lambda: calls.append(1))
-    assert calls == []
+            uow.after_commit(lambda: callback_calls.append(1))
+    assert callback_calls == []
+    # The UoW itself must roll back a failed commit — the caller shouldn't
+    # have to remember to do it after catching the exception.
+    assert rollback_calls == [True]
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +95,8 @@ def test_create_story_commit_failure_leaves_no_row_and_publishes_nothing(
             )
     published.assert_not_called()
 
-    db.rollback()
+    # No manual db.rollback() here: the UnitOfWork must have already rolled
+    # back the failed commit on its own.
     fresh = session_factory()
     try:
         assert fresh.get(Story, "s1") is None
@@ -108,7 +119,8 @@ def test_delete_story_commit_failure_leaves_story_intact(db, owner, monkeypatch)
             delete_story("s2", tree=tree, user=owner, db=db)
     published.assert_not_called()
 
-    db.rollback()
+    # No manual db.rollback() here: the UnitOfWork must have already rolled
+    # back the failed commit on its own.
     assert db.get(Story, "s2") is not None
 
 
@@ -128,7 +140,8 @@ def test_create_event_commit_failure_leaves_no_row_and_publishes_nothing(
             )
     published.assert_not_called()
 
-    db.rollback()
+    # No manual db.rollback() here: the UnitOfWork must have already rolled
+    # back the failed commit on its own.
     fresh = session_factory()
     try:
         assert fresh.get(Event, "e1") is None
@@ -151,8 +164,40 @@ def test_delete_event_commit_failure_leaves_event_intact(db, owner, monkeypatch)
             delete_event("e2", tree=tree, user=owner, db=db)
     published.assert_not_called()
 
-    db.rollback()
+    # No manual db.rollback() here: the UnitOfWork must have already rolled
+    # back the failed commit on its own.
     assert db.get(Event, "e2") is not None
+
+
+def test_create_story_link_failure_rolls_back_the_whole_mutation(
+    db, owner, session_factory
+):
+    """The row construction, flush and link replacement all happen inside the
+    UnitOfWork block now, so a failure among them must roll back the story
+    row too — not just skip the commit that would have followed it."""
+    tree = make_tree(db, owner)
+
+    with patch(
+        "app.api.routes.stories.replace_member_links",
+        side_effect=RuntimeError("boom"),
+    ):
+        with patch("app.api.routes.stories.publish_tree_event") as published:
+            with pytest.raises(RuntimeError):
+                create_story(
+                    StoryCreate(
+                        id="s3", title="Never lands", created_at=_TS, updated_at=_TS
+                    ),
+                    tree=tree,
+                    user=owner,
+                    db=db,
+                )
+    published.assert_not_called()
+
+    fresh = session_factory()
+    try:
+        assert fresh.get(Story, "s3") is None
+    finally:
+        fresh.close()
 
 
 def test_set_links_on_event_emits_content_changed(db, owner):

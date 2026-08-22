@@ -16,9 +16,10 @@ Usage::
         uow.after_commit(lambda: publish_tree_event(db, tree, "content_changed", ...))
 
 On a clean exit the session is committed and the queued callbacks run, in
-order. On an exception the session is rolled back, the callbacks are
-discarded, and the exception propagates — an event can never be published,
-nor a cache key invalidated, for a mutation that didn't land.
+order. On an exception raised inside the block — or by the commit itself —
+the session is rolled back, the callbacks are discarded, and the exception
+propagates: an event can never be published, nor a cache key invalidated,
+for a mutation that didn't land.
 """
 
 from __future__ import annotations
@@ -50,6 +51,10 @@ class UnitOfWork:
         if exc_type is not None:
             self._db.rollback()
             return
-        self._db.commit()
+        try:
+            self._db.commit()
+        except BaseException:
+            self._db.rollback()
+            raise
         for callback in self._callbacks:
             callback()

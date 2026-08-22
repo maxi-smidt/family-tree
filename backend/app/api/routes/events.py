@@ -120,18 +120,18 @@ def create_event(
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
     check_tree_quota(db, tree, len(str(data).encode()))
-    event = Event(tree_id=tree.id, **data)
-    db.add(event)
-    db.flush()  # event row must exist before its links reference it
-    replace_member_links(
-        db,
-        link_model=EventMemberLink,
-        parent_fk=EventMemberLink.event_id,
-        parent_id=event.id,
-        tree=tree,
-        member_ids=member_ids,
-    )
     with UnitOfWork(db) as uow:
+        event = Event(tree_id=tree.id, **data)
+        db.add(event)
+        db.flush()  # event row must exist before its links reference it
+        replace_member_links(
+            db,
+            link_model=EventMemberLink,
+            parent_fk=EventMemberLink.event_id,
+            parent_id=event.id,
+            tree=tree,
+            member_ids=member_ids,
+        )
         record_activity(
             db, tree_id=tree.id, actor=user, action="create",
             target_type="event", target_id=event.id, target_label=event.event_type,
@@ -159,9 +159,9 @@ def update_event(
     db: Session = Depends(get_db),
 ):
     event = _get_event(db, tree, event_id)
-    for key, value in payload.model_dump().items():
-        setattr(event, key, value)
     with UnitOfWork(db) as uow:
+        for key, value in payload.model_dump().items():
+            setattr(event, key, value)
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
             target_type="event", target_id=event.id, target_label=event.event_type,
@@ -217,15 +217,15 @@ def set_links(
 ):
     """Replace the full set of members linked to this event."""
     event = _get_event(db, tree, event_id)
-    replace_member_links(
-        db,
-        link_model=EventMemberLink,
-        parent_fk=EventMemberLink.event_id,
-        parent_id=event_id,
-        tree=tree,
-        member_ids=payload.member_ids,
-    )
     with UnitOfWork(db) as uow:
+        replace_member_links(
+            db,
+            link_model=EventMemberLink,
+            parent_fk=EventMemberLink.event_id,
+            parent_id=event_id,
+            tree=tree,
+            member_ids=payload.member_ids,
+        )
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
             target_type="event", target_id=event.id, target_label=event.event_type,
@@ -252,15 +252,15 @@ def set_documents(
 ):
     """Replace the full set of documents linked to this event."""
     event = _get_event(db, tree, event_id)
-    replace_document_links(
-        db,
-        link_model=EventDocumentLink,
-        parent_fk=EventDocumentLink.event_id,
-        parent_id=event_id,
-        tree=tree,
-        document_ids=payload.document_ids,
-    )
     with UnitOfWork(db) as uow:
+        replace_document_links(
+            db,
+            link_model=EventDocumentLink,
+            parent_fk=EventDocumentLink.event_id,
+            parent_id=event_id,
+            tree=tree,
+            document_ids=payload.document_ids,
+        )
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
             target_type="event", target_id=event.id, target_label=event.event_type,

@@ -120,18 +120,18 @@ def create_story(
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
     check_tree_quota(db, tree, len(str(data).encode()))
-    story = Story(tree_id=tree.id, **data)
-    db.add(story)
-    db.flush()  # story row must exist before its links reference it
-    replace_member_links(
-        db,
-        link_model=StoryMemberLink,
-        parent_fk=StoryMemberLink.story_id,
-        parent_id=story.id,
-        tree=tree,
-        member_ids=member_ids,
-    )
     with UnitOfWork(db) as uow:
+        story = Story(tree_id=tree.id, **data)
+        db.add(story)
+        db.flush()  # story row must exist before its links reference it
+        replace_member_links(
+            db,
+            link_model=StoryMemberLink,
+            parent_fk=StoryMemberLink.story_id,
+            parent_id=story.id,
+            tree=tree,
+            member_ids=member_ids,
+        )
         record_activity(db, tree_id=tree.id, actor=user, action="create",
                         target_type="story", target_id=story.id, target_label=story.title)
         uow.after_commit(
@@ -157,9 +157,9 @@ def update_story(
     db: Session = Depends(get_db),
 ):
     story = _get_story(db, tree, story_id)
-    for key, value in payload.model_dump().items():
-        setattr(story, key, value)
     with UnitOfWork(db) as uow:
+        for key, value in payload.model_dump().items():
+            setattr(story, key, value)
         record_activity(db, tree_id=tree.id, actor=user, action="update",
                         target_type="story", target_id=story.id, target_label=story.title)
         uow.after_commit(
@@ -211,15 +211,15 @@ def set_links(
 ):
     """Replace the full set of members linked to this story."""
     story = _get_story(db, tree, story_id)
-    replace_member_links(
-        db,
-        link_model=StoryMemberLink,
-        parent_fk=StoryMemberLink.story_id,
-        parent_id=story_id,
-        tree=tree,
-        member_ids=payload.member_ids,
-    )
     with UnitOfWork(db) as uow:
+        replace_member_links(
+            db,
+            link_model=StoryMemberLink,
+            parent_fk=StoryMemberLink.story_id,
+            parent_id=story_id,
+            tree=tree,
+            member_ids=payload.member_ids,
+        )
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
             target_type="story", target_id=story.id, target_label=story.title,
@@ -246,15 +246,15 @@ def set_documents(
 ):
     """Replace the full set of documents linked to this story."""
     story = _get_story(db, tree, story_id)
-    replace_document_links(
-        db,
-        link_model=StoryDocumentLink,
-        parent_fk=StoryDocumentLink.story_id,
-        parent_id=story_id,
-        tree=tree,
-        document_ids=payload.document_ids,
-    )
     with UnitOfWork(db) as uow:
+        replace_document_links(
+            db,
+            link_model=StoryDocumentLink,
+            parent_fk=StoryDocumentLink.story_id,
+            parent_id=story_id,
+            tree=tree,
+            document_ids=payload.document_ids,
+        )
         record_activity(
             db, tree_id=tree.id, actor=user, action="update",
             target_type="story", target_id=story.id, target_label=story.title,
