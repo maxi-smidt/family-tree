@@ -1,0 +1,337 @@
+startet from a fresh db, got: 2026-08-23 00:13:57,087 INFO     [uvicorn.error] Started server process [37753]
+2026-08-23 00:13:57,088 INFO     [uvicorn.error] Waiting for application startup.
+2026-08-23 00:13:57,263 INFO     [alembic.runtime.migration] Context impl PostgresqlImpl.
+2026-08-23 00:13:57,263 INFO     [alembic.runtime.migration] Will assume transactional DDL.
+2026-08-23 00:13:57,294 INFO     [alembic.runtime.migration] Context impl PostgresqlImpl.
+2026-08-23 00:13:57,294 INFO     [alembic.runtime.migration] Will assume transactional DDL.
+2026-08-23 00:13:57,303 INFO     [alembic.runtime.migration] Running upgrade v1_0_0_baseline -> v1_1_0_relation_type_style, add label and edge style to relation types
+2026-08-23 00:13:57,319 INFO     [alembic.runtime.migration] Running upgrade v1_1_0_relation_type_style -> v1_3_0_adopted_drop_horizontal, v1.3.0 — add adopted flag, drop stored horizontal relations
+2026-08-23 00:13:57,327 INFO     [alembic.runtime.migration] Running upgrade v1_3_0_adopted_drop_horizontal -> v1_4_0_legal_quality_cemetery, v1.4.0 — legal documents, quality-issue dismissals, cemetery field
+2026-08-23 00:13:57,351 INFO     [alembic.runtime.migration] Running upgrade v1_4_0_legal_quality_cemetery -> v1_5_0_linked_tree_geocode, v1.5.0 — linked tree / member bridge + manual geocode flag
+2026-08-23 00:13:57,376 ERROR    [uvicorn.error] Traceback (most recent call last):
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.UndefinedTable: relation "geocode_cache" does not exist
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/starlette/routing.py", line 638, in lifespan
+    async with self.lifespan_context(app) as maybe_state:
+               ~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "/Users/maximiliansmidt/Library/Application Support/uv/python/cpython-3.13.13-macos-aarch64-none/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 240, in merged_lifespan
+    async with original_context(app) as maybe_original_state:
+               ~~~~~~~~~~~~~~~~^^^^^
+  File "/Users/maximiliansmidt/Library/Application Support/uv/python/cpython-3.13.13-macos-aarch64-none/lib/python3.13/contextlib.py", line 214, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/app/main.py", line 79, in lifespan
+    _init_db_with_retry()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/app/main.py", line 41, in _init_db_with_retry
+    init_db()
+    ~~~~~~~^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/app/db/init_db.py", line 89, in init_db
+    run_migrations()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/app/db/init_db.py", line 83, in run_migrations
+    command.upgrade(cfg, "head")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/command.py", line 487, in upgrade
+    script.run_env()
+    ~~~~~~~~~~~~~~^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/script/base.py", line 550, in run_env
+    util.load_python_file(self.dir, "env.py")
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/util/pyfiles.py", line 114, in load_python_file
+    module = load_module_py(module_id, path)
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/util/pyfiles.py", line 132, in load_module_py
+    spec.loader.exec_module(module)  # type: ignore
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/alembic/env.py", line 55, in <module>
+    run_migrations_online()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/alembic/env.py", line 49, in run_migrations_online
+    context.run_migrations()
+    ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "<string>", line 8, in run_migrations
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/runtime/environment.py", line 967, in run_migrations
+    self.get_context().run_migrations(**kw)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/runtime/migration.py", line 621, in run_migrations
+    step.migration_fn(**kw)
+    ~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/alembic/versions/v1_5_0_linked_tree_geocode.py", line 69, in upgrade
+    op.add_column(
+    ~~~~~~~~~~~~~^
+        'geocode_cache',
+        ^^^^^^^^^^^^^^^^
+    ...<2 lines>...
+        ),
+        ^^
+    )
+    ^
+  File "<string>", line 8, in add_column
+  File "<string>", line 3, in add_column
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/operations/ops.py", line 2236, in add_column
+    return operations.invoke(op)
+           ~~~~~~~~~~~~~~~~~^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/operations/base.py", line 448, in invoke
+    return fn(self, operation)
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/operations/toimpl.py", line 182, in add_column
+    operations.impl.add_column(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        table_name,
+        ^^^^^^^^^^^
+    ...<5 lines>...
+        **kw,
+        ^^^^^
+    )
+    ^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/ddl/impl.py", line 384, in add_column
+    self._exec(
+    ~~~~~~~~~~^
+        base.AddColumn(
+        ^^^^^^^^^^^^^^^
+    ...<6 lines>...
+        )
+        ^
+    )
+    ^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/alembic/ddl/impl.py", line 252, in _exec
+    return conn.execute(construct, params)
+           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
+    return meth(
+        self,
+        distilled_parameters,
+        execution_options or NO_OPTIONS,
+    )
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/sql/ddl.py", line 188, in _execute_on_connection
+    return connection._execute_ddl(
+           ~~~~~~~~~~~~~~~~~~~~~~~^
+        self, distilled_params, execution_options
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1532, in _execute_ddl
+    ret = self._execute_context(
+        dialect,
+    ...<4 lines>...
+        compiled,
+    )
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
+    return self._exec_single_context(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^
+        dialect, context, statement, parameters
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
+    self._handle_dbapi_exception(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        e, str_statement, effective_parameters, cursor, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
+    self.dialect.do_execute(
+    ~~~~~~~~~~~~~~~~~~~~~~~^
+        cursor, str_statement, effective_parameters, context
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/maximiliansmidt/RustroverProjects/family-tree/backend/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
+    cursor.execute(statement, parameters)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedTable) relation "geocode_cache" does not exist
+
+[SQL: ALTER TABLE geocode_cache ADD COLUMN manual BOOLEAN DEFAULT false NOT NULL]
+(Background on this error at: https://sqlalche.me/e/20/f405)
+
+2026-08-23 00:13:57,377 ERROR    [uvicorn.error] Application startup failed. Exiting.
+2026-08-23 00:13:57,468 INFO     [watchfiles.main] 1 change detected
+
+---
+
+why do i get Error: Incorrect username or password for the seeded admin
+
+---
+
+got this. this is the first test of the new release pipeline. can i give the permission? Run BRANCH="release/v1.9.0"
+Switched to a new branch 'release/v1.9.0'
+[release/v1.9.0 2c33fb6] chore(release): v1.9.0
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+remote: 
+remote: Create a pull request for 'release/v1.9.0' on GitHub by visiting:        
+remote:      https://github.com/maxi-smidt/family-tree/pull/new/release/v1.9.0        
+remote: 
+To https://github.com/maxi-smidt/family-tree
+ * [new branch]      release/v1.9.0 -> release/v1.9.0
+pull request create failed: GraphQL: GitHub Actions is not permitted to create or approve pull requests (createPullRequest)
+Error: Process completed with exit code 1.
+
+---
+
+got:
+
+Run gh pr checks "1000" --watch --fail-fast
+no checks reported on the 'release/v1.9.0' branch
+Error: Process completed with exit code 1.
+
+and also the workflows needed manual approval to run. can i automate this?
+
+---
+
+gh api -X PUT repos/maxi-smidt/family-tree/actions/permissions/fork-pr-contributor-approval -f approval_policy=none
+{
+  "message": "Invalid request.\n\nInvalid property /approval_policy: `none` is not a possible value. Must be one of the following: first_time_contributors_new_to_github, first_time_contributors, all_external_contributors.",
+  "documentation_url": "https://docs.github.com/rest/actions/permissions#set-fork-pr-contributor-approval-permissions-for-a-repository",
+  "status": "422"
+}
+gh: Invalid request.
+
+Invalid property /approval_policy: `none` is not a possible value. Must be one of the following: first_time_contributors_new_to_github, first_time_contributors, all_external_contributors. (HTTP 422)
+
+---
+
+okay, create PR for that and tell me if i need to add any secrets or so
+
+---
+
+0s
+Warning: Unexpected input(s) 'sbom-path', valid inputs are ['subject-path', 'subject-digest', 'subject-name', 'subject-checksums', 'predicate-type', 'predicate', 'predicate-path', 'push-to-registry', 'show-summary', 'github-token']
+Run actions/attest@v3
+Error: Error: predicate-type must be provided
+
+---
+
+why was there not automatic tag creation and release as part of the workflow?
+
+---
+
+Container family-tree-backend-1  Creating
+ Container family-tree-backend-1  Created
+ Container family-tree-frontend-1  Creating
+ Container family-tree-frontend-1  Created
+ Container family-tree-db-1  Starting
+ Container family-tree-db-1  Started
+ Container family-tree-db-1  Waiting
+ Container family-tree-db-1  Error
+dependency failed to start: container family-tree-db-1 exited (1)
+Error: Process completed with exit code 1.
+
+---
+
+create PR
+
+---
+
+db-1  | PostgreSQL init process complete; ready for start up.
+db-1  | 
+db-1       | 2026-08-22 23:25:17.073 UTC [1] LOG:  starting PostgreSQL 18.6 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit
+db-1       | 2026-08-22 23:25:17.073 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+backend-1  | Traceback (most recent call last):
+db-1       | 2026-08-22 23:25:17.073 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+db-1       | 2026-08-22 23:25:17.074 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+db-1       | 2026-08-22 23:25:17.076 UTC [64] LOG:  database system was shut down at 2026-08-22 23:25:16 UTC
+db-1       | 2026-08-22 23:25:17.079 UTC [1] LOG:  database system is ready to accept connections
+backend-1  |   File "/app/.venv/bin/uvicorn", line 10, in <module>
+backend-1  |     sys.exit(main())
+backend-1  |              ^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1524, in __call__
+backend-1  |     return self.main(*args, **kwargs)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1445, in main
+backend-1  |     rv = self.invoke(ctx)
+backend-1  |          ^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1308, in invoke
+backend-1  |     return ctx.invoke(self.callback, **ctx.params)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 877, in invoke
+backend-1  |     return callback(*args, **kwargs)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/main.py", line 440, in main
+backend-1  |     run(
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/main.py", line 609, in run
+backend-1  |     config.load_app()
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/config.py", line 428, in load_app
+backend-1  |     return import_from_string(self.app)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/importer.py", line 19, in import_from_string
+backend-1  |     module = importlib.import_module(module_str)
+backend-1  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/usr/local/lib/python3.12/importlib/__init__.py", line 90, in import_module
+backend-1  |     return _bootstrap._gcd_import(name[level:], package, level)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+backend-1  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+backend-1  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+backend-1  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+backend-1  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+backend-1  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+backend-1  |   File "/app/app/main.py", line 34, in <module>
+backend-1  |     setup_logging()
+backend-1  |   File "/app/app/core/logging_config.py", line 26, in setup_logging
+backend-1  |     log_dir.mkdir(parents=True, exist_ok=True)
+backend-1  |   File "/usr/local/lib/python3.12/pathlib.py", line 1311, in mkdir
+backend-1  |     os.mkdir(self, mode)
+backend-1  | PermissionError: [Errno 13] Permission denied: '/appdata/logs'
+backend-1  | Traceback (most recent call last):
+backend-1  |   File "/app/.venv/bin/uvicorn", line 10, in <module>
+backend-1  |     sys.exit(main())
+backend-1  |              ^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1524, in __call__
+backend-1  |     return self.main(*args, **kwargs)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1445, in main
+backend-1  |     rv = self.invoke(ctx)
+backend-1  |          ^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 1308, in invoke
+backend-1  |     return ctx.invoke(self.callback, **ctx.params)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/click/core.py", line 877, in invoke
+backend-1  |     return callback(*args, **kwargs)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/main.py", line 440, in main
+backend-1  |     run(
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/main.py", line 609, in run
+backend-1  |     config.load_app()
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/config.py", line 428, in load_app
+backend-1  |     return import_from_string(self.app)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/app/.venv/lib/python3.12/site-packages/uvicorn/importer.py", line 19, in import_from_string
+backend-1  |     module = importlib.import_module(module_str)
+backend-1  |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "/usr/local/lib/python3.12/importlib/__init__.py", line 90, in import_module
+backend-1  |     return _bootstrap._gcd_import(name[level:], package, level)
+backend-1  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+backend-1  |   File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+backend-1  |   File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+backend-1  |   File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+backend-1  |   File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+backend-1  |   File "<frozen importlib._bootstrap_external>", line 999, in exec_module
+backend-1  |   File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+backend-1  |   File "/app/app/main.py", line 34, in <module>
+backend-1  |     setup_logging()
+backend-1  |   File "/app/app/core/logging_config.py", line 26, in setup_logging
+backend-1  |     log_dir.mkdir(parents=True, exist_ok=True)
+backend-1  |   File "/usr/local/lib/python3.12/pathlib.py", line 1311, in mkdir
+backend-1  |     os.mkdir(self, mode)
+backend-1  | PermissionError: [Errno 13] Permission denied: '/appdata/logs'

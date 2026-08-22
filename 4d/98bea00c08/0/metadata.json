@@ -1,0 +1,48 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "4d98bea00c08",
+  "session_id": "ede98a44-ae43-4426-9f50-1b90994df6aa",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T23:32:47.823641Z",
+  "branch": "fix/905-smoke-db-pgdata",
+  "checkpoints_count": 2,
+  "save_step_count": 3,
+  "files_touched": [],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "dc8b049fbba7",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 224,
+    "cache_creation_tokens": 238265,
+    "cache_read_tokens": 12474857,
+    "output_tokens": 72483,
+    "api_call_count": 112
+  },
+  "session_metrics": {
+    "turn_count": 11
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 20,
+      "agent_lines_removed": 42
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 20,
+      "agent_lines_removed": 42
+    }
+  ]
+}
