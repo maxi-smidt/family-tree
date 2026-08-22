@@ -8,7 +8,10 @@ from app.api.deps import explicit_tree_ids, get_current_user
 from app.db.session import get_db
 from app.models import Member, Tree, User
 from app.schemas.family import MemberSearchHitOut
-from app.services.member_search import MEMBER_SURFACE_COLUMNS, member_name_search_clause
+from app.services.members.member_search import (
+    MEMBER_SURFACE_COLUMNS,
+    member_name_search_clause,
+)
 
 router = APIRouter(tags=["search"])
 

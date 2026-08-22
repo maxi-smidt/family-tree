@@ -19,7 +19,7 @@ from app.services.activity.activity import disease_delete_snapshot, record_activ
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage_usage import check_tree_quota
-from app.services.member_access import get_member
+from app.services.members.member_access import get_member
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 

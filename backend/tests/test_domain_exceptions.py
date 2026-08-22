@@ -51,7 +51,7 @@ DOMAIN_SERVICE_MODULES = [
     "app.services.documents.document_service",
     "app.services.extract",
     "app.services.merge",
-    "app.services.member_merge",
+    "app.services.members.member_merge",
     "app.services.media.storage_usage",
 ]
 

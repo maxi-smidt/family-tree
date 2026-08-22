@@ -2,8 +2,8 @@
 
 Used by every workflow that copies or links a member across trees — tree
 merge (``app.services.merge``), sub-tree extraction (``app.services.extract``),
-linked-subtree creation (``app.services.member_subtrees``), same-tree member
-merge (``app.services.member_merge``), and the tree-link endpoints
+linked-subtree creation (``app.services.members.member_subtrees``), same-tree member
+merge (``app.services.members.member_merge``), and the tree-link endpoints
 (``app.api.routes.members``).
 """
 

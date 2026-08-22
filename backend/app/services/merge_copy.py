@@ -36,7 +36,7 @@ from app.models import (
     Tree,
 )
 from app.services.media.storage import copy_media_to_tree
-from app.services.member_clone import norm
+from app.services.members.member_clone import norm
 
 IdMap = dict[str, str]
 

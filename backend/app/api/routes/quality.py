@@ -18,7 +18,7 @@ from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
 from app.models.quality import QualityIssueDismissal
 from app.schemas.quality import QualityIssue, QualityReport
-from app.services.bridge import drift_fields
+from app.services.members.bridge import drift_fields
 from app.services.quality_checks import issue_id_for, run_quality_checks
 
 router = APIRouter(

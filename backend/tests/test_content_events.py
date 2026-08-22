@@ -31,7 +31,7 @@ def test_create_member_emits_content_changed(client, db, tree, headers):
 
 def test_update_member_emits_content_changed(client, db, tree, headers):
     member = add_member(db, tree, "m1", first_name="Ada")
-    with patch("app.services.member_update.publish_tree_event") as m:
+    with patch("app.services.members.member_update.publish_tree_event") as m:
         client.patch(
             f"{API}/trees/{tree.id}/members/{member.id}",
             json={"first_name": "Eve"},
