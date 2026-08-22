@@ -1,0 +1,43 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "87a627413bed",
+  "session_id": "f2709233-33d5-4a6b-8645-898644d1eda6",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T12:58:02.30784295Z",
+  "branch": "refactor/955-interchange-bundles-domain",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "backend/app/api/routes/export_import.py",
+    "backend/app/services/tree_gedcom_import.py",
+    "backend/tests/test_export_import.py",
+    "docs/AGENTS.md"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "b3c47e22c7d3",
+  "checkpoint_transcript_start": 956,
+  "transcript_lines_at_start": 956,
+  "compact_transcript_start": 201,
+  "token_usage": {
+    "input_tokens": 46,
+    "cache_creation_tokens": 10789,
+    "cache_read_tokens": 4927859,
+    "output_tokens": 5177,
+    "api_call_count": 23
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T12:58:02.246998661Z",
+    "agent_lines": 25,
+    "agent_removed": 16,
+    "human_added": 903,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 928,
+    "total_lines_changed": 1842,
+    "agent_percentage": 2.225841476655809,
+    "metric_version": 2
+  }
+}

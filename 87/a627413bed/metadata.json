@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "87a627413bed",
+  "strategy": "manual-commit",
+  "branch": "refactor/955-interchange-bundles-domain",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "backend/app/api/routes/export_import.py",
+    "backend/app/services/tree_gedcom_import.py",
+    "backend/tests/test_export_import.py",
+    "docs/AGENTS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/87/a627413bed/0/metadata.json",
+      "transcript": "/87/a627413bed/0/full.jsonl",
+      "compact_transcript": "/87/a627413bed/0/transcript.jsonl",
+      "content_hash": "/87/a627413bed/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 46,
+    "cache_creation_tokens": 10789,
+    "cache_read_tokens": 4927859,
+    "output_tokens": 5177,
+    "api_call_count": 23
+  }
+}
