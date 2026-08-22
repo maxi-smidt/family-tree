@@ -39,9 +39,11 @@ from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.member_access import (
     PUBLIC_MEMBER_COLUMNS,
-    get_member,
     public_member_payloads,
     public_only,
+)
+from app.services.member_access import (
+    get_member as get_member_row,
 )
 from app.services.member_merge import compute_member_merge_preview, merge_members_in_place
 from app.services.member_search import MEMBER_SURFACE_COLUMNS, member_name_search_clause
@@ -269,8 +271,8 @@ def merge_members(
     ``/members/{member_id}`` — like ``positions``/``collapsed`` — so the
     literal ``merge`` path segment isn't captured as a member id.
     """
-    keep = get_member(db, tree, payload.keep_id)
-    remove = get_member(db, tree, payload.remove_id)
+    keep = get_member_row(db, tree, payload.keep_id)
+    remove = get_member_row(db, tree, payload.remove_id)
     merged, details, counterpart, bridge_outcome = merge_members_in_place(
         db, tree, keep, remove, payload.fields
     )
@@ -500,7 +502,7 @@ def get_neighborhood(
 
 
 @router.get("/members/{member_id}", response_model=MemberOut)
-def get_member_route(
+def get_member(
     member_id: str,
     tree: Tree = Depends(get_readable_tree_public),
     user: User | None = Depends(get_current_user_optional),
@@ -508,7 +510,7 @@ def get_member_route(
 ):
     if public_only(db, tree, user):
         raise HTTPException(status_code=404, detail="Member not found")
-    return get_member(db, tree, member_id)
+    return get_member_row(db, tree, member_id)
 
 
 @router.get(
@@ -527,8 +529,8 @@ def get_member_merge_preview(
     the one that would be removed; the merge itself is symmetric in what it
     computes here, only ``POST /members/merge`` cares which id is which.
     """
-    keep = get_member(db, tree, member_id)
-    remove = get_member(db, tree, other)
+    keep = get_member_row(db, tree, member_id)
+    remove = get_member_row(db, tree, other)
     if keep.id == remove.id:
         raise HTTPException(status_code=400, detail="Cannot merge a member with itself")
     return compute_member_merge_preview(db, tree, keep, remove)
@@ -557,7 +559,7 @@ def delete_member(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    member = get_member(db, tree, member_id)
+    member = get_member_row(db, tree, member_id)
     # Deleting one half of a bridge person dissolves the tree-in-tree link: the
     # surviving counterpart becomes an ordinary member again. The FK only SET
     # NULLs its linked_member_id (the pointer at this row), leaving a dangling
