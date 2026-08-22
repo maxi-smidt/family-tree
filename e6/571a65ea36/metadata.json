@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "e6571a65ea36",
+  "strategy": "manual-commit",
+  "branch": "docs/955-services-domain-map",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "docs/AGENTS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e6/571a65ea36/0/metadata.json",
+      "transcript": "/e6/571a65ea36/0/full.jsonl",
+      "compact_transcript": "/e6/571a65ea36/0/transcript.jsonl",
+      "content_hash": "/e6/571a65ea36/0/content_hash.txt",
+      "prompt": "/e6/571a65ea36/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 50,
+    "cache_creation_tokens": 48231,
+    "cache_read_tokens": 1416583,
+    "output_tokens": 16702,
+    "api_call_count": 25
+  }
+}
