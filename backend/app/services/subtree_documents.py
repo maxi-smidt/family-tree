@@ -27,7 +27,7 @@ from app.models import (
     StoryMemberLink,
     Tree,
 )
-from app.services.storage import copy_media_to_tree, delete_media
+from app.services.media.storage import copy_media_to_tree, delete_media
 
 IdMap = dict[str, str]
 

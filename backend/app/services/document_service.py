@@ -43,7 +43,7 @@ from app.services.document_save_plan import (
     external_link_url,
 )
 from app.services.event_bus import publish_tree_event
-from app.services.storage import delete_media
+from app.services.media.storage import delete_media
 
 __all__ = ["external_link_url", "prune_stale_uploads", "save_document"]
 

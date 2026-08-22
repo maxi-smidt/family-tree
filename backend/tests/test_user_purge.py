@@ -7,7 +7,7 @@ import pytest
 
 from app.core.config import settings
 from app.models import GalleryImage, Tree, TreeMembership, User
-from app.services.storage import MEDIA_URL_PREFIX, delete_tree_media
+from app.services.media.storage import MEDIA_URL_PREFIX, delete_tree_media
 from app.services.system.user_purge import find_due_users, purge_due_users
 from tests.conftest import API, auth, make_tree, make_user, share
 

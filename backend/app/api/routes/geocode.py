@@ -17,7 +17,7 @@ from app.schemas.content import (
     GeocodeOverrideRequest,
     GeocodeRequest,
 )
-from app.services.geocoding import (
+from app.services.media.geocoding import (
     resolve_batch,
     resolve_single,
     search_candidates,
