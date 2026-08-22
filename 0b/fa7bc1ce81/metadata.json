@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "0bfa7bc1ce81",
+  "strategy": "manual-commit",
+  "branch": "refactor/895-lifespan-owned-process-services",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/main.py",
+    "backend/app/services/event_bus.py",
+    "backend/app/services/presence_service.py",
+    "backend/tests/test_presence.py",
+    "docs/AGENTS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/0b/fa7bc1ce81/0/metadata.json",
+      "transcript": "/0b/fa7bc1ce81/0/full.jsonl",
+      "compact_transcript": "/0b/fa7bc1ce81/0/transcript.jsonl",
+      "content_hash": "/0b/fa7bc1ce81/0/content_hash.txt",
+      "prompt": "/0b/fa7bc1ce81/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 74,
+    "cache_creation_tokens": 65570,
+    "cache_read_tokens": 2855895,
+    "output_tokens": 22353,
+    "api_call_count": 37
+  }
+}
