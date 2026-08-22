@@ -49,8 +49,8 @@ from app.services.activity.activity import (
     document_file_delete_snapshot,
     record_activity,
 )
-from app.services.content_links import replace_member_links
-from app.services.document_service import (
+from app.services.documents.content_links import replace_member_links
+from app.services.documents.document_service import (
     external_link_url,
     prune_stale_uploads,
     save_document,
@@ -267,7 +267,7 @@ def save_document_route(
     attachments, removals and renames. They validate and commit as one unit: a
     failure leaves the previously valid document — and its files — untouched,
     and replaying the same request is a no-op (see
-    ``app.services.document_service.save_document``).
+    ``app.services.documents.document_service.save_document``).
     """
     document = save_document(
         db, tree=tree, user=user, document_id=document_id, payload=payload

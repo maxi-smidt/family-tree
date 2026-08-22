@@ -14,7 +14,7 @@ import pytest
 
 from app.core.config import settings
 from app.models import DocumentUpload
-from app.services import document_service
+from app.services.documents import document_service
 from tests.conftest import API, add_member, auth, make_tree, make_user
 
 _HELLO = b"hello"
