@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.models import Member, Relation, RelationType, Tree
 from app.models.user import User
 from app.schemas.family import RelationCreate, RelationOut
-from app.services.activity import record_activity, relation_delete_snapshot
+from app.services.activity.activity import record_activity, relation_delete_snapshot
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import check_tree_quota

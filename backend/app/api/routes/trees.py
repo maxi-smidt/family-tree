@@ -22,7 +22,7 @@ from app.schemas.tree import (
     TreeStorageUsageOut,
     TreeUpdate,
 )
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus, publish_tree_event, tree_audience
 from app.services.storage import delete_tree_media

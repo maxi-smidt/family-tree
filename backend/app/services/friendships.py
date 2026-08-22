@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.models import Friendship, Tree, TreeMembership, User
 from app.schemas.friendship import FriendOut
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 
 
 def get_friendship(db: Session, a_id: str, b_id: str) -> Friendship | None:

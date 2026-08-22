@@ -19,7 +19,7 @@ from app.schemas.tree import (
     TreeShareBatch,
 )
 from app.services import feature_service, friendships, notification_service
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.tree_access import list_tree_access

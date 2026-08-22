@@ -23,7 +23,7 @@ from app.schemas.content import (
     StoryOut,
     StoryUpdate,
 )
-from app.services.activity import record_activity, story_delete_snapshot
+from app.services.activity.activity import record_activity, story_delete_snapshot
 from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.storage_usage import check_tree_quota

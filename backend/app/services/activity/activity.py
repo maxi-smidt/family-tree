@@ -40,7 +40,7 @@ from app.models.content import (
 )
 from app.models.family import Member, MemberDisease, Relation
 from app.models.user import User
-from app.services.activity_snapshots import (
+from app.services.activity.activity_snapshots import (
     BridgeSnapshot,
     DeleteSnapshot,
     DiseaseSnapshot,
