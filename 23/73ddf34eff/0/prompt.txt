@@ -1,0 +1,5 @@
+lets compact the AGENTS.md. scan through it and list outdated and unnecessary long points tell me how much could be reduced
+
+---
+
+yes and create a PR

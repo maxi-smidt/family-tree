@@ -1,0 +1,26 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2373ddf34eff",
+  "strategy": "manual-commit",
+  "branch": "docs/compact-agents-md",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "AGENTS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/23/73ddf34eff/0/metadata.json",
+      "transcript": "/23/73ddf34eff/0/full.jsonl",
+      "compact_transcript": "/23/73ddf34eff/0/transcript.jsonl",
+      "content_hash": "/23/73ddf34eff/0/content_hash.txt",
+      "prompt": "/23/73ddf34eff/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 48,
+    "cache_creation_tokens": 46685,
+    "cache_read_tokens": 1364809,
+    "output_tokens": 13066,
+    "api_call_count": 24
+  }
+}
