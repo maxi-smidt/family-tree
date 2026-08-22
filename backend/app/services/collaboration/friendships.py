@@ -13,6 +13,7 @@ from app.db.base import utcnow_iso
 from app.models import Friendship, Tree, TreeMembership, User
 from app.schemas.friendship import FriendOut
 from app.services.activity.activity import record_activity
+from app.services.unit_of_work import UnitOfWork
 
 
 def get_friendship(db: Session, a_id: str, b_id: str) -> Friendship | None:
@@ -133,18 +134,18 @@ def send_request(db: Session, requester: User, addressee: User) -> Friendship:
     """
     existing = get_friendship(db, requester.id, addressee.id)
     if existing is not None:
-        if existing.status == "declined":
-            # Re-open: the current sender becomes the requester again.
-            existing.requester_id = requester.id
-            existing.addressee_id = addressee.id
-            existing.status = "pending"
-            existing.created_at = utcnow_iso()
-            existing.responded_at = None
-        elif existing.status == "pending" and existing.addressee_id == requester.id:
-            # The other side already asked us — accept it.
-            existing.status = "accepted"
-            existing.responded_at = utcnow_iso()
-        db.commit()
+        with UnitOfWork(db):
+            if existing.status == "declined":
+                # Re-open: the current sender becomes the requester again.
+                existing.requester_id = requester.id
+                existing.addressee_id = addressee.id
+                existing.status = "pending"
+                existing.created_at = utcnow_iso()
+                existing.responded_at = None
+            elif existing.status == "pending" and existing.addressee_id == requester.id:
+                # The other side already asked us — accept it.
+                existing.status = "accepted"
+                existing.responded_at = utcnow_iso()
         db.refresh(existing)
         return existing
 
@@ -153,7 +154,7 @@ def send_request(db: Session, requester: User, addressee: User) -> Friendship:
         addressee_id=addressee.id,
         status="pending",
     )
-    db.add(friendship)
-    db.commit()
+    with UnitOfWork(db):
+        db.add(friendship)
     db.refresh(friendship)
     return friendship

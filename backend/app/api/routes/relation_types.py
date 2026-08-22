@@ -15,6 +15,7 @@ from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models import Relation, RelationType
 from app.schemas.family import RelationTypeCreate, RelationTypeOut, RelationTypeUpdate
+from app.services.unit_of_work import UnitOfWork
 
 # The tree structure itself is built from "parent" relations, so that type can
 # never be removed.
@@ -49,8 +50,8 @@ def create_relation_type(payload: RelationTypeCreate, db: Session = Depends(get_
         stroke_width=payload.stroke_width,
         stroke_dasharray=payload.stroke_dasharray,
     )
-    db.add(rt)
-    db.commit()
+    with UnitOfWork(db):
+        db.add(rt)
     return rt
 
 
@@ -62,10 +63,11 @@ def update_relation_type(
     if rt is None:
         raise HTTPException(status_code=404, detail="Relation type not found")
     data = payload.model_dump(exclude_unset=True)
-    for field in ("description", "label", "color", "stroke_width", "stroke_dasharray"):
-        if field in data:
-            setattr(rt, field, data[field])
-    db.commit()
+    fields = ("description", "label", "color", "stroke_width", "stroke_dasharray")
+    with UnitOfWork(db):
+        for field in fields:
+            if field in data:
+                setattr(rt, field, data[field])
     return rt
 
 
@@ -88,5 +90,5 @@ def delete_relation_type(rt_id: str, db: Session = Depends(get_db)):
             status_code=409,
             detail="Relation type is still used by existing relations",
         )
-    db.delete(rt)
-    db.commit()
+    with UnitOfWork(db):
+        db.delete(rt)

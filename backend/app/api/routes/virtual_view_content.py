@@ -55,6 +55,7 @@ from app.services.event_bus import event_bus
 from app.services.media.geocoding import resolve_batch, resolve_single
 from app.services.trees.quality_checks import run_quality_checks
 from app.services.trees.statistics import compute_statistics
+from app.services.unit_of_work import UnitOfWork
 from app.services.virtual_views.virtual_view_access import resolve_view, view_last_opened
 from app.services.virtual_views.virtual_view_composite import (
     aggregate,
@@ -84,7 +85,8 @@ def get_virtual_view_metadata(
     db: Session = Depends(get_db),
 ) -> VirtualViewMetadataOut:
     view = resolve_view(db, view_id, user)
-    ensure_matches(db, view)
+    with UnitOfWork(db):
+        ensure_matches(db, view)
     # The underlying real trees (nested views flattened) are the actual data
     # sources of the composite.
     source_ids = flatten_tree_ids(db, view)
@@ -111,7 +113,6 @@ def get_virtual_view_metadata(
         .where(VirtualViewPosition.view_id == view_id)
     ).fetchall().__len__()
     has_layout = pos_count > 0 and pos_count >= len(node_ids)
-    db.commit()
     return VirtualViewMetadataOut(
         id=view.id,
         name=view.name,
@@ -413,19 +414,23 @@ def save_virtual_positions(
     view = resolve_view(db, view_id, user)
     if view.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can save layout")
-    for item in positions:
-        existing = db.get(VirtualViewPosition, (view_id, item.id))
-        if existing:
-            existing.position_x = item.position_x
-            existing.position_y = item.position_y
-        else:
-            db.add(
-                VirtualViewPosition(
-                    view_id=view_id,
-                    node_id=item.id,
-                    position_x=item.position_x,
-                    position_y=item.position_y,
+    with UnitOfWork(db) as uow:
+        for item in positions:
+            existing = db.get(VirtualViewPosition, (view_id, item.id))
+            if existing:
+                existing.position_x = item.position_x
+                existing.position_y = item.position_y
+            else:
+                db.add(
+                    VirtualViewPosition(
+                        view_id=view_id,
+                        node_id=item.id,
+                        position_x=item.position_x,
+                        position_y=item.position_y,
+                    )
                 )
+        uow.after_commit(
+            lambda: event_bus.publish(
+                [view.owner_id], "tree.layout_changed", {"tree_id": view_id}
             )
-    db.commit()
-    event_bus.publish([view.owner_id], "tree.layout_changed", {"tree_id": view_id})
+        )

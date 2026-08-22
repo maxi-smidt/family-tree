@@ -15,6 +15,7 @@ from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Notification, User
 from app.schemas.notification import NotificationOut, NotificationPageOut
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/notifications",
@@ -96,8 +97,8 @@ def mark_read(
     if n is None or n.user_id != user.id:
         raise HTTPException(status_code=404, detail="Notification not found")
     if n.read_at is None:
-        n.read_at = utcnow_iso()
-        db.commit()
+        with UnitOfWork(db):
+            n.read_at = utcnow_iso()
 
 
 @router.post("/read-all", status_code=204)
@@ -105,9 +106,9 @@ def mark_all_read(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    db.execute(
-        update(Notification)
-        .where(Notification.user_id == user.id, Notification.read_at.is_(None))
-        .values(read_at=utcnow_iso())
-    )
-    db.commit()
+    with UnitOfWork(db):
+        db.execute(
+            update(Notification)
+            .where(Notification.user_id == user.id, Notification.read_at.is_(None))
+            .values(read_at=utcnow_iso())
+        )

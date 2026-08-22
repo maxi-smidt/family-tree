@@ -11,6 +11,7 @@ orphan files are ever left behind.
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models import DocumentUpload
@@ -270,10 +271,12 @@ def test_db_commit_failure_compensates_and_keeps_prior_document(
     new_id = _stage(client, user, tree, content=_WORLD, filename="new.txt").json()["id"]
     assert len(_media_files(media_root, tree.id)) == 2  # old (attached) + new (staged)
 
-    def _boom(_db):
-        raise RuntimeError("commit boom")
-
-    monkeypatch.setattr(document_service, "_run_commit", _boom)
+    # The request runs on its own session (created by the app's `get_db`
+    # override), not the `db` fixture, so the seam must be the Session class
+    # itself rather than one instance.
+    monkeypatch.setattr(
+        Session, "commit", lambda self: (_ for _ in ()).throw(RuntimeError("commit boom"))
+    )
 
     with pytest.raises(RuntimeError, match="commit boom"):
         _save(

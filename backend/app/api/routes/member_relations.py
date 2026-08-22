@@ -14,6 +14,7 @@ from app.services.activity.activity import record_activity, relation_delete_snap
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage_usage import check_tree_quota
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -69,23 +70,29 @@ def add_relation(
         label = (
             f"{payload.from_member_id} → {payload.to_member_id} ({payload.relation_type})"
         )
-        record_activity(
-            db,
-            tree_id=tree.id,
-            actor=user,
-            action="create",
-            target_type="relation",
-            target_label=label,
-        )
-        db.commit()
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-        publish_tree_event(
-            db,
-            tree,
-            "tree.content_changed",
-            {"tree_id": tree.id, "domain": "member"},
-        )
-        invalidate_stats(tree.id)
+        with UnitOfWork(db) as uow:
+            record_activity(
+                db,
+                tree_id=tree.id,
+                actor=user,
+                action="create",
+                target_type="relation",
+                target_label=label,
+            )
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    tree,
+                    "tree.content_changed",
+                    {"tree_id": tree.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(tree.id))
     return relation
 
 
@@ -101,22 +108,28 @@ def remove_relation(
     relation = db.get(Relation, (tree.id, from_member_id, to_member_id, relation_type))
     if relation is not None:
         label = f"{from_member_id} → {to_member_id} ({relation_type})"
-        record_activity(
-            db,
-            tree_id=tree.id,
-            actor=user,
-            action="delete",
-            target_type="relation",
-            target_label=label,
-            details=relation_delete_snapshot(relation),
-        )
-        db.delete(relation)
-        db.commit()
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-        publish_tree_event(
-            db,
-            tree,
-            "tree.content_changed",
-            {"tree_id": tree.id, "domain": "member"},
-        )
-        invalidate_stats(tree.id)
+        with UnitOfWork(db) as uow:
+            record_activity(
+                db,
+                tree_id=tree.id,
+                actor=user,
+                action="delete",
+                target_type="relation",
+                target_label=label,
+                details=relation_delete_snapshot(relation),
+            )
+            db.delete(relation)
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    tree,
+                    "tree.content_changed",
+                    {"tree_id": tree.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(tree.id))

@@ -26,6 +26,7 @@ from app.schemas.notification import (
 from app.services.collaboration import friendships, notification_service
 from app.services.event_bus import event_bus, publish_tree_event
 from app.services.media.storage import profile_image_path
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
@@ -231,18 +232,20 @@ def accept_request(
     friendship = _require_friendship(db, user, user_id)
     if friendship.status != "pending" or friendship.addressee_id != user.id:
         raise HTTPException(status_code=400, detail="No pending request to accept")
-    friendship.status = "accepted"
-    friendship.responded_at = utcnow_iso()
-    db.commit()
+    with UnitOfWork(db) as uow:
+        friendship.status = "accepted"
+        friendship.responded_at = utcnow_iso()
+        uow.after_commit(
+            lambda: notification_service.create_notification(
+                db,
+                friendship.requester_id,
+                "friend_request_accepted",
+                FriendRequestAcceptedPayload(
+                    addressee_id=user.id, addressee_username=user.username
+                ),
+            )
+        )
     db.refresh(friendship)
-    notification_service.create_notification(
-        db,
-        friendship.requester_id,
-        "friend_request_accepted",
-        FriendRequestAcceptedPayload(
-            addressee_id=user.id, addressee_username=user.username
-        ),
-    )
     return friendships.to_friend_out(db, friendship, user.id)
 
 
@@ -255,9 +258,9 @@ def decline_request(
     friendship = _require_friendship(db, user, user_id)
     if friendship.status != "pending" or friendship.addressee_id != user.id:
         raise HTTPException(status_code=400, detail="No pending request to decline")
-    friendship.status = "declined"
-    friendship.responded_at = utcnow_iso()
-    db.commit()
+    with UnitOfWork(db):
+        friendship.status = "declined"
+        friendship.responded_at = utcnow_iso()
 
 
 @router.delete("/{user_id}", status_code=204)
@@ -272,14 +275,14 @@ def remove_friend(
     if friendship is None:
         return
     was_accepted = friendship.status == "accepted"
-    db.delete(friendship)
-    revoked = (
-        friendships.revoke_shared_memberships(db, user, user_id)
-        if was_accepted
-        else []
-    )
-    db.commit()
-    _notify_revoked_memberships(db, revoked)
+    with UnitOfWork(db) as uow:
+        db.delete(friendship)
+        revoked = (
+            friendships.revoke_shared_memberships(db, user, user_id)
+            if was_accepted
+            else []
+        )
+        uow.after_commit(lambda: _notify_revoked_memberships(db, revoked))
 
 
 @router.post("/{user_id}/block", status_code=204)
@@ -298,14 +301,14 @@ def block_user(
     if friendship is None:
         friendship = Friendship(requester_id=user.id, addressee_id=user_id)
         db.add(friendship)
-    # The blocker becomes the requester so unblock can verify ownership.
-    friendship.requester_id = user.id
-    friendship.addressee_id = user_id
-    friendship.status = "blocked"
-    friendship.responded_at = utcnow_iso()
-    revoked = friendships.revoke_shared_memberships(db, user, user_id)
-    db.commit()
-    _notify_revoked_memberships(db, revoked)
+    with UnitOfWork(db) as uow:
+        # The blocker becomes the requester so unblock can verify ownership.
+        friendship.requester_id = user.id
+        friendship.addressee_id = user_id
+        friendship.status = "blocked"
+        friendship.responded_at = utcnow_iso()
+        revoked = friendships.revoke_shared_memberships(db, user, user_id)
+        uow.after_commit(lambda: _notify_revoked_memberships(db, revoked))
 
 
 @router.delete("/{user_id}/block", status_code=204)
@@ -320,5 +323,5 @@ def unblock_user(
         and friendship.status == "blocked"
         and friendship.requester_id == user.id
     ):
-        db.delete(friendship)
-        db.commit()
+        with UnitOfWork(db):
+            db.delete(friendship)

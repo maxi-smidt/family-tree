@@ -65,6 +65,7 @@ from app.services.members.member_update import update_member as update_member_se
 from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
 from app.services.system.settings_service import get_media_limits
 from app.services.trees.neighborhood import collect_neighborhood_ids, pick_default_root
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -151,30 +152,37 @@ def create_member(
             delete_media(new_image_url)
         raise
 
-    member = Member(tree_id=tree.id, **data)
-    db.add(member)
-    label = (
-        " ".join(filter(None, [data.get("first_name"), data.get("last_name")])) or None
-    )
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="create",
-        target_type="member",
-        target_id=member.id,
-        target_label=label,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        member = Member(tree_id=tree.id, **data)
+        db.add(member)
+        label = (
+            " ".join(filter(None, [data.get("first_name"), data.get("last_name")]))
+            or None
+        )
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="create",
+            target_type="member",
+            target_id=member.id,
+            target_label=label,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.content_changed",
+                {"tree_id": tree.id, "domain": "member"},
+            )
+        )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
     db.refresh(member)
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
-    )
-    invalidate_stats(tree.id)
     return member
 
 
@@ -198,13 +206,17 @@ def update_member_positions(
             select(Member).where(Member.tree_id == tree.id, Member.id.in_(ids))
         )
     }
-    for p in payload:
-        member = members.get(p.id)
-        if member is not None:
-            member.position_x = p.position_x
-            member.position_y = p.position_y
-    db.commit()
-    publish_tree_event(db, tree, "tree.layout_changed", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        for p in payload:
+            member = members.get(p.id)
+            if member is not None:
+                member.position_x = p.position_x
+                member.position_y = p.position_y
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.layout_changed", {"tree_id": tree.id}
+            )
+        )
 
 
 @router.patch("/members/collapsed", status_code=204)
@@ -227,11 +239,11 @@ def update_member_collapsed(
             select(Member).where(Member.tree_id == tree.id, Member.id.in_(ids))
         )
     }
-    for p in payload:
-        member = members.get(p.id)
-        if member is not None:
-            member.is_collapsed = p.is_collapsed
-    db.commit()
+    with UnitOfWork(db):
+        for p in payload:
+            member = members.get(p.id)
+            if member is not None:
+                member.is_collapsed = p.is_collapsed
 
 
 def _sync_merged_vital_events(db: Session, tree: Tree, member: Member) -> None:
@@ -349,42 +361,60 @@ def merge_members(
             details=bridge_details,
         )
 
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    db.refresh(merged)
-    # A merge can touch any content that was linked to `remove`, not just the
-    # member row itself, so every domain the transfer covers gets refreshed —
-    # see MemberMergeTransferCounts (#812).
-    for domain in ("member", "event", "story", "gallery", "document", "task"):
-        publish_tree_event(
-            db,
-            tree,
-            "tree.content_changed",
-            {"tree_id": tree.id, "domain": domain},
+    with UnitOfWork(db) as uow:
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
         )
-    invalidate_stats(tree.id)
+        # A merge can touch any content that was linked to `remove`, not just
+        # the member row itself, so every domain the transfer covers gets
+        # notified — see MemberMergeTransferCounts (#812).
+        for domain in ("member", "event", "story", "gallery", "document", "task"):
+            uow.after_commit(
+                lambda domain=domain: publish_tree_event(
+                    db,
+                    tree,
+                    "tree.content_changed",
+                    {"tree_id": tree.id, "domain": domain},
+                )
+            )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
 
-    notified_tree_ids: set[str] = set()
-    if counterpart_tree is not None:
-        publish_tree_event(
-            db, counterpart_tree, "activity.entry_added", {"tree_id": counterpart_tree.id}
-        )
-        publish_tree_event(
-            db,
-            counterpart_tree,
-            "tree.content_changed",
-            {"tree_id": counterpart_tree.id, "domain": "member"},
-        )
-        invalidate_stats(counterpart_tree.id)
-        notified_tree_ids.add(counterpart_tree.id)
-    if bridge_synced_tree is not None and bridge_synced_tree.id not in notified_tree_ids:
-        publish_tree_event(
-            db,
-            bridge_synced_tree,
-            "tree.content_changed",
-            {"tree_id": bridge_synced_tree.id, "domain": "member"},
-        )
-        invalidate_stats(bridge_synced_tree.id)
+        notified_tree_ids: set[str] = set()
+        if counterpart_tree is not None:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    counterpart_tree,
+                    "activity.entry_added",
+                    {"tree_id": counterpart_tree.id},
+                )
+            )
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    counterpart_tree,
+                    "tree.content_changed",
+                    {"tree_id": counterpart_tree.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(counterpart_tree.id))
+            notified_tree_ids.add(counterpart_tree.id)
+        if (
+            bridge_synced_tree is not None
+            and bridge_synced_tree.id not in notified_tree_ids
+        ):
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    bridge_synced_tree,
+                    "tree.content_changed",
+                    {"tree_id": bridge_synced_tree.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(bridge_synced_tree.id))
+    db.refresh(merged)
     return merged
 
 
@@ -590,20 +620,28 @@ def delete_member(
         details=member_delete_snapshot(db, member, counterpart),
     )
     db.delete(member)
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
-    )
-    invalidate_stats(tree.id)
-    if counterpart_tree is not None:
-        publish_tree_event(
-            db,
-            counterpart_tree,
-            "tree.content_changed",
-            {"tree_id": counterpart_tree.id, "domain": "member"},
+    with UnitOfWork(db) as uow:
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
         )
-        invalidate_stats(counterpart_tree.id)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.content_changed",
+                {"tree_id": tree.id, "domain": "member"},
+            )
+        )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
+        if counterpart_tree is not None:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    counterpart_tree,
+                    "tree.content_changed",
+                    {"tree_id": counterpart_tree.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(counterpart_tree.id))

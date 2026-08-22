@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import utcnow_iso
 from app.models import TreeInvitation, TreeMembership, User
+from app.services.unit_of_work import UnitOfWork
 
 
 def _invitation_status(inv: TreeInvitation, now: str) -> str:
@@ -30,25 +31,24 @@ def accept_invitation(db: Session, inv: TreeInvitation, user: User) -> TreeMembe
     invite_rank = _RANK.get(inv.role, 0)
 
     membership = db.get(TreeMembership, (inv.tree_id, user.id))
-    if membership is None and inv.tree_id != user.id:
-        # Don't add a membership if the user owns the tree.
-        from app.models import Tree
+    with UnitOfWork(db):
+        if membership is None and inv.tree_id != user.id:
+            # Don't add a membership if the user owns the tree.
+            from app.models import Tree
 
-        tree = db.get(Tree, inv.tree_id)
-        if tree is None or tree.owner_id != user.id:
-            membership = TreeMembership(
-                tree_id=inv.tree_id, user_id=user.id, role=inv.role
-            )
-            db.add(membership)
-    elif membership is not None:
-        existing_rank = _RANK.get(membership.role, 0)
-        if invite_rank > existing_rank:
-            membership.role = inv.role
+            tree = db.get(Tree, inv.tree_id)
+            if tree is None or tree.owner_id != user.id:
+                membership = TreeMembership(
+                    tree_id=inv.tree_id, user_id=user.id, role=inv.role
+                )
+                db.add(membership)
+        elif membership is not None:
+            existing_rank = _RANK.get(membership.role, 0)
+            if invite_rank > existing_rank:
+                membership.role = inv.role
 
-    now = utcnow_iso()
-    inv.accepted_at = now
-    inv.accepted_by = user.id
-    db.commit()
+        inv.accepted_at = utcnow_iso()
+        inv.accepted_by = user.id
 
     if membership is not None:
         db.refresh(membership)

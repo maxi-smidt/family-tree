@@ -24,6 +24,7 @@ from app.schemas.notification import (
 from app.services.event_bus import event_bus
 from app.services.event_payloads import NotificationCreatedData
 from app.services.system import feature_service
+from app.services.unit_of_work import UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -87,22 +88,26 @@ def create_notification(
     Never raises — a failure here must not break the triggering request.
     """
     try:
-        if not feature_service.is_enabled_for_id(db, "notifications", user_id):
-            return
-        n = Notification(
-            user_id=user_id,
-            type=type,
-            payload=json.dumps(payload.model_dump()) if payload is not None else None,
-        )
-        db.add(n)
-        db.flush()
-        _enforce_retention(db, user_id)
-        db.commit()
-        db.refresh(n)
-        event_bus.publish([user_id], "notification.created", _serialize(n))
+        with UnitOfWork(db) as uow:
+            if not feature_service.is_enabled_for_id(db, "notifications", user_id):
+                return
+            n = Notification(
+                user_id=user_id,
+                type=type,
+                payload=(
+                    json.dumps(payload.model_dump()) if payload is not None else None
+                ),
+            )
+            db.add(n)
+            db.flush()
+            _enforce_retention(db, user_id)
+            uow.after_commit(
+                lambda: event_bus.publish(
+                    [user_id], "notification.created", _serialize(n)
+                )
+            )
     except Exception:
         logger.exception("create_notification failed (type=%s)", type)
-        db.rollback()
 
 
 def _enforce_retention(db: Session, user_id: str) -> None:

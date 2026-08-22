@@ -67,6 +67,8 @@ def _do_merge(
         tree = merge_trees(db, user, name, source_a, source_b, resolutions, progress_cb)
         return tree.id
     except Exception:
+        # allowlisted-rollback: this background job's own session — covers a
+        # failure anywhere above, not just the callee's own UnitOfWork commit.
         db.rollback()
         raise
     finally:
@@ -113,6 +115,8 @@ def _do_extract(
         tree = extract_subtree(db, user, payload, progress_cb)
         return tree.id
     except Exception:
+        # allowlisted-rollback: this background job's own session — covers a
+        # failure anywhere above, not just the callee's own UnitOfWork commit.
         db.rollback()
         raise
     finally:

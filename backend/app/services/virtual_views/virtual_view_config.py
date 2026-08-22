@@ -9,10 +9,10 @@ and cycle rejection — and persists it as ``VirtualViewSource`` rows.
 
 from __future__ import annotations
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import accessible_tree_ids
+from app.core.exceptions import AccessDeniedError, ConflictError, InvalidInputError
 from app.models import User
 from app.models.virtual_view import VirtualView, VirtualViewSource
 from app.services.virtual_views.virtual_view_sources import flatten_tree_ids, view_closure
@@ -31,13 +31,11 @@ def classify_and_validate_sources(
     Accepts real tree ids and ``vv_`` view ids. Enforces the ≥2 distinct sources
     rule, recursive read access to every underlying real tree, and rejects
     cycles (``target_view_id`` may not appear in any source view's closure).
-    Raises ``HTTPException`` on any problem.
+    Raises a ``DomainError`` subclass on any problem.
     """
     unique_ids = list(dict.fromkeys(source_ids))
     if len(unique_ids) < 2:
-        raise HTTPException(
-            status_code=400, detail="At least 2 distinct source trees required"
-        )
+        raise InvalidInputError("At least 2 distinct source trees required")
     accessible = set(accessible_tree_ids(db, user))
     resolved: list[tuple[str, str]] = []
     for sid in unique_ids:
@@ -46,26 +44,18 @@ def classify_and_validate_sources(
             if nested is None or (
                 nested.owner_id != user.id and not user.is_admin
             ):
-                raise HTTPException(
-                    status_code=403, detail=f"No access to view {sid}"
-                )
+                raise AccessDeniedError(f"No access to view {sid}")
             if target_view_id is not None and target_view_id in view_closure(
                 db, sid
             ):
-                raise HTTPException(
-                    status_code=409, detail=VIRTUAL_VIEW_SOURCE_CYCLE
-                )
+                raise ConflictError(VIRTUAL_VIEW_SOURCE_CYCLE)
             for tid in flatten_tree_ids(db, nested):
                 if tid not in accessible:
-                    raise HTTPException(
-                        status_code=403, detail=f"No access to tree {tid}"
-                    )
+                    raise AccessDeniedError(f"No access to tree {tid}")
             resolved.append(("view", sid))
         else:
             if sid not in accessible:
-                raise HTTPException(
-                    status_code=403, detail=f"No access to tree {sid}"
-                )
+                raise AccessDeniedError(f"No access to tree {sid}")
             resolved.append(("tree", sid))
     return resolved
 

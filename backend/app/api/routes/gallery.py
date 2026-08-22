@@ -56,6 +56,7 @@ from app.services.media.storage_usage import (
     media_warning,
 )
 from app.services.system.settings_service import effective_storage_mode, get_media_limits
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
@@ -162,30 +163,32 @@ async def create_image(
         uploaded_at=uploaded_at or now,
     )
     try:
-        db.add(image_row)
-        db.flush()  # image row must exist before its links reference it
-        replace_member_links(
-            db,
-            link_model=GalleryMemberLink,
-            parent_fk=GalleryMemberLink.gallery_image_id,
-            parent_id=image_row.id,
-            tree=tree,
-            member_ids=member_ids,
-        )
-        record_activity(
-            db, tree_id=tree.id, actor=user, action="create",
-            target_type="gallery_image", target_id=image_row.id,
-            target_label=image_row.title,
-        )
-        db.commit()
+        with UnitOfWork(db):
+            db.add(image_row)
+            db.flush()  # image row must exist before its links reference it
+            replace_member_links(
+                db,
+                link_model=GalleryMemberLink,
+                parent_fk=GalleryMemberLink.gallery_image_id,
+                parent_id=image_row.id,
+                tree=tree,
+                member_ids=member_ids,
+            )
+            record_activity(
+                db, tree_id=tree.id, actor=user, action="create",
+                target_type="gallery_image", target_id=image_row.id,
+                target_label=image_row.title,
+            )
     except Exception:
-        # The bytes are already on disk; if any persistence step fails, remove
-        # them so a failed create cannot leave an orphan file behind.
-        db.rollback()
+        # The bytes are already on disk; if persistence (through the commit
+        # above) fails, remove them so a failed create cannot leave an orphan
+        # file behind. This must not run for a failure below — the row is
+        # already durable by then, so "compensating" would instead orphan a
+        # live row by deleting the file it points at.
         delete_media(new_image_url)
         raise
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(image_row)
+    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     warning = media_warning(db, tree)
     if warning:
         event_bus.publish([tree.owner_id], "storage.warning", warning)
@@ -213,17 +216,23 @@ def update_image(
     changes.pop("image_data", None)
     for key, value in changes.items():
         setattr(image, key, value)
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="gallery_image", target_id=image.id, target_label=image.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="gallery_image", target_id=image.id, target_label=image.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "gallery"},
+            )
+        )
     db.refresh(image)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "gallery"},
-    )
     return image
 
 
@@ -236,19 +245,25 @@ def delete_image(
 ):
     image = _get_image(db, tree, image_id)
     image_url = image.image_data
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="delete",
-        target_type="gallery_image", target_id=image.id, target_label=image.title,
-        details=gallery_delete_snapshot(db, image),
-    )
-    db.delete(image)
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "gallery"},
-    )
-    trash_media(image_url)
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="delete",
+            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            details=gallery_delete_snapshot(db, image),
+        )
+        db.delete(image)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "gallery"},
+            )
+        )
+        uow.after_commit(lambda: trash_media(image_url))
 
 
 @router.put("/images/{image_id}/links", status_code=204)
@@ -261,17 +276,17 @@ def set_links(
 ):
     """Replace the full set of members and optional face regions on an image."""
     image = _get_image(db, tree, image_id)
-    replace_gallery_member_links(
-        db,
-        image_id=image_id,
-        tree=tree,
-        links=payload.links,
-    )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="gallery_image", target_id=image.id, target_label=image.title,
-    )
-    db.commit()
+    with UnitOfWork(db):
+        replace_gallery_member_links(
+            db,
+            image_id=image_id,
+            tree=tree,
+            links=payload.links,
+        )
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="gallery_image", target_id=image.id, target_label=image.title,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -380,23 +395,32 @@ def create_unknown_face(
     )
     db.add(face)
 
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="gallery_image", target_id=image.id, target_label=image.title,
-    )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="create",
-        target_type="task", target_id=task.id, target_label=task.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="gallery_image", target_id=image.id, target_label=image.title,
+        )
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="create",
+            target_type="task", target_id=task.id, target_label=task.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "gallery"},
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
+            )
+        )
     db.refresh(face)
-    publish_tree_event(
-        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
-    )
-    publish_tree_event(
-        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
-    )
     return face
 
 
@@ -415,16 +439,23 @@ def update_unknown_face(
     face.y = payload.y
     face.w = payload.w
     face.h = payload.h
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="gallery_image", target_id=image.id, target_label=image.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="gallery_image", target_id=image.id, target_label=image.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "gallery"},
+            )
+        )
     db.refresh(face)
-    publish_tree_event(
-        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
-    )
     return face
 
 
@@ -471,20 +502,30 @@ def resolve_unknown_face(
             target_type="task", target_id=task.id, target_label=task.title,
         )
 
-    db.delete(face)
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="gallery_image", target_id=image.id, target_label=image.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
-    )
-    if task_changed:
-        publish_tree_event(
-            db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
+    with UnitOfWork(db) as uow:
+        db.delete(face)
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="gallery_image", target_id=image.id, target_label=image.title,
         )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "gallery"},
+            )
+        )
+        if task_changed:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "tree.content_changed",
+                    {"tree_id": tree.id, "domain": "task"},
+                )
+            )
 
 
 @router.delete("/unknown-faces/{face_id}", status_code=204)
@@ -507,17 +548,27 @@ def delete_unknown_face(
         )
         db.delete(task)
 
-    db.delete(face)
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="gallery_image", target_id=image.id, target_label=image.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "gallery"},
-    )
-    if task_changed:
-        publish_tree_event(
-            db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
+    with UnitOfWork(db) as uow:
+        db.delete(face)
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="gallery_image", target_id=image.id, target_label=image.title,
         )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "gallery"},
+            )
+        )
+        if task_changed:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "tree.content_changed",
+                    {"tree_id": tree.id, "domain": "task"},
+                )
+            )

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.content import GeocodeCache
 from app.schemas.content import GeocodeCandidate, GeocodeOut
+from app.services.unit_of_work import UnitOfWork
 
 logger = logging.getLogger("app")
 
@@ -127,7 +128,8 @@ def resolve_batch(db: Session, locations: list[str]) -> list[GeocodeOut]:
             time.sleep(_REQUEST_DELAY)
 
     if wrote:
-        db.commit()
+        with UnitOfWork(db):
+            pass
 
     # Build output: one entry per unique original location
     out: list[GeocodeOut] = []
@@ -179,8 +181,8 @@ def set_override(
         manual=True,
         updated_at=_now_iso(),
     )
-    db.merge(row)
-    db.commit()
+    with UnitOfWork(db):
+        db.merge(row)
     return GeocodeOut(
         query=query, lat=lat, lon=lon, display_name=display_name,
         resolved=True, manual=True,

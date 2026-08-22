@@ -52,6 +52,7 @@ from app.services.media.storage_usage import check_full_usage_quota
 from app.services.system.job_service import ProgressCallback
 from app.services.system.settings_service import get_media_limits
 from app.services.trees.tree_state import mark_tree_opened
+from app.services.unit_of_work import UnitOfWork
 
 # Number of rows to write per bulk-insert batch.
 BULK_CHUNK = 1000
@@ -83,6 +84,9 @@ def enforce_import_quota(db: Session, tree: Tree) -> None:
     try:
         check_full_usage_quota(db, tree)
     except QuotaExceeded:
+        # allowlisted-rollback: undoes the whole import's flushed-but-uncommitted
+        # rows on an over-quota rejection, ahead of and separate from the
+        # narrow UnitOfWork commit that follows a successful check.
         db.rollback()
         delete_tree_media(tree_id)
         raise
@@ -330,16 +334,21 @@ def do_import(
 
         enforce_import_quota(db, tree)
         user = db.get(User, user_id)
-        if user is not None:
-            record_activity(
-                db, tree_id=tree.id, actor=user, action="create",
-                target_type="import", target_id=tree.id, target_label=tree.name,
-            )
-        db.commit()
-        if user is not None:
-            publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        with UnitOfWork(db) as uow:
+            if user is not None:
+                record_activity(
+                    db, tree_id=tree.id, actor=user, action="create",
+                    target_type="import", target_id=tree.id, target_label=tree.name,
+                )
+                uow.after_commit(
+                    lambda: publish_tree_event(
+                        db, tree, "activity.entry_added", {"tree_id": tree.id}
+                    )
+                )
         return tree.id
     except Exception:
+        # allowlisted-rollback: this background job's own session — covers a
+        # failure anywhere above, not just the narrow UnitOfWork block's commit.
         db.rollback()
         if tree_id:
             delete_tree_media(tree_id)

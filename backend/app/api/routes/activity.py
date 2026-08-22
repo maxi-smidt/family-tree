@@ -23,6 +23,7 @@ from app.services.activity.activity_undo import CONTENT_DOMAIN, RESTORERS, UndoC
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage import untrash_media
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/trees/{tree_id}",
@@ -109,55 +110,65 @@ def undo_activity(
         )
 
     try:
-        result = restore(db, tree, snapshot)
-        log_details: UndoLogDetails = {
-            "undo_of": entry_id,
-            "restored": result.restored,
-            "skipped": [s.model_dump(exclude_none=True) for s in result.skipped],
-        }
-        undo_entry = record_activity(
-            db,
-            tree_id=tree.id,
-            actor=user,
-            action="create",
-            target_type=entry.target_type,
-            target_id=result.main_id,
-            target_label=entry.target_label,
-            details=log_details,
-        )
-        db.flush()
-        undo_entry_id = undo_entry.id
-        db.commit()
+        with UnitOfWork(db) as uow:
+            result = restore(db, tree, snapshot)
+            log_details: UndoLogDetails = {
+                "undo_of": entry_id,
+                "restored": result.restored,
+                "skipped": [s.model_dump(exclude_none=True) for s in result.skipped],
+            }
+            undo_entry = record_activity(
+                db,
+                tree_id=tree.id,
+                actor=user,
+                action="create",
+                target_type=entry.target_type,
+                target_id=result.main_id,
+                target_label=entry.target_label,
+                details=log_details,
+            )
+            db.flush()
+            undo_entry_id = undo_entry.id
+
+            # Best-effort, post-commit: a failed or degraded media un-trash
+            # (the file already purged by the retention sweep) never rolls
+            # back the restore — it only shows up as an extra skip in the
+            # response the caller sees.
+            skipped = list(result.skipped)
+
+            def _untrash_and_report() -> None:
+                for url in result.media_to_untrash:
+                    if not untrash_media(url):
+                        skipped.append(
+                            UndoSkippedItem(
+                                table="media",
+                                reason="file already purged from trash",
+                                id=url,
+                            )
+                        )
+
+            uow.after_commit(_untrash_and_report)
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    tree,
+                    "tree.content_changed",
+                    {"tree_id": tree.id, "domain": CONTENT_DOMAIN[entry.target_type]},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(tree.id))
     except UndoConflict as exc:
-        db.rollback()
         raise HTTPException(status_code=409, detail=exc.reason) from exc
     except IntegrityError as exc:
-        db.rollback()
         raise HTTPException(
             status_code=409,
             detail="Concurrent conflict — the row was recreated by another request",
         ) from exc
-
-    # Best-effort, post-commit: a failed or degraded media un-trash (the file
-    # already purged by the retention sweep) never rolls back the restore —
-    # it only shows up as an extra skip in the response the caller sees.
-    skipped = list(result.skipped)
-    for url in result.media_to_untrash:
-        if not untrash_media(url):
-            skipped.append(
-                UndoSkippedItem(
-                    table="media", reason="file already purged from trash", id=url
-                )
-            )
-
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": CONTENT_DOMAIN[entry.target_type]},
-    )
-    invalidate_stats(tree.id)
 
     return ActivityUndoOut(
         undo_entry_id=undo_entry_id,

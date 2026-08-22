@@ -11,6 +11,7 @@ from app.schemas.user import (
     UserPreferences,
 )
 from app.services.system.settings_service import get_media_limits
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/users/me/preferences", tags=["preferences"])
 
@@ -26,8 +27,8 @@ def put_tab_preferences(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user.tab_preferences = payload.model_dump()
-    db.commit()
+    with UnitOfWork(db):
+        user.tab_preferences = payload.model_dump()
     return payload
 
 
@@ -36,8 +37,8 @@ def reset_tab_preferences(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    user.tab_preferences = None
-    db.commit()
+    with UnitOfWork(db):
+        user.tab_preferences = None
     return TabPreferences()
 
 
@@ -58,8 +59,8 @@ def put_tutorial_preferences(
 ):
     prefs = _stored_preferences(user)
     prefs.tutorial_completed = payload.completed
-    user.preferences = prefs.model_dump()
-    db.commit()
+    with UnitOfWork(db):
+        user.preferences = prefs.model_dump()
     return TutorialPreferences(completed=payload.completed)
 
 
@@ -85,6 +86,6 @@ def put_user_preferences(
             )
     prefs = _stored_preferences(user)
     prefs.image_storage_mode = payload.image_storage_mode
-    user.preferences = prefs.model_dump()
-    db.commit()
+    with UnitOfWork(db):
+        user.preferences = prefs.model_dump()
     return UserPreferences(image_storage_mode=prefs.image_storage_mode)

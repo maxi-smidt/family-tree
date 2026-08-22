@@ -110,6 +110,7 @@ def _seed_relation_types(db) -> None:
         return
     for rt in missing:
         db.add(RelationType(id=rt))
+    # allowlisted-commit: bootstrap-only, before the app serves any request.
     db.commit()
     logger.info("Seeded %d missing default relation types", len(missing))
 
@@ -145,5 +146,6 @@ def _seed_admin(db) -> None:
         auth_provider="local",
     )
     db.add(admin)
+    # allowlisted-commit: bootstrap-only, before the app serves any request.
     db.commit()
     logger.info("Seeded initial admin user '%s'", settings.FIRST_ADMIN_USERNAME)

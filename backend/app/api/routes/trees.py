@@ -34,6 +34,7 @@ from app.services.trees.tree_state import (
 )
 from app.services.trees.tree_transfer import within_undo_window
 from app.services.trees.tree_view import tree_out
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -79,16 +80,20 @@ def create_tree(
         owner_id=user.id,
         created_at=utcnow_iso(),
     )
-    db.add(tree)
-    db.flush()
-    mark_tree_opened(db, tree.id, user.id)
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="create",
-        target_type="tree", target_id=tree.id, target_label=tree.name,
-    )
-    db.commit()
+    with UnitOfWork(db) as uow:
+        db.add(tree)
+        db.flush()
+        mark_tree_opened(db, tree.id, user.id)
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="create",
+            target_type="tree", target_id=tree.id, target_label=tree.name,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
     db.refresh(tree)
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return tree_out(db, tree, user)
 
 
@@ -100,8 +105,8 @@ def get_tree(
 ):
     # Selecting a tree counts as "opening" it (only for authenticated users).
     if user is not None:
-        mark_tree_opened(db, tree.id, user.id)
-        db.commit()
+        with UnitOfWork(db):
+            mark_tree_opened(db, tree.id, user.id)
     return tree_out(db, tree, user)
 
 
@@ -143,20 +148,21 @@ def update_tree(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    logged = False
-    if payload.name is not None and payload.name != tree.name:
-        old_name = tree.name
-        tree.name = payload.name
-        record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="tree", target_id=tree.id, target_label=tree.name,
-            details={"before": {"name": old_name}, "after": {"name": tree.name}},
-        )
-        logged = True
-    db.commit()
+    with UnitOfWork(db) as uow:
+        if payload.name is not None and payload.name != tree.name:
+            old_name = tree.name
+            tree.name = payload.name
+            record_activity(
+                db, tree_id=tree.id, actor=user, action="update",
+                target_type="tree", target_id=tree.id, target_label=tree.name,
+                details={"before": {"name": old_name}, "after": {"name": tree.name}},
+            )
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
     db.refresh(tree)
-    if logged:
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return tree_out(db, tree, user)
 
 
@@ -178,16 +184,18 @@ def delete_tree(
         )
     tree_id = tree.id
     audience = tree_audience(db, tree)
-    record_admin_audit(
-        db,
-        actor=user,
-        action="delete",
-        subject_type="tree",
-        subject_id=tree.id,
-        subject_label=tree.name,
-    )
-    db.delete(tree)
-    db.commit()
-    # The DB cascade clears the rows; remove the backing media files too.
-    delete_tree_media(tree_id)
-    event_bus.publish(audience, "tree.deleted", {"tree_id": tree_id})
+    with UnitOfWork(db) as uow:
+        record_admin_audit(
+            db,
+            actor=user,
+            action="delete",
+            subject_type="tree",
+            subject_id=tree.id,
+            subject_label=tree.name,
+        )
+        db.delete(tree)
+        # The DB cascade clears the rows; remove the backing media files too.
+        uow.after_commit(lambda: delete_tree_media(tree_id))
+        uow.after_commit(
+            lambda: event_bus.publish(audience, "tree.deleted", {"tree_id": tree_id})
+        )

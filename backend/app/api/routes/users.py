@@ -12,6 +12,7 @@ from app.schemas.user import UserCreate, UserOut, UserPasswordReset, UserUpdate
 from app.services.event_bus import event_bus
 from app.services.system.admin_audit import record_admin_audit
 from app.services.system.user_deletion import schedule_deletion
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
 
@@ -39,12 +40,12 @@ def create_user(
     )
     db.add(user)
     db.flush()
-    record_admin_audit(
-        db, actor=current, action="create", subject_type="user",
-        subject_id=user.id, subject_label=user.username,
-        details={"is_admin": user.is_admin},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        record_admin_audit(
+            db, actor=current, action="create", subject_type="user",
+            subject_id=user.id, subject_label=user.username,
+            details={"is_admin": user.is_admin},
+        )
     db.refresh(user)
     return user
 
@@ -99,15 +100,20 @@ def update_user(
     }
     if payload.password:
         changed["password"] = {"updated": True}
-    if changed:
-        record_admin_audit(
-            db, actor=current, action="update", subject_type="user",
-            subject_id=user.id, subject_label=user.username, details={"changes": changed},
-        )
-    db.commit()
+    with UnitOfWork(db) as uow:
+        if changed:
+            record_admin_audit(
+                db, actor=current, action="update", subject_type="user",
+                subject_id=user.id, subject_label=user.username,
+                details={"changes": changed},
+            )
+        if deactivated:
+            uow.after_commit(
+                lambda: event_bus.publish(
+                    [user.id], "session.invalidate", {"reason": "deactivated"}
+                )
+            )
     db.refresh(user)
-    if deactivated:
-        event_bus.publish([user.id], "session.invalidate", {"reason": "deactivated"})
     return user
 
 
@@ -123,12 +129,12 @@ def reset_password(
         raise HTTPException(status_code=404, detail="User not found")
 
     _reset_local_password(user, payload.password)
-    record_admin_audit(
-        db, actor=current, action="update", subject_type="password",
-        subject_id=user.id, subject_label=user.username,
-        details={"admin_reset": True},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        record_admin_audit(
+            db, actor=current, action="update", subject_type="password",
+            subject_id=user.id, subject_label=user.username,
+            details={"admin_reset": True},
+        )
     db.refresh(user)
     return user
 
@@ -154,13 +160,17 @@ def delete_user(
         raise HTTPException(status_code=400, detail="Cannot delete the last admin")
 
     schedule_deletion(db, user, requested_by=current.id)
-    record_admin_audit(
-        db, actor=current, action="delete", subject_type="user",
-        subject_id=user.id, subject_label=user.username,
-        details={"scheduled": True},
-    )
-    db.commit()
-    event_bus.publish([user.id], "session.invalidate", {"reason": "pending_deletion"})
+    with UnitOfWork(db) as uow:
+        record_admin_audit(
+            db, actor=current, action="delete", subject_type="user",
+            subject_id=user.id, subject_label=user.username,
+            details={"scheduled": True},
+        )
+        uow.after_commit(
+            lambda: event_bus.publish(
+                [user.id], "session.invalidate", {"reason": "pending_deletion"}
+            )
+        )
     return user
 
 
@@ -174,15 +184,15 @@ def reset_totp(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    user.totp_enabled = False
-    user.totp_secret = None
-    user.totp_recovery_codes = None
-    record_admin_audit(
-        db, actor=current, action="update", subject_type="user",
-        subject_id=user.id, subject_label=user.username,
-        details={"two_factor_reset": True},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        user.totp_enabled = False
+        user.totp_secret = None
+        user.totp_recovery_codes = None
+        record_admin_audit(
+            db, actor=current, action="update", subject_type="user",
+            subject_id=user.id, subject_label=user.username,
+            details={"two_factor_reset": True},
+        )
     db.refresh(user)
     return user
 
@@ -197,15 +207,15 @@ def cancel_deletion(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    user.deletion_requested_at = None
-    user.deletion_scheduled_for = None
-    user.deletion_requested_by = None
-    record_admin_audit(
-        db, actor=current, action="update", subject_type="user",
-        subject_id=user.id, subject_label=user.username,
-        details={"deletion_cancelled": True},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        user.deletion_requested_at = None
+        user.deletion_scheduled_for = None
+        user.deletion_requested_by = None
+        record_admin_audit(
+            db, actor=current, action="update", subject_type="user",
+            subject_id=user.id, subject_label=user.username,
+            details={"deletion_cancelled": True},
+        )
     db.refresh(user)
     return user
 

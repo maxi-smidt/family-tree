@@ -20,6 +20,7 @@ from app.models.quality import QualityIssueDismissal
 from app.schemas.quality import QualityIssue, QualityReport
 from app.services.members.bridge import drift_fields
 from app.services.trees.quality_checks import issue_id_for, run_quality_checks
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/trees/{tree_id}",
@@ -165,16 +166,16 @@ def dismiss_quality_issue(
     if issue is None:
         raise HTTPException(status_code=404, detail="Quality issue not found")
 
-    db.add(
-        QualityIssueDismissal(
-            tree_id=tree.id,
-            issue_id=issue.id,
-            issue_type=issue.issue_type,
-            member_ids=json.dumps(issue.member_ids),
-            dismissed_by_id=user.id,
+    with UnitOfWork(db):
+        db.add(
+            QualityIssueDismissal(
+                tree_id=tree.id,
+                issue_id=issue.id,
+                issue_type=issue.issue_type,
+                member_ids=json.dumps(issue.member_ids),
+                dismissed_by_id=user.id,
+            )
         )
-    )
-    db.commit()
     return None
 
 
@@ -192,6 +193,6 @@ def restore_quality_issue(
         )
     )
     if dismissal is not None:
-        db.delete(dismissal)
-        db.commit()
+        with UnitOfWork(db):
+            db.delete(dismissal)
     return None

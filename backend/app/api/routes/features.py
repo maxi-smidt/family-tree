@@ -10,6 +10,7 @@ from app.models import User
 from app.schemas.setting import FeatureFlagOut, FeatureFlagUpdate
 from app.services.system import feature_service
 from app.services.system.admin_audit import record_admin_audit
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/admin/features",
@@ -42,27 +43,27 @@ def update_feature(
         raise HTTPException(status_code=404, detail="Unknown feature")
 
     before = _flag_out(db, name)
-    if payload.allowlist is not None:
-        wanted = list(dict.fromkeys(payload.allowlist))
-        existing = set(
-            db.scalars(select(User.id).where(User.id.in_(wanted))).all()
-        )
-        unknown = [user_id for user_id in wanted if user_id not in existing]
-        if unknown:
-            raise HTTPException(
-                status_code=400, detail=f"Unknown user ids: {', '.join(unknown)}"
+    with UnitOfWork(db):
+        if payload.allowlist is not None:
+            wanted = list(dict.fromkeys(payload.allowlist))
+            existing = set(
+                db.scalars(select(User.id).where(User.id.in_(wanted))).all()
             )
-        feature_service.set_allowlist(db, name, wanted)
+            unknown = [user_id for user_id in wanted if user_id not in existing]
+            if unknown:
+                raise HTTPException(
+                    status_code=400, detail=f"Unknown user ids: {', '.join(unknown)}"
+                )
+            feature_service.set_allowlist(db, name, wanted)
 
-    if payload.state is not None:
-        feature_service.set_state(db, name, payload.state)
+        if payload.state is not None:
+            feature_service.set_state(db, name, payload.state)
 
-    db.flush()
-    after = _flag_out(db, name)
-    record_admin_audit(
-        db, actor=user, action="update", subject_type="feature_flag",
-        subject_id=name, subject_label=name,
-        details={"before": before.model_dump(), "after": after.model_dump()},
-    )
-    db.commit()
+        db.flush()
+        after = _flag_out(db, name)
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="feature_flag",
+            subject_id=name, subject_label=name,
+            details={"before": before.model_dump(), "after": after.model_dump()},
+        )
     return after

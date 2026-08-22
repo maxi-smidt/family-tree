@@ -51,6 +51,7 @@ from app.services.trees.merge_copy import (
     copy_tasks,
 )
 from app.services.trees.tree_state import mark_tree_opened
+from app.services.unit_of_work import UnitOfWork
 
 MemberIdMap = dict[str, str]
 
@@ -338,11 +339,15 @@ def merge_trees(
     copy_documents(db, ctx)
 
     _progress(95)
-    record_activity(
-        db, tree_id=new_tree.id, actor=user, action="create",
-        target_type="merge", target_id=new_tree.id, target_label=new_tree.name,
-    )
-    db.commit()
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db, tree_id=new_tree.id, actor=user, action="create",
+            target_type="merge", target_id=new_tree.id, target_label=new_tree.name,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, new_tree, "activity.entry_added", {"tree_id": new_tree.id}
+            )
+        )
     db.refresh(new_tree)
-    publish_tree_event(db, new_tree, "activity.entry_added", {"tree_id": new_tree.id})
     return new_tree
