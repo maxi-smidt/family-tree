@@ -11,7 +11,7 @@ import pytest
 from app.core.exceptions import DomainError
 from app.models import Member, Relation
 from app.schemas.merge import MergeResolution
-from app.services.merge import compute_merge_preview, merge_trees
+from app.services.trees.merge import compute_merge_preview, merge_trees
 from tests.conftest import add_member, make_tree, make_user, share
 
 # ---------------------------------------------------------------------------

@@ -33,11 +33,11 @@ from app.services.cache import (
     cache_set_json,
     stats_key,
 )
-from app.services.statistics import AGE_BUCKETS, compute_statistics
-from app.services.statistics import decade_label as _decade_label
-from app.services.statistics import extract_year as _extract_year
 from app.services.system import feature_service
-from app.services.tree_links import reachable_linked_trees
+from app.services.trees.statistics import AGE_BUCKETS, compute_statistics
+from app.services.trees.statistics import decade_label as _decade_label
+from app.services.trees.statistics import extract_year as _extract_year
+from app.services.trees.tree_links import reachable_linked_trees
 
 router = APIRouter(
     prefix="/trees/{tree_id}",

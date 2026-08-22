@@ -14,7 +14,7 @@ The member de-duplication pass (``_merge_members``) is merge-specific and
 stays here; copying everything else (relations, diseases, tasks, gallery,
 events, stories, documents) that merely follows the member id-map is
 delegated, one focused function per content domain, to
-``app.services.merge_copy``.
+``app.services.trees.merge_copy``.
 """
 
 from __future__ import annotations
@@ -39,7 +39,8 @@ from app.services.members.member_clone import (
     member_key,
     member_name_key,
 )
-from app.services.merge_copy import (
+from app.services.system.job_service import ProgressCallback
+from app.services.trees.merge_copy import (
     MergeContext,
     copy_diseases,
     copy_documents,
@@ -49,8 +50,7 @@ from app.services.merge_copy import (
     copy_stories,
     copy_tasks,
 )
-from app.services.system.job_service import ProgressCallback
-from app.services.tree_state import mark_tree_opened
+from app.services.trees.tree_state import mark_tree_opened
 
 MemberIdMap = dict[str, str]
 
@@ -183,7 +183,7 @@ def _merge_members(
     """Clone source-A and source-B members into the new tree, de-duplicating.
 
     Returns the source member id → new-tree member id map every other content
-    copier in ``app.services.merge_copy`` keys off of.
+    copier in ``app.services.trees.merge_copy`` keys off of.
     """
     # member_map: source member id → new tree member id
     member_map: MemberIdMap = {}

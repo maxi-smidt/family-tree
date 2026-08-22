@@ -53,8 +53,8 @@ from app.schemas.virtual_view import (
 )
 from app.services.event_bus import event_bus
 from app.services.media.geocoding import resolve_batch, resolve_single
-from app.services.quality_checks import run_quality_checks
-from app.services.statistics import compute_statistics
+from app.services.trees.quality_checks import run_quality_checks
+from app.services.trees.statistics import compute_statistics
 from app.services.virtual_views.virtual_view_access import resolve_view, view_last_opened
 from app.services.virtual_views.virtual_view_composite import (
     aggregate,

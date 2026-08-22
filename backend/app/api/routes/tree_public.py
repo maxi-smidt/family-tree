@@ -25,7 +25,7 @@ from app.schemas.tree import (
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.system.admin_audit import record_admin_audit
-from app.services.tree_view import tree_out
+from app.services.trees.tree_view import tree_out
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 

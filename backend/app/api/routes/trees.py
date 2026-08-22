@@ -27,13 +27,13 @@ from app.services.event_bus import event_bus, publish_tree_event, tree_audience
 from app.services.media.storage import delete_tree_media
 from app.services.media.storage_usage import compute_owner_usage, owner_quotas
 from app.services.system.admin_audit import record_admin_audit
-from app.services.tree_state import (
+from app.services.trees.tree_state import (
     bulk_tree_last_opened,
     mark_tree_opened,
     tree_last_opened,
 )
-from app.services.tree_transfer import within_undo_window
-from app.services.tree_view import tree_out
+from app.services.trees.tree_transfer import within_undo_window
+from app.services.trees.tree_view import tree_out
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 

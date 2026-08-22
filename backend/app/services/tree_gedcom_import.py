@@ -23,7 +23,7 @@ from app.services.tree_bundle_import import (
     bulk_insert_chunked,
     enforce_import_quota,
 )
-from app.services.tree_state import mark_tree_opened
+from app.services.trees.tree_state import mark_tree_opened
 
 
 def do_import_gedcom(

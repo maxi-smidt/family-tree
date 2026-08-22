@@ -2,7 +2,7 @@
 
 from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
-from app.services.quality_checks import issue_id_for, run_quality_checks
+from app.services.trees.quality_checks import issue_id_for, run_quality_checks
 from tests.conftest import (
     API,
     add_member,

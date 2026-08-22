@@ -4,7 +4,7 @@ Given a root member and a ``direction``, decides which other members belong
 in the branch being cut out into a new tree, and classifies a tree's
 relations against that selection. Pure over already-loaded rows — no writes,
 no session commits — so it is usable from both the preview and the actual
-move in ``app.services.extract``.
+move in ``app.services.trees.extract``.
 """
 
 from __future__ import annotations

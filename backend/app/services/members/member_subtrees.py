@@ -10,7 +10,7 @@ from app.models.user import User
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.members.member_clone import clone_member, wire_bridge
-from app.services.tree_state import mark_tree_opened
+from app.services.trees.tree_state import mark_tree_opened
 
 
 def create_linked_subtree(
