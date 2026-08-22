@@ -1,0 +1,66 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2d325e5ab76d",
+  "session_id": "52f02227-3163-47cd-b1c3-9b7c27adc408",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T08:05:14.763454162Z",
+  "branch": "refactor/886-split-merge-extract-import",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/member_clone.py",
+    "backend/app/services/merge_copy.py",
+    "backend/app/services/merge.py",
+    "backend/app/api/routes/members.py",
+    "backend/app/services/member_subtrees.py",
+    "backend/app/services/member_merge.py",
+    "backend/app/services/subtree_selection.py",
+    "backend/app/services/subtree_documents.py",
+    "backend/app/services/extract.py",
+    "backend/app/services/bundle_migration.py",
+    "backend/app/services/tree_bundle_import.py",
+    "backend/app/services/tree_gedcom_import.py",
+    "backend/app/api/routes/export_import.py",
+    "backend/tests/conftest.py",
+    "backend/tests/test_export_import.py",
+    "backend/tests/test_activity.py",
+    "docs/ACTIVITY_AUDIT.md"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "7811c230b00a",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 262,
+    "cache_creation_tokens": 192908,
+    "cache_read_tokens": 20777821,
+    "output_tokens": 88297,
+    "api_call_count": 131
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T08:05:14.700366248Z",
+    "agent_lines": 2002,
+    "agent_removed": 1718,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2002,
+    "total_lines_changed": 3720,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

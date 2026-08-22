@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "2d325e5ab76d",
+  "strategy": "manual-commit",
+  "branch": "refactor/886-split-merge-extract-import",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/export_import.py",
+    "backend/app/api/routes/members.py",
+    "backend/app/services/bundle_migration.py",
+    "backend/app/services/extract.py",
+    "backend/app/services/member_clone.py",
+    "backend/app/services/member_merge.py",
+    "backend/app/services/member_subtrees.py",
+    "backend/app/services/merge.py",
+    "backend/app/services/merge_copy.py",
+    "backend/app/services/subtree_documents.py",
+    "backend/app/services/subtree_selection.py",
+    "backend/app/services/tree_bundle_import.py",
+    "backend/app/services/tree_gedcom_import.py",
+    "backend/tests/conftest.py",
+    "backend/tests/test_activity.py",
+    "backend/tests/test_export_import.py",
+    "docs/ACTIVITY_AUDIT.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/2d/325e5ab76d/0/metadata.json",
+      "transcript": "/2d/325e5ab76d/0/full.jsonl",
+      "compact_transcript": "/2d/325e5ab76d/0/transcript.jsonl",
+      "content_hash": "/2d/325e5ab76d/0/content_hash.txt",
+      "prompt": "/2d/325e5ab76d/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 262,
+    "cache_creation_tokens": 192908,
+    "cache_read_tokens": 20777821,
+    "output_tokens": 88297,
+    "api_call_count": 131
+  }
+}
