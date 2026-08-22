@@ -1,0 +1,58 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "a90e038b3b54",
+  "strategy": "manual-commit",
+  "branch": "refactor/952-unit-of-work-domain-exceptions",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/activity.py",
+    "backend/app/api/routes/auth.py",
+    "backend/app/api/routes/documents.py",
+    "backend/app/api/routes/gallery.py",
+    "backend/app/api/routes/member_diseases.py",
+    "backend/app/api/routes/member_links.py",
+    "backend/app/api/routes/member_relations.py",
+    "backend/app/api/routes/members.py",
+    "backend/app/api/routes/tasks.py",
+    "backend/app/api/routes/tree_public.py",
+    "backend/app/api/routes/tree_sharing.py",
+    "backend/app/api/routes/tree_transfer.py",
+    "backend/app/api/routes/trees.py",
+    "backend/app/api/routes/users.py",
+    "backend/app/db/init_db.py",
+    "backend/app/services/collaboration/friendships.py",
+    "backend/app/services/collaboration/invitations.py",
+    "backend/app/services/collaboration/notification_service.py",
+    "backend/app/services/documents/document_service.py",
+    "backend/app/services/interchange/bundles/tree_bundle_import.py",
+    "backend/app/services/interchange/gedcom/tree_gedcom_import.py",
+    "backend/app/services/media/geocoding.py",
+    "backend/app/services/members/member_subtrees.py",
+    "backend/app/services/members/member_update.py",
+    "backend/app/services/system/backups/backup_service.py",
+    "backend/app/services/system/job_service.py",
+    "backend/app/services/system/settings_service.py",
+    "backend/app/services/system/user_purge.py",
+    "backend/app/services/trees/extract.py",
+    "backend/app/services/trees/merge.py",
+    "backend/app/services/virtual_views/virtual_view_access.py",
+    "backend/app/services/virtual_views/virtual_view_config.py",
+    "backend/tests/test_documents_atomic.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a9/0e038b3b54/0/metadata.json",
+      "transcript": "/a9/0e038b3b54/0/full.jsonl",
+      "compact_transcript": "/a9/0e038b3b54/0/transcript.jsonl",
+      "content_hash": "/a9/0e038b3b54/0/content_hash.txt",
+      "prompt": "/a9/0e038b3b54/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 556,
+    "cache_creation_tokens": 352594,
+    "cache_read_tokens": 64565741,
+    "output_tokens": 146174,
+    "api_call_count": 278
+  }
+}

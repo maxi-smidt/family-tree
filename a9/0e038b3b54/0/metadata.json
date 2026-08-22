@@ -1,0 +1,82 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "a90e038b3b54",
+  "session_id": "b1581539-099c-40ed-98f3-86bb0f146732",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T17:42:32.023776639Z",
+  "branch": "refactor/952-unit-of-work-domain-exceptions",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/activity.py",
+    "backend/app/api/routes/auth.py",
+    "backend/app/api/routes/documents.py",
+    "backend/app/api/routes/gallery.py",
+    "backend/app/api/routes/member_diseases.py",
+    "backend/app/api/routes/member_links.py",
+    "backend/app/api/routes/member_relations.py",
+    "backend/app/api/routes/members.py",
+    "backend/app/api/routes/tasks.py",
+    "backend/app/api/routes/tree_public.py",
+    "backend/app/api/routes/tree_sharing.py",
+    "backend/app/api/routes/tree_transfer.py",
+    "backend/app/api/routes/trees.py",
+    "backend/app/api/routes/users.py",
+    "backend/app/db/init_db.py",
+    "backend/app/services/collaboration/friendships.py",
+    "backend/app/services/collaboration/invitations.py",
+    "backend/app/services/collaboration/notification_service.py",
+    "backend/app/services/documents/document_service.py",
+    "backend/app/services/interchange/bundles/tree_bundle_import.py",
+    "backend/app/services/interchange/gedcom/tree_gedcom_import.py",
+    "backend/app/services/media/geocoding.py",
+    "backend/app/services/members/member_subtrees.py",
+    "backend/app/services/members/member_update.py",
+    "backend/app/services/system/backups/backup_service.py",
+    "backend/app/services/system/job_service.py",
+    "backend/app/services/system/settings_service.py",
+    "backend/app/services/system/user_purge.py",
+    "backend/app/services/trees/extract.py",
+    "backend/app/services/trees/merge.py",
+    "backend/app/services/virtual_views/virtual_view_access.py",
+    "backend/app/services/virtual_views/virtual_view_config.py",
+    "backend/tests/test_documents_atomic.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "43616c38d8be",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 556,
+    "cache_creation_tokens": 352594,
+    "cache_read_tokens": 64565741,
+    "output_tokens": 146174,
+    "api_call_count": 278
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T17:42:31.915040398Z",
+    "agent_lines": 1415,
+    "agent_removed": 1141,
+    "human_added": 504,
+    "human_modified": 29,
+    "human_removed": 0,
+    "total_committed": 1948,
+    "total_lines_changed": 3316,
+    "agent_percentage": 77.08082026537998,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}
