@@ -511,7 +511,7 @@ def test_gallery_set_links_writes_activity(client, db, tmp_path, monkeypatch):
 
 
 # Import (native bundle / GEDCOM) activity logging is exercised indirectly via
-# _do_import / _do_import_gedcom's background-job plumbing (see
+# do_import / do_import_gedcom's background-job plumbing (see
 # tests/test_export_import.py for full import round-trips using
 # wait_for_job). Adding a dedicated activity-log assertion here would mostly
 # duplicate that machinery, so it is intentionally left to a follow-up if
