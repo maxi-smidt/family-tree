@@ -48,7 +48,7 @@ FASTAPI_FREE_MODULES = [
 # is narrower: these modules no longer declare a *direct* fastapi import of
 # their own for error handling.
 DOMAIN_SERVICE_MODULES = [
-    "app.services.document_service",
+    "app.services.documents.document_service",
     "app.services.extract",
     "app.services.merge",
     "app.services.member_merge",

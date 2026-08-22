@@ -9,7 +9,7 @@ unit with explicit ordering, so a failure can never destroy the previously
 valid document or leak files:
 
   1. Validate everything (links, ownership, quota) with nothing mutated, and
-     resolve it into a typed :class:`~app.services.document_save_plan.
+     resolve it into a typed :class:`~app.services.documents.document_save_plan.
      DocumentSavePlan` (see that module).
   2. In one transaction: upsert the document, replace member links, attach the
      staged uploads (turning each into a ``DocumentFile`` and consuming its
@@ -36,8 +36,8 @@ from app.models import Document, DocumentFile, DocumentMemberLink, DocumentUploa
 from app.models.user import User
 from app.schemas.content import DocumentSave
 from app.services.activity.activity import record_activity
-from app.services.content_links import replace_member_links
-from app.services.document_save_plan import (
+from app.services.documents.content_links import replace_member_links
+from app.services.documents.document_save_plan import (
     DocumentSavePlan,
     build_save_plan,
     external_link_url,

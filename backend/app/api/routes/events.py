@@ -24,7 +24,10 @@ from app.schemas.content import (
     LinksSet,
 )
 from app.services.activity.activity import event_delete_snapshot, record_activity
-from app.services.content_links import replace_document_links, replace_member_links
+from app.services.documents.content_links import (
+    replace_document_links,
+    replace_member_links,
+)
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage_usage import check_tree_quota
 from app.services.unit_of_work import UnitOfWork

@@ -24,7 +24,7 @@ from app.schemas.content import (
     MemberTaskUpdate,
 )
 from app.services.activity.activity import record_activity
-from app.services.content_links import replace_member_links
+from app.services.documents.content_links import replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage_usage import check_tree_quota
 

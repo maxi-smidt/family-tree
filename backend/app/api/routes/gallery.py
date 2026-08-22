@@ -38,7 +38,7 @@ from app.schemas.content import (
 )
 from app.schemas.user import StoredUserPreferences
 from app.services.activity.activity import gallery_delete_snapshot, record_activity
-from app.services.content_links import (
+from app.services.documents.content_links import (
     replace_gallery_member_links,
     replace_member_links,
 )
