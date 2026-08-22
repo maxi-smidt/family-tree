@@ -24,7 +24,7 @@ from app.services.event_bus import publish_tree_event
 from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.tree_links import reachable_linked_trees
 
-router = APIRouter(prefix="/trees", tags=["trees-sharing"])
+router = APIRouter(prefix="/trees", tags=["trees"])
 
 _BATCH_TREE_IDS_MAX = 100
 

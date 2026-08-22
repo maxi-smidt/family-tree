@@ -27,7 +27,7 @@ from app.services.activity import record_activity
 from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import publish_tree_event
 
-router = APIRouter(prefix="/trees", tags=["trees-public"])
+router = APIRouter(prefix="/trees", tags=["trees"])
 
 
 @router.patch("/{tree_id}/public", response_model=TreeOut)

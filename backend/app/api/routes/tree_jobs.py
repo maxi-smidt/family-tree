@@ -21,7 +21,7 @@ from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.merge import compute_merge_preview, merge_trees
 from app.services.tree_links import compute_link_graph
 
-router = APIRouter(prefix="/trees", tags=["trees-jobs"])
+router = APIRouter(prefix="/trees", tags=["trees"])
 
 
 @router.post("/merge/preview", response_model=TreeMergePreview)

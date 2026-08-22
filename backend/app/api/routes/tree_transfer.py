@@ -17,7 +17,7 @@ from app.services.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.tree_transfer import TRANSFER_UNDO_WINDOW_SECONDS, undo_deadline
 
-router = APIRouter(prefix="/trees", tags=["trees-transfer"])
+router = APIRouter(prefix="/trees", tags=["trees"])
 
 
 @router.post("/{tree_id}/transfer", response_model=TreeTransferResult)
