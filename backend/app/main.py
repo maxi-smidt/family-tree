@@ -21,6 +21,7 @@ from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
+from app.services import presence_service
 from app.services.authentik import init_oauth
 from app.services.backup_scheduler import backup_schedule_loop
 from app.services.deletion_sweeper import deletion_sweep_loop
@@ -56,6 +57,13 @@ async def lifespan(app: FastAPI):
     from app.services.event_bus import event_bus
 
     validate_production_credentials()
+
+    # Construct process-wide resource state fresh for this app instance —
+    # guards against stale subscribers/roster entries left over from a
+    # previous lifespan in the same process (e.g. tests that build the
+    # FastAPI app more than once).
+    event_bus.reset()
+    presence_service.reset()
 
     loop = asyncio.get_running_loop()
     event_bus.set_loop(loop)
@@ -99,6 +107,8 @@ async def lifespan(app: FastAPI):
             await event_bus.stop_redis_listener()
         await close_redis()
         runtime.set_loop(None)
+        event_bus.reset()
+        presence_service.reset()
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)

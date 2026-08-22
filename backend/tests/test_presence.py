@@ -16,9 +16,9 @@ def _run(coro):
 @pytest.fixture(autouse=True)
 def _clear_presence_store():
     """The in-process registry is a module global — isolate every test."""
-    presence_service._store.clear()
+    presence_service.reset()
     yield
-    presence_service._store.clear()
+    presence_service.reset()
 
 
 # --- Service (in-process backend) ------------------------------------------

@@ -153,6 +153,17 @@ async def _redis_entries(redis, tree_id: str) -> list[PresenceEntry]:
 # ---------------------------------------------------------------------------
 
 
+def reset() -> None:
+    """Clear the in-process registry.
+
+    Called from lifespan startup and shutdown so the module-level store never
+    carries a roster over from a previous app instance in the same process
+    (relevant for tests, which construct the FastAPI app more than once). The
+    Redis backend needs no equivalent — its state lives in Redis, not here.
+    """
+    _store.clear()
+
+
 async def touch(tree_id: str, user_id: str, editing_member_id: str | None) -> None:
     """Record/refresh *user_id*'s presence in *tree_id*.  Never raises."""
     from app.db.redis import get_redis  # local import to avoid circular deps
