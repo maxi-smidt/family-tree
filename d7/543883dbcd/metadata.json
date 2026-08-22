@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "d7543883dbcd",
+  "strategy": "manual-commit",
+  "branch": "refactor/887-split-virtual-views",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/router.py",
+    "backend/app/api/routes/statistics.py",
+    "backend/app/api/routes/virtual_view_content.py",
+    "backend/app/api/routes/virtual_views.py",
+    "backend/app/services/statistics.py",
+    "backend/app/services/virtual_view_access.py",
+    "backend/app/services/virtual_view_composite.py",
+    "backend/app/services/virtual_view_config.py",
+    "backend/tests/test_virtual_view_composite.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/d7/543883dbcd/0/metadata.json",
+      "transcript": "/d7/543883dbcd/0/full.jsonl",
+      "compact_transcript": "/d7/543883dbcd/0/transcript.jsonl",
+      "content_hash": "/d7/543883dbcd/0/content_hash.txt",
+      "prompt": "/d7/543883dbcd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 140,
+    "cache_creation_tokens": 130631,
+    "cache_read_tokens": 8081078,
+    "output_tokens": 52471,
+    "api_call_count": 70
+  }
+}
