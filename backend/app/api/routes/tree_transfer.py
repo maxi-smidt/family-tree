@@ -7,7 +7,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_tree
-from app.api.routes.tree_sharing import list_access
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Tree, TreeMembership, User
@@ -15,6 +14,7 @@ from app.schemas.tree import TreeTransfer, TreeTransferResult
 from app.services import friendships
 from app.services.activity import record_activity
 from app.services.event_bus import publish_tree_event
+from app.services.tree_access import list_tree_access
 from app.services.tree_transfer import TRANSFER_UNDO_WINDOW_SECONDS, undo_deadline
 
 router = APIRouter(prefix="/trees", tags=["trees"])
@@ -100,7 +100,7 @@ def transfer_ownership(
         extra_user_ids=[old_owner_id],
     )
     return TreeTransferResult(
-        access=list_access(tree=tree, db=db),
+        access=list_tree_access(db, tree),
         undo_available_until=undo_deadline(tree.ownership_transferred_at),
     )
 
@@ -165,6 +165,6 @@ def revert_transfer(
         extra_user_ids=[reverted_from_owner_id],
     )
     return TreeTransferResult(
-        access=list_access(tree=tree, db=db),
+        access=list_tree_access(db, tree),
         undo_available_until=None,
     )

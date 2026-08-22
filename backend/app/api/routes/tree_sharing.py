@@ -22,6 +22,7 @@ from app.services import feature_service, friendships, notification_service
 from app.services.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
+from app.services.tree_access import list_tree_access
 from app.services.tree_links import reachable_linked_trees
 
 router = APIRouter(prefix="/trees", tags=["trees"])
@@ -34,23 +35,7 @@ def list_access(
     tree: Tree = Depends(get_readable_tree),
     db: Session = Depends(get_db),
 ):
-    owner = db.get(User, tree.owner_id)
-    result = [TreeMemberOut(user_id=owner.id, username=owner.username, role="owner")]
-    memberships = db.scalars(
-        select(TreeMembership).where(TreeMembership.tree_id == tree.id)
-    ).all()
-    for m in memberships:
-        member_user = db.get(User, m.user_id)
-        if member_user:
-            result.append(
-                TreeMemberOut(
-                    user_id=member_user.id,
-                    username=member_user.username,
-                    role=m.role,
-                    restrictions=list(m.restrictions or []),
-                )
-            )
-    return result
+    return list_tree_access(db, tree)
 
 
 @router.get("/{tree_id}/access/candidates", response_model=list[ShareCandidate])
