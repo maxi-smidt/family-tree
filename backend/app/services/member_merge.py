@@ -37,7 +37,7 @@ from app.schemas.merge import (
     MemberMergePreviewOut,
     MemberMergeTransferCounts,
 )
-from app.services.activity import SNAPSHOT_VERSION, member_delete_snapshot
+from app.services.activity.activity import SNAPSHOT_VERSION, member_delete_snapshot
 from app.services.member_clone import (
     CONFLICT_FIELDS,
     apply_field_choices,

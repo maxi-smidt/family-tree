@@ -20,7 +20,7 @@ from app.core.exceptions import (
 from app.models import Member, Tree
 from app.models.user import User
 from app.schemas.family import MemberUpdate
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.bridge import (
     sync_bridge_person,
     validate_linked_member,

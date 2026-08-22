@@ -1,7 +1,7 @@
 """Typed shapes for the activity-log delete-snapshot / undo-log payloads.
 
-Companion to ``app.services.activity`` (builds these) and
-``app.services.activity_undo`` (reads these). ``ActivityLog.details`` itself
+Companion to ``app.services.activity.activity`` (builds these) and
+``app.services.activity.activity_undo`` (reads these). ``ActivityLog.details`` itself
 stays an opaque ``Text``/JSON-encoded column — these ``TypedDict``s type the
 Python-side shape crossing the service boundary, nothing on the wire.
 

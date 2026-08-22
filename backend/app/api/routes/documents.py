@@ -44,7 +44,7 @@ from app.schemas.content import (
     DocumentUploadOut,
     LinksSet,
 )
-from app.services.activity import (
+from app.services.activity.activity import (
     document_delete_snapshot,
     document_file_delete_snapshot,
     record_activity,

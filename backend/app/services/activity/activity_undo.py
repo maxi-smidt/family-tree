@@ -1,6 +1,6 @@
 """Restore rows from an activity-log delete snapshot (issue #762).
 
-Companion to ``app.services.activity``: that module *records* delete
+Companion to ``app.services.activity.activity``: that module *records* delete
 snapshots, this one *consumes* them. Each ``restore_*`` function mirrors the
 matching ``*_delete_snapshot`` builder key-for-key, re-inserting the main row
 plus every child that still validates against the tree's current state, and
@@ -33,7 +33,7 @@ from app.models.content import (
 from app.models.family import Member, MemberDisease, Relation
 from app.models.tree import Tree
 from app.schemas.activity import UndoSkippedItem
-from app.services.activity_snapshots import (
+from app.services.activity.activity_snapshots import (
     DiseaseSnapshot,
     DocumentFileSnapshot,
     DocumentSnapshot,

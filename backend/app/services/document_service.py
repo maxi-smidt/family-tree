@@ -35,7 +35,7 @@ from app.db.base import utcnow_iso
 from app.models import Document, DocumentFile, DocumentMemberLink, DocumentUpload, Tree
 from app.models.user import User
 from app.schemas.content import DocumentSave
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.content_links import replace_member_links
 from app.services.document_save_plan import (
     DocumentSavePlan,

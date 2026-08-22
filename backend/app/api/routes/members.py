@@ -33,7 +33,7 @@ from app.schemas.family import (
     RelationOut,
 )
 from app.schemas.merge import MemberMergePreviewOut, MemberMergeRequest
-from app.services.activity import member_delete_snapshot, record_activity
+from app.services.activity.activity import member_delete_snapshot, record_activity
 from app.services.bridge import sync_bridge_person
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
