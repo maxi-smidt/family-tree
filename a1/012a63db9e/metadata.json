@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "a1012a63db9e",
+  "strategy": "manual-commit",
+  "branch": "fix/897-unit-of-work",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/events.py",
+    "backend/app/api/routes/stories.py",
+    "backend/app/services/unit_of_work.py",
+    "backend/tests/test_unit_of_work.py",
+    "docs/AGENTS.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/a1/012a63db9e/0/metadata.json",
+      "transcript": "/a1/012a63db9e/0/full.jsonl",
+      "compact_transcript": "/a1/012a63db9e/0/transcript.jsonl",
+      "content_hash": "/a1/012a63db9e/0/content_hash.txt",
+      "prompt": "/a1/012a63db9e/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 170,
+    "cache_creation_tokens": 118135,
+    "cache_read_tokens": 8276423,
+    "output_tokens": 38423,
+    "api_call_count": 85
+  }
+}
