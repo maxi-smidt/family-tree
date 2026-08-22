@@ -49,9 +49,16 @@ class PresenceEntry(TypedDict):
     editing_member_id: str | None
 
 
-# In-process store: tree_id -> user_id -> {"last_seen": float, "editing": str|None}.
+class _PresenceRecord(TypedDict):
+    """One user's raw bookkeeping record in the in-process store."""
+
+    last_seen: float
+    editing: str | None
+
+
+# In-process store: tree_id -> user_id -> presence record.
 # Only ever touched from the event-loop thread, so no lock is needed.
-_store: dict[str, dict[str, dict]] = {}
+_store: dict[str, dict[str, _PresenceRecord]] = {}
 
 
 def _now() -> float:

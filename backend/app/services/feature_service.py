@@ -24,6 +24,8 @@ Adding a flag for a new feature:
 4. add ``admin.features.names.<name>`` (+ description) to every locale.
 """
 
+from typing import cast
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -88,7 +90,9 @@ def get_state(db: Session, feature: str) -> FeatureState:
     default = FEATURES[feature]
     value = get_setting(db, _setting_key(feature))
     if value in _VALID_STATES:
-        return value  # type: ignore[return-value]
+        # _VALID_STATES mirrors FeatureState's literal members, but a plain
+        # `set[str]` membership check doesn't narrow the type for us.
+        return cast(FeatureState, value)
     return default
 
 

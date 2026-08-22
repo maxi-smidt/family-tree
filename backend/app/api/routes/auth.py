@@ -72,8 +72,8 @@ def _current_user_out(db: Session, user: User) -> CurrentUserOut:
     user_mode = StoredUserPreferences.model_validate(
         user.preferences or {}
     ).image_storage_mode
-    out.image_storage_allowed_modes = list(limits.image_storage_allowed_modes)  # type: ignore[assignment]
-    out.image_storage_mode = effective_storage_mode(  # type: ignore[assignment]
+    out.image_storage_allowed_modes = list(limits.image_storage_allowed_modes)
+    out.image_storage_mode = effective_storage_mode(
         limits.image_storage_mode, limits.image_storage_allowed_modes, user_mode
     )
     out.legal_acceptance_required = get_bool_setting(

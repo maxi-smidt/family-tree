@@ -39,12 +39,14 @@ class CurrentUserOut(UserOut):
     since another user's feature set would be misleading there.
     """
 
-    features: list[str] = []
+    features: list[str] = Field(default_factory=list)
     totp_enabled: bool = False
     # Effective storage mode (user preference or admin default) and the
     # admin-allowed set so the frontend can filter available options.
     image_storage_mode: ImageStorageMode = "compressed"
-    image_storage_allowed_modes: list[ImageStorageMode] = ["compressed"]
+    image_storage_allowed_modes: list[ImageStorageMode] = Field(
+        default_factory=lambda: ["compressed"]
+    )
     # Legal Terms/Privacy/Impressum acceptance gate state, resolved server-side
     # so the frontend can show the blocking gate immediately on login/`/me`.
     legal_acceptance_required: bool = True

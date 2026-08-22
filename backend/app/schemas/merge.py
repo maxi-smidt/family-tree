@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.family import MemberOut
 
@@ -46,7 +46,7 @@ class MergeResolution(BaseModel):
     member_a_id: str
     member_b_id: str
     action: Literal["merge", "keep_both"] = "merge"
-    fields: dict[str, FieldChoice] = {}
+    fields: dict[str, FieldChoice] = Field(default_factory=dict)
 
 
 # --- In-place, same-tree member merge (#729) --------------------------------
@@ -71,4 +71,4 @@ class MemberMergePreviewOut(BaseModel):
 class MemberMergeRequest(BaseModel):
     keep_id: str
     remove_id: str
-    fields: dict[str, FieldChoice] = {}
+    fields: dict[str, FieldChoice] = Field(default_factory=dict)

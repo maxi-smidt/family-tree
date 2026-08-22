@@ -19,6 +19,7 @@ from app.core.media_config import (
     DEFAULT_TREE_QUOTA_MB,
     MEBIBYTE,
 )
+from app.db.base import Base
 from app.models.content import (
     Document,
     DocumentFile,
@@ -64,7 +65,7 @@ class MediaQuotaWarning(TypedDict):
 # Usage calculation
 # ---------------------------------------------------------------------------
 
-def _row_bytes(obj: object) -> int:
+def _row_bytes(obj: Base) -> int:
     """Estimate the byte footprint of a single ORM row.
 
     Sums ``len(str(value).encode())`` for every non-None persisted column value.
@@ -74,7 +75,7 @@ def _row_bytes(obj: object) -> int:
     representation, not the DB-serialised form). It stays consistent after
     deletes because it is recomputed from the live rows on every read.
     """
-    mapper = sa.inspect(type(obj)).mapper  # type: ignore[arg-type]
+    mapper = sa.inspect(type(obj)).mapper
     total = 0
     for col in mapper.columns:
         value = getattr(obj, col.key, None)

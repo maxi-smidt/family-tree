@@ -312,7 +312,7 @@ async def import_tree_gedcom(
     tree_name = (
         name
         or filename_stem
-        or parsed.get("_head_file")  # type: ignore[arg-type]
+        or parsed.get("_head_file")
         or "Imported tree"
     )
 

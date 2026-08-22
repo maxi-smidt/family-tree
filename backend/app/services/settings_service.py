@@ -30,7 +30,7 @@ from app.core.media_config import (
     STORED_IMAGE_WIDTH,
 )
 from app.models import AppSetting, LegalAcceptance, LegalDocumentVersion, User
-from app.schemas.setting import MediaLimits, SettingsOut, SettingsUpdate
+from app.schemas.setting import ImageStorageMode, MediaLimits, SettingsOut, SettingsUpdate
 from app.services.admin_audit import record_admin_audit
 from app.services.admin_audit_details import SettingsChanges
 from app.services.legal_defaults import (
@@ -87,8 +87,10 @@ DEFAULT_BACKUP_RETENTION_COUNT = 7
 
 
 def effective_storage_mode(
-    admin_default: str, allowed_modes: list[str], user_mode: str | None
-) -> str:
+    admin_default: ImageStorageMode,
+    allowed_modes: list[ImageStorageMode],
+    user_mode: ImageStorageMode | None,
+) -> ImageStorageMode:
     """Return the mode for a user: their preference if allowed, else the admin default."""
     if user_mode and user_mode in allowed_modes:
         return user_mode
@@ -268,8 +270,12 @@ def get_media_limits(db: Session) -> MediaLimits:
         max_document_bytes=max_document_upload_mb * MEBIBYTE,
         stored_image_width=STORED_IMAGE_WIDTH,
         stored_image_height=STORED_IMAGE_HEIGHT,
-        image_storage_mode=image_storage_mode,  # type: ignore[arg-type]
-        image_storage_allowed_modes=image_storage_allowed_modes,  # type: ignore[arg-type]
+        # Validated against IMAGE_STORAGE_MODES above; the membership checks
+        # don't narrow the str/list[str] type the DB setting was read as.
+        image_storage_mode=cast(ImageStorageMode, image_storage_mode),
+        image_storage_allowed_modes=cast(
+            list[ImageStorageMode], image_storage_allowed_modes
+        ),
     )
 
 

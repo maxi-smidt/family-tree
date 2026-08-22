@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any, Concatenate
+from typing import Concatenate
+
+from sqlalchemy.orm import Session
 
 from app.core.exceptions import DomainError
 from app.db.base import utcnow_iso
@@ -30,7 +32,7 @@ logger = logging.getLogger(__name__)
 ProgressCallback = Callable[[int], None]
 
 
-def create_job(db: Any, user_id: str, job_type: str) -> BackgroundJob:
+def create_job(db: Session, user_id: str, job_type: str) -> BackgroundJob:
     """Create a BackgroundJob in the request's DB session and commit it."""
     job = BackgroundJob(user_id=user_id, type=job_type)
     db.add(job)
