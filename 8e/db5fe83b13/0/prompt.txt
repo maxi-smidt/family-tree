@@ -1,0 +1,9 @@
+i am wondering if that really needs an entry in the AGENTS.md as this will be done once and is then over. doesnt it make more sense to create an epic with subissues and then its over?
+
+---
+
+yes
+
+---
+
+do #958. Keep the changes minimal and only comment where really necessary. Follow coding best practices. For each sub issue: Implement in fresh branch from origin/main and create PR; if they are depending on each other base from each other
