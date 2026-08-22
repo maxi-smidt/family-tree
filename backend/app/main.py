@@ -21,6 +21,7 @@ from app.core.logging_config import setup_logging
 from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
+from app.services import presence_service
 from app.services.authentik import init_oauth
 from app.services.backup_scheduler import backup_schedule_loop
 from app.services.deletion_sweeper import deletion_sweep_loop
@@ -94,11 +95,21 @@ async def lifespan(app: FastAPI):
             await sweeper
         with contextlib.suppress(asyncio.CancelledError):
             await backup_scheduler
-        # Stop the Redis listener before closing the client.
+        # Stop the Redis listener before closing the client. This must run
+        # before event_bus.reset() below — it's what cancels and awaits the
+        # listener task and closes the pubsub connection; reset() only clears
+        # already-quiesced references, it does not tear anything down itself.
         if settings.redis_enabled:
             await event_bus.stop_redis_listener()
         await close_redis()
         runtime.set_loop(None)
+        # Drop subscriber/loop state so a subsequent lifespan in this same
+        # process (tests build the FastAPI app more than once) starts clean.
+        # Deliberately not done on startup: this app instance's shutdown is
+        # what guarantees the state is quiescent, not the next instance's
+        # startup — resetting on startup would race an overlapping shutdown.
+        event_bus.reset()
+        presence_service.reset()
 
 
 app = FastAPI(title=settings.APP_NAME, version=settings.APP_VERSION, lifespan=lifespan)
