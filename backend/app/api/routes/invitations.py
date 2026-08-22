@@ -22,13 +22,13 @@ from app.schemas.tree import (
     InvitationOut,
     InvitationPreview,
 )
-from app.services import notification_service
-from app.services.event_bus import event_bus
-from app.services.invitations import (
+from app.services.collaboration import notification_service
+from app.services.collaboration.invitations import (
     accept_invitation,
     invitation_status,
     is_invitation_valid,
 )
+from app.services.event_bus import event_bus
 
 router = APIRouter(tags=["invitations"])
 

@@ -3,7 +3,7 @@ retention, and feature gating."""
 
 from app.models import Notification
 from app.schemas.notification import FriendRequestReceivedPayload
-from app.services import notification_service
+from app.services.collaboration import notification_service
 from app.services.system import feature_service
 from tests.conftest import API, auth, befriend, make_tree, make_user, share
 

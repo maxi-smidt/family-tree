@@ -18,8 +18,8 @@ from app.schemas.tree import (
     TreeShare,
     TreeShareBatch,
 )
-from app.services import friendships, notification_service
 from app.services.activity.activity import record_activity
+from app.services.collaboration import friendships, notification_service
 from app.services.event_bus import publish_tree_event
 from app.services.system import feature_service
 from app.services.system.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
