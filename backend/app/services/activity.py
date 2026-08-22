@@ -41,14 +41,23 @@ from app.models.content import (
 from app.models.family import Member, MemberDisease, Relation
 from app.models.user import User
 from app.services.activity_snapshots import (
+    BridgeSnapshot,
     DiseaseDeleteSnapshot,
+    DiseaseSnapshot,
     DocumentDeleteSnapshot,
     DocumentFileDeleteSnapshot,
+    DocumentFileSnapshot,
+    DocumentSnapshot,
     EventDeleteSnapshot,
+    EventSnapshot,
     GalleryImageDeleteSnapshot,
+    GalleryImageSnapshot,
     MemberDeleteSnapshot,
+    MemberSnapshot,
     RelationDeleteSnapshot,
+    RelationSnapshot,
     StoryDeleteSnapshot,
+    StorySnapshot,
 )
 
 # Version of the delete-snapshot payload shape stored in ``details``
@@ -65,11 +74,6 @@ def row_to_dict(obj: Base) -> dict:
     bool / None, which ``json.dumps`` handles directly.
     """
     return {attr.key: getattr(obj, attr.key) for attr in inspect(obj).mapper.column_attrs}
-
-
-def delete_snapshot(**tables: object) -> dict:
-    """Wrap per-table pre-image data into the versioned delete payload."""
-    return {"snapshot": {"version": SNAPSHOT_VERSION, **tables}}
 
 
 def member_delete_snapshot(
@@ -97,26 +101,40 @@ def member_delete_snapshot(
     diseases = db.scalars(
         select(MemberDisease).where(MemberDisease.member_id == member.id)
     ).all()
-    tables: dict[str, object] = {
+    task_links = db.scalars(
+        select(MemberTaskLink).where(MemberTaskLink.member_id == member.id)
+    ).all()
+    event_links = db.scalars(
+        select(EventMemberLink).where(EventMemberLink.member_id == member.id)
+    ).all()
+    story_links = db.scalars(
+        select(StoryMemberLink).where(StoryMemberLink.member_id == member.id)
+    ).all()
+    gallery_links = db.scalars(
+        select(GalleryMemberLink).where(GalleryMemberLink.member_id == member.id)
+    ).all()
+    document_links = db.scalars(
+        select(DocumentMemberLink).where(DocumentMemberLink.member_id == member.id)
+    ).all()
+
+    snapshot: MemberSnapshot = {
+        "version": SNAPSHOT_VERSION,
         "member": row_to_dict(member),
         "relations": [row_to_dict(r) for r in relations],
         "diseases": [row_to_dict(d) for d in diseases],
+        "task_links": [row_to_dict(r) for r in task_links],
+        "event_links": [row_to_dict(r) for r in event_links],
+        "story_links": [row_to_dict(r) for r in story_links],
+        "gallery_links": [row_to_dict(r) for r in gallery_links],
+        "document_links": [row_to_dict(r) for r in document_links],
     }
-    for key, model in (
-        ("task_links", MemberTaskLink),
-        ("event_links", EventMemberLink),
-        ("story_links", StoryMemberLink),
-        ("gallery_links", GalleryMemberLink),
-        ("document_links", DocumentMemberLink),
-    ):
-        rows = db.scalars(select(model).where(model.member_id == member.id)).all()
-        tables[key] = [row_to_dict(r) for r in rows]
     if counterpart is not None:
-        tables["bridge"] = {
+        bridge: BridgeSnapshot = {
             "counterpart_member_id": counterpart.id,
             "counterpart_tree_id": counterpart.tree_id,
         }
-    return delete_snapshot(**tables)
+        snapshot["bridge"] = bridge
+    return {"snapshot": snapshot}
 
 
 def event_delete_snapshot(db: Session, event: Event) -> EventDeleteSnapshot:
@@ -132,11 +150,13 @@ def event_delete_snapshot(db: Session, event: Event) -> EventDeleteSnapshot:
     document_links = db.scalars(
         select(EventDocumentLink).where(EventDocumentLink.event_id == event.id)
     ).all()
-    return delete_snapshot(
-        event=row_to_dict(event),
-        member_links=[row_to_dict(r) for r in member_links],
-        document_links=[row_to_dict(r) for r in document_links],
-    )
+    snapshot: EventSnapshot = {
+        "version": SNAPSHOT_VERSION,
+        "event": row_to_dict(event),
+        "member_links": [row_to_dict(r) for r in member_links],
+        "document_links": [row_to_dict(r) for r in document_links],
+    }
+    return {"snapshot": snapshot}
 
 
 def story_delete_snapshot(db: Session, story: Story) -> StoryDeleteSnapshot:
@@ -151,11 +171,13 @@ def story_delete_snapshot(db: Session, story: Story) -> StoryDeleteSnapshot:
     document_links = db.scalars(
         select(StoryDocumentLink).where(StoryDocumentLink.story_id == story.id)
     ).all()
-    return delete_snapshot(
-        story=row_to_dict(story),
-        member_links=[row_to_dict(r) for r in member_links],
-        document_links=[row_to_dict(r) for r in document_links],
-    )
+    snapshot: StorySnapshot = {
+        "version": SNAPSHOT_VERSION,
+        "story": row_to_dict(story),
+        "member_links": [row_to_dict(r) for r in member_links],
+        "document_links": [row_to_dict(r) for r in document_links],
+    }
+    return {"snapshot": snapshot}
 
 
 def gallery_delete_snapshot(
@@ -173,11 +195,13 @@ def gallery_delete_snapshot(
     member_links = db.scalars(
         select(GalleryMemberLink).where(GalleryMemberLink.gallery_image_id == image.id)
     ).all()
-    return delete_snapshot(
-        gallery_image=row_to_dict(image),
-        member_links=[row_to_dict(r) for r in member_links],
-        trashed_media=[image.image_data] if image.image_data else [],
-    )
+    snapshot: GalleryImageSnapshot = {
+        "version": SNAPSHOT_VERSION,
+        "gallery_image": row_to_dict(image),
+        "member_links": [row_to_dict(r) for r in member_links],
+        "trashed_media": [image.image_data] if image.image_data else [],
+    }
+    return {"snapshot": snapshot}
 
 
 def document_delete_snapshot(db: Session, document: Document) -> DocumentDeleteSnapshot:
@@ -198,24 +222,34 @@ def document_delete_snapshot(db: Session, document: Document) -> DocumentDeleteS
     story_links = db.scalars(
         select(StoryDocumentLink).where(StoryDocumentLink.document_id == document.id)
     ).all()
-    return delete_snapshot(
-        document=row_to_dict(document),
-        files=[row_to_dict(f) for f in files],
-        member_links=[row_to_dict(r) for r in member_links],
-        event_links=[row_to_dict(r) for r in event_links],
-        story_links=[row_to_dict(r) for r in story_links],
-        trashed_media=[f.url for f in files if f.kind == "file"],
-    )
+    snapshot: DocumentSnapshot = {
+        "version": SNAPSHOT_VERSION,
+        "document": row_to_dict(document),
+        "files": [row_to_dict(f) for f in files],
+        "member_links": [row_to_dict(r) for r in member_links],
+        "event_links": [row_to_dict(r) for r in event_links],
+        "story_links": [row_to_dict(r) for r in story_links],
+        "trashed_media": [f.url for f in files if f.kind == "file"],
+    }
+    return {"snapshot": snapshot}
 
 
 def relation_delete_snapshot(relation: Relation) -> RelationDeleteSnapshot:
     """Pre-image of a bare relation delete (no cascade children)."""
-    return delete_snapshot(relation=row_to_dict(relation))
+    snapshot: RelationSnapshot = {
+        "version": SNAPSHOT_VERSION,
+        "relation": row_to_dict(relation),
+    }
+    return {"snapshot": snapshot}
 
 
 def disease_delete_snapshot(disease: MemberDisease) -> DiseaseDeleteSnapshot:
     """Pre-image of a bare disease-record delete (no cascade children)."""
-    return delete_snapshot(disease=row_to_dict(disease))
+    snapshot: DiseaseSnapshot = {
+        "version": SNAPSHOT_VERSION,
+        "disease": row_to_dict(disease),
+    }
+    return {"snapshot": snapshot}
 
 
 def document_file_delete_snapshot(
@@ -226,10 +260,12 @@ def document_file_delete_snapshot(
     ``trashed_url`` is the file's media URL when it was moved to trash
     (``kind == "file"``); link-kind attachments have no backing file.
     """
-    return delete_snapshot(
-        document_file=row_to_dict(file),
-        trashed_media=[trashed_url] if trashed_url else [],
-    )
+    snapshot: DocumentFileSnapshot = {
+        "version": SNAPSHOT_VERSION,
+        "document_file": row_to_dict(file),
+        "trashed_media": [trashed_url] if trashed_url else [],
+    }
+    return {"snapshot": snapshot}
 
 
 def record_activity(
