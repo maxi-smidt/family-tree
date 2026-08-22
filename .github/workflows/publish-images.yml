@@ -174,7 +174,7 @@ jobs:
       # `gh attestation verify` works against the published tag later.
       - name: "Attest build provenance"
         if: inputs.push
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-name: ghcr.io/${{ github.repository }}-${{ matrix.service }}
           subject-digest: ${{ steps.push.outputs.digest }}
@@ -192,9 +192,14 @@ jobs:
       # actions/attest-sbom is deprecated in favor of the generic
       # actions/attest action with sbom-path set (same predicate, no
       # deprecation warning on every release run).
+      #
+      # Must be @v4 — `sbom-path` was introduced in v4.0.0. On v3 the input is
+      # silently ignored ("Unexpected input(s) 'sbom-path'"), the action falls
+      # through to custom-predicate mode, and fails with "predicate-type must
+      # be provided".
       - name: "Attest SBOM"
         if: inputs.push
-        uses: actions/attest@v3
+        uses: actions/attest@v4
         with:
           subject-name: ghcr.io/${{ github.repository }}-${{ matrix.service }}
           subject-digest: ${{ steps.push.outputs.digest }}
