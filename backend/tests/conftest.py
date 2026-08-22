@@ -31,7 +31,7 @@ from app.models import (
     TreeMembership,
     User,
 )
-from app.services.settings_service import DEFAULT_LEGAL_VERSION, get_setting
+from app.services.system.settings_service import DEFAULT_LEGAL_VERSION, get_setting
 
 # The dev .env uses a short key; patch before any JWT operation so
 # PyJWT's InsecureKeyLengthWarning (RFC 7518 §3.2, 32-byte minimum) is silent.
@@ -81,7 +81,7 @@ def db(session_factory) -> Session:
 def patch_background_session(session_factory, monkeypatch):
     """Background tasks create their own SessionLocal; redirect to the test DB."""
     import app.api.routes.tree_jobs as _tree_jobs_routes
-    import app.services.job_service as _job_svc
+    import app.services.system.job_service as _job_svc
     import app.services.tree_bundle_import as _bundle_import
     import app.services.tree_gedcom_import as _gedcom_import
 

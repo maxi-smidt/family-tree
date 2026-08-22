@@ -9,9 +9,9 @@ from app.models import Tree
 from app.models.user import User
 from app.schemas.family import MemberOut, MemberSubtreeCreate
 from app.schemas.tree import MemberSubtreeOut, TreeOut
-from app.services import feature_service
 from app.services.member_access import get_member
 from app.services.member_subtrees import create_linked_subtree
+from app.services.system import feature_service
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 

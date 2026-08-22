@@ -21,7 +21,7 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
-from app.services import feature_service
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 # Minimal 1x1 PNG streamed as a multipart gallery upload.

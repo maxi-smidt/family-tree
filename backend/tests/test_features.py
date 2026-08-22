@@ -1,6 +1,6 @@
 """Tests for admin feature flags (issue #211): resolution, admin API, gating."""
 
-from app.services import feature_service
+from app.services.system import feature_service
 from tests.conftest import API, auth, make_tree, make_user
 
 # ---------------------------------------------------------------------------
@@ -53,7 +53,7 @@ def test_on_and_off_ignore_the_allowlist(db):
 
 def test_invalid_stored_state_falls_back_to_default(db):
     user = make_user(db, "alice")
-    from app.services.settings_service import set_setting
+    from app.services.system.settings_service import set_setting
 
     set_setting(db, "feature.gallery", "garbage")
     db.commit()

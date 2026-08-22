@@ -45,14 +45,6 @@ from app.schemas.user import (
     UserOut,
     UserProfileUpdate,
 )
-from app.services import feature_service
-from app.services.admin_audit import record_admin_audit
-from app.services.settings_service import (
-    effective_storage_mode,
-    get_bool_setting,
-    get_media_limits,
-    user_has_accepted_legal,
-)
 from app.services.storage import (
     ImageTooLarge,
     UnsupportedImageType,
@@ -60,7 +52,15 @@ from app.services.storage import (
     profile_image_path,
     store_profile_image_upload,
 )
-from app.services.user_deletion import schedule_deletion
+from app.services.system import feature_service
+from app.services.system.admin_audit import record_admin_audit
+from app.services.system.settings_service import (
+    effective_storage_mode,
+    get_bool_setting,
+    get_media_limits,
+    user_has_accepted_legal,
+)
+from app.services.system.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

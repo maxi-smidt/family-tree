@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 
 from app.models import AppSetting, FeatureFlagOverride, User
 from app.schemas.setting import FeatureFlagOut, FeatureState
-from app.services.settings_service import get_setting, set_setting
+from app.services.system.settings_service import get_setting, set_setting
 
 # Registry: flag name -> default state when no app_settings row exists.
 # Core member/tree CRUD is intentionally not flaggable.

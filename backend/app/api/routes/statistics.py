@@ -27,7 +27,6 @@ from app.schemas.statistics import (
     WidgetDimensionId,
     WidgetMeasureId,
 )
-from app.services import feature_service
 from app.services.cache import (
     STATS_TTL_SECONDS,
     cache_get_json,
@@ -37,6 +36,7 @@ from app.services.cache import (
 from app.services.statistics import AGE_BUCKETS, compute_statistics
 from app.services.statistics import decade_label as _decade_label
 from app.services.statistics import extract_year as _extract_year
+from app.services.system import feature_service
 from app.services.tree_links import reachable_linked_trees
 
 router = APIRouter(

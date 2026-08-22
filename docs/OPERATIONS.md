@@ -55,7 +55,7 @@ and empty `${DATA_PATH}/media` volume:
 
 ```bash
 cd backend
-uv run python -m app.services.restore_backup /secure/backup.ftbackup
+uv run python -m app.services.system.backups.restore_backup /secure/backup.ftbackup
 ```
 
 The command verifies the manifest, row counts, and media hashes before it
@@ -64,7 +64,7 @@ recovery into an existing instance, stop the stack, make an independent copy
 first, then pass the explicit destructive flag:
 
 ```bash
-uv run python -m app.services.restore_backup --replace /secure/backup.ftbackup
+uv run python -m app.services.system.backups.restore_backup --replace /secure/backup.ftbackup
 ```
 
 After the command reports completion, start the stack and verify that users can

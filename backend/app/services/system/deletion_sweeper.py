@@ -20,7 +20,7 @@ from app.db.advisory_lock import single_leader
 from app.db.session import SessionLocal
 from app.services.event_bus import admin_user_ids, event_bus
 from app.services.storage import MEDIA_TRASH_TTL_SECONDS, purge_expired_media_trash
-from app.services.user_purge import purge_due_users
+from app.services.system.user_purge import purge_due_users
 
 logger = logging.getLogger("app.deletion_sweeper")
 

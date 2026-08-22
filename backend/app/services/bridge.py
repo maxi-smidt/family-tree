@@ -14,8 +14,8 @@ from app.core.exceptions import AccessDeniedError, InvalidInputError, NotFoundEr
 from app.models.family import Member
 from app.models.tree import Tree
 from app.models.user import User
-from app.services import feature_service
 from app.services.storage import copy_media_to_tree
+from app.services.system import feature_service
 from app.services.tree_roles import role_for
 
 # Person-level fields mirrored between the two rows of a bridge person.

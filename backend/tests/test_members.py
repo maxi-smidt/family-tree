@@ -1,5 +1,5 @@
 from app.models import Event, EventMemberLink, Relation
-from app.services import feature_service
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user
 
 
@@ -997,7 +997,7 @@ def test_link_endpoint_rejects_self_as_counterpart(client, db):
 
 
 def test_link_endpoint_404_when_feature_off(client, db):
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
@@ -1183,7 +1183,7 @@ def test_deleting_origin_unlinks_bridge_in_subtree(client, db):
 def test_edit_member_with_unchanged_link_succeeds_when_flag_off(client, db):
     """The member form re-sends linkedTreeId unchanged on every save; once the
     tree_links flag is turned off that must not block ordinary edits."""
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
@@ -1266,7 +1266,7 @@ def test_bridge_person_edits_sync_to_counterpart(client, db):
 
 
 def test_bridge_person_sync_skipped_when_flag_off(client, db):
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
@@ -1446,7 +1446,7 @@ def test_link_candidates_requires_write_access_to_target(client, db):
 
 
 def test_link_candidates_404_when_feature_off(client, db):
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")

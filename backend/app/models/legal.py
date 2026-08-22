@@ -12,7 +12,7 @@ class LegalAcceptance(Base):
     survives a later user purge even though ``user_id`` is nulled out by the
     FK's ``ON DELETE SET NULL``. ``locale`` records which language the user
     was actually viewing/accepting (``LEGAL_LOCALES`` in
-    ``app.services.legal_defaults``); it does not affect re-acceptance gating,
+    ``app.services.system.legal_defaults``); it does not affect re-acceptance gating,
     which is version-only. ``terms_hash``/``privacy_hash`` pin the acceptance
     to the exact document text in that locale (see ``LegalDocumentVersion``)
     so it survives later edits to the live ``AppSetting`` body, even when the
@@ -43,7 +43,7 @@ class LegalDocumentVersion(Base):
     A new row is inserted whenever the body for a ``(document_type, locale)``
     pair changes (detected via ``content_hash``), whether or not the
     admin-facing ``legal_version`` string was bumped. Documents are
-    per-locale (``LEGAL_LOCALES`` in ``app.services.legal_defaults``; German
+    per-locale (``LEGAL_LOCALES`` in ``app.services.system.legal_defaults``; German
     ``de`` is the authoritative/default locale, English ``en`` a secondary
     translation). This lets a recorded acceptance
     (``LegalAcceptance.terms_hash``/``privacy_hash``) always resolve back to

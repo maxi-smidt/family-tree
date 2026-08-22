@@ -6,13 +6,13 @@ import pytest
 
 from app.core.exceptions import AccessDeniedError, InvalidInputError, NotFoundError
 from app.models import Event, EventMemberLink, TreeMembership
-from app.services import feature_service
 from app.services.bridge import (
     sync_bridge_person,
     validate_linked_member,
     validate_linked_tree,
 )
 from app.services.member_vitals import event_updates_allowed, sync_vital_event
+from app.services.system import feature_service
 from tests.conftest import add_member, make_tree, make_user, share
 
 

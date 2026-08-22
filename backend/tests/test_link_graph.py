@@ -1,6 +1,6 @@
 """Tests for GET /trees/{tree_id}/link-graph (issue #536)."""
 
-from app.services import feature_service
+from app.services.system import feature_service
 from app.services.tree_links import compute_link_graph
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 

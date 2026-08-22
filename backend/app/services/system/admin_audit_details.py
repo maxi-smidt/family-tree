@@ -1,7 +1,7 @@
 """Typed shapes for ``AdminAuditLog.details`` payloads.
 
 These ``TypedDict``s type the JSON objects written by
-``app.services.admin_audit.record_admin_audit`` and its call sites. They are
+``app.services.system.admin_audit.record_admin_audit`` and its call sites. They are
 plain ``dict``s at runtime, so the stored JSON and CSV export remain unchanged.
 """
 

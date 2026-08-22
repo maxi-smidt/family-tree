@@ -25,8 +25,8 @@ from app.models import (
     VirtualViewSource,
     VirtualViewUserState,
 )
-from app.services import backup_service
 from app.services.crypto_export import decrypt_bundle, encrypt_bundle
+from app.services.system.backups import backup_service
 from tests.conftest import add_member, make_tree, make_user
 
 

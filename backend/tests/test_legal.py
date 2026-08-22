@@ -19,8 +19,8 @@ import pytest
 
 from app.models import AdminAuditLog, LegalAcceptance, LegalDocumentVersion
 from app.schemas.setting import SettingsUpdate
-from app.services import settings_service
-from app.services.settings_service import (
+from app.services.system import settings_service
+from app.services.system.settings_service import (
     content_hash,
     ensure_defaults,
     get_setting,
@@ -486,7 +486,7 @@ def test_accept_legal_snapshots_even_without_prior_ensure_defaults(client, db):
     alice = make_user(db, "alice", legal_accepted=False)
     # Seed the bodies the way ensure_defaults() would, but skip calling it,
     # to simulate accept being the first thing to touch the version table.
-    from app.services.settings_service import DEFAULTS, set_setting
+    from app.services.system.settings_service import DEFAULTS, set_setting
 
     legal_keys = (
         "legal_terms_body_de",

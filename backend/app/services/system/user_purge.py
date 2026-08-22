@@ -17,8 +17,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import Tree, User
-from app.services.admin_audit import record_admin_audit
 from app.services.storage import delete_tree_media, delete_user_profile_media
+from app.services.system.admin_audit import record_admin_audit
 
 logger = logging.getLogger("app.user_purge")
 

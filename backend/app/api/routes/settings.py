@@ -7,7 +7,7 @@ from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models import User
 from app.schemas.setting import SettingsOut, SettingsUpdate
-from app.services import settings_service
+from app.services.system import settings_service
 
 router = APIRouter(
     prefix="/settings", tags=["settings"], dependencies=[Depends(require_admin)]

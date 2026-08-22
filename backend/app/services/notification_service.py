@@ -21,9 +21,9 @@ from app.schemas.notification import (
     TreeSharedPayload,
     TreeUnsharedPayload,
 )
-from app.services import feature_service
 from app.services.event_bus import event_bus
 from app.services.event_payloads import NotificationCreatedData
+from app.services.system import feature_service
 
 logger = logging.getLogger(__name__)
 

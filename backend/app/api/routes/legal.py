@@ -28,8 +28,8 @@ from app.schemas.legal import (
     LegalDocumentVersionSummary,
     LegalPublicDocuments,
 )
-from app.services.legal_defaults import LEGAL_DEFAULT_LOCALE, LEGAL_LOCALES
-from app.services.settings_service import (
+from app.services.system.legal_defaults import LEGAL_DEFAULT_LOCALE, LEGAL_LOCALES
+from app.services.system.settings_service import (
     DEFAULT_LEGAL_VERSION,
     content_hash,
     get_legal_body,

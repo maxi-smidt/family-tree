@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import settings
 from app.services.storage_usage import compute_owner_usage
-from app.services.user_purge import purge_user
+from app.services.system.user_purge import purge_user
 from tests.conftest import API, auth, befriend, make_user
 
 _PNG_BYTES = base64.b64decode(

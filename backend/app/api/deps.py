@@ -68,7 +68,7 @@ def require_feature(feature: str):
     surface has to disappear too. Flags apply to admins like everyone else;
     admins can flip the flag via the admin API instead.
     """
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     if feature not in feature_service.FEATURES:  # fail fast on typos at import
         raise ValueError(f"Unknown feature flag: {feature}")
@@ -90,7 +90,7 @@ def require_domain(domain: str):
     indistinguishable from disabled features. Owners, admins, and public
     viewers have no membership row and always pass.
     """
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     if domain not in feature_service.RESTRICTABLE_DOMAINS:
         raise ValueError(f"Unknown restrictable domain: {domain}")
@@ -216,7 +216,7 @@ def get_writable_tree(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Tree:
-    from app.services.settings_service import user_has_accepted_legal
+    from app.services.system.settings_service import user_has_accepted_legal
 
     if not user_has_accepted_legal(db, user):
         raise HTTPException(

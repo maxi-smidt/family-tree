@@ -43,10 +43,10 @@ from app.services.activity.activity import record_activity
 from app.services.bundle_types import TreeBundleV4
 from app.services.event_bus import publish_tree_event
 from app.services.genealogy_date import sort_key as _sort_key
-from app.services.job_service import ProgressCallback
-from app.services.settings_service import get_media_limits
 from app.services.storage import delete_tree_media, process_image_field, store_document
 from app.services.storage_usage import check_full_usage_quota
+from app.services.system.job_service import ProgressCallback
+from app.services.system.settings_service import get_media_limits
 from app.services.tree_state import mark_tree_opened
 
 # Number of rows to write per bulk-insert batch.

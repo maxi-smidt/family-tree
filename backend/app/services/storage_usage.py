@@ -38,8 +38,8 @@ from app.models.content import (
 )
 from app.models.family import Member, MemberDisease, Relation
 from app.models.tree import Tree
-from app.services.settings_service import get_int_setting
 from app.services.storage import MEDIA_TRASH_DIR_NAME
+from app.services.system.settings_service import get_int_setting
 
 
 class UsageBreakdown(TypedDict):

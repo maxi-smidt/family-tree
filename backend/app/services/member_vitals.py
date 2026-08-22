@@ -15,7 +15,7 @@ from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
 from app.models import Event, EventMemberLink, Member, Relation, Tree, TreeMembership
 from app.models.user import User
-from app.services import feature_service
+from app.services.system import feature_service
 
 
 def event_updates_allowed(db: Session, tree: Tree, user: User) -> bool:
