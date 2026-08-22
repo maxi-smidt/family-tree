@@ -23,7 +23,7 @@ as `viewer` or `editor`.
 frontend/   React + TypeScript + Vite SPA — Shadcn UI + Tailwind, React Flow, Zustand (own Dockerfile + nginx.conf)
 backend/    FastAPI service — SQLAlchemy 2.0 + Alembic, managed with uv (own Dockerfile)
 e2e/        Playwright end-to-end tests (standalone npm workspace)
-docs/       AGENTS.md (architecture), COPILOT.md, SETUP.md, SECURITY.md, I18N_GUIDE.md
+docs/       AGENTS.md (architecture), SETUP.md, SECURITY.md, I18N_GUIDE.md, and other reference docs
 .github/    CI workflows + Copilot instructions
 docker-compose*.yml, .env.example   the deployment stack
 docker-compose.e2e.yml              ephemeral stack for E2E tests (adds Postgres)
@@ -86,10 +86,9 @@ words — e.g. `perf/123-faster-tree-layout` or `docs/update-branching` (no issu
 Issues follow `area: short imperative summary` — e.g. `release: attest build
 provenance and publish an SBOM for GHCR images`, `trees: track last-opened tree
 per user instead of globally`. `area` is the domain or workstream the work sits
-in (`ci`, `release`, `security`, `backend`, `gedcom`, `gallery`, `trees`,
-`sharing`, `auth`, `documents`, `quality`, …), or `epic:` for a tracking issue
-that groups sub-issues. Lowercase after the colon, no trailing period, under
-~72 characters.
+in (`backend`, `gallery`, `trees`, `sharing`, `gedcom`, …), or `epic:` for a
+tracking issue that groups sub-issues. Lowercase after the colon, no trailing
+period, under ~72 characters.
 
 **Type and severity live in labels, not in the title** — `bug`, `enhancement`,
 `refactor`, `epic`, plus `priority:high|medium|low`. Don't write `[Bug]:` or
@@ -99,15 +98,11 @@ that groups sub-issues. Lowercase after the colon, no trailing period, under
 
 Before building a user-facing feature, **decide whether it should be gated by an
 admin-managed feature flag or always on**, and say which in the PR description.
-Flags live in the `FEATURES` registry in
-[`feature_service.py`](backend/app/services/feature_service.py), mirrored 1:1 in
-[`features.ts`](frontend/src/lib/features.ts); each has a global state admins
-control — `on`, `off` (kill switch), or `beta` (per-user allowlist). Reach for a
-flag when a feature is a self-contained domain admins might disable, beta-test,
-or kill (`gallery`, `stories`, `gedcom`, …); core member/tree CRUD is
-intentionally not flaggable. The four-step recipe is at the top of
-`feature_service.py`. **If it's unclear which way to go, ask the requester** — it
-is hard to reverse once the UI and data model assume one.
+Core member/tree CRUD is intentionally not flaggable; a self-contained domain
+admins might disable, beta-test, or kill (`gallery`, `stories`, `gedcom`, …)
+usually should be. See "Feature flags" in [docs/AGENTS.md](docs/AGENTS.md) for
+the registry and the add-a-flag recipe. **If it's unclear which way to go, ask
+the requester** — it is hard to reverse once the UI and data model assume one.
 
 ## PR titles & changelog
 
@@ -120,12 +115,10 @@ PR titles **must be a [Conventional Commit](https://www.conventionalcommits.org/
 subject** — `type(scope): summary`, e.g. `feat(gallery): add face-tag search`
 or `fix(sharing): revoke access for open sessions`; a CI lint job
 ([`amannn/action-semantic-pull-request`](.github/workflows/pr-title-lint.yml))
-rejects PRs whose title doesn't parse. [`cliff.toml`](cliff.toml) maps types to
-[Keep a Changelog](https://keepachangelog.com/) groups when a release is cut:
-`feat` → Added, `fix` → Fixed, `perf`/`refactor` → Changed, `security` →
-Security. `chore`, `typing`, `test`, `docs`, `ci`, `build`, and `style` are
-internal-only and excluded from generated notes — pick one of those types for
-work users never see instead of `feat`/`fix`.
+rejects PRs whose title doesn't parse. [`cliff.toml`](cliff.toml) maps each type
+to a [Keep a Changelog](https://keepachangelog.com/) group (or excludes it as
+internal-only) — pick a type for work users never see (`chore`, `typing`,
+`test`, `docs`, `ci`, `build`, `style`) instead of `feat`/`fix`.
 
 ## Golden rules — CI enforces these; a PR fails without them
 
@@ -134,10 +127,11 @@ work users never see instead of `feat`/`fix`.
    [`release.yml`](.github/workflows/release.yml) workflow (Actions tab →
    "Release" → Run workflow) with the version segment to bump. It bumps
    `frontend/package.json` + lockfile + `backend/pyproject.toml` + `uv.lock`,
-   commits `chore(release): vX.Y.Z` straight to `main`, re-runs the full check
-   suite and E2E against that commit, publishes GHCR images tagged `X.Y.Z` and
-   `latest`, and creates the matching GitHub Release with generated notes. Use
-   `dry_run: true` to preview the version and notes without changing anything.
+   opens a `chore(release): vX.Y.Z` PR against `main`, waits for its checks
+   (+ E2E) to pass and squash-merges it, then publishes GHCR images tagged
+   `X.Y.Z` and `latest` and creates the matching GitHub Release with generated
+   notes. Use `dry_run: true` to preview the version and notes without
+   changing anything.
 2. **All user-facing text goes through i18next** and must exist in every locale
    under `frontend/src/i18n/locales/`. Run `npm run check-i18n` (from
    `frontend/`); the [CI](.github/workflows/check-build.yml) workflow gates it.
