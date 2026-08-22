@@ -1,7 +1,16 @@
-"""Data-quality checks for a family tree."""
+"""Data-quality checks for a family tree.
+
+Each check is a standalone rule function taking a shared ``QualityContext``
+(built once per run) and returning the issues it finds. ``QUALITY_RULES`` is
+the registry: it makes enabled rules and their output order explicit, so
+adding a rule means adding a function and a registry entry rather than
+growing ``run_quality_checks`` itself.
+"""
 
 import hashlib
 from collections import defaultdict
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
@@ -84,19 +93,37 @@ def find_parent_cycle_members(
     return cycle_members
 
 
-def run_quality_checks(
+@dataclass(frozen=True)
+class QualityContext:
+    """Data shared across rules, prepared once per ``run_quality_checks`` call."""
+
+    members: list[Member]
+    relations: list[Relation]
+    events: list[Event]
+    event_links: list[EventMemberLink]
+    member_map: dict[str, Member]
+    event_map: dict[str, Event]
+
+
+def _build_context(
     members: list[Member],
     relations: list[Relation],
-    events: list[Event] | None = None,
-    event_links: list[EventMemberLink] | None = None,
-) -> list[QualityIssue]:
-    events = events or []
-    event_links = event_links or []
-    issues: list[QualityIssue] = []
-    member_map = {m.id: m for m in members}
+    events: list[Event],
+    event_links: list[EventMemberLink],
+) -> QualityContext:
+    return QualityContext(
+        members=members,
+        relations=relations,
+        events=events,
+        event_links=event_links,
+        member_map={m.id: m for m in members},
+        event_map={e.id: e for e in events},
+    )
 
-    # --- 1. Birth-after-death ---
-    for m in members:
+
+def _check_birth_after_death(ctx: QualityContext) -> list[QualityIssue]:
+    issues: list[QualityIssue] = []
+    for m in ctx.members:
         birth = _year(m.date_of_birth)
         death = _year(m.date_of_death)
         if birth is not None and death is not None and birth > death:
@@ -109,18 +136,21 @@ def run_quality_checks(
                     description=f"Birth year ({birth}) is after death year ({death}).",
                 )
             )
+    return issues
 
-    # --- 2. Parent–child age-gap anomalies ---
+
+def _check_parent_child_age_anomalies(ctx: QualityContext) -> list[QualityIssue]:
+    issues: list[QualityIssue] = []
     # Relation direction: from_member_id = child, to_member_id = parent
     parent_pairs: list[tuple[str, str]] = [
         (r.to_member_id, r.from_member_id)  # (parent_id, child_id)
-        for r in relations
+        for r in ctx.relations
         if r.relation_type == "parent"
     ]
 
     for parent_id, child_id in parent_pairs:
-        parent = member_map.get(parent_id)
-        child = member_map.get(child_id)
+        parent = ctx.member_map.get(parent_id)
+        child = ctx.member_map.get(child_id)
         if parent is None or child is None:
             continue
         parent_birth = _year(parent.date_of_birth)
@@ -191,30 +221,34 @@ def run_quality_checks(
                     ),
                 )
             )
+    return issues
 
-    # --- 3. Relationship cycles (parent-chain) ---
-    cycle_members = find_parent_cycle_members(members, relations)
 
-    if cycle_members:
-        cycle_member_ids = sorted(cycle_members)
-        issues.append(
-            QualityIssue(
-                id=issue_id_for("relationship_cycle", cycle_member_ids),
-                issue_type="relationship_cycle",
-                severity="error",
-                member_ids=cycle_member_ids,
-                description="A cycle exists in the parent-child relationships.",
-            )
+def _check_relationship_cycle(ctx: QualityContext) -> list[QualityIssue]:
+    cycle_members = find_parent_cycle_members(ctx.members, ctx.relations)
+    if not cycle_members:
+        return []
+    cycle_member_ids = sorted(cycle_members)
+    return [
+        QualityIssue(
+            id=issue_id_for("relationship_cycle", cycle_member_ids),
+            issue_type="relationship_cycle",
+            severity="error",
+            member_ids=cycle_member_ids,
+            description="A cycle exists in the parent-child relationships.",
         )
+    ]
 
-    # --- 4. Duplicate-name candidates ---
+
+def _check_duplicate_candidates(ctx: QualityContext) -> list[QualityIssue]:
     name_groups: dict[str, list[str]] = defaultdict(list)
-    for m in members:
+    for m in ctx.members:
         first = (m.first_name or "").strip().lower()
         last = (m.last_name or "").strip().lower()
         if first or last:
             name_groups[f"{first}|{last}"].append(m.id)
 
+    issues: list[QualityIssue] = []
     for _key, ids in name_groups.items():
         if len(ids) > 1:
             issues.append(
@@ -226,30 +260,37 @@ def run_quality_checks(
                     description=f"{len(ids)} members share the same full name.",
                 )
             )
+    return issues
 
-    # --- 5. Disconnected members (no relations at all) ---
-    if len(members) > 1:
-        connected: set[str] = set()
-        for r in relations:
-            connected.add(r.from_member_id)
-            connected.add(r.to_member_id)
-        for m in members:
-            if m.id not in connected:
-                issues.append(
-                    QualityIssue(
-                        id=issue_id_for("disconnected_member", [m.id]),
-                        issue_type="disconnected_member",
-                        severity="warning",
-                        member_ids=[m.id],
-                        description="Member has no relationships.",
-                    )
+
+def _check_disconnected_members(ctx: QualityContext) -> list[QualityIssue]:
+    if len(ctx.members) <= 1:
+        return []
+    connected: set[str] = set()
+    for r in ctx.relations:
+        connected.add(r.from_member_id)
+        connected.add(r.to_member_id)
+
+    issues: list[QualityIssue] = []
+    for m in ctx.members:
+        if m.id not in connected:
+            issues.append(
+                QualityIssue(
+                    id=issue_id_for("disconnected_member", [m.id]),
+                    issue_type="disconnected_member",
+                    severity="warning",
+                    member_ids=[m.id],
+                    description="Member has no relationships.",
                 )
+            )
+    return issues
 
-    # --- 6. Event dated after the member's own death ---
-    event_map = {e.id: e for e in events}
-    for link in event_links:
-        member = member_map.get(link.member_id)
-        ev = event_map.get(link.event_id)
+
+def _check_event_after_death(ctx: QualityContext) -> list[QualityIssue]:
+    issues: list[QualityIssue] = []
+    for link in ctx.event_links:
+        member = ctx.member_map.get(link.member_id)
+        ev = ctx.event_map.get(link.event_id)
         if member is None or ev is None:
             continue
         if (ev.event_type or "").lower() in _POST_DEATH_EVENT_TYPES:
@@ -271,5 +312,39 @@ def run_quality_checks(
                     ),
                 )
             )
+    return issues
 
+
+@dataclass(frozen=True)
+class QualityRule:
+    """A single named, independently callable/testable check."""
+
+    name: str
+    check: Callable[[QualityContext], list[QualityIssue]]
+    enabled: bool = True
+
+
+# Registry: enabled rules and their output order, explicit and in one place.
+QUALITY_RULES: tuple[QualityRule, ...] = (
+    QualityRule("birth_after_death", _check_birth_after_death),
+    QualityRule("parent_child_age_anomalies", _check_parent_child_age_anomalies),
+    QualityRule("relationship_cycle", _check_relationship_cycle),
+    QualityRule("duplicate_candidate", _check_duplicate_candidates),
+    QualityRule("disconnected_member", _check_disconnected_members),
+    QualityRule("event_after_death", _check_event_after_death),
+)
+
+
+def run_quality_checks(
+    members: list[Member],
+    relations: list[Relation],
+    events: list[Event] | None = None,
+    event_links: list[EventMemberLink] | None = None,
+) -> list[QualityIssue]:
+    ctx = _build_context(members, relations, events or [], event_links or [])
+    issues: list[QualityIssue] = []
+    for rule in QUALITY_RULES:
+        if not rule.enabled:
+            continue
+        issues.extend(rule.check(ctx))
     return issues
