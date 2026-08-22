@@ -1,0 +1,59 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "4f972f98bdb4",
+  "session_id": "34c3f416-11c6-4675-b7ab-d5c88bb93baf",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T07:40:15.752259434Z",
+  "branch": "refactor/894-split-trees-routes",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/tree_jobs.py",
+    "backend/app/api/routes/tree_sharing.py",
+    "backend/app/api/routes/tree_public.py",
+    "backend/app/api/routes/tree_transfer.py",
+    "backend/tests/test_trees.py"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "69a501c42ef3",
+  "checkpoint_transcript_start": 359,
+  "transcript_lines_at_start": 359,
+  "compact_transcript_start": 74,
+  "token_usage": {
+    "input_tokens": 48,
+    "cache_creation_tokens": 21175,
+    "cache_read_tokens": 3342390,
+    "output_tokens": 11279,
+    "api_call_count": 24
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T07:40:15.702746894Z",
+    "agent_lines": 51,
+    "agent_removed": 4,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 51,
+    "total_lines_changed": 55,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 163,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude/settings.json": 84,
+        ".claude/settings.local.json": 24,
+        ".codex/config.toml": 3,
+        ".codex/hooks.json": 52
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "4f972f98bdb4",
+  "strategy": "manual-commit",
+  "branch": "refactor/894-split-trees-routes",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/api/routes/tree_jobs.py",
+    "backend/app/api/routes/tree_public.py",
+    "backend/app/api/routes/tree_sharing.py",
+    "backend/app/api/routes/tree_transfer.py",
+    "backend/tests/test_trees.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/4f/972f98bdb4/0/metadata.json",
+      "transcript": "/4f/972f98bdb4/0/full.jsonl",
+      "compact_transcript": "/4f/972f98bdb4/0/transcript.jsonl",
+      "content_hash": "/4f/972f98bdb4/0/content_hash.txt",
+      "prompt": "/4f/972f98bdb4/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 48,
+    "cache_creation_tokens": 21175,
+    "cache_read_tokens": 3342390,
+    "output_tokens": 11279,
+    "api_call_count": 24
+  }
+}
