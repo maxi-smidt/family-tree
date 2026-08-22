@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "e9f84925f32b",
+  "strategy": "manual-commit",
+  "branch": "fix/954-typed-delete-snapshot-returns",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "backend/app/services/activity.py",
+    "backend/app/services/activity_snapshots.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e9/f84925f32b/0/metadata.json",
+      "transcript": "/e9/f84925f32b/0/full.jsonl",
+      "compact_transcript": "/e9/f84925f32b/0/transcript.jsonl",
+      "content_hash": "/e9/f84925f32b/0/content_hash.txt",
+      "prompt": "/e9/f84925f32b/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 42,
+    "cache_creation_tokens": 12590,
+    "cache_read_tokens": 1758873,
+    "output_tokens": 7531,
+    "api_call_count": 21
+  }
+}

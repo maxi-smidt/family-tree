@@ -1,0 +1,5 @@
+is it really necessary to have *Snapshot and *DeleteSnapshot as separate classes? they seem to contain the same information
+
+---
+
+yes
