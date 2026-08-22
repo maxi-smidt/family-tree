@@ -88,14 +88,16 @@ def create_notification(
     Never raises — a failure here must not break the triggering request.
     """
     try:
-        if not feature_service.is_enabled_for_id(db, "notifications", user_id):
-            return
-        n = Notification(
-            user_id=user_id,
-            type=type,
-            payload=json.dumps(payload.model_dump()) if payload is not None else None,
-        )
         with UnitOfWork(db) as uow:
+            if not feature_service.is_enabled_for_id(db, "notifications", user_id):
+                return
+            n = Notification(
+                user_id=user_id,
+                type=type,
+                payload=(
+                    json.dumps(payload.model_dump()) if payload is not None else None
+                ),
+            )
             db.add(n)
             db.flush()
             _enforce_retention(db, user_id)
