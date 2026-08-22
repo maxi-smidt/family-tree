@@ -74,16 +74,25 @@ class EventBus:
     def reset(self) -> None:
         """Drop all state back to a fresh-process baseline.
 
-        Called from lifespan startup and shutdown so the module-level
-        singleton below never carries subscribers, a loop reference, or a
-        Redis listener handle over from a previous app instance in the same
+        Called from lifespan shutdown (after ``await stop_redis_listener()``
+        has already cancelled the listener task and closed the pubsub
+        connection) so the module-level singleton below never carries
+        subscribers or a loop reference over to the next lifespan in the same
         process (relevant for tests, which construct the FastAPI app more
-        than once).  Does not cancel the listener task or close the pubsub
-        object — callers must ``await stop_redis_listener()`` first when one
-        may be running.
+        than once).
+
+        If a listener task is still alive when this runs — i.e. a caller
+        skipped ``stop_redis_listener()`` — cancel it here rather than
+        silently dropping the reference, so it can never be leaked.
         """
         self._subscribers.clear()
         self._loop = None
+        if self._listener_task is not None and not self._listener_task.done():
+            logger.warning(
+                "EventBus.reset() cancelling a still-running listener task — "
+                "callers should await stop_redis_listener() first"
+            )
+            self._listener_task.cancel()
         self._pubsub = None
         self._listener_task = None
 

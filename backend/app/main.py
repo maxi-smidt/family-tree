@@ -58,13 +58,6 @@ async def lifespan(app: FastAPI):
 
     validate_production_credentials()
 
-    # Construct process-wide resource state fresh for this app instance —
-    # guards against stale subscribers/roster entries left over from a
-    # previous lifespan in the same process (e.g. tests that build the
-    # FastAPI app more than once).
-    event_bus.reset()
-    presence_service.reset()
-
     loop = asyncio.get_running_loop()
     event_bus.set_loop(loop)
     runtime.set_loop(loop)
@@ -102,11 +95,19 @@ async def lifespan(app: FastAPI):
             await sweeper
         with contextlib.suppress(asyncio.CancelledError):
             await backup_scheduler
-        # Stop the Redis listener before closing the client.
+        # Stop the Redis listener before closing the client. This must run
+        # before event_bus.reset() below — it's what cancels and awaits the
+        # listener task and closes the pubsub connection; reset() only clears
+        # already-quiesced references, it does not tear anything down itself.
         if settings.redis_enabled:
             await event_bus.stop_redis_listener()
         await close_redis()
         runtime.set_loop(None)
+        # Drop subscriber/loop state so a subsequent lifespan in this same
+        # process (tests build the FastAPI app more than once) starts clean.
+        # Deliberately not done on startup: this app instance's shutdown is
+        # what guarantees the state is quiescent, not the next instance's
+        # startup — resetting on startup would race an overlapping shutdown.
         event_bus.reset()
         presence_service.reset()
 

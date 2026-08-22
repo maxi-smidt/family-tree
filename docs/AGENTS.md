@@ -329,12 +329,14 @@ mutation that didn't land. See `backend/app/api/routes/stories.py` and
 (`backend/app/core/runtime.py`), and the Redis client
 (`backend/app/db/redis.py`) are process-wide, not per-request. Their
 construction and teardown are owned by the FastAPI `lifespan` in
-`backend/app/main.py`: it resets `event_bus` and the presence registry to a
-clean state on startup (before wiring in the running loop) and again on
-shutdown, and it closes the pooled Redis client. This keeps a second app
-instance in the same process — e.g. a test that builds `app.main.app` more
-than once — from seeing subscribers or a presence roster left over from a
-previous instance.
+`backend/app/main.py`: on shutdown, after the Redis SSE listener task has
+been cancelled and the pooled Redis client closed, it resets `event_bus` and
+the presence registry to a clean state. This is deliberately a shutdown-only
+step, not also a startup one — this app instance's own shutdown is what
+guarantees the shared state is quiescent, so a subsequent lifespan in the
+same process (e.g. a test that builds `app.main.app` more than once) starts
+from a clean baseline without ever clearing state a still-running instance
+might depend on.
 
 Without `REDIS_URL` configured, both `event_bus` and the presence registry
 fall back to in-memory state that only a single worker process can see;
