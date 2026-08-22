@@ -1,0 +1,24 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "b1e9d68d682a",
+  "strategy": "manual-commit",
+  "branch": "fix/905-smoke-db-pgdata",
+  "checkpoints_count": 3,
+  "files_touched": null,
+  "sessions": [
+    {
+      "metadata": "/b1/e9d68d682a/0/metadata.json",
+      "transcript": "/b1/e9d68d682a/0/full.jsonl",
+      "compact_transcript": "/b1/e9d68d682a/0/transcript.jsonl",
+      "content_hash": "/b1/e9d68d682a/0/content_hash.txt",
+      "prompt": "/b1/e9d68d682a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 190,
+    "cache_creation_tokens": 215900,
+    "cache_read_tokens": 9742158,
+    "output_tokens": 56768,
+    "api_call_count": 95
+  }
+}
