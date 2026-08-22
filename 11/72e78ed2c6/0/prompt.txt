@@ -1,0 +1,5 @@
+[P2] Keep the service independent of the API layer
+The new service imports role_for from app.api.deps, so the dependency direction is now routes → services → API rather than the required routes → services → models/infrastructure. This leaves shared business logic coupled to FastAPI dependencies and risks an import cycle if API dependencies later need this service.
+Move role_for into a focused service module and import it from both deps.py and tree_view.py.
+
+File: backend/app/services/tree_view.py, line 6.
