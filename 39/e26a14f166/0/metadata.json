@@ -1,0 +1,44 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "39e26a14f166",
+  "session_id": "f2709233-33d5-4a6b-8645-898644d1eda6",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-22T12:41:35.596092593Z",
+  "branch": "refactor/955-system-domain",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "backend/tests/test_admin_sse_events.py",
+    "backend/app/db/advisory_lock.py",
+    "backend/app/services/system/backups/restore_backup.py",
+    "backend/app/api/routes/quality.py",
+    "docs/AGENTS.md"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "b3c47e22c7d3",
+  "checkpoint_transcript_start": 433,
+  "transcript_lines_at_start": 433,
+  "compact_transcript_start": 87,
+  "token_usage": {
+    "input_tokens": 80,
+    "cache_creation_tokens": 33750,
+    "cache_read_tokens": 6319562,
+    "output_tokens": 16052,
+    "api_call_count": 40
+  },
+  "session_metrics": {
+    "turn_count": 3
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-22T12:41:35.547887177Z",
+    "agent_lines": 91,
+    "agent_removed": 24,
+    "human_added": 2567,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 2658,
+    "total_lines_changed": 5292,
+    "agent_percentage": 2.1730914588057444,
+    "metric_version": 2
+  }
+}
