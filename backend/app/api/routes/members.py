@@ -34,7 +34,6 @@ from app.schemas.family import (
 )
 from app.schemas.merge import MemberMergePreviewOut, MemberMergeRequest
 from app.services.activity.activity import member_delete_snapshot, record_activity
-from app.services.bridge import sync_bridge_person
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage import (
@@ -45,18 +44,25 @@ from app.services.media.storage import (
     process_image_field,
 )
 from app.services.media.storage_usage import check_media_quota, check_tree_quota
-from app.services.member_access import (
+from app.services.members.bridge import sync_bridge_person
+from app.services.members.member_access import (
     PUBLIC_MEMBER_COLUMNS,
     public_member_payloads,
     public_only,
 )
-from app.services.member_access import (
+from app.services.members.member_access import (
     get_member as get_member_row,
 )
-from app.services.member_merge import compute_member_merge_preview, merge_members_in_place
-from app.services.member_search import MEMBER_SURFACE_COLUMNS, member_name_search_clause
-from app.services.member_update import update_member as update_member_service
-from app.services.member_vitals import event_updates_allowed, sync_vital_event
+from app.services.members.member_merge import (
+    compute_member_merge_preview,
+    merge_members_in_place,
+)
+from app.services.members.member_search import (
+    MEMBER_SURFACE_COLUMNS,
+    member_name_search_clause,
+)
+from app.services.members.member_update import update_member as update_member_service
+from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.system.settings_service import get_media_limits
 

@@ -1,17 +1,17 @@
 """Focused unit tests for the extracted bridge-sync and vital-event helpers
-(see app.services.bridge and app.services.member_vitals), used by both the
+(see app.services.members.bridge and app.services.members.member_vitals), used by both the
 single-member update workflow and member merge (#893)."""
 
 import pytest
 
 from app.core.exceptions import AccessDeniedError, InvalidInputError, NotFoundError
 from app.models import Event, EventMemberLink, TreeMembership
-from app.services.bridge import (
+from app.services.members.bridge import (
     sync_bridge_person,
     validate_linked_member,
     validate_linked_tree,
 )
-from app.services.member_vitals import event_updates_allowed, sync_vital_event
+from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
 from app.services.system import feature_service
 from tests.conftest import add_member, make_tree, make_user, share
 

@@ -26,7 +26,7 @@ from app.models.content import (
     MemberTask,
     Story,
 )
-from app.services.member_merge import (
+from app.services.members.member_merge import (
     compute_member_merge_preview,
     merge_members_in_place,
 )

@@ -5,7 +5,7 @@ new third tree), this combines two *members of the same tree*: one survives
 (``keep``), the other is removed (``remove``) after everything it owns —
 relations, content links, diseases, and an optional tree-in-tree bridge — has
 been re-pointed onto ``keep``. Field-conflict detection/resolution is reused
-from ``app.services.member_clone`` rather than forked.
+from ``app.services.members.member_clone`` rather than forked.
 """
 
 from __future__ import annotations
@@ -38,7 +38,7 @@ from app.schemas.merge import (
     MemberMergeTransferCounts,
 )
 from app.services.activity.activity import SNAPSHOT_VERSION, member_delete_snapshot
-from app.services.member_clone import (
+from app.services.members.member_clone import (
     CONFLICT_FIELDS,
     apply_field_choices,
     compute_conflicts,

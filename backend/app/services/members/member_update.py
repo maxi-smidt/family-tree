@@ -21,11 +21,6 @@ from app.models import Member, Tree
 from app.models.user import User
 from app.schemas.family import MemberUpdate
 from app.services.activity.activity import record_activity
-from app.services.bridge import (
-    sync_bridge_person,
-    validate_linked_member,
-    validate_linked_tree,
-)
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage import (
@@ -36,8 +31,13 @@ from app.services.media.storage import (
     process_image_field,
 )
 from app.services.media.storage_usage import check_media_quota
-from app.services.member_access import get_member
-from app.services.member_vitals import (
+from app.services.members.bridge import (
+    sync_bridge_person,
+    validate_linked_member,
+    validate_linked_tree,
+)
+from app.services.members.member_access import get_member
+from app.services.members.member_vitals import (
     event_updates_allowed,
     sync_parent_slots,
     sync_vital_event,
