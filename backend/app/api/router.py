@@ -31,6 +31,10 @@ from app.api.routes import (
     statistics,
     stories,
     tasks,
+    tree_jobs,
+    tree_public,
+    tree_sharing,
+    tree_transfer,
     trees,
     users,
     virtual_views,
@@ -50,6 +54,10 @@ api_router.include_router(relation_types.admin_router)
 api_router.include_router(search.router)
 api_router.include_router(backups.router)
 api_router.include_router(trees.router)
+api_router.include_router(tree_public.router)
+api_router.include_router(tree_sharing.router)
+api_router.include_router(tree_jobs.router)
+api_router.include_router(tree_transfer.router)
 api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
 api_router.include_router(virtual_views.router)

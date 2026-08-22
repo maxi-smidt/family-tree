@@ -1,6 +1,7 @@
 """Tests for GET /trees/{tree_id}/link-graph (issue #536)."""
 
 from app.services import feature_service
+from app.services.tree_links import compute_link_graph
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
@@ -156,3 +157,17 @@ def test_no_linked_trees_returns_only_current_node(client, db):
     assert body["nodes"][0]["is_current"] is True
     assert body["edges"] == []
     assert body["truncated"] is False
+
+
+def test_compute_link_graph_service_is_callable_without_a_route(db):
+    """The traversal is a plain service function, not tied to the route."""
+    owner = make_user(db, "alice")
+    t1 = make_tree(db, owner, "T1")
+    t2 = make_tree(db, owner, "T2")
+    _link(db, t1, "m1", t2, last_name="One")
+
+    out = compute_link_graph(db, t1, owner)
+
+    assert {n.id for n in out.nodes} == {t1.id, t2.id}
+    assert len(out.edges) == 1
+    assert out.truncated is False

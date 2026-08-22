@@ -1,4 +1,51 @@
+from app.main import app
 from tests.conftest import API, auth, make_tree, make_user, share
+
+# Every (method, path) that used to be defined in the single trees.py before
+# it was split (#894) into trees.py / tree_public.py / tree_sharing.py /
+# tree_jobs.py / tree_transfer.py.
+_SPLIT_OPERATIONS = {
+    ("get", "/api/trees"),
+    ("post", "/api/trees"),
+    ("post", "/api/trees/merge/preview"),
+    ("post", "/api/trees/merge"),
+    ("post", "/api/trees/extract-subtree/preview"),
+    ("post", "/api/trees/extract-subtree"),
+    ("get", "/api/trees/{tree_id}"),
+    ("get", "/api/trees/{tree_id}/metadata"),
+    ("get", "/api/trees/{tree_id}/storage"),
+    ("get", "/api/trees/{tree_id}/link-graph"),
+    ("patch", "/api/trees/{tree_id}"),
+    ("delete", "/api/trees/{tree_id}"),
+    ("patch", "/api/trees/{tree_id}/public"),
+    ("put", "/api/trees/{tree_id}/public/password"),
+    ("post", "/api/trees/{tree_id}/public/unlock"),
+    ("get", "/api/trees/{tree_id}/access"),
+    ("get", "/api/trees/{tree_id}/access/candidates"),
+    ("post", "/api/trees/{tree_id}/access"),
+    ("delete", "/api/trees/{tree_id}/access/{user_id}"),
+    ("get", "/api/trees/{tree_id}/access/linked-trees"),
+    ("post", "/api/trees/{tree_id}/access/batch"),
+    ("post", "/api/trees/{tree_id}/access/batch-revoke"),
+    ("patch", "/api/trees/{tree_id}/access/{user_id}/restrictions"),
+    ("post", "/api/trees/{tree_id}/transfer"),
+    ("post", "/api/trees/{tree_id}/transfer/revert"),
+}
+
+
+def test_split_tree_routers_keep_a_single_openapi_tag():
+    """The router split (#894) must not change the public OpenAPI contract:
+    every operation that used to live in trees.py keeps the single "trees"
+    tag, regardless of which module now defines it, so generated-client
+    grouping by tag is unaffected."""
+    spec = app.openapi()
+    seen = set()
+    for path, methods in spec["paths"].items():
+        for method, operation in methods.items():
+            if (method, path) in _SPLIT_OPERATIONS:
+                seen.add((method, path))
+                assert operation.get("tags") == ["trees"], (method, path)
+    assert seen == _SPLIT_OPERATIONS
 
 
 def test_create_tree(client, db):
