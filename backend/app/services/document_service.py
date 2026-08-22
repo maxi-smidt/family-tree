@@ -8,7 +8,9 @@ which writes the bytes to their final media location and records a
 unit with explicit ordering, so a failure can never destroy the previously
 valid document or leak files:
 
-  1. Validate everything (links, ownership) with nothing mutated.
+  1. Validate everything (links, ownership, quota) with nothing mutated, and
+     resolve it into a typed :class:`~app.services.document_save_plan.
+     DocumentSavePlan` (see that module).
   2. In one transaction: upsert the document, replace member links, attach the
      staged uploads (turning each into a ``DocumentFile`` and consuming its
      ``DocumentUpload`` row), remove/rename files, and record the activity.
@@ -24,60 +26,31 @@ a no-op — retries are idempotent.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from urllib.parse import urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import InvalidInputError, NotFoundError
+from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
-from app.models import (
-    Document,
-    DocumentFile,
-    DocumentMemberLink,
-    DocumentUpload,
-    Tree,
-)
+from app.models import Document, DocumentFile, DocumentMemberLink, DocumentUpload, Tree
 from app.models.user import User
 from app.schemas.content import DocumentSave
 from app.services.activity import record_activity
 from app.services.content_links import replace_member_links
+from app.services.document_save_plan import (
+    DocumentSavePlan,
+    build_save_plan,
+    external_link_url,
+)
 from app.services.event_bus import publish_tree_event
 from app.services.storage import delete_media
-from app.services.storage_usage import check_tree_quota
+
+__all__ = ["external_link_url", "prune_stale_uploads", "save_document"]
 
 # How long a staged upload may sit unclaimed before it is eligible for reaping.
 # Generous enough to cover a slow multi-file upload session, short enough that
 # an abandoned dialog does not tie up quota for long.
 STALE_UPLOAD_TTL_SECONDS = 6 * 60 * 60
-
-
-def external_link_url(raw_url: str) -> str:
-    """Validate and normalise an external ``http(s)`` link URL.
-
-    Rejects anything with embedded whitespace/control characters, credentials,
-    a non-web scheme, or no host, so a stored link can never smuggle a
-    ``javascript:``/``data:`` payload or an internal media reference.
-    """
-    url = raw_url.strip()
-    if not url or "\\" in url or any(
-        char.isspace() or ord(char) == 127 for char in url
-    ):
-        raise InvalidInputError("Invalid link URL")
-    try:
-        parsed = urlsplit(url)
-        # Accessing port performs urllib's range and syntax validation.
-        _ = parsed.port
-    except ValueError as exc:
-        raise InvalidInputError("Invalid link URL") from exc
-    if (
-        parsed.scheme.lower() not in {"http", "https"}
-        or not parsed.hostname
-        or parsed.username is not None
-        or parsed.password is not None
-    ):
-        raise InvalidInputError("Invalid link URL")
-    return url
 
 
 def prune_stale_uploads(db: Session, tree: Tree) -> None:
@@ -135,89 +108,22 @@ def _commit_with_deletes(db: Session, delete_urls: list[str]) -> None:
         delete_media(url)
 
 
-def _document_file_on(
-    db: Session, document_id: str, file_id: str
-) -> DocumentFile | None:
-    """Return the file iff it exists and belongs to *document_id*, else None."""
-    row = db.get(DocumentFile, file_id)
-    if row is None or row.document_id != document_id:
-        return None
-    return row
-
-
-def _estimated_document_bytes(payload: DocumentSave) -> int:
-    parts = [payload.title, payload.description or "", payload.document_date or ""]
-    return len("".join(parts).encode())
-
-
-def save_document(
+def _persist_save_plan(
     db: Session,
     *,
     tree: Tree,
     user: User,
     document_id: str,
+    existing: Document | None,
+    plan: DocumentSavePlan,
     payload: DocumentSave,
+    now: str,
 ) -> Document:
-    """Create or update a document and apply every file change in one unit.
-
-    ``document_id`` is client-supplied and used as the upsert key, so a create
-    that is retried updates in place instead of duplicating. Raises
-    ``InvalidInputError``, ``NotFoundError``, or ``QuotaExceeded`` on
-    validation, ownership, or quota errors — always *before* any rows are
-    mutated.
+    """Apply *plan* as one transaction — upsert the document, replace member
+    links, attach/remove/rename files, and record the activity — then commit
+    and delete the now-unreferenced old bytes (see ``_commit_with_deletes``).
     """
-    existing = db.get(Document, document_id)
-    if existing is not None and existing.tree_id != tree.id:
-        raise NotFoundError("Document not found")
-    is_create = existing is None
-
-    # 1a. Validate external links up-front. Skip ids already present so a retry
-    #     neither re-validates nor re-inserts them.
-    new_links: list[tuple[str, str, str | None]] = []
-    for link in payload.added_links:
-        if _document_file_on(db, document_id, link.id) is not None:
-            continue
-        new_links.append((link.id, external_link_url(link.url), link.filename))
-
-    # 1b. Resolve staged uploads to attach. Skip ids already attached (retry)
-    #     and ids that no longer exist or belong to another tree (consumed on a
-    #     prior attempt, or never ours) — both make the attach idempotent.
-    attachments: list[DocumentUpload] = []
-    seen_uploads: set[str] = set()
-    for upload_id in payload.attached_upload_ids:
-        if upload_id in seen_uploads:
-            continue
-        seen_uploads.add(upload_id)
-        if _document_file_on(db, document_id, upload_id) is not None:
-            continue
-        upload = db.get(DocumentUpload, upload_id)
-        if upload is None or upload.tree_id != tree.id:
-            continue
-        attachments.append(upload)
-
-    # 1c. Resolve removed files that actually exist (idempotent no-op otherwise).
-    removed_rows: list[DocumentFile] = []
-    removed_ids: set[str] = set()
-    for fid in payload.removed_file_ids:
-        if fid in removed_ids:
-            continue
-        removed_ids.add(fid)
-        row = _document_file_on(db, document_id, fid)
-        if row is not None:
-            removed_rows.append(row)
-
-    # 1d. A create adds a metadata row; the attached bytes were already
-    #     quota-checked when they were staged, so no media check is needed here.
-    # check_tree_quota raises QuotaExceeded, mapped to its HTTP response by
-    # the centralized handler.
-    if is_create:
-        check_tree_quota(db, tree, _estimated_document_bytes(payload))
-
-    now = utcnow_iso()
-    delete_urls: list[str] = []
-
-    # 2. Apply all DB rows in one transaction.
-    if is_create:
+    if plan.is_create:
         document = Document(
             id=document_id,
             tree_id=tree.id,
@@ -245,27 +151,21 @@ def save_document(
         member_ids=payload.member_ids,
     )
 
-    for row in removed_rows:
-        if row.kind == "file":
-            delete_urls.append(row.url)
+    for row in plan.removed_rows:
         db.delete(row)
 
-    for rename in payload.renamed_files:
-        if rename.id in removed_ids:
-            continue  # a file being removed can't also be renamed
-        row = _document_file_on(db, document_id, rename.id)
-        if row is not None:
-            row.filename = rename.filename
+    for rename in plan.renames:
+        rename.row.filename = rename.filename
 
-    for lid, url, filename in new_links:
+    for link in plan.new_links:
         db.add(
             DocumentFile(
-                id=lid,
+                id=link.id,
                 tree_id=tree.id,
                 document_id=document_id,
                 kind="link",
-                filename=filename,
-                url=url,
+                filename=link.filename,
+                url=link.url,
                 mime_type=None,
                 size=None,
                 created_at=now,
@@ -275,7 +175,7 @@ def save_document(
     # Attach staged uploads: promote each to a committed file row (reusing the
     # upload's id so a replay is a no-op) and consume its staging row so the
     # bytes are now owned by the document, not the staging area.
-    for upload in attachments:
+    for upload in plan.attachments:
         db.add(
             DocumentFile(
                 id=upload.id,
@@ -295,14 +195,51 @@ def save_document(
         db,
         tree_id=tree.id,
         actor=user,
-        action="create" if is_create else "update",
+        action="create" if plan.is_create else "update",
         target_type="document",
         target_id=document_id,
         target_label=payload.title,
     )
 
-    # 3. Commit, then delete the now-unreferenced old files (or roll back).
-    _commit_with_deletes(db, delete_urls)
+    _commit_with_deletes(db, plan.delete_urls)
+    return document
+
+
+def save_document(
+    db: Session,
+    *,
+    tree: Tree,
+    user: User,
+    document_id: str,
+    payload: DocumentSave,
+) -> Document:
+    """Create or update a document and apply every file change in one unit.
+
+    ``document_id`` is client-supplied and used as the upsert key, so a create
+    that is retried updates in place instead of duplicating. Raises
+    ``InvalidInputError``, ``NotFoundError``, or ``QuotaExceeded`` on
+    validation, ownership, or quota errors — always *before* any rows are
+    mutated.
+    """
+    existing = db.get(Document, document_id)
+    if existing is not None and existing.tree_id != tree.id:
+        raise NotFoundError("Document not found")
+    is_create = existing is None
+
+    plan = build_save_plan(
+        db, tree=tree, document_id=document_id, is_create=is_create, payload=payload
+    )
+
+    document = _persist_save_plan(
+        db,
+        tree=tree,
+        user=user,
+        document_id=document_id,
+        existing=existing,
+        plan=plan,
+        payload=payload,
+        now=utcnow_iso(),
+    )
 
     publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(document)
