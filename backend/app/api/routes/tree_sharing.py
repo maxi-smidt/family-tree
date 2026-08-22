@@ -23,8 +23,8 @@ from app.services.collaboration import friendships, notification_service
 from app.services.event_bus import publish_tree_event
 from app.services.system import feature_service
 from app.services.system.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
-from app.services.tree_access import list_tree_access
-from app.services.tree_links import reachable_linked_trees
+from app.services.trees.tree_access import list_tree_access
+from app.services.trees.tree_links import reachable_linked_trees
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 

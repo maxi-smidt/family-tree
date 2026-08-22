@@ -1,6 +1,6 @@
 """In-place, same-tree member merge (#729).
 
-Unlike ``app.services.merge`` (which clones two whole *trees* into a brand
+Unlike ``app.services.trees.merge`` (which clones two whole *trees* into a brand
 new third tree), this combines two *members of the same tree*: one survives
 (``keep``), the other is removed (``remove``) after everything it owns —
 relations, content links, diseases, and an optional tree-in-tree bridge — has
@@ -287,7 +287,7 @@ def _repoint_member_links(
 def _transfer_diseases(db: Session, keep_id: str, remove_id: str) -> None:
     """Move ``remove``'s disease records onto ``keep``, deduping by name.
 
-    Mirrors the tree-merge dedup policy (``app.services.merge_copy.copy_diseases``):
+    Mirrors the tree-merge dedup policy (``app.services.trees.merge_copy.copy_diseases``):
     two rows naming the same condition on the same person are
     noise once the two records describe one person, so the duplicate is
     dropped rather than kept alongside.

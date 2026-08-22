@@ -51,7 +51,7 @@ from app.services.media.storage import (
 from app.services.media.storage_usage import check_full_usage_quota
 from app.services.system.job_service import ProgressCallback
 from app.services.system.settings_service import get_media_limits
-from app.services.tree_state import mark_tree_opened
+from app.services.trees.tree_state import mark_tree_opened
 
 # Number of rows to write per bulk-insert batch.
 BULK_CHUNK = 1000

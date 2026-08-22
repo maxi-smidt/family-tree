@@ -1,7 +1,7 @@
 """Persisted dismissals for data-quality report issues.
 
 Quality issues themselves are computed on the fly (see
-``app.services.quality_checks``) and never stored; only the fact that an
+``app.services.trees.quality_checks``) and never stored; only the fact that an
 issue was dismissed is persisted here, keyed by a deterministic issue id
 derived from the issue's type and member ids. Dismissals are tree-scoped
 (shared by every editor of the tree, not per-user).

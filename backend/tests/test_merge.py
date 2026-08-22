@@ -8,7 +8,7 @@ from app.models import (
     Story,
     StoryDocumentLink,
 )
-from app.services.merge import merge_trees
+from app.services.trees.merge import merge_trees
 from tests.conftest import add_member, make_tree, make_user
 
 

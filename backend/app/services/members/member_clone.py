@@ -1,7 +1,8 @@
 """Shared Member row primitives: identity keys, cloning, and bridge wiring.
 
 Used by every workflow that copies or links a member across trees — tree
-merge (``app.services.merge``), sub-tree extraction (``app.services.extract``),
+merge (``app.services.trees.merge``),
+sub-tree extraction (``app.services.trees.extract``),
 linked-subtree creation (``app.services.members.member_subtrees``), same-tree member
 merge (``app.services.members.member_merge``), and the tree-link endpoints
 (``app.api.routes.members``).

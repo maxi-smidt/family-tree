@@ -20,7 +20,7 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
-from app.services.merge import merge_trees
+from app.services.trees.merge import merge_trees
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
 
 # Minimal 1×1 PNG streamed as a multipart gallery upload.

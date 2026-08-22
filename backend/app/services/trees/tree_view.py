@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import Tree, TreeMembership, User
 from app.schemas.tree import TreeOut
 from app.services.tree_roles import role_for
-from app.services.tree_state import tree_last_opened
+from app.services.trees.tree_state import tree_last_opened
 
 
 class _Unset:

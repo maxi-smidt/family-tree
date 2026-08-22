@@ -63,8 +63,8 @@ from app.services.members.member_search import (
 )
 from app.services.members.member_update import update_member as update_member_service
 from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
-from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
 from app.services.system.settings_service import get_media_limits
+from app.services.trees.neighborhood import collect_neighborhood_ids, pick_default_root
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 

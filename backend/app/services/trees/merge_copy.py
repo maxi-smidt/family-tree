@@ -1,4 +1,4 @@
-"""Per-content-domain copiers used by ``app.services.merge.merge_trees``.
+"""Per-content-domain copiers used by ``app.services.trees.merge.merge_trees``.
 
 Each function copies one content domain (relations, diseases, tasks, gallery,
 events, stories, documents) from every source tree in ``MergeContext.sources``
