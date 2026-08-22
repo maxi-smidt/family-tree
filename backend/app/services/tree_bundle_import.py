@@ -39,7 +39,7 @@ from app.models import (
     Tree,
     User,
 )
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.bundle_types import TreeBundleV4
 from app.services.event_bus import publish_tree_event
 from app.services.genealogy_date import sort_key as _sort_key

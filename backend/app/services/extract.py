@@ -41,7 +41,7 @@ from app.models import (
 )
 from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.services import feature_service
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback

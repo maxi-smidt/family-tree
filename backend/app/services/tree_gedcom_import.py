@@ -13,7 +13,7 @@ from uuid import uuid4
 from app.db.base import utcnow_iso
 from app.db.session import SessionLocal
 from app.models import Member, Relation, Tree, User
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.bundle_types import GedcomParseResult
 from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback

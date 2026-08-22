@@ -30,7 +30,7 @@ from app.db.base import utcnow_iso
 from app.models import Member, Tree, User
 from app.schemas.family import MemberOut
 from app.schemas.merge import DuplicatePair, MergeResolution, TreeMergePreview
-from app.services.activity import record_activity
+from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.job_service import ProgressCallback
 from app.services.member_clone import (

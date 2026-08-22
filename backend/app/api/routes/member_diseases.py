@@ -15,7 +15,7 @@ from app.db.session import get_db
 from app.models import MemberDisease, Tree
 from app.models.user import User
 from app.schemas.family import DiseaseCreate, DiseaseOut, DiseaseUpdate
-from app.services.activity import disease_delete_snapshot, record_activity
+from app.services.activity.activity import disease_delete_snapshot, record_activity
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.member_access import get_member
