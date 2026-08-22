@@ -8,13 +8,23 @@ name: Release
 # through a PR and has no bypass actors configured. required_approving_review
 # _count is 0 and no CODEOWNERS file exists, so the PR merges automatically
 # once its checks (the existing check-build.yml + e2e.yml, triggered exactly
-# as they are for any other PR) pass — no bypass, no extra token, no settings
-# change needed.
+# as they are for any other PR) pass — no bypass needed.
 #
-# publish-images.yml is still called directly (not left to main's push
-# trigger) because a push produced by GITHUB_TOKEN — which is what merging a
-# PR via the API does — does not trigger other workflow runs either. See the
-# epic's constraint note (#899, #902).
+# Token split — this matters, do not collapse it into one token:
+#
+#   * The PR is opened with RELEASE_PAT. A PR authored by github-actions[bot]
+#     has its workflow runs parked at `action_required` awaiting manual
+#     approval, so no checks ever report and the `land` job below times out
+#     on an empty check list. A PAT belonging to a repo contributor is not
+#     subject to that gate.
+#   * Everything else — including the merge — stays on GITHUB_TOKEN. A push
+#     produced by GITHUB_TOKEN does not trigger other workflow runs, which is
+#     exactly what we want: check-build.yml publishes images on every push to
+#     main, so merging with the PAT would race a second publish against the
+#     `publish` job below. That same property is why publish-images.yml is
+#     called directly here instead of being left to main's push trigger.
+#
+# See the epic's constraint note (#899, #902).
 
 on:
   workflow_dispatch:
@@ -56,6 +66,21 @@ jobs:
             exit 1
           fi
 
+      - name: "Require RELEASE_PAT"
+        if: ${{ !inputs.dry_run }}
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+        run: |
+          if [ -z "$RELEASE_PAT" ]; then
+            echo "RELEASE_PAT is not set. A release PR opened by"
+            echo "github-actions[bot] has its checks parked awaiting manual"
+            echo "approval, which stalls the 'land' job — so the PR must be"
+            echo "opened with a contributor PAT. Add a fine-grained token with"
+            echo "Contents: read/write and Pull requests: read/write as the"
+            echo "RELEASE_PAT repository secret."
+            exit 1
+          fi
+
       - name: "Checkout main"
         uses: actions/checkout@v7
         with:
@@ -93,11 +118,21 @@ jobs:
             cat RELEASE_NOTES.md
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # NOTE: the branch name deliberately avoids the `release/*` namespace.
+      # The "release protection" ruleset covers `refs/heads/release/*` with
+      # deletion + non-fast-forward rules and an empty bypass list, which is
+      # right for the long-lived `release/v1.7`-style maintenance branches but
+      # would pin these throwaway ones in place forever: they would survive
+      # delete_branch_on_merge, and a retry of the same version could neither
+      # force-push nor delete the leftover branch.
       - name: "Commit and open release PR"
         if: ${{ !inputs.dry_run }}
         id: pr
+        env:
+          # Not github.token — see the token split note at the top of the file.
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
         run: |
-          BRANCH="release/v${{ steps.bump.outputs.version }}"
+          BRANCH="chore/release-v${{ steps.bump.outputs.version }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
@@ -134,8 +169,32 @@ jobs:
       # Check Version Bump, Check for Missing i18n Keys) plus the non-required
       # ones this release still needs to gate on — Playwright E2E and the
       # PR-title lint on this job's own generated title.
+      #
+      # `gh pr checks --watch` waits for known checks to finish, but exits 1
+      # immediately with "no checks reported" when none have registered yet —
+      # checks can take a few seconds to appear after the PR is opened. Poll
+      # for the first check to show up before handing off to --watch.
       - name: "Wait for PR checks"
-        run: gh pr checks "${{ needs.bump.outputs.pr_number }}" --watch --fail-fast
+        run: |
+          PR="${{ needs.bump.outputs.pr_number }}"
+          for i in $(seq 1 30); do
+            if [ -n "$(gh pr checks "$PR" --json name -q '.[].name' 2>/dev/null)" ]; then
+              echo "Checks registered after ${i} attempt(s)."
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "No checks registered on PR #${PR} after 5 minutes."
+              echo "If the runs are parked at 'action_required', the PR author"
+              echo "tripped a workflow-approval gate — see the token split note"
+              echo "in this workflow."
+              gh run list --branch "chore/release-v${{ needs.bump.outputs.version }}" \
+                --limit 10 || true
+              exit 1
+            fi
+            echo "  attempt $i/30 — no checks yet, waiting 10s"
+            sleep 10
+          done
+          gh pr checks "$PR" --watch --fail-fast
 
       - name: "Squash-merge release PR"
         id: merge
