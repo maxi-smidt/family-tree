@@ -1,0 +1,27 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "23c9ad510d28",
+  "strategy": "manual-commit",
+  "branch": "fix/897-unit-of-work",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/app/services/unit_of_work.py",
+    "backend/tests/test_unit_of_work.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/23/c9ad510d28/0/metadata.json",
+      "transcript": "/23/c9ad510d28/0/full.jsonl",
+      "compact_transcript": "/23/c9ad510d28/0/transcript.jsonl",
+      "content_hash": "/23/c9ad510d28/0/content_hash.txt",
+      "prompt": "/23/c9ad510d28/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 12,
+    "cache_creation_tokens": 4802,
+    "cache_read_tokens": 1103196,
+    "output_tokens": 2776,
+    "api_call_count": 6
+  }
+}
