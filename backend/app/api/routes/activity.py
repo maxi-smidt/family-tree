@@ -22,7 +22,7 @@ from app.services.activity.activity_snapshots import UndoLogDetails
 from app.services.activity.activity_undo import CONTENT_DOMAIN, RESTORERS, UndoConflict
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
-from app.services.storage import untrash_media
+from app.services.media.storage import untrash_media
 
 router = APIRouter(
     prefix="/trees/{tree_id}",

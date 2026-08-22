@@ -26,7 +26,7 @@ from app.schemas.content import (
 from app.services.activity.activity import record_activity, story_delete_snapshot
 from app.services.content_links import replace_document_links, replace_member_links
 from app.services.event_bus import publish_tree_event
-from app.services.storage_usage import check_tree_quota
+from app.services.media.storage_usage import check_tree_quota
 from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(

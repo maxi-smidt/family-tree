@@ -22,7 +22,7 @@ from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
 from app.services import presence_service
-from app.services.storage import (
+from app.services.media.storage import (
     InvalidImageURL,
     cleanup_document_upload_temps,
     cleanup_image_upload_temps,

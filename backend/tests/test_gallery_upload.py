@@ -120,7 +120,7 @@ def test_over_quota_upload_deletes_streamed_bytes(client, db, _media_root):
     tree = make_tree(db, owner)
 
     with patch(
-        "app.services.storage_usage._media_bytes",
+        "app.services.media.storage_usage._media_bytes",
         return_value=2 * MEBIBYTE,  # already over the 1 MiB quota
     ):
         res = _post_image(client, tree.id, auth(owner))

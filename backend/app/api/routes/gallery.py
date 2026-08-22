@@ -43,14 +43,14 @@ from app.services.content_links import (
     replace_member_links,
 )
 from app.services.event_bus import event_bus, publish_tree_event
-from app.services.storage import (
+from app.services.media.storage import (
     ImageTooLarge,
     UnsupportedImageType,
     delete_media,
     store_image_upload,
     trash_media,
 )
-from app.services.storage_usage import (
+from app.services.media.storage_usage import (
     check_media_quota,
     check_tree_quota,
     media_warning,

@@ -5,7 +5,7 @@ import base64
 import pytest
 
 from app.core.config import settings
-from app.services.storage_usage import compute_owner_usage
+from app.services.media.storage_usage import compute_owner_usage
 from app.services.system.user_purge import purge_user
 from tests.conftest import API, auth, befriend, make_user
 

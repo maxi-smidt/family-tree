@@ -39,7 +39,7 @@ def test_upload_near_quota_emits_warning(client, db, owner, tree):
     with (
         patch("app.api.routes.gallery.event_bus") as mock_bus,
         patch(
-            "app.services.storage_usage._media_bytes",
+            "app.services.media.storage_usage._media_bytes",
             return_value=int(0.95 * 1 * MEBIBYTE),
         ),
     ):
@@ -61,7 +61,7 @@ def test_upload_below_quota_does_not_emit(client, db, owner, tree):
     with (
         patch("app.api.routes.gallery.event_bus") as mock_bus,
         patch(
-            "app.services.storage_usage._media_bytes",
+            "app.services.media.storage_usage._media_bytes",
             return_value=int(0.5 * 100 * MEBIBYTE),
         ),
     ):
@@ -78,7 +78,7 @@ def test_upload_unlimited_quota_does_not_emit(client, db, owner, tree):
 
     with (
         patch("app.api.routes.gallery.event_bus") as mock_bus,
-        patch("app.services.storage_usage._media_bytes", return_value=999_999_999),
+        patch("app.services.media.storage_usage._media_bytes", return_value=999_999_999),
     ):
         res = _post_image(client, tree.id, auth(owner))
 

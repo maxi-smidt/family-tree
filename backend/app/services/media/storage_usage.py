@@ -38,7 +38,7 @@ from app.models.content import (
 )
 from app.models.family import Member, MemberDisease, Relation
 from app.models.tree import Tree
-from app.services.storage import MEDIA_TRASH_DIR_NAME
+from app.services.media.storage import MEDIA_TRASH_DIR_NAME
 from app.services.system.settings_service import get_int_setting
 
 
@@ -190,7 +190,7 @@ def _media_bytes(tree_id: str) -> int:
 
     Counts files in the tree directory and in the ``originals/`` subdirectory
     used by gallery ``"both"`` mode. Excludes ``.trash/`` — media a delete has
-    moved into per-tree trash (see ``app.services.storage.trash_media``) no
+    moved into per-tree trash (see ``app.services.media.storage.trash_media``) no
     longer counts against quota, even though it survives on disk until the
     retention sweep purges it. Returns 0 when the directory does not exist
     (e.g. tree has no media).

@@ -13,7 +13,7 @@ import re
 
 from app.models import Member
 from app.schemas.merge import FieldChoice
-from app.services.storage import copy_media_to_tree
+from app.services.media.storage import copy_media_to_tree
 
 
 def norm(value: str | None) -> str:

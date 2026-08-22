@@ -183,7 +183,7 @@ def gallery_delete_snapshot(
     with the image but are deliberately not snapshotted here, mirroring the
     virtual-view-match exclusion in ``member_delete_snapshot``. ``trashed_media``
     records the media URL the caller is expected to move into per-tree trash
-    (``app.services.storage.trash_media``) rather than delete outright.
+    (``app.services.media.storage.trash_media``) rather than delete outright.
     """
     member_links = db.scalars(
         select(GalleryMemberLink).where(GalleryMemberLink.gallery_image_id == image.id)

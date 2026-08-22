@@ -835,7 +835,7 @@ def test_delete_gallery_image_details_snapshot_trashes_media(
 def _write_media_file(
     settings, tree_id: str, filename: str, content: bytes = b"data"
 ) -> str:
-    from app.services.storage import MEDIA_URL_PREFIX
+    from app.services.media.storage import MEDIA_URL_PREFIX
 
     tree_dir = settings.media_root / tree_id
     tree_dir.mkdir(parents=True, exist_ok=True)

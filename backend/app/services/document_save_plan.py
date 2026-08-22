@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import InvalidInputError
 from app.models import DocumentFile, DocumentUpload, Tree
 from app.schemas.content import DocumentSave
-from app.services.storage_usage import check_tree_quota
+from app.services.media.storage_usage import check_tree_quota
 
 
 def external_link_url(raw_url: str) -> str:

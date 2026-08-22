@@ -13,7 +13,7 @@ from app.schemas.family import RelationCreate, RelationOut
 from app.services.activity.activity import record_activity, relation_delete_snapshot
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
-from app.services.storage_usage import check_tree_quota
+from app.services.media.storage_usage import check_tree_quota
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 

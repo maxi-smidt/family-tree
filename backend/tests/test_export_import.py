@@ -14,7 +14,7 @@ from app.models import (
     User,
 )
 from app.services import crypto_export
-from app.services.storage_usage import compute_owner_usage
+from app.services.media.storage_usage import compute_owner_usage
 from tests.conftest import API, auth, make_tree, make_user, wait_for_job
 
 _PNG_BYTES = base64.b64decode(

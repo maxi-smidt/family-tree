@@ -45,7 +45,7 @@ from app.schemas.user import (
     UserOut,
     UserProfileUpdate,
 )
-from app.services.storage import (
+from app.services.media.storage import (
     ImageTooLarge,
     UnsupportedImageType,
     delete_profile_image,

@@ -64,7 +64,7 @@ from app.services.bundle_types import (
     TreeBundle,
     TreeBundleV4,
 )
-from app.services.storage import media_url_to_data_url
+from app.services.media.storage import media_url_to_data_url
 from app.services.system.job_service import create_job, run_job
 from app.services.tree_bundle_import import do_import
 from app.services.tree_gedcom_import import do_import_gedcom

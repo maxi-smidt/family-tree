@@ -56,7 +56,7 @@ from app.services.document_service import (
     save_document,
 )
 from app.services.event_bus import publish_tree_event
-from app.services.storage import (
+from app.services.media.storage import (
     ChecksumMismatch,
     FileTooLarge,
     UnsupportedFileType,
@@ -64,7 +64,7 @@ from app.services.storage import (
     store_document_upload,
     trash_media,
 )
-from app.services.storage_usage import check_media_quota, check_tree_quota
+from app.services.media.storage_usage import check_media_quota, check_tree_quota
 from app.services.system.settings_service import get_media_limits
 
 router = APIRouter(

@@ -43,7 +43,7 @@ FASTAPI_FREE_MODULES = [
 
 # Application services that raise DomainError instead of HTTPException. Some
 # of these still pull fastapi in transitively through unrelated collaborators
-# (e.g. app.services.storage imports UploadFile for upload handling) — that
+# (e.g. app.services.media.storage imports UploadFile for upload handling) — that
 # pre-existing coupling is out of scope here. What this file must guarantee
 # is narrower: these modules no longer declare a *direct* fastapi import of
 # their own for error handling.
@@ -52,7 +52,7 @@ DOMAIN_SERVICE_MODULES = [
     "app.services.extract",
     "app.services.merge",
     "app.services.member_merge",
-    "app.services.storage_usage",
+    "app.services.media.storage_usage",
 ]
 
 

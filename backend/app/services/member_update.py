@@ -28,20 +28,20 @@ from app.services.bridge import (
 )
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
-from app.services.member_access import get_member
-from app.services.member_vitals import (
-    event_updates_allowed,
-    sync_parent_slots,
-    sync_vital_event,
-)
-from app.services.storage import (
+from app.services.media.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
     UnsupportedImageType,
     delete_media,
     process_image_field,
 )
-from app.services.storage_usage import check_media_quota
+from app.services.media.storage_usage import check_media_quota
+from app.services.member_access import get_member
+from app.services.member_vitals import (
+    event_updates_allowed,
+    sync_parent_slots,
+    sync_vital_event,
+)
 from app.services.system.settings_service import get_media_limits
 
 # Positional/internal fields excluded from the before/after activity diff.
