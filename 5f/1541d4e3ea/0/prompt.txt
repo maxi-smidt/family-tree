@@ -208,3 +208,7 @@ gh api -X PUT repos/maxi-smidt/family-tree/actions/permissions/fork-pr-contribut
 gh: Invalid request.
 
 Invalid property /approval_policy: `none` is not a possible value. Must be one of the following: first_time_contributors_new_to_github, first_time_contributors, all_external_contributors. (HTTP 422)
+
+---
+
+okay, create PR for that and tell me if i need to add any secrets or so
