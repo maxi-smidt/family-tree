@@ -3,9 +3,22 @@
   "checkpoint_id": "1eed3980a578",
   "strategy": "manual-commit",
   "branch": "refactor/955-virtual-views-domain",
-  "checkpoints_count": 3,
+  "checkpoints_count": 2,
   "files_touched": [
-    "docs/AGENTS.md"
+    "backend/app/api/routes/virtual_view_content.py",
+    "backend/app/api/routes/virtual_views.py",
+    "backend/app/services/virtual_view_access.py",
+    "backend/app/services/virtual_view_composite.py",
+    "backend/app/services/virtual_view_config.py",
+    "backend/app/services/virtual_view_matching.py",
+    "backend/app/services/virtual_view_sources.py",
+    "backend/app/services/virtual_views/__init__.py",
+    "backend/app/services/virtual_views/virtual_view_access.py",
+    "backend/app/services/virtual_views/virtual_view_composite.py",
+    "backend/app/services/virtual_views/virtual_view_config.py",
+    "backend/app/services/virtual_views/virtual_view_matching.py",
+    "backend/app/services/virtual_views/virtual_view_sources.py",
+    "backend/tests/test_virtual_view_composite.py"
   ],
   "sessions": [
     {
@@ -17,10 +30,10 @@
     }
   ],
   "token_usage": {
-    "input_tokens": 28,
-    "cache_creation_tokens": 17131,
-    "cache_read_tokens": 3428502,
-    "output_tokens": 4098,
-    "api_call_count": 14
+    "input_tokens": 74,
+    "cache_creation_tokens": 22280,
+    "cache_read_tokens": 10408762,
+    "output_tokens": 7682,
+    "api_call_count": 37
   }
 }
