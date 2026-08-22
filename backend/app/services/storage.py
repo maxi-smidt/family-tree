@@ -454,7 +454,7 @@ def untrash_media(value: str | None) -> bool:
 def purge_expired_media_trash(ttl_seconds: int = MEDIA_TRASH_TTL_SECONDS) -> int:
     """Permanently remove trashed media files older than ``ttl_seconds``.
 
-    Called from the deletion-sweep loop (``app.services.deletion_sweeper``).
+    Called from the deletion-sweep loop (``app.services.system.deletion_sweeper``).
     Best-effort per file/tree so one bad entry can't stop the rest. Returns
     the number of files removed.
     """

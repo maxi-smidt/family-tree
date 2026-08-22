@@ -43,7 +43,6 @@ from app.services.content_links import (
     replace_member_links,
 )
 from app.services.event_bus import event_bus, publish_tree_event
-from app.services.settings_service import effective_storage_mode, get_media_limits
 from app.services.storage import (
     ImageTooLarge,
     UnsupportedImageType,
@@ -56,6 +55,7 @@ from app.services.storage_usage import (
     check_tree_quota,
     media_warning,
 )
+from app.services.system.settings_service import effective_storage_mode, get_media_limits
 
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",

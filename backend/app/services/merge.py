@@ -32,7 +32,6 @@ from app.schemas.family import MemberOut
 from app.schemas.merge import DuplicatePair, MergeResolution, TreeMergePreview
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_tree_event
-from app.services.job_service import ProgressCallback
 from app.services.member_clone import (
     apply_field_choices,
     clone_member,
@@ -50,6 +49,7 @@ from app.services.merge_copy import (
     copy_stories,
     copy_tasks,
 )
+from app.services.system.job_service import ProgressCallback
 from app.services.tree_state import mark_tree_opened
 
 MemberIdMap = dict[str, str]

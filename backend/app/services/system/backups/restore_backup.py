@@ -1,6 +1,7 @@
 """Command-line entry point for a guarded full-instance restore.
 
-Run from ``backend/`` with ``uv run python -m app.services.restore_backup``.
+Run from ``backend/`` with
+``uv run python -m app.services.system.backups.restore_backup``.
 The command targets a blank database and media volume by default.  Passing
 ``--replace`` is a deliberate disaster-recovery operation that removes the
 current restorable instance data before loading the backup.
@@ -11,7 +12,7 @@ import sys
 from pathlib import Path
 
 from app.db.session import SessionLocal
-from app.services.backup_service import (
+from app.services.system.backups.backup_service import (
     BackupValidationError,
     RestoreTargetNotEmptyError,
     restore_backup_file,

@@ -2,7 +2,8 @@
 
 When the backend runs with multiple uvicorn workers (``WORKERS > 1``) every
 worker process starts its own copy of the background loops
-(:mod:`app.services.deletion_sweeper`, :mod:`app.services.backup_scheduler`).
+(:mod:`app.services.system.deletion_sweeper`,
+:mod:`app.services.system.backups.backup_scheduler`).
 Wrapping a run in :func:`single_leader` ensures only one worker actually does
 the work each round: the others fail to acquire the lock and skip. No external
 coordinator (Redis, etc.) is needed — Postgres is always present.

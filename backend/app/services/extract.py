@@ -40,11 +40,9 @@ from app.models import (
     User,
 )
 from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
-from app.services import feature_service
 from app.services.activity.activity import record_activity
 from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
-from app.services.job_service import ProgressCallback
 from app.services.member_clone import clone_member, wire_bridge
 from app.services.storage import media_disk_usage, move_media_to_tree
 from app.services.subtree_documents import (
@@ -54,6 +52,8 @@ from app.services.subtree_documents import (
     split_linked_entities,
 )
 from app.services.subtree_selection import classify_relations, collect_member_ids
+from app.services.system import feature_service
+from app.services.system.job_service import ProgressCallback
 from app.services.tree_state import mark_tree_opened
 
 

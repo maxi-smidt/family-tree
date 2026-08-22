@@ -722,7 +722,7 @@ def test_bridge_drift_resolve_requires_access_to_other_tree(client, db):
 
 def test_bridge_drift_hidden_when_flag_off(client, db):
     from app.models.family import Member as MemberModel
-    from app.services import feature_service
+    from app.services.system import feature_service
 
     user = make_user(db, "alice")
     main, _sub_id, counterpart_id = _make_bridge(client, db, user)

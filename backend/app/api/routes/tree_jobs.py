@@ -11,14 +11,14 @@ from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.job import JobStarted
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import LinkGraphOut, TreeMerge
-from app.services import feature_service
 from app.services.extract import (
     compute_subtree_preview,
     extract_subtree,
     validate_move_request,
 )
-from app.services.job_service import ProgressCallback, create_job, run_job
 from app.services.merge import compute_merge_preview, merge_trees
+from app.services.system import feature_service
+from app.services.system.job_service import ProgressCallback, create_job, run_job
 from app.services.tree_links import compute_link_graph
 
 router = APIRouter(prefix="/trees", tags=["trees"])

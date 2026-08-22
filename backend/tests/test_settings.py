@@ -1,7 +1,7 @@
 """Tests for typed runtime application settings."""
 
 from app.core.media_config import MEBIBYTE, STORED_IMAGE_HEIGHT, STORED_IMAGE_WIDTH
-from app.services.settings_service import get_media_limits, set_setting
+from app.services.system.settings_service import get_media_limits, set_setting
 from tests.conftest import API, auth, make_user
 
 

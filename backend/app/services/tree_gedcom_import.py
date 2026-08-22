@@ -16,8 +16,8 @@ from app.models import Member, Relation, Tree, User
 from app.services.activity.activity import record_activity
 from app.services.bundle_types import GedcomParseResult
 from app.services.event_bus import publish_tree_event
-from app.services.job_service import ProgressCallback
 from app.services.storage import delete_tree_media
+from app.services.system.job_service import ProgressCallback
 from app.services.tree_bundle_import import (
     BULK_CHUNK,
     bulk_insert_chunked,

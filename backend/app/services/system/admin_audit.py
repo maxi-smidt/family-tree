@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.admin_audit import AdminAuditLog
 from app.models.user import User
-from app.services.admin_audit_details import AdminAuditDetails
+from app.services.system.admin_audit_details import AdminAuditDetails
 
 
 def record_admin_audit(

@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.models import User
-from app.services import settings_service
+from app.services.system import settings_service
 
 
 def schedule_deletion(db: Session, user: User, requested_by: str) -> None:

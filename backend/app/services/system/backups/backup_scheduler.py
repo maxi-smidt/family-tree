@@ -19,9 +19,9 @@ from sqlalchemy import select
 from app.db.advisory_lock import single_leader
 from app.db.session import SessionLocal
 from app.models import BackupRecord
-from app.services import backup_service
 from app.services.event_bus import admin_user_ids, event_bus
-from app.services.settings_service import get_settings_out
+from app.services.system.backups import backup_service
+from app.services.system.settings_service import get_settings_out
 
 logger = logging.getLogger("app.backup_scheduler")
 

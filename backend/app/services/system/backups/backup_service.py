@@ -72,8 +72,8 @@ from app.models import (
 )
 from app.models.backup import BackupRecord
 from app.schemas.backup import BackupBundle, MediaItem
-from app.services.admin_audit import record_admin_audit
 from app.services.crypto_export import decrypt_bundle, encrypt_bundle
+from app.services.system.admin_audit import record_admin_audit
 
 logger = logging.getLogger("app.backup_service")
 

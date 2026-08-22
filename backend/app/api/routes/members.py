@@ -50,7 +50,6 @@ from app.services.member_search import MEMBER_SURFACE_COLUMNS, member_name_searc
 from app.services.member_update import update_member as update_member_service
 from app.services.member_vitals import event_updates_allowed, sync_vital_event
 from app.services.neighborhood import collect_neighborhood_ids, pick_default_root
-from app.services.settings_service import get_media_limits
 from app.services.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
@@ -59,6 +58,7 @@ from app.services.storage import (
     process_image_field,
 )
 from app.services.storage_usage import check_media_quota, check_tree_quota
+from app.services.system.settings_service import get_media_limits
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 

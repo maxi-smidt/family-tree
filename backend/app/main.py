@@ -22,14 +22,14 @@ from app.db.init_db import init_db
 from app.db.redis import close_redis, ping_redis
 from app.db.session import engine
 from app.services import presence_service
-from app.services.authentik import init_oauth
-from app.services.backup_scheduler import backup_schedule_loop
-from app.services.deletion_sweeper import deletion_sweep_loop
 from app.services.storage import (
     InvalidImageURL,
     cleanup_document_upload_temps,
     cleanup_image_upload_temps,
 )
+from app.services.system.authentik import init_oauth
+from app.services.system.backups.backup_scheduler import backup_schedule_loop
+from app.services.system.deletion_sweeper import deletion_sweep_loop
 
 setup_logging()
 logger = logging.getLogger("app")

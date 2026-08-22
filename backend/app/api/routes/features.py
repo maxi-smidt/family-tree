@@ -8,8 +8,8 @@ from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models import User
 from app.schemas.setting import FeatureFlagOut, FeatureFlagUpdate
-from app.services import feature_service
-from app.services.admin_audit import record_admin_audit
+from app.services.system import feature_service
+from app.services.system.admin_audit import record_admin_audit
 
 router = APIRouter(
     prefix="/admin/features",

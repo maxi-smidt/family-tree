@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services import feature_service, presence_service
+from app.services import presence_service
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_user, share
 
 

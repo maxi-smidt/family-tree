@@ -1,6 +1,6 @@
 """Tests for GET /trees/{tree_id}/statistics/combined (issue #566)."""
 
-from app.services import feature_service
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 

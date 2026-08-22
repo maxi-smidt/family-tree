@@ -10,7 +10,7 @@ from app.schemas.user import (
     TutorialPreferences,
     UserPreferences,
 )
-from app.services.settings_service import get_media_limits
+from app.services.system.settings_service import get_media_limits
 
 router = APIRouter(prefix="/users/me/preferences", tags=["preferences"])
 

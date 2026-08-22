@@ -41,7 +41,7 @@ def _bridge_drift_issues(
     linked = [m for m in members if m.linked_member_id]
     if not linked:
         return []
-    from app.services import feature_service  # noqa: PLC0415
+    from app.services.system import feature_service  # noqa: PLC0415
 
     if not feature_service.is_enabled(db, "tree_links", user):
         return []

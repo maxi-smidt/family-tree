@@ -21,7 +21,7 @@ from app.schemas.virtual_view import (
     VirtualViewSourceOut,
     VirtualViewUpdate,
 )
-from app.services.admin_audit import record_admin_audit
+from app.services.system.admin_audit import record_admin_audit
 from app.services.virtual_views.virtual_view_access import (
     mark_view_opened,
     resolve_view,

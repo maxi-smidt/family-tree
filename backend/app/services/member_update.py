@@ -34,7 +34,6 @@ from app.services.member_vitals import (
     sync_parent_slots,
     sync_vital_event,
 )
-from app.services.settings_service import get_media_limits
 from app.services.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
@@ -43,6 +42,7 @@ from app.services.storage import (
     process_image_field,
 )
 from app.services.storage_usage import check_media_quota
+from app.services.system.settings_service import get_media_limits
 
 # Positional/internal fields excluded from the before/after activity diff.
 _DIFF_SKIP_FIELDS = {"position_x", "position_y", "is_collapsed", "image_data"}

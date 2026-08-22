@@ -38,7 +38,7 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 # whole point of moving the HTTP mapping out to app.api.exception_handlers.
 FASTAPI_FREE_MODULES = [
     "app.core.exceptions",
-    "app.services.job_service",
+    "app.services.system.job_service",
 ]
 
 # Application services that raise DomainError instead of HTTPException. Some

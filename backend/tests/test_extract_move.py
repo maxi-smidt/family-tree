@@ -28,9 +28,9 @@ from app.models import (
     Tree,
 )
 from app.schemas.extract import SubtreeExtractRequest
-from app.services import feature_service
 from app.services.extract import compute_subtree_preview, extract_subtree
 from app.services.storage import MEDIA_URL_PREFIX
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 

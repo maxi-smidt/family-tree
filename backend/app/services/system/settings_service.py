@@ -31,9 +31,9 @@ from app.core.media_config import (
 )
 from app.models import AppSetting, LegalAcceptance, LegalDocumentVersion, User
 from app.schemas.setting import ImageStorageMode, MediaLimits, SettingsOut, SettingsUpdate
-from app.services.admin_audit import record_admin_audit
-from app.services.admin_audit_details import SettingsChanges
-from app.services.legal_defaults import (
+from app.services.system.admin_audit import record_admin_audit
+from app.services.system.admin_audit_details import SettingsChanges
+from app.services.system.legal_defaults import (
     DEFAULT_LEGAL_BODIES,
     LEGAL_DEFAULT_LOCALE,
     LEGAL_LOCALES,

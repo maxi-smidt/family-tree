@@ -56,7 +56,6 @@ from app.services.document_service import (
     save_document,
 )
 from app.services.event_bus import publish_tree_event
-from app.services.settings_service import get_media_limits
 from app.services.storage import (
     ChecksumMismatch,
     FileTooLarge,
@@ -66,6 +65,7 @@ from app.services.storage import (
     trash_media,
 )
 from app.services.storage_usage import check_media_quota, check_tree_quota
+from app.services.system.settings_service import get_media_limits
 
 router = APIRouter(
     prefix="/trees/{tree_id}/documents",

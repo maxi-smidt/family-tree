@@ -9,9 +9,9 @@ from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import User
 from app.schemas.user import UserCreate, UserOut, UserPasswordReset, UserUpdate
-from app.services.admin_audit import record_admin_audit
 from app.services.event_bus import event_bus
-from app.services.user_deletion import schedule_deletion
+from app.services.system.admin_audit import record_admin_audit
+from app.services.system.user_deletion import schedule_deletion
 
 router = APIRouter(prefix="/users", tags=["users"], dependencies=[Depends(require_admin)])
 

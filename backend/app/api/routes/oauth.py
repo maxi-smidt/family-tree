@@ -9,8 +9,8 @@ from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.session import get_db
 from app.models import User
-from app.services.admin_audit import record_admin_audit
-from app.services.authentik import get_client
+from app.services.system.admin_audit import record_admin_audit
+from app.services.system.authentik import get_client
 
 router = APIRouter(prefix="/auth/oauth/authentik", tags=["auth"])
 

@@ -6,7 +6,7 @@ the owner can grant/revoke the same role on the anchor tree plus a batch of
 (typically linked) trees in one call.
 """
 
-from app.services import feature_service
+from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
 
 
