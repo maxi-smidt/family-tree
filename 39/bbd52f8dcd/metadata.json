@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "39bbd52f8dcd",
+  "strategy": "manual-commit",
+  "branch": "refactor/952-unit-of-work-domain-exceptions",
+  "checkpoints_count": 3,
+  "files_touched": [
+    "backend/app/api/routes/gallery.py",
+    "backend/app/services/collaboration/notification_service.py",
+    "backend/app/services/system/user_purge.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/39/bbd52f8dcd/0/metadata.json",
+      "transcript": "/39/bbd52f8dcd/0/full.jsonl",
+      "compact_transcript": "/39/bbd52f8dcd/0/transcript.jsonl",
+      "content_hash": "/39/bbd52f8dcd/0/content_hash.txt",
+      "prompt": "/39/bbd52f8dcd/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 46,
+    "cache_creation_tokens": 19947,
+    "cache_read_tokens": 9054663,
+    "output_tokens": 10869,
+    "api_call_count": 23
+  }
+}
