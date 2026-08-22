@@ -26,6 +26,7 @@ from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_tree_event
 from app.services.system.admin_audit import record_admin_audit
 from app.services.trees.tree_view import tree_out
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -69,10 +70,14 @@ def set_public_access(
             },
         )
         logged = True
-    db.commit()
+    with UnitOfWork(db) as uow:
+        if logged:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
     db.refresh(tree)
-    if logged:
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     return tree_out(db, tree, user)
 
 
@@ -92,14 +97,14 @@ def set_public_password(
             status_code=400, detail="Tree is not publicly shared"
         )
     password = payload.password or ""
-    tree.public_password_hash = hash_password(password) if password else None
-    tree.public_access_version += 1
-    record_admin_audit(
-        db, actor=user, action="update", subject_type="tree_public_access",
-        subject_id=tree.id, subject_label=tree.name,
-        details={"password_protected": bool(password)},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        tree.public_password_hash = hash_password(password) if password else None
+        tree.public_access_version += 1
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="tree_public_access",
+            subject_id=tree.id, subject_label=tree.name,
+            details={"password_protected": bool(password)},
+        )
     db.refresh(tree)
     return tree_out(db, tree, user)
 

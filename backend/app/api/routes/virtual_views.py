@@ -22,6 +22,7 @@ from app.schemas.virtual_view import (
     VirtualViewUpdate,
 )
 from app.services.system.admin_audit import record_admin_audit
+from app.services.unit_of_work import UnitOfWork
 from app.services.virtual_views.virtual_view_access import (
     mark_view_opened,
     resolve_view,
@@ -136,17 +137,17 @@ def create_virtual_view(
         owner_id=user.id,
         created_at=utcnow_iso(),
     )
-    db.add(view)
-    db.flush()
-    persist_sources(db, view, resolved)
-    db.flush()
-    persist_matches(db, view)
-    record_admin_audit(
-        db, actor=user, action="create", subject_type="virtual_view",
-        subject_id=view.id, subject_label=view.name,
-        details={"source_ids": payload.source_tree_ids},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        db.add(view)
+        db.flush()
+        persist_sources(db, view, resolved)
+        db.flush()
+        persist_matches(db, view)
+        record_admin_audit(
+            db, actor=user, action="create", subject_type="virtual_view",
+            subject_id=view.id, subject_label=view.name,
+            details={"source_ids": payload.source_tree_ids},
+        )
     db.refresh(view)
     return _view_out(db, view, user)
 
@@ -158,8 +159,8 @@ def get_virtual_view(
     db: Session = Depends(get_db),
 ) -> VirtualViewOut:
     view = resolve_view(db, view_id, user)
-    mark_view_opened(db, view.id, user.id)
-    db.commit()
+    with UnitOfWork(db):
+        mark_view_opened(db, view.id, user.id)
     return _view_out(db, view, user)
 
 
@@ -177,44 +178,44 @@ def update_virtual_view(
         "name": view.name,
         "source_ids": [src.tree_id or src.source_view_id for src in view.sources],
     }
-    if payload.name is not None:
-        if not payload.name.strip():
-            raise HTTPException(status_code=400, detail="A name is required")
-        view.name = payload.name.strip()
-    if payload.source_tree_ids is not None:
-        resolved = classify_and_validate_sources(
-            db, user, payload.source_tree_ids, target_view_id=view.id
-        )
-        groups = compute_match_groups(db, flatten_resolved(db, resolved))
-        if not groups:
-            raise HTTPException(
-                status_code=409, detail=VIRTUAL_VIEW_SOURCES_NO_OVERLAP
+    with UnitOfWork(db):
+        if payload.name is not None:
+            if not payload.name.strip():
+                raise HTTPException(status_code=400, detail="A name is required")
+            view.name = payload.name.strip()
+        if payload.source_tree_ids is not None:
+            resolved = classify_and_validate_sources(
+                db, user, payload.source_tree_ids, target_view_id=view.id
             )
-        for src in list(view.sources):
-            db.delete(src)
-        db.flush()
-        persist_sources(db, view, resolved)
-        db.flush()
-        # The sources relationship was loaded before the delete/re-add above;
-        # expire it so persist_matches sees the new source list, not the stale
-        # collection (otherwise matches are computed against the old trees).
-        db.expire(view, ["sources"])
-        persist_matches(db, view)
-    if payload.name is not None or payload.source_tree_ids is not None:
-        after = {
-            "name": view.name,
-            "source_ids": (
-                payload.source_tree_ids
-                if payload.source_tree_ids is not None
-                else before["source_ids"]
-            ),
-        }
-        record_admin_audit(
-            db, actor=user, action="update", subject_type="virtual_view",
-            subject_id=view.id, subject_label=view.name,
-            details={"before": before, "after": after},
-        )
-    db.commit()
+            groups = compute_match_groups(db, flatten_resolved(db, resolved))
+            if not groups:
+                raise HTTPException(
+                    status_code=409, detail=VIRTUAL_VIEW_SOURCES_NO_OVERLAP
+                )
+            for src in list(view.sources):
+                db.delete(src)
+            db.flush()
+            persist_sources(db, view, resolved)
+            db.flush()
+            # The sources relationship was loaded before the delete/re-add above;
+            # expire it so persist_matches sees the new source list, not the stale
+            # collection (otherwise matches are computed against the old trees).
+            db.expire(view, ["sources"])
+            persist_matches(db, view)
+        if payload.name is not None or payload.source_tree_ids is not None:
+            after = {
+                "name": view.name,
+                "source_ids": (
+                    payload.source_tree_ids
+                    if payload.source_tree_ids is not None
+                    else before["source_ids"]
+                ),
+            }
+            record_admin_audit(
+                db, actor=user, action="update", subject_type="virtual_view",
+                subject_id=view.id, subject_label=view.name,
+                details={"before": before, "after": after},
+            )
     db.refresh(view)
     return _view_out(db, view, user)
 
@@ -230,12 +231,12 @@ def delete_virtual_view(
         raise HTTPException(status_code=404, detail="Virtual view not found")
     if view.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can delete a view")
-    record_admin_audit(
-        db, actor=user, action="delete", subject_type="virtual_view",
-        subject_id=view.id, subject_label=view.name,
-    )
-    db.delete(view)
-    db.commit()
+    with UnitOfWork(db):
+        record_admin_audit(
+            db, actor=user, action="delete", subject_type="virtual_view",
+            subject_id=view.id, subject_label=view.name,
+        )
+        db.delete(view)
 
 
 @router.post("/{view_id}/recompute-matches", response_model=RecomputeMatchesResult)
@@ -249,8 +250,8 @@ def recompute_matches(
         raise HTTPException(
             status_code=403, detail="Only the owner can recompute matches"
         )
-    group_count = persist_matches(db, view)
-    db.commit()
+    with UnitOfWork(db):
+        group_count = persist_matches(db, view)
     merged_count = len(
         db.execute(
             select(VirtualViewMemberMatch.member_id).where(

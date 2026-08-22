@@ -29,6 +29,7 @@ from app.services.collaboration.invitations import (
     is_invitation_valid,
 )
 from app.services.event_bus import event_bus
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(tags=["invitations"])
 
@@ -102,10 +103,9 @@ def create_invitation(
         created_by=user.id,
         expires_at=expires_at,
     )
-    db.add(inv)
-    db.commit()
-    db.refresh(inv)
-    if payload.email:
+    def _notify_invited_user() -> None:
+        if not payload.email:
+            return
         invited_user = db.scalar(
             select(User).where(
                 User.email == payload.email,
@@ -125,6 +125,11 @@ def create_invitation(
                 "invitation_received",
                 InvitationReceivedPayload(tree_id=tree.id, tree_name=tree.name),
             )
+
+    with UnitOfWork(db) as uow:
+        db.add(inv)
+        uow.after_commit(_notify_invited_user)
+    db.refresh(inv)
     return _inv_out(inv, include_token=True)
 
 
@@ -148,8 +153,8 @@ def revoke_invitation(
         raise HTTPException(status_code=404, detail="Invitation not found")
     from app.db.base import utcnow_iso
 
-    inv.revoked_at = utcnow_iso()
-    db.commit()
+    with UnitOfWork(db):
+        inv.revoked_at = utcnow_iso()
 
 
 # ---------------------------------------------------------------------------

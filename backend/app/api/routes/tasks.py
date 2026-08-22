@@ -27,6 +27,7 @@ from app.services.activity.activity import record_activity
 from app.services.documents.content_links import replace_member_links
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage_usage import check_tree_quota
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/trees/{tree_id}/tasks",
@@ -113,21 +114,21 @@ def create_task(
     member_ids = data.pop("member_ids")
     check_tree_quota(db, tree, len(str(data).encode()))
     task = MemberTask(tree_id=tree.id, done=False, **data)
-    db.add(task)
-    db.flush()  # task row must exist before its links reference it
-    replace_member_links(
-        db,
-        link_model=MemberTaskLink,
-        parent_fk=MemberTaskLink.task_id,
-        parent_id=task.id,
-        tree=tree,
-        member_ids=member_ids,
-    )
-    record_activity(db, tree_id=tree.id, actor=user, action="create",
-                    target_type="task", target_id=task.id, target_label=task.title)
-    db.commit()
+    with UnitOfWork(db) as uow:
+        db.add(task)
+        db.flush()  # task row must exist before its links reference it
+        replace_member_links(
+            db,
+            link_model=MemberTaskLink,
+            parent_fk=MemberTaskLink.task_id,
+            parent_id=task.id,
+            tree=tree,
+            member_ids=member_ids,
+        )
+        record_activity(db, tree_id=tree.id, actor=user, action="create",
+                        target_type="task", target_id=task.id, target_label=task.title)
+        uow.after_commit(lambda: _notify(db, tree))
     db.refresh(task)
-    _notify(db, tree)
     return _task_out(db, task)
 
 
@@ -147,11 +148,11 @@ def update_task(
         task.done_at = None
     elif task.done_at is None:
         task.done_at = utcnow_iso()
-    record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="task", target_id=task.id, target_label=task.title)
-    db.commit()
+    with UnitOfWork(db) as uow:
+        record_activity(db, tree_id=tree.id, actor=user, action="update",
+                        target_type="task", target_id=task.id, target_label=task.title)
+        uow.after_commit(lambda: _notify(db, tree))
     db.refresh(task)
-    _notify(db, tree)
     return _task_out(db, task)
 
 
@@ -165,18 +166,18 @@ def set_links(
 ):
     """Replace the full set of members linked to this task."""
     task = _get_task(db, tree, task_id)
-    replace_member_links(
-        db,
-        link_model=MemberTaskLink,
-        parent_fk=MemberTaskLink.task_id,
-        parent_id=task_id,
-        tree=tree,
-        member_ids=payload.member_ids,
-    )
-    record_activity(db, tree_id=tree.id, actor=user, action="update",
-                    target_type="task", target_id=task.id, target_label=task.title)
-    db.commit()
-    _notify(db, tree)
+    with UnitOfWork(db) as uow:
+        replace_member_links(
+            db,
+            link_model=MemberTaskLink,
+            parent_fk=MemberTaskLink.task_id,
+            parent_id=task_id,
+            tree=tree,
+            member_ids=payload.member_ids,
+        )
+        record_activity(db, tree_id=tree.id, actor=user, action="update",
+                        target_type="task", target_id=task.id, target_label=task.title)
+        uow.after_commit(lambda: _notify(db, tree))
 
 
 @router.delete("/{task_id}", status_code=204)
@@ -187,8 +188,8 @@ def delete_task(
     db: Session = Depends(get_db),
 ):
     task = _get_task(db, tree, task_id)
-    record_activity(db, tree_id=tree.id, actor=user, action="delete",
-                    target_type="task", target_id=task.id, target_label=task.title)
-    db.delete(task)
-    db.commit()
-    _notify(db, tree)
+    with UnitOfWork(db) as uow:
+        record_activity(db, tree_id=tree.id, actor=user, action="delete",
+                        target_type="task", target_id=task.id, target_label=task.title)
+        db.delete(task)
+        uow.after_commit(lambda: _notify(db, tree))

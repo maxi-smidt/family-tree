@@ -55,6 +55,7 @@ from app.services.trees.subtree_documents import (
 )
 from app.services.trees.subtree_selection import classify_relations, collect_member_ids
 from app.services.trees.tree_state import mark_tree_opened
+from app.services.unit_of_work import UnitOfWork
 
 
 def _require_readable(db: Session, user: User, tree_id: str) -> Tree:
@@ -348,26 +349,32 @@ def extract_subtree(
 
     # --- Bookkeeping ---
     label = " ".join(filter(None, [root.first_name, root.last_name])) or None
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="update",
-        target_type="member",
-        target_id=root.id,
-        target_label=label,
-        details={
-            "after": {"linked_tree_id": new_tree.id},
-            "moved_member_count": len(moved),
-            "severed_relation_count": len(severed),
-        },
-    )
-    db.commit()
-    invalidate_stats(tree.id)
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "member"}
-    )
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="member",
+            target_id=root.id,
+            target_label=label,
+            details={
+                "after": {"linked_tree_id": new_tree.id},
+                "moved_member_count": len(moved),
+                "severed_relation_count": len(severed),
+            },
+        )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "member"}
+            )
+        )
     db.refresh(new_tree)
     _progress(95)
     return new_tree

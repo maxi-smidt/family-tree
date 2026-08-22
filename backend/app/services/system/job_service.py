@@ -26,6 +26,7 @@ from app.db.base import utcnow_iso
 from app.db.session import SessionLocal
 from app.models.job import BackgroundJob
 from app.services.event_bus import event_bus
+from app.services.unit_of_work import UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +36,8 @@ ProgressCallback = Callable[[int], None]
 def create_job(db: Session, user_id: str, job_type: str) -> BackgroundJob:
     """Create a BackgroundJob in the request's DB session and commit it."""
     job = BackgroundJob(user_id=user_id, type=job_type)
-    db.add(job)
-    db.commit()
+    with UnitOfWork(db):
+        db.add(job)
     db.refresh(job)
     return job
 
@@ -65,7 +66,7 @@ def run_job[**P](
             return
         job.status = "running"
         job.updated_at = utcnow_iso()
-        job_db.commit()
+        job_db.commit()  # allowlisted-commit: see module docstring
 
         def progress_cb(pct: int) -> None:
             # Update in-memory only; avoid DB commit here because the operation
@@ -81,7 +82,7 @@ def run_job[**P](
         job.progress_pct = 100
         job.result_tree_id = result_tree_id
         job.updated_at = utcnow_iso()
-        job_db.commit()
+        job_db.commit()  # allowlisted-commit: see module docstring
         event_bus.publish(
             [user_id], "job.done", {"job_id": job_id, "tree_id": result_tree_id}
         )
@@ -90,12 +91,15 @@ def run_job[**P](
         logger.exception("Background job %s failed", job_id)
         error_msg = str(exc.detail) if isinstance(exc, DomainError) else str(exc)
         try:
+            # allowlisted-rollback: discards this session's uncommitted "done"
+            # mutations (job.status/progress_pct/etc., set before `fn` raised)
+            # so "failed" can be recorded cleanly below.
             job_db.rollback()
             if job is not None:
                 job.status = "failed"
                 job.error = error_msg
                 job.updated_at = utcnow_iso()
-                job_db.commit()
+                job_db.commit()  # allowlisted-commit: see module docstring
         except Exception:
             logger.exception("Failed to persist job failure for %s", job_id)
         event_bus.publish([user_id], "job.failed", {"job_id": job_id, "error": error_msg})

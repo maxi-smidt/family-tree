@@ -20,6 +20,7 @@ from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage_usage import check_tree_quota
 from app.services.members.member_access import get_member
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -58,24 +59,30 @@ def add_disease(
     check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
     disease = MemberDisease(tree_id=tree.id, **payload.model_dump())
     db.add(disease)
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="create",
-        target_type="disease",
-        target_label=payload.name,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="create",
+            target_type="disease",
+            target_label=payload.name,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.content_changed",
+                {"tree_id": tree.id, "domain": "member"},
+            )
+        )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
     db.refresh(disease)
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
-    )
-    invalidate_stats(tree.id)
     return disease
 
 
@@ -96,25 +103,31 @@ def update_disease(
         raise HTTPException(status_code=404, detail="Disease not found")
     for key, value in payload.model_dump().items():
         setattr(disease, key, value)
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="update",
-        target_type="disease",
-        target_id=disease_id,
-        target_label=disease.name,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="disease",
+            target_id=disease_id,
+            target_label=disease.name,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.content_changed",
+                {"tree_id": tree.id, "domain": "member"},
+            )
+        )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
     db.refresh(disease)
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
-    )
-    invalidate_stats(tree.id)
     return disease
 
 
@@ -132,23 +145,29 @@ def delete_disease(
     disease = db.get(MemberDisease, disease_id)
     if disease is None or disease.tree_id != tree.id:
         raise HTTPException(status_code=404, detail="Disease not found")
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="delete",
-        target_type="disease",
-        target_id=disease_id,
-        target_label=disease.name,
-        details=disease_delete_snapshot(disease),
-    )
-    db.delete(disease)
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
-    )
-    invalidate_stats(tree.id)
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="delete",
+            target_type="disease",
+            target_id=disease_id,
+            target_label=disease.name,
+            details=disease_delete_snapshot(disease),
+        )
+        db.delete(disease)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.content_changed",
+                {"tree_id": tree.id, "domain": "member"},
+            )
+        )
+        uow.after_commit(lambda: invalidate_stats(tree.id))

@@ -28,6 +28,7 @@ from app.services.members.member_clone import (
 )
 from app.services.system import feature_service
 from app.services.tree_roles import role_for
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -163,59 +164,71 @@ def link_member_to_tree(
         reconcile_bridge_fields(member, counterpart, payload.field_choices)
 
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="update",
-        target_type="member",
-        target_id=member.id,
-        target_label=label,
-        details={"after": {"linked_tree_id": target.id}},
-    )
     counterpart_label = (
         " ".join(filter(None, [counterpart.first_name, counterpart.last_name])) or None
     )
-    if payload.mode == "create":
+    with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=target.id,
-            actor=user,
-            action="create",
-            target_type="member",
-            target_id=counterpart.id,
-            target_label=counterpart_label,
-        )
-    else:
-        record_activity(
-            db,
-            tree_id=target.id,
+            tree_id=tree.id,
             actor=user,
             action="update",
             target_type="member",
-            target_id=counterpart.id,
-            target_label=counterpart_label,
-            details={"after": {"linked_tree_id": tree.id}},
+            target_id=member.id,
+            target_label=label,
+            details={"after": {"linked_tree_id": target.id}},
         )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(db, target, "activity.entry_added", {"tree_id": target.id})
+        if payload.mode == "create":
+            record_activity(
+                db,
+                tree_id=target.id,
+                actor=user,
+                action="create",
+                target_type="member",
+                target_id=counterpart.id,
+                target_label=counterpart_label,
+            )
+        else:
+            record_activity(
+                db,
+                tree_id=target.id,
+                actor=user,
+                action="update",
+                target_type="member",
+                target_id=counterpart.id,
+                target_label=counterpart_label,
+                details={"after": {"linked_tree_id": tree.id}},
+            )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, target, "activity.entry_added", {"tree_id": target.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.content_changed",
+                {"tree_id": tree.id, "domain": "member"},
+            )
+        )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                target,
+                "tree.content_changed",
+                {"tree_id": target.id, "domain": "member"},
+            )
+        )
+        uow.after_commit(lambda: invalidate_stats(target.id))
     db.refresh(member)
     db.refresh(target)
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
-    )
-    invalidate_stats(tree.id)
-    publish_tree_event(
-        db,
-        target,
-        "tree.content_changed",
-        {"tree_id": target.id, "domain": "member"},
-    )
-    invalidate_stats(target.id)
     return MemberSubtreeOut(
         tree=TreeOut.model_validate(target),
         anchor=MemberOut.model_validate(member),
@@ -257,25 +270,31 @@ def resolve_bridge_drift(
     copy_bridge_fields(src, dst)
 
     label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="update",
-        target_type="member",
-        target_id=member.id,
-        target_label=label,
-        details={"after": {"bridge_sync": payload.direction}},
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    db.refresh(member)
-    for t in (tree, other_tree):
-        publish_tree_event(
+    with UnitOfWork(db) as uow:
+        record_activity(
             db,
-            t,
-            "tree.content_changed",
-            {"tree_id": t.id, "domain": "member"},
+            tree_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="member",
+            target_id=member.id,
+            target_label=label,
+            details={"after": {"bridge_sync": payload.direction}},
         )
-        invalidate_stats(t.id)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        for t in (tree, other_tree):
+            uow.after_commit(
+                lambda t=t: publish_tree_event(
+                    db,
+                    t,
+                    "tree.content_changed",
+                    {"tree_id": t.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda t=t: invalidate_stats(t.id))
+    db.refresh(member)
     return member

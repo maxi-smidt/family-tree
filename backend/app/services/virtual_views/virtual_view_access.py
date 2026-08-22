@@ -10,10 +10,10 @@ anything else.
 
 from __future__ import annotations
 
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.api.deps import role_for
+from app.core.exceptions import AccessDeniedError, ConflictError, NotFoundError
 from app.db.base import utcnow_iso
 from app.db.upsert import upsert_row
 from app.models import Tree, User
@@ -39,35 +39,29 @@ def check_source_access(
     _seen.add(view.id)
 
     if len(view.sources) < 2:
-        raise HTTPException(status_code=409, detail=VIRTUAL_VIEW_SOURCES_MISSING)
+        raise ConflictError(VIRTUAL_VIEW_SOURCES_MISSING)
     for src in view.sources:
         if src.tree_id is not None:
             tree = db.get(Tree, src.tree_id)
             if tree is None or (
                 not user.is_admin and role_for(db, tree, user) is None
             ):
-                raise HTTPException(
-                    status_code=403, detail=VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED
-                )
+                raise AccessDeniedError(VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED)
         else:
             nested = db.get(VirtualView, src.source_view_id)
             if nested is None:
-                raise HTTPException(
-                    status_code=409, detail=VIRTUAL_VIEW_SOURCES_MISSING
-                )
+                raise ConflictError(VIRTUAL_VIEW_SOURCES_MISSING)
             if nested.owner_id != user.id and not user.is_admin:
-                raise HTTPException(
-                    status_code=403, detail=VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED
-                )
+                raise AccessDeniedError(VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED)
             check_source_access(db, nested, user, _seen)
 
 
 def resolve_view(db: Session, view_id: str, user: User) -> VirtualView:
     view = db.get(VirtualView, view_id)
     if view is None:
-        raise HTTPException(status_code=404, detail="Virtual view not found")
+        raise NotFoundError("Virtual view not found")
     if view.owner_id != user.id and not user.is_admin:
-        raise HTTPException(status_code=404, detail="Virtual view not found")
+        raise NotFoundError("Virtual view not found")
     check_source_access(db, view, user)
     return view
 

@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.models import Tree, User
 from app.services.media.storage import delete_tree_media, delete_user_profile_media
 from app.services.system.admin_audit import record_admin_audit
+from app.services.unit_of_work import UnitOfWork
 
 logger = logging.getLogger("app.user_purge")
 
@@ -56,17 +57,17 @@ def purge_user(db: Session, user: User) -> None:
     for tree_id in tree_ids:
         delete_tree_media(tree_id)
     delete_user_profile_media(user.id)
-    record_admin_audit(
-        db,
-        actor=None,
-        action="delete",
-        subject_type="user",
-        subject_id=user.id,
-        subject_label=user.username,
-        details={"purged_after_grace_period": True},
-    )
-    db.delete(user)
-    db.commit()
+    with UnitOfWork(db):
+        record_admin_audit(
+            db,
+            actor=None,
+            action="delete",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
+            details={"purged_after_grace_period": True},
+        )
+        db.delete(user)
 
 
 def purge_due_users(db: Session, now: datetime | None = None) -> int:
@@ -82,6 +83,8 @@ def purge_due_users(db: Session, now: datetime | None = None) -> int:
             purged += 1
             logger.info("Purged user %s after deletion grace period.", user_id)
         except Exception:  # noqa: BLE001 - keep going for the remaining users
+            # allowlisted-rollback: per-iteration isolation on a session shared
+            # across this loop, not undoing purge_user's own UnitOfWork commit.
             db.rollback()
             logger.exception("Failed to purge user %s", user_id)
     return purged

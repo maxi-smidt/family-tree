@@ -66,6 +66,7 @@ from app.services.media.storage import (
 )
 from app.services.media.storage_usage import check_media_quota, check_tree_quota
 from app.services.system.settings_service import get_media_limits
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
     prefix="/trees/{tree_id}/documents",
@@ -193,32 +194,38 @@ def create_document(
         updated_at=now,
         **data,
     )
-    db.add(document)
-    db.flush()  # document row must exist before its links reference it
-    replace_member_links(
-        db,
-        link_model=DocumentMemberLink,
-        parent_fk=DocumentMemberLink.document_id,
-        parent_id=document.id,
-        tree=tree,
-        member_ids=member_ids,
-    )
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="create",
-        target_type="document",
-        target_id=document.id,
-        target_label=document.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        db.add(document)
+        db.flush()  # document row must exist before its links reference it
+        replace_member_links(
+            db,
+            link_model=DocumentMemberLink,
+            parent_fk=DocumentMemberLink.document_id,
+            parent_id=document.id,
+            tree=tree,
+            member_ids=member_ids,
+        )
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="create",
+            target_type="document",
+            target_id=document.id,
+            target_label=document.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
+            )
+        )
     db.refresh(document)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
     return _document_out(db, document)
 
 
@@ -234,22 +241,28 @@ def update_document(
     for key, value in payload.model_dump().items():
         setattr(document, key, value)
     document.updated_at = utcnow_iso()
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="update",
-        target_type="document",
-        target_id=document.id,
-        target_label=document.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="document",
+            target_id=document.id,
+            target_label=document.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
+            )
+        )
     db.refresh(document)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
     return _document_out(db, document)
 
 
@@ -283,29 +296,39 @@ def delete_document(
     db: Session = Depends(get_db),
 ):
     document = _get_document(db, tree, document_id)
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="delete",
-        target_type="document",
-        target_id=document.id,
-        target_label=document.title,
-        details=document_delete_snapshot(db, document),
-    )
     # Capture the on-disk URLs before the row is gone, but only move the bytes
     # to trash *after* the DB commit succeeds. Removing them first would leave
     # a live row pointing at a missing file if the commit then failed.
     file_urls = [f.url for f in document.files if f.kind == "file"]
-    db.delete(document)
-    db.commit()
-    for url in file_urls:
-        trash_media(url)
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
+
+    def _trash_files() -> None:
+        for url in file_urls:
+            trash_media(url)
+
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="delete",
+            target_type="document",
+            target_id=document.id,
+            target_label=document.title,
+            details=document_delete_snapshot(db, document),
+        )
+        db.delete(document)
+        uow.after_commit(_trash_files)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
+            )
+        )
 
 
 # --- People mentioned --------------------------------------------------------
@@ -321,24 +344,30 @@ def set_document_members(
 ):
     """Replace the full set of people mentioned by this document."""
     document = _get_document(db, tree, document_id)
-    replace_member_links(
-        db,
-        link_model=DocumentMemberLink,
-        parent_fk=DocumentMemberLink.document_id,
-        parent_id=document_id,
-        tree=tree,
-        member_ids=payload.member_ids,
-    )
-    record_activity(
-        db, tree_id=tree.id, actor=user, action="update",
-        target_type="document", target_id=document.id, target_label=document.title,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
+    with UnitOfWork(db) as uow:
+        replace_member_links(
+            db,
+            link_model=DocumentMemberLink,
+            parent_fk=DocumentMemberLink.document_id,
+            parent_id=document_id,
+            tree=tree,
+            member_ids=payload.member_ids,
+        )
+        record_activity(
+            db, tree_id=tree.id, actor=user, action="update",
+            target_type="document", target_id=document.id, target_label=document.title,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
+            )
+        )
 
 
 # --- Files -------------------------------------------------------------------
@@ -397,13 +426,12 @@ async def stage_upload(
         size=size,
         created_at=utcnow_iso(),
     )
-    db.add(upload)
     try:
-        db.commit()
+        with UnitOfWork(db):
+            db.add(upload)
     except Exception:
         # The bytes are already on disk; if the staging row never commits,
         # remove them so a failed stage can't leave an orphan file behind.
-        db.rollback()
         delete_media(url)
         raise
     db.refresh(upload)
@@ -459,20 +487,21 @@ async def add_file(
         size=size,
         created_at=utcnow_iso(),
     )
-    db.add(file)
     try:
-        db.commit()
+        with UnitOfWork(db) as uow:
+            db.add(file)
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "tree.content_changed",
+                    {"tree_id": tree.id, "domain": "document"},
+                )
+            )
     except Exception:
         # The bytes are already on disk; if the row never commits, remove them
         # so a failed upload can't leave an orphan file behind.
-        db.rollback()
         delete_media(url)
         raise
     db.refresh(file)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
     return file
 
 
@@ -498,13 +527,15 @@ def add_link(
         size=None,
         created_at=utcnow_iso(),
     )
-    db.add(file)
-    db.commit()
+    with UnitOfWork(db) as uow:
+        db.add(file)
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
+            )
+        )
     db.refresh(file)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
     return file
 
 
@@ -518,13 +549,15 @@ def rename_file(
 ):
     document = _get_document(db, tree, document_id)
     file = _get_file(db, document, file_id)
-    file.filename = payload.filename
-    db.commit()
+    with UnitOfWork(db) as uow:
+        file.filename = payload.filename
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
+            )
+        )
     db.refresh(file)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
     return file
 
 
@@ -542,22 +575,28 @@ def delete_file(
     # first would leave a live row pointing at a missing file if the commit
     # then failed.
     url = file.url if file.kind == "file" else None
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="delete",
-        target_type="document_file",
-        target_id=file.id,
-        target_label=file.filename,
-        details=document_file_delete_snapshot(file, url),
-    )
-    db.delete(file)
-    db.commit()
-    if url is not None:
-        trash_media(url)
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
+    with UnitOfWork(db) as uow:
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="delete",
+            target_type="document_file",
+            target_id=file.id,
+            target_label=file.filename,
+            details=document_file_delete_snapshot(file, url),
+        )
+        db.delete(file)
+        if url is not None:
+            uow.after_commit(lambda: trash_media(url))
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
+            )
+        )

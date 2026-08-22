@@ -16,6 +16,7 @@ from app.services.collaboration import friendships
 from app.services.event_bus import publish_tree_event
 from app.services.trees.tree_access import list_tree_access
 from app.services.trees.tree_transfer import TRANSFER_UNDO_WINDOW_SECONDS, undo_deadline
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -89,16 +90,22 @@ def transfer_ownership(
             "after": {"owner_id": tree.owner_id},
         },
     )
-    db.commit()
-    db.refresh(tree)
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db,
-        tree,
-        "tree.ownership_changed",
-        {"tree_id": tree.id, "new_owner_id": tree.owner_id},
-        extra_user_ids=[old_owner_id],
-    )
+    with UnitOfWork(db) as uow:
+        uow.after_commit(lambda: db.refresh(tree))
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.ownership_changed",
+                {"tree_id": tree.id, "new_owner_id": tree.owner_id},
+                extra_user_ids=[old_owner_id],
+            )
+        )
     return TreeTransferResult(
         access=list_tree_access(db, tree),
         undo_available_until=undo_deadline(tree.ownership_transferred_at),
@@ -154,16 +161,22 @@ def revert_transfer(
             "after": {"owner_id": tree.owner_id},
         },
     )
-    db.commit()
-    db.refresh(tree)
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-    publish_tree_event(
-        db,
-        tree,
-        "tree.ownership_changed",
-        {"tree_id": tree.id, "new_owner_id": tree.owner_id},
-        extra_user_ids=[reverted_from_owner_id],
-    )
+    with UnitOfWork(db) as uow:
+        uow.after_commit(lambda: db.refresh(tree))
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.ownership_changed",
+                {"tree_id": tree.id, "new_owner_id": tree.owner_id},
+                extra_user_ids=[reverted_from_owner_id],
+            )
+        )
     return TreeTransferResult(
         access=list_tree_access(db, tree),
         undo_available_until=None,

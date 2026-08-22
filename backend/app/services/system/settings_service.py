@@ -38,6 +38,7 @@ from app.services.system.legal_defaults import (
     LEGAL_DEFAULT_LOCALE,
     LEGAL_LOCALES,
 )
+from app.services.unit_of_work import UnitOfWork
 
 # AppSetting keys for each (document_type, locale) body, e.g.
 # "legal_terms_body_de". A version is one release across all locales/docs, so
@@ -155,6 +156,8 @@ def ensure_defaults(db: Session) -> None:
     # same transaction as the seeded defaults.
     created = snapshot_current_legal_versions(db)
     if changed or created:
+        # allowlisted-commit: bootstrap-only (called once from app.db.init_db
+        # before the app serves any request); no post-commit effect to order.
         db.commit()
 
 
@@ -484,5 +487,6 @@ def update_settings(
         # version, in the same transaction as the settings/audit changes so
         # a mid-way failure rolls back both together.
         snapshot_current_legal_versions(db)
-    db.commit()
+    with UnitOfWork(db):
+        pass
     return result

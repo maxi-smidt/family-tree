@@ -61,6 +61,7 @@ from app.services.system.settings_service import (
     user_has_accepted_legal,
 )
 from app.services.system.user_deletion import schedule_deletion
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -133,11 +134,11 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
         session_token = create_totp_session_token(user.id)
         return LoginResponse(totp_required=True, totp_session_token=session_token)
 
-    record_admin_audit(
-        db, actor=user, action="create", subject_type="auth_login",
-        subject_id=user.id, subject_label=user.username,
-    )
-    db.commit()
+    with UnitOfWork(db):
+        record_admin_audit(
+            db, actor=user, action="create", subject_type="auth_login",
+            subject_id=user.id, subject_label=user.username,
+        )
     token = create_access_token(user.id)
     return LoginResponse(access_token=token, user=_current_user_out(db, user))
 
@@ -182,16 +183,16 @@ def verify_totp(
         if remaining is None:
             login_rate_limiter.record_failure(rate_key)
             raise HTTPException(status_code=401, detail="Invalid code")
-        user.totp_recovery_codes = remaining
-        db.commit()
+        with UnitOfWork(db):
+            user.totp_recovery_codes = remaining
         login_rate_limiter.reset(rate_key)
 
-    record_admin_audit(
-        db, actor=user, action="create", subject_type="auth_login",
-        subject_id=user.id, subject_label=user.username,
-        details={"two_factor": True},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        record_admin_audit(
+            db, actor=user, action="create", subject_type="auth_login",
+            subject_id=user.id, subject_label=user.username,
+            details={"two_factor": True},
+        )
     token = create_access_token(user.id)
     return Token(access_token=token, user=_current_user_out(db, user))
 
@@ -220,12 +221,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.flush()
-    record_admin_audit(
-        db, actor=user, action="create", subject_type="user",
-        subject_id=user.id, subject_label=user.username,
-        details={"self_registration": True, "is_admin": is_first},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        record_admin_audit(
+            db, actor=user, action="create", subject_type="user",
+            subject_id=user.id, subject_label=user.username,
+            details={"self_registration": True, "is_admin": is_first},
+        )
     db.refresh(user)
     token = create_access_token(user.id)
     return Token(access_token=token, user=_current_user_out(db, user))
@@ -253,9 +254,9 @@ def update_profile(
 ):
     """Update only the calling user's profile names."""
     changes = payload.model_dump(exclude_unset=True)
-    for field, value in changes.items():
-        setattr(user, field, value)
-    db.commit()
+    with UnitOfWork(db):
+        for field, value in changes.items():
+            setattr(user, field, value)
     db.refresh(user)
     return _current_user_out(db, user)
 
@@ -279,14 +280,13 @@ async def upload_profile_image(
     finally:
         await image.close()
 
-    user.profile_image = filename
     try:
-        db.commit()
-        db.refresh(user)
+        with UnitOfWork(db):
+            user.profile_image = filename
     except Exception:
-        db.rollback()
         delete_profile_image(user.id, filename)
         raise
+    db.refresh(user)
 
     delete_profile_image(user.id, old_filename)
     return _current_user_out(db, user)
@@ -318,8 +318,8 @@ def remove_profile_image(
 ):
     """Clear the caller's profile image and remove its private media bytes."""
     filename = user.profile_image
-    user.profile_image = None
-    db.commit()
+    with UnitOfWork(db):
+        user.profile_image = None
     db.refresh(user)
     delete_profile_image(user.id, filename)
     return _current_user_out(db, user)
@@ -356,13 +356,13 @@ def delete_account(
         if payload.confirm_username != user.username:
             raise HTTPException(status_code=400, detail="Username does not match")
 
-    schedule_deletion(db, user, requested_by=user.id)
-    record_admin_audit(
-        db, actor=user, action="delete", subject_type="user",
-        subject_id=user.id, subject_label=user.username,
-        details={"scheduled": True, "self_service": True},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        schedule_deletion(db, user, requested_by=user.id)
+        record_admin_audit(
+            db, actor=user, action="delete", subject_type="user",
+            subject_id=user.id, subject_label=user.username,
+            details={"scheduled": True, "self_service": True},
+        )
     return user
 
 
@@ -397,15 +397,15 @@ def restore_account(
     if user.deletion_requested_by != user.id:
         raise HTTPException(status_code=403, detail="admin_initiated_deletion")
 
-    user.deletion_requested_at = None
-    user.deletion_scheduled_for = None
-    user.deletion_requested_by = None
-    record_admin_audit(
-        db, actor=user, action="update", subject_type="user",
-        subject_id=user.id, subject_label=user.username,
-        details={"restored": True},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        user.deletion_requested_at = None
+        user.deletion_scheduled_for = None
+        user.deletion_requested_by = None
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="user",
+            subject_id=user.id, subject_label=user.username,
+            details={"restored": True},
+        )
     db.refresh(user)
 
     login_rate_limiter.reset(rate_key)
@@ -423,12 +423,12 @@ def change_password(
         payload.current_password, user.hashed_password
     ):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    user.hashed_password = hash_password(payload.new_password)
-    record_admin_audit(
-        db, actor=user, action="update", subject_type="password",
-        subject_id=user.id, subject_label=user.username,
-    )
-    db.commit()
+    with UnitOfWork(db):
+        user.hashed_password = hash_password(payload.new_password)
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="password",
+            subject_id=user.id, subject_label=user.username,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -479,10 +479,10 @@ def setup_totp(
     secret = generate_totp_secret()
     # Generate recovery codes now so they can be shown to the user during setup.
     recovery_codes = generate_recovery_codes()
-    user.totp_secret = secret
-    # Store hashed codes; they become valid once 2FA is enabled.
-    user.totp_recovery_codes = hash_recovery_codes(recovery_codes)
-    db.commit()
+    with UnitOfWork(db):
+        user.totp_secret = secret
+        # Store hashed codes; they become valid once 2FA is enabled.
+        user.totp_recovery_codes = hash_recovery_codes(recovery_codes)
 
     uri = get_totp_provisioning_uri(secret, user.username)
     return TotpSetupResponse(
@@ -509,13 +509,13 @@ def enable_totp(
     if not verify_totp_code(user.totp_secret, payload.code.strip()):
         raise HTTPException(status_code=400, detail="Invalid code")
 
-    user.totp_enabled = True
-    record_admin_audit(
-        db, actor=user, action="update", subject_type="two_factor",
-        subject_id=user.id, subject_label=user.username,
-        details={"enabled": True},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        user.totp_enabled = True
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="two_factor",
+            subject_id=user.id, subject_label=user.username,
+            details={"enabled": True},
+        )
     return TotpEnableResponse(totp_enabled=True)
 
 
@@ -539,12 +539,12 @@ def disable_totp(
         if remaining is None:
             raise HTTPException(status_code=400, detail="Invalid code")
 
-    user.totp_enabled = False
-    user.totp_secret = None
-    user.totp_recovery_codes = None
-    record_admin_audit(
-        db, actor=user, action="update", subject_type="two_factor",
-        subject_id=user.id, subject_label=user.username,
-        details={"enabled": False},
-    )
-    db.commit()
+    with UnitOfWork(db):
+        user.totp_enabled = False
+        user.totp_secret = None
+        user.totp_recovery_codes = None
+        record_admin_audit(
+            db, actor=user, action="update", subject_type="two_factor",
+            subject_id=user.id, subject_label=user.username,
+            details={"enabled": False},
+        )

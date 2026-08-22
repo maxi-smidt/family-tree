@@ -44,6 +44,7 @@ from app.services.documents.document_save_plan import (
 )
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage import delete_media
+from app.services.unit_of_work import UnitOfWork
 
 __all__ = ["external_link_url", "prune_stale_uploads", "save_document"]
 
@@ -73,39 +74,13 @@ def prune_stale_uploads(db: Session, tree: Tree) -> None:
     if not stale:
         return
     urls = [row.url for row in stale]
-    for row in stale:
-        db.delete(row)
     try:
-        db.commit()
+        with UnitOfWork(db) as uow:
+            for row in stale:
+                db.delete(row)
+            uow.after_commit(lambda: [delete_media(url) for url in urls])
     except Exception:
-        db.rollback()
         return
-    for url in urls:
-        delete_media(url)
-
-
-def _run_commit(db: Session) -> None:
-    """Commit seam — overridden by failure-injection tests to simulate a
-    DB commit failure at exactly this boundary."""
-    db.commit()
-
-
-def _commit_with_deletes(db: Session, delete_urls: list[str]) -> None:
-    """Commit the DB, then delete the now-unreferenced old files.
-
-    The old bytes are removed *after* the rows that replaced them are durable,
-    so a crash mid-way leaves at worst some unreferenced bytes rather than a
-    live row pointing at a missing file. A commit failure rolls the whole edit
-    back — the staged uploads (still referenced by their ``DocumentUpload``
-    rows) and the previous files both survive — and re-raises.
-    """
-    try:
-        _run_commit(db)
-    except Exception:
-        db.rollback()
-        raise
-    for url in delete_urls:
-        delete_media(url)
 
 
 def _persist_save_plan(
@@ -119,89 +94,110 @@ def _persist_save_plan(
     payload: DocumentSave,
     now: str,
 ) -> Document:
-    """Apply *plan* as one transaction — upsert the document, replace member
-    links, attach/remove/rename files, and record the activity — then commit
-    and delete the now-unreferenced old bytes (see ``_commit_with_deletes``).
+    """Apply *plan* as one ``UnitOfWork`` — upsert the document, replace member
+    links, attach/remove/rename files, and record the activity — then, only
+    once that commits, delete the now-unreferenced old bytes and publish.
+
+    The old bytes are removed *after* the rows that replaced them are durable,
+    so a crash mid-way leaves at worst some unreferenced bytes rather than a
+    live row pointing at a missing file. A commit failure rolls the whole edit
+    back — the staged uploads (still referenced by their ``DocumentUpload``
+    rows) and the previous files both survive.
     """
-    if plan.is_create:
-        document = Document(
-            id=document_id,
+    with UnitOfWork(db) as uow:
+        if plan.is_create:
+            document = Document(
+                id=document_id,
+                tree_id=tree.id,
+                title=payload.title,
+                description=payload.description,
+                document_date=payload.document_date,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(document)
+            db.flush()  # document row must exist before its links/files reference it
+        else:
+            document = existing
+            document.title = payload.title
+            document.description = payload.description
+            document.document_date = payload.document_date
+            document.updated_at = now
+
+        replace_member_links(
+            db,
+            link_model=DocumentMemberLink,
+            parent_fk=DocumentMemberLink.document_id,
+            parent_id=document_id,
+            tree=tree,
+            member_ids=payload.member_ids,
+        )
+
+        for row in plan.removed_rows:
+            db.delete(row)
+
+        for rename in plan.renames:
+            rename.row.filename = rename.filename
+
+        for link in plan.new_links:
+            db.add(
+                DocumentFile(
+                    id=link.id,
+                    tree_id=tree.id,
+                    document_id=document_id,
+                    kind="link",
+                    filename=link.filename,
+                    url=link.url,
+                    mime_type=None,
+                    size=None,
+                    created_at=now,
+                )
+            )
+
+        # Attach staged uploads: promote each to a committed file row (reusing
+        # the upload's id so a replay is a no-op) and consume its staging row
+        # so the bytes are now owned by the document, not the staging area.
+        for upload in plan.attachments:
+            db.add(
+                DocumentFile(
+                    id=upload.id,
+                    tree_id=tree.id,
+                    document_id=document_id,
+                    kind="file",
+                    filename=upload.filename,
+                    url=upload.url,
+                    mime_type=upload.mime_type,
+                    size=upload.size,
+                    created_at=now,
+                )
+            )
+            db.delete(upload)
+
+        record_activity(
+            db,
             tree_id=tree.id,
-            title=payload.title,
-            description=payload.description,
-            document_date=payload.document_date,
-            created_at=now,
-            updated_at=now,
+            actor=user,
+            action="create" if plan.is_create else "update",
+            target_type="document",
+            target_id=document_id,
+            target_label=payload.title,
         )
-        db.add(document)
-        db.flush()  # document row must exist before its links/files reference it
-    else:
-        document = existing
-        document.title = payload.title
-        document.description = payload.description
-        document.document_date = payload.document_date
-        document.updated_at = now
 
-    replace_member_links(
-        db,
-        link_model=DocumentMemberLink,
-        parent_fk=DocumentMemberLink.document_id,
-        parent_id=document_id,
-        tree=tree,
-        member_ids=payload.member_ids,
-    )
-
-    for row in plan.removed_rows:
-        db.delete(row)
-
-    for rename in plan.renames:
-        rename.row.filename = rename.filename
-
-    for link in plan.new_links:
-        db.add(
-            DocumentFile(
-                id=link.id,
-                tree_id=tree.id,
-                document_id=document_id,
-                kind="link",
-                filename=link.filename,
-                url=link.url,
-                mime_type=None,
-                size=None,
-                created_at=now,
+        delete_urls = plan.delete_urls
+        uow.after_commit(lambda: [delete_media(url) for url in delete_urls])
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
             )
         )
-
-    # Attach staged uploads: promote each to a committed file row (reusing the
-    # upload's id so a replay is a no-op) and consume its staging row so the
-    # bytes are now owned by the document, not the staging area.
-    for upload in plan.attachments:
-        db.add(
-            DocumentFile(
-                id=upload.id,
-                tree_id=tree.id,
-                document_id=document_id,
-                kind="file",
-                filename=upload.filename,
-                url=upload.url,
-                mime_type=upload.mime_type,
-                size=upload.size,
-                created_at=now,
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.content_changed",
+                {"tree_id": tree.id, "domain": "document"},
             )
         )
-        db.delete(upload)
-
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="create" if plan.is_create else "update",
-        target_type="document",
-        target_id=document_id,
-        target_label=payload.title,
-    )
-
-    _commit_with_deletes(db, plan.delete_urls)
     return document
 
 
@@ -240,13 +236,5 @@ def save_document(
         payload=payload,
         now=utcnow_iso(),
     )
-
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
     db.refresh(document)
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "document"},
-    )
     return document

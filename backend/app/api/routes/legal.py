@@ -37,6 +37,7 @@ from app.services.system.settings_service import (
     snapshot_current_legal_versions,
     user_has_accepted_legal,
 )
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/legal", tags=["legal"])
 
@@ -97,23 +98,22 @@ def accept_legal(
     # Ensure the text being accepted right now is immutably snapshotted, so
     # the hashes recorded below always resolve to a stored version row even
     # if the admin edited the body without bumping legal_version first.
-    snapshot_current_legal_versions(db)
+    with UnitOfWork(db):
+        snapshot_current_legal_versions(db)
 
-    db.add(
-        LegalAcceptance(
-            user_id=user.id,
-            username=user.username,
-            version=current_version,
-            locale=resolved_locale,
-            accepted_at=utcnow_iso(),
-            ip_address=_client_ip(request),
-            user_agent=request.headers.get("user-agent"),
-            terms_hash=content_hash(terms_body) if terms_body else None,
-            privacy_hash=content_hash(privacy_body) if privacy_body else None,
+        db.add(
+            LegalAcceptance(
+                user_id=user.id,
+                username=user.username,
+                version=current_version,
+                locale=resolved_locale,
+                accepted_at=utcnow_iso(),
+                ip_address=_client_ip(request),
+                user_agent=request.headers.get("user-agent"),
+                terms_hash=content_hash(terms_body) if terms_body else None,
+                privacy_hash=content_hash(privacy_body) if privacy_body else None,
+            )
         )
-    )
-
-    db.commit()
 
     # The newly inserted acceptance row is the source of truth for the gate.
     return LegalAcceptanceStatus(

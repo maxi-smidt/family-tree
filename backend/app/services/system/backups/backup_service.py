@@ -74,6 +74,7 @@ from app.models.backup import BackupRecord
 from app.schemas.backup import BackupBundle, MediaItem
 from app.services.crypto_export import decrypt_bundle, encrypt_bundle
 from app.services.system.admin_audit import record_admin_audit
+from app.services.unit_of_work import UnitOfWork
 
 logger = logging.getLogger("app.backup_service")
 
@@ -553,8 +554,15 @@ def restore_bundle(
         journal_written = True
         _swap_media(target_media, staging, rollback)
         db.add(RestoreMarker(id=restore_id))
+        # allowlisted-commit: the commit must happen strictly after the media
+        # swap above (see docstring) — UnitOfWork's after_commit ordering runs
+        # the other way (effect after commit), which doesn't fit this journal
+        # protocol. No SSE/cache effect to sequence here, only the filesystem
+        # steps this function already coordinates by hand.
         db.commit()
     except Exception:
+        # allowlisted-rollback: mirrors the allowlisted commit above — undoes
+        # the same hand-coordinated DB+filesystem transaction, not a UnitOfWork.
         db.rollback()
         if journal_written:
             _revert_media_swap(target_media, staging, rollback)
@@ -647,6 +655,9 @@ def create_backup(
         id=new_uuid(), created_at=utcnow_iso(), status="running", trigger=trigger
     )
     db.add(record)
+    # allowlisted-commit: deliberately its own transaction, independent of the
+    # success/failure commit below — the "running" row must be visible to
+    # pollers for the whole (possibly slow) backup, not just after it finishes.
     db.commit()
     db.refresh(record)
     filepath: Path | None = None
@@ -676,7 +687,7 @@ def create_backup(
             subject_label=filename,
             details={"trigger": trigger, "size_bytes": record.size_bytes},
         )
-        db.commit()
+        db.commit()  # allowlisted-commit: second phase of the running/done pair above
         logger.info("Backup created and verified: %s (%d bytes)", filename, len(blob))
     except Exception as exc:  # noqa: BLE001
         logger.exception("Backup failed (trigger=%s)", trigger)
@@ -693,7 +704,7 @@ def create_backup(
             subject_label=None,
             details={"trigger": trigger, "status": "failed", "error": str(exc)[:500]},
         )
-        db.commit()
+        db.commit()  # allowlisted-commit: second phase of the running/done pair above
     return record
 
 
@@ -708,8 +719,8 @@ def delete_backup(db: Session, record: BackupRecord) -> None:
         filepath = BACKUP_DIR / record.filename
         if filepath.is_file():
             filepath.unlink()
-    db.delete(record)
-    db.commit()
+    with UnitOfWork(db):
+        db.delete(record)
 
 
 def prune_backups(db: Session, keep: int) -> None:

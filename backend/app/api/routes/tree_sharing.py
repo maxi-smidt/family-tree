@@ -25,6 +25,7 @@ from app.services.system import feature_service
 from app.services.system.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.trees.tree_access import list_tree_access
 from app.services.trees.tree_links import reachable_linked_trees
+from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(prefix="/trees", tags=["trees"])
 
@@ -111,23 +112,35 @@ def share_tree(
             target_type="share", target_id=target.id, target_label=target.username,
             details={"role": payload.role},
         )
-    db.commit()
-    publish_tree_event(
-        db, tree, "tree.access_changed", {"tree_id": tree.id}, extra_user_ids=[target.id]
-    )
-    if is_new_grant:
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-        notification_service.create_notification(
-            db,
-            target.id,
-            "tree_shared",
-            TreeSharedPayload(
-                tree_id=tree.id,
-                tree_name=tree.name,
-                role=payload.role,
-                actor_username=user.username,
-            ),
+    with UnitOfWork(db) as uow:
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.access_changed",
+                {"tree_id": tree.id},
+                extra_user_ids=[target.id],
+            )
         )
+        if is_new_grant:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
+            uow.after_commit(
+                lambda: notification_service.create_notification(
+                    db,
+                    target.id,
+                    "tree_shared",
+                    TreeSharedPayload(
+                        tree_id=tree.id,
+                        tree_name=tree.name,
+                        role=payload.role,
+                        actor_username=user.username,
+                    ),
+                )
+            )
     return list_access(tree=tree, db=db)
 
 
@@ -149,21 +162,29 @@ def revoke_access(
             target_type="share", target_id=user_id,
             target_label=revoked_user.username if revoked_user else None,
         )
-        db.commit()
-        publish_tree_event(
-            db,
-            tree,
-            "tree.access_changed",
-            {"tree_id": tree.id},
-            extra_user_ids=[user_id],
-        )
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
-        notification_service.create_notification(
-            db,
-            user_id,
-            "tree_unshared",
-            TreeUnsharedPayload(tree_id=tree.id, tree_name=tree.name),
-        )
+        with UnitOfWork(db) as uow:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    tree,
+                    "tree.access_changed",
+                    {"tree_id": tree.id},
+                    extra_user_ids=[user_id],
+                )
+            )
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
+            uow.after_commit(
+                lambda: notification_service.create_notification(
+                    db,
+                    user_id,
+                    "tree_unshared",
+                    TreeUnsharedPayload(tree_id=tree.id, tree_name=tree.name),
+                )
+            )
 
 
 @router.get(
@@ -283,25 +304,37 @@ def share_trees_batch(
                 details={"role": payload.role},
             )
             logged_trees.append(t)
-    db.commit()
 
-    for t in trees:
-        publish_tree_event(
-            db, t, "tree.access_changed", {"tree_id": t.id}, extra_user_ids=[target.id]
-        )
-    for t in logged_trees:
-        publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
-        notification_service.create_notification(
-            db,
-            target.id,
-            "tree_shared",
-            TreeSharedPayload(
-                tree_id=t.id,
-                tree_name=t.name,
-                role=payload.role,
-                actor_username=user.username,
-            ),
-        )
+    with UnitOfWork(db) as uow:
+        for t in trees:
+            uow.after_commit(
+                lambda t=t: publish_tree_event(
+                    db,
+                    t,
+                    "tree.access_changed",
+                    {"tree_id": t.id},
+                    extra_user_ids=[target.id],
+                )
+            )
+        for t in logged_trees:
+            uow.after_commit(
+                lambda t=t: publish_tree_event(
+                    db, t, "activity.entry_added", {"tree_id": t.id}
+                )
+            )
+            uow.after_commit(
+                lambda t=t: notification_service.create_notification(
+                    db,
+                    target.id,
+                    "tree_shared",
+                    TreeSharedPayload(
+                        tree_id=t.id,
+                        tree_name=t.name,
+                        role=payload.role,
+                        actor_username=user.username,
+                    ),
+                )
+            )
     return list_access(tree=tree, db=db)
 
 
@@ -345,23 +378,31 @@ def revoke_access_batch(
                 target_label=revoked_user.username if revoked_user else None,
             )
             affected.append(t)
-    db.commit()
 
-    for t in affected:
-        publish_tree_event(
-            db,
-            t,
-            "tree.access_changed",
-            {"tree_id": t.id},
-            extra_user_ids=[payload.user_id],
-        )
-        publish_tree_event(db, t, "activity.entry_added", {"tree_id": t.id})
-        notification_service.create_notification(
-            db,
-            payload.user_id,
-            "tree_unshared",
-            TreeUnsharedPayload(tree_id=t.id, tree_name=t.name),
-        )
+    with UnitOfWork(db) as uow:
+        for t in affected:
+            uow.after_commit(
+                lambda t=t: publish_tree_event(
+                    db,
+                    t,
+                    "tree.access_changed",
+                    {"tree_id": t.id},
+                    extra_user_ids=[payload.user_id],
+                )
+            )
+            uow.after_commit(
+                lambda t=t: publish_tree_event(
+                    db, t, "activity.entry_added", {"tree_id": t.id}
+                )
+            )
+            uow.after_commit(
+                lambda t=t: notification_service.create_notification(
+                    db,
+                    payload.user_id,
+                    "tree_unshared",
+                    TreeUnsharedPayload(tree_id=t.id, tree_name=t.name),
+                )
+            )
 
 
 @router.patch(
@@ -400,14 +441,20 @@ def update_member_restrictions(
                 "after": {"restrictions": after_restrictions},
             },
         )
-    db.commit()
-    publish_tree_event(
-        db,
-        tree,
-        "tree.access_changed",
-        {"tree_id": tree.id},
-        extra_user_ids=[user_id],
-    )
-    if logged:
-        publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    with UnitOfWork(db) as uow:
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db,
+                tree,
+                "tree.access_changed",
+                {"tree_id": tree.id},
+                extra_user_ids=[user_id],
+            )
+        )
+        if logged:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db, tree, "activity.entry_added", {"tree_id": tree.id}
+                )
+            )
     return list_access(tree=tree, db=db)

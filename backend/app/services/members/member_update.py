@@ -43,6 +43,7 @@ from app.services.members.member_vitals import (
     sync_vital_event,
 )
 from app.services.system.settings_service import get_media_limits
+from app.services.unit_of_work import UnitOfWork
 
 # Positional/internal fields excluded from the before/after activity diff.
 _DIFF_SKIP_FIELDS = {"position_x", "position_y", "is_collapsed", "image_data"}
@@ -134,95 +135,104 @@ def update_member(
         except QuotaExceeded:
             delete_media(new_image_url)
             raise
-    # Capture before-state for diff details (skip noisy positional/internal fields).
-    before = {k: getattr(member, k) for k in changes if k not in _DIFF_SKIP_FIELDS}
-    for key, value in changes.items():
-        setattr(member, key, value)
-    if paternal_changed or maternal_changed:
-        sync_parent_slots(
-            db,
-            tree,
-            member,
-            paternal_changed,
-            paternal_parent_id,
-            maternal_changed,
-            maternal_parent_id,
+    with UnitOfWork(db) as uow:
+        # Capture before-state for diff details (skip noisy positional/internal fields).
+        before = {k: getattr(member, k) for k in changes if k not in _DIFF_SKIP_FIELDS}
+        for key, value in changes.items():
+            setattr(member, key, value)
+        if paternal_changed or maternal_changed:
+            sync_parent_slots(
+                db,
+                tree,
+                member,
+                paternal_changed,
+                paternal_parent_id,
+                maternal_changed,
+                maternal_parent_id,
+            )
+        vital_events_changed = event_updates_allowed(db, tree, user) and (
+            "date_of_birth" in changes
+            or "date_of_death" in changes
+            or "birthplace" in changes
+            or "cemetery" in changes
         )
-    vital_events_changed = event_updates_allowed(db, tree, user) and (
-        "date_of_birth" in changes
-        or "date_of_death" in changes
-        or "birthplace" in changes
-        or "cemetery" in changes
-    )
-    if vital_events_changed:
-        # member fields above are already mutated by the setattr loop, so the
-        # current date/place reflect this save even when only one of the pair
-        # (e.g. birthplace without a date change) was actually sent.
-        if "date_of_birth" in changes or "birthplace" in changes:
-            sync_vital_event(
-                db, tree, member, "birth", member.date_of_birth, member.birthplace
-            )
-        if "date_of_death" in changes or "cemetery" in changes:
-            sync_vital_event(
-                db, tree, member, "death", member.date_of_death, member.cemetery
-            )
-    after = {k: getattr(member, k) for k in before}
-    # Bridge person: mirror identity edits onto the counterpart row so the
-    # same human stays consistent on both sides of a tree-in-tree link.
-    bridge_sync, synced_tree = sync_bridge_person(db, member, changes, user)
-    diff_details: dict | None = None
-    changed = {
-        k: {"before": before[k], "after": after[k]}
-        for k in before
-        if before[k] != after[k]
-    }
-    if changed:
-        diff_details = {
-            "before": {k: v["before"] for k, v in changed.items()},
-            "after": {k: v["after"] for k, v in changed.items()},
+        if vital_events_changed:
+            # member fields above are already mutated by the setattr loop, so the
+            # current date/place reflect this save even when only one of the pair
+            # (e.g. birthplace without a date change) was actually sent.
+            if "date_of_birth" in changes or "birthplace" in changes:
+                sync_vital_event(
+                    db, tree, member, "birth", member.date_of_birth, member.birthplace
+                )
+            if "date_of_death" in changes or "cemetery" in changes:
+                sync_vital_event(
+                    db, tree, member, "death", member.date_of_death, member.cemetery
+                )
+        after = {k: getattr(member, k) for k in before}
+        # Bridge person: mirror identity edits onto the counterpart row so the
+        # same human stays consistent on both sides of a tree-in-tree link.
+        bridge_sync, synced_tree = sync_bridge_person(db, member, changes, user)
+        diff_details: dict | None = None
+        changed = {
+            k: {"before": before[k], "after": after[k]}
+            for k in before
+            if before[k] != after[k]
         }
-    label = " ".join(filter(None, [member.first_name, member.last_name])) or None
-    record_activity(
-        db,
-        tree_id=tree.id,
-        actor=user,
-        action="update",
-        target_type="member",
-        target_id=member.id,
-        target_label=label,
-        details=diff_details,
-    )
-    db.commit()
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+        if changed:
+            diff_details = {
+                "before": {k: v["before"] for k, v in changed.items()},
+                "after": {k: v["after"] for k, v in changed.items()},
+            }
+        label = " ".join(filter(None, [member.first_name, member.last_name])) or None
+        record_activity(
+            db,
+            tree_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="member",
+            target_id=member.id,
+            target_label=label,
+            details=diff_details,
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_tree_event(
+                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "member"}
+            )
+        )
+        if vital_events_changed:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    tree,
+                    "tree.content_changed",
+                    {"tree_id": tree.id, "domain": "event"},
+                )
+            )
+        uow.after_commit(lambda: invalidate_stats(tree.id))
+        if synced_tree is not None:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    synced_tree,
+                    "tree.content_changed",
+                    {"tree_id": synced_tree.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(synced_tree.id))
+        if unlinked_counterpart_tree is not None:
+            uow.after_commit(
+                lambda: publish_tree_event(
+                    db,
+                    unlinked_counterpart_tree,
+                    "tree.content_changed",
+                    {"tree_id": unlinked_counterpart_tree.id, "domain": "member"},
+                )
+            )
+            uow.after_commit(lambda: invalidate_stats(unlinked_counterpart_tree.id))
     db.refresh(member)
-    publish_tree_event(
-        db,
-        tree,
-        "tree.content_changed",
-        {"tree_id": tree.id, "domain": "member"},
-    )
-    if vital_events_changed:
-        publish_tree_event(
-            db,
-            tree,
-            "tree.content_changed",
-            {"tree_id": tree.id, "domain": "event"},
-        )
-    invalidate_stats(tree.id)
-    if synced_tree is not None:
-        publish_tree_event(
-            db,
-            synced_tree,
-            "tree.content_changed",
-            {"tree_id": synced_tree.id, "domain": "member"},
-        )
-        invalidate_stats(synced_tree.id)
-    if unlinked_counterpart_tree is not None:
-        publish_tree_event(
-            db,
-            unlinked_counterpart_tree,
-            "tree.content_changed",
-            {"tree_id": unlinked_counterpart_tree.id, "domain": "member"},
-        )
-        invalidate_stats(unlinked_counterpart_tree.id)
     return MemberUpdateResult(member=member, bridge_sync=bridge_sync)
