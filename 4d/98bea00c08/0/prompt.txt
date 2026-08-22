@@ -335,3 +335,7 @@ backend-1  |     log_dir.mkdir(parents=True, exist_ok=True)
 backend-1  |   File "/usr/local/lib/python3.12/pathlib.py", line 1311, in mkdir
 backend-1  |     os.mkdir(self, mode)
 backend-1  | PermissionError: [Errno 13] Permission denied: '/appdata/logs'
+
+---
+
+this is only required for the CI smoke test
