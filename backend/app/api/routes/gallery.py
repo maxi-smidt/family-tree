@@ -350,6 +350,7 @@ def list_unknown_faces(
     "/images/{image_id}/unknown-faces",
     response_model=UnknownFaceOut,
     status_code=201,
+    dependencies=[Depends(require_domain("tasks"))],
 )
 def create_unknown_face(
     image_id: str,

@@ -12,7 +12,7 @@ def _setup(client, db, owner_name="unknown-face-owner"):
     return owner, tree
 
 
-def _create_face(client, owner, tree, image_id="img1", **overrides):
+def _create_face(client, owner, tree, image_id="img1", user=None, **overrides):
     payload = {
         "id": "face1",
         "x": 0.1,
@@ -24,7 +24,7 @@ def _create_face(client, owner, tree, image_id="img1", **overrides):
     }
     return client.post(
         f"{API}/trees/{tree.id}/gallery/images/{image_id}/unknown-faces",
-        headers=auth(owner),
+        headers=auth(user or owner),
         json=payload,
     )
 
@@ -237,6 +237,22 @@ def test_deleting_task_via_tasks_route_nulls_face_task_id(client, db):
     face = db.get(GalleryUnknownFace, "face1")
     assert face is not None
     assert face.task_id is None
+
+
+def test_create_unknown_face_requires_tasks_domain(client, db):
+    from app.models.tree import TreeMembership
+
+    owner, tree = _setup(client, db)
+    restricted = make_user(db, "unknown-face-tasks-restricted")
+    share(db, tree, restricted, "editor")
+    membership = db.get(TreeMembership, (tree.id, restricted.id))
+    membership.restrictions = ["tasks"]
+    db.commit()
+
+    response = _create_face(client, owner, tree, user=restricted)
+    assert response.status_code == 404
+    assert db.query(GalleryUnknownFace).count() == 0
+    assert db.query(MemberTask).count() == 0
 
 
 def test_unknown_face_writes_require_editor_or_owner(client, db):

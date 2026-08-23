@@ -1,5 +1,5 @@
 from app.models import Event, EventMemberLink, Relation
-from tests.conftest import API, add_member, auth, make_tree, make_user
+from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
 def _create_member(client, tree, user, member_id, **kw):
@@ -263,6 +263,31 @@ def test_member_update_rolls_back_when_a_parent_is_invalid(client, db):
         == 1
     )
     assert db.query(Event).filter_by(tree_id=tree.id, event_type="birth").count() == 0
+
+
+def test_member_update_succeeds_when_events_are_restricted(client, db):
+    from app.models.tree import TreeMembership
+
+    owner = make_user(db, "events-owner")
+    editor = make_user(db, "events-restricted-editor")
+    tree = make_tree(db, owner)
+    child = add_member(db, tree, "child", last_name="Before")
+    share(db, tree, editor, role="editor")
+    membership = db.get(TreeMembership, (tree.id, editor.id))
+    membership.restrictions = ["events"]
+    db.commit()
+
+    response = client.patch(
+        f"{API}/trees/{tree.id}/members/{child.id}",
+        headers=auth(editor),
+        json={"lastName": "After", "dateOfBirth": "1901"},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["lastName"] == "After"
+
+    db.expire_all()
+    assert db.get(type(child), child.id).last_name == "After"
+    assert db.query(Event).filter_by(tree_id=tree.id).count() == 0
 
 
 def test_bulk_position_update(client, db):

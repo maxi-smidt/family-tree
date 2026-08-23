@@ -588,6 +588,7 @@ def test_dismiss_requires_write_access(client, db):
     )
     assert res.status_code == 403
 
+
 def test_dismiss_is_idempotent(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
