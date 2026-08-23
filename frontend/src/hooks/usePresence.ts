@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { isVirtualId, useTreeStore } from "@/hooks/useTreeStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import {
   setEditingMember,
@@ -13,14 +12,12 @@ import {
  * open; starts/stops the heartbeat loop as the active tree changes and reports
  * which member (if any) this client is editing.
  *
- * Presence is gated behind the `presence` feature flag and never runs for
- * virtual views (read-only composites with no presence endpoint).
+ * Presence never runs for virtual views (read-only composites with no presence
+ * endpoint).
  */
 export function usePresence(): void {
-  const enabled = useFeature("presence");
   const treeId = useTreeStore((s) => s.selectedTree?.id);
-  const activeTreeId =
-    enabled && treeId && !isVirtualId(treeId) ? treeId : null;
+  const activeTreeId = treeId && !isVirtualId(treeId) ? treeId : null;
 
   useEffect(() => {
     if (!activeTreeId) return;

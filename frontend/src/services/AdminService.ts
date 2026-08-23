@@ -1,6 +1,5 @@
 import { api } from "@/services/api";
 import { User, ImageStorageMode } from "@/types/user";
-import { FeatureName } from "@/lib/features";
 import { RelationTypeDB } from "@/types/member";
 
 export interface AdminSettings {
@@ -82,20 +81,6 @@ function auditParams(
   };
 }
 
-export type FeatureState = "on" | "off" | "beta";
-
-export interface FeatureFlag {
-  name: FeatureName;
-  state: FeatureState;
-  /** User ids allowed to use the feature while it is in `beta`. */
-  allowlist: string[];
-}
-
-export interface FeatureFlagUpdate {
-  state?: FeatureState;
-  allowlist?: string[];
-}
-
 export interface CreateAdminUserInput {
   username: string;
   password: string;
@@ -145,17 +130,6 @@ export const AdminService = {
 
   updateSettings(settings: AdminSettings): Promise<AdminSettings> {
     return api.patch<AdminSettings>("/settings", settings);
-  },
-
-  listFeatures(): Promise<FeatureFlag[]> {
-    return api.get<FeatureFlag[]>("/admin/features");
-  },
-
-  updateFeature(
-    name: string,
-    changes: FeatureFlagUpdate,
-  ): Promise<FeatureFlag> {
-    return api.patch<FeatureFlag>(`/admin/features/${name}`, changes);
   },
 
   listAuditLog(

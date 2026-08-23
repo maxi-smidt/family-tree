@@ -22,14 +22,6 @@ vi.mock("@/hooks/useMediaUrl", async () => {
   };
 });
 
-// Every feature on, so the Records children would render if the tab mounts.
-vi.mock("@/hooks/useAuthStore", async () => {
-  const actual = await vi.importActual<typeof import("@/hooks/useAuthStore")>(
-    "@/hooks/useAuthStore",
-  );
-  return { ...actual, useFeature: () => true };
-});
-
 // Stub the Records children so the test exercises only the lazy-mount wiring,
 // not each domain section's own data loading.
 vi.mock("./MemberPhotos", () => ({

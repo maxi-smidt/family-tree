@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree, require_feature
+from app.api.deps import get_current_user, get_readable_tree
 from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.db.session import get_db
@@ -259,7 +259,6 @@ async def import_tree(
 
 @router.get(
     "/{tree_id}/export-gedcom",
-    dependencies=[Depends(require_feature("gedcom"))],
 )
 def export_tree_gedcom(
     tree: Tree = Depends(get_readable_tree),
@@ -296,7 +295,6 @@ def export_tree_gedcom(
     "/import-gedcom",
     response_model=JobStarted,
     status_code=202,
-    dependencies=[Depends(require_feature("gedcom"))],
 )
 async def import_tree_gedcom(
     file: UploadFile,

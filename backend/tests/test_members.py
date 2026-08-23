@@ -1,6 +1,5 @@
 from app.models import Event, EventMemberLink, Relation
-from app.services.system import feature_service
-from tests.conftest import API, add_member, auth, make_tree, make_user
+from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
 def _create_member(client, tree, user, member_id, **kw):
@@ -266,20 +265,28 @@ def test_member_update_rolls_back_when_a_parent_is_invalid(client, db):
     assert db.query(Event).filter_by(tree_id=tree.id, event_type="birth").count() == 0
 
 
-def test_member_update_succeeds_when_events_are_disabled(client, db):
-    user = make_user(db, "events-off")
-    tree = make_tree(db, user)
+def test_member_update_succeeds_when_events_are_restricted(client, db):
+    from app.models.tree import TreeMembership
+
+    owner = make_user(db, "events-owner")
+    editor = make_user(db, "events-restricted-editor")
+    tree = make_tree(db, owner)
     child = add_member(db, tree, "child", last_name="Before")
-    feature_service.set_state(db, "events", "off")
+    share(db, tree, editor, role="editor")
+    membership = db.get(TreeMembership, (tree.id, editor.id))
+    membership.restrictions = ["events"]
     db.commit()
 
     response = client.patch(
         f"{API}/trees/{tree.id}/members/{child.id}",
-        headers=auth(user),
+        headers=auth(editor),
         json={"lastName": "After", "dateOfBirth": "1901"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     assert response.json()["lastName"] == "After"
+
+    db.expire_all()
+    assert db.get(type(child), child.id).last_name == "After"
     assert db.query(Event).filter_by(tree_id=tree.id).count() == 0
 
 
@@ -996,28 +1003,6 @@ def test_link_endpoint_rejects_self_as_counterpart(client, db):
     assert res.status_code == 400
 
 
-def test_link_endpoint_404_when_feature_off(client, db):
-    from app.services.system import feature_service
-
-    user = make_user(db, "alice")
-    main = make_tree(db, user, "Main")
-    other = make_tree(db, user, "Other")
-    _create_member(client, main, user, "m1")
-
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.post(
-            f"{API}/trees/{main.id}/members/m1/link",
-            headers=auth(user),
-            json={"linkedTreeId": other.id, "mode": "create"},
-        )
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
-
-
 def test_link_endpoint_pairwise_chain_is_independent(client, db):
     """A -> B and B -> C are independent pairwise links; no chain/global
     consistency is enforced, and each bridge is self-contained."""
@@ -1180,11 +1165,8 @@ def test_deleting_origin_unlinks_bridge_in_subtree(client, db):
     assert counterpart["linkedMemberId"] is None
 
 
-def test_edit_member_with_unchanged_link_succeeds_when_flag_off(client, db):
-    """The member form re-sends linkedTreeId unchanged on every save; once the
-    tree_links flag is turned off that must not block ordinary edits."""
-    from app.services.system import feature_service
-
+def test_edit_member_with_unchanged_link_succeeds(client, db):
+    """The member form may re-send linkedTreeId unchanged on every save."""
     user = make_user(db, "alice")
     main = make_tree(db, user, "Main")
     _create_member(client, main, user, "m1")
@@ -1196,21 +1178,15 @@ def test_edit_member_with_unchanged_link_succeeds_when_flag_off(client, db):
     assert created.status_code == 201
     linked_tree_id = created.json()["tree"]["id"]
 
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.patch(
-            f"{API}/trees/{main.id}/members/m1",
-            headers=auth(user),
-            json={"firstName": "Joanna", "linkedTreeId": linked_tree_id},
-        )
-        assert res.status_code == 200
-        assert res.json()["firstName"] == "Joanna"
-        # The link itself is untouched.
-        assert res.json()["linkedTreeId"] == linked_tree_id
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
+    res = client.patch(
+        f"{API}/trees/{main.id}/members/m1",
+        headers=auth(user),
+        json={"firstName": "Joanna", "linkedTreeId": linked_tree_id},
+    )
+    assert res.status_code == 200
+    assert res.json()["firstName"] == "Joanna"
+    # The link itself is untouched.
+    assert res.json()["linkedTreeId"] == linked_tree_id
 
 
 def test_bridge_person_edits_sync_to_counterpart(client, db):
@@ -1263,40 +1239,6 @@ def test_bridge_person_edits_sync_to_counterpart(client, db):
     ).json()
     assert counterpart["isCollapsed"] is False
     assert counterpart["positionX"] == 0
-
-
-def test_bridge_person_sync_skipped_when_flag_off(client, db):
-    from app.services.system import feature_service
-
-    user = make_user(db, "alice")
-    main = make_tree(db, user, "Main")
-    _create_member(client, main, user, "m1")
-    created = client.post(
-        f"{API}/trees/{main.id}/members/m1/subtree",
-        headers=auth(user),
-        json={"name": "Sub"},
-    )
-    sub_tree_id = created.json()["tree"]["id"]
-    counterpart_id = created.json()["anchor"]["linkedMemberId"]
-
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.patch(
-            f"{API}/trees/{main.id}/members/m1",
-            headers=auth(user),
-            json={"firstName": "Joanna"},
-        )
-        assert res.status_code == 200
-        counterpart = client.get(
-            f"{API}/trees/{sub_tree_id}/members/{counterpart_id}",
-            headers=auth(user),
-        ).json()
-        # Feature dormant: the rows drift instead of syncing.
-        assert counterpart["firstName"] == "Jo"
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 def test_bridge_person_sync_requires_write_access_to_other_tree(client, db):
@@ -1443,28 +1385,6 @@ def test_link_candidates_requires_write_access_to_target(client, db):
         params={"target_tree_id": other.id},
     )
     assert res.status_code == 403
-
-
-def test_link_candidates_404_when_feature_off(client, db):
-    from app.services.system import feature_service
-
-    user = make_user(db, "alice")
-    main = make_tree(db, user, "Main")
-    other = make_tree(db, user, "Other")
-    _create_member(client, main, user, "m1")
-
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.get(
-            f"{API}/trees/{main.id}/members/m1/link-candidates",
-            headers=auth(user),
-            params={"target_tree_id": other.id},
-        )
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 # --- Link field-choice reconciliation -----------------------------------

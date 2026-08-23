@@ -15,7 +15,6 @@ from app.models.family import Member
 from app.models.tree import Tree
 from app.models.user import User
 from app.services.media.storage import copy_media_to_tree
-from app.services.system import feature_service
 from app.services.tree_roles import role_for
 
 # Person-level fields mirrored between the two rows of a bridge person.
@@ -75,14 +74,11 @@ def validate_linked_tree(
 ) -> None:
     """Validate a tree-in-tree link target before it is persisted.
 
-    A null id (clearing the link) is always allowed. Otherwise the ``tree_links``
-    feature must be enabled, the target must exist and be readable by the user,
-    and a member may not link to its own tree.
+    A null id (clearing the link) is always allowed. Otherwise the target must
+    exist and be readable by the user, and a member may not link to its own tree.
     """
     if linked_tree_id is None:
         return
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise NotFoundError("Not found")
     if linked_tree_id == tree.id:
         raise InvalidInputError("A member cannot link to its own tree")
     target = db.get(Tree, linked_tree_id)
@@ -125,23 +121,19 @@ def sync_bridge_person(
     """Mirror identity-field edits onto the counterpart row of a bridge person.
 
     The two rows represent the same human, so person-level facts edited on one
-    side propagate to the other — but only while the tree_links feature is
-    enabled and the actor may write the counterpart's tree; otherwise the rows
-    simply drift until edited from a side with access.
+    side propagate to the other when the actor may write the counterpart's tree;
+    otherwise the rows simply drift until edited from a side with access.
 
     Returns ``(status, counterpart_tree)``: ``("synced", tree)`` when the
     counterpart was updated, ``("skipped_no_access", None)`` when identity
     fields changed but the actor may not write the other tree (the one case
     the editor should be told about), and ``(None, None)`` when there was
-    nothing to sync (no link, no identity change, feature off, counterpart
-    gone).
+    nothing to sync (no link, no identity change, counterpart gone).
     """
     if member.linked_member_id is None:
         return None, None
     synced = {k: v for k, v in changes.items() if k in BRIDGE_SYNC_FIELDS}
     if not synced:
-        return None, None
-    if not feature_service.is_enabled(db, "tree_links", user):
         return None, None
     counterpart = db.get(Member, member.linked_member_id)
     if counterpart is None:

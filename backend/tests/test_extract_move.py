@@ -29,7 +29,6 @@ from app.models import (
 )
 from app.schemas.extract import SubtreeExtractRequest
 from app.services.media.storage import MEDIA_URL_PREFIX
-from app.services.system import feature_service
 from app.services.trees.extract import compute_subtree_preview, extract_subtree
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
@@ -748,24 +747,6 @@ def test_move_requires_ownership(db):
             req(source_tree_id=tree.id, root_member_id="root", direction="direct_family"),
         )
     assert exc.value.status_code == 403
-
-
-def test_move_requires_tree_links_feature(db):
-    user = make_user(db, "alice")
-    tree = make_family(db, user)
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        with pytest.raises(DomainError) as exc:
-            extract_subtree(
-                db, user,
-                req(source_tree_id=tree.id, root_member_id="root",
-                    direction="direct_family"),
-            )
-        assert exc.value.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 def test_move_rejects_already_linked_root(db):

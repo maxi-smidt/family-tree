@@ -10,7 +10,7 @@ paths added in that PR.
 `ActivityLog` is **per-tree**: every row has a NOT NULL `tree_id` FK with
 `ondelete="CASCADE"`. Writing a row is unconditional (it always happens when
 the corresponding action succeeds); only the **read** endpoint
-(`GET /trees/{id}/activity`) is gated by the `activity_log` feature flag.
+(`GET /trees/{id}/activity`) is available to authorized users.
 `record_activity(...)` (`backend/app/services/activity.py`) only calls
 `db.add(...)` — callers must invoke it before their own `db.commit()` so the
 row is part of the same transaction and rolls back with it on failure.
@@ -28,7 +28,7 @@ this PR · **Admin audit** = covered by the separate, non-tree-scoped trail
 | Event create/update/delete                                         | Logged      | `app/api/routes/events.py`                                                                                                                    |
 | Story create/update/delete                                         | Logged      | `app/api/routes/stories.py`                                                                                                                   |
 | Gallery image create/update/delete                                 | Logged      | `app/api/routes/gallery.py`                                                                                                                   |
-| Document / disease CRUD                                            | Logged      | `app/api/routes/documents.py` & `MemberDisease` routes                                                                                       |
+| Document / disease CRUD                                            | Logged      | `app/api/routes/documents.py` & `MemberDisease` routes                                                                                        |
 | Subtree extract                                                    | Logged      | `app/services/extract.py::extract_subtree`                                                                                                    |
 | Tree-in-tree link (`POST /members/{id}/link`) — source side        | Logged      | existing `action="update"`, `target_type="member"` on the anchor tree                                                                         |
 | Tree-in-tree link — **target-side counterpart**                    | **Added**   | second row now written on `target.id`; `create` for a fresh clone (`mode="create"`), `update` for an existing counterpart (`mode="existing"`) |
@@ -52,7 +52,6 @@ this PR · **Admin audit** = covered by the separate, non-tree-scoped trail
 | Tree merge                                                         | **Added**   | `app/services/merge.py::merge_trees`; one row on the newly created tree                                                                       |
 | Virtual-view CRUD                                                  | Admin audit | owner-scoped, cross-tree overlay — no single `tree_id`                                                                                        |
 | Backup create/delete                                               | Admin audit | instance-wide; no backup restore endpoint currently exists                                                                                    |
-| Feature-flag change                                                | Admin audit | instance-wide setting                                                                                                                         |
 | App-settings change                                                | Admin audit | instance-wide setting                                                                                                                         |
 | Legal-doc version change                                           | Admin audit | legal changes are included in settings snapshots                                                                                              |
 | Auth login                                                         | Admin audit | successful local, TOTP, and Authentik logins only; no credentials are stored                                                                  |
@@ -122,8 +121,8 @@ row plus every link table that cascades away with it.
   and `trashed_media` — the URLs of every `kind=="file"` attachment, moved
   into trash. The standalone `DELETE /documents/{id}/files/{file_id}`
   endpoint now records its own `delete` row too (`target_type
-  ="document_file"`), built inline from `delete_snapshot(document_file=...,
-  trashed_media=...)` since it's a single row with no link tables of its own.
+="document_file"`), built inline from `delete_snapshot(document_file=...,
+trashed_media=...)` since it's a single row with no link tables of its own.
 
 **Media trash/retention (issue #760).** Gallery and document deletes used to
 call `delete_media`, unlinking the bytes immediately — a row snapshot alone
@@ -184,10 +183,8 @@ A double-undo, or an undo racing a concurrent insert of the same id, surfaces
 as a structured 409, never a 500. The undo itself writes a new `create`
 activity entry (`details.undo_of` pointing at the entry it reverses), so the
 log stays append-only — an undo is a new action, not an erasure. It is
-gated by its own `activity_undo` feature flag (see `feature_service.py`,
-router split in `activity.py`), independent of the read-only `activity_log`
-flag that gates the log view, so an admin can disable restores without
-hiding the log, or vice versa.
+available to authorized editors; the activity log itself is available to
+authorized readers.
 
 ## (c) Admin / non-tree audit — recommendation
 
@@ -205,9 +202,8 @@ durably attached to, so they cannot live in the per-tree `ActivityLog`:
   entry to.
 - **Backup create/delete/restore** — instance-wide operations
   (`/admin/backups`) over the whole database, not one tree.
-- **Feature-flag changes, app-settings changes, legal-doc version changes**
-  — instance-wide admin settings (`/admin/features`, admin settings routes,
-  `/legal`), not tied to any tree.
+- **App-settings changes, legal-doc version changes** — instance-wide admin
+  settings (admin settings routes, `/legal`), not tied to any tree.
 - **Account/auth actions** — login, user create/delete, role/admin change,
   password change. These precede or are orthogonal to tree membership
   entirely.

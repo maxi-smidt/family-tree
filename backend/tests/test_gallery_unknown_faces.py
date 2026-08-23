@@ -12,7 +12,7 @@ def _setup(client, db, owner_name="unknown-face-owner"):
     return owner, tree
 
 
-def _create_face(client, owner, tree, image_id="img1", **overrides):
+def _create_face(client, owner, tree, image_id="img1", user=None, **overrides):
     payload = {
         "id": "face1",
         "x": 0.1,
@@ -24,7 +24,7 @@ def _create_face(client, owner, tree, image_id="img1", **overrides):
     }
     return client.post(
         f"{API}/trees/{tree.id}/gallery/images/{image_id}/unknown-faces",
-        headers=auth(owner),
+        headers=auth(user or owner),
         json=payload,
     )
 
@@ -239,6 +239,40 @@ def test_deleting_task_via_tasks_route_nulls_face_task_id(client, db):
     assert face.task_id is None
 
 
+def test_unknown_face_requires_tasks_domain_for_mutations(client, db):
+    from app.models.tree import TreeMembership
+
+    owner, tree = _setup(client, db)
+    created = _create_face(client, owner, tree)
+    task_id = created.json()["task_id"]
+    restricted = make_user(db, "unknown-face-tasks-restricted")
+    share(db, tree, restricted, "editor")
+    membership = db.get(TreeMembership, (tree.id, restricted.id))
+    membership.restrictions = ["tasks"]
+    db.commit()
+
+    assert _create_face(client, owner, tree, user=restricted).status_code == 404
+
+    resolve = client.post(
+        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1/resolve",
+        headers=auth(restricted),
+        json={"member_id": "missing"},
+    )
+    assert resolve.status_code == 404
+
+    delete = client.delete(
+        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1",
+        headers=auth(restricted),
+    )
+    assert delete.status_code == 404
+
+    db.expire_all()
+    assert db.get(GalleryUnknownFace, "face1") is not None
+    task = db.get(MemberTask, task_id)
+    assert task is not None
+    assert task.done is False
+
+
 def test_unknown_face_writes_require_editor_or_owner(client, db):
     owner, tree = _setup(client, db)
     viewer = make_user(db, "unknown-face-viewer")
@@ -279,29 +313,6 @@ def test_unknown_face_writes_require_editor_or_owner(client, db):
         ).status_code
         == 403
     )
-
-
-def test_research_tasks_flag_off_rejects_create_but_get_still_works(client, db):
-    admin = make_user(db, "unknown-face-admin", is_admin=True)
-    owner, tree = _setup(client, db, "unknown-face-flag-owner")
-    _create_face(client, owner, tree)
-
-    off = client.patch(
-        f"{API}/admin/features/research_tasks",
-        headers=auth(admin),
-        json={"state": "off"},
-    )
-    assert off.status_code == 200
-
-    # Existing tags stay visible.
-    listed = client.get(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces", headers=auth(owner)
-    )
-    assert listed.status_code == 200
-    assert len(listed.json()) == 1
-
-    rejected = _create_face(client, owner, tree, id="face2")
-    assert rejected.status_code == 404
 
 
 def test_unknown_face_for_image_in_another_tree_is_404(client, db):

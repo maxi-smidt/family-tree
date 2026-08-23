@@ -17,12 +17,10 @@ import { useActivityStore } from "./useActivityStore";
 import { useStatisticsStore } from "./useStatisticsStore";
 import { useQualityReportStore } from "./useQualityReportStore";
 import { useStorageStore } from "./useStorageStore";
-import { useAuthStore } from "./useAuthStore";
 import { useMemberSheetStore } from "./useMemberSheetStore";
 import { ApiError, api } from "@/services/api";
 import { TreeService } from "@/services/TreeService";
 import { Tree } from "@/types/tree";
-import { ALL_FEATURES } from "@/lib/features";
 
 vi.mock("@/services/api", async (importOriginal) => {
   // Keep the real ApiError/setPublicTreeToken exports — useTreeStore does an
@@ -115,9 +113,6 @@ beforeEach(() => {
   useQualityReportStore.setState({ report: null, showDismissed: false });
   useStorageStore.setState({ usage: null, error: false });
   useMemberSheetStore.setState({ openSheets: {} });
-  // All feature flags enabled (the production default) so connect() loads
-  // every content store.
-  useAuthStore.setState({ features: [...ALL_FEATURES] });
 });
 
 // ---------------------------------------------------------------------------
@@ -512,10 +507,7 @@ describe("useTreeStore — connect / selectTree", () => {
     expect(TreeService.getRelationTypes).toHaveBeenCalled();
   });
 
-  it("secondary stores are not called regardless of feature flags", async () => {
-    useAuthStore.setState({
-      features: ALL_FEATURES.filter((f) => f !== "gallery" && f !== "events"),
-    });
+  it("secondary stores remain deferred on connect", async () => {
     mockEmptySubStores();
     mockApiGetForConnect(TREE_A.id, TREE_A);
 

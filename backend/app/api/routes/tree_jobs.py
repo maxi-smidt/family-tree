@@ -11,7 +11,6 @@ from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
 from app.schemas.job import JobStarted
 from app.schemas.merge import TreeMergePreview, TreeMergePreviewRequest
 from app.schemas.tree import LinkGraphOut, TreeMerge
-from app.services.system import feature_service
 from app.services.system.job_service import ProgressCallback, create_job, run_job
 from app.services.trees.extract import (
     compute_subtree_preview,
@@ -94,8 +93,8 @@ def extract_subtree_endpoint(
 ):
     if not payload.name.strip():
         raise HTTPException(status_code=400, detail="A name is required")
-    # Surface precondition failures (direction, ownership, feature flag,
-    # already-linked root) as 4xx responses instead of a failed job.
+    # Surface precondition failures (direction, ownership, already-linked root)
+    # as 4xx responses instead of a failed job.
     validate_move_request(db, user, payload)
     job = create_job(db, user.id, "extract_subtree")
     background_tasks.add_task(run_job, job.id, user.id, _do_extract, user.id, payload)
@@ -133,6 +132,4 @@ def get_link_graph(
 
     See ``app.services.trees.tree_links.compute_link_graph`` for the traversal.
     """
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     return compute_link_graph(db, tree, user)

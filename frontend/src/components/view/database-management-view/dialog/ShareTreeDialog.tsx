@@ -66,7 +66,6 @@ import {
 } from "@/types/tree";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { useFeature } from "@/hooks/useAuthStore";
 
 type Props = {
   tree: Tree;
@@ -84,8 +83,6 @@ export const ShareTreeDialog = ({
   onTreeUpdated,
 }: Props) => {
   const { t } = useTranslation(undefined, { keyPrefix: "dialog.share-tree" });
-  const sharingInvitesEnabled = useFeature("sharing_invites");
-  const treeLinksEnabled = useFeature("tree_links");
   const isOwner = tree.role === "owner";
 
   // Hold the latest tree props so the open-time effect can initialize from them
@@ -105,16 +102,26 @@ export const ShareTreeDialog = ({
   const updateMemberRestrictions = useTreeSharingStore(
     (state) => state.updateMemberRestrictions,
   );
-  const transferOwnership = useTreeSharingStore((state) => state.transferOwnership);
+  const transferOwnership = useTreeSharingStore(
+    (state) => state.transferOwnership,
+  );
   const revertTransfer = useTreeSharingStore((state) => state.revertTransfer);
-  const createInvitation = useTreeSharingStore((state) => state.createInvitation);
-  const revokeInvitation = useTreeSharingStore((state) => state.revokeInvitation);
+  const createInvitation = useTreeSharingStore(
+    (state) => state.createInvitation,
+  );
+  const revokeInvitation = useTreeSharingStore(
+    (state) => state.revokeInvitation,
+  );
   const setPublicAccess = useTreeSharingStore((state) => state.setPublicAccess);
-  const setPublicPassword = useTreeSharingStore((state) => state.setPublicPassword);
+  const setPublicPassword = useTreeSharingStore(
+    (state) => state.setPublicPassword,
+  );
   const getLinkedShareTrees = useTreeSharingStore(
     (state) => state.getLinkedShareTrees,
   );
-  const grantAccessBatch = useTreeSharingStore((state) => state.grantAccessBatch);
+  const grantAccessBatch = useTreeSharingStore(
+    (state) => state.grantAccessBatch,
+  );
   const revokeAccessBatch = useTreeSharingStore(
     (state) => state.revokeAccessBatch,
   );
@@ -195,10 +202,10 @@ export const ShareTreeDialog = ({
 
   const reload = useCallback(async () => {
     await loadSharing(tree.id, {
-      includeInvitations: sharingInvitesEnabled && isOwner,
-      includeLinkedTrees: treeLinksEnabled && isOwner,
+      includeInvitations: isOwner,
+      includeLinkedTrees: isOwner,
     });
-  }, [tree.id, sharingInvitesEnabled, isOwner, treeLinksEnabled, loadSharing]);
+  }, [tree.id, isOwner, loadSharing]);
 
   useEffect(() => {
     if (isOpen) {
@@ -250,12 +257,10 @@ export const ShareTreeDialog = ({
     try {
       for (const s of staged) {
         if (includeLinked) {
-          await grantAccessBatch(
+          await grantAccessBatch(tree.id, s.username, s.role, [
             tree.id,
-            s.username,
-            s.role,
-            [tree.id, ...selectedLinkedIds],
-          );
+            ...selectedLinkedIds,
+          ]);
         } else {
           await grantAccess(tree.id, s.username, s.role);
         }
@@ -272,11 +277,7 @@ export const ShareTreeDialog = ({
 
   const handleRoleChange = async (member: TreeAccess, role: ShareRole) => {
     try {
-      const updated = await grantAccess(
-        tree.id,
-        member.username,
-        role,
-      );
+      const updated = await grantAccess(tree.id, member.username, role);
       useTreeSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
@@ -307,12 +308,9 @@ export const ShareTreeDialog = ({
   };
 
   const handleRevoke = async (userId: string, username: string) => {
-    if (treeLinksEnabled && manageableLinkedTrees.length > 0) {
+    if (manageableLinkedTrees.length > 0) {
       try {
-        const linked = await getLinkedShareTrees(
-          tree.id,
-          username,
-        );
+        const linked = await getLinkedShareTrees(tree.id, username);
         const revocable = linked.filter(
           (lt) =>
             lt.manageable &&
@@ -538,10 +536,7 @@ export const ShareTreeDialog = ({
 
   const handlePublicConfirm = async () => {
     try {
-      const updated = await setPublicAccess(
-        tree.id,
-        pendingPublicRole,
-      );
+      const updated = await setPublicAccess(tree.id, pendingPublicRole);
       setPublicRole(updated.public_role ?? null);
       // Disabling public access clears the password server-side.
       setPublicPasswordProtected(updated.public_password_protected ?? false);
@@ -557,10 +552,7 @@ export const ShareTreeDialog = ({
   const handleSetPublicPassword = async () => {
     if (publicPasswordError) return;
     try {
-      const updated = await setPublicPassword(
-        tree.id,
-        publicPasswordInput,
-      );
+      const updated = await setPublicPassword(tree.id, publicPasswordInput);
       setPublicPasswordProtected(updated.public_password_protected ?? false);
       setPublicPasswordInput("");
       onTreeUpdated?.(updated);
@@ -573,10 +565,7 @@ export const ShareTreeDialog = ({
 
   const handleRemovePublicPassword = async () => {
     try {
-      const updated = await setPublicPassword(
-        tree.id,
-        null,
-      );
+      const updated = await setPublicPassword(tree.id, null);
       setPublicPasswordProtected(updated.public_password_protected ?? false);
       setPublicPasswordInput("");
       onTreeUpdated?.(updated);
@@ -813,7 +802,7 @@ export const ShareTreeDialog = ({
                 </div>
               ))}
 
-              {treeLinksEnabled && manageableLinkedTrees.length > 0 && (
+              {manageableLinkedTrees.length > 0 && (
                 <div className="space-y-2 rounded-md border p-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm">
@@ -876,8 +865,8 @@ export const ShareTreeDialog = ({
           )}
         </div>
 
-        {/* Invite by link (owner only, feature-gated) */}
-        {sharingInvitesEnabled && isOwner && (
+        {/* Invite by link (owner only) */}
+        {isOwner && (
           <div className="space-y-3 border-t pt-4">
             <div className="flex items-center gap-2">
               <Link className="h-4 w-4 text-muted-foreground" />
@@ -992,8 +981,8 @@ export const ShareTreeDialog = ({
           </div>
         )}
 
-        {/* Public access (owner only, feature-gated) */}
-        {sharingInvitesEnabled && isOwner && (
+        {/* Public access (owner only) */}
+        {isOwner && (
           <div className="space-y-3 border-t pt-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">

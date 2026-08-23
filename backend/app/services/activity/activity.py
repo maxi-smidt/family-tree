@@ -55,7 +55,7 @@ from app.services.activity.activity_snapshots import (
 
 # Version of the delete-snapshot payload shape stored in ``details``
 # (see docs/ACTIVITY_AUDIT.md §b). Bump when the shape changes so a future
-# undo feature can dispatch on it.
+# undo operation can dispatch on it.
 SNAPSHOT_VERSION = 1
 
 

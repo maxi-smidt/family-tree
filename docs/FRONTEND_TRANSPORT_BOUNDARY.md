@@ -18,7 +18,7 @@ domain as those domains are completed:
 
 - Account and 2FA flows: `useAuthStore` (#697).
 - Tree sharing: `useTreeSharingStore` (#698).
-- Admin users, settings, feature flags, relation types, audit, and legal history:
+- Admin users, settings, relation types, audit, and legal history:
   focused admin hooks/stores (#699).
 - Member linking/search and tree-management dialogs: member/tree domain stores
   (#700, #702).

@@ -6,7 +6,6 @@ import { readFileSync } from "node:fs";
 const ALLOWED_COMPONENT_TRANSPORT = new Set([
   "src/components/admin/AdminAuditPanel.tsx",
   "src/components/admin/AdminView.tsx",
-  "src/components/admin/FeatureFlagsPanel.tsx",
   "src/components/admin/LegalVersionHistoryPanel.tsx",
   "src/components/admin/RelationTypesPanel.tsx",
   "src/components/auth/ChangePasswordDialog.tsx",
@@ -22,12 +21,19 @@ const ALLOWED_COMPONENT_TRANSPORT = new Set([
   "src/components/view/tree-view/CanvasSearch.tsx",
 ]);
 
-const files = globSync("src/components/**/*.{ts,tsx}", { ignore: "**/*.test.*" });
+const files = globSync("src/components/**/*.{ts,tsx}", {
+  ignore: "**/*.test.*",
+});
 const violations = files.filter((file) => {
   const source = readFileSync(file, "utf8");
-  const importsTransport = /from ["']@\/services\/(?:api|[A-Za-z]+Service)["']/.test(source);
+  const importsTransport =
+    /from ["']@\/services\/(?:api|[A-Za-z]+Service)["']/.test(source);
   const isTypeOrErrorOnly = !/\b(?:api\.|[A-Za-z]+Service\.)/.test(source);
-  return importsTransport && !isTypeOrErrorOnly && !ALLOWED_COMPONENT_TRANSPORT.has(file);
+  return (
+    importsTransport &&
+    !isTypeOrErrorOnly &&
+    !ALLOWED_COMPONENT_TRANSPORT.has(file)
+  );
 });
 
 if (violations.length > 0) {

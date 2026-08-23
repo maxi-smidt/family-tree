@@ -7,8 +7,6 @@ plain ``dict``s at runtime, so the stored JSON and CSV export remain unchanged.
 
 from typing import NotRequired, TypedDict
 
-from app.schemas.setting import FeatureState
-
 
 class ChangePair(TypedDict):
     """Generic before/after pair used by update diffs."""
@@ -166,22 +164,6 @@ class BackupDeleteDetails(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Feature flags
-# ---------------------------------------------------------------------------
-
-
-class FeatureFlagSnapshot(TypedDict):
-    name: str
-    state: FeatureState
-    allowlist: list[str]
-
-
-class FeatureFlagUpdateDetails(TypedDict):
-    before: FeatureFlagSnapshot
-    after: FeatureFlagSnapshot
-
-
-# ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
 
@@ -257,7 +239,6 @@ AdminAuditDetails = (
     | BackupCreateSuccessDetails
     | BackupCreateFailedDetails
     | BackupDeleteDetails
-    | FeatureFlagUpdateDetails
     | AppSettingsUpdateDetails
     | LegalDocumentUpdateDetails
 )

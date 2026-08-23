@@ -718,22 +718,3 @@ def test_bridge_drift_resolve_requires_access_to_other_tree(client, db):
         json={"direction": "push"},
     )
     assert res.status_code == 403
-
-
-def test_bridge_drift_hidden_when_flag_off(client, db):
-    from app.models.family import Member as MemberModel
-    from app.services.system import feature_service
-
-    user = make_user(db, "alice")
-    main, _sub_id, counterpart_id = _make_bridge(client, db, user)
-    counterpart = db.get(MemberModel, counterpart_id)
-    counterpart.first_name = "Johanna"
-    db.commit()
-
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        assert _drift_issues(client, user, main.id) == []
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()

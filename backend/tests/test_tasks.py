@@ -238,26 +238,6 @@ def test_restricted_domain_hides_task_activity(client, db):
     assert activity.json()["total"] == 0
 
 
-def test_disabled_flag_hides_routes(client, db):
-    admin = make_user(db, "root", is_admin=True)
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-    add_member(db, tree, "m1")
-
-    res = client.patch(
-        f"{API}/admin/features/research_tasks",
-        headers=auth(admin),
-        json={"state": "off"},
-    )
-    assert res.status_code == 200
-
-    assert (
-        client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(user)).status_code
-        == 404
-    )
-    assert _create_task(client, user, tree).status_code == 404
-
-
 def test_task_changes_write_activity(client, db):
     user, tree = _setup(client, db)
     _create_task(client, user, tree)

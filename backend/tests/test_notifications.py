@@ -1,10 +1,9 @@
 """Persistent notification inbox (issue #726): producers, listing, read state,
-retention, and feature gating."""
+and retention."""
 
 from app.models import Notification
 from app.schemas.notification import FriendRequestReceivedPayload
 from app.services.collaboration import notification_service
-from app.services.system import feature_service
 from tests.conftest import API, auth, befriend, make_tree, make_user, share
 
 # ---------------------------------------------------------------------------
@@ -274,30 +273,3 @@ def test_retention_caps_at_100_per_user(db):
         db.query(Notification).filter(Notification.user_id == alice.id).count()
     )
     assert count == 100
-
-
-# ---------------------------------------------------------------------------
-# Feature gating: "off" hides the routes AND stops the producer from writing
-# ---------------------------------------------------------------------------
-
-
-def test_disabled_feature_hides_routes_and_producer_writes_nothing(client, db):
-    alice = make_user(db, "alice")
-    feature_service.set_state(db, "notifications", "off")
-    db.commit()
-
-    res = client.get(f"{API}/notifications", headers=auth(alice))
-    assert res.status_code == 404
-    res = client.get(f"{API}/notifications/unread-count", headers=auth(alice))
-    assert res.status_code == 404
-    res = client.post(f"{API}/notifications/read-all", headers=auth(alice))
-    assert res.status_code == 404
-
-    notification_service.create_notification(
-        db, alice.id, "friend_request_received",
-        FriendRequestReceivedPayload(requester_id="x", requester_username="x"),
-    )
-    count = (
-        db.query(Notification).filter(Notification.user_id == alice.id).count()
-    )
-    assert count == 0

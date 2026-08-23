@@ -6,7 +6,6 @@ from unittest.mock import patch
 import pytest
 
 from app.services.collaboration import presence_service
-from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_user, share
 
 
@@ -146,15 +145,6 @@ def test_presence_requires_read_access(client, db, tree, owner):
 def test_presence_requires_authentication(client, tree):
     res = client.post(f"{API}/trees/{tree.id}/presence", json={})
     assert res.status_code == 401
-
-
-def test_presence_feature_off_returns_404(client, db, tree, owner):
-    feature_service.set_state(db, "presence", "off")
-    db.commit()
-    res = client.post(
-        f"{API}/trees/{tree.id}/presence", json={}, headers=auth(owner)
-    )
-    assert res.status_code == 404
 
 
 def test_heartbeat_publishes_presence_updated(client, db, tree, owner):

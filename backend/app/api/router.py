@@ -10,7 +10,6 @@ from app.api.routes import (
     documents,
     events,
     export_import,
-    features,
     friends,
     gallery,
     geocode,
@@ -52,7 +51,6 @@ api_router.include_router(oauth.router)
 api_router.include_router(users.router)
 api_router.include_router(preferences.router)
 api_router.include_router(settings.router)
-api_router.include_router(features.router)
 api_router.include_router(friends.router)
 api_router.include_router(relation_types.router)
 api_router.include_router(relation_types.admin_router)
@@ -81,7 +79,6 @@ api_router.include_router(stories.router)
 api_router.include_router(tasks.router)
 api_router.include_router(documents.router)
 api_router.include_router(activity.router)
-api_router.include_router(activity.undo_router)
 api_router.include_router(presence.router)
 api_router.include_router(quality.router)
 api_router.include_router(statistics.router)

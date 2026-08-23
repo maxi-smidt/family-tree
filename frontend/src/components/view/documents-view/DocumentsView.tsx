@@ -29,7 +29,6 @@ import { ViewLayout } from "@/components/layout/ViewLayout";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { DocumentDialog } from "@/components/shared/member-sheet/DocumentDialog";
 import { ListPagination } from "@/components/view/list-view/ListPagination";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useEventStore } from "@/hooks/useEventStore";
@@ -71,12 +70,9 @@ export const DocumentsView = () => {
   } = useStoryStore();
   const isReady = useTreeStore((state) => state.isReady);
   const selectedTree = useTreeStore((state) => state.selectedTree);
-  const features = useAuthStore((state) => state.features);
   const restrictions = selectedTree?.restrictions ?? [];
-  const canAccessEvents =
-    features.includes("events") && !restrictions.includes("events");
-  const canAccessStories =
-    features.includes("stories") && !restrictions.includes("stories");
+  const canAccessEvents = !restrictions.includes("events");
+  const canAccessStories = !restrictions.includes("stories");
   const [searchTerm, setSearchTerm] = useState("");
   const [linkFilter, setLinkFilter] = useState<LinkFilter>("all");
   const [page, setPage] = useState(0);

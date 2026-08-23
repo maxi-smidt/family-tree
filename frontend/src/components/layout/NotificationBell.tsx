@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/utils/dateUtils";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useNotificationStore } from "@/hooks/useNotificationStore";
@@ -83,7 +82,9 @@ export const NotificationBell = () => {
   };
 
   const badgeLabel =
-    unreadCount > MAX_BADGE_DISPLAY ? `${MAX_BADGE_DISPLAY}+` : `${unreadCount}`;
+    unreadCount > MAX_BADGE_DISPLAY
+      ? `${MAX_BADGE_DISPLAY}+`
+      : `${unreadCount}`;
   const triggerLabel =
     unreadCount > 0
       ? `${t("aria-label")} — ${t("unread-badge-label", { count: unreadCount })}`
@@ -148,7 +149,10 @@ export const NotificationBell = () => {
                     {tRoot(`notifications.types.${n.type}`, n.payload ?? {})}
                   </span>
                   <span className="block text-xs text-muted-foreground mt-0.5">
-                    {formatDate(n.created_at, { hour: "2-digit", minute: "2-digit" })}
+                    {formatDate(n.created_at, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </span>
                 </span>
               </button>
@@ -169,11 +173,4 @@ export const NotificationBell = () => {
       </PopoverContent>
     </Popover>
   );
-};
-
-/** Gates the bell behind the `notifications` feature flag; keeps the bell's
- * own hooks unconditional (mounted once, always) for stable hook order. */
-export const NotificationBellGate = () => {
-  const enabled = useFeature("notifications");
-  return enabled ? <NotificationBell /> : null;
 };

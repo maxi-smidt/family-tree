@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import { Activity, isUndoableDelete } from "@/types/activity";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { ViewLayout } from "@/components/layout/ViewLayout";
@@ -136,7 +135,6 @@ function ActivityItem({ item }: { item: Activity }) {
   });
   const { navigateTo } = useNavigationStore();
   const undo = useActivityStore((s) => s.undo);
-  const undoEnabled = useFeature("activity_undo");
   const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [undoing, setUndoing] = useState(false);
@@ -149,7 +147,7 @@ function ActivityItem({ item }: { item: Activity }) {
   const destinationView: ViewId | null = TARGET_VIEW[item.targetType] ?? null;
   const canNavigate = destinationView !== null;
   const TargetIcon = TARGET_ICONS[item.targetType] ?? ActivityIcon;
-  const showUndo = undoEnabled && canWrite && isUndoableDelete(item);
+  const showUndo = canWrite && isUndoableDelete(item);
 
   const handleNavigate = () => {
     if (canNavigate) {
@@ -259,7 +257,10 @@ function ActivityItem({ item }: { item: Activity }) {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t("undo-cancel")}</AlertDialogCancel>
-              <AlertDialogAction disabled={undoing} onClick={() => void handleUndo()}>
+              <AlertDialogAction
+                disabled={undoing}
+                onClick={() => void handleUndo()}
+              >
                 {t("undo-confirm-action")}
               </AlertDialogAction>
             </AlertDialogFooter>

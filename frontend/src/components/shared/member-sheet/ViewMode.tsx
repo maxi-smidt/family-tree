@@ -9,7 +9,6 @@ import {
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
@@ -58,17 +57,12 @@ export const ViewMode = ({
   const { getStoriesByMember } = useStoryStore();
   const { getTasksByMember } = useTaskStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
-  const galleryEnabled =
-    useFeature("gallery") && !restrictions.includes("gallery");
-  const eventsEnabled =
-    useFeature("events") && !restrictions.includes("events");
-  const storiesEnabled =
-    useFeature("stories") && !restrictions.includes("stories");
-  const documentsEnabled =
-    useFeature("sources") && !restrictions.includes("sources");
+  const galleryEnabled = !restrictions.includes("gallery");
+  const eventsEnabled = !restrictions.includes("events");
+  const storiesEnabled = !restrictions.includes("stories");
+  const documentsEnabled = !restrictions.includes("sources");
   const diseasesEnabled = !restrictions.includes("diseases");
-  const tasksEnabled =
-    useFeature("research_tasks") && !restrictions.includes("tasks");
+  const tasksEnabled = !restrictions.includes("tasks");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
   const [lightboxOpen, setLightboxOpen] = useState(false);

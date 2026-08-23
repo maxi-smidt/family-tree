@@ -24,7 +24,6 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useMemberEditors } from "@/hooks/usePresenceStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
 import { Spinner } from "@/components/ui/spinner";
@@ -59,8 +58,7 @@ export const MemberSheet = ({
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
-  const tasksEnabled =
-    useFeature("research_tasks") && !restrictions?.includes("tasks");
+  const tasksEnabled = !restrictions?.includes("tasks");
   const { refreshDocuments, initialized: documentsInitialized } =
     useDocumentStore();
   const { refreshGalleryImages, initialized: galleryInitialized } =

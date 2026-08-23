@@ -1,10 +1,9 @@
 /**
- * E2E tests: Admin & feature flags (#271)
+ * E2E tests: Admin workflows (#271).
  * Depends on foundation harness (#263).
  */
 
 import { test, expect } from "../fixtures";
-import { seedMinimalFamily } from "../fixtures/seed";
 import { createTestUser, deleteTestUser } from "../fixtures/users";
 import { API_URL } from "../playwright.config";
 
@@ -22,63 +21,6 @@ test("non-admin cannot reach admin endpoints — 403", async ({
   });
   expect([401, 403]).toContain(res.status);
   void adminApi;
-});
-
-// ---------------------------------------------------------------------------
-// Feature flags
-// ---------------------------------------------------------------------------
-
-test("feature flags — list returns known flags", async ({ adminApi }) => {
-  const flags =
-    await adminApi.get<Array<{ name: string; state: string }>>(
-      "/admin/features",
-    );
-  expect(Array.isArray(flags)).toBe(true);
-  expect(flags.length).toBeGreaterThan(0);
-  expect(flags.every((f) => typeof f.name === "string")).toBe(true);
-});
-
-test("feature flag disable — tab hidden from layout; re-enable restores it", async ({
-  adminApi,
-  adminPage,
-  seedTree,
-}) => {
-  // Find a feature flag that corresponds to a tab (e.g. gallery)
-  const flags =
-    await adminApi.get<Array<{ name: string; state: string }>>(
-      "/admin/features",
-    );
-  const galleryFlag = flags.find((f) =>
-    f.name.toLowerCase().includes("gallery"),
-  );
-
-  if (!galleryFlag) {
-    test.skip(true, "No gallery feature flag found in this build");
-    return;
-  }
-
-  const tree = await seedTree("E2E-FeatureFlag");
-  await seedMinimalFamily(adminApi, tree.id);
-
-  await adminPage.reload({ waitUntil: "networkidle" });
-
-  try {
-    // Disable the gallery feature
-    await adminApi.patch(`/admin/features/${galleryFlag.name}`, {
-      state: "off",
-    });
-
-    await adminPage.reload({ waitUntil: "networkidle" });
-    // Gallery tab should no longer be visible
-    await expect(
-      adminPage.getByRole("tab", { name: /gallery/i }),
-    ).not.toBeVisible({ timeout: 5_000 });
-  } finally {
-    // Always restore the original state
-    await adminApi.patch(`/admin/features/${galleryFlag.name}`, {
-      state: galleryFlag.state,
-    });
-  }
 });
 
 // ---------------------------------------------------------------------------

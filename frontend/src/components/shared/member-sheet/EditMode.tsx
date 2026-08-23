@@ -6,7 +6,6 @@ import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import {
   ChangeEvent,
@@ -112,17 +111,11 @@ export const EditMode = ({
   const { galleryImages } = useGalleryStore();
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
   const currentTreeId = useTreeStore((s) => s.selectedTree?.id);
-  const treeLinksEnabled = useFeature("tree_links");
-  const eventsEnabled =
-    useFeature("events") && !restrictions.includes("events");
-  const storiesEnabled =
-    useFeature("stories") && !restrictions.includes("stories");
-  const documentsEnabled =
-    useFeature("sources") && !restrictions.includes("sources");
-  const galleryEnabled =
-    useFeature("gallery") && !restrictions.includes("gallery");
-  const tasksEnabled =
-    useFeature("research_tasks") && !restrictions.includes("tasks");
+  const eventsEnabled = !restrictions.includes("events");
+  const storiesEnabled = !restrictions.includes("stories");
+  const documentsEnabled = !restrictions.includes("sources");
+  const galleryEnabled = !restrictions.includes("gallery");
+  const tasksEnabled = !restrictions.includes("tasks");
   const diseasesEnabled = !restrictions.includes("diseases");
   const mapEnabled = !restrictions.includes("map");
   const biographyEnabled = !restrictions.includes("biography");
@@ -1044,16 +1037,14 @@ export const EditMode = ({
                   />
                 </Field>
 
-                {treeLinksEnabled && (
-                  <LinkedTreeField
-                    currentTreeId={currentTreeId}
-                    value={formData.linkedTreeId ?? null}
-                    memberName={`${formData.firstName} ${formData.lastName}`}
-                    memberId={isNew ? undefined : formData.id}
-                    formDirty={isDirty}
-                    onChange={(treeId) => handleChange("linkedTreeId", treeId)}
-                  />
-                )}
+                <LinkedTreeField
+                  currentTreeId={currentTreeId}
+                  value={formData.linkedTreeId ?? null}
+                  memberName={`${formData.firstName} ${formData.lastName}`}
+                  memberId={isNew ? undefined : formData.id}
+                  formDirty={isDirty}
+                  onChange={(treeId) => handleChange("linkedTreeId", treeId)}
+                />
               </FieldGroup>
             </TabsContent>
           )}

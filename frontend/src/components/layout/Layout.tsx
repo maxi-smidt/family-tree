@@ -6,7 +6,7 @@ import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { SessionExpiryBanner } from "@/components/layout/SessionExpiryBanner";
 import { TutorialTour } from "@/components/tutorial/TutorialTour";
 import { LegalGateDialog } from "@/components/legal/LegalGateDialog";
-import { NotificationBellGate } from "@/components/layout/NotificationBell";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   const { sidebarOpen, setSidebarOpen } = useFamilyTreeSettings();
@@ -24,7 +24,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
             <SidebarTrigger />
           </div>
           <div className="absolute top-4 right-4 z-50">
-            <NotificationBellGate />
+            <NotificationBell />
           </div>
           {children}
         </main>

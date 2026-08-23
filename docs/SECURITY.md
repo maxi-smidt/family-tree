@@ -132,7 +132,7 @@ lifecycle (create / update / delete, self-service deletion and restore),
 credential changes (password changes and admin resets, 2FA enable / disable and
 admin reset), privilege changes (admin grant / revoke, activation, quota
 changes), public-access changes (a tree's public role and public password being
-set or cleared), backup creation **and failures**, feature-flag changes, and
+set or cleared), backup creation **and failures**, and
 instance-settings / legal-document updates. Each entry stores the actor, action,
 subject, an ISO-8601 UTC timestamp, and a small JSON `details` object.
 

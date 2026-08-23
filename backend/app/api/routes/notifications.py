@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_feature
+from app.api.deps import get_current_user
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Notification, User
@@ -20,7 +20,6 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/notifications",
     tags=["notifications"],
-    dependencies=[Depends(require_feature("notifications"))],
 )
 
 

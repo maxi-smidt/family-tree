@@ -45,7 +45,6 @@ from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_tree_event
 from app.services.media.storage import media_disk_usage, move_media_to_tree
 from app.services.members.member_clone import clone_member, wire_bridge
-from app.services.system import feature_service
 from app.services.system.job_service import ProgressCallback
 from app.services.trees.subtree_documents import (
     copy_documents_for_move,
@@ -78,9 +77,6 @@ def validate_move_request(
     """
     # direction is a Pydantic Literal, so any value that reaches here is
     # already one of the valid choices — no runtime check needed.
-    # Extraction creates a tree-in-tree link; gate exactly like member subtrees.
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise NotFoundError("Not found")
     tree = _require_readable(db, user, req.source_tree_id)
     if tree.owner_id != user.id:
         raise AccessDeniedError(

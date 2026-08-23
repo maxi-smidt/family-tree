@@ -39,7 +39,6 @@ from app.models import (
     Event,
     EventDocumentLink,
     EventMemberLink,
-    FeatureFlagOverride,
     Friendship,
     GalleryImage,
     GalleryMemberLink,
@@ -97,7 +96,6 @@ BACKUP_MODELS: tuple[type, ...] = (
     TreeInvitation,
     TreeUserState,
     Friendship,
-    FeatureFlagOverride,
     Relation,
     MemberDisease,
     MemberTask,
@@ -243,6 +241,9 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
     }
 )
 
+LEGACY_FEATURE_OVERRIDE_TABLE = "feature_flag_overrides"
+LEGACY_FEATURE_SETTING_PREFIX = "feature."
+
 
 def _migrate_legacy_last_opened(
     tables: dict[str, Any], source_table: str, target_table: str, fk_field: str
@@ -300,6 +301,37 @@ def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, A
     return bundle_dict
 
 
+def _drop_legacy_feature_metadata(bundle_dict: dict[str, Any]) -> dict[str, Any]:
+    """Discard removed flag metadata while restoring an older backup.
+
+    Feature overrides were instance configuration, not genealogy data. Older
+    bundles may contain their table and ``feature.*`` app settings; retaining
+    either would reintroduce obsolete state after restore.
+    """
+    tables = bundle_dict.get("tables")
+    manifest = bundle_dict.get("manifest")
+    counts = manifest.get("table_row_counts") if isinstance(manifest, dict) else None
+    if not isinstance(tables, dict) or not isinstance(counts, dict):
+        return bundle_dict
+
+    tables.pop(LEGACY_FEATURE_OVERRIDE_TABLE, None)
+    counts.pop(LEGACY_FEATURE_OVERRIDE_TABLE, None)
+
+    settings = tables.get(AppSetting.__tablename__)
+    if isinstance(settings, list):
+        tables[AppSetting.__tablename__] = [
+            row
+            for row in settings
+            if not (
+                isinstance(row, dict)
+                and isinstance(row.get("key"), str)
+                and row["key"].startswith(LEGACY_FEATURE_SETTING_PREFIX)
+            )
+        ]
+        counts[AppSetting.__tablename__] = len(tables[AppSetting.__tablename__])
+    return bundle_dict
+
+
 def validate_bundle(bundle: BackupBundle | dict[str, Any]) -> BackupBundle:
     """Validate format, all table counts, and every embedded media hash.
 
@@ -308,6 +340,7 @@ def validate_bundle(bundle: BackupBundle | dict[str, Any]) -> BackupBundle:
     """
     if isinstance(bundle, dict):
         bundle = _backfill_legacy_optional_tables(bundle)
+        bundle = _drop_legacy_feature_metadata(bundle)
         try:
             bundle = BackupBundle.model_validate(bundle)
         except ValidationError as exc:
@@ -637,6 +670,7 @@ def restore_backup_file(
     except Exception as exc:  # noqa: BLE001
         raise BackupValidationError("Could not decrypt backup file") from exc
     bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
+    bundle_dict = _drop_legacy_feature_metadata(bundle_dict)
     try:
         bundle = BackupBundle.model_validate(bundle_dict)
     except ValidationError as exc:

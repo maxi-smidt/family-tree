@@ -10,7 +10,6 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
-    require_feature,
 )
 from app.db.session import get_db
 from app.models import Tree, User
@@ -25,26 +24,21 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/trees/{tree_id}",
     tags=["quality"],
-    dependencies=[Depends(require_feature("quality_report"))],
 )
 
 
 def _bridge_drift_issues(
-    db: Session, user: User, members: list[Member]
+    db: Session, members: list[Member]
 ) -> list[QualityIssue]:
     """Bridge persons whose two rows have drifted apart.
 
     Needs the db (counterpart rows live in other trees), so it runs here
     rather than in the pure ``run_quality_checks``. The comparison happens
     server-side only — field *names* are reported, never the other tree's
-    values — and the whole check is dormant while tree_links is off.
+    values — and the whole check is available whenever linked members exist.
     """
     linked = [m for m in members if m.linked_member_id]
     if not linked:
-        return []
-    from app.services.system import feature_service  # noqa: PLC0415
-
-    if not feature_service.is_enabled(db, "tree_links", user):
         return []
     counterparts = {
         c.id: c
@@ -83,7 +77,6 @@ def _bridge_drift_issues(
 def get_quality_report(
     include_dismissed: bool = False,
     tree: Tree = Depends(get_readable_tree),
-    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Return a non-destructive data-quality report for the tree.
@@ -105,7 +98,7 @@ def get_quality_report(
         ).all()
     )
     raw_issues = run_quality_checks(members, relations, events, event_links)
-    raw_issues += _bridge_drift_issues(db, user, members)
+    raw_issues += _bridge_drift_issues(db, members)
 
     dismissed_ids = set(
         db.scalars(

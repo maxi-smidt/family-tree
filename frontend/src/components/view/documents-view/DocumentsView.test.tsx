@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -62,7 +61,6 @@ const documents: Document[] = [
 
 describe("DocumentsView", () => {
   beforeEach(() => {
-    useAuthStore.setState({ features: ["events"] });
     useTreeStore.setState({
       isReady: true,
       selectedTree: { id: "tree-1", role: "owner" } as never,

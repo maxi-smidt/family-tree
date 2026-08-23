@@ -31,7 +31,7 @@ from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.notification import Notification
 from app.models.quality import QualityIssueDismissal
-from app.models.setting import AppSetting, FeatureFlagOverride
+from app.models.setting import AppSetting
 from app.models.tree import Tree, TreeInvitation, TreeMembership, TreeUserState
 from app.models.user import User
 from app.models.virtual_view import (
@@ -78,7 +78,6 @@ __all__ = [
     "MemberTask",
     "MemberTaskLink",
     "AppSetting",
-    "FeatureFlagOverride",
     "BackupRecord",
     "RestoreMarker",
     "LegalAcceptance",

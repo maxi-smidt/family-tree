@@ -21,7 +21,6 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
-from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 # Minimal 1x1 PNG streamed as a multipart gallery upload.
@@ -709,39 +708,3 @@ def test_viewer_cannot_undo(client, db):
 
     res = _undo(client, tree.id, entry.id, viewer)
     assert res.status_code == 403
-
-
-def test_undo_disabled_by_own_feature_flag(client, db):
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    add_member(db, tree, "m1", first_name="Ada")
-
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-    entry = _last_delete_entry(db, tree.id, "member")
-
-    feature_service.set_state(db, "activity_undo", "off")
-    db.commit()
-    res = _undo(client, tree.id, entry.id, owner)
-    assert res.status_code == 404
-
-
-def test_undo_works_when_activity_log_view_flag_is_off(client, db):
-    """Undo and the read-only log view are gated by independent flags."""
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    add_member(db, tree, "m1", first_name="Ada")
-
-    res = client.delete(f"{API}/trees/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-    entry = _last_delete_entry(db, tree.id, "member")
-
-    feature_service.set_state(db, "activity_log", "off")
-    db.commit()
-
-    assert (
-        client.get(f"{API}/trees/{tree.id}/activity", headers=auth(owner)).status_code
-        == 404
-    )
-    res = _undo(client, tree.id, entry.id, owner)
-    assert res.status_code == 200

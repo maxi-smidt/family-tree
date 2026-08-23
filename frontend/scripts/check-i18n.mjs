@@ -22,11 +22,6 @@ const DYNAMIC_KEY_PREFIXES = [
   // t(`files.error-${err}`), t(`files.error-quota-${bucket}`)  — DocumentDialog
   //   (keyPrefix: sheet.member-sheet.documents.dialog)
   "sheet.member-sheet.documents.dialog.files.error-",
-  // t(`state-${state}`), t(`names.${flag.name}`), t(`descriptions.${flag.name}`)
-  //   — FeatureFlagsPanel (keyPrefix: admin.features)
-  "admin.features.state-",
-  "admin.features.names.",
-  "admin.features.descriptions.",
   // t(`domains.${domain}`), t(`invites.status-${status}`) — ShareTreeDialog
   "dialog.share-tree.domains.",
   "dialog.share-tree.invites.status-",

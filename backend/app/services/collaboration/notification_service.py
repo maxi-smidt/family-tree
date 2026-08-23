@@ -23,7 +23,6 @@ from app.schemas.notification import (
 )
 from app.services.event_bus import event_bus
 from app.services.event_payloads import NotificationCreatedData
-from app.services.system import feature_service
 from app.services.unit_of_work import UnitOfWork
 
 logger = logging.getLogger(__name__)
@@ -89,8 +88,6 @@ def create_notification(
     """
     try:
         with UnitOfWork(db) as uow:
-            if not feature_service.is_enabled_for_id(db, "notifications", user_id):
-                return
             n = Notification(
                 user_id=user_id,
                 type=type,

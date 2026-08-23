@@ -2,8 +2,7 @@
 stories.
 
 Formerly the "Sources / Citations / Evidence" genealogy model; simplified into
-a single reusable content type. The feature flag key stays ``"sources"`` for
-backward compatibility even though the feature is now called "Documents".
+a single reusable content type now called "Documents".
 """
 
 from uuid import uuid4
@@ -17,7 +16,6 @@ from app.api.deps import (
     get_readable_tree,
     get_writable_tree,
     require_domain,
-    require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.core.exceptions import QuotaExceeded
@@ -71,13 +69,7 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/trees/{tree_id}/documents",
     tags=["documents"],
-    dependencies=[
-        # The flag/domain key is kept as "sources" for backward compatibility
-        # (existing per-tree feature settings and shared-member restrictions);
-        # the feature is now presented as "Documents".
-        Depends(require_feature("sources")),
-        Depends(require_domain("sources")),
-    ],
+    dependencies=[Depends(require_domain("sources"))],
 )
 
 def _get_document(db: Session, tree: Tree, document_id: str) -> Document:

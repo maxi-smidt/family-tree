@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTreeStore } from "@/hooks/useTreeStore";
-import { useAuthStore, useFeature } from "@/hooks/useAuthStore";
+import { useAuthStore } from "@/hooks/useAuthStore";
 import { useAdminViewStore } from "@/hooks/useAdminViewStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
@@ -46,8 +46,6 @@ export const MobileManagementSheet = ({
   const updateTree = useTreeStore((s) => s.updateTree);
   const loadTrees = useTreeStore((s) => s.loadTrees);
   const user = useAuthStore((s) => s.user);
-  const gedcomEnabled = useFeature("gedcom");
-  const activityEnabled = useFeature("activity_log");
   const { navigateTo } = useNavigationStore();
   const openAdmin = useAdminViewStore((s) => s.openAdmin);
   const {
@@ -197,48 +195,42 @@ export const MobileManagementSheet = ({
                 <HardDriveDownload className="h-4 w-4 shrink-0" />
                 {t("import-action")}
               </Button>
-              {gedcomEnabled && (
-                <>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3"
-                    disabled={!selectedTree}
-                    onClick={() => void handleExportGedcom()}
-                  >
-                    <FileUp className="h-4 w-4 shrink-0" />
-                    {t("export-gedcom-action")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start gap-3"
-                    onClick={() => void handleImportGedcom()}
-                  >
-                    <FileDown className="h-4 w-4 shrink-0" />
-                    {t("import-gedcom-action")}
-                  </Button>
-                </>
-              )}
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3"
+                disabled={!selectedTree}
+                onClick={() => void handleExportGedcom()}
+              >
+                <FileUp className="h-4 w-4 shrink-0" />
+                {t("export-gedcom-action")}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3"
+                onClick={() => void handleImportGedcom()}
+              >
+                <FileDown className="h-4 w-4 shrink-0" />
+                {t("import-gedcom-action")}
+              </Button>
             </div>
 
             {/* Activity group */}
-            {activityEnabled && (
-              <div className="px-4 pt-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                  {t("activity-action")}
-                </p>
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start gap-3"
-                  onClick={() => {
-                    navigateTo("activity-view");
-                    onOpenChange(false);
-                  }}
-                >
-                  <Activity className="h-4 w-4 shrink-0" />
-                  {t("activity-action")}
-                </Button>
-              </div>
-            )}
+            <div className="px-4 pt-4">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                {t("activity-action")}
+              </p>
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3"
+                onClick={() => {
+                  navigateTo("activity-view");
+                  onOpenChange(false);
+                }}
+              >
+                <Activity className="h-4 w-4 shrink-0" />
+                {t("activity-action")}
+              </Button>
+            </div>
 
             {/* Admin group — admin only */}
             {isAdmin && (

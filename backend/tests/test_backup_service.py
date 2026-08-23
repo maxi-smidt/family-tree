@@ -3,11 +3,12 @@
 import shutil
 
 import pytest
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, inspect, select
 
 from app.core.config import settings
 from app.db.base import Base
 from app.models import (
+    AppSetting,
     BackgroundJob,
     Document,
     DocumentFile,
@@ -41,6 +42,41 @@ def test_backup_models_cover_every_registered_model():
         backup_service.BACKUP_EXCLUDED_MODELS
     )
     assert registered == accounted_for
+
+
+def test_restore_ignores_legacy_feature_metadata(db, tmp_path, monkeypatch):
+    """Old backups do not recreate removed flags or their app settings."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    media_root = tmp_path / "media"
+    media_root.mkdir()
+    (media_root / "keep.txt").write_text("keep")
+    backup_path = tmp_path / "legacy.ftbackup"
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    settings_rows = bundle["tables"][AppSetting.__tablename__]
+    settings_rows.extend(
+        [
+            {"key": "feature.gallery", "value": "off"},
+            {"key": "instance_name", "value": "Family Tree"},
+        ]
+    )
+    bundle["manifest"]["table_row_counts"][AppSetting.__tablename__] = len(
+        settings_rows
+    )
+    bundle["tables"]["feature_flag_overrides"] = [
+        {"feature": "gallery", "user_id": "user-1"}
+    ]
+    bundle["manifest"]["table_row_counts"]["feature_flag_overrides"] = 1
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+
+    assert db.get(AppSetting, "feature.gallery") is None
+    assert db.get(AppSetting, "instance_name").value == "Family Tree"
+    assert "feature_flag_overrides" not in inspect(db.get_bind()).get_table_names()
+    assert (media_root / "keep.txt").read_text() == "keep"
 
 
 def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):

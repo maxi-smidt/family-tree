@@ -9,7 +9,6 @@ from app.schemas.statistics import (
     WidgetDimensionId,
     WidgetMeasureId,
 )
-from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
@@ -118,19 +117,6 @@ def test_unknown_widget_dimension_or_measure_is_rejected(client, db):
 
     assert bad_dimension_response.status_code == 422
     assert bad_measure_response.status_code == 422
-
-
-def test_linked_widget_returns_404_when_tree_links_are_off(client, db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.post(_url(tree.id), json=_payload(), headers=auth(user))
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 def test_widget_caps_categories_and_breakdown_series(client, db):
