@@ -239,20 +239,38 @@ def test_deleting_task_via_tasks_route_nulls_face_task_id(client, db):
     assert face.task_id is None
 
 
-def test_create_unknown_face_requires_tasks_domain(client, db):
+def test_unknown_face_requires_tasks_domain_for_mutations(client, db):
     from app.models.tree import TreeMembership
 
     owner, tree = _setup(client, db)
+    created = _create_face(client, owner, tree)
+    task_id = created.json()["task_id"]
     restricted = make_user(db, "unknown-face-tasks-restricted")
     share(db, tree, restricted, "editor")
     membership = db.get(TreeMembership, (tree.id, restricted.id))
     membership.restrictions = ["tasks"]
     db.commit()
 
-    response = _create_face(client, owner, tree, user=restricted)
-    assert response.status_code == 404
-    assert db.query(GalleryUnknownFace).count() == 0
-    assert db.query(MemberTask).count() == 0
+    assert _create_face(client, owner, tree, user=restricted).status_code == 404
+
+    resolve = client.post(
+        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1/resolve",
+        headers=auth(restricted),
+        json={"member_id": "missing"},
+    )
+    assert resolve.status_code == 404
+
+    delete = client.delete(
+        f"{API}/trees/{tree.id}/gallery/unknown-faces/face1",
+        headers=auth(restricted),
+    )
+    assert delete.status_code == 404
+
+    db.expire_all()
+    assert db.get(GalleryUnknownFace, "face1") is not None
+    task = db.get(MemberTask, task_id)
+    assert task is not None
+    assert task.done is False
 
 
 def test_unknown_face_writes_require_editor_or_owner(client, db):

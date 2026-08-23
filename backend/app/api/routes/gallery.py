@@ -455,7 +455,11 @@ def update_unknown_face(
     return face
 
 
-@router.post("/unknown-faces/{face_id}/resolve", status_code=204)
+@router.post(
+    "/unknown-faces/{face_id}/resolve",
+    status_code=204,
+    dependencies=[Depends(require_domain("tasks"))],
+)
 def resolve_unknown_face(
     face_id: str,
     payload: UnknownFaceResolve,
@@ -524,7 +528,11 @@ def resolve_unknown_face(
             )
 
 
-@router.delete("/unknown-faces/{face_id}", status_code=204)
+@router.delete(
+    "/unknown-faces/{face_id}",
+    status_code=204,
+    dependencies=[Depends(require_domain("tasks"))],
+)
 def delete_unknown_face(
     face_id: str,
     tree: Tree = Depends(get_writable_tree),
