@@ -94,13 +94,6 @@ period, under ~72 characters.
 `refactor`, `epic`, plus `priority:high|medium|low`. Don't write `[Bug]:` or
 `[Medium]` into a title.
 
-## New features — always on
-
-User-facing features are always available once the user is authorized. Preserve
-the existing role, ownership, and per-tree content restrictions; introducing a
-new rollout or kill-switch mechanism requires a separate architectural
-decision.
-
 ## PR titles & changelog
 
 PRs are squash-merged, so **the PR title becomes a commit subject on `main` —
