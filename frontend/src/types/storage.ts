@@ -1,5 +1,5 @@
-/** Owner-wide storage usage and quotas returned by GET /trees/{id}/storage. */
-export interface TreeStorageUsageDB {
+/** Owner-wide storage usage and quotas returned by GET /workspaces/{id}/storage. */
+export interface WorkspaceStorageUsageDB {
   tree_bytes: number;
   media_bytes: number;
   /** Reported sum of tree + media; has no separate quota. */

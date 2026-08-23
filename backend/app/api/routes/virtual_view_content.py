@@ -1,7 +1,7 @@
 """Virtual multi-tree views — composite content read endpoints.
 
 Every feature a normal tree exposes works on a virtual tree by reading rows
-whose ``tree_id`` is in the flattened source set and remapping member ids to
+whose ``workspace_id`` is in the flattened source set and remapping member ids to
 the composite node ids; see ``app.services.virtual_views.virtual_view_composite`` for the
 aggregation itself. Configuration CRUD (name, sources, match recomputation)
 lives in ``virtual_views.py``.
@@ -26,8 +26,8 @@ from app.models import (
     Story,
     StoryDocumentLink,
     StoryMemberLink,
-    Tree,
     User,
+    Workspace,
 )
 from app.models.virtual_view import VirtualViewMemberMatch, VirtualViewPosition
 from app.schemas.activity import ActivityPageOut
@@ -49,12 +49,10 @@ from app.schemas.virtual_view import (
     VirtualMemberOut,
     VirtualPositionItem,
     VirtualViewMetadataOut,
-    VirtualViewSourceTreeRef,
+    VirtualViewSourceWorkspaceRef,
 )
 from app.services.event_bus import event_bus
 from app.services.media.geocoding import resolve_batch, resolve_single
-from app.services.trees.quality_checks import run_quality_checks
-from app.services.trees.statistics import compute_statistics
 from app.services.unit_of_work import UnitOfWork
 from app.services.virtual_views.virtual_view_access import resolve_view, view_last_opened
 from app.services.virtual_views.virtual_view_composite import (
@@ -69,7 +67,9 @@ from app.services.virtual_views.virtual_view_composite import (
     primary_member_map,
     remap_member_links,
 )
-from app.services.virtual_views.virtual_view_sources import flatten_tree_ids
+from app.services.virtual_views.virtual_view_sources import flatten_workspace_ids
+from app.services.workspaces.quality_checks import run_quality_checks
+from app.services.workspaces.statistics import compute_statistics
 
 router = APIRouter(
     prefix="/virtual-views",
@@ -86,38 +86,51 @@ def get_virtual_view_metadata(
     view = resolve_view(db, view_id, user)
     with UnitOfWork(db):
         ensure_matches(db, view)
-    # The underlying real trees (nested views flattened) are the actual data
+    # The underlying real workspaces (nested views flattened) are the actual data
     # sources of the composite.
-    source_ids = flatten_tree_ids(db, view)
-    source_trees = [
-        VirtualViewSourceTreeRef(
-            id=tid, name=(db.get(Tree, tid) or Tree(name="")).name
+    source_ids = flatten_workspace_ids(db, view)
+    source_workspaces = [
+        VirtualViewSourceWorkspaceRef(
+            id=tid, name=(db.get(Workspace, tid) or Workspace(name="")).name
         )
         for tid in source_ids
     ]
     # Count distinct nodes in the composite.
     id_map = build_id_map(db, view)
-    node_ids = set(id_map.get(mid, mid) for mid in (
-        r[0] for r in db.execute(
-            select(Member.id).where(Member.tree_id.in_(source_ids))
-        ).all()
-    ))
-    overlap_count = db.execute(
-        select(VirtualViewMemberMatch.group_id)
-        .where(VirtualViewMemberMatch.view_id == view_id)
-        .distinct()
-    ).fetchall().__len__()
-    pos_count = db.execute(
-        select(VirtualViewPosition.node_id)
-        .where(VirtualViewPosition.view_id == view_id)
-    ).fetchall().__len__()
+    node_ids = set(
+        id_map.get(mid, mid)
+        for mid in (
+            r[0]
+            for r in db.execute(
+                select(Member.id).where(Member.workspace_id.in_(source_ids))
+            ).all()
+        )
+    )
+    overlap_count = (
+        db.execute(
+            select(VirtualViewMemberMatch.group_id)
+            .where(VirtualViewMemberMatch.view_id == view_id)
+            .distinct()
+        )
+        .fetchall()
+        .__len__()
+    )
+    pos_count = (
+        db.execute(
+            select(VirtualViewPosition.node_id).where(
+                VirtualViewPosition.view_id == view_id
+            )
+        )
+        .fetchall()
+        .__len__()
+    )
     has_layout = pos_count > 0 and pos_count >= len(node_ids)
     return VirtualViewMetadataOut(
         id=view.id,
         name=view.name,
         created_at=view.created_at,
         last_opened=view_last_opened(db, view.id, user.id),
-        source_trees=source_trees,
+        source_workspaces=source_workspaces,
         overlap_count=overlap_count,
         has_layout=has_layout,
     )
@@ -160,10 +173,9 @@ def list_virtual_gallery_images(
     db: Session = Depends(get_db),
 ) -> list[GalleryImageOut]:
     view = resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     return [
-        GalleryImageOut.model_validate(i)
-        for i in aggregate(db, source_ids, GalleryImage)
+        GalleryImageOut.model_validate(i) for i in aggregate(db, source_ids, GalleryImage)
     ]
 
 
@@ -174,12 +186,12 @@ def list_virtual_gallery_links(
     db: Session = Depends(get_db),
 ) -> list[GalleryLinkOut]:
     view = resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     id_map = build_id_map(db, view)
     rows = db.scalars(
         select(GalleryMemberLink)
         .join(Member, Member.id == GalleryMemberLink.member_id)
-        .where(Member.tree_id.in_(source_ids))
+        .where(Member.workspace_id.in_(source_ids))
     ).all()
     seen: set[tuple[str, str]] = set()
     links: list[GalleryLinkOut] = []
@@ -209,7 +221,7 @@ def list_virtual_events(
     db: Session = Depends(get_db),
 ) -> list[EventOut]:
     view = resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     events = aggregate(db, source_ids, Event)
     event_ids = [e.id for e in events]
     doc_map: dict[str, list[str]] = {}
@@ -247,10 +259,8 @@ def list_virtual_stories(
     db: Session = Depends(get_db),
 ) -> list[StoryOut]:
     view = resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
-    stories = db.scalars(
-        select(Story).where(Story.tree_id.in_(source_ids))
-    ).all()
+    source_ids = flatten_workspace_ids(db, view)
+    stories = db.scalars(select(Story).where(Story.workspace_id.in_(source_ids))).all()
     story_ids = [s.id for s in stories]
     doc_map: dict[str, list[str]] = {}
     if story_ids:
@@ -287,11 +297,11 @@ def list_virtual_documents(
     db: Session = Depends(get_db),
 ) -> list[DocumentOut]:
     view = resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     id_map = build_id_map(db, view)
     documents = db.scalars(
         select(Document)
-        .where(Document.tree_id.in_(source_ids))
+        .where(Document.workspace_id.in_(source_ids))
         .options(selectinload(Document.files))
     ).all()
     doc_ids = [d.id for d in documents]
@@ -324,7 +334,7 @@ def list_virtual_activity(
     db: Session = Depends(get_db),
 ) -> ActivityPageOut:
     view = resolve_view(db, view_id, user)
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     return activity_page(
         db,
         source_ids,
@@ -382,7 +392,7 @@ def get_virtual_quality_report(
     relations = analytics_relations(db, view, primary_map)
     issues = run_quality_checks(members, relations)
     return QualityReport(
-        tree_id=view.id,
+        workspace_id=view.id,
         total_members=len(members),
         issues=issues,
     )
@@ -416,6 +426,6 @@ def save_virtual_positions(
                 )
         uow.after_commit(
             lambda: event_bus.publish(
-                [view.owner_id], "tree.layout_changed", {"tree_id": view_id}
+                [view.owner_id], "workspace.layout_changed", {"workspace_id": view_id}
             )
         )

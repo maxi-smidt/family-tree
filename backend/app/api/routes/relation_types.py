@@ -81,9 +81,7 @@ def delete_relation_type(rt_id: str, db: Session = Depends(get_db)):
             status_code=409, detail="The parent relation type cannot be deleted"
         )
     in_use = db.scalar(
-        select(func.count())
-        .select_from(Relation)
-        .where(Relation.relation_type == rt_id)
+        select(func.count()).select_from(Relation).where(Relation.relation_type == rt_id)
     )
     if in_use:
         raise HTTPException(

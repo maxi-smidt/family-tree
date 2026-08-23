@@ -28,7 +28,7 @@ import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { TaskDialog } from "@/components/shared/member-sheet/TaskDialog";
 import { MergeMembersDialog } from "@/components/view/quality-report-view/MergeMembersDialog";
 import type { QualityIssue } from "@/types/quality";
@@ -57,17 +57,17 @@ function memberLabel(
 }
 
 function useOpenMember(): (memberId: string) => void {
-  const treeId = useTreeStore((state) => state.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
 
   return useCallback(
     (memberId: string) => {
-      if (!treeId) return;
-      setOpenSheet(treeId, { memberId, tab: "records", mode: "view" });
+      if (!workspaceId) return;
+      setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
       navigateTo("tree-view");
     },
-    [navigateTo, setOpenSheet, treeId],
+    [navigateTo, setOpenSheet, workspaceId],
   );
 }
 
@@ -323,8 +323,8 @@ export const QualityReportView = () => {
   });
   const { report, isLoading, showDismissed, refreshReport, setShowDismissed } =
     useQualityReportStore();
-  const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const canWrite = useWorkspaceStore((s) => s.selectedTree?.role !== "viewer");
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !restrictions?.includes("tasks");
 
   useEffect(() => {

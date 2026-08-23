@@ -18,13 +18,13 @@ from app.models import (
     LegalDocumentVersion,
     Member,
     QualityIssueDismissal,
-    TreeInvitation,
-    TreeUserState,
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
     VirtualViewUserState,
+    WorkspaceInvitation,
+    WorkspaceUserState,
 )
 from app.services.crypto_export import decrypt_bundle, encrypt_bundle
 from app.services.system.backups import backup_service
@@ -57,12 +57,10 @@ def test_restore_ignores_legacy_feature_metadata(db, tmp_path, monkeypatch):
     settings_rows.extend(
         [
             {"key": "feature.gallery", "value": "off"},
-            {"key": "instance_name", "value": "Family Tree"},
+            {"key": "instance_name", "value": "Family Workspace"},
         ]
     )
-    bundle["manifest"]["table_row_counts"][AppSetting.__tablename__] = len(
-        settings_rows
-    )
+    bundle["manifest"]["table_row_counts"][AppSetting.__tablename__] = len(settings_rows)
     bundle["tables"]["feature_flag_overrides"] = [
         {"feature": "gallery", "user_id": "user-1"}
     ]
@@ -74,7 +72,7 @@ def test_restore_ignores_legacy_feature_metadata(db, tmp_path, monkeypatch):
     )
 
     assert db.get(AppSetting, "feature.gallery") is None
-    assert db.get(AppSetting, "instance_name").value == "Family Tree"
+    assert db.get(AppSetting, "instance_name").value == "Family Workspace"
     assert "feature_flag_overrides" not in inspect(db.get_bind()).get_table_names()
     assert (media_root / "keep.txt").read_text() == "keep"
 
@@ -94,9 +92,9 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     second.linked_member_id = first.id
     db.add(Friendship(requester_id=admin.id, addressee_id=friend.id))
     db.add(
-        TreeInvitation(
+        WorkspaceInvitation(
             id="invite-1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             token="invite-token",
             created_by=admin.id,
         )
@@ -134,7 +132,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     db.add(
         QualityIssueDismissal(
             id="dismissal-1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             issue_id="issue-1",
             issue_type="missing_parent",
             member_ids='["member-1"]',
@@ -143,7 +141,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     )
     document = Document(
         id="document-1",
-        tree_id=tree.id,
+        workspace_id=tree.id,
         title="Certificate",
         created_at="now",
         updated_at="now",
@@ -152,7 +150,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     db.add(
         DocumentFile(
             id="file-1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             document_id=document.id,
             kind="file",
             filename="certificate.pdf",
@@ -162,20 +160,12 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
             created_at="now",
         )
     )
-    view = VirtualView(
-        id="vv-1", name="Compare", owner_id=admin.id, created_at="now"
-    )
+    view = VirtualView(id="vv-1", name="Compare", owner_id=admin.id, created_at="now")
     db.add(view)
-    db.add(VirtualViewSource(view_id=view.id, position=0, tree_id=tree.id))
+    db.add(VirtualViewSource(view_id=view.id, position=0, workspace_id=tree.id))
+    db.add(VirtualViewMemberMatch(view_id=view.id, member_id=first.id, group_id="group"))
     db.add(
-        VirtualViewMemberMatch(
-            view_id=view.id, member_id=first.id, group_id="group"
-        )
-    )
-    db.add(
-        VirtualViewPosition(
-            view_id=view.id, node_id=first.id, position_x=1, position_y=2
-        )
+        VirtualViewPosition(view_id=view.id, node_id=first.id, position_x=1, position_y=2)
     )
     db.commit()
 
@@ -195,7 +185,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
         model.__tablename__ for model in backup_service.BACKUP_MODELS
     }
     assert len(bundle["tables"]["friendships"]) == 1
-    assert len(bundle["tables"]["tree_invitations"]) == 1
+    assert len(bundle["tables"]["workspace_invitations"]) == 1
     assert len(bundle["tables"]["quality_issue_dismissals"]) == 1
     assert len(bundle["tables"]["geocode_cache"]) == 1
 
@@ -204,7 +194,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
 
     assert db.get(Member, first.id).linked_member_id == second.id
     assert db.get(Member, second.id).linked_member_id == first.id
-    assert db.get(TreeInvitation, "invite-1") is not None
+    assert db.get(WorkspaceInvitation, "invite-1") is not None
     assert db.get(QualityIssueDismissal, "dismissal-1") is not None
     assert db.get(GeocodeCache, "Vienna") is not None
     assert db.get(BackgroundJob, "job-1") is not None
@@ -235,7 +225,7 @@ def test_backup_restores_staged_document_upload(db, tmp_path, monkeypatch):
     db.add(
         DocumentUpload(
             id="upload-1",
-            tree_id=tree.id,
+            workspace_id=tree.id,
             filename="staged.pdf",
             url=upload_url,
             mime_type="application/pdf",
@@ -256,7 +246,7 @@ def test_backup_restores_staged_document_upload(db, tmp_path, monkeypatch):
 
     restored = db.get(DocumentUpload, "upload-1")
     assert restored is not None
-    assert restored.tree_id == tree.id
+    assert restored.workspace_id == tree.id
     assert (tree_media / "staged.pdf").read_bytes() == b"stag"
 
 
@@ -300,7 +290,7 @@ def test_restore_backup_file_accepts_legacy_bundle_missing_document_uploads(
 
 
 def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypatch):
-    """A pre-#878 backup still has ``last_opened`` inline on its ``trees`` /
+    """A pre-#878 backup still has ``last_opened`` inline on its ``workspaces`` /
     ``virtual_views`` rows (dropped from those tables by the #878 migration)
     and lacks ``tree_user_states`` / ``virtual_view_user_states`` entirely.
 
@@ -325,10 +315,10 @@ def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypat
     bundle = backup_service._collect_bundle(db).model_dump()
     # Simulate the pre-#878 row shape: last_opened still inline, and the new
     # per-user state tables absent entirely (as if this build never had them).
-    bundle["tables"]["trees"][0]["last_opened"] = "2026-01-01T00:00:00+00:00"
+    bundle["tables"]["workspaces"][0]["last_opened"] = "2026-01-01T00:00:00+00:00"
     bundle["tables"]["virtual_views"][0]["last_opened"] = "2026-02-02T00:00:00+00:00"
-    del bundle["tables"]["tree_user_states"]
-    del bundle["manifest"]["table_row_counts"]["tree_user_states"]
+    del bundle["tables"]["workspace_user_states"]
+    del bundle["manifest"]["table_row_counts"]["workspace_user_states"]
     del bundle["tables"]["virtual_view_user_states"]
     del bundle["manifest"]["table_row_counts"]["virtual_view_user_states"]
     backup_path.write_bytes(encrypt_bundle(bundle, None))
@@ -342,7 +332,7 @@ def test_restore_backup_file_migrates_legacy_last_opened(db, tmp_path, monkeypat
         db, backup_path, replace=False, media_root=media_root
     )
 
-    tree_state = db.get(TreeUserState, (tree.id, admin.id))
+    tree_state = db.get(WorkspaceUserState, (tree.id, admin.id))
     assert tree_state is not None
     assert tree_state.last_opened == "2026-01-01T00:00:00+00:00"
 

@@ -4,7 +4,7 @@ Gallery images are streamed from the SPA as multipart ``UploadFile`` bytes and
 persisted by :func:`store_image_upload`, which keeps transport memory bounded.
 The trusted import/export path and the member-photo avatar field still decode
 ``data:`` URLs via :func:`store_data_url`. Either way the bytes land at
-``DATA_PATH/media/<tree_id>/<uuid>.<ext>`` and we hand back a stable, relative
+``DATA_PATH/media/<workspace_id>/<uuid>.<ext>`` and we hand back a stable, relative
 URL (``/api/media/...``) that the browser can use directly in an ``<img src>``.
 Filenames are random UUIDs, so the URLs are unguessable.
 """
@@ -35,7 +35,7 @@ MEDIA_URL_PREFIX = f"{settings.API_PREFIX}/media"
 
 # Reserved per-tree subdirectory holding trashed (soft-deleted) media pending
 # the retention sweep (see trash_media / purge_expired_media_trash below).
-# Tree ids must match _SAFE_PATH_SEGMENT_RE, which forbids a leading dot, so
+# Workspace ids must match _SAFE_PATH_SEGMENT_RE, which forbids a leading dot, so
 # this name can never collide with a real tree directory.
 MEDIA_TRASH_DIR_NAME = ".trash"
 
@@ -131,12 +131,12 @@ class InvalidImageURL(ValueError):
     """Raised when an image field contains an external or cross-tree URL."""
 
 
-def _safe_tree_dir(tree_id: str, *, create: bool = False) -> Path:
+def _safe_tree_dir(workspace_id: str, *, create: bool = False) -> Path:
     """Return a canonical direct child of media_root for a safe tree id."""
-    if not _SAFE_PATH_SEGMENT_RE.fullmatch(tree_id) or tree_id in {".", ".."}:
+    if not _SAFE_PATH_SEGMENT_RE.fullmatch(workspace_id) or workspace_id in {".", ".."}:
         raise ValueError("Invalid tree id for media storage")
     root = settings.media_root.resolve()
-    path = (root / tree_id).resolve()
+    path = (root / workspace_id).resolve()
     if path.parent != root:
         raise ValueError("Invalid tree id for media storage")
     if create:
@@ -163,18 +163,18 @@ def _safe_media_path(
     parts = relative.split("/")
     if len(parts) != 2:
         return None
-    tree_id, filename = parts
-    if expected_tree_id is not None and tree_id != expected_tree_id:
+    workspace_id, filename = parts
+    if expected_tree_id is not None and workspace_id != expected_tree_id:
         return None
     if (
-        not _SAFE_PATH_SEGMENT_RE.fullmatch(tree_id)
+        not _SAFE_PATH_SEGMENT_RE.fullmatch(workspace_id)
         or not _SAFE_PATH_SEGMENT_RE.fullmatch(filename)
-        or tree_id in {".", ".."}
+        or workspace_id in {".", ".."}
         or filename in {".", ".."}
     ):
         return None
     try:
-        tree_dir = _safe_tree_dir(tree_id)
+        tree_dir = _safe_tree_dir(workspace_id)
     except ValueError:
         return None
     path = (tree_dir / filename).resolve()
@@ -227,7 +227,7 @@ def _validate_checksum(checksum: str | None) -> str | None:
 
 
 def store_document(
-    tree_id: str,
+    workspace_id: str,
     filename: str,
     data_url: str,
     limits: MediaLimits,
@@ -252,12 +252,12 @@ def store_document(
             f"File exceeds the {limits.max_document_bytes // (1024 * 1024)} MB limit."
         )
     stored_name = f"{uuid4().hex}.{ext}"
-    (_tree_media_dir(tree_id) / stored_name).write_bytes(raw)
-    return f"{MEDIA_URL_PREFIX}/{tree_id}/{stored_name}", mime, len(raw)
+    (_tree_media_dir(workspace_id) / stored_name).write_bytes(raw)
+    return f"{MEDIA_URL_PREFIX}/{workspace_id}/{stored_name}", mime, len(raw)
 
 
 async def store_document_upload(
-    tree_id: str,
+    workspace_id: str,
     filename: str,
     upload: UploadFile,
     limits: MediaLimits,
@@ -273,7 +273,7 @@ async def store_document_upload(
     ext, mime = _document_type(filename, upload.content_type)
     expected_checksum = _validate_checksum(checksum)
     stored_name = f"{uuid4().hex}.{ext}"
-    tree_dir = _tree_media_dir(tree_id)
+    tree_dir = _tree_media_dir(workspace_id)
     temp_path: Path | None = None
     digest = hashlib.sha256()
     size = 0
@@ -302,7 +302,7 @@ async def store_document_upload(
 
         os.replace(temp_path, tree_dir / stored_name)
         temp_path = None
-        return f"{MEDIA_URL_PREFIX}/{tree_id}/{stored_name}", mime, size
+        return f"{MEDIA_URL_PREFIX}/{workspace_id}/{stored_name}", mime, size
     except BaseException:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
@@ -330,9 +330,7 @@ def _cleanup_upload_temps(prefix: str, suffix: str) -> None:
 
 def cleanup_document_upload_temps() -> None:
     """Remove incomplete document-upload files left by an interrupted worker."""
-    _cleanup_upload_temps(
-        _DOCUMENT_UPLOAD_TEMP_PREFIX, _DOCUMENT_UPLOAD_TEMP_SUFFIX
-    )
+    _cleanup_upload_temps(_DOCUMENT_UPLOAD_TEMP_PREFIX, _DOCUMENT_UPLOAD_TEMP_SUFFIX)
 
 
 def cleanup_image_upload_temps() -> None:
@@ -485,18 +483,18 @@ def purge_expired_media_trash(ttl_seconds: int = MEDIA_TRASH_TTL_SECONDS) -> int
     return removed
 
 
-def _tree_media_dir(tree_id: str) -> Path:
-    return _safe_tree_dir(tree_id, create=True)
+def _tree_media_dir(workspace_id: str) -> Path:
+    return _safe_tree_dir(workspace_id, create=True)
 
 
-def _originals_dir(tree_id: str):
-    """Return (and create) the ``originals/`` subdirectory for *tree_id*.
+def _originals_dir(workspace_id: str):
+    """Return (and create) the ``originals/`` subdirectory for *workspace_id*.
 
     Gallery originals stored in ``"both"`` mode land here as
     ``<uuid>.<ext>`` so they share the same stem as the display WebP in the
     parent directory but are kept in their own namespace.
     """
-    tree_dir = _tree_media_dir(tree_id)
+    tree_dir = _tree_media_dir(workspace_id)
     path = (tree_dir / "originals").resolve()
     if path.parent != tree_dir:
         raise ValueError("Invalid originals directory")
@@ -504,17 +502,17 @@ def _originals_dir(tree_id: str):
     return path
 
 
-def delete_tree_media(tree_id: str) -> None:
+def delete_workspace_media(workspace_id: str) -> None:
     """Best-effort removal of a tree's entire on-disk media directory.
 
     All of a tree's files (gallery images, story attachments, member photos)
-    live under ``media_root/<tree_id>``, so removing that directory cleans them
+    live under ``media_root/<workspace_id>``, so removing that directory cleans them
     up in one shot. Never raises, so a failed cleanup can't break a delete.
     """
-    if not tree_id:
+    if not workspace_id:
         return
     try:
-        path = _safe_tree_dir(tree_id)
+        path = _safe_tree_dir(workspace_id)
         shutil.rmtree(path, ignore_errors=True)
     except (OSError, ValueError):
         pass
@@ -555,7 +553,7 @@ def delete_profile_image(user_id: str, filename: str | None) -> None:
 
 def delete_user_profile_media(user_id: str) -> None:
     """Remove all profile-media files when an account is permanently purged."""
-    delete_tree_media(profile_storage_id(user_id))
+    delete_workspace_media(profile_storage_id(user_id))
 
 
 def is_data_url(value: str | None) -> bool:
@@ -563,7 +561,7 @@ def is_data_url(value: str | None) -> bool:
 
 
 def store_data_url(
-    tree_id: str,
+    workspace_id: str,
     data_url: str,
     limits: MediaLimits,
     *,
@@ -602,31 +600,31 @@ def store_data_url(
             f"Image exceeds the {limits.max_image_bytes // (1024 * 1024)} MB limit."
         )
 
-    tree_dir = _tree_media_dir(tree_id)
+    tree_dir = _tree_media_dir(workspace_id)
     stem = uuid4().hex
 
     if mode == "original":
         _validate_image_dimensions(raw, limits)
         filename = f"{stem}.{orig_ext}"
         (tree_dir / filename).write_bytes(raw)
-        return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+        return f"{MEDIA_URL_PREFIX}/{workspace_id}/{filename}"
 
     if mode == "both":
         display_raw, display_ext = _normalize_image(raw, orig_ext, limits)
         display_filename = f"{stem}.{display_ext}"
         (tree_dir / display_filename).write_bytes(display_raw)
-        (_originals_dir(tree_id) / f"{stem}.{orig_ext}").write_bytes(raw)
-        return f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}"
+        (_originals_dir(workspace_id) / f"{stem}.{orig_ext}").write_bytes(raw)
+        return f"{MEDIA_URL_PREFIX}/{workspace_id}/{display_filename}"
 
     # Default: "compressed"
     display_raw, display_ext = _normalize_image(raw, orig_ext, limits)
     filename = f"{stem}.{display_ext}"
     (tree_dir / filename).write_bytes(display_raw)
-    return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}"
+    return f"{MEDIA_URL_PREFIX}/{workspace_id}/{filename}"
 
 
 async def store_image_upload(
-    tree_id: str,
+    workspace_id: str,
     upload: UploadFile,
     limits: MediaLimits,
     *,
@@ -663,7 +661,7 @@ async def store_image_upload(
             f"Allowed types: {', '.join(sorted(_MIME_EXT))}."
         )
     orig_ext = _MIME_EXT[mime]
-    tree_dir = _tree_media_dir(tree_id)
+    tree_dir = _tree_media_dir(workspace_id)
     stem = uuid4().hex
     temp_path: Path | None = None
     size = 0
@@ -695,7 +693,7 @@ async def store_image_upload(
             filename = f"{stem}.{orig_ext}"
             os.replace(temp_path, tree_dir / filename)
             temp_path = None
-            return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}", exif_date_taken
+            return f"{MEDIA_URL_PREFIX}/{workspace_id}/{filename}", exif_date_taken
 
         if mode == "both":
             display_raw, display_ext = _normalize_image(temp_path, orig_ext, limits)
@@ -703,10 +701,10 @@ async def store_image_upload(
             (tree_dir / display_filename).write_bytes(display_raw)
             # Move the streamed original into the originals/ subdir under the
             # same stem, so delete/copy/move helpers keep the pair together.
-            os.replace(temp_path, _originals_dir(tree_id) / f"{stem}.{orig_ext}")
+            os.replace(temp_path, _originals_dir(workspace_id) / f"{stem}.{orig_ext}")
             temp_path = None
             return (
-                f"{MEDIA_URL_PREFIX}/{tree_id}/{display_filename}",
+                f"{MEDIA_URL_PREFIX}/{workspace_id}/{display_filename}",
                 exif_date_taken,
             )
 
@@ -717,7 +715,7 @@ async def store_image_upload(
         (tree_dir / filename).write_bytes(display_raw)
         temp_path.unlink(missing_ok=True)
         temp_path = None
-        return f"{MEDIA_URL_PREFIX}/{tree_id}/{filename}", exif_date_taken
+        return f"{MEDIA_URL_PREFIX}/{workspace_id}/{filename}", exif_date_taken
     except BaseException:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)
@@ -867,7 +865,7 @@ def media_url_to_data_url(value: str | None) -> str | None:
     return f"data:{mime};base64,{encoded}"
 
 
-def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
+def copy_media_to_workspace(value: str | None, new_tree_id: str) -> str | None:
     """Copy a stored media file into another tree's directory (used by merge).
 
     Also copies any ``<stem>.orig.*`` sibling (written by ``store_data_url``
@@ -896,7 +894,7 @@ def copy_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
 def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
     """Move a stored media file into another tree's directory (subtree move).
 
-    Mirrors ``copy_media_to_tree`` but relocates the file (and any
+    Mirrors ``copy_media_to_workspace`` but relocates the file (and any
     ``originals/`` sibling written by ``store_data_url`` in ``"both"`` mode)
     instead of copying it. Returns the new media URL, the input unchanged when
     it isn't one of our media URLs, or ``None`` if the source file is missing.
@@ -940,7 +938,7 @@ def media_disk_usage(value: str | None) -> int:
 
 
 def process_gallery_image_field(
-    tree_id: str,
+    workspace_id: str,
     value: str | None,
     limits: MediaLimits,
 ) -> str | None:
@@ -952,8 +950,8 @@ def process_gallery_image_field(
     if value is None:
         return None
     if is_data_url(value):
-        return store_data_url(tree_id, value, limits, mode=limits.image_storage_mode)
-    if _safe_media_path(value, expected_tree_id=tree_id) is not None:
+        return store_data_url(workspace_id, value, limits, mode=limits.image_storage_mode)
+    if _safe_media_path(value, expected_tree_id=workspace_id) is not None:
         return value
     raise InvalidImageURL(
         "Image field must be null, a data URL, or a media URL owned by this tree"
@@ -961,7 +959,7 @@ def process_gallery_image_field(
 
 
 def process_image_field(
-    tree_id: str,
+    workspace_id: str,
     value: str | None,
     limits: MediaLimits,
 ) -> str | None:
@@ -970,16 +968,16 @@ def process_image_field(
     Accepts only:
     - ``None``
     - A ``data:`` URL (written to disk, replaced by its media URL)
-    - An existing ``/api/media/<tree_id>/...`` URL owned by the same tree
+    - An existing ``/api/media/<workspace_id>/...`` URL owned by the same tree
 
     Raises ``InvalidImageURL`` for external URLs and cross-tree media refs
-    to prevent tracking-pixel injection and data leakage between trees.
+    to prevent tracking-pixel injection and data leakage between workspaces.
     """
     if value is None:
         return None
     if is_data_url(value):
-        return store_data_url(tree_id, value, limits)
-    if _safe_media_path(value, expected_tree_id=tree_id) is not None:
+        return store_data_url(workspace_id, value, limits)
+    if _safe_media_path(value, expected_tree_id=workspace_id) is not None:
         return value
     raise InvalidImageURL(
         "Image field must be null, a data URL, or a media URL owned by this tree"

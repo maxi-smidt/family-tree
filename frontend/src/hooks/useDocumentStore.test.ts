@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentUploadError, useDocumentStore } from "./useDocumentStore";
-import { useTreeStore } from "./useTreeStore";
-import { TreeService } from "@/services/TreeService";
+import { useWorkspaceStore } from "./useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { DocumentDB } from "@/types/document";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 
-vi.mock("@/services/TreeService");
+vi.mock("@/services/WorkspaceService");
 vi.mock("@/hooks/useStorageStore", () => ({
   useStorageStore: { getState: () => ({ refreshStorageUsage: vi.fn() }) },
 }));
 
 const TREE_ID = "tree-doc";
-const TREE: Tree = { id: TREE_ID, name: "Doc Tree", role: "owner" };
+const TREE: Workspace = { id: TREE_ID, name: "Doc Workspace", role: "owner" };
 
 const DOC_DB: DocumentDB = {
   id: "d1",
@@ -38,7 +38,7 @@ const FILE3 = new File(["pdf bytes 3"], "scan3.pdf", {
 beforeEach(() => {
   vi.clearAllMocks();
   useDocumentStore.setState({ documents: [], initialized: false });
-  useTreeStore.setState({ selectedTree: undefined });
+  useWorkspaceStore.setState({ selectedTree: undefined });
 });
 
 describe("useDocumentStore — refreshDocuments", () => {
@@ -48,12 +48,12 @@ describe("useDocumentStore — refreshDocuments", () => {
     await useDocumentStore.getState().refreshDocuments();
 
     expect(useDocumentStore.getState().documents).toHaveLength(0);
-    expect(TreeService.getDocuments).not.toHaveBeenCalled();
+    expect(WorkspaceService.getDocuments).not.toHaveBeenCalled();
   });
 
   it("fetches and maps documents", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([DOC_DB]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([DOC_DB]);
 
     await useDocumentStore.getState().refreshDocuments();
 
@@ -69,11 +69,11 @@ describe("useDocumentStore — refreshDocuments", () => {
     const pending = new Promise<DocumentDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getDocuments).mockReturnValue(pending);
-    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getDocuments).mockReturnValue(pending);
+    useWorkspaceStore.setState({ selectedTree: TREE });
 
     const p = useDocumentStore.getState().refreshDocuments(TREE_ID);
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "other", name: "Other", role: "owner" },
     });
     resolve([DOC_DB]);
@@ -85,8 +85,8 @@ describe("useDocumentStore — refreshDocuments", () => {
 
 describe("useDocumentStore — getDocumentsForMember", () => {
   it("returns documents that mention the given member", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([
       DOC_DB,
       { ...DOC_DB, id: "d2", title: "Other", member_ids: ["m2"] },
     ]);
@@ -101,15 +101,15 @@ describe("useDocumentStore — getDocumentsForMember", () => {
 
 describe("useDocumentStore — addDocument", () => {
   it("creates the document in one atomic save and refreshes", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.saveDocument).mockResolvedValue(DOC_DB);
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([DOC_DB]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.saveDocument).mockResolvedValue(DOC_DB);
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([DOC_DB]);
 
     const created = await useDocumentStore
       .getState()
       .addDocument(INPUT, ["m1"]);
 
-    expect(TreeService.saveDocument).toHaveBeenCalledWith(
+    expect(WorkspaceService.saveDocument).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String),
       expect.objectContaining({
@@ -121,23 +121,23 @@ describe("useDocumentStore — addDocument", () => {
         renamed_files: [],
       }),
     );
-    expect(TreeService.getDocuments).toHaveBeenCalled();
+    expect(WorkspaceService.getDocuments).toHaveBeenCalled();
     expect(created?.id).toBe("d1");
   });
 
   it("allows a document without linked people", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.saveDocument).mockResolvedValue({
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.saveDocument).mockResolvedValue({
       ...DOC_DB,
       member_ids: [],
     });
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([
       { ...DOC_DB, member_ids: [] },
     ]);
 
     await useDocumentStore.getState().addDocument(INPUT, []);
 
-    expect(TreeService.saveDocument).toHaveBeenCalledWith(
+    expect(WorkspaceService.saveDocument).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String),
       expect.objectContaining({ member_ids: [] }),
@@ -145,15 +145,15 @@ describe("useDocumentStore — addDocument", () => {
   });
 
   it("stages files first, then attaches them by id in the save", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.stageDocumentUpload).mockResolvedValue({
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.stageDocumentUpload).mockResolvedValue({
       id: "upload-1",
       filename: "scan.pdf",
       mime_type: "application/pdf",
       size: 9,
     });
-    vi.mocked(TreeService.saveDocument).mockResolvedValue(DOC_DB);
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([DOC_DB]);
+    vi.mocked(WorkspaceService.saveDocument).mockResolvedValue(DOC_DB);
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([DOC_DB]);
 
     await useDocumentStore.getState().addDocument(INPUT, ["m1"], {
       addedFiles: [{ filename: "scan.pdf", file: FILE }],
@@ -162,12 +162,12 @@ describe("useDocumentStore — addDocument", () => {
       renamed: [],
     });
 
-    expect(TreeService.stageDocumentUpload).toHaveBeenCalledWith(
+    expect(WorkspaceService.stageDocumentUpload).toHaveBeenCalledWith(
       TREE_ID,
       FILE,
       "scan.pdf",
     );
-    const payload = vi.mocked(TreeService.saveDocument).mock.calls[0][2];
+    const payload = vi.mocked(WorkspaceService.saveDocument).mock.calls[0][2];
     expect(payload.attached_upload_ids).toEqual(["upload-1"]);
     expect(payload.added_links).toEqual([
       {
@@ -177,22 +177,22 @@ describe("useDocumentStore — addDocument", () => {
       },
     ]);
     // The save must run only after every file has finished staging.
-    const stageOrder = vi.mocked(TreeService.stageDocumentUpload).mock
+    const stageOrder = vi.mocked(WorkspaceService.stageDocumentUpload).mock
       .invocationCallOrder[0];
-    const saveOrder = vi.mocked(TreeService.saveDocument).mock
+    const saveOrder = vi.mocked(WorkspaceService.saveDocument).mock
       .invocationCallOrder[0];
     expect(stageOrder).toBeLessThan(saveOrder);
   });
 
   it("propagates a failed save without extra cleanup calls", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.stageDocumentUpload).mockResolvedValue({
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.stageDocumentUpload).mockResolvedValue({
       id: "upload-1",
       filename: "scan.pdf",
       mime_type: "application/pdf",
       size: 9,
     });
-    vi.mocked(TreeService.saveDocument).mockRejectedValue(
+    vi.mocked(WorkspaceService.saveDocument).mockRejectedValue(
       new Error("save failed"),
     );
 
@@ -207,7 +207,7 @@ describe("useDocumentStore — addDocument", () => {
 
     // The server applies the save atomically and reaps unclaimed uploads, so
     // there is no orphan document to delete client-side.
-    expect(TreeService.removeDocument).not.toHaveBeenCalled();
+    expect(WorkspaceService.removeDocument).not.toHaveBeenCalled();
   });
 
   it("does nothing when no tree is selected", async () => {
@@ -215,12 +215,12 @@ describe("useDocumentStore — addDocument", () => {
       .getState()
       .addDocument(INPUT, ["m1"]);
     expect(created).toBeNull();
-    expect(TreeService.saveDocument).not.toHaveBeenCalled();
+    expect(WorkspaceService.saveDocument).not.toHaveBeenCalled();
   });
 
   it("attempts every file and reports all failures without saving when one stage fails", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.stageDocumentUpload).mockImplementation(
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.stageDocumentUpload).mockImplementation(
       (_treeId, file) => {
         if (file === FILE2) return Promise.reject(new Error("stalled"));
         return Promise.resolve({
@@ -255,16 +255,16 @@ describe("useDocumentStore — addDocument", () => {
     });
 
     // Every file is attempted, even the ones queued behind the failure.
-    expect(TreeService.stageDocumentUpload).toHaveBeenCalledTimes(3);
+    expect(WorkspaceService.stageDocumentUpload).toHaveBeenCalledTimes(3);
     // Progress still advances past the failed file instead of freezing.
     expect(onFileProgress).toHaveBeenCalledWith(3, 3);
     // A partial file set is never attached — the save never runs.
-    expect(TreeService.saveDocument).not.toHaveBeenCalled();
+    expect(WorkspaceService.saveDocument).not.toHaveBeenCalled();
   });
 
   it("rejects with the concrete DocumentUploadError instance", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.stageDocumentUpload).mockRejectedValue(
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.stageDocumentUpload).mockRejectedValue(
       new Error("network error"),
     );
 
@@ -286,9 +286,9 @@ describe("useDocumentStore — addDocument", () => {
 
 describe("useDocumentStore — updateDocument", () => {
   it("sends metadata, members and file ops in one save request", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.saveDocument).mockResolvedValue(DOC_DB);
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([DOC_DB]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.saveDocument).mockResolvedValue(DOC_DB);
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([DOC_DB]);
 
     await useDocumentStore
       .getState()
@@ -299,7 +299,7 @@ describe("useDocumentStore — updateDocument", () => {
         renamed: [{ id: "f-keep", filename: "renamed.pdf" }],
       });
 
-    expect(TreeService.saveDocument).toHaveBeenCalledWith(
+    expect(WorkspaceService.saveDocument).toHaveBeenCalledWith(
       TREE_ID,
       "d1",
       expect.objectContaining({
@@ -315,14 +315,14 @@ describe("useDocumentStore — updateDocument", () => {
 
 describe("useDocumentStore — removeDocument", () => {
   it("deletes the document then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.removeDocument).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getDocuments).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.removeDocument).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getDocuments).mockResolvedValue([]);
 
     await useDocumentStore.getState().removeDocument("d1");
 
-    expect(TreeService.removeDocument).toHaveBeenCalledWith(TREE_ID, "d1");
-    expect(TreeService.getDocuments).toHaveBeenCalled();
+    expect(WorkspaceService.removeDocument).toHaveBeenCalledWith(TREE_ID, "d1");
+    expect(WorkspaceService.getDocuments).toHaveBeenCalled();
   });
 });
 

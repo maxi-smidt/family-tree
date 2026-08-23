@@ -22,15 +22,15 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { Member } from "@/types/member";
-import { SubtreeExtractDirection, SubtreeExtractPreview, Tree } from "@/types/tree";
+import { SubtreeExtractDirection, SubtreeExtractPreview, Workspace } from "@/types/workspace";
 import { formatFileSize } from "@/utils/attachmentUtils";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 type Props = {
-  tree: Tree | null;
+  tree: Workspace | null;
   onClose: () => void;
 };
 
@@ -38,9 +38,9 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.extract-subtree",
   });
-  const extractSubtree = useTreeStore((s) => s.extractSubtree);
-  const extractSubtreePreview = useTreeStore((s) => s.extractSubtreePreview);
-  const fetchTreeMembers = useTreeStore((s) => s.fetchTreeMembers);
+  const extractSubtree = useWorkspaceStore((s) => s.extractSubtree);
+  const extractSubtreePreview = useWorkspaceStore((s) => s.extractSubtreePreview);
+  const fetchTreeMembers = useWorkspaceStore((s) => s.fetchTreeMembers);
   const extractPct = useJobStore((s) => s.activeJobPct);
 
   const [name, setName] = useState("");
@@ -62,7 +62,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
     setDirection("direct_family");
     setPreview(null);
 
-    // Load members for the picker via store action (never call TreeService directly).
+    // Load members for the picker via store action (never call WorkspaceService directly).
     fetchTreeMembers(tree.id)
       .then(setMembers)
       .catch(() => setMembers([]));
@@ -83,7 +83,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
     void (async () => {
       try {
         const result = await extractSubtreePreview({
-          source_tree_id: tree.id,
+          source_workspace_id: tree.id,
           root_member_id: rootMemberId,
           direction,
         });
@@ -122,7 +122,7 @@ export const ExtractSubtreeDialog = ({ tree, onClose }: Props) => {
     try {
       await extractSubtree({
         name: name.trim(),
-        source_tree_id: tree.id,
+        source_workspace_id: tree.id,
         root_member_id: rootMemberId,
         direction,
       });

@@ -18,7 +18,7 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 
 MODULES = [
     "app.schemas.family",
-    "app.schemas.tree",
+    "app.schemas.workspace",
     "app.schemas.merge",
 ]
 

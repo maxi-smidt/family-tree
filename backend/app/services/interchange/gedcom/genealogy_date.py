@@ -38,8 +38,18 @@ __all__ = ["GenealogyDate", "parse_genealogy_date", "sort_key"]
 
 # Ordered list of three-letter month abbreviations (GEDCOM-compatible).
 _MONTHS: list[str] = [
-    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
 ]
 
 _MONTH_TO_NUM: dict[str, str] = {m: f"{i + 1:02d}" for i, m in enumerate(_MONTHS)}
@@ -71,6 +81,7 @@ _ESTIMATED_TOKENS: frozenset[str] = frozenset({"estimated", "est", "calculated",
 # ---------------------------------------------------------------------------
 # Dataclass
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class GenealogyDate:
@@ -104,6 +115,7 @@ class GenealogyDate:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _detect_qualifier(value: str) -> Qualifier:
     """Return the qualifier encoded in *value*'s leading token(s)."""
@@ -197,6 +209,7 @@ def _build_sort_key(value: str, qualifier: Qualifier) -> str | None:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def parse_genealogy_date(value: str | None) -> GenealogyDate:
     """Parse a genealogy date string into a structured :class:`GenealogyDate`.

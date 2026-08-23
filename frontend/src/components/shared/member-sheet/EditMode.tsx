@@ -6,7 +6,7 @@ import { getQuotaBucket, quotaToastKey } from "@/lib/quotaError";
 import { MarkdownEditor } from "@/components/shared/member-sheet/MarkdownEditor";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import {
   ChangeEvent,
   FormEvent,
@@ -109,8 +109,8 @@ export const EditMode = ({
   });
   const { updateMemberPartial, members } = useMemberStore();
   const { galleryImages } = useGalleryStore();
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
-  const currentTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions ?? []);
+  const currentTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");
   const documentsEnabled = !restrictions.includes("sources");
@@ -193,7 +193,7 @@ export const EditMode = ({
         JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
       formData.parents.maternalParent !== initialData.parents.maternalParent ||
-      (formData.linkedTreeId ?? null) !== (initialData.linkedTreeId ?? null);
+      (formData.linkedWorkspaceId ?? null) !== (initialData.linkedWorkspaceId ?? null);
 
     setIsDirty(dirty);
     onDirtyChange?.(dirty);
@@ -363,8 +363,8 @@ export const EditMode = ({
 
       setSaveStatus("saving");
       try {
-        const treeId = editorTreeIdRef.current;
-        if (!treeId) return false;
+        const workspaceId = editorTreeIdRef.current;
+        if (!workspaceId) return false;
         const result = await updateMemberPartial(
           editorMemberIdRef.current,
           {
@@ -390,11 +390,11 @@ export const EditMode = ({
                 : null,
             paternalParentId: snapshot.parents.paternalParent,
             maternalParentId: snapshot.parents.maternalParent,
-            ...(snapshot.linkedTreeId !== undefined
-              ? { linkedTreeId: snapshot.linkedTreeId }
+            ...(snapshot.linkedWorkspaceId !== undefined
+              ? { linkedWorkspaceId: snapshot.linkedWorkspaceId }
               : {}),
           },
-          treeId,
+          workspaceId,
         );
         if (!opts?.autosave && isCurrent()) {
           toast.success(t("toast-success"));
@@ -1039,11 +1039,11 @@ export const EditMode = ({
 
                 <LinkedTreeField
                   currentTreeId={currentTreeId}
-                  value={formData.linkedTreeId ?? null}
+                  value={formData.linkedWorkspaceId ?? null}
                   memberName={`${formData.firstName} ${formData.lastName}`}
                   memberId={isNew ? undefined : formData.id}
                   formDirty={isDirty}
-                  onChange={(treeId) => handleChange("linkedTreeId", treeId)}
+                  onChange={(workspaceId) => handleChange("linkedWorkspaceId", workspaceId)}
                 />
               </FieldGroup>
             </TabsContent>

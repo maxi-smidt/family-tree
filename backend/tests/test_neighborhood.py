@@ -5,7 +5,7 @@ from tests.conftest import API, add_member, auth, make_tree, make_user
 
 def _add_relation(client, tree, user, from_id, to_id, relation_type):
     return client.post(
-        f"{API}/trees/{tree.id}/relations",
+        f"{API}/workspaces/{tree.id}/relations",
         headers=auth(user),
         json={
             "from_member_id": from_id,
@@ -33,7 +33,7 @@ def test_neighborhood_returns_root_when_no_relations(db, client):
     add_member(db, tree, "solo", first_name="Solo", gender="m")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood?root=solo",
+        f"{API}/workspaces/{tree.id}/members/neighborhood?root=solo",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -52,7 +52,7 @@ def test_neighborhood_bfs_ancestors(db, client):
 
     # From m0 with up=2 we should get m0, m1 (parent), m2 (grandparent).
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood?root=m0&up=2&down=0&partners=false",
+        f"{API}/workspaces/{tree.id}/members/neighborhood?root=m0&up=2&down=0&partners=false",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -69,7 +69,7 @@ def test_neighborhood_bfs_descendants(db, client):
 
     # From m4 (oldest) with down=2 we should get m4, m3, m2.
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood?root=m4&up=0&down=2&partners=false",
+        f"{API}/workspaces/{tree.id}/members/neighborhood?root=m4&up=0&down=2&partners=false",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -85,7 +85,7 @@ def test_neighborhood_default_root(db, client):
 
     # Without a root param the endpoint picks one automatically.
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood",
+        f"{API}/workspaces/{tree.id}/members/neighborhood",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -99,7 +99,7 @@ def test_neighborhood_empty_tree(db, client):
     tree = make_tree(db, user)
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood",
+        f"{API}/workspaces/{tree.id}/members/neighborhood",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -114,7 +114,7 @@ def test_neighborhood_unknown_root_returns_404(db, client):
     add_member(db, tree, "m1", first_name="Solo", gender="m")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood?root=nonexistent",
+        f"{API}/workspaces/{tree.id}/members/neighborhood?root=nonexistent",
         headers=auth(user),
     )
     assert r.status_code == 404
@@ -126,7 +126,7 @@ def test_neighborhood_includes_relations(db, client):
     _setup_chain(db, client, user, tree, n=3)
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood?root=m0&up=2&down=0&partners=false",
+        f"{API}/workspaces/{tree.id}/members/neighborhood?root=m0&up=2&down=0&partners=false",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -141,7 +141,7 @@ def test_neighborhood_does_not_include_out_of_scope_relations(db, client):
     _setup_chain(db, client, user, tree, n=5)
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/neighborhood?root=m0&up=1&down=0&partners=false",
+        f"{API}/workspaces/{tree.id}/members/neighborhood?root=m0&up=1&down=0&partners=false",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -164,7 +164,7 @@ def test_search_members_by_first_name(db, client):
     add_member(db, tree, "m3", first_name="Maria", last_name="Mozart", gender="f")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search?q=jo",
+        f"{API}/workspaces/{tree.id}/members/search?q=jo",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -182,7 +182,7 @@ def test_search_members_by_last_name(db, client):
     add_member(db, tree, "m2", first_name="Maria", last_name="Mozart", gender="f")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search?q=bach",
+        f"{API}/workspaces/{tree.id}/members/search?q=bach",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -196,13 +196,18 @@ def test_search_members_by_maiden_name(db, client):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(
-        db, tree, "m1",
-        first_name="Anna", last_name="Smith", maiden_name="Jones", gender="f",
+        db,
+        tree,
+        "m1",
+        first_name="Anna",
+        last_name="Smith",
+        maiden_name="Jones",
+        gender="f",
     )
     add_member(db, tree, "m2", first_name="Bob", last_name="Smith", gender="m")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search?q=jones",
+        f"{API}/workspaces/{tree.id}/members/search?q=jones",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -216,14 +221,18 @@ def test_search_matches_first_last_and_last_first_order(db, client):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(
-        db, tree, "m1",
-        first_name="Anna", last_name="Müller", gender="f",
+        db,
+        tree,
+        "m1",
+        first_name="Anna",
+        last_name="Müller",
+        gender="f",
     )
     add_member(db, tree, "m2", first_name="Anna", last_name="Schmidt", gender="f")
 
     for query in ("Anna Müller", "Müller Anna"):
         r = client.get(
-            f"{API}/trees/{tree.id}/members/search",
+            f"{API}/workspaces/{tree.id}/members/search",
             params={"q": query},
             headers=auth(user),
         )
@@ -236,14 +245,18 @@ def test_search_matches_partial_tokens(db, client):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(
-        db, tree, "m1",
-        first_name="Anna", last_name="Müller", gender="f",
+        db,
+        tree,
+        "m1",
+        first_name="Anna",
+        last_name="Müller",
+        gender="f",
     )
     add_member(db, tree, "m2", first_name="Bob", last_name="Meyer", gender="m")
 
     for query in ("Müller Ann", "Anna Mü"):
         r = client.get(
-            f"{API}/trees/{tree.id}/members/search",
+            f"{API}/workspaces/{tree.id}/members/search",
             params={"q": query},
             headers=auth(user),
         )
@@ -256,19 +269,27 @@ def test_search_matches_name_combined_with_birth_year(db, client):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(
-        db, tree, "m1",
-        first_name="Anna", last_name="Müller",
-        date_of_birth="12 May 1932", gender="f",
+        db,
+        tree,
+        "m1",
+        first_name="Anna",
+        last_name="Müller",
+        date_of_birth="12 May 1932",
+        gender="f",
     )
     add_member(
-        db, tree, "m2",
-        first_name="Anna", last_name="Müller",
-        date_of_birth="1901", gender="f",
+        db,
+        tree,
+        "m2",
+        first_name="Anna",
+        last_name="Müller",
+        date_of_birth="1901",
+        gender="f",
     )
 
     for query in ("Anna Müller 1932", "1932 Anna"):
         r = client.get(
-            f"{API}/trees/{tree.id}/members/search",
+            f"{API}/workspaces/{tree.id}/members/search",
             params={"q": query},
             headers=auth(user),
         )
@@ -283,18 +304,28 @@ def test_search_matches_name_combined_with_death_year(db, client):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(
-        db, tree, "m1",
-        first_name="Anna", last_name="Müller",
-        date_of_birth="1901", date_of_death="3 Jan 1999", gender="f",
+        db,
+        tree,
+        "m1",
+        first_name="Anna",
+        last_name="Müller",
+        date_of_birth="1901",
+        date_of_death="3 Jan 1999",
+        gender="f",
     )
     add_member(
-        db, tree, "m2",
-        first_name="Anna", last_name="Müller",
-        date_of_birth="1901", date_of_death="1950", gender="f",
+        db,
+        tree,
+        "m2",
+        first_name="Anna",
+        last_name="Müller",
+        date_of_birth="1901",
+        date_of_death="1950",
+        gender="f",
     )
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search",
+        f"{API}/workspaces/{tree.id}/members/search",
         params={"q": "Anna Müller 1999"},
         headers=auth(user),
     )
@@ -309,18 +340,26 @@ def test_search_year_token_requires_matching_name_token(db, client):
     user = make_user(db, "alice")
     tree = make_tree(db, user)
     add_member(
-        db, tree, "m1",
-        first_name="Anna", last_name="Müller",
-        date_of_birth="1901", gender="f",
+        db,
+        tree,
+        "m1",
+        first_name="Anna",
+        last_name="Müller",
+        date_of_birth="1901",
+        gender="f",
     )
     add_member(
-        db, tree, "m2",
-        first_name="Bob", last_name="Schmidt",
-        date_of_birth="1932", gender="m",
+        db,
+        tree,
+        "m2",
+        first_name="Bob",
+        last_name="Schmidt",
+        date_of_birth="1932",
+        gender="m",
     )
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search",
+        f"{API}/workspaces/{tree.id}/members/search",
         params={"q": "Anna 1932"},
         headers=auth(user),
     )
@@ -334,7 +373,7 @@ def test_search_single_token_behavior_unchanged(db, client):
     add_member(db, tree, "m1", first_name="Johann", last_name="Bach", gender="m")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search?q=jo",
+        f"{API}/workspaces/{tree.id}/members/search?q=jo",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -348,7 +387,7 @@ def test_search_empty_result(db, client):
     add_member(db, tree, "m1", first_name="Anna", gender="f")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search?q=zzznomatch",
+        f"{API}/workspaces/{tree.id}/members/search?q=zzznomatch",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -362,7 +401,7 @@ def test_search_limit_param(db, client):
         add_member(db, tree, f"m{i}", first_name="Alice", gender="f")
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search?q=alice&limit=3",
+        f"{API}/workspaces/{tree.id}/members/search?q=alice&limit=3",
         headers=auth(user),
     )
     assert r.status_code == 200
@@ -374,14 +413,14 @@ def test_search_requires_query(db, client):
     tree = make_tree(db, user)
 
     r = client.get(
-        f"{API}/trees/{tree.id}/members/search",
+        f"{API}/workspaces/{tree.id}/members/search",
         headers=auth(user),
     )
     assert r.status_code == 422
 
 
 def test_neighborhood_and_search_isolated_across_trees(db, client):
-    """Endpoints must not leak data from other trees."""
+    """Endpoints must not leak data from other workspaces."""
     user = make_user(db, "alice")
     tree1 = make_tree(db, user, "Tree1")
     tree2 = make_tree(db, user, "Tree2")
@@ -390,14 +429,14 @@ def test_neighborhood_and_search_isolated_across_trees(db, client):
     add_member(db, tree2, "t2m", first_name="Public", gender="f")
 
     search = client.get(
-        f"{API}/trees/{tree2.id}/members/search?q=secret",
+        f"{API}/workspaces/{tree2.id}/members/search?q=secret",
         headers=auth(user),
     )
     assert search.status_code == 200
     assert search.json() == []
 
     nb = client.get(
-        f"{API}/trees/{tree2.id}/members/neighborhood?root=t1m",
+        f"{API}/workspaces/{tree2.id}/members/neighborhood?root=t1m",
         headers=auth(user),
     )
     assert nb.status_code == 404

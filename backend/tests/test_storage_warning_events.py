@@ -22,9 +22,9 @@ def _media_root(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
 
 
-def _post_image(client, tree_id, headers):
+def _post_image(client, workspace_id, headers):
     return client.post(
-        f"{API}/trees/{tree_id}/gallery/images",
+        f"{API}/workspaces/{workspace_id}/gallery/images",
         data={"id": "img-1", "uploaded_at": "2024-01-01T00:00:00"},
         files={"image": ("p.png", _PNG_BYTES, "image/png")},
         headers=headers,
@@ -50,7 +50,7 @@ def test_upload_near_quota_emits_warning(client, db, owner, tree):
     call_args = mock_bus.publish.call_args[0]
     assert call_args[0] == [owner.id]
     assert call_args[1] == "storage.warning"
-    assert call_args[2]["tree_id"] == tree.id
+    assert call_args[2]["workspace_id"] == tree.id
 
 
 def test_upload_below_quota_does_not_emit(client, db, owner, tree):

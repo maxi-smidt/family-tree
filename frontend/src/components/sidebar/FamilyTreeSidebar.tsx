@@ -19,7 +19,7 @@ import { StorageUsagePanel } from "@/components/shared/StorageUsagePanel";
 import { LegalDocsDialog } from "@/components/legal/LegalDocsDialog";
 import { APP_VERSION } from "@/lib/buildInfo";
 import { useTranslation } from "react-i18next";
-import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
+import { useWorkspaceStore, isVirtualId } from "@/hooks/useWorkspaceStore";
 
 const RELEASES_URL = "https://github.com/maxi-smidt/family-tree/releases";
 // Only a tagged vX.Y.Z build has a matching GitHub release; dev/branch
@@ -29,7 +29,7 @@ const RELEASE_VERSION_RE = /^\d+\.\d+\.\d+$/;
 export function FamilyTreeSidebar() {
   const { t } = useTranslation(undefined, { keyPrefix: "sidebar" });
   const { t: tLegal } = useTranslation(undefined, { keyPrefix: "legal" });
-  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const showStorage = !!selectedTree?.id && !isVirtualId(selectedTree.id);
   const [legalDocsOpen, setLegalDocsOpen] = useState(false);
   const releaseUrl = RELEASE_VERSION_RE.test(APP_VERSION)
@@ -71,7 +71,7 @@ export function FamilyTreeSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        {showStorage && <StorageUsagePanel treeId={selectedTree.id} />}
+        {showStorage && <StorageUsagePanel workspaceId={selectedTree.id} />}
         <UserMenu />
         <div className="text-xs text-muted-foreground p-2 text-center select-none space-y-1">
           <button

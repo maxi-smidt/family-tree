@@ -20,7 +20,7 @@ RowSnapshot = dict[str, object]
 
 class BridgeSnapshot(TypedDict):
     counterpart_member_id: str
-    counterpart_tree_id: str
+    counterpart_workspace_id: str
 
 
 # ---------------------------------------------------------------------------

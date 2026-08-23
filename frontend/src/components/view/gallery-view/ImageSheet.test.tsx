@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
@@ -89,8 +89,8 @@ describe("ImageSheet", () => {
       toJSON: () => {},
     }));
     useMemberStore.setState({ members: [MEMBER, UNLINKED_MEMBER] });
-    useTreeStore.setState({
-      selectedTree: { id: "tree-1", name: "Tree", role: "owner" },
+    useWorkspaceStore.setState({
+      selectedTree: { id: "tree-1", name: "Workspace", role: "owner" },
     });
     useGalleryStore.setState({
       galleryImages: [],

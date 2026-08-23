@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const sendPresence = vi.fn();
 const leavePresence = vi.fn();
-vi.mock("@/services/TreeService", () => ({
-  TreeService: { sendPresence, leavePresence },
+vi.mock("@/services/WorkspaceService", () => ({
+  WorkspaceService: { sendPresence, leavePresence },
 }));
 
 const setRoster = vi.fn();
@@ -17,8 +17,8 @@ vi.mock("@/hooks/usePresenceStore", () => ({
 }));
 
 const loadTrees = vi.fn().mockResolvedValue(undefined);
-vi.mock("@/hooks/useTreeStore", () => ({
-  useTreeStore: { getState: () => ({ loadTrees }) },
+vi.mock("@/hooks/useWorkspaceStore", () => ({
+  useWorkspaceStore: { getState: () => ({ loadTrees }) },
 }));
 
 /** Flush pending microtasks (the async heartbeat) under fake timers. */
@@ -29,7 +29,7 @@ describe("presence heartbeat manager", () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.useFakeTimers();
-    sendPresence.mockResolvedValue({ tree_id: "t1", users: [] });
+    sendPresence.mockResolvedValue({ workspace_id: "t1", users: [] });
     leavePresence.mockResolvedValue(undefined);
   });
 
@@ -41,7 +41,7 @@ describe("presence heartbeat manager", () => {
     const users = [
       { user_id: "u2", display_name: "Anna", editing_member_id: null },
     ];
-    sendPresence.mockResolvedValue({ tree_id: "t1", users });
+    sendPresence.mockResolvedValue({ workspace_id: "t1", users });
 
     const { startPresence } = await import("./presence");
     startPresence("t1");
@@ -98,7 +98,7 @@ describe("presence heartbeat manager", () => {
     expect(leavePresence).toHaveBeenCalledWith("t1");
   });
 
-  it("switching trees leaves the old one and joins the new", async () => {
+  it("switching workspaces leaves the old one and joins the new", async () => {
     const mod = await import("./presence");
     mod.startPresence("t1");
     await flush();
@@ -116,16 +116,16 @@ describe("presence heartbeat manager", () => {
 
   it("replays an edit-target change that lands during a heartbeat", async () => {
     const deferred: {
-      resolve?: (value: { tree_id: string; users: [] }) => void;
+      resolve?: (value: { workspace_id: string; users: [] }) => void;
     } = {};
     sendPresence
       .mockImplementationOnce(
         () =>
-          new Promise<{ tree_id: string; users: [] }>((resolve) => {
+          new Promise<{ workspace_id: string; users: [] }>((resolve) => {
             deferred.resolve = resolve;
           }),
       )
-      .mockResolvedValue({ tree_id: "t1", users: [] });
+      .mockResolvedValue({ workspace_id: "t1", users: [] });
 
     const mod = await import("./presence");
     mod.startPresence("t1");
@@ -133,7 +133,7 @@ describe("presence heartbeat manager", () => {
 
     expect(sendPresence).toHaveBeenCalledTimes(1);
     expect(deferred.resolve).toBeDefined();
-    deferred.resolve?.({ tree_id: "t1", users: [] });
+    deferred.resolve?.({ workspace_id: "t1", users: [] });
     await flush();
 
     expect(sendPresence).toHaveBeenLastCalledWith(
@@ -184,7 +184,7 @@ describe("presence heartbeat manager", () => {
     expect(sendPresence).not.toHaveBeenCalled();
   });
 
-  it("stops heartbeating and reloads trees when access is revoked (403) (#814)", async () => {
+  it("stops heartbeating and reloads workspaces when access is revoked (403) (#814)", async () => {
     const { ApiError } = await import("@/services/api");
     sendPresence.mockRejectedValue(new ApiError(403, "No access to this tree"));
 

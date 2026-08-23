@@ -18,8 +18,8 @@ from app.schemas.notification import (
     FriendRequestReceivedPayload,
     InvitationReceivedPayload,
     NotificationPayload,
-    TreeSharedPayload,
-    TreeUnsharedPayload,
+    WorkspaceSharedPayload,
+    WorkspaceUnsharedPayload,
 )
 from app.services.event_bus import event_bus
 from app.services.event_payloads import NotificationCreatedData
@@ -53,7 +53,7 @@ def create_notification(
     db: Session,
     user_id: str,
     type: Literal["tree_unshared"],
-    payload: TreeUnsharedPayload,
+    payload: WorkspaceUnsharedPayload,
 ) -> None: ...
 @overload
 def create_notification(
@@ -74,7 +74,7 @@ def create_notification(
     db: Session,
     user_id: str,
     type: Literal["tree_shared"],
-    payload: TreeSharedPayload,
+    payload: WorkspaceSharedPayload,
 ) -> None: ...
 def create_notification(
     db: Session,

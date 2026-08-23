@@ -2,7 +2,7 @@
 
 A user scheduled for deletion (see [DELETE /users/{id}]) enters a pending state
 with an absolute ``deletion_scheduled_for`` deadline. Once that deadline passes,
-the account is permanently removed: the DB cascade (``trees.owner_id`` /
+the account is permanently removed: the DB cascade (``workspaces.owner_id`` /
 ``tree_memberships`` ON DELETE CASCADE) clears every owned tree and its content,
 and we remove the matching on-disk media first so no files are orphaned.
 
@@ -16,8 +16,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Tree, User
-from app.services.media.storage import delete_tree_media, delete_user_profile_media
+from app.models import User, Workspace
+from app.services.media.storage import delete_user_profile_media, delete_workspace_media
 from app.services.system.admin_audit import record_admin_audit
 from app.services.unit_of_work import UnitOfWork
 
@@ -49,9 +49,9 @@ def find_due_users(db: Session, now: datetime | None = None) -> list[User]:
 
 
 def purge_user(db: Session, user: User) -> None:
-    """Permanently delete a user, their owned trees, and the trees' media."""
-    tree_ids = db.scalars(
-        select(Tree.id).where(Tree.owner_id == user.id)
+    """Permanently delete a user, their owned workspaces, and the workspaces' media."""
+    workspace_ids = db.scalars(
+        select(Workspace.id).where(Workspace.owner_id == user.id)
     ).all()
     user_id = user.id
     with UnitOfWork(db) as uow:
@@ -68,7 +68,7 @@ def purge_user(db: Session, user: User) -> None:
         # Remove files only once the row-level cascade has actually
         # committed — deleting them upfront would orphan a rolled-back
         # user's media on a failed commit.
-        uow.after_commit(lambda: [delete_tree_media(tid) for tid in tree_ids])
+        uow.after_commit(lambda: [delete_workspace_media(tid) for tid in workspace_ids])
         uow.after_commit(lambda: delete_user_profile_media(user_id))
 
 

@@ -17,13 +17,13 @@ export interface LinkGraphBridgeMemberDB {
 
 /** One or more bridge-person links from a source tree to a target tree. */
 export interface LinkGraphEdgeDB {
-  source_tree_id: string;
-  target_tree_id: string;
+  source_workspace_id: string;
+  target_workspace_id: string;
   count: number;
   bridge_members: LinkGraphBridgeMemberDB[];
 }
 
-/** Response shape for GET /trees/{id}/link-graph. */
+/** Response shape for GET /workspaces/{id}/link-graph. */
 export interface LinkGraphDB {
   nodes: LinkGraphNodeDB[];
   edges: LinkGraphEdgeDB[];

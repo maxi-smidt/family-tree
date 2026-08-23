@@ -97,7 +97,7 @@ async function request<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {};
   if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
-  if (publicTreeToken) headers["X-Public-Tree-Token"] = publicTreeToken;
+  if (publicTreeToken) headers["X-Public-Workspace-Token"] = publicTreeToken;
 
   let payload: BodyInit | undefined;
   if (options.formData) {

@@ -41,15 +41,35 @@ def test_preview_reports_camel_case_conflicts_and_transfer_counts(db):
     user = make_user(db, "alice")
     tree = make_tree(db, user, "T")
     keep = add_member(
-        db, tree, "keep", first_name="Henry", last_name="Miller", gender="m",
-        date_of_birth="1920", additional_data="Note A", birthplace="Berlin",
+        db,
+        tree,
+        "keep",
+        first_name="Henry",
+        last_name="Miller",
+        gender="m",
+        date_of_birth="1920",
+        additional_data="Note A",
+        birthplace="Berlin",
     )
     remove = add_member(
-        db, tree, "remove", first_name="Henry", last_name="Miller", gender="m",
-        date_of_birth="1920", additional_data="Note B", birthplace="Hamburg",
+        db,
+        tree,
+        "remove",
+        first_name="Henry",
+        last_name="Miller",
+        gender="m",
+        date_of_birth="1920",
+        additional_data="Note B",
+        birthplace="Hamburg",
     )
-    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="remove",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="child",
+            to_member_id="remove",
+            relation_type="parent",
+        )
+    )
     add_member(db, tree, "child", first_name="Child", last_name="Miller")
     db.commit()
 
@@ -74,20 +94,59 @@ def test_preview_transfer_counts_match_what_actually_transfers(db):
     add_member(db, tree, "child", first_name="Child")
 
     # keep already has this relation — remove's copy is a duplicate.
-    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="keep",
-                     relation_type="parent"))
-    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="remove",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="child",
+            to_member_id="keep",
+            relation_type="parent",
+        )
+    )
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="child",
+            to_member_id="remove",
+            relation_type="parent",
+        )
+    )
     # Becomes a self-relation once both ends fold onto keep.
-    db.add(Relation(tree_id=tree.id, from_member_id="remove", to_member_id="keep",
-                     relation_type="partner"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="remove",
+            to_member_id="keep",
+            relation_type="partner",
+        )
+    )
 
-    db.add(MemberDisease(id="d1", tree_id=tree.id, member_id="keep",
-                          name="Diabetes", carrier_status="affected"))
-    db.add(MemberDisease(id="d2", tree_id=tree.id, member_id="remove",
-                          name="diabetes", carrier_status="affected"))
-    db.add(MemberDisease(id="d3", tree_id=tree.id, member_id="remove",
-                          name="Asthma", carrier_status="carrier"))
+    db.add(
+        MemberDisease(
+            id="d1",
+            workspace_id=tree.id,
+            member_id="keep",
+            name="Diabetes",
+            carrier_status="affected",
+        )
+    )
+    db.add(
+        MemberDisease(
+            id="d2",
+            workspace_id=tree.id,
+            member_id="remove",
+            name="diabetes",
+            carrier_status="affected",
+        )
+    )
+    db.add(
+        MemberDisease(
+            id="d3",
+            workspace_id=tree.id,
+            member_id="remove",
+            name="Asthma",
+            carrier_status="carrier",
+        )
+    )
     db.commit()
 
     preview = compute_member_merge_preview(db, tree, keep, remove)
@@ -97,7 +156,7 @@ def test_preview_transfer_counts_match_what_actually_transfers(db):
     merge_members_in_place(db, tree, keep, remove, {})
     db.commit()
 
-    relations = db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
+    relations = db.scalars(select(Relation).where(Relation.workspace_id == tree.id)).all()
     assert len(relations) == 1
     diseases = db.scalars(select(MemberDisease)).all()
     assert len(diseases) == 2
@@ -111,10 +170,24 @@ def test_preview_excludes_redundant_vital_mirror_event_from_transfer_count(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep", date_of_birth="1920")
     remove = add_member(db, tree, "remove", first_name="Remove", date_of_birth="1921")
-    db.add(Event(id="keep-birth", tree_id=tree.id, event_type="birth", date="1920",
-                  created_at="2024-01-01T00:00:00Z"))
-    db.add(Event(id="remove-birth", tree_id=tree.id, event_type="birth", date="1921",
-                  created_at="2024-01-01T00:00:00Z"))
+    db.add(
+        Event(
+            id="keep-birth",
+            workspace_id=tree.id,
+            event_type="birth",
+            date="1920",
+            created_at="2024-01-01T00:00:00Z",
+        )
+    )
+    db.add(
+        Event(
+            id="remove-birth",
+            workspace_id=tree.id,
+            event_type="birth",
+            date="1921",
+            created_at="2024-01-01T00:00:00Z",
+        )
+    )
     db.add(EventMemberLink(event_id="keep-birth", member_id="keep"))
     db.add(EventMemberLink(event_id="remove-birth", member_id="remove"))
     db.commit()
@@ -129,10 +202,22 @@ def test_preview_flags_would_create_cycle(db):
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
     add_member(db, tree, "mid", first_name="Mid")
-    db.add(Relation(tree_id=tree.id, from_member_id="keep", to_member_id="mid",
-                     relation_type="parent"))
-    db.add(Relation(tree_id=tree.id, from_member_id="mid", to_member_id="remove",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="keep",
+            to_member_id="mid",
+            relation_type="parent",
+        )
+    )
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="mid",
+            to_member_id="remove",
+            relation_type="parent",
+        )
+    )
     db.commit()
 
     preview = compute_member_merge_preview(db, tree, keep, remove)
@@ -144,10 +229,22 @@ def test_preview_does_not_flag_unrelated_cycle(db):
     tree = make_tree(db, user, "T")
     add_member(db, tree, "x", first_name="X")
     add_member(db, tree, "y", first_name="Y")
-    db.add(Relation(tree_id=tree.id, from_member_id="x", to_member_id="y",
-                     relation_type="parent"))
-    db.add(Relation(tree_id=tree.id, from_member_id="y", to_member_id="x",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="x",
+            to_member_id="y",
+            relation_type="parent",
+        )
+    )
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="y",
+            to_member_id="x",
+            relation_type="parent",
+        )
+    )
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
     db.commit()
@@ -179,7 +276,7 @@ def test_route_rejects_cross_tree_members(client, db):
     add_member(db, tree_b, "remove", first_name="B")
 
     resp = client.post(
-        f"{API}/trees/{tree_a.id}/members/merge",
+        f"{API}/workspaces/{tree_a.id}/members/merge",
         json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
         headers=auth(user),
     )
@@ -198,10 +295,22 @@ def test_merge_creates_cycle_is_rejected(db):
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
     add_member(db, tree, "mid", first_name="Mid")
-    db.add(Relation(tree_id=tree.id, from_member_id="keep", to_member_id="mid",
-                     relation_type="parent"))
-    db.add(Relation(tree_id=tree.id, from_member_id="mid", to_member_id="remove",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="keep",
+            to_member_id="mid",
+            relation_type="parent",
+        )
+    )
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="mid",
+            to_member_id="remove",
+            relation_type="parent",
+        )
+    )
     db.commit()
 
     with pytest.raises(DomainError) as exc:
@@ -219,10 +328,22 @@ def test_pre_existing_unrelated_cycle_does_not_block_merge(db):
     tree = make_tree(db, user, "T")
     add_member(db, tree, "x", first_name="X")
     add_member(db, tree, "y", first_name="Y")
-    db.add(Relation(tree_id=tree.id, from_member_id="x", to_member_id="y",
-                     relation_type="parent"))
-    db.add(Relation(tree_id=tree.id, from_member_id="y", to_member_id="x",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="x",
+            to_member_id="y",
+            relation_type="parent",
+        )
+    )
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="y",
+            to_member_id="x",
+            relation_type="parent",
+        )
+    )
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
     db.commit()
@@ -244,14 +365,20 @@ def test_relation_repointed_onto_keep(db):
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
     add_member(db, tree, "child", first_name="Child")
-    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="remove",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="child",
+            to_member_id="remove",
+            relation_type="parent",
+        )
+    )
     db.commit()
 
     merge_members_in_place(db, tree, keep, remove, {})
     db.commit()
 
-    relations = db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
+    relations = db.scalars(select(Relation).where(Relation.workspace_id == tree.id)).all()
     assert len(relations) == 1
     assert relations[0].from_member_id == "child"
     assert relations[0].to_member_id == "keep"
@@ -263,16 +390,28 @@ def test_duplicate_relation_is_dropped_not_an_integrity_error(db):
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
     add_member(db, tree, "child", first_name="Child")
-    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="keep",
-                     relation_type="parent"))
-    db.add(Relation(tree_id=tree.id, from_member_id="child", to_member_id="remove",
-                     relation_type="parent"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="child",
+            to_member_id="keep",
+            relation_type="parent",
+        )
+    )
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="child",
+            to_member_id="remove",
+            relation_type="parent",
+        )
+    )
     db.commit()
 
     merge_members_in_place(db, tree, keep, remove, {})
     db.commit()
 
-    relations = db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
+    relations = db.scalars(select(Relation).where(Relation.workspace_id == tree.id)).all()
     assert len(relations) == 1
     assert relations[0].to_member_id == "keep"
 
@@ -282,14 +421,20 @@ def test_self_relation_is_dropped(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    db.add(Relation(tree_id=tree.id, from_member_id="remove", to_member_id="keep",
-                     relation_type="partner"))
+    db.add(
+        Relation(
+            workspace_id=tree.id,
+            from_member_id="remove",
+            to_member_id="keep",
+            relation_type="partner",
+        )
+    )
     db.commit()
 
     merge_members_in_place(db, tree, keep, remove, {})
     db.commit()
 
-    relations = db.scalars(select(Relation).where(Relation.tree_id == tree.id)).all()
+    relations = db.scalars(select(Relation).where(Relation.workspace_id == tree.id)).all()
     assert relations == []
 
 
@@ -303,8 +448,13 @@ def test_event_link_transferred(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    event = Event(id="e1", tree_id=tree.id, event_type="birth", date="1920",
-                  created_at="2024-01-01T00:00:00Z")
+    event = Event(
+        id="e1",
+        workspace_id=tree.id,
+        event_type="birth",
+        date="1920",
+        created_at="2024-01-01T00:00:00Z",
+    )
     db.add(event)
     db.add(EventMemberLink(event_id="e1", member_id="remove"))
     db.commit()
@@ -322,8 +472,13 @@ def test_event_link_duplicate_dropped(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    event = Event(id="e1", tree_id=tree.id, event_type="birth", date="1920",
-                  created_at="2024-01-01T00:00:00Z")
+    event = Event(
+        id="e1",
+        workspace_id=tree.id,
+        event_type="birth",
+        date="1920",
+        created_at="2024-01-01T00:00:00Z",
+    )
     db.add(event)
     db.add(EventMemberLink(event_id="e1", member_id="keep"))
     db.add(EventMemberLink(event_id="e1", member_id="remove"))
@@ -341,8 +496,11 @@ def test_story_link_transferred(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    db.add(Story(id="s1", tree_id=tree.id, title="Story", created_at="x",
-                 updated_at="x"))
+    db.add(
+        Story(
+            id="s1", workspace_id=tree.id, title="Story", created_at="x", updated_at="x"
+        )
+    )
     db.add(StoryMemberLink(story_id="s1", member_id="remove"))
     db.commit()
 
@@ -358,9 +516,12 @@ def test_gallery_link_transferred_with_region(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    db.add(GalleryImage(id="g1", tree_id=tree.id))
-    db.add(GalleryMemberLink(gallery_image_id="g1", member_id="remove",
-                              x=0.1, y=0.2, w=0.3, h=0.4))
+    db.add(GalleryImage(id="g1", workspace_id=tree.id))
+    db.add(
+        GalleryMemberLink(
+            gallery_image_id="g1", member_id="remove", x=0.1, y=0.2, w=0.3, h=0.4
+        )
+    )
     db.commit()
 
     merge_members_in_place(db, tree, keep, remove, {})
@@ -377,8 +538,11 @@ def test_document_link_transferred(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    db.add(Document(id="d1", tree_id=tree.id, title="Doc", created_at="x",
-                     updated_at="x"))
+    db.add(
+        Document(
+            id="d1", workspace_id=tree.id, title="Doc", created_at="x", updated_at="x"
+        )
+    )
     db.add(DocumentMemberLink(document_id="d1", member_id="remove"))
     db.commit()
 
@@ -394,7 +558,7 @@ def test_task_link_transferred(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    db.add(MemberTask(id="t1", tree_id=tree.id, title="Task", created_at="x"))
+    db.add(MemberTask(id="t1", workspace_id=tree.id, title="Task", created_at="x"))
     db.add(MemberTaskLink(task_id="t1", member_id="remove"))
     db.commit()
 
@@ -410,12 +574,33 @@ def test_disease_transferred_and_deduped_by_name(db):
     tree = make_tree(db, user, "T")
     keep = add_member(db, tree, "keep", first_name="Keep")
     remove = add_member(db, tree, "remove", first_name="Remove")
-    db.add(MemberDisease(id="dis1", tree_id=tree.id, member_id="keep",
-                          name="Diabetes", carrier_status="affected"))
-    db.add(MemberDisease(id="dis2", tree_id=tree.id, member_id="remove",
-                          name="diabetes", carrier_status="affected"))
-    db.add(MemberDisease(id="dis3", tree_id=tree.id, member_id="remove",
-                          name="Asthma", carrier_status="carrier"))
+    db.add(
+        MemberDisease(
+            id="dis1",
+            workspace_id=tree.id,
+            member_id="keep",
+            name="Diabetes",
+            carrier_status="affected",
+        )
+    )
+    db.add(
+        MemberDisease(
+            id="dis2",
+            workspace_id=tree.id,
+            member_id="remove",
+            name="diabetes",
+            carrier_status="affected",
+        )
+    )
+    db.add(
+        MemberDisease(
+            id="dis3",
+            workspace_id=tree.id,
+            member_id="remove",
+            name="Asthma",
+            carrier_status="carrier",
+        )
+    )
     db.commit()
 
     merge_members_in_place(db, tree, keep, remove, {})
@@ -470,7 +655,7 @@ def test_merge_route_records_rich_activity_payload(client, db):
     add_member(db, tree, "remove", first_name="Remove", last_name="Person")
 
     resp = client.post(
-        f"{API}/trees/{tree.id}/members/merge",
+        f"{API}/workspaces/{tree.id}/members/merge",
         json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
         headers=auth(user),
     )
@@ -481,7 +666,7 @@ def test_merge_route_records_rich_activity_payload(client, db):
 
     row = db.scalars(
         select(ActivityLog)
-        .where(ActivityLog.tree_id == tree.id)
+        .where(ActivityLog.workspace_id == tree.id)
         .order_by(ActivityLog.id.desc())
     ).first()
     details = json.loads(row.details)
@@ -504,23 +689,37 @@ def test_merge_dedupes_duplicate_vital_mirror_events(client, db):
     tree = make_tree(db, user, "T")
     add_member(db, tree, "keep", first_name="Keep", date_of_birth="1920")
     add_member(db, tree, "remove", first_name="Remove", date_of_birth="1921")
-    db.add(Event(id="keep-birth", tree_id=tree.id, event_type="birth", date="1920",
-                  created_at="2024-01-01T00:00:00Z"))
-    db.add(Event(id="remove-birth", tree_id=tree.id, event_type="birth", date="1921",
-                  created_at="2024-01-01T00:00:00Z"))
+    db.add(
+        Event(
+            id="keep-birth",
+            workspace_id=tree.id,
+            event_type="birth",
+            date="1920",
+            created_at="2024-01-01T00:00:00Z",
+        )
+    )
+    db.add(
+        Event(
+            id="remove-birth",
+            workspace_id=tree.id,
+            event_type="birth",
+            date="1921",
+            created_at="2024-01-01T00:00:00Z",
+        )
+    )
     db.add(EventMemberLink(event_id="keep-birth", member_id="keep"))
     db.add(EventMemberLink(event_id="remove-birth", member_id="remove"))
     db.commit()
 
     resp = client.post(
-        f"{API}/trees/{tree.id}/members/merge",
+        f"{API}/workspaces/{tree.id}/members/merge",
         json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
         headers=auth(user),
     )
     assert resp.status_code == 200
 
     events = db.scalars(
-        select(Event).where(Event.tree_id == tree.id, Event.event_type == "birth")
+        select(Event).where(Event.workspace_id == tree.id, Event.event_type == "birth")
     ).all()
     assert len(events) == 1
     # Default field choice is "a" — keep's own date survives.
@@ -534,12 +733,16 @@ def test_merge_creates_vital_event_reflecting_resolved_fields(client, db):
     tree = make_tree(db, user, "T")
     add_member(db, tree, "keep", first_name="Keep")
     add_member(
-        db, tree, "remove", first_name="Remove",
-        date_of_birth="1921", birthplace="Hamburg",
+        db,
+        tree,
+        "remove",
+        first_name="Remove",
+        date_of_birth="1921",
+        birthplace="Hamburg",
     )
 
     resp = client.post(
-        f"{API}/trees/{tree.id}/members/merge",
+        f"{API}/workspaces/{tree.id}/members/merge",
         json={
             "keep_id": "keep",
             "remove_id": "remove",
@@ -549,7 +752,7 @@ def test_merge_creates_vital_event_reflecting_resolved_fields(client, db):
     )
     assert resp.status_code == 200
 
-    event = db.query(Event).filter_by(tree_id=tree.id, event_type="birth").one()
+    event = db.query(Event).filter_by(workspace_id=tree.id, event_type="birth").one()
     assert event.date == "1921"
     assert event.location == "Hamburg"
 
@@ -567,24 +770,37 @@ def test_merge_syncs_bridge_person_identity_field_changes(client, db):
     tree = make_tree(db, user, "T")
     other = make_tree(db, user, "Other")
     keep = add_member(
-        db, tree, "keep", first_name="Keep", last_name="Person", birthplace="Berlin",
+        db,
+        tree,
+        "keep",
+        first_name="Keep",
+        last_name="Person",
+        birthplace="Berlin",
     )
     add_member(
-        db, tree, "remove", first_name="Remove", last_name="Person",
+        db,
+        tree,
+        "remove",
+        first_name="Remove",
+        last_name="Person",
         birthplace="Hamburg",
     )
     counterpart = add_member(
-        db, other, "counterpart", first_name="Keep", last_name="Person",
+        db,
+        other,
+        "counterpart",
+        first_name="Keep",
+        last_name="Person",
         birthplace="Berlin",
     )
-    keep.linked_tree_id = other.id
+    keep.linked_workspace_id = other.id
     keep.linked_member_id = "counterpart"
-    counterpart.linked_tree_id = tree.id
+    counterpart.linked_workspace_id = tree.id
     counterpart.linked_member_id = "keep"
     db.commit()
 
     resp = client.post(
-        f"{API}/trees/{tree.id}/members/merge",
+        f"{API}/workspaces/{tree.id}/members/merge",
         json={
             "keep_id": "keep",
             "remove_id": "remove",
@@ -602,7 +818,7 @@ def test_merge_syncs_bridge_person_identity_field_changes(client, db):
 
 
 # ---------------------------------------------------------------------------
-# Tree-in-tree bridge handling
+# Workspace-in-tree bridge handling
 # ---------------------------------------------------------------------------
 
 
@@ -613,17 +829,21 @@ def test_bridge_link_inherited_onto_keep_and_logged_in_other_tree(client, db):
     add_member(db, tree, "keep", first_name="Keep", last_name="Person")
     remove = add_member(db, tree, "remove", first_name="Remove", last_name="Person")
     counterpart = add_member(
-        db, other, "counterpart", first_name="Remove", last_name="Person",
+        db,
+        other,
+        "counterpart",
+        first_name="Remove",
+        last_name="Person",
     )
     # Wire the bridge after both rows exist — linked_member_id is a real FK.
-    remove.linked_tree_id = other.id
+    remove.linked_workspace_id = other.id
     remove.linked_member_id = "counterpart"
-    counterpart.linked_tree_id = tree.id
+    counterpart.linked_workspace_id = tree.id
     counterpart.linked_member_id = "remove"
     db.commit()
 
     resp = client.post(
-        f"{API}/trees/{tree.id}/members/merge",
+        f"{API}/workspaces/{tree.id}/members/merge",
         json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
         headers=auth(user),
     )
@@ -635,22 +855,22 @@ def test_bridge_link_inherited_onto_keep_and_logged_in_other_tree(client, db):
     # state instead of re-querying.
     db.expire_all()
     keep = db.get(Member, "keep")
-    assert keep.linked_tree_id == other.id
+    assert keep.linked_workspace_id == other.id
     assert keep.linked_member_id == "counterpart"
     counterpart = db.get(Member, "counterpart")
-    assert counterpart.linked_tree_id == tree.id
+    assert counterpart.linked_workspace_id == tree.id
     assert counterpart.linked_member_id == "keep"
 
     row = db.scalars(
         select(ActivityLog)
-        .where(ActivityLog.tree_id == other.id)
+        .where(ActivityLog.workspace_id == other.id)
         .order_by(ActivityLog.id.desc())
     ).first()
     assert row is not None
     assert row.target_id == "counterpart"
     bridge_details = json.loads(row.details)
     assert bridge_details["after"] == {
-        "linked_tree_id": tree.id,
+        "linked_workspace_id": tree.id,
         "linked_member_id": "keep",
     }
 
@@ -662,25 +882,33 @@ def test_bridge_link_dissolved_when_keep_already_linked(client, db):
     other_b = make_tree(db, user, "OtherB")
     keep = add_member(db, tree, "keep", first_name="Keep", last_name="Person")
     counterpart_a = add_member(
-        db, other_a, "counterpart_a", first_name="Keep", last_name="Person",
+        db,
+        other_a,
+        "counterpart_a",
+        first_name="Keep",
+        last_name="Person",
     )
     remove = add_member(db, tree, "remove", first_name="Remove", last_name="Person")
     counterpart_b = add_member(
-        db, other_b, "counterpart_b", first_name="Remove", last_name="Person",
+        db,
+        other_b,
+        "counterpart_b",
+        first_name="Remove",
+        last_name="Person",
     )
     # Wire both bridges after every row exists — linked_member_id is a real FK.
-    keep.linked_tree_id = other_a.id
+    keep.linked_workspace_id = other_a.id
     keep.linked_member_id = "counterpart_a"
-    counterpart_a.linked_tree_id = tree.id
+    counterpart_a.linked_workspace_id = tree.id
     counterpart_a.linked_member_id = "keep"
-    remove.linked_tree_id = other_b.id
+    remove.linked_workspace_id = other_b.id
     remove.linked_member_id = "counterpart_b"
-    counterpart_b.linked_tree_id = tree.id
+    counterpart_b.linked_workspace_id = tree.id
     counterpart_b.linked_member_id = "remove"
     db.commit()
 
     resp = client.post(
-        f"{API}/trees/{tree.id}/members/merge",
+        f"{API}/workspaces/{tree.id}/members/merge",
         json={"keep_id": "keep", "remove_id": "remove", "fields": {}},
         headers=auth(user),
     )
@@ -689,22 +917,22 @@ def test_bridge_link_dissolved_when_keep_already_linked(client, db):
     db.expire_all()  # see comment in the "inherited" test above
     keep = db.get(Member, "keep")
     # keep's own bridge is untouched
-    assert keep.linked_tree_id == other_a.id
+    assert keep.linked_workspace_id == other_a.id
     assert keep.linked_member_id == "counterpart_a"
     # remove's counterpart is dissolved, not deleted
     counterpart_b = db.get(Member, "counterpart_b")
-    assert counterpart_b.linked_tree_id is None
+    assert counterpart_b.linked_workspace_id is None
     assert counterpart_b.linked_member_id is None
 
     row = db.scalars(
         select(ActivityLog)
-        .where(ActivityLog.tree_id == other_b.id)
+        .where(ActivityLog.workspace_id == other_b.id)
         .order_by(ActivityLog.id.desc())
     ).first()
     assert row is not None
     assert row.target_id == "counterpart_b"
     bridge_details = json.loads(row.details)
     assert bridge_details["after"] == {
-        "linked_tree_id": None,
+        "linked_workspace_id": None,
         "linked_member_id": None,
     }

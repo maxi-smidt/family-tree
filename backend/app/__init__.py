@@ -1,1 +1,1 @@
-"""Family Tree backend application package."""
+"""Family Workspace backend application package."""

@@ -10,8 +10,8 @@ class Member(Base):
     __tablename__ = "members"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
     )
 
     gender: Mapped[str | None] = mapped_column(String(1), nullable=True)
@@ -42,9 +42,9 @@ class Member(Base):
     # Optional pointer to another tree that details this person's own family
     # (the "tree-in-tree" link). SET NULL so deleting the target tree just
     # clears the link rather than cascading.
-    linked_tree_id: Mapped[str | None] = mapped_column(
+    linked_workspace_id: Mapped[str | None] = mapped_column(
         String(36),
-        ForeignKey("trees.id", ondelete="SET NULL"),
+        ForeignKey("workspaces.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
     )
@@ -83,8 +83,8 @@ class Member(Base):
 class Relation(Base):
     __tablename__ = "relations"
 
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), primary_key=True
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True
     )
     from_member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
@@ -112,8 +112,8 @@ class MemberDisease(Base):
     __tablename__ = "member_diseases"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    tree_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), index=True
+    workspace_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), index=True
     )
     member_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("members.id", ondelete="CASCADE"), index=True

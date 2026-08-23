@@ -2,11 +2,12 @@
 
 from tests.conftest import API, auth, make_user
 
-TOO_SHORT = "abc123"          # 6 chars — below the 8-char minimum
-VALID_PW  = "validPass1"      # 10 chars — meets the minimum
+TOO_SHORT = "abc123"  # 6 chars — below the 8-char minimum
+VALID_PW = "validPass1"  # 10 chars — meets the minimum
 
 
 # --- Registration -----------------------------------------------------------
+
 
 def test_register_rejects_short_password(client, db):
     res = client.post(
@@ -27,6 +28,7 @@ def test_register_accepts_valid_password(client, db):
 
 
 # --- Admin create user -------------------------------------------------------
+
 
 def test_admin_create_user_rejects_short_password(client, db):
     admin = make_user(db, "admin", is_admin=True)
@@ -50,6 +52,7 @@ def test_admin_create_user_accepts_valid_password(client, db):
 
 # --- Change password --------------------------------------------------------
 
+
 def test_change_password_rejects_short_new_password(client, db):
     user = make_user(db, "alice", password="pw123456")
     res = client.post(
@@ -71,6 +74,7 @@ def test_change_password_accepts_valid_new_password(client, db):
 
 
 # --- Admin password reset ----------------------------------------------------
+
 
 def test_password_reset_rejects_short_password(client, db):
     admin = make_user(db, "admin", is_admin=True)
@@ -95,6 +99,7 @@ def test_password_reset_accepts_valid_password(client, db):
 
 
 # --- Admin patch user password -----------------------------------------------
+
 
 def test_patch_user_password_rejects_short_password(client, db):
     admin = make_user(db, "admin", is_admin=True)

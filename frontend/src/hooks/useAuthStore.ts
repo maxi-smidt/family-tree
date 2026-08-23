@@ -6,9 +6,9 @@ import {
   onUnauthorized,
   setAuthToken,
 } from "@/services/api";
-import { TreeSharingService } from "@/services/TreeSharingService";
+import { WorkspaceSharingService } from "@/services/WorkspaceSharingService";
 import { AuthService, TwoFactorSetup } from "@/services/AuthService";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
 import { decodeJwtExp } from "@/lib/utils";
 
@@ -34,7 +34,7 @@ interface AuthState {
   reloginRequired: boolean;
   /** Token stored from an #invite= URL hash; consumed after login/register. */
   pendingInviteToken: string | null;
-  /** Tree ID from a #public= URL hash; enables anonymous public tree viewing. */
+  /** Workspace ID from a #public= URL hash; enables anonymous public tree viewing. */
   pendingPublicTreeId: string | null;
   /** Set after password check when the account has TOTP enabled. */
   totpRequired: boolean;
@@ -68,11 +68,11 @@ interface AuthState {
   updateProfile: (firstName: string, lastName: string) => Promise<void>;
   uploadProfileImage: (file: File) => Promise<void>;
   removeProfileImage: () => Promise<void>;
-  loadOwnedTrees: () => Promise<Tree[]>;
+  loadOwnedTrees: () => Promise<Workspace[]>;
   loadOwnershipTransferTargets: (
-    treeId: string,
+    workspaceId: string,
   ) => Promise<Array<{ user_id: string; username: string }>>;
-  transferTreeOwnership: (treeId: string, username: string) => Promise<void>;
+  transferTreeOwnership: (workspaceId: string, username: string) => Promise<void>;
   register: (
     username: string,
     password: string,
@@ -215,8 +215,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ pendingInviteToken: inviteToken });
       window.history.replaceState(null, "", window.location.pathname);
     } else if (hash.startsWith("#public=")) {
-      const treeId = decodeURIComponent(hash.slice("#public=".length));
-      set({ pendingPublicTreeId: treeId });
+      const workspaceId = decodeURIComponent(hash.slice("#public=".length));
+      set({ pendingPublicTreeId: workspaceId });
       window.history.replaceState(null, "", window.location.pathname);
     }
 
@@ -385,12 +385,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   loadOwnedTrees: () => AuthService.getOwnedTrees(),
 
-  loadOwnershipTransferTargets: (treeId: string) =>
-    AuthService.getOwnershipTransferTargets(treeId),
+  loadOwnershipTransferTargets: (workspaceId: string) =>
+    AuthService.getOwnershipTransferTargets(workspaceId),
 
-  transferTreeOwnership: (treeId: string, username: string) =>
+  transferTreeOwnership: (workspaceId: string, username: string) =>
     runAccountOperation(set, "deleting-account", () =>
-      AuthService.transferOwnership(treeId, username),
+      AuthService.transferOwnership(workspaceId, username),
     ),
 
   register: async (
@@ -418,9 +418,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     const { pendingInviteToken } = useAuthStore.getState();
     if (!pendingInviteToken) return null;
     try {
-      const result = await TreeSharingService.acceptInvite(pendingInviteToken);
+      const result = await WorkspaceSharingService.acceptInvite(pendingInviteToken);
       set({ pendingInviteToken: null });
-      return result.tree_id;
+      return result.workspace_id;
     } catch {
       set({ pendingInviteToken: null });
       return null;

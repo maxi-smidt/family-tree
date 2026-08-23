@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token, decode_public_tree_token
 from app.db.session import get_db
-from app.models import Tree, TreeMembership, User
-from app.services.tree_roles import role_for
+from app.models import User, Workspace, WorkspaceMembership
+from app.services.workspace_roles import role_for
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -46,9 +46,9 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=ACCOUNT_PENDING_DELETION
         )
-    # Tree-change SSE events use the request-scoped session to identify the
+    # Workspace-change SSE events use the request-scoped session to identify the
     # editor for live-presence highlighting.
-    db.info["tree_event_actor_id"] = user.id
+    db.info["workspace_event_actor_id"] = user.id
     return user
 
 
@@ -65,22 +65,18 @@ def require_domain(domain: str):
 
     Owners, admins, and public viewers have no membership row and always pass.
     """
-    from app.services.trees.restrictions import RESTRICTABLE_DOMAINS
+    from app.services.workspaces.restrictions import RESTRICTABLE_DOMAINS
 
     if domain not in RESTRICTABLE_DOMAINS:
         raise ValueError(f"Unknown restrictable domain: {domain}")
 
     def dependency(
-        tree_id: str,
+        workspace_id: str,
         user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
     ) -> None:
-        membership = db.get(TreeMembership, (tree_id, user.id))
-        if (
-            membership
-            and membership.restrictions
-            and domain in membership.restrictions
-        ):
+        membership = db.get(WorkspaceMembership, (workspace_id, user.id))
+        if membership and membership.restrictions and domain in membership.restrictions:
             raise HTTPException(status_code=404, detail="Not found")
 
     return dependency
@@ -103,7 +99,7 @@ def get_current_user_optional(
     return user
 
 
-def _public_access_ok(tree: Tree, public_token: str | None) -> bool:
+def _public_access_ok(tree: Workspace, public_token: str | None) -> bool:
     """True if the tree needs no public password, or the supplied unlock token
     is valid for this tree."""
     if not tree.public_password_hash:
@@ -111,26 +107,26 @@ def _public_access_ok(tree: Tree, public_token: str | None) -> bool:
     if not public_token:
         return False
     try:
-        tree_id, access_version = decode_public_tree_token(public_token)
-        return tree_id == tree.id and access_version == tree.public_access_version
+        workspace_id, access_version = decode_public_tree_token(public_token)
+        return workspace_id == tree.id and access_version == tree.public_access_version
     except Exception:  # noqa: BLE001 - any decode failure means no access
         return False
 
 
-def _resolve_tree(
+def _resolve_workspace(
     db: Session,
-    tree_id: str,
+    workspace_id: str,
     user: User | None,
     *,
     write: bool,
     public_token: str | None = None,
-) -> Tree:
-    tree = db.get(Tree, tree_id)
+) -> Workspace:
+    tree = db.get(Workspace, workspace_id)
     if tree is None:
-        raise HTTPException(status_code=404, detail="Tree not found")
+        raise HTTPException(status_code=404, detail="Workspace not found")
 
     if user is None:
-        # Anonymous requests succeed only for public read-only trees.
+        # Anonymous requests succeed only for public read-only workspaces.
         if not write and tree.public_role == "viewer":
             if not _public_access_ok(tree, public_token):
                 raise HTTPException(
@@ -150,7 +146,7 @@ def _resolve_tree(
     if user.is_admin:
         return tree
 
-    # Authenticated users: check role. Public trees are still accessible to
+    # Authenticated users: check role. Public workspaces are still accessible to
     # authenticated users who have no explicit membership.
     role = role_for(db, tree, user)
     if role is None:
@@ -168,29 +164,31 @@ def _resolve_tree(
     return tree
 
 
-def get_readable_tree(
-    tree_id: str,
+def get_readable_workspace(
+    workspace_id: str,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> Tree:
-    return _resolve_tree(db, tree_id, user, write=False)
+) -> Workspace:
+    return _resolve_workspace(db, workspace_id, user, write=False)
 
 
-def get_readable_tree_public(
-    tree_id: str,
+def get_readable_workspace_public(
+    workspace_id: str,
     user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
-    public_token: str | None = Header(None, alias="X-Public-Tree-Token"),
-) -> Tree:
-    """Like get_readable_tree but allows anonymous access to public trees."""
-    return _resolve_tree(db, tree_id, user, write=False, public_token=public_token)
+    public_token: str | None = Header(None, alias="X-Public-Workspace-Token"),
+) -> Workspace:
+    """Like get_readable_workspace but allows anonymous access to public workspaces."""
+    return _resolve_workspace(
+        db, workspace_id, user, write=False, public_token=public_token
+    )
 
 
-def get_writable_tree(
-    tree_id: str,
+def get_writable_workspace(
+    workspace_id: str,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> Tree:
+) -> Workspace:
     from app.services.system.settings_service import user_has_accepted_legal
 
     if not user_has_accepted_legal(db, user):
@@ -198,18 +196,20 @@ def get_writable_tree(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Legal terms must be accepted before making changes",
         )
-    return _resolve_tree(db, tree_id, user, write=True)
+    return _resolve_workspace(db, workspace_id, user, write=True)
 
 
-def explicit_tree_ids(db: Session, user: User) -> list[str]:
-    owned = db.scalars(select(Tree.id).where(Tree.owner_id == user.id)).all()
+def explicit_workspace_ids(db: Session, user: User) -> list[str]:
+    owned = db.scalars(select(Workspace.id).where(Workspace.owner_id == user.id)).all()
     shared = db.scalars(
-        select(TreeMembership.tree_id).where(TreeMembership.user_id == user.id)
+        select(WorkspaceMembership.workspace_id).where(
+            WorkspaceMembership.user_id == user.id
+        )
     ).all()
     return list({*owned, *shared})
 
 
-def accessible_tree_ids(db: Session, user: User) -> list[str]:
+def accessible_workspace_ids(db: Session, user: User) -> list[str]:
     if user.is_admin:
-        return [t.id for t in db.scalars(select(Tree)).all()]
-    return explicit_tree_ids(db, user)
+        return [t.id for t in db.scalars(select(Workspace)).all()]
+    return explicit_workspace_ids(db, user)

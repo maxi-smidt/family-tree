@@ -74,7 +74,7 @@ class MemberOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
-    linked_tree_id: str | None = None
+    linked_workspace_id: str | None = None
     linked_member_id: str | None = None
     # Transient outcome of the bridge-person mirror on updates (not a column):
     # "synced" when the counterpart row was updated too, "skipped_no_access"
@@ -109,15 +109,15 @@ class MemberSurfaceOut(FamilyTreeOrmBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
-    linked_tree_id: str | None = None
+    linked_workspace_id: str | None = None
     linked_member_id: str | None = None
 
 
 class MemberSearchHitOut(MemberSurfaceOut):
     """A searchable member surface annotated with its containing tree."""
 
-    tree_id: str
-    tree_name: str
+    workspace_id: str
+    workspace_name: str
 
 
 class PublicMemberOut(FamilyTreeOrmBaseModel):
@@ -162,7 +162,7 @@ class MemberCreate(_TrimMemberStringsMixin, FamilyTreeBaseModel):
     is_collapsed: bool = False
     position_x: float = 0
     position_y: float = 0
-    linked_tree_id: str | None = None
+    linked_workspace_id: str | None = None
     linked_member_id: str | None = None
 
 
@@ -192,7 +192,7 @@ class MemberUpdate(_TrimMemberStringsMixin, FamilyTreeBaseModel):
     is_collapsed: bool | None = None
     position_x: float | None = None
     position_y: float | None = None
-    linked_tree_id: str | None = None
+    linked_workspace_id: str | None = None
     linked_member_id: str | None = None
 
 
@@ -223,7 +223,7 @@ class MemberLinkRequest(FamilyTreeBaseModel):
     (``mode="existing"``) or by copying the member into it as a new bridge
     person (``mode="create"``)."""
 
-    linked_tree_id: str
+    linked_workspace_id: str
     mode: Literal["existing", "create"]
     counterpart_member_id: str | None = None
     # Per-field resolution choices (a = this member, b = counterpart) applied

@@ -15,12 +15,12 @@ from app.services.virtual_views.virtual_view_matching import group_id_for, persi
 from tests.conftest import add_member, make_tree, make_user
 
 
-def _make_view(db: Session, owner, *trees) -> VirtualView:
+def _make_view(db: Session, owner, *workspaces) -> VirtualView:
     view = VirtualView(name="Composite", owner_id=owner.id)
     db.add(view)
     db.flush()
-    for i, tree in enumerate(trees):
-        db.add(VirtualViewSource(view_id=view.id, position=i, tree_id=tree.id))
+    for i, tree in enumerate(workspaces):
+        db.add(VirtualViewSource(view_id=view.id, position=i, workspace_id=tree.id))
     db.flush()
     persist_matches(db, view)
     db.commit()
@@ -35,16 +35,33 @@ def test_build_composite_members_coalesces_fields_across_three_sources(db: Sessi
     tree_c = make_tree(db, owner, "C")
 
     add_member(
-        db, tree_a, "a1", first_name="John", last_name="Smith",
-        date_of_birth="1900", gender="m",
+        db,
+        tree_a,
+        "a1",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
     )
     add_member(
-        db, tree_b, "b1", first_name="John", last_name="Smith",
-        date_of_birth="1900", gender="m", baptismal_name="Johannes",
+        db,
+        tree_b,
+        "b1",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
+        baptismal_name="Johannes",
     )
     add_member(
-        db, tree_c, "c1", first_name="John", last_name="Smith",
-        date_of_birth="1900", gender="m", middle_names="Robert",
+        db,
+        tree_c,
+        "c1",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
+        middle_names="Robert",
     )
 
     view = _make_view(db, owner, tree_a, tree_b, tree_c)
@@ -58,7 +75,7 @@ def test_build_composite_members_coalesces_fields_across_three_sources(db: Sessi
     assert merged.baptismal_name == "Johannes"
     assert merged.middle_names == "Robert"
     # The primary member (first source with a match) provides the canonical id.
-    assert merged.source_tree_id == tree_a.id
+    assert merged.source_workspace_id == tree_a.id
 
 
 def test_build_composite_relations_prefers_earliest_source_with_parents(
@@ -75,31 +92,56 @@ def test_build_composite_relations_prefers_earliest_source_with_parents(
     tree_c = make_tree(db, owner, "C")
 
     add_member(
-        db, tree_a, "child_a", first_name="Kid", last_name="Smith",
-        date_of_birth="1950", gender="m",
+        db,
+        tree_a,
+        "child_a",
+        first_name="Kid",
+        last_name="Smith",
+        date_of_birth="1950",
+        gender="m",
     )
     add_member(
-        db, tree_b, "child_b", first_name="Kid", last_name="Smith",
-        date_of_birth="1950", gender="m",
+        db,
+        tree_b,
+        "child_b",
+        first_name="Kid",
+        last_name="Smith",
+        date_of_birth="1950",
+        gender="m",
     )
     add_member(
-        db, tree_c, "child_c", first_name="Kid", last_name="Smith",
-        date_of_birth="1950", gender="m",
+        db,
+        tree_c,
+        "child_c",
+        first_name="Kid",
+        last_name="Smith",
+        date_of_birth="1950",
+        gender="m",
     )
     add_member(
-        db, tree_b, "parent_b", first_name="Par", last_name="Ent",
-        date_of_birth="1920", gender="f",
+        db,
+        tree_b,
+        "parent_b",
+        first_name="Par",
+        last_name="Ent",
+        date_of_birth="1920",
+        gender="f",
     )
     add_member(
-        db, tree_c, "parent_c", first_name="Par2", last_name="Ent2",
-        date_of_birth="1920", gender="f",
+        db,
+        tree_c,
+        "parent_c",
+        first_name="Par2",
+        last_name="Ent2",
+        date_of_birth="1920",
+        gender="f",
     )
 
     view = _make_view(db, owner, tree_a, tree_b, tree_c)
 
     db.add(
         Relation(
-            tree_id=tree_b.id,
+            workspace_id=tree_b.id,
             from_member_id="child_b",
             to_member_id="parent_b",
             relation_type="parent",
@@ -107,7 +149,7 @@ def test_build_composite_relations_prefers_earliest_source_with_parents(
     )
     db.add(
         Relation(
-            tree_id=tree_c.id,
+            workspace_id=tree_c.id,
             from_member_id="child_c",
             to_member_id="parent_c",
             relation_type="parent",

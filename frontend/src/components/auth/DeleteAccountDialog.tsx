@@ -24,7 +24,7 @@ import { ApiError } from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "@/hooks/useAuthStore";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 
 type Props = {
   isOpen: boolean;
@@ -60,7 +60,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
   );
   const transferTreeOwnership = useAuthStore((s) => s.transferTreeOwnership);
 
-  const [ownedTrees, setOwnedTrees] = useState<Tree[]>([]);
+  const [ownedTrees, setOwnedTrees] = useState<Workspace[]>([]);
   const [transferStates, setTransferStates] = useState<
     Record<string, TransferState>
   >({});
@@ -89,31 +89,31 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
     });
   }, [isOpen, loadOwnedTrees]);
 
-  const loadTargets = async (treeId: string) => {
-    const state = transferStates[treeId];
+  const loadTargets = async (workspaceId: string) => {
+    const state = transferStates[workspaceId];
     if (!state || state.targetsLoaded) return;
 
-    const targets = await loadOwnershipTransferTargets(treeId);
+    const targets = await loadOwnershipTransferTargets(workspaceId);
 
     setTransferStates((prev) => ({
       ...prev,
-      [treeId]: { ...prev[treeId], targets, targetsLoaded: true },
+      [workspaceId]: { ...prev[workspaceId], targets, targetsLoaded: true },
     }));
   };
 
-  const handleTransfer = async (treeId: string) => {
-    const state = transferStates[treeId];
+  const handleTransfer = async (workspaceId: string) => {
+    const state = transferStates[workspaceId];
     if (!state?.selected) return;
     setTransferStates((prev) => ({
       ...prev,
-      [treeId]: { ...prev[treeId], transferring: true },
+      [workspaceId]: { ...prev[workspaceId], transferring: true },
     }));
     try {
-      await transferTreeOwnership(treeId, state.selected);
+      await transferTreeOwnership(workspaceId, state.selected);
       setTransferStates((prev) => ({
         ...prev,
-        [treeId]: {
-          ...prev[treeId],
+        [workspaceId]: {
+          ...prev[workspaceId],
           transferred: true,
           transferredTo: state.selected,
           transferring: false,
@@ -124,7 +124,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
       toast.error(t("transfer-error"));
       setTransferStates((prev) => ({
         ...prev,
-        [treeId]: { ...prev[treeId], transferring: false },
+        [workspaceId]: { ...prev[workspaceId], transferring: false },
       }));
     }
   };
@@ -172,7 +172,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
         <div className="space-y-4 py-2">
           {ownedTrees.length > 0 && (
             <div className="space-y-3">
-              <p className="text-sm font-medium">{t("owned-trees-label")}</p>
+              <p className="text-sm font-medium">{t("owned-workspaces-label")}</p>
               <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
                 {ownedTrees.map((tree) => {
                   const state = transferStates[tree.id];
@@ -252,7 +252,7 @@ export const DeleteAccountDialog = ({ isOpen, onClose }: Props) => {
               </div>
               {treesWillDelete.length > 0 && (
                 <p className="text-sm text-destructive">
-                  {t("trees-warning", { count: treesWillDelete.length })}
+                  {t("workspaces-warning", { count: treesWillDelete.length })}
                 </p>
               )}
             </div>

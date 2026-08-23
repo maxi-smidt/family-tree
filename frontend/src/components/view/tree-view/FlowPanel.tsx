@@ -15,7 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Member } from "@/types/member";
 import { NODE_WIDTH, NODE_HEIGHT } from "@/constants";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
+import { useWorkspaceStore, isVirtualId } from "@/hooks/useWorkspaceStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
 import { FlowPanelControls } from "@/components/view/tree-view/FlowPanelControls";
 import GenerationLines from "@/components/view/tree-view/GenerationLines";
@@ -80,17 +80,17 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
-  const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const taskRestrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !taskRestrictions?.includes("tasks");
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
-  // Open-task node indicators need the task list; skip on public trees where
+  // Open-task node indicators need the task list; skip on public workspaces where
   // the task endpoints require authentication.
   useDeferredStoreLoad(
     tasksInitialized || !tasksEnabled || publicView,
     refreshTasks,
   );
-  const activeTree = useTreeStore((s) => s.selectedTree);
-  const openTreeAndLocateMember = useTreeStore(
+  const activeTree = useWorkspaceStore((s) => s.selectedTree);
+  const openTreeAndLocateMember = useWorkspaceStore(
     (s) => s.openTreeAndLocateMember,
   );
   const savedMemberSheetState = useMemberSheetStore((s) =>
@@ -98,8 +98,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   );
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
-  const availableTreeCount = useTreeStore(
-    (s) => s.trees.length + s.virtualViews.length,
+  const availableTreeCount = useWorkspaceStore(
+    (s) => s.workspaces.length + s.virtualViews.length,
   );
   const isMobile = useIsMobile();
   const {
@@ -121,7 +121,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // Positions are persisted independently in VirtualViewPosition.
   const canDragLayout = !isMobile && (canWrite || isVirtualView);
   useUndoRedo(!isCanvasReadOnly);
-  const { isReady } = useTreeStore();
+  const { isReady } = useWorkspaceStore();
 
   const {
     edgeType,
@@ -256,8 +256,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       ? undefined
       : memberSheetDeepLink;
     const requestedState = deepLinkState ?? savedMemberSheetState;
-    const treeId = activeTree?.id;
-    if (publicView || !requestedState || !treeId || pending.editingMemberId) {
+    const workspaceId = activeTree?.id;
+    if (publicView || !requestedState || !workspaceId || pending.editingMemberId) {
       return;
     }
 
@@ -266,7 +266,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     );
     if (savedMember) {
       attemptedMemberSheetRestoreRef.current = null;
-      setOpenSheet(treeId, requestedState);
+      setOpenSheet(workspaceId, requestedState);
       if (deepLinkState) {
         consumedMemberSheetDeepLinkRef.current = true;
         clearMemberSheetDeepLink();
@@ -281,7 +281,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
       attemptedMemberSheetRestoreRef.current = requestedState.memberId;
       void setFocusRoot(requestedState.memberId);
     } else if (isReady) {
-      clearOpenSheet(treeId);
+      clearOpenSheet(workspaceId);
       if (deepLinkState) {
         consumedMemberSheetDeepLinkRef.current = true;
         clearMemberSheetDeepLink();
@@ -313,7 +313,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   // Resolve each union dot's colour the same way edges are styled: the
   // relation-type default merged with the admin override. Without this the
   // dot ignores configured colours (the edges are styled in the worker).
-  const relationTypes = useTreeStore((s) => s.relationTypes);
+  const relationTypes = useWorkspaceStore((s) => s.relationTypes);
   const resolveUnionColor = useMemo(() => {
     const byId = new Map(relationTypes.map((rt) => [rt.id, rt]));
     return (relationType?: string): string => {
@@ -450,10 +450,10 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     ],
   );
 
-  const openLinkedTree = useTreeStore((s) => s.openLinkedTree);
-  const allTrees = useTreeStore((s) => s.trees);
-  // Tree ids the user has listed access to (own + shared) — used to mute
-  // linked-tree badges pointing at trees not shared with them. In the public
+  const openLinkedTree = useWorkspaceStore((s) => s.openLinkedTree);
+  const allTrees = useWorkspaceStore((s) => s.workspaces);
+  // Workspace ids the user has listed access to (own + shared) — used to mute
+  // linked-tree badges pointing at workspaces not shared with them. In the public
   // view there is no tree list, so accessibility is unknown (undefined).
   const accessibleTreeIds = useMemo(
     () =>
@@ -463,8 +463,8 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     [publicView, allTrees],
   );
   const handleOpenLinkedTree = useMemo(
-    () => (treeId: string, memberId?: string | null) => {
-      void openLinkedTree(treeId, memberId).catch(() => {
+    () => (workspaceId: string, memberId?: string | null) => {
+      void openLinkedTree(workspaceId, memberId).catch(() => {
         toast.error(t("tree-view.linked-tree.open-error"));
       });
     },
@@ -716,7 +716,7 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
               onLocate={locator.locateMember}
               className={isMobile ? "w-full" : undefined}
               windowed={windowed}
-              treeId={activeTree?.id}
+              workspaceId={activeTree?.id}
               onFocusRoot={setFocusRoot}
               onOpenOtherTree={openTreeAndLocateMember}
             />

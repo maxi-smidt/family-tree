@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree
+from app.api.deps import get_current_user, get_readable_workspace
 from app.core.config import settings
 from app.db.base import utcnow_iso
 from app.db.session import get_db
@@ -50,8 +50,8 @@ from app.models import (
     Story,
     StoryDocumentLink,
     StoryMemberLink,
-    Tree,
     User,
+    Workspace,
 )
 from app.schemas.job import JobStarted
 from app.services import crypto_export
@@ -75,25 +75,25 @@ from app.services.interchange.gedcom.tree_gedcom_import import do_import_gedcom
 from app.services.media.storage import media_url_to_data_url
 from app.services.system.job_service import create_job, run_job
 
-router = APIRouter(prefix="/trees", tags=["export"])
+router = APIRouter(prefix="/workspaces", tags=["export"])
 
 
-class TreeExportRequest(BaseModel):
+class WorkspaceExportRequest(BaseModel):
     password: str | None = Field(default=None, max_length=1024)
 
 
-def _rows(db: Session, model, tree_id: str) -> list[dict[str, object]]:
+def _rows(db: Session, model, workspace_id: str) -> list[dict[str, object]]:
     from sqlalchemy import inspect as sa_inspect
 
-    items = db.scalars(select(model).where(model.tree_id == tree_id)).all()
+    items = db.scalars(select(model).where(model.workspace_id == workspace_id)).all()
     cols = [c.key for c in sa_inspect(model).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
-@router.post("/{tree_id}/export")
+@router.post("/{workspace_id}/export")
 def export_tree(
-    payload: TreeExportRequest,
-    tree: Tree = Depends(get_readable_tree),
+    payload: WorkspaceExportRequest,
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     members: list[BundleMemberRow] = _rows(db, Member, tree.id)
@@ -151,7 +151,7 @@ def export_tree(
 
 
 def _link_rows(
-    db: Session, link_model, parent_model, tree_id: str
+    db: Session, link_model, parent_model, workspace_id: str
 ) -> list[dict[str, object]]:
     from sqlalchemy import inspect as sa_inspect
 
@@ -161,36 +161,38 @@ def _link_rows(
     items = db.scalars(
         select(link_model)
         .join(parent_model, parent_model.id == getattr(link_model, parent_id_col))
-        .where(parent_model.tree_id == tree_id)
+        .where(parent_model.workspace_id == workspace_id)
     ).all()
     cols = [c.key for c in sa_inspect(link_model).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
-def _unknown_face_rows(db: Session, tree_id: str) -> list[dict[str, object]]:
-    """Gallery unknown-face rows for *tree_id*, reached through GalleryImage
-    since the table itself carries no ``tree_id`` (mirrors ``_link_rows``)."""
+def _unknown_face_rows(db: Session, workspace_id: str) -> list[dict[str, object]]:
+    """Gallery unknown-face rows for *workspace_id*, reached through GalleryImage
+    since the table itself carries no ``workspace_id`` (mirrors ``_link_rows``)."""
     from sqlalchemy import inspect as sa_inspect
 
     items = db.scalars(
         select(GalleryUnknownFace)
         .join(GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id)
-        .where(GalleryImage.tree_id == tree_id)
+        .where(GalleryImage.workspace_id == workspace_id)
     ).all()
     cols = [c.key for c in sa_inspect(GalleryUnknownFace).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
-def _document_link_rows(db: Session, link_model, tree_id: str) -> list[dict[str, object]]:
+def _document_link_rows(
+    db: Session, link_model, workspace_id: str
+) -> list[dict[str, object]]:
     """Rows of a document_id-keyed link table (member/event/story) scoped to
-    *tree_id* via the Document side — every such link table has a
-    ``document_id`` column and Document always carries ``tree_id``."""
+    *workspace_id* via the Document side — every such link table has a
+    ``document_id`` column and Document always carries ``workspace_id``."""
     from sqlalchemy import inspect as sa_inspect
 
     items = db.scalars(
         select(link_model)
         .join(Document, Document.id == link_model.document_id)
-        .where(Document.tree_id == tree_id)
+        .where(Document.workspace_id == workspace_id)
     ).all()
     cols = [c.key for c in sa_inspect(link_model).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]
@@ -246,9 +248,7 @@ async def import_tree(
     bundle = validate_and_migrate(bundle)
 
     job = create_job(db, user.id, "import")
-    background_tasks.add_task(
-        run_job, job.id, user.id, do_import, bundle, name, user.id
-    )
+    background_tasks.add_task(run_job, job.id, user.id, do_import, bundle, name, user.id)
     return JobStarted(job_id=job.id)
 
 
@@ -258,10 +258,10 @@ async def import_tree(
 
 
 @router.get(
-    "/{tree_id}/export-gedcom",
+    "/{workspace_id}/export-gedcom",
 )
 def export_tree_gedcom(
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ) -> Response:
     """Export the tree as a plain-text GEDCOM 5.5.1 file."""
@@ -313,15 +313,10 @@ async def import_tree_gedcom(
         raise HTTPException(status_code=400, detail="Could not read GEDCOM file") from exc
 
     filename_stem = Path(file.filename).stem.strip() if file.filename else ""
-    tree_name = (
-        name
-        or filename_stem
-        or parsed.get("_head_file")
-        or "Imported tree"
-    )
+    workspace_name = name or filename_stem or parsed.get("_head_file") or "Imported tree"
 
     job = create_job(db, user.id, "import_gedcom")
     background_tasks.add_task(
-        run_job, job.id, user.id, do_import_gedcom, parsed, tree_name, user.id
+        run_job, job.id, user.id, do_import_gedcom, parsed, workspace_name, user.id
     )
     return JobStarted(job_id=job.id)

@@ -1,6 +1,6 @@
 """Source-list validation and persistence for virtual-view configuration.
 
-A view's ``source_tree_ids`` payload (from create/update) is a flat list of
+A view's ``source_workspace_ids`` payload (from create/update) is a flat list of
 real tree ids and/or nested ``vv_`` view ids. This module turns that untrusted
 list into a validated, ordered ``[(kind, id), ...]`` — enforcing the ≥2
 distinct sources rule, recursive read access to every underlying real tree,
@@ -11,11 +11,14 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.api.deps import accessible_tree_ids
+from app.api.deps import accessible_workspace_ids
 from app.core.exceptions import AccessDeniedError, ConflictError, InvalidInputError
 from app.models import User
 from app.models.virtual_view import VirtualView, VirtualViewSource
-from app.services.virtual_views.virtual_view_sources import flatten_tree_ids, view_closure
+from app.services.virtual_views.virtual_view_sources import (
+    flatten_workspace_ids,
+    view_closure,
+)
 
 VIRTUAL_VIEW_SOURCE_CYCLE = "virtual_view_source_cycle"
 
@@ -35,21 +38,17 @@ def classify_and_validate_sources(
     """
     unique_ids = list(dict.fromkeys(source_ids))
     if len(unique_ids) < 2:
-        raise InvalidInputError("At least 2 distinct source trees required")
-    accessible = set(accessible_tree_ids(db, user))
+        raise InvalidInputError("At least 2 distinct source workspaces required")
+    accessible = set(accessible_workspace_ids(db, user))
     resolved: list[tuple[str, str]] = []
     for sid in unique_ids:
         if sid.startswith("vv_"):
             nested = db.get(VirtualView, sid)
-            if nested is None or (
-                nested.owner_id != user.id and not user.is_admin
-            ):
+            if nested is None or (nested.owner_id != user.id and not user.is_admin):
                 raise AccessDeniedError(f"No access to view {sid}")
-            if target_view_id is not None and target_view_id in view_closure(
-                db, sid
-            ):
+            if target_view_id is not None and target_view_id in view_closure(db, sid):
                 raise ConflictError(VIRTUAL_VIEW_SOURCE_CYCLE)
-            for tid in flatten_tree_ids(db, nested):
+            for tid in flatten_workspace_ids(db, nested):
                 if tid not in accessible:
                     raise AccessDeniedError(f"No access to tree {tid}")
             resolved.append(("view", sid))
@@ -71,7 +70,7 @@ def flatten_resolved(db: Session, resolved: list[tuple[str, str]]) -> list[str]:
             nested = db.get(VirtualView, sid)
             if nested is None:
                 continue
-            for tid in flatten_tree_ids(db, nested):
+            for tid in flatten_workspace_ids(db, nested):
                 if tid not in flat:
                     flat.append(tid)
     return flat
@@ -83,10 +82,6 @@ def persist_sources(
     """Replace a view's source rows from a validated ``[(kind, id)]`` list."""
     for i, (kind, sid) in enumerate(resolved):
         if kind == "tree":
-            db.add(VirtualViewSource(view_id=view.id, position=i, tree_id=sid))
+            db.add(VirtualViewSource(view_id=view.id, position=i, workspace_id=sid))
         else:
-            db.add(
-                VirtualViewSource(
-                    view_id=view.id, position=i, source_view_id=sid
-                )
-            )
+            db.add(VirtualViewSource(view_id=view.id, position=i, source_view_id=sid))

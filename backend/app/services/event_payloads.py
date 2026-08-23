@@ -14,34 +14,34 @@ from typing import Literal, NotRequired, TypedDict
 
 
 class ActivityEntryAddedData(TypedDict):
-    tree_id: str
+    workspace_id: str
 
 
-class TreeContentChangedData(TypedDict):
+class WorkspaceContentChangedData(TypedDict):
     """``domain`` selects which frontend store re-fetches (see
     ``domainRefreshers`` in ``realtime.ts``): member, event, story, task,
     document, or gallery."""
 
-    tree_id: str
+    workspace_id: str
     domain: str
     actor_user_id: NotRequired[str]
 
 
-class TreeAccessChangedData(TypedDict):
-    tree_id: str
+class WorkspaceAccessChangedData(TypedDict):
+    workspace_id: str
 
 
-class TreeDeletedData(TypedDict):
-    tree_id: str
+class WorkspaceDeletedData(TypedDict):
+    workspace_id: str
 
 
-class TreeOwnershipChangedData(TypedDict):
-    tree_id: str
+class WorkspaceOwnershipChangedData(TypedDict):
+    workspace_id: str
     new_owner_id: str
 
 
-class TreeLayoutChangedData(TypedDict):
-    tree_id: str
+class WorkspaceLayoutChangedData(TypedDict):
+    workspace_id: str
     actor_user_id: NotRequired[str]
 
 
@@ -52,7 +52,7 @@ class JobProgressData(TypedDict):
 
 class JobDoneData(TypedDict):
     job_id: str
-    tree_id: str
+    workspace_id: str
 
 
 class JobFailedData(TypedDict):
@@ -84,7 +84,7 @@ class PresenceUserSnapshot(TypedDict):
 
 
 class PresenceUpdatedData(TypedDict):
-    tree_id: str
+    workspace_id: str
     users: list[PresenceUserSnapshot]
 
 
@@ -94,7 +94,7 @@ class StorageWarningData(TypedDict):
     on ``storage_usage``; the two are structurally identical by
     construction."""
 
-    tree_id: str
+    workspace_id: str
     used_bytes: int
     quota_bytes: int
 
@@ -118,17 +118,17 @@ class FriendRequestReceivedData(TypedDict):
 
 
 class InvitationReceivedData(TypedDict):
-    tree_id: str
-    tree_name: str
+    workspace_id: str
+    workspace_name: str
 
 
 EventPayload = (
     ActivityEntryAddedData
-    | TreeContentChangedData
-    | TreeAccessChangedData
-    | TreeDeletedData
-    | TreeOwnershipChangedData
-    | TreeLayoutChangedData
+    | WorkspaceContentChangedData
+    | WorkspaceAccessChangedData
+    | WorkspaceDeletedData
+    | WorkspaceOwnershipChangedData
+    | WorkspaceLayoutChangedData
     | JobProgressData
     | JobDoneData
     | JobFailedData
@@ -141,7 +141,7 @@ EventPayload = (
     | FriendRequestReceivedData
     | InvitationReceivedData
 )
-"""Every payload shape ``EventBus``/``publish_tree_event`` accepts — one
+"""Every payload shape ``EventBus``/``publish_workspace_event`` accepts — one
 variant per event-type string published anywhere in the backend."""
 
 

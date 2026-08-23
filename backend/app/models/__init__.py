@@ -32,7 +32,6 @@ from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.notification import Notification
 from app.models.quality import QualityIssueDismissal
 from app.models.setting import AppSetting
-from app.models.tree import Tree, TreeInvitation, TreeMembership, TreeUserState
 from app.models.user import User
 from app.models.virtual_view import (
     VirtualView,
@@ -41,16 +40,22 @@ from app.models.virtual_view import (
     VirtualViewSource,
     VirtualViewUserState,
 )
+from app.models.workspace import (
+    Workspace,
+    WorkspaceInvitation,
+    WorkspaceMembership,
+    WorkspaceUserState,
+)
 
 __all__ = [
     "ActivityLog",
     "AdminAuditLog",
     "BackgroundJob",
     "User",
-    "Tree",
-    "TreeMembership",
-    "TreeInvitation",
-    "TreeUserState",
+    "Workspace",
+    "WorkspaceMembership",
+    "WorkspaceInvitation",
+    "WorkspaceUserState",
     "Friendship",
     "VirtualView",
     "VirtualViewSource",

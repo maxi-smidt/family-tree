@@ -85,8 +85,7 @@ def create_access_token(subject: str, expires_delta: timedelta | None = None) ->
         audience=_ACCESS_AUDIENCE,
         token_type="access",
         expires_delta=(
-            expires_delta
-            or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+            expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         ),
     )
 
@@ -115,9 +114,7 @@ def create_totp_session_token(user_id: str) -> str:
 
 def decode_totp_session_token(token: str) -> str:
     """Validate a TOTP session token; return the user id or raise InvalidTokenError."""
-    data = _decode_token(
-        token, audience=_TOTP_AUDIENCE, token_type=_TOTP_PHASE_CLAIM
-    )
+    data = _decode_token(token, audience=_TOTP_AUDIENCE, token_type=_TOTP_PHASE_CLAIM)
     return data["sub"]
 
 
@@ -130,9 +127,9 @@ _PUBLIC_TREE_PHASE = "public_tree"
 _PUBLIC_TREE_TOKEN_HOURS = 12
 
 
-def create_public_tree_token(tree_id: str, access_version: int) -> str:
+def create_public_tree_token(workspace_id: str, access_version: int) -> str:
     return _create_token(
-        tree_id,
+        workspace_id,
         audience=_PUBLIC_TREE_AUDIENCE,
         token_type=_PUBLIC_TREE_PHASE,
         expires_delta=timedelta(hours=_PUBLIC_TREE_TOKEN_HOURS),
@@ -177,7 +174,7 @@ def decode_sse_ticket_token(token: str) -> str:
 # TOTP / recovery-code helpers
 # ---------------------------------------------------------------------------
 
-_TOTP_ISSUER = "Family Tree"
+_TOTP_ISSUER = "Family Workspace"
 _RECOVERY_CODE_COUNT = 8
 
 

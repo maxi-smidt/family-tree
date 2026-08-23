@@ -26,18 +26,18 @@ test("viewer — can read tree, write request is 403", async ({
   });
 
   // Share with second user as viewer
-  await adminApi.post(`/trees/${tree.id}/access`, {
+  await adminApi.post(`/workspaces/${tree.id}/access`, {
     username: secondUser.username,
     role: "viewer",
   });
 
   // Viewer can list members (readable)
-  const members = await secondApi.get<unknown[]>(`/trees/${tree.id}/members`);
+  const members = await secondApi.get<unknown[]>(`/workspaces/${tree.id}/members`);
   expect(Array.isArray(members)).toBe(true);
   expect(members.length).toBeGreaterThan(0);
 
   // Viewer cannot add a member (writable endpoint → 403)
-  const addRes = await fetch(`${API_URL}/trees/${tree.id}/members`, {
+  const addRes = await fetch(`${API_URL}/workspaces/${tree.id}/members`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -65,14 +65,14 @@ test("editor — can add a member, owner sees it", async ({
   const tree = await seedTree("E2E-ShareEditor");
 
   // Share with editor role
-  await adminApi.post(`/trees/${tree.id}/access`, {
+  await adminApi.post(`/workspaces/${tree.id}/access`, {
     username: secondUser.username,
     role: "editor",
   });
 
   // Editor adds a member
   const newId = randomUUID();
-  await secondApi.post(`/trees/${tree.id}/members`, {
+  await secondApi.post(`/workspaces/${tree.id}/members`, {
     id: newId,
     firstName: "EditorAdded",
     lastName: "Member",
@@ -80,7 +80,7 @@ test("editor — can add a member, owner sees it", async ({
 
   // Owner sees it
   const members = await adminApi.get<Array<{ id: string; firstName?: string }>>(
-    `/trees/${tree.id}/members`,
+    `/workspaces/${tree.id}/members`,
   );
   expect(members.find((m) => m.firstName === "EditorAdded")).toBeTruthy();
 });
@@ -97,24 +97,24 @@ test("revoke access — tree disappears from recipient's list and reads 403", as
 }) => {
   const tree = await seedTree("E2E-RevokeAccess");
 
-  await adminApi.post(`/trees/${tree.id}/access`, {
+  await adminApi.post(`/workspaces/${tree.id}/access`, {
     username: secondUser.username,
     role: "editor",
   });
 
   // Confirm visible before revoke
-  let userTrees = await secondApi.get<Array<{ id: string }>>("/trees");
+  let userTrees = await secondApi.get<Array<{ id: string }>>("/workspaces");
   expect(userTrees.map((t) => t.id)).toContain(tree.id);
 
   // Revoke
-  await adminApi.delete(`/trees/${tree.id}/access/${secondUser.id}`);
+  await adminApi.delete(`/workspaces/${tree.id}/access/${secondUser.id}`);
 
   // No longer visible
-  userTrees = await secondApi.get<Array<{ id: string }>>("/trees");
+  userTrees = await secondApi.get<Array<{ id: string }>>("/workspaces");
   expect(userTrees.map((t) => t.id)).not.toContain(tree.id);
 
   // Direct read is now 403
-  const readRes = await fetch(`${API_URL}/trees/${tree.id}/members`, {
+  const readRes = await fetch(`${API_URL}/workspaces/${tree.id}/members`, {
     headers: { Authorization: `Bearer ${secondApi.token}` },
   });
   expect(readRes.status).toBe(403);
@@ -141,7 +141,7 @@ test("share candidates — eligible users listed, owner excluded", async ({
   await secondApi.post(`/friends/${admin.id}/accept`);
 
   const candidates = await adminApi.get<Array<{ username: string }>>(
-    `/trees/${tree.id}/access/candidates`,
+    `/workspaces/${tree.id}/access/candidates`,
   );
   const names = candidates.map((c) => c.username);
   // Second user (not yet shared) is a candidate
@@ -164,7 +164,7 @@ test("invite link — accept grants access", async ({
 
   // Create an invitation
   const invitation = await adminApi.post<{ token: string }>(
-    `/trees/${tree.id}/invitations`,
+    `/workspaces/${tree.id}/invitations`,
     { role: "viewer", expires_in_days: 7 },
   );
   expect(invitation.token).toBeTruthy();
@@ -182,8 +182,8 @@ test("invite link — accept grants access", async ({
   );
   expect(acceptRes.ok).toBe(true);
 
-  // Tree is now accessible
-  const userTrees = await secondApi.get<Array<{ id: string }>>("/trees");
+  // Workspace is now accessible
+  const userTrees = await secondApi.get<Array<{ id: string }>>("/workspaces");
   expect(userTrees.map((t) => t.id)).toContain(tree.id);
 });
 
@@ -194,12 +194,12 @@ test("revoked invite — accept returns 409", async ({
 }) => {
   const tree = await seedTree("E2E-RevokedInvite");
   const invitation = await adminApi.post<{ id: string; token: string }>(
-    `/trees/${tree.id}/invitations`,
+    `/workspaces/${tree.id}/invitations`,
     { role: "viewer" },
   );
 
   // Revoke immediately
-  await adminApi.delete(`/trees/${tree.id}/invitations/${invitation.id}`);
+  await adminApi.delete(`/workspaces/${tree.id}/invitations/${invitation.id}`);
 
   // Accept should fail
   const acceptRes = await fetch(
@@ -231,16 +231,16 @@ test("public tree — unauthenticated visitor can read members", async ({
   });
 
   // Make tree public
-  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
 
   // Unauthenticated request to members (public endpoint)
-  const res = await fetch(`${API_URL}/trees/${tree.id}/members`);
+  const res = await fetch(`${API_URL}/workspaces/${tree.id}/members`);
   expect(res.ok).toBe(true);
   const members = (await res.json()) as Array<{ firstName?: string }>;
   expect(members.find((m) => m.firstName === "PublicPerson")).toBeTruthy();
 
   // Restore to private
-  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: null });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: null });
   void browser;
 });
 
@@ -267,12 +267,12 @@ test("public tree link — anonymous visitor loads photos and custom relations",
     label: "Public E2E relation",
     color: "#123456",
   });
-  await adminApi.post(`/trees/${tree.id}/relations`, {
+  await adminApi.post(`/workspaces/${tree.id}/relations`, {
     from_member_id: first.id,
     to_member_id: second.id,
     relation_type: customRelationId,
   });
-  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
 
   const relationTypesResponse = page.waitForResponse(
     (response) => response.url().endsWith("/api/relation-types"),
@@ -294,7 +294,7 @@ test("public tree link — anonymous visitor loads photos and custom relations",
 
   // Remove the custom registry entry before fixture teardown deletes the tree.
   await adminApi.delete(
-    `/trees/${tree.id}/relations?from_member_id=${first.id}&to_member_id=${second.id}&relation_type=${customRelationId}`,
+    `/workspaces/${tree.id}/relations?from_member_id=${first.id}&to_member_id=${second.id}&relation_type=${customRelationId}`,
   );
   await adminApi.delete(`/admin/relation-types/${customRelationId}`);
 });
@@ -309,9 +309,9 @@ test("public tree link — password-protected anonymous visitor can unlock", asy
     firstName: "ProtectedPublicPerson",
     lastName: "X",
   });
-  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
   const passwordResponse = await fetch(
-    `${API_URL}/trees/${tree.id}/public/password`,
+    `${API_URL}/workspaces/${tree.id}/public/password`,
     {
       method: "PUT",
       headers: {
@@ -341,7 +341,7 @@ test("public tree link — signed-in visitor opens the linked tree normally", as
     firstName: "SignedInPublicPerson",
     lastName: "X",
   });
-  await adminApi.patch(`/trees/${tree.id}/public`, { public_role: "viewer" });
+  await adminApi.patch(`/workspaces/${tree.id}/public`, { public_role: "viewer" });
 
   // The fixture has already loaded the SPA while signing in. Navigate away so
   // the public URL is handled as a fresh link visit rather than a hash-only
@@ -362,7 +362,7 @@ test("public tree disabled — unauthenticated read returns 403", async ({
   const tree = await seedTree("E2E-PrivateTree");
 
   // Ensure private (never published)
-  const res = await fetch(`${API_URL}/trees/${tree.id}/members`);
+  const res = await fetch(`${API_URL}/workspaces/${tree.id}/members`);
   // Anonymous request without a token should be 401 or 403
   expect([401, 403]).toContain(res.status);
 });

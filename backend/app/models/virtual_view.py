@@ -46,7 +46,7 @@ class VirtualViewUserState(Base):
     """Per-user "recently opened" timestamp for a virtual view.
 
     A view only ever has one owner, but an admin can open someone else's view
-    (see ``_resolve_view``); keeping this per-user, like ``TreeUserState``,
+    (see ``_resolve_view``); keeping this per-user, like ``WorkspaceUserState``,
     stops that from reordering the owner's own recent-views list (#878).
     """
 
@@ -64,13 +64,13 @@ class VirtualViewUserState(Base):
 class VirtualViewSource(Base):
     """A source of a virtual view — either a real tree or another virtual view.
 
-    Exactly one of ``tree_id`` / ``source_view_id`` is set (enforced by a check
+    Exactly one of ``workspace_id`` / ``source_view_id`` is set (enforced by a check
     constraint). ``ON DELETE CASCADE`` on both FKs means deleting a source tree
     *or* a nested source view drops this row, so the parent view naturally falls
     below its 2-source minimum and reports ``virtual_view_sources_missing``.
 
     Nesting is pure sugar: a virtual view's sources are flattened to the
-    underlying real ``tree_id``s (see ``services/virtual_view_sources.py``), so
+    underlying real ``workspace_id``s (see ``services/virtual_view_sources.py``), so
     a view over ``{A, vv1}`` with ``vv1 = {B, C}`` behaves exactly like ``{A, B,
     C}``.
     """
@@ -78,7 +78,7 @@ class VirtualViewSource(Base):
     __tablename__ = "virtual_view_sources"
     __table_args__ = (
         CheckConstraint(
-            "(tree_id IS NULL) <> (source_view_id IS NULL)",
+            "(workspace_id IS NULL) <> (source_view_id IS NULL)",
             name="ck_vvs_exactly_one_source",
         ),
     )
@@ -91,8 +91,8 @@ class VirtualViewSource(Base):
     # Positions are assigned 0..n per view (unique within a view), so they form
     # the rest of the primary key now that a source may be a tree or a view.
     position: Mapped[int] = mapped_column(Integer, primary_key=True, default=0)
-    tree_id: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("trees.id", ondelete="CASCADE"), nullable=True
+    workspace_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=True
     )
     source_view_id: Mapped[str | None] = mapped_column(
         String(40),

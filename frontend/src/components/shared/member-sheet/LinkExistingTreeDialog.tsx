@@ -18,10 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { TreeService } from "@/services/TreeService";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { ApiError } from "@/services/api";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { DuplicatePair } from "@/types/merge";
 import {
   PairResolutionState,
@@ -35,10 +35,10 @@ type Mode = "existing" | "create";
 interface Props {
   /** Id of the tree the member being linked currently lives in (the source
    *  side of the bridge, "A" in every conflict). */
-  sourceTreeId: string;
+  sourceWorkspaceId: string;
   memberId: string;
   memberName: string;
-  tree: Tree;
+  tree: Workspace;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onLinked: () => void;
@@ -48,7 +48,7 @@ interface Props {
  * Resolves a tree-in-tree bridge person against an already-existing target
  * tree, opened from `LinkedTreeField` when the user picks a tree from the
  * dropdown. The member must already be saved (bridging writes rows in two
- * trees) and the caller must have write access to the target — both are
+ * workspaces) and the caller must have write access to the target — both are
  * enforced by the backend, but the no-access case is also short-circuited
  * here from `tree.role` for a friendlier state.
  *
@@ -58,7 +58,7 @@ interface Props {
  * used by tree merge, so differences are resolved instead of left to drift.
  */
 export const LinkExistingTreeDialog = ({
-  sourceTreeId,
+  sourceWorkspaceId,
   memberId,
   memberName,
   tree,
@@ -69,7 +69,7 @@ export const LinkExistingTreeDialog = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode.linked-tree.link-dialog",
   });
-  const linkExistingTree = useTreeStore((s) => s.linkExistingTree);
+  const linkExistingTree = useWorkspaceStore((s) => s.linkExistingTree);
 
   const [mode, setMode] = useState<Mode>("existing");
   const [candidates, setCandidates] = useState<DuplicatePair[]>([]);
@@ -87,11 +87,11 @@ export const LinkExistingTreeDialog = ({
     setSelectedId(null);
     setResolutionState(null);
     setLoading(true);
-    TreeService.getLinkCandidates(sourceTreeId, memberId, tree.id)
+    WorkspaceService.getLinkCandidates(sourceWorkspaceId, memberId, tree.id)
       .then((res) => setCandidates(res.candidates))
       .catch(() => setCandidates([]))
       .finally(() => setLoading(false));
-  }, [open, hasWriteAccess, sourceTreeId, memberId, tree.id]);
+  }, [open, hasWriteAccess, sourceWorkspaceId, memberId, tree.id]);
 
   const selectedPair =
     candidates.find((c) => c.member_b.id === selectedId) ?? null;
@@ -106,7 +106,7 @@ export const LinkExistingTreeDialog = ({
     setSubmitting(true);
     try {
       await linkExistingTree(memberId, {
-        linked_tree_id: tree.id,
+        linked_workspace_id: tree.id,
         mode,
         counterpart_member_id: mode === "existing" ? selectedId : undefined,
         field_choices:

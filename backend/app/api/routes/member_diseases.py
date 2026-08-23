@@ -6,23 +6,23 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_current_user,
-    get_readable_tree,
-    get_writable_tree,
+    get_readable_workspace,
+    get_writable_workspace,
     require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
-from app.models import MemberDisease, Tree
+from app.models import MemberDisease, Workspace
 from app.models.user import User
 from app.schemas.family import DiseaseCreate, DiseaseOut, DiseaseUpdate
 from app.services.activity.activity import disease_delete_snapshot, record_activity
 from app.services.cache import invalidate_stats
-from app.services.event_bus import publish_tree_event
-from app.services.media.storage_usage import check_tree_quota
+from app.services.event_bus import publish_workspace_event
+from app.services.media.storage_usage import check_workspace_quota
 from app.services.members.member_access import get_member
 from app.services.unit_of_work import UnitOfWork
 
-router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
+router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
 
 @router.get(
@@ -32,12 +32,12 @@ router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 )
 def list_diseases(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     statement = (
         select(MemberDisease)
-        .where(MemberDisease.tree_id == tree.id)
+        .where(MemberDisease.workspace_id == tree.id)
         .order_by(MemberDisease.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -51,34 +51,34 @@ def list_diseases(
 )
 def add_disease(
     payload: DiseaseCreate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     get_member(db, tree, payload.member_id)
-    check_tree_quota(db, tree, len(str(payload.model_dump()).encode()))
-    disease = MemberDisease(tree_id=tree.id, **payload.model_dump())
+    check_workspace_quota(db, tree, len(str(payload.model_dump()).encode()))
+    disease = MemberDisease(workspace_id=tree.id, **payload.model_dump())
     db.add(disease)
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="create",
             target_type="disease",
             target_label=payload.name,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
                 db,
                 tree,
-                "tree.content_changed",
-                {"tree_id": tree.id, "domain": "member"},
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         uow.after_commit(lambda: invalidate_stats(tree.id))
@@ -94,19 +94,19 @@ def add_disease(
 def update_disease(
     disease_id: str,
     payload: DiseaseUpdate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     disease = db.get(MemberDisease, disease_id)
-    if disease is None or disease.tree_id != tree.id:
+    if disease is None or disease.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Disease not found")
     for key, value in payload.model_dump().items():
         setattr(disease, key, value)
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="update",
             target_type="disease",
@@ -114,16 +114,16 @@ def update_disease(
             target_label=disease.name,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
                 db,
                 tree,
-                "tree.content_changed",
-                {"tree_id": tree.id, "domain": "member"},
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         uow.after_commit(lambda: invalidate_stats(tree.id))
@@ -138,17 +138,17 @@ def update_disease(
 )
 def delete_disease(
     disease_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     disease = db.get(MemberDisease, disease_id)
-    if disease is None or disease.tree_id != tree.id:
+    if disease is None or disease.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Disease not found")
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="delete",
             target_type="disease",
@@ -158,16 +158,16 @@ def delete_disease(
         )
         db.delete(disease)
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
                 db,
                 tree,
-                "tree.content_changed",
-                {"tree_id": tree.id, "domain": "member"},
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         uow.after_commit(lambda: invalidate_stats(tree.id))

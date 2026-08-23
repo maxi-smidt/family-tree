@@ -37,7 +37,7 @@ import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { type Document, type DocumentFile } from "@/types/document";
 import { formatDate } from "@/utils/dateUtils";
 
@@ -68,8 +68,8 @@ export const DocumentsView = () => {
     initialized: storiesInitialized,
     refreshStories,
   } = useStoryStore();
-  const isReady = useTreeStore((state) => state.isReady);
-  const selectedTree = useTreeStore((state) => state.selectedTree);
+  const isReady = useWorkspaceStore((state) => state.isReady);
+  const selectedTree = useWorkspaceStore((state) => state.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
   const canAccessEvents = !restrictions.includes("events");
   const canAccessStories = !restrictions.includes("stories");
@@ -271,7 +271,7 @@ function DocumentCard({
   onDelete,
 }: DocumentCardProps) {
   const { t } = useTranslation(undefined, { keyPrefix: "documents-view" });
-  const treeId = useTreeStore((state) => state.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((state) => state.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((state) => state.setOpenSheet);
   const navigateTo = useNavigationStore((state) => state.navigateTo);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -303,8 +303,8 @@ function DocumentCard({
   };
 
   const openMember = (memberId: string) => {
-    if (!treeId) return;
-    setOpenSheet(treeId, { memberId, tab: "records", mode: "view" });
+    if (!workspaceId) return;
+    setOpenSheet(workspaceId, { memberId, tab: "records", mode: "view" });
   };
 
   const renderAttachment = (file: DocumentFile) => (

@@ -61,13 +61,13 @@ class FakeRedis:
 # ---------------------------------------------------------------------------
 
 
-def _stats_url(tree_id: str) -> str:
-    return f"{API}/trees/{tree_id}/statistics"
+def _stats_url(workspace_id: str) -> str:
+    return f"{API}/workspaces/{workspace_id}/statistics"
 
 
 def _create_member(client, tree, user, member_id: str = "m1") -> None:
     resp = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(user),
         json={"id": member_id, "firstName": "Ada", "lastName": "Lovelace", "gender": "f"},
     )
@@ -278,9 +278,7 @@ def test_member_delete_busts_stats_cache(client, db, monkeypatch):
         fake_redis.del_calls.clear()
 
         # Delete the member — should also invalidate cache.
-        resp = client.delete(
-            f"{API}/trees/{tree.id}/members/m1", headers=auth(user)
-        )
+        resp = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(user))
         assert resp.status_code == 204
 
         loop.run_until_complete(asyncio.sleep(0))

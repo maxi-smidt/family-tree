@@ -18,12 +18,12 @@ from app.api.routes.member_diseases import add_disease
 from app.api.routes.members import create_member
 from app.api.routes.stories import create_story, delete_story
 from app.api.routes.tasks import create_task
-from app.api.routes.tree_sharing import share_tree
-from app.api.routes.trees import create_tree
-from app.models import Event, Member, MemberDisease, MemberTask, Story, Tree
+from app.api.routes.workspace_sharing import share_tree
+from app.api.routes.workspaces import create_tree
+from app.models import Event, Member, MemberDisease, MemberTask, Story, Workspace
 from app.schemas.content import EventCreate, LinksSet, MemberTaskCreate, StoryCreate
 from app.schemas.family import DiseaseCreate, MemberCreate
-from app.schemas.tree import TreeCreate, TreeShare
+from app.schemas.workspace import WorkspaceCreate, WorkspaceShare
 from app.services.unit_of_work import UnitOfWork
 from tests.conftest import add_member, befriend, make_tree, make_user
 
@@ -37,24 +37,24 @@ _TS = "2000-01-01T00:00:00Z"
 def test_commits_and_runs_callbacks_in_order(db, owner):
     calls: list[int] = []
     with UnitOfWork(db) as uow:
-        db.add(Tree(id="uow-t1", name="T", owner_id=owner.id))
+        db.add(Workspace(id="uow-t1", name="T", owner_id=owner.id))
         uow.after_commit(lambda: calls.append(1))
         uow.after_commit(lambda: calls.append(2))
     assert calls == [1, 2]
-    assert db.get(Tree, "uow-t1") is not None
+    assert db.get(Workspace, "uow-t1") is not None
 
 
 def test_exception_in_block_rolls_back_and_skips_callbacks(db, owner, session_factory):
     calls: list[int] = []
     with pytest.raises(ValueError):
         with UnitOfWork(db) as uow:
-            db.add(Tree(id="uow-t2", name="T", owner_id=owner.id))
+            db.add(Workspace(id="uow-t2", name="T", owner_id=owner.id))
             uow.after_commit(lambda: calls.append(1))
             raise ValueError("boom")
     assert calls == []
     fresh = session_factory()
     try:
-        assert fresh.get(Tree, "uow-t2") is None
+        assert fresh.get(Workspace, "uow-t2") is None
     finally:
         fresh.close()
 
@@ -91,17 +91,17 @@ def test_reusing_uow_after_failure_does_not_replay_stale_callbacks(db, owner):
 
     with pytest.raises(ValueError):
         with uow:
-            db.add(Tree(id="uow-t3", name="T", owner_id=owner.id))
+            db.add(Workspace(id="uow-t3", name="T", owner_id=owner.id))
             uow.after_commit(lambda: calls.append("stale"))
             raise ValueError("boom")
     assert calls == []
 
     with uow:
-        db.add(Tree(id="uow-t4", name="T", owner_id=owner.id))
+        db.add(Workspace(id="uow-t4", name="T", owner_id=owner.id))
         uow.after_commit(lambda: calls.append("fresh"))
     assert calls == ["fresh"]
-    assert db.get(Tree, "uow-t3") is None
-    assert db.get(Tree, "uow-t4") is not None
+    assert db.get(Workspace, "uow-t3") is None
+    assert db.get(Workspace, "uow-t4") is not None
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ def test_create_story_commit_failure_leaves_no_row_and_publishes_nothing(
     tree = make_tree(db, owner)
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
 
-    with patch("app.api.routes.stories.publish_tree_event") as published:
+    with patch("app.api.routes.stories.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
             create_story(
                 StoryCreate(id="s1", title="A tale", created_at=_TS, updated_at=_TS),
@@ -144,7 +144,7 @@ def test_delete_story_commit_failure_leaves_story_intact(db, owner, monkeypatch)
     )
 
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
-    with patch("app.api.routes.stories.publish_tree_event") as published:
+    with patch("app.api.routes.stories.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
             delete_story("s2", tree=tree, user=owner, db=db)
     published.assert_not_called()
@@ -160,7 +160,7 @@ def test_create_event_commit_failure_leaves_no_row_and_publishes_nothing(
     tree = make_tree(db, owner)
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
 
-    with patch("app.api.routes.events.publish_tree_event") as published:
+    with patch("app.api.routes.events.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
             create_event(
                 EventCreate(id="e1", event_type="birth", date="2000", created_at=_TS),
@@ -189,7 +189,7 @@ def test_delete_event_commit_failure_leaves_event_intact(db, owner, monkeypatch)
     )
 
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
-    with patch("app.api.routes.events.publish_tree_event") as published:
+    with patch("app.api.routes.events.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
             delete_event("e2", tree=tree, user=owner, db=db)
     published.assert_not_called()
@@ -211,7 +211,7 @@ def test_create_story_link_failure_rolls_back_the_whole_mutation(
         "app.api.routes.stories.replace_member_links",
         side_effect=RuntimeError("boom"),
     ):
-        with patch("app.api.routes.stories.publish_tree_event") as published:
+        with patch("app.api.routes.stories.publish_workspace_event") as published:
             with pytest.raises(RuntimeError):
                 create_story(
                     StoryCreate(
@@ -241,11 +241,11 @@ def test_set_links_on_event_emits_content_changed(db, owner):
         db=db,
     )
 
-    with patch("app.api.routes.events.publish_tree_event") as published:
+    with patch("app.api.routes.events.publish_workspace_event") as published:
         set_links("e3", LinksSet(member_ids=[]), tree=tree, user=owner, db=db)
 
     event_types = [c.args[2] for c in published.call_args_list]
-    assert "tree.content_changed" in event_types
+    assert "workspace.content_changed" in event_types
 
 
 # ---------------------------------------------------------------------------
@@ -261,7 +261,7 @@ def test_create_member_commit_failure_leaves_no_row_and_publishes_nothing(
     tree = make_tree(db, owner)
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
 
-    with patch("app.api.routes.members.publish_tree_event") as published:
+    with patch("app.api.routes.members.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
             create_member(
                 MemberCreate(id="m1", first_name="A"), tree=tree, user=owner, db=db
@@ -305,7 +305,7 @@ def test_add_disease_commit_failure_leaves_no_row_and_publishes_nothing(
     add_member(db, tree, "m1", first_name="A")
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
 
-    with patch("app.api.routes.member_diseases.publish_tree_event") as published:
+    with patch("app.api.routes.member_diseases.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
             add_disease(
                 DiseaseCreate(
@@ -329,14 +329,14 @@ def test_create_tree_commit_failure_leaves_no_row_and_publishes_nothing(
 ):
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
 
-    with patch("app.api.routes.trees.publish_tree_event") as published:
+    with patch("app.api.routes.workspaces.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
-            create_tree(TreeCreate(name="New tree"), user=owner, db=db)
+            create_tree(WorkspaceCreate(name="New tree"), user=owner, db=db)
     published.assert_not_called()
 
     fresh = session_factory()
     try:
-        assert fresh.scalar(select(Tree).where(Tree.name == "New tree")) is None
+        assert fresh.scalar(select(Workspace).where(Workspace.name == "New tree")) is None
     finally:
         fresh.close()
 
@@ -349,14 +349,14 @@ def test_share_tree_commit_failure_grants_no_access_and_notifies_nothing(
     befriend(db, owner, bob)
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
 
-    with patch("app.api.routes.tree_sharing.publish_tree_event") as published:
+    with patch("app.api.routes.workspace_sharing.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
-            share_tree(TreeShare(username="bob"), tree=tree, user=owner, db=db)
+            share_tree(WorkspaceShare(username="bob"), tree=tree, user=owner, db=db)
     published.assert_not_called()
 
     fresh = session_factory()
     try:
-        assert fresh.get(Tree, tree.id).memberships == []
+        assert fresh.get(Workspace, tree.id).memberships == []
     finally:
         fresh.close()
 

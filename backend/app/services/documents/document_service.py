@@ -32,7 +32,13 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
-from app.models import Document, DocumentFile, DocumentMemberLink, DocumentUpload, Tree
+from app.models import (
+    Document,
+    DocumentFile,
+    DocumentMemberLink,
+    DocumentUpload,
+    Workspace,
+)
 from app.models.user import User
 from app.schemas.content import DocumentSave
 from app.services.activity.activity import record_activity
@@ -42,7 +48,7 @@ from app.services.documents.document_save_plan import (
     build_save_plan,
     external_link_url,
 )
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import delete_media
 from app.services.unit_of_work import UnitOfWork
 
@@ -54,7 +60,7 @@ __all__ = ["external_link_url", "prune_stale_uploads", "save_document"]
 STALE_UPLOAD_TTL_SECONDS = 6 * 60 * 60
 
 
-def prune_stale_uploads(db: Session, tree: Tree) -> None:
+def prune_stale_uploads(db: Session, tree: Workspace) -> None:
     """Delete this tree's staged uploads that were never claimed within the TTL.
 
     Called opportunistically when a new upload is staged, so abandoned uploads
@@ -62,12 +68,10 @@ def prune_stale_uploads(db: Session, tree: Tree) -> None:
     tree is touched instead of lingering. Best-effort and self-contained: it
     commits its own cleanup and never raises into the caller's flow.
     """
-    cutoff = (
-        datetime.now(UTC) - timedelta(seconds=STALE_UPLOAD_TTL_SECONDS)
-    ).isoformat()
+    cutoff = (datetime.now(UTC) - timedelta(seconds=STALE_UPLOAD_TTL_SECONDS)).isoformat()
     stale = db.scalars(
         select(DocumentUpload).where(
-            DocumentUpload.tree_id == tree.id,
+            DocumentUpload.workspace_id == tree.id,
             DocumentUpload.created_at < cutoff,
         )
     ).all()
@@ -86,7 +90,7 @@ def prune_stale_uploads(db: Session, tree: Tree) -> None:
 def _persist_save_plan(
     db: Session,
     *,
-    tree: Tree,
+    tree: Workspace,
     user: User,
     document_id: str,
     existing: Document | None,
@@ -108,7 +112,7 @@ def _persist_save_plan(
         if plan.is_create:
             document = Document(
                 id=document_id,
-                tree_id=tree.id,
+                workspace_id=tree.id,
                 title=payload.title,
                 description=payload.description,
                 document_date=payload.document_date,
@@ -143,7 +147,7 @@ def _persist_save_plan(
             db.add(
                 DocumentFile(
                     id=link.id,
-                    tree_id=tree.id,
+                    workspace_id=tree.id,
                     document_id=document_id,
                     kind="link",
                     filename=link.filename,
@@ -161,7 +165,7 @@ def _persist_save_plan(
             db.add(
                 DocumentFile(
                     id=upload.id,
-                    tree_id=tree.id,
+                    workspace_id=tree.id,
                     document_id=document_id,
                     kind="file",
                     filename=upload.filename,
@@ -175,7 +179,7 @@ def _persist_save_plan(
 
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="create" if plan.is_create else "update",
             target_type="document",
@@ -186,16 +190,16 @@ def _persist_save_plan(
         delete_urls = plan.delete_urls
         uow.after_commit(lambda: [delete_media(url) for url in delete_urls])
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
                 db,
                 tree,
-                "tree.content_changed",
-                {"tree_id": tree.id, "domain": "document"},
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "document"},
             )
         )
     return document
@@ -204,7 +208,7 @@ def _persist_save_plan(
 def save_document(
     db: Session,
     *,
-    tree: Tree,
+    tree: Workspace,
     user: User,
     document_id: str,
     payload: DocumentSave,
@@ -218,7 +222,7 @@ def save_document(
     mutated.
     """
     existing = db.get(Document, document_id)
-    if existing is not None and existing.tree_id != tree.id:
+    if existing is not None and existing.workspace_id != tree.id:
         raise NotFoundError("Document not found")
     is_create = existing is None
 

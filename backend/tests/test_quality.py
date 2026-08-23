@@ -2,7 +2,7 @@
 
 from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
-from app.services.trees.quality_checks import issue_id_for, run_quality_checks
+from app.services.workspaces.quality_checks import issue_id_for, run_quality_checks
 from tests.conftest import (
     API,
     add_member,
@@ -33,18 +33,18 @@ class TestIssueId:
 
 
 def _member(mid: str, **kw) -> Member:
-    return Member(id=mid, tree_id="t1", **kw)
+    return Member(id=mid, workspace_id="t1", **kw)
 
 
 def _relation(from_id: str, to_id: str, rtype: str = "parent") -> Relation:
     return Relation(
-        tree_id="t1", from_member_id=from_id, to_member_id=to_id, relation_type=rtype
+        workspace_id="t1", from_member_id=from_id, to_member_id=to_id, relation_type=rtype
     )
 
 
 def _event(eid: str, date: str, event_type: str = "marriage") -> Event:
     return Event(
-        id=eid, tree_id="t1", event_type=event_type, date=date, created_at="2020"
+        id=eid, workspace_id="t1", event_type=event_type, date=date, created_at="2020"
     )
 
 
@@ -331,9 +331,9 @@ class TestEventAfterDeath:
 # ---------------------------------------------------------------------------
 
 
-def _add_relation(client, tree_id, from_id, to_id, rtype, headers):
+def _add_relation(client, workspace_id, from_id, to_id, rtype, headers):
     return client.post(
-        f"{API}/trees/{tree_id}/relations",
+        f"{API}/workspaces/{workspace_id}/relations",
         headers=headers,
         json={"from_member_id": from_id, "to_member_id": to_id, "relation_type": rtype},
     )
@@ -343,10 +343,10 @@ def test_quality_report_empty_tree(client, db):
     owner = make_user(db, "alice")
     tree = make_tree(db, owner)
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200
     body = res.json()
-    assert body["tree_id"] == tree.id
+    assert body["workspace_id"] == tree.id
     assert body["total_members"] == 0
     assert body["issues"] == []
 
@@ -358,7 +358,7 @@ def test_quality_report_birth_after_death(client, db):
         db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
     )
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "birth_after_death" in types
@@ -371,15 +371,17 @@ def test_quality_report_child_after_parent_death(client, db):
     add_member(db, tree, "c1", first_name="Kid", date_of_birth="1910")
     _add_relation(client, tree.id, "c1", "p1", "parent", auth(owner))
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "child_after_parent_death" in types
 
 
-def _add_event(client, tree_id, eid, date, member_ids, headers, event_type="marriage"):
+def _add_event(
+    client, workspace_id, eid, date, member_ids, headers, event_type="marriage"
+):
     return client.post(
-        f"{API}/trees/{tree_id}/events",
+        f"{API}/workspaces/{workspace_id}/events",
         headers=headers,
         json={
             "id": eid,
@@ -398,7 +400,7 @@ def test_quality_report_event_after_death(client, db):
     res = _add_event(client, tree.id, "e1", "1950", ["m1"], auth(owner))
     assert res.status_code in (200, 201)
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "event_after_death" in types
@@ -410,18 +412,18 @@ def test_quality_report_event_after_death_dismiss_roundtrip(client, db):
     add_member(db, tree, "m1", first_name="Dead", date_of_death="1900")
     _add_event(client, tree.id, "e1", "1950", ["m1"], auth(owner))
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     issue = next(
         i for i in res.json()["issues"] if i["issue_type"] == "event_after_death"
     )
 
     res = client.post(
-        f"{API}/trees/{tree.id}/quality-report/issues/{issue['id']}/dismiss",
+        f"{API}/workspaces/{tree.id}/quality-report/issues/{issue['id']}/dismiss",
         headers=auth(owner),
     )
     assert res.status_code == 204
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "event_after_death" not in types
 
@@ -434,7 +436,7 @@ def test_quality_report_viewer_can_read(client, db):
     tree = make_tree(db, owner)
     share(db, tree, viewer, role="viewer")
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(viewer))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(viewer))
     assert res.status_code == 200
 
 
@@ -443,7 +445,7 @@ def test_quality_report_unauthorized(client, db):
     outsider = make_user(db, "eve")
     tree = make_tree(db, owner)
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(outsider))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(outsider))
     assert res.status_code == 403
 
 
@@ -455,7 +457,7 @@ def test_quality_report_cycle_detected(client, db):
     _add_relation(client, tree.id, "m1", "m2", "parent", auth(owner))
     _add_relation(client, tree.id, "m2", "m1", "parent", auth(owner))
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "relationship_cycle" in types
@@ -467,7 +469,7 @@ def test_quality_report_duplicate_names(client, db):
     add_member(db, tree, "m1", first_name="John", last_name="Doe")
     add_member(db, tree, "m2", first_name="John", last_name="Doe")
 
-    res = client.get(f"{API}/trees/{tree.id}/quality-report", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner))
     assert res.status_code == 200
     types = [i["issue_type"] for i in res.json()["issues"]]
     assert "duplicate_candidate" in types
@@ -486,18 +488,18 @@ def test_dismiss_issue_hides_it_by_default(client, db):
     )
 
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner)
     ).json()
     issue_id = report["issues"][0]["id"]
 
     res = client.post(
-        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        f"{API}/workspaces/{tree.id}/quality-report/issues/{issue_id}/dismiss",
         headers=auth(owner),
     )
     assert res.status_code == 204
 
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner)
     ).json()
     assert report["issues"] == []
 
@@ -509,16 +511,16 @@ def test_dismissed_issue_visible_with_include_dismissed(client, db):
         db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
     )
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner)
     ).json()
     issue_id = report["issues"][0]["id"]
     client.post(
-        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        f"{API}/workspaces/{tree.id}/quality-report/issues/{issue_id}/dismiss",
         headers=auth(owner),
     )
 
     res = client.get(
-        f"{API}/trees/{tree.id}/quality-report",
+        f"{API}/workspaces/{tree.id}/quality-report",
         params={"include_dismissed": True},
         headers=auth(owner),
     )
@@ -535,22 +537,22 @@ def test_restore_dismissed_issue(client, db):
         db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
     )
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner)
     ).json()
     issue_id = report["issues"][0]["id"]
     client.post(
-        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        f"{API}/workspaces/{tree.id}/quality-report/issues/{issue_id}/dismiss",
         headers=auth(owner),
     )
 
     res = client.delete(
-        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        f"{API}/workspaces/{tree.id}/quality-report/issues/{issue_id}/dismiss",
         headers=auth(owner),
     )
     assert res.status_code == 204
 
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner)
     ).json()
     assert len(report["issues"]) == 1
     assert report["issues"][0]["dismissed"] is False
@@ -561,7 +563,7 @@ def test_dismiss_unknown_issue_404(client, db):
     tree = make_tree(db, owner)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/quality-report/issues/does-not-exist/dismiss",
+        f"{API}/workspaces/{tree.id}/quality-report/issues/does-not-exist/dismiss",
         headers=auth(owner),
     )
     assert res.status_code == 404
@@ -578,12 +580,12 @@ def test_dismiss_requires_write_access(client, db):
         db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
     )
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner)
     ).json()
     issue_id = report["issues"][0]["id"]
 
     res = client.post(
-        f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+        f"{API}/workspaces/{tree.id}/quality-report/issues/{issue_id}/dismiss",
         headers=auth(viewer),
     )
     assert res.status_code == 403
@@ -596,19 +598,19 @@ def test_dismiss_is_idempotent(client, db):
         db, tree, "m1", first_name="Bad", date_of_birth="2020", date_of_death="2010"
     )
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/quality-report", headers=auth(owner)
     ).json()
     issue_id = report["issues"][0]["id"]
 
     for _ in range(2):
         res = client.post(
-            f"{API}/trees/{tree.id}/quality-report/issues/{issue_id}/dismiss",
+            f"{API}/workspaces/{tree.id}/quality-report/issues/{issue_id}/dismiss",
             headers=auth(owner),
         )
         assert res.status_code == 204
 
     report = client.get(
-        f"{API}/trees/{tree.id}/quality-report",
+        f"{API}/workspaces/{tree.id}/quality-report",
         params={"include_dismissed": True},
         headers=auth(owner),
     ).json()
@@ -624,26 +626,26 @@ def _make_bridge(client, db, user, first_name="Jo"):
     """Owner's tree with member m1 bridged into a fresh linked subtree."""
     main = make_tree(db, user, "Main")
     client.post(
-        f"{API}/trees/{main.id}/members",
+        f"{API}/workspaces/{main.id}/members",
         headers=auth(user),
         json={"id": "m1", "firstName": first_name, "lastName": "Doe", "gender": "f"},
     )
     created = client.post(
-        f"{API}/trees/{main.id}/members/m1/subtree",
+        f"{API}/workspaces/{main.id}/members/m1/subtree",
         headers=auth(user),
         json={"name": "Sub"},
     )
     assert created.status_code == 201
     body = created.json()
-    return main, body["tree"]["id"], body["anchor"]["linkedMemberId"]
+    return main, body["workspace"]["id"], body["anchor"]["linkedMemberId"]
 
 
-def _drift_issues(client, user, tree_id):
-    res = client.get(f"{API}/trees/{tree_id}/quality-report", headers=auth(user))
+def _drift_issues(client, user, workspace_id):
+    res = client.get(
+        f"{API}/workspaces/{workspace_id}/quality-report", headers=auth(user)
+    )
     assert res.status_code == 200
-    return [
-        i for i in res.json()["issues"] if i["issue_type"] == "bridge_person_drift"
-    ]
+    return [i for i in res.json()["issues"] if i["issue_type"] == "bridge_person_drift"]
 
 
 def test_bridge_drift_detected_in_quality_report(client, db):
@@ -681,7 +683,7 @@ def test_bridge_drift_resolve_push_and_pull(client, db):
 
     # push: this tree's values win.
     res = client.post(
-        f"{API}/trees/{main.id}/members/m1/bridge-sync",
+        f"{API}/workspaces/{main.id}/members/m1/bridge-sync",
         headers=auth(user),
         json={"direction": "push"},
     )
@@ -695,7 +697,7 @@ def test_bridge_drift_resolve_push_and_pull(client, db):
     counterpart.first_name = "Johanna"
     db.commit()
     res = client.post(
-        f"{API}/trees/{main.id}/members/m1/bridge-sync",
+        f"{API}/workspaces/{main.id}/members/m1/bridge-sync",
         headers=auth(user),
         json={"direction": "pull"},
     )
@@ -713,7 +715,7 @@ def test_bridge_drift_resolve_requires_access_to_other_tree(client, db):
     share(db, main, editor, role="editor")
 
     res = client.post(
-        f"{API}/trees/{main.id}/members/m1/bridge-sync",
+        f"{API}/workspaces/{main.id}/members/m1/bridge-sync",
         headers=auth(editor),
         json={"direction": "push"},
     )

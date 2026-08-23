@@ -38,7 +38,7 @@ def encrypt_bundle(bundle: Mapping[str, object], password: str | None) -> bytes:
 
 def decrypt_bundle(blob: bytes, password: str | None) -> dict[str, object]:
     if blob[: len(MAGIC)] != MAGIC:
-        raise ValueError("Not a Family Tree export file")
+        raise ValueError("Not a Family Workspace export file")
     flags = blob[len(MAGIC)]
     offset = len(MAGIC) + 1
     salt = blob[offset : offset + 16]
@@ -57,5 +57,5 @@ def decrypt_bundle(blob: bytes, password: str | None) -> dict[str, object]:
 
 def is_password_protected(blob: bytes) -> bool:
     if blob[: len(MAGIC)] != MAGIC:
-        raise ValueError("Not a Family Tree export file")
+        raise ValueError("Not a Family Workspace export file")
     return bool(blob[len(MAGIC)] & FLAG_PASSWORD)

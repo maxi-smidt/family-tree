@@ -17,12 +17,12 @@ from app.core.exceptions import (
     PayloadTooLargeError,
     QuotaExceeded,
 )
-from app.models import Member, Tree
+from app.models import Member, Workspace
 from app.models.user import User
 from app.schemas.family import MemberUpdate
 from app.services.activity.activity import record_activity
 from app.services.cache import invalidate_stats
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import (
     MEDIA_URL_PREFIX,
     ImageTooLarge,
@@ -56,7 +56,7 @@ class MemberUpdateResult:
 
 
 def update_member(
-    db: Session, *, tree: Tree, user: User, member_id: str, payload: MemberUpdate
+    db: Session, *, tree: Workspace, user: User, member_id: str, payload: MemberUpdate
 ) -> MemberUpdateResult:
     """Apply *payload* to one member and every downstream effect as one unit.
 
@@ -74,22 +74,25 @@ def update_member(
     # actual change is a link edit — an unchanged value must not re-run the
     # feature/access checks, otherwise ordinary edits fail once the tree_links
     # flag is turned off (or for editors without access to the linked tree).
-    if "linked_tree_id" in changes and changes["linked_tree_id"] == member.linked_tree_id:
-        del changes["linked_tree_id"]
+    if (
+        "linked_workspace_id" in changes
+        and changes["linked_workspace_id"] == member.linked_workspace_id
+    ):
+        del changes["linked_workspace_id"]
     if (
         "linked_member_id" in changes
         and changes["linked_member_id"] == member.linked_member_id
     ):
         del changes["linked_member_id"]
-    unlinked_counterpart_tree: Tree | None = None
-    if "linked_tree_id" in changes:
-        if changes["linked_tree_id"] is not None:
+    unlinked_counterpart_tree: Workspace | None = None
+    if "linked_workspace_id" in changes:
+        if changes["linked_workspace_id"] is not None:
             # Establishing a link requires resolving a bridge person on both
-            # sides, which touches two trees — this single-row endpoint can't
+            # sides, which touches two workspaces — this single-row endpoint can't
             # do that safely. Only clearing (null) or leaving it unchanged is
             # allowed here; see POST /members/{id}/link.
             raise InvalidInputError("Establish tree links via the link endpoint")
-        validate_linked_tree(db, tree, user, changes["linked_tree_id"])
+        validate_linked_tree(db, tree, user, changes["linked_workspace_id"])
         # Unlinking invalidates the counterpart pointer into the old tree.
         changes["linked_member_id"] = None
         # Tear down the other side too: a bridge is symmetric, so unlinking
@@ -101,13 +104,13 @@ def update_member(
         if member.linked_member_id is not None:
             counterpart = db.get(Member, member.linked_member_id)
             if counterpart is not None:
-                counterpart.linked_tree_id = None
+                counterpart.linked_workspace_id = None
                 counterpart.linked_member_id = None
-                unlinked_counterpart_tree = db.get(Tree, counterpart.tree_id)
+                unlinked_counterpart_tree = db.get(Workspace, counterpart.workspace_id)
     if changes.get("linked_member_id") is not None:
         validate_linked_member(
             db,
-            changes.get("linked_tree_id", member.linked_tree_id),
+            changes.get("linked_workspace_id", member.linked_workspace_id),
             changes["linked_member_id"],
             member.id,
         )
@@ -186,7 +189,7 @@ def update_member(
         label = " ".join(filter(None, [member.first_name, member.last_name])) or None
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="update",
             target_type="member",
@@ -195,42 +198,45 @@ def update_member(
             details=diff_details,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "member"}
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         if vital_events_changed:
             uow.after_commit(
-                lambda: publish_tree_event(
+                lambda: publish_workspace_event(
                     db,
                     tree,
-                    "tree.content_changed",
-                    {"tree_id": tree.id, "domain": "event"},
+                    "workspace.content_changed",
+                    {"workspace_id": tree.id, "domain": "event"},
                 )
             )
         uow.after_commit(lambda: invalidate_stats(tree.id))
         if synced_tree is not None:
             uow.after_commit(
-                lambda: publish_tree_event(
+                lambda: publish_workspace_event(
                     db,
                     synced_tree,
-                    "tree.content_changed",
-                    {"tree_id": synced_tree.id, "domain": "member"},
+                    "workspace.content_changed",
+                    {"workspace_id": synced_tree.id, "domain": "member"},
                 )
             )
             uow.after_commit(lambda: invalidate_stats(synced_tree.id))
         if unlinked_counterpart_tree is not None:
             uow.after_commit(
-                lambda: publish_tree_event(
+                lambda: publish_workspace_event(
                     db,
                     unlinked_counterpart_tree,
-                    "tree.content_changed",
-                    {"tree_id": unlinked_counterpart_tree.id, "domain": "member"},
+                    "workspace.content_changed",
+                    {"workspace_id": unlinked_counterpart_tree.id, "domain": "member"},
                 )
             )
             uow.after_commit(lambda: invalidate_stats(unlinked_counterpart_tree.id))

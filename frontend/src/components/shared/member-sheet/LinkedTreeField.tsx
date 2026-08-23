@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { LinkExistingTreeDialog } from "./LinkExistingTreeDialog";
 
 const NONE_VALUE = "__none__";
@@ -26,14 +26,14 @@ interface Props {
   /** The form has other unsaved changes. Creating + linking persists
    *  immediately and re-hydrates the form, so it is blocked until saved. */
   formDirty?: boolean;
-  onChange: (treeId: string | null) => void;
+  onChange: (workspaceId: string | null) => void;
   /** Called after a link is established through the dialog so the caller can
    *  re-hydrate the form from the (now updated) store member. */
   onLinked?: () => void;
 }
 
 /**
- * Tree-in-tree editor control: link this member to another tree that details
+ * Workspace-in-tree editor control: link this member to another tree that details
  * their own family. The user can create a brand-new tree (named after the
  * member) and link it in one step, or pick an existing accessible tree, which
  * opens a dialog to resolve a bridge person (find a matching person already
@@ -55,15 +55,15 @@ export const LinkedTreeField = ({
   const { t } = useTranslation(undefined, {
     keyPrefix: "sheet.edit-mode.linked-tree",
   });
-  const trees = useTreeStore((s) => s.trees);
-  const createLinkedSubtree = useTreeStore((s) => s.createLinkedSubtree);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const createLinkedSubtree = useWorkspaceStore((s) => s.createLinkedSubtree);
   const [creating, setCreating] = useState(false);
   const [pendingLinkTree, setPendingLinkTree] = useState<
-    (typeof trees)[number] | null
+    (typeof workspaces)[number] | null
   >(null);
 
   // A member cannot link to its own tree, so exclude the current one.
-  const options = trees.filter((tr) => tr.id !== currentTreeId);
+  const options = workspaces.filter((tr) => tr.id !== currentTreeId);
   const knownLink = options.find((tr) => tr.id === value);
 
   // Linking (create or find-existing) requires a saved member on this side.
@@ -85,9 +85,9 @@ export const LinkedTreeField = ({
     }
   };
 
-  const handleSelectTree = (treeId: string) => {
-    if (treeId === NONE_VALUE) return;
-    const tree = options.find((tr) => tr.id === treeId);
+  const handleSelectTree = (workspaceId: string) => {
+    if (workspaceId === NONE_VALUE) return;
+    const tree = options.find((tr) => tr.id === workspaceId);
     if (tree) setPendingLinkTree(tree);
   };
 
@@ -159,7 +159,7 @@ export const LinkedTreeField = ({
       )}
       {pendingLinkTree && memberId && currentTreeId && (
         <LinkExistingTreeDialog
-          sourceTreeId={currentTreeId}
+          sourceWorkspaceId={currentTreeId}
           memberId={memberId}
           memberName={memberName}
           tree={pendingLinkTree}

@@ -2,7 +2,7 @@ import "./App.css";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/hooks/useAuthStore";
 import { resetLegalStoreForSession } from "@/hooks/useLegalStore";
-import { resetTreeStoreForSession, useTreeStore } from "@/hooks/useTreeStore";
+import { resetTreeStoreForSession, useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { resetTutorialStoreForSession } from "@/hooks/useTutorialStore";
 import { resetNotificationStoreForSession } from "@/hooks/useNotificationStore";
 import { startRealtime, stopRealtime } from "@/services/realtime";
@@ -28,8 +28,8 @@ export const App = () => {
   const user = useAuthStore((s) => s.user);
   const userId = user?.id;
   const pendingPublicTreeId = useAuthStore((s) => s.pendingPublicTreeId);
-  const loadTrees = useTreeStore((s) => s.loadTrees);
-  const openTreeById = useTreeStore((s) => s.openTreeById);
+  const loadTrees = useWorkspaceStore((s) => s.loadTrees);
+  const openTreeById = useWorkspaceStore((s) => s.openTreeById);
   const [treesBootstrapped, setTreesBootstrapped] = useState(false);
   const [publicTreeFallback, setPublicTreeFallback] = useState(false);
   const adminOpen = useAdminViewStore((s) => s.open);
@@ -61,7 +61,7 @@ export const App = () => {
 
     void (async () => {
       try {
-        // Accept a pending invite (from an #invite= link) before loading trees
+        // Accept a pending invite (from an #invite= link) before loading workspaces
         // so the newly granted tree appears in the list immediately.
         const { acceptPendingInvite } = useAuthStore.getState();
         await acceptPendingInvite();
@@ -70,14 +70,14 @@ export const App = () => {
         startRealtime();
 
         // Public links are also useful to signed-in visitors. Resolve the
-        // linked tree directly because public trees outside the user's own
-        // membership list are intentionally absent from GET /trees. A
+        // linked tree directly because public workspaces outside the user's own
+        // membership list are intentionally absent from GET /workspaces. A
         // password-protected or otherwise inaccessible target falls back to
         // the public viewer so it can request the public password.
-        const { pendingPublicTreeId: targetTreeId } = useAuthStore.getState();
-        if (targetTreeId) {
+        const { pendingPublicTreeId: targetWorkspaceId } = useAuthStore.getState();
+        if (targetWorkspaceId) {
           try {
-            await openTreeById(targetTreeId);
+            await openTreeById(targetWorkspaceId);
             useAuthStore.setState({ pendingPublicTreeId: null });
             return;
           } catch {
@@ -88,9 +88,9 @@ export const App = () => {
 
         // Re-open the most recently used tree (or virtual view). The API
         // returns both lists sorted by `last_opened`, newest first.
-        const { selectedTree, trees, virtualViews, selectTree } =
-          useTreeStore.getState();
-        const nextTree = trees[0] ?? virtualViews[0];
+        const { selectedTree, workspaces, virtualViews, selectTree } =
+          useWorkspaceStore.getState();
+        const nextTree = workspaces[0] ?? virtualViews[0];
         if (!selectedTree && nextTree) {
           await selectTree(nextTree);
         }
@@ -132,7 +132,7 @@ export const App = () => {
 
     if (status === "unauthenticated") {
       if (pendingPublicTreeId) {
-        return <PublicTreeViewer treeId={pendingPublicTreeId} />;
+        return <PublicTreeViewer workspaceId={pendingPublicTreeId} />;
       }
       return <LoginPage />;
     }
@@ -146,7 +146,7 @@ export const App = () => {
     }
 
     if (pendingPublicTreeId && publicTreeFallback) {
-      return <PublicTreeViewer treeId={pendingPublicTreeId} />;
+      return <PublicTreeViewer workspaceId={pendingPublicTreeId} />;
     }
 
     return (

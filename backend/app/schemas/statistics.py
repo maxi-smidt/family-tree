@@ -52,7 +52,7 @@ class NameCount(BaseModel):
 
 
 class StatisticsReport(BaseModel):
-    tree_id: str
+    workspace_id: str
     total_members: int
     members_with_birth_date: int
     members_with_death_date: int
@@ -65,15 +65,15 @@ class StatisticsReport(BaseModel):
 
 
 class CombinedStatisticsReport(StatisticsReport):
-    """Statistics aggregated across the anchor tree and its linked trees.
+    """Statistics aggregated across the anchor tree and its linked workspaces.
 
-    Same shape as ``StatisticsReport`` (``tree_id`` stays the anchor tree's
-    id) plus how many trees were folded in and which ones, so the frontend
-    can show "across N trees" without a second request.
+    Same shape as ``StatisticsReport`` (``workspace_id`` stays the anchor tree's
+    id) plus how many workspaces were folded in and which ones, so the frontend
+    can show "across N workspaces" without a second request.
     """
 
     tree_count: int
-    included_tree_ids: list[str]
+    included_workspace_ids: list[str]
 
 
 class CustomWidgetAggregateConfig(FamilyTreeBaseModel):

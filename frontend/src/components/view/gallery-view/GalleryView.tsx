@@ -26,7 +26,7 @@ import { useTranslation } from "react-i18next";
 import { comparePartialDates } from "@/utils/dateUtils";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ViewLayout } from "@/components/layout/ViewLayout";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUploadQueue } from "@/hooks/useUploadQueue";
@@ -69,7 +69,7 @@ export const GalleryView = () => {
   const { t } = useTranslation(undefined, { keyPrefix: "gallery-view.view" });
   const { galleryImages, refreshGalleryImages, initialized } =
     useGalleryStore();
-  const isReady = useTreeStore((state) => state.isReady);
+  const isReady = useWorkspaceStore((state) => state.isReady);
 
   useDeferredStoreLoad(initialized, refreshGalleryImages);
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useActivityStore } from "@/hooks/useActivityStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { Activity, isUndoableDelete } from "@/types/activity";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { ViewLayout } from "@/components/layout/ViewLayout";
@@ -135,7 +135,7 @@ function ActivityItem({ item }: { item: Activity }) {
   });
   const { navigateTo } = useNavigationStore();
   const undo = useActivityStore((s) => s.undo);
-  const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
+  const canWrite = useWorkspaceStore((s) => s.selectedTree?.role !== "viewer");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [undoing, setUndoing] = useState(false);
 

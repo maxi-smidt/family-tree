@@ -26,7 +26,7 @@ import {
   resolveRelationStyle,
   toColorInputValue,
 } from "@/utils/relationStyleUtils";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -101,7 +101,7 @@ export const RelationTypesPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const syncStore = () => useTreeStore.getState().refreshRelationTypes();
+  const syncStore = () => useWorkspaceStore.getState().refreshRelationTypes();
 
   // Build the patch payload from dirty fields only
   const getDirtyFields = (

@@ -1,8 +1,8 @@
 """Shared Member row primitives: identity keys, cloning, and bridge wiring.
 
-Used by every workflow that copies or links a member across trees — tree
-merge (``app.services.trees.merge``),
-sub-tree extraction (``app.services.trees.extract``),
+Used by every workflow that copies or links a member across workspaces — tree
+merge (``app.services.workspaces.merge``),
+sub-tree extraction (``app.services.workspaces.extract``),
 linked-subtree creation (``app.services.members.member_subtrees``), same-tree member
 merge (``app.services.members.member_merge``), and the tree-link endpoints
 (``app.api.routes.members``).
@@ -14,7 +14,7 @@ import re
 
 from app.models import Member
 from app.schemas.merge import FieldChoice
-from app.services.media.storage import copy_media_to_tree
+from app.services.media.storage import copy_media_to_workspace
 
 
 def norm(value: str | None) -> str:
@@ -39,8 +39,11 @@ def to_snake_case(name: str) -> str:
 def member_key(m: Member) -> tuple:
     """Exact-duplicate key: name + gender + both dates (all normalised)."""
     return (
-        norm(m.first_name), norm(m.last_name),
-        m.gender, m.date_of_birth, m.date_of_death,
+        norm(m.first_name),
+        norm(m.last_name),
+        m.gender,
+        m.date_of_birth,
+        m.date_of_death,
     )
 
 
@@ -87,7 +90,7 @@ def compute_conflicts(a: Member, b: Member) -> list[str]:
 def clone_member(m: Member, new_tree_id: str, new_id: str) -> Member:
     return Member(
         id=new_id,
-        tree_id=new_tree_id,
+        workspace_id=new_tree_id,
         gender=m.gender,
         academic_title=m.academic_title,
         deceased=m.deceased,
@@ -97,7 +100,7 @@ def clone_member(m: Member, new_tree_id: str, new_id: str) -> Member:
         baptismal_name=m.baptismal_name,
         last_name=m.last_name,
         maiden_name=m.maiden_name,
-        image_data=copy_media_to_tree(m.image_data, new_tree_id),
+        image_data=copy_media_to_workspace(m.image_data, new_tree_id),
         date_of_birth=m.date_of_birth,
         date_of_death=m.date_of_death,
         additional_data=m.additional_data,
@@ -118,9 +121,9 @@ def wire_bridge(source: Member, counterpart: Member) -> None:
     subtree, extract-subtree, and the link-existing-tree endpoint) so the
     bidirectional wiring stays in one place.
     """
-    source.linked_tree_id = counterpart.tree_id
+    source.linked_workspace_id = counterpart.workspace_id
     source.linked_member_id = counterpart.id
-    counterpart.linked_tree_id = source.tree_id
+    counterpart.linked_workspace_id = source.workspace_id
     counterpart.linked_member_id = source.id
 
 
@@ -208,7 +211,8 @@ def reconcile_bridge_fields(
             if field in {"additional_data", "places_lived"}:
                 separator = "\n\n" if field == "additional_data" else ", "
                 parts = [
-                    p for p in [orig_member[field], orig_counterpart[field]]
+                    p
+                    for p in [orig_member[field], orig_counterpart[field]]
                     if not _empty(p)
                 ]
                 seen: list[str] = []
@@ -222,12 +226,14 @@ def reconcile_bridge_fields(
 
         if field == "image_data":
             member.image_data = (
-                value if value == orig_member["image_data"]
-                else copy_media_to_tree(value, member.tree_id)
+                value
+                if value == orig_member["image_data"]
+                else copy_media_to_workspace(value, member.workspace_id)
             )
             counterpart.image_data = (
-                value if value == orig_counterpart["image_data"]
-                else copy_media_to_tree(value, counterpart.tree_id)
+                value
+                if value == orig_counterpart["image_data"]
+                else copy_media_to_workspace(value, counterpart.workspace_id)
             )
         else:
             setattr(member, field, value)

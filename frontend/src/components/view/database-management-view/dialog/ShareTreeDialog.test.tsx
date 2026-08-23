@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useTreeSharingStore } from "@/hooks/useTreeSharingStore";
-import { type LinkedShareTree, type Tree, type TreeAccess } from "@/types/tree";
+import { useWorkspaceSharingStore } from "@/hooks/useWorkspaceSharingStore";
+import { type LinkedShareWorkspace, type Workspace, type WorkspaceAccess } from "@/types/workspace";
 import { ShareTreeDialog } from "./ShareTreeDialog";
 
 vi.mock("sonner", () => ({
@@ -12,17 +12,17 @@ vi.mock("sonner", () => ({
   },
 }));
 
-vi.mock("@/hooks/useTreeStore", () => ({
-  useTreeStore: {
+vi.mock("@/hooks/useWorkspaceStore", () => ({
+  useWorkspaceStore: {
     getState: () => ({
       loadTrees: vi.fn(),
     }),
   },
 }));
 
-const TREE: Tree = {
+const TREE: Workspace = {
   id: "tree-1",
-  name: "Family Tree",
+  name: "Family Workspace",
   role: "owner",
   public_role: null,
 };
@@ -32,13 +32,13 @@ const OTHER_USER = {
   username: "other-user",
 };
 
-const OWNER_ACCESS: TreeAccess = {
+const OWNER_ACCESS: WorkspaceAccess = {
   user_id: "owner-1",
   username: "owner",
   role: "owner",
   restrictions: [],
 };
-const OTHER_ACCESS: TreeAccess = {
+const OTHER_ACCESS: WorkspaceAccess = {
   user_id: OTHER_USER.user_id,
   username: OTHER_USER.username,
   role: "editor",
@@ -52,9 +52,9 @@ describe("ShareTreeDialog", () => {
     // store; here the dialog reads whatever state we seed directly, so a
     // no-op mock is enough — the point of this component test is the
     // dialog's own behavior, not the store's data-fetching (covered in
-    // useTreeSharingStore.test.ts).
-    useTreeSharingStore.setState({
-      treeId: null,
+    // useWorkspaceSharingStore.test.ts).
+    useWorkspaceSharingStore.setState({
+      workspaceId: null,
       access: [OWNER_ACCESS, OTHER_ACCESS],
       candidates: [],
       invitations: [],
@@ -83,7 +83,7 @@ describe("ShareTreeDialog", () => {
     const setPublicAccess = vi
       .fn()
       .mockResolvedValue({ ...TREE, public_role: "viewer" });
-    useTreeSharingStore.setState({ setPublicAccess });
+    useWorkspaceSharingStore.setState({ setPublicAccess });
 
     render(
       <ShareTreeDialog
@@ -179,7 +179,7 @@ describe("ShareTreeDialog", () => {
 
   it("does not reload sharing data when the tree's public role changes while open", async () => {
     const load = vi.fn().mockResolvedValue(undefined);
-    useTreeSharingStore.setState({ load });
+    useWorkspaceSharingStore.setState({ load });
 
     const { rerender } = render(
       <ShareTreeDialog
@@ -209,7 +209,7 @@ describe("ShareTreeDialog", () => {
 
   it("shows the public password requirement before submitting", async () => {
     const setPublicPassword = vi.fn();
-    useTreeSharingStore.setState({ setPublicPassword });
+    useWorkspaceSharingStore.setState({ setPublicPassword });
 
     render(
       <ShareTreeDialog
@@ -277,7 +277,7 @@ describe("ShareTreeDialog", () => {
     await screen.findByText("Transfer ownership?");
 
     // While the confirmation is open, the main dialog should still be rendered.
-    expect(screen.getByText('Share "Family Tree"')).toBeInTheDocument();
+    expect(screen.getByText('Share "Family Workspace"')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -310,10 +310,10 @@ describe("ShareTreeDialog", () => {
     });
   });
 
-  describe("linked trees", () => {
-    const LINKED_MANAGEABLE: LinkedShareTree = {
-      tree_id: "linked-1",
-      name: "Linked Tree",
+  describe("linked workspaces", () => {
+    const LINKED_MANAGEABLE: LinkedShareWorkspace = {
+      workspace_id: "linked-1",
+      name: "Linked Workspace",
       member_count: 3,
       manageable: true,
       target_role: null,
@@ -322,14 +322,14 @@ describe("ShareTreeDialog", () => {
     const CANDIDATE = { user_id: "user-3", username: "carol" };
 
     beforeEach(() => {
-      useTreeSharingStore.setState({
+      useWorkspaceSharingStore.setState({
         access: [OWNER_ACCESS, OTHER_ACCESS],
         candidates: [CANDIDATE],
       });
     });
 
-    it("renders the linked-trees section when a manageable linked tree exists", async () => {
-      useTreeSharingStore.setState({ linkedTrees: [LINKED_MANAGEABLE] });
+    it("renders the linked-workspaces section when a manageable linked tree exists", async () => {
+      useWorkspaceSharingStore.setState({ linkedTrees: [LINKED_MANAGEABLE] });
 
       render(
         <ShareTreeDialog
@@ -341,7 +341,7 @@ describe("ShareTreeDialog", () => {
       );
       await screen.findByRole("dialog");
 
-      // Stage a candidate so the linked-trees toggle becomes visible.
+      // Stage a candidate so the linked-workspaces toggle becomes visible.
       fireEvent.click(screen.getByText("Select users…"));
       fireEvent.click(await screen.findByText("carol"));
 
@@ -352,7 +352,7 @@ describe("ShareTreeDialog", () => {
 
     it("calls grantAccessBatch with the selected linked tree ids", async () => {
       const grantAccessBatch = vi.fn().mockResolvedValue([]);
-      useTreeSharingStore.setState({
+      useWorkspaceSharingStore.setState({
         linkedTrees: [LINKED_MANAGEABLE],
         grantAccessBatch,
       });
@@ -376,7 +376,7 @@ describe("ShareTreeDialog", () => {
       const toggleSwitch = linkedToggle.querySelector('[role="switch"]')!;
       fireEvent.click(toggleSwitch);
 
-      await screen.findByText("Linked Tree");
+      await screen.findByText("Linked Workspace");
 
       fireEvent.click(screen.getByRole("button", { name: /Share with/ }));
 
@@ -392,7 +392,7 @@ describe("ShareTreeDialog", () => {
 
     it("offers linked tree removal when revoking access to a user with linked access", async () => {
       const getLinkedShareTrees = vi.fn(
-        (_treeId: string, username?: string): Promise<LinkedShareTree[]> => {
+        (_treeId: string, username?: string): Promise<LinkedShareWorkspace[]> => {
           if (username) {
             return Promise.resolve([
               { ...LINKED_MANAGEABLE, target_role: "editor" },
@@ -402,7 +402,7 @@ describe("ShareTreeDialog", () => {
         },
       );
       const revokeAccessBatch = vi.fn().mockResolvedValue(undefined);
-      useTreeSharingStore.setState({
+      useWorkspaceSharingStore.setState({
         linkedTrees: [LINKED_MANAGEABLE],
         getLinkedShareTrees,
         revokeAccessBatch,
@@ -427,7 +427,7 @@ describe("ShareTreeDialog", () => {
       expect(
         await screen.findByText("Remove linked tree access too?"),
       ).toBeInTheDocument();
-      expect(screen.getByText("Linked Tree")).toBeInTheDocument();
+      expect(screen.getByText("Linked Workspace")).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Remove access" }));
 

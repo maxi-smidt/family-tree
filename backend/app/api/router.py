@@ -34,14 +34,14 @@ from app.api.routes import (
     statistics,
     stories,
     tasks,
-    tree_jobs,
-    tree_public,
-    tree_sharing,
-    tree_transfer,
-    trees,
     users,
     virtual_view_content,
     virtual_views,
+    workspace_jobs,
+    workspace_public,
+    workspace_sharing,
+    workspace_transfer,
+    workspaces,
 )
 
 api_router = APIRouter()
@@ -56,11 +56,11 @@ api_router.include_router(relation_types.router)
 api_router.include_router(relation_types.admin_router)
 api_router.include_router(search.router)
 api_router.include_router(backups.router)
-api_router.include_router(trees.router)
-api_router.include_router(tree_public.router)
-api_router.include_router(tree_sharing.router)
-api_router.include_router(tree_jobs.router)
-api_router.include_router(tree_transfer.router)
+api_router.include_router(workspaces.router)
+api_router.include_router(workspace_public.router)
+api_router.include_router(workspace_sharing.router)
+api_router.include_router(workspace_jobs.router)
+api_router.include_router(workspace_transfer.router)
 api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
 api_router.include_router(virtual_views.router)

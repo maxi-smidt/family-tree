@@ -1,15 +1,15 @@
-"""Tests for GET /trees/{tree_id}/statistics/combined (issue #566)."""
+"""Tests for GET /workspaces/{workspace_id}/statistics/combined (issue #566)."""
 
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
-def _combined_url(tree_id: str) -> str:
-    return f"{API}/trees/{tree_id}/statistics/combined"
+def _combined_url(workspace_id: str) -> str:
+    return f"{API}/workspaces/{workspace_id}/statistics/combined"
 
 
 def _link(db, tree, member_id, target_tree, **kw):
     return add_member(
-        db, tree, member_id, linked_tree_id=target_tree.id, first_name="A", **kw
+        db, tree, member_id, linked_workspace_id=target_tree.id, first_name="A", **kw
     )
 
 
@@ -20,8 +20,8 @@ def _bridge_pair(db, tree_a, member_a_id, tree_b, member_b_id, **kw):
     before either can reference the other — create plain rows first, then
     set the cross-links.
     """
-    a = add_member(db, tree_a, member_a_id, linked_tree_id=tree_b.id, **kw)
-    b = add_member(db, tree_b, member_b_id, linked_tree_id=tree_a.id, **kw)
+    a = add_member(db, tree_a, member_a_id, linked_workspace_id=tree_b.id, **kw)
+    b = add_member(db, tree_b, member_b_id, linked_workspace_id=tree_a.id, **kw)
     a.linked_member_id = member_b_id
     b.linked_member_id = member_a_id
     db.commit()
@@ -43,8 +43,8 @@ def test_union_sums_members_across_linked_tree(client, db):
     # a1, a2, bridge1 (t1) + b1 (t2) = 4 total members.
     assert body["total_members"] == 4
     assert body["tree_count"] == 2
-    assert set(body["included_tree_ids"]) == {t1.id, t2.id}
-    assert body["tree_id"] == t1.id
+    assert set(body["included_workspace_ids"]) == {t1.id, t2.id}
+    assert body["workspace_id"] == t1.id
 
 
 def test_bridge_person_counted_once(client, db):
@@ -79,7 +79,7 @@ def test_inaccessible_linked_tree_excluded(client, db):
     # Only main's own members (m1, bridge1) are counted; private_other excluded.
     assert body["total_members"] == 2
     assert body["tree_count"] == 1
-    assert body["included_tree_ids"] == [main.id]
+    assert body["included_workspace_ids"] == [main.id]
 
 
 def test_inaccessible_tree_becomes_accessible_via_share(client, db):
@@ -96,7 +96,7 @@ def test_inaccessible_tree_becomes_accessible_via_share(client, db):
     body = res.json()
 
     assert body["tree_count"] == 2
-    assert set(body["included_tree_ids"]) == {main.id, shared_other.id}
+    assert set(body["included_workspace_ids"]) == {main.id, shared_other.id}
     # bridge1 (main) + m2 (shared_other) = 2.
     assert body["total_members"] == 2
 
@@ -120,4 +120,4 @@ def test_no_linked_trees_matches_single_tree_statistics(client, db):
     body = res.json()
     assert body["total_members"] == 1
     assert body["tree_count"] == 1
-    assert body["included_tree_ids"] == [tree.id]
+    assert body["included_workspace_ids"] == [tree.id]

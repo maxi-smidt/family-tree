@@ -21,12 +21,12 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { TreeService } from "@/services/TreeService";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { TREE_VIEW } from "@/lib/tabs";
 import { LinkGraphEdgeDB, LinkGraphNodeDB } from "@/types/linkGraph";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { toast } from "sonner";
 import {
   LINK_GRAPH_NODE_HEIGHT,
@@ -37,12 +37,12 @@ import {
 import { Network } from "lucide-react";
 
 type Props = {
-  tree: Tree | null;
+  tree: Workspace | null;
   onClose: () => void;
 };
 
 interface LinkGraphNodeData extends LinkGraphNodeDB, Record<string, unknown> {
-  onOpen?: (treeId: string) => void;
+  onOpen?: (workspaceId: string) => void;
 }
 
 interface LinkGraphEdgeData extends Record<string, unknown> {
@@ -70,7 +70,7 @@ function smoothPath(points: LinkGraphPoint[]): string {
 
 function LinkGraphNodeCard({ data }: NodeProps<Node<LinkGraphNodeData>>) {
   const { t } = useTranslation(undefined, {
-    keyPrefix: "dialog.linked-trees-graph",
+    keyPrefix: "dialog.linked-workspaces-graph",
   });
   const clickable = data.accessible && !data.is_current;
 
@@ -179,9 +179,9 @@ const edgeTypes = { linkGraphEdge: LinkGraphEdgeLine };
 
 export const LinkedTreesGraphDialog = ({ tree, onClose }: Props) => {
   const { t } = useTranslation(undefined, {
-    keyPrefix: "dialog.linked-trees-graph",
+    keyPrefix: "dialog.linked-workspaces-graph",
   });
-  const openLinkedTree = useTreeStore((s) => s.openLinkedTree);
+  const openLinkedTree = useWorkspaceStore((s) => s.openLinkedTree);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
 
   const [loading, setLoading] = useState(false);
@@ -195,7 +195,7 @@ export const LinkedTreesGraphDialog = ({ tree, onClose }: Props) => {
     let cancelled = false;
     setLoading(true);
     setError(false);
-    TreeService.getLinkGraph(tree.id)
+    WorkspaceService.getLinkGraph(tree.id)
       .then((res) => {
         if (cancelled) return;
         setGraphNodes(res.nodes);
@@ -213,9 +213,9 @@ export const LinkedTreesGraphDialog = ({ tree, onClose }: Props) => {
     };
   }, [tree]);
 
-  const handleOpen = async (treeId: string) => {
+  const handleOpen = async (workspaceId: string) => {
     try {
-      await openLinkedTree(treeId);
+      await openLinkedTree(workspaceId);
       onClose();
       navigateTo(TREE_VIEW);
     } catch {
@@ -234,22 +234,22 @@ export const LinkedTreesGraphDialog = ({ tree, onClose }: Props) => {
     // A mutual pair (A→B plus B→A) is one bridge connection seen from both
     // sides — draw it as a single undirected line. Only genuinely one-way
     // links keep an arrowhead, which includes links into inaccessible
-    // placeholder trees (their back-links are unknowable).
+    // placeholder workspaces (their back-links are unknowable).
     const byPair = new Map(
-      graphEdges.map((e) => [`${e.source_tree_id}|${e.target_tree_id}`, e]),
+      graphEdges.map((e) => [`${e.source_workspace_id}|${e.target_workspace_id}`, e]),
     );
     const merged: { edge: LinkGraphEdgeDB; bidirectional: boolean }[] = [];
     const consumed = new Set<string>();
     for (const e of graphEdges) {
-      const key = `${e.source_tree_id}|${e.target_tree_id}`;
+      const key = `${e.source_workspace_id}|${e.target_workspace_id}`;
       if (consumed.has(key)) continue;
       consumed.add(key);
-      const reverse = byPair.get(`${e.target_tree_id}|${e.source_tree_id}`);
+      const reverse = byPair.get(`${e.target_workspace_id}|${e.source_workspace_id}`);
       if (!reverse) {
         merged.push({ edge: e, bidirectional: false });
         continue;
       }
-      consumed.add(`${e.target_tree_id}|${e.source_tree_id}`);
+      consumed.add(`${e.target_workspace_id}|${e.source_workspace_id}`);
       merged.push({
         edge: {
           ...e,
@@ -263,9 +263,9 @@ export const LinkedTreesGraphDialog = ({ tree, onClose }: Props) => {
 
     const rfEdges: Edge<LinkGraphEdgeData>[] = merged.map(
       ({ edge: e, bidirectional }) => ({
-        id: `${e.source_tree_id}->${e.target_tree_id}`,
-        source: e.source_tree_id,
-        target: e.target_tree_id,
+        id: `${e.source_workspace_id}->${e.target_workspace_id}`,
+        source: e.source_workspace_id,
+        target: e.target_workspace_id,
         type: "linkGraphEdge",
         label: e.count > 1 ? String(e.count) : undefined,
         markerEnd: bidirectional

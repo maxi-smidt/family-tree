@@ -1,11 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useMemberStore } from "@/hooks/useMemberStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
-import type { Tree } from "@/types/tree";
+import type { Workspace } from "@/types/workspace";
 import { EditMode } from "./EditMode";
 
 vi.mock("sonner", () => ({
@@ -33,9 +33,9 @@ vi.mock("./MemberDocuments", () => ({ MemberDocuments: () => null }));
 vi.mock("./MemberDiseases", () => ({ MemberDiseases: () => null }));
 vi.mock("./MemberTasks", () => ({ MemberTasks: () => null }));
 
-const TREE: Tree = {
+const TREE: Workspace = {
   id: "tree-1",
-  name: "Tree",
+  name: "Workspace",
   role: "owner",
   restrictions: [],
 };
@@ -65,7 +65,7 @@ const MEMBER: Member = {
 describe("EditMode records tab", () => {
   beforeEach(() => {
     useMemberStore.setState({ members: [MEMBER] });
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
   });
 
   // Regression for #767: a sheet restored directly onto Records (e.g. after a
@@ -101,7 +101,7 @@ describe("EditMode profile picture avatar", () => {
   beforeEach(() => {
     URL.revokeObjectURL = vi.fn();
     useMemberStore.setState({ members: [MEMBER] });
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
     useGalleryStore.setState({ galleryImages: [], initialized: true });
   });
 

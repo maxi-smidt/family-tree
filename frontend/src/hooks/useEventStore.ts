@@ -1,13 +1,13 @@
 import { create } from "zustand";
 import { Event, EventInput, mapEventFromDB } from "@/types/event";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { invalidateActivityView } from "@/hooks/invalidateDerivedViews";
 
 interface EventState {
   events: Event[];
   initialized: boolean;
-  refreshEvents: (treeId?: string) => Promise<void>;
+  refreshEvents: (workspaceId?: string) => Promise<void>;
   getEventsByMember: (memberId: string) => Event[];
   addEvent: (
     memberIds: string[],
@@ -29,18 +29,18 @@ export const useEventStore = create<EventState>((set, get) => ({
   events: [],
   initialized: false,
 
-  refreshEvents: async (treeId = activeTreeId()) => {
-    if (!treeId) {
+  refreshEvents: async (workspaceId = activeTreeId()) => {
+    if (!workspaceId) {
       set({ events: [] });
       return;
     }
 
     const [eventsResult, linksResult] = await Promise.all([
-      TreeService.getEvents(treeId),
-      TreeService.getEventMemberLinks(treeId),
+      WorkspaceService.getEvents(workspaceId),
+      WorkspaceService.getEventMemberLinks(workspaceId),
     ]);
 
-    if (!isActiveTree(treeId)) return; // tree switched/disconnected mid-flight — drop stale data
+    if (!isActiveTree(workspaceId)) return; // tree switched/disconnected mid-flight — drop stale data
 
     const linksByEvent = new Map<string, string[]>();
     for (const link of linksResult) {
@@ -67,18 +67,18 @@ export const useEventStore = create<EventState>((set, get) => ({
     event: EventInput,
     documentIds: string[] = [],
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    await TreeService.addEvent(treeId, id, event, now, memberIds);
+    await WorkspaceService.addEvent(workspaceId, id, event, now, memberIds);
     if (documentIds.length > 0) {
-      await TreeService.setEventDocuments(treeId, id, documentIds);
+      await WorkspaceService.setEventDocuments(workspaceId, id, documentIds);
     }
 
-    await get().refreshEvents(treeId);
+    await get().refreshEvents(workspaceId);
     invalidateActivityView();
   },
 
@@ -88,34 +88,34 @@ export const useEventStore = create<EventState>((set, get) => ({
     memberIds: string[],
     documentIds?: string[],
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.updateEvent(treeId, id, event);
-    await TreeService.setEventLinks(treeId, id, memberIds);
+    await WorkspaceService.updateEvent(workspaceId, id, event);
+    await WorkspaceService.setEventLinks(workspaceId, id, memberIds);
     if (documentIds !== undefined) {
-      await TreeService.setEventDocuments(treeId, id, documentIds);
+      await WorkspaceService.setEventDocuments(workspaceId, id, documentIds);
     }
 
-    await get().refreshEvents(treeId);
+    await get().refreshEvents(workspaceId);
     invalidateActivityView();
   },
 
   removeEvent: async (id: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.removeEvent(treeId, id);
-    await get().refreshEvents(treeId);
+    await WorkspaceService.removeEvent(workspaceId, id);
+    await get().refreshEvents(workspaceId);
     invalidateActivityView();
   },
 
   setEventDocuments: async (id: string, documentIds: string[]) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
-    await TreeService.setEventDocuments(treeId, id, documentIds);
-    await get().refreshEvents(treeId);
+    await WorkspaceService.setEventDocuments(workspaceId, id, documentIds);
+    await get().refreshEvents(workspaceId);
     invalidateActivityView();
   },
 

@@ -4,8 +4,8 @@ import {
   GeocodeResult,
   mapGeocodeFromDB,
 } from "@/types/geocode";
-import { TreeService } from "@/services/TreeService";
-import { activeTreeId, isActiveTree } from "@/hooks/useTreeStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { activeTreeId, isActiveTree } from "@/hooks/useWorkspaceStore";
 import { toast } from "sonner";
 import i18n from "@/i18n/i18n";
 
@@ -45,8 +45,8 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
   pendingCount: 0,
 
   resolveLocations: async (locations: string[]) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     // Only request locations not already in cache
     const cached = get().coords;
@@ -55,8 +55,8 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
 
     set((state) => ({ pendingCount: state.pendingCount + 1 }));
     try {
-      const rows = await TreeService.geocodeLocations(treeId, unknown);
-      if (!isActiveTree(treeId)) return;
+      const rows = await WorkspaceService.geocodeLocations(workspaceId, unknown);
+      if (!isActiveTree(workspaceId)) return;
 
       set((state) => {
         const next = new Map(state.coords);
@@ -90,17 +90,17 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
     lon: number,
     displayName?: string,
   ) => {
-    const treeId = activeTreeId();
-    if (!treeId) return;
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return;
 
     try {
-      const row = await TreeService.geocodeOverride(treeId, {
+      const row = await WorkspaceService.geocodeOverride(workspaceId, {
         query: location,
         lat,
         lon,
         display_name: displayName,
       });
-      if (!isActiveTree(treeId)) return;
+      if (!isActiveTree(workspaceId)) return;
 
       set((state) => {
         const next = new Map(state.coords);
@@ -115,11 +115,11 @@ export const useGeocodeStore = create<GeocodeState>((set, get) => ({
   },
 
   searchLocations: async (query: string) => {
-    const treeId = activeTreeId();
-    if (!treeId) return [];
+    const workspaceId = activeTreeId();
+    if (!workspaceId) return [];
 
     try {
-      return await TreeService.geocodeSearch(treeId, query);
+      return await WorkspaceService.geocodeSearch(workspaceId, query);
     } catch (error) {
       console.error("Failed to search geocode candidates:", error);
       toast.error(i18n.t("hooks.geocode.search-error"));

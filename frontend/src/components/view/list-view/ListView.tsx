@@ -40,7 +40,7 @@ import { RemoveMemberDialog } from "@/components/shared/dialog/RemoveMemberDialo
 import { useTranslation } from "react-i18next";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 import { formatDate as formatLocaleDate, getYear } from "@/utils/dateUtils";
-import { useTreeStore, isVirtualId } from "@/hooks/useTreeStore";
+import { useWorkspaceStore, isVirtualId } from "@/hooks/useWorkspaceStore";
 import { useIsMobile } from "@/hooks/useMobile";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useListSettings, normalizeOrder } from "@/hooks/useListSettings";
@@ -76,8 +76,8 @@ export const ListView = () => {
   const { t: tCommon } = useTranslation(undefined, { keyPrefix: "common" });
 
   const { members, removeMember } = useMemberStore();
-  const activeTree = useTreeStore((s) => s.selectedTree);
-  const isReady = useTreeStore((s) => s.isReady);
+  const activeTree = useWorkspaceStore((s) => s.selectedTree);
+  const isReady = useWorkspaceStore((s) => s.isReady);
   const canWrite = activeTree?.role !== "viewer";
   const isVirtual = !!activeTree?.id && isVirtualId(activeTree.id);
   const isMobile = useIsMobile();
@@ -262,16 +262,16 @@ export const ListView = () => {
           case "status":
             return isDeceased(m) ? t("status.deceased") : t("status.alive");
           case "sourceTree":
-            return m.sourceTreeName ?? "";
+            return m.sourceWorkspaceName ?? "";
           default:
             return "";
         }
       });
     });
     const csv = toCsv([header, ...rows]);
-    const treeName =
+    const workspaceName =
       activeTree?.name?.replace(/[^a-z0-9]/gi, "-").toLowerCase() ?? "members";
-    downloadCsv(`${treeName}-members.csv`, csv);
+    downloadCsv(`${workspaceName}-members.csv`, csv);
   };
 
   const GenderIcon = (member: Member) => {
@@ -351,9 +351,9 @@ export const ListView = () => {
           </Badge>
         );
       case "sourceTree":
-        return member.sourceTreeName ? (
+        return member.sourceWorkspaceName ? (
           <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border">
-            {member.sourceTreeName}
+            {member.sourceWorkspaceName}
           </span>
         ) : (
           "-"

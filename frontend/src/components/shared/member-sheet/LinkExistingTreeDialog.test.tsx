@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { TreeService } from "@/services/TreeService";
-import { type Tree } from "@/types/tree";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { WorkspaceService } from "@/services/WorkspaceService";
+import { type Workspace } from "@/types/workspace";
 import { type MemberDB } from "@/types/member";
 import { type DuplicatePair } from "@/types/merge";
 import { LinkExistingTreeDialog } from "./LinkExistingTreeDialog";
 
-vi.mock("@/services/TreeService", () => ({
-  TreeService: {
+vi.mock("@/services/WorkspaceService", () => ({
+  WorkspaceService: {
     getLinkCandidates: vi.fn(),
   },
 }));
@@ -22,9 +22,9 @@ vi.mock("sonner", () => ({
 
 const SOURCE_TREE_ID = "tree-a";
 
-const TARGET_TREE: Tree = {
+const TARGET_TREE: Workspace = {
   id: "tree-b",
-  name: "Other Tree",
+  name: "Other Workspace",
   role: "editor",
 };
 
@@ -45,7 +45,7 @@ const SOURCE_MEMBER: MemberDB = {
   isCollapsed: 0,
   positionX: 0,
   positionY: 0,
-  linkedTreeId: null,
+  linkedWorkspaceId: null,
   linkedMemberId: null,
 };
 
@@ -73,11 +73,11 @@ function pair(overrides: Partial<DuplicatePair>): DuplicatePair {
 describe("LinkExistingTreeDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useTreeStore.setState({ linkExistingTree: vi.fn() });
+    useWorkspaceStore.setState({ linkExistingTree: vi.fn() });
   });
 
   it("fetches and lists only same-named candidates for the find-existing mode", async () => {
-    vi.mocked(TreeService.getLinkCandidates).mockResolvedValue({
+    vi.mocked(WorkspaceService.getLinkCandidates).mockResolvedValue({
       candidates: [
         pair({
           member_b: candidate({ id: "b1", firstName: "Jo", lastName: "Doe" }),
@@ -88,7 +88,7 @@ describe("LinkExistingTreeDialog", () => {
 
     render(
       <LinkExistingTreeDialog
-        sourceTreeId={SOURCE_TREE_ID}
+        sourceWorkspaceId={SOURCE_TREE_ID}
         memberId="a1"
         memberName="Jo Doe"
         tree={TARGET_TREE}
@@ -100,7 +100,7 @@ describe("LinkExistingTreeDialog", () => {
 
     await screen.findByRole("dialog");
     await waitFor(() =>
-      expect(TreeService.getLinkCandidates).toHaveBeenCalledWith(
+      expect(WorkspaceService.getLinkCandidates).toHaveBeenCalledWith(
         SOURCE_TREE_ID,
         "a1",
         "tree-b",
@@ -112,13 +112,13 @@ describe("LinkExistingTreeDialog", () => {
   });
 
   it("shows the no-candidates nudge toward Create a copy when nothing matches", async () => {
-    vi.mocked(TreeService.getLinkCandidates).mockResolvedValue({
+    vi.mocked(WorkspaceService.getLinkCandidates).mockResolvedValue({
       candidates: [],
     });
 
     render(
       <LinkExistingTreeDialog
-        sourceTreeId={SOURCE_TREE_ID}
+        sourceWorkspaceId={SOURCE_TREE_ID}
         memberId="a1"
         memberName="Jo Doe"
         tree={TARGET_TREE}
@@ -137,7 +137,7 @@ describe("LinkExistingTreeDialog", () => {
   });
 
   it("shows the conflict resolver for a conflicting candidate and sends chosen field_choices", async () => {
-    vi.mocked(TreeService.getLinkCandidates).mockResolvedValue({
+    vi.mocked(WorkspaceService.getLinkCandidates).mockResolvedValue({
       candidates: [
         pair({
           member_a: { ...SOURCE_MEMBER, birthplace: "Vienna" },
@@ -148,12 +148,12 @@ describe("LinkExistingTreeDialog", () => {
       ],
     });
     const linkExistingTree = vi.fn().mockResolvedValue(TARGET_TREE);
-    useTreeStore.setState({ linkExistingTree });
+    useWorkspaceStore.setState({ linkExistingTree });
     const onLinked = vi.fn();
 
     render(
       <LinkExistingTreeDialog
-        sourceTreeId={SOURCE_TREE_ID}
+        sourceWorkspaceId={SOURCE_TREE_ID}
         memberId="a1"
         memberName="Jo Doe"
         tree={TARGET_TREE}
@@ -165,7 +165,7 @@ describe("LinkExistingTreeDialog", () => {
 
     await screen.findByRole("dialog");
     await waitFor(() =>
-      expect(TreeService.getLinkCandidates).toHaveBeenCalledWith(
+      expect(WorkspaceService.getLinkCandidates).toHaveBeenCalledWith(
         SOURCE_TREE_ID,
         "a1",
         "tree-b",
@@ -191,7 +191,7 @@ describe("LinkExistingTreeDialog", () => {
 
     await waitFor(() => {
       expect(linkExistingTree).toHaveBeenCalledWith("a1", {
-        linked_tree_id: "tree-b",
+        linked_workspace_id: "tree-b",
         mode: "existing",
         counterpart_member_id: "b1",
         field_choices: { birthplace: "b" },
@@ -201,7 +201,7 @@ describe("LinkExistingTreeDialog", () => {
   });
 
   it("links directly without a resolver when the candidate has no conflicts", async () => {
-    vi.mocked(TreeService.getLinkCandidates).mockResolvedValue({
+    vi.mocked(WorkspaceService.getLinkCandidates).mockResolvedValue({
       candidates: [
         pair({
           member_b: candidate({ id: "b1" }),
@@ -211,11 +211,11 @@ describe("LinkExistingTreeDialog", () => {
       ],
     });
     const linkExistingTree = vi.fn().mockResolvedValue(TARGET_TREE);
-    useTreeStore.setState({ linkExistingTree });
+    useWorkspaceStore.setState({ linkExistingTree });
 
     render(
       <LinkExistingTreeDialog
-        sourceTreeId={SOURCE_TREE_ID}
+        sourceWorkspaceId={SOURCE_TREE_ID}
         memberId="a1"
         memberName="Jo Doe"
         tree={TARGET_TREE}
@@ -227,7 +227,7 @@ describe("LinkExistingTreeDialog", () => {
 
     await screen.findByRole("dialog");
     await waitFor(() =>
-      expect(TreeService.getLinkCandidates).toHaveBeenCalledWith(
+      expect(WorkspaceService.getLinkCandidates).toHaveBeenCalledWith(
         SOURCE_TREE_ID,
         "a1",
         "tree-b",
@@ -241,7 +241,7 @@ describe("LinkExistingTreeDialog", () => {
 
     await waitFor(() => {
       expect(linkExistingTree).toHaveBeenCalledWith("a1", {
-        linked_tree_id: "tree-b",
+        linked_workspace_id: "tree-b",
         mode: "existing",
         counterpart_member_id: "b1",
         field_choices: {},
@@ -250,16 +250,16 @@ describe("LinkExistingTreeDialog", () => {
   });
 
   it("switches to the create-copy mode and confirms without a counterpart selection", async () => {
-    vi.mocked(TreeService.getLinkCandidates).mockResolvedValue({
+    vi.mocked(WorkspaceService.getLinkCandidates).mockResolvedValue({
       candidates: [],
     });
     const linkExistingTree = vi.fn().mockResolvedValue(TARGET_TREE);
-    useTreeStore.setState({ linkExistingTree });
+    useWorkspaceStore.setState({ linkExistingTree });
     const onLinked = vi.fn();
 
     render(
       <LinkExistingTreeDialog
-        sourceTreeId={SOURCE_TREE_ID}
+        sourceWorkspaceId={SOURCE_TREE_ID}
         memberId="a1"
         memberName="Jo Doe"
         tree={TARGET_TREE}
@@ -282,7 +282,7 @@ describe("LinkExistingTreeDialog", () => {
 
     await waitFor(() => {
       expect(linkExistingTree).toHaveBeenCalledWith("a1", {
-        linked_tree_id: "tree-b",
+        linked_workspace_id: "tree-b",
         mode: "create",
         counterpart_member_id: undefined,
         field_choices: undefined,
@@ -294,7 +294,7 @@ describe("LinkExistingTreeDialog", () => {
   it("renders a read-only no-access state for a viewer-only target tree", async () => {
     render(
       <LinkExistingTreeDialog
-        sourceTreeId={SOURCE_TREE_ID}
+        sourceWorkspaceId={SOURCE_TREE_ID}
         memberId="a1"
         memberName="Jo Doe"
         tree={{ ...TARGET_TREE, role: "viewer" }}
@@ -306,12 +306,12 @@ describe("LinkExistingTreeDialog", () => {
 
     await screen.findByRole("dialog");
     expect(
-      screen.getByText(/You need edit access to “Other Tree”/),
+      screen.getByText(/You need edit access to “Other Workspace”/),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Link" }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-    expect(TreeService.getLinkCandidates).not.toHaveBeenCalled();
+    expect(WorkspaceService.getLinkCandidates).not.toHaveBeenCalled();
   });
 });

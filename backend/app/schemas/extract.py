@@ -16,7 +16,7 @@ Direction = Literal["direct_family", "partnership"]
 
 class SubtreeExtractRequest(BaseModel):
     name: str
-    source_tree_id: str
+    source_workspace_id: str
     root_member_id: str
     direction: Direction = "direct_family"
 

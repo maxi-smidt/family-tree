@@ -13,6 +13,6 @@ class QualityIssue(BaseModel):
 
 
 class QualityReport(BaseModel):
-    tree_id: str
+    workspace_id: str
     total_members: int
     issues: list[QualityIssue]

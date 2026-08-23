@@ -21,7 +21,7 @@ from tests.conftest import API, add_member, auth, make_tree, make_user, share
 def add_relation(db, tree, from_id, to_id, rel_type="parent") -> None:
     db.add(
         Relation(
-            tree_id=tree.id,
+            workspace_id=tree.id,
             from_member_id=from_id,
             to_member_id=to_id,
             relation_type=rel_type,
@@ -31,21 +31,31 @@ def add_relation(db, tree, from_id, to_id, rel_type="parent") -> None:
 
 
 def add_overlap(db, tree_a, tree_b) -> None:
-    """Add a matching member (same name + birth year) in both trees so creation passes."""
+    """Add a matching member in both workspaces so creation passes."""
     add_member(
-        db, tree_a, f"overlap-a-{tree_a.id[:8]}",
-        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
+        db,
+        tree_a,
+        f"overlap-a-{tree_a.id[:8]}",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
     )
     add_member(
-        db, tree_b, f"overlap-b-{tree_b.id[:8]}",
-        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
+        db,
+        tree_b,
+        f"overlap-b-{tree_b.id[:8]}",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
     )
 
 
 def create_view(client, user, tree_a_id, tree_b_id, name="My View"):
     return client.post(
         f"{API}/virtual-views",
-        json={"name": name, "source_tree_ids": [tree_a_id, tree_b_id]},
+        json={"name": name, "source_workspace_ids": [tree_a_id, tree_b_id]},
         headers=auth(user),
     )
 
@@ -61,7 +71,7 @@ def test_create_requires_two_sources(client: TestClient, db: Session):
 
     r = client.post(
         f"{API}/virtual-views",
-        json={"name": "Bad", "source_tree_ids": [tree.id]},
+        json={"name": "Bad", "source_workspace_ids": [tree.id]},
         headers=auth(alice),
     )
     assert r.status_code == 400
@@ -159,8 +169,10 @@ def test_get_view_sets_last_opened(client: TestClient, db: Session):
     add_overlap(db, tree_a, tree_b)
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
 
-    assert (client.get(f"{API}/virtual-views/{view_id}", headers=auth(alice))
-            .status_code == 200)
+    assert (
+        client.get(f"{API}/virtual-views/{view_id}", headers=auth(alice)).status_code
+        == 200
+    )
 
 
 def test_admin_opening_view_does_not_reorder_owners_list(client: TestClient, db: Session):
@@ -176,21 +188,23 @@ def test_admin_opening_view_does_not_reorder_owners_list(client: TestClient, db:
     tree_c = make_tree(db, alice)
     tree_d = make_tree(db, alice)
     add_overlap(db, tree_c, tree_d)
-    view_untouched = create_view(
-        client, alice, tree_c.id, tree_d.id, "Untouched"
-    ).json()["id"]
+    view_untouched = create_view(client, alice, tree_c.id, tree_d.id, "Untouched").json()[
+        "id"
+    ]
 
     # Alice opens one of her views, so it should sort above the other.
     assert (
-        client.get(f"{API}/virtual-views/{view_opened}", headers=auth(alice))
-        .status_code == 200
+        client.get(f"{API}/virtual-views/{view_opened}", headers=auth(alice)).status_code
+        == 200
     )
 
     # The admin opens Alice's *other* view — this is the admin's own activity
     # and must not affect Alice's ordering.
     assert (
-        client.get(f"{API}/virtual-views/{view_untouched}", headers=auth(admin))
-        .status_code == 200
+        client.get(
+            f"{API}/virtual-views/{view_untouched}", headers=auth(admin)
+        ).status_code
+        == 200
     )
 
     res = client.get(f"{API}/virtual-views", headers=auth(alice))
@@ -221,9 +235,7 @@ def test_get_view_fails_when_source_access_revoked(client: TestClient, db: Sessi
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
 
     # Revoke alice's access to tree_b
-    client.delete(
-        f"{API}/trees/{tree_b.id}/access/{alice.id}", headers=auth(bob)
-    )
+    client.delete(f"{API}/workspaces/{tree_b.id}/access/{alice.id}", headers=auth(bob))
 
     r = client.get(f"{API}/virtual-views/{view_id}", headers=auth(alice))
     assert r.status_code == 403
@@ -239,7 +251,7 @@ def test_get_view_fails_when_source_deleted(client: TestClient, db: Session):
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
 
     # Delete one source tree — the junction row is cascade-deleted
-    client.delete(f"{API}/trees/{tree_b.id}", headers=auth(alice))
+    client.delete(f"{API}/workspaces/{tree_b.id}", headers=auth(alice))
 
     r = client.get(f"{API}/virtual-views/{view_id}", headers=auth(alice))
     assert r.status_code == 409
@@ -260,12 +272,22 @@ def test_members_returns_union_with_source_tags(client: TestClient, db: Session)
     add_member(db, tree_b, "m2", first_name="Bob", last_name="B")
     # Overlap pair that satisfies the creation constraint (will be merged)
     add_member(
-        db, tree_a, "j1",
-        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
+        db,
+        tree_a,
+        "j1",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
     )
     add_member(
-        db, tree_b, "j2",
-        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
+        db,
+        tree_b,
+        "j2",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
     )
 
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
@@ -278,16 +300,16 @@ def test_members_returns_union_with_source_tags(client: TestClient, db: Session)
 
     by_id = {m["id"]: m for m in members}
     # Non-merged members keep their original ids and source tags
-    assert by_id["m1"]["sourceTreeId"] == tree_a.id
-    assert by_id["m1"]["sourceTreeName"] == "Paternal"
-    assert by_id["m2"]["sourceTreeId"] == tree_b.id
-    assert by_id["m2"]["sourceTreeName"] == "Maternal"
+    assert by_id["m1"]["sourceWorkspaceId"] == tree_a.id
+    assert by_id["m1"]["sourceWorkspaceName"] == "Paternal"
+    assert by_id["m2"]["sourceWorkspaceId"] == tree_b.id
+    assert by_id["m2"]["sourceWorkspaceName"] == "Maternal"
 
     # The merged node has a vm_ id and isMerged=True
     merged = [m for m in members if m.get("isMerged")]
     assert len(merged) == 1
     assert merged[0]["id"].startswith("vm_")
-    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id}
+    assert set(merged[0]["sourceWorkspaceIds"]) == {tree_a.id, tree_b.id}
 
 
 def test_relations_returns_union(client: TestClient, db: Session):
@@ -302,22 +324,30 @@ def test_relations_returns_union(client: TestClient, db: Session):
     assert r.status_code == 200
 
 
-def test_merged_node_keeps_parents_from_secondary_tree(
-    client: TestClient, db: Session
-):
-    """The merged node bridges the trees: when only the secondary tree records
+def test_merged_node_keeps_parents_from_secondary_tree(client: TestClient, db: Session):
+    """The merged node bridges the workspaces: when only the secondary tree records
     its parents, those parent relations must survive (remapped to the vm_ id)."""
     alice = make_user(db)
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
-    # Homer exists in both trees (merged, primary = tree_a member).
+    # Homer exists in both workspaces (merged, primary = tree_a member).
     add_member(
-        db, tree_a, "homer-a",
-        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
+        db,
+        tree_a,
+        "homer-a",
+        first_name="Homer",
+        last_name="Simpson",
+        date_of_birth="1956",
+        gender="m",
     )
     add_member(
-        db, tree_b, "homer-b",
-        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
+        db,
+        tree_b,
+        "homer-b",
+        first_name="Homer",
+        last_name="Simpson",
+        date_of_birth="1956",
+        gender="m",
     )
     # His parents only exist in tree_b.
     add_member(db, tree_b, "abe", first_name="Abraham", last_name="Simpson", gender="m")
@@ -350,18 +380,32 @@ def test_merged_node_prefers_primary_parents(client: TestClient, db: Session):
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
     add_member(
-        db, tree_a, "homer-a",
-        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
+        db,
+        tree_a,
+        "homer-a",
+        first_name="Homer",
+        last_name="Simpson",
+        date_of_birth="1956",
+        gender="m",
     )
     add_member(
-        db, tree_b, "homer-b",
-        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
+        db,
+        tree_b,
+        "homer-b",
+        first_name="Homer",
+        last_name="Simpson",
+        date_of_birth="1956",
+        gender="m",
     )
     # Distinctly-named parents in each tree so they do not merge themselves.
     add_member(db, tree_a, "abe-a", first_name="Abe", last_name="Simpson", gender="m")
     add_member(
-        db, tree_b, "abraham-b",
-        first_name="Abraham", last_name="Simpson", gender="m",
+        db,
+        tree_b,
+        "abraham-b",
+        first_name="Abraham",
+        last_name="Simpson",
+        gender="m",
     )
     add_relation(db, tree_a, "homer-a", "abe-a")
     add_relation(db, tree_b, "homer-b", "abraham-b")
@@ -417,14 +461,19 @@ def test_patch_sources_recomputes_matches_against_new_trees(
     add_overlap(db, tree_a, tree_b)
     # The same person also exists in tree_c.
     add_member(
-        db, tree_c, "overlap-c",
-        first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
+        db,
+        tree_c,
+        "overlap-c",
+        first_name="John",
+        last_name="Smith",
+        date_of_birth="1900",
+        gender="m",
     )
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
 
     r = client.patch(
         f"{API}/virtual-views/{view_id}",
-        json={"source_tree_ids": [tree_a.id, tree_b.id, tree_c.id]},
+        json={"source_workspace_ids": [tree_a.id, tree_b.id, tree_c.id]},
         headers=auth(alice),
     )
     assert r.status_code == 200
@@ -434,10 +483,10 @@ def test_patch_sources_recomputes_matches_against_new_trees(
     ).json()
     merged = [m for m in members if m["isMerged"]]
     assert len(merged) == 1
-    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id, tree_c.id}
+    assert set(merged[0]["sourceWorkspaceIds"]) == {tree_a.id, tree_b.id, tree_c.id}
 
 
-def test_delete_view_leaves_source_trees_intact(client: TestClient, db: Session):
+def test_delete_view_leaves_source_workspaces_intact(client: TestClient, db: Session):
     alice = make_user(db)
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
@@ -449,8 +498,14 @@ def test_delete_view_leaves_source_trees_intact(client: TestClient, db: Session)
         == 204
     )
     # Trees still exist
-    assert client.get(f"{API}/trees/{tree_a.id}", headers=auth(alice)).status_code == 200
-    assert client.get(f"{API}/trees/{tree_b.id}", headers=auth(alice)).status_code == 200
+    assert (
+        client.get(f"{API}/workspaces/{tree_a.id}", headers=auth(alice)).status_code
+        == 200
+    )
+    assert (
+        client.get(f"{API}/workspaces/{tree_b.id}", headers=auth(alice)).status_code
+        == 200
+    )
 
 
 def test_delete_requires_ownership(client: TestClient, db: Session):
@@ -473,24 +528,27 @@ def test_delete_requires_ownership(client: TestClient, db: Session):
 def create_view_n(client, user, source_ids, name="Nested"):
     return client.post(
         f"{API}/virtual-views",
-        json={"name": name, "source_tree_ids": source_ids},
+        json={"name": name, "source_workspace_ids": source_ids},
         headers=auth(user),
     )
 
 
-def _john(db, *trees) -> None:
-    for i, t in enumerate(trees):
+def _john(db, *workspaces) -> None:
+    for i, t in enumerate(workspaces):
         add_member(
-            db, t, f"john-{t.id[:8]}-{i}",
-            first_name="John", last_name="Smith", date_of_birth="1900", gender="m",
+            db,
+            t,
+            f"john-{t.id[:8]}-{i}",
+            first_name="John",
+            last_name="Smith",
+            date_of_birth="1900",
+            gender="m",
         )
 
 
-def test_virtual_view_can_source_another_virtual_view(
-    client: TestClient, db: Session
-):
+def test_virtual_view_can_source_another_virtual_view(client: TestClient, db: Session):
     """A virtual view may be a source of another; matching runs over the
-    flattened underlying trees, so {C, vv(A, B)} behaves like {A, B, C}."""
+    flattened underlying workspaces, so {C, vv(A, B)} behaves like {A, B, C}."""
     alice = make_user(db)
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
@@ -505,14 +563,14 @@ def test_virtual_view_can_source_another_virtual_view(
     virtual_sources = [s for s in data["sources"] if s.get("is_virtual")]
     assert len(virtual_sources) == 1
     assert virtual_sources[0]["kind"] == "view"
-    assert virtual_sources[0]["tree_id"] == inner["id"]
+    assert virtual_sources[0]["workspace_id"] == inner["id"]
 
     members = client.get(
         f"{API}/virtual-views/{data['id']}/members", headers=auth(alice)
     ).json()
     merged = [m for m in members if m["isMerged"]]
     assert len(merged) == 1
-    assert set(merged[0]["sourceTreeIds"]) == {tree_a.id, tree_b.id, tree_c.id}
+    assert set(merged[0]["sourceWorkspaceIds"]) == {tree_a.id, tree_b.id, tree_c.id}
 
 
 def test_cycle_rejected_on_update(client: TestClient, db: Session):
@@ -528,16 +586,14 @@ def test_cycle_rejected_on_update(client: TestClient, db: Session):
     # Making inner source outer would close a loop (outer already sources inner).
     r = client.patch(
         f"{API}/virtual-views/{inner['id']}",
-        json={"source_tree_ids": [outer["id"], tree_a.id]},
+        json={"source_workspace_ids": [outer["id"], tree_a.id]},
         headers=auth(alice),
     )
     assert r.status_code == 409
     assert r.json()["detail"] == "virtual_view_source_cycle"
 
 
-def test_nested_source_deleted_makes_parent_missing(
-    client: TestClient, db: Session
-):
+def test_nested_source_deleted_makes_parent_missing(client: TestClient, db: Session):
     """Deleting a nested source view cascades the junction row, dropping the
     parent below its 2-source minimum."""
     alice = make_user(db)
@@ -574,9 +630,7 @@ def test_nested_source_access_revoked(client: TestClient, db: Session):
     inner = create_view_n(client, alice, [tree_a.id, tree_b.id]).json()
     outer = create_view_n(client, alice, [inner["id"], tree_c.id]).json()
 
-    client.delete(
-        f"{API}/trees/{tree_b.id}/access/{alice.id}", headers=auth(bob)
-    )
+    client.delete(f"{API}/workspaces/{tree_b.id}/access/{alice.id}", headers=auth(bob))
 
     r = client.get(f"{API}/virtual-views/{outer['id']}", headers=auth(alice))
     assert r.status_code == 403
@@ -589,31 +643,42 @@ def test_nested_source_access_revoked(client: TestClient, db: Session):
 
 
 def _add_homer(db, tree_a, tree_b):
-    """Homer exists in both trees (merged) — returns the two member ids."""
+    """Homer exists in both workspaces (merged) — returns the two member ids."""
     add_member(
-        db, tree_a, "homer-a",
-        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
+        db,
+        tree_a,
+        "homer-a",
+        first_name="Homer",
+        last_name="Simpson",
+        date_of_birth="1956",
+        gender="m",
     )
     add_member(
-        db, tree_b, "homer-b",
-        first_name="Homer", last_name="Simpson", date_of_birth="1956", gender="m",
+        db,
+        tree_b,
+        "homer-b",
+        first_name="Homer",
+        last_name="Simpson",
+        date_of_birth="1956",
+        gender="m",
     )
 
 
-def test_composite_gallery_and_events_remap_member_links(
-    client: TestClient, db: Session
-):
+def test_composite_gallery_and_events_remap_member_links(client: TestClient, db: Session):
     alice = make_user(db)
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
     _add_homer(db, tree_a, tree_b)
     # Image in tree_a links homer-a; event in tree_b links homer-b.
-    db.add(GalleryImage(id="img1", tree_id=tree_a.id, title="Pic"))
+    db.add(GalleryImage(id="img1", workspace_id=tree_a.id, title="Pic"))
     db.add(GalleryMemberLink(gallery_image_id="img1", member_id="homer-a"))
     db.add(
         Event(
-            id="ev1", tree_id=tree_b.id, event_type="birth",
-            date="1956", created_at="2020-01-01",
+            id="ev1",
+            workspace_id=tree_b.id,
+            event_type="birth",
+            date="1956",
+            created_at="2020-01-01",
         )
     )
     db.add(EventMemberLink(event_id="ev1", member_id="homer-b"))
@@ -643,9 +708,7 @@ def test_composite_gallery_and_events_remap_member_links(
         }
     ]
 
-    evs = client.get(
-        f"{API}/virtual-views/{view_id}/events", headers=auth(alice)
-    ).json()
+    evs = client.get(f"{API}/virtual-views/{view_id}/events", headers=auth(alice)).json()
     assert {e["id"] for e in evs} == {"ev1"}
     elinks = client.get(
         f"{API}/virtual-views/{view_id}/events/links", headers=auth(alice)
@@ -660,8 +723,12 @@ def test_composite_diseases_remaps_member_id(client: TestClient, db: Session):
     _add_homer(db, tree_a, tree_b)
     db.add(
         MemberDisease(
-            id="dis1", tree_id=tree_a.id, member_id="homer-a", name="Gout",
-            carrier_status="affected", inheritance_pattern="autosomal_dominant",
+            id="dis1",
+            workspace_id=tree_a.id,
+            member_id="homer-a",
+            name="Gout",
+            carrier_status="affected",
+            inheritance_pattern="autosomal_dominant",
         )
     )
     db.commit()
@@ -687,20 +754,28 @@ def test_composite_diseases_remaps_member_id(client: TestClient, db: Session):
     ]
 
 
-def test_composite_statistics_dedupes_merged_people(
-    client: TestClient, db: Session
-):
+def test_composite_statistics_dedupes_merged_people(client: TestClient, db: Session):
     alice = make_user(db)
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
     _add_homer(db, tree_a, tree_b)  # merged → counts once
     add_member(
-        db, tree_a, "marge",
-        first_name="Marge", last_name="Simpson", date_of_birth="1958", gender="f",
+        db,
+        tree_a,
+        "marge",
+        first_name="Marge",
+        last_name="Simpson",
+        date_of_birth="1958",
+        gender="f",
     )
     add_member(
-        db, tree_b, "bart",
-        first_name="Bart", last_name="Simpson", date_of_birth="1980", gender="m",
+        db,
+        tree_b,
+        "bart",
+        first_name="Bart",
+        last_name="Simpson",
+        date_of_birth="1980",
+        gender="m",
     )
 
     view_id = create_view(client, alice, tree_a.id, tree_b.id).json()["id"]
@@ -711,9 +786,7 @@ def test_composite_statistics_dedupes_merged_people(
     assert stats["total_members"] == 3
 
 
-def test_composite_geocode_and_quality_reachable(
-    client: TestClient, db: Session
-):
+def test_composite_geocode_and_quality_reachable(client: TestClient, db: Session):
     alice = make_user(db)
     tree_a = make_tree(db, alice)
     tree_b = make_tree(db, alice)
@@ -732,4 +805,4 @@ def test_composite_geocode_and_quality_reachable(
         f"{API}/virtual-views/{view_id}/quality-report", headers=auth(alice)
     )
     assert quality.status_code == 200
-    assert quality.json()["tree_id"] == view_id
+    assert quality.json()["workspace_id"] == view_id

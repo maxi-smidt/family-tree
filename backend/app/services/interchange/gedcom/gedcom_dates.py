@@ -9,11 +9,21 @@ from __future__ import annotations
 import re
 
 MONTHS: list[str] = [
-    "JAN", "FEB", "MAR", "APR", "MAY", "JUN",
-    "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
 ]
 
-_MONTH_TO_NUM: dict[str, str] = {m: f"{i+1:02d}" for i, m in enumerate(MONTHS)}
+_MONTH_TO_NUM: dict[str, str] = {m: f"{i + 1:02d}" for i, m in enumerate(MONTHS)}
 
 # GEDCOM date qualifiers that we pass through verbatim.
 _DATE_QUALIFIERS = {"ABT", "EST", "CAL", "BEF", "AFT", "FROM", "TO"}

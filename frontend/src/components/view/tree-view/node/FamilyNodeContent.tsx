@@ -115,10 +115,10 @@ export const FamilyNodeContent = ({
             same height — equal heights keep the side handles level and the
             partner connector lines straight. */}
         {member.isMerged &&
-        member.sourceTreeNames &&
-        member.sourceTreeNames.length > 0 ? (
+        member.sourceWorkspaceNames &&
+        member.sourceWorkspaceNames.length > 0 ? (
           <div className="mt-1 flex flex-nowrap justify-center gap-1 w-full min-w-0 px-1">
-            {member.sourceTreeNames.slice(0, 2).map((tn) => (
+            {member.sourceWorkspaceNames.slice(0, 2).map((tn) => (
               <span
                 key={tn}
                 title={tn}
@@ -127,23 +127,23 @@ export const FamilyNodeContent = ({
                 <span className="truncate">{tn}</span>
               </span>
             ))}
-            {member.sourceTreeNames.length > 2 && (
+            {member.sourceWorkspaceNames.length > 2 && (
               <span
-                title={member.sourceTreeNames.join(", ")}
+                title={member.sourceWorkspaceNames.join(", ")}
                 className="inline-flex shrink-0 items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary border border-primary/20"
               >
-                +{member.sourceTreeNames.length - 2}
+                +{member.sourceWorkspaceNames.length - 2}
               </span>
             )}
           </div>
         ) : (
-          member.sourceTreeName && (
+          member.sourceWorkspaceName && (
             <div className="mt-1 flex justify-center w-full min-w-0 px-1">
               <span
-                title={member.sourceTreeName}
+                title={member.sourceWorkspaceName}
                 className="inline-flex min-w-0 items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground border border-border"
               >
-                <span className="truncate">{member.sourceTreeName}</span>
+                <span className="truncate">{member.sourceWorkspaceName}</span>
               </span>
             </div>
           )

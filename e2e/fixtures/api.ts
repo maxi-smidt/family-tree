@@ -45,10 +45,10 @@ export async function waitForJob(
     if (!res.ok) throw new Error(`GET /jobs/${jobId} → ${res.status}`);
     const job = (await res.json()) as {
       status: string;
-      result_tree_id?: string;
+      result_workspace_id?: string;
       error?: string;
     };
-    if (job.status === "done" && job.result_tree_id) return job.result_tree_id;
+    if (job.status === "done" && job.result_workspace_id) return job.result_workspace_id;
     if (job.status === "failed") throw new Error(`Job failed: ${job.error}`);
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }

@@ -14,7 +14,7 @@ import {
 import { CreateDatabaseDialog } from "@/components/shared/dialog/CreateDatabaseDialog";
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
-import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
+import { pickFile, useWorkspaceManager } from "@/hooks/useWorkspaceManager";
 
 export const NoDatabasePlaceholder = () => {
   const { t } = useTranslation(undefined, {
@@ -26,7 +26,7 @@ export const NoDatabasePlaceholder = () => {
     resolve: (password: string | null | undefined) => void;
   } | null>(null);
   const tutorialRunning = useTutorialStore((s) => s.isRunning);
-  const { importDatabase, inspectImport } = useTreeManager();
+  const { importDatabase, inspectImport } = useWorkspaceManager();
 
   const askPassword = () =>
     new Promise<string | null | undefined>((resolve) => {

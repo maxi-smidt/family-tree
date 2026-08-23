@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Member, RelationType, RelationTypeDB } from "@/types/member";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { treeProcessorClient, DeriveResult } from "@/workers/treeProcessorClient";
 import type {
   WorkerUnionInfo,
@@ -46,13 +46,13 @@ export function useDerivedFlowView(
   visibleRelationTypes: RelationType[],
   edgeType: string,
 ): DerivedFlowView {
-  const treeId = useTreeStore((s) => s.selectedTree?.id);
-  const relationTypes = useTreeStore((s) => s.relationTypes);
+  const workspaceId = useWorkspaceStore((s) => s.selectedTree?.id);
+  const relationTypes = useWorkspaceStore((s) => s.relationTypes);
   const [state, setState] = useState<DerivedFlowView>(INITIAL_STATE);
 
   // Track the latest reqId so stale worker responses are discarded.
   const latestReqIdRef = useRef<number>(0);
-  // Track the last treeId to detect tree switches and reset stale state.
+  // Track the last workspaceId to detect tree switches and reset stale state.
   const lastTreeIdRef = useRef<string | undefined>(undefined);
 
   // Stable primitive signature for style-relevant fields — avoids
@@ -79,17 +79,17 @@ export function useDerivedFlowView(
   );
 
   useEffect(() => {
-    if (!treeId) {
+    if (!workspaceId) {
       setState(INITIAL_STATE);
       latestReqIdRef.current++;
       return;
     }
 
-    if (treeId !== lastTreeIdRef.current) {
-      // Tree switched — clear stale state immediately so the previous tree's
+    if (workspaceId !== lastTreeIdRef.current) {
+      // Workspace switched — clear stale state immediately so the previous tree's
       // unions/edges are not briefly displayed with the new tree's nodes.
       setState(INITIAL_STATE);
-      lastTreeIdRef.current = treeId;
+      lastTreeIdRef.current = workspaceId;
       latestReqIdRef.current++;
     }
 
@@ -106,7 +106,7 @@ export function useDerivedFlowView(
     }));
 
     const { reqId, promise } = treeProcessorClient.deriveView(
-      treeId,
+      workspaceId,
       members,
       visibleRelationTypes,
       edgeType,
@@ -130,7 +130,7 @@ export function useDerivedFlowView(
         setState((prev) => ({ ...prev, isDeriving: false }));
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [treeId, members, visibleRelationTypes, edgeType, relationStyles]);
+  }, [workspaceId, members, visibleRelationTypes, edgeType, relationStyles]);
 
   return state;
 }
