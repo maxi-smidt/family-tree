@@ -1,6 +1,5 @@
 """Tests for GET /trees/{tree_id}/statistics/combined (issue #566)."""
 
-from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
@@ -100,19 +99,6 @@ def test_inaccessible_tree_becomes_accessible_via_share(client, db):
     assert set(body["included_tree_ids"]) == {main.id, shared_other.id}
     # bridge1 (main) + m2 (shared_other) = 2.
     assert body["total_members"] == 2
-
-
-def test_feature_off_returns_404(client, db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user, "T1")
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.get(_combined_url(tree.id), headers=auth(user))
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 def test_non_readable_start_tree_returns_403(client, db):

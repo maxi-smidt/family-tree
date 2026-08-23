@@ -52,7 +52,6 @@ from app.services.media.storage import (
     profile_image_path,
     store_profile_image_upload,
 )
-from app.services.system import feature_service
 from app.services.system.admin_audit import record_admin_audit
 from app.services.system.settings_service import (
     effective_storage_mode,
@@ -68,7 +67,6 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 def _current_user_out(db: Session, user: User) -> CurrentUserOut:
     out = CurrentUserOut.model_validate(user)
-    out.features = feature_service.enabled_for(db, user)
     limits = get_media_limits(db)
     user_mode = StoredUserPreferences.model_validate(
         user.preferences or {}

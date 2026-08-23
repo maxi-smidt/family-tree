@@ -94,15 +94,12 @@ period, under ~72 characters.
 `refactor`, `epic`, plus `priority:high|medium|low`. Don't write `[Bug]:` or
 `[Medium]` into a title.
 
-## New features — always-on or admin-toggleable?
+## New features — always on
 
-Before building a user-facing feature, **decide whether it should be gated by an
-admin-managed feature flag or always on**, and say which in the PR description.
-Core member/tree CRUD is intentionally not flaggable; a self-contained domain
-admins might disable, beta-test, or kill (`gallery`, `stories`, `gedcom`, …)
-usually should be. See "Feature flags" in [docs/AGENTS.md](docs/AGENTS.md) for
-the registry and the add-a-flag recipe. **If it's unclear which way to go, ask
-the requester** — it is hard to reverse once the UI and data model assume one.
+User-facing features are always available once the user is authorized. Preserve
+the existing role, ownership, and per-tree content restrictions; introducing a
+new rollout or kill-switch mechanism requires a separate architectural
+decision.
 
 ## PR titles & changelog
 

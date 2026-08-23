@@ -95,7 +95,6 @@ describe("MainPanel", () => {
     });
     useAuthStore.setState({
       user: null,
-      features: [],
     });
     useFriendStore.setState({
       friends: [],
@@ -130,8 +129,6 @@ describe("MainPanel", () => {
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
-    useAuthStore.setState({ features: ["gallery", "sources"] });
-
     render(<MainPanel />);
 
     expect(screen.getByRole("tab", { name: "Media" })).toBeInTheDocument();
@@ -161,8 +158,6 @@ describe("MainPanel", () => {
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
-    useAuthStore.setState({ features: ["gallery", "sources"] });
-
     render(<MainPanel />);
 
     await waitFor(() => {
@@ -170,10 +165,9 @@ describe("MainPanel", () => {
     });
   });
 
-  it("starts the tutorial when the onboarding feature arrives after preferences load", async () => {
+  it("starts the tutorial after preferences load", async () => {
     useAuthStore.setState({
       user: USER,
-      features: [],
     });
     useTutorialStore.setState({
       completed: false,
@@ -182,12 +176,6 @@ describe("MainPanel", () => {
     });
 
     render(<MainPanel />);
-
-    expect(useTutorialStore.getState().isRunning).toBe(false);
-
-    act(() => {
-      useAuthStore.setState({ features: ["onboarding_tour"] });
-    });
 
     await waitFor(() => {
       expect(useTutorialStore.getState().isRunning).toBe(true);
@@ -201,7 +189,6 @@ describe("MainPanel", () => {
         legal_acceptance_required: true,
         legal_accepted: false,
       },
-      features: ["onboarding_tour"],
     });
     useTutorialStore.setState({
       completed: false,
@@ -221,7 +208,6 @@ describe("MainPanel", () => {
         legal_acceptance_required: true,
         legal_accepted: false,
       },
-      features: ["onboarding_tour"],
     });
     useTutorialStore.setState({
       completed: false,

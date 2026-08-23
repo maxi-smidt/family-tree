@@ -25,7 +25,6 @@ import { FieldLabel } from "@/components/ui/field";
 import { ConfirmDeleteDialog } from "@/components/shared/dialog/ConfirmDeleteDialog";
 import { BackupPanel } from "@/components/admin/BackupPanel";
 import { AdminAuditPanel } from "@/components/admin/AdminAuditPanel";
-import { FeatureFlagsPanel } from "@/components/admin/FeatureFlagsPanel";
 import { RelationTypesPanel } from "@/components/admin/RelationTypesPanel";
 import { LegalVersionHistoryPanel } from "@/components/admin/LegalVersionHistoryPanel";
 import { LEGAL_LOCALES, LegalLocale } from "@/lib/legalLocale";
@@ -267,12 +266,6 @@ export const AdminView = () => {
                 className="justify-start data-[state=active]:bg-muted"
               >
                 {t("settings-tab")}
-              </TabsTrigger>
-              <TabsTrigger
-                value="features"
-                className="justify-start data-[state=active]:bg-muted"
-              >
-                {t("features-tab")}
               </TabsTrigger>
               <TabsTrigger
                 value="backups"
@@ -867,10 +860,6 @@ export const AdminView = () => {
                   </div>
                 </>
               )}
-            </TabsContent>
-
-            <TabsContent value="features" className="mt-0">
-              <FeatureFlagsPanel users={users} />
             </TabsContent>
 
             <TabsContent value="backups" className="mt-0">

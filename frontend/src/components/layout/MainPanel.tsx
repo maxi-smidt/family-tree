@@ -89,10 +89,7 @@ import {
   isViewId,
   resolveTabs,
 } from "@/lib/tabs";
-import {
-  filterViewsByFeatures,
-  filterViewsByRestrictions,
-} from "@/lib/features";
+import { filterViewsByRestrictions } from "@/lib/contentRestrictions";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { usePresence } from "@/hooks/usePresence";
@@ -178,14 +175,12 @@ export const MainPanel = () => {
   }, [activeTab, hasOpenMemberSheet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const user = useAuthStore((s) => s.user);
-  const features = useAuthStore((s) => s.features);
   const { order, hidden, loaded, load } = useTabPreferences();
   const loadTutorial = useTutorialStore((s) => s.load);
   const tutorialLoaded = useTutorialStore((s) => s.loaded);
   const tutorialCompleted = useTutorialStore((s) => s.completed);
   const tutorialRunning = useTutorialStore((s) => s.isRunning);
   const startTutorial = useTutorialStore((s) => s.start);
-  const tutorialEnabled = features.includes("onboarding_tour");
   const legalGateOpen =
     !!user?.legal_acceptance_required && !user?.legal_accepted;
   const loadLegalDocuments = useLegalStore((s) => s.load);
@@ -217,7 +212,6 @@ export const MainPanel = () => {
     if (
       tutorialLoaded &&
       !tutorialCompleted &&
-      tutorialEnabled &&
       !tutorialRunning &&
       !legalGateOpen
     ) {
@@ -226,7 +220,6 @@ export const MainPanel = () => {
   }, [
     tutorialLoaded,
     tutorialCompleted,
-    tutorialEnabled,
     tutorialRunning,
     legalGateOpen,
     startTutorial,
@@ -239,21 +232,16 @@ export const MainPanel = () => {
 
   const selectedTree = useTreeStore((s) => s.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
-  const galleryAvailable =
-    features.includes("gallery") && !restrictions.includes("gallery");
-  const documentsAvailable =
-    features.includes("sources") && !restrictions.includes("sources");
+  const galleryAvailable = !restrictions.includes("gallery");
+  const documentsAvailable = !restrictions.includes("sources");
 
   const { ordered: _ordered, visible: allVisible } = resolveTabs(order, hidden);
   // A virtual tree exposes the same tabs as a normal tree (read-only,
-  // aggregated live from its sources); only feature flags filter the set.
+  // aggregated live from its sources).
   // When no tree is selected, keep the first-run tree placeholder reachable
   // alongside Friends and Database Management.
   const visible = selectedTree
-    ? filterViewsByRestrictions(
-        filterViewsByFeatures(allVisible, features),
-        restrictions,
-      )
+    ? filterViewsByRestrictions(allVisible, restrictions)
     : NO_TREE_VIEWS;
   const mobileViews = visible.filter((v) => !MANAGEMENT_VIEWS.has(v));
 
@@ -353,7 +341,8 @@ export const MainPanel = () => {
                       // width — truncating long labels even when there's
                       // slack elsewhere in the row.
                       "flex-auto min-w-0",
-                      activeTab === MEDIA_VIEW && "text-foreground after:opacity-100",
+                      activeTab === MEDIA_VIEW &&
+                        "text-foreground after:opacity-100",
                     )}
                   >
                     <span className="truncate">{viewLabels[view]}</span>

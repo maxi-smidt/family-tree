@@ -51,7 +51,6 @@ import { useRelationCreation } from "@/hooks/useRelationCreation";
 import { usePendingMember } from "@/hooks/usePendingMember";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useTaskStore } from "@/hooks/useTaskStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -81,10 +80,8 @@ const EMPTY_EDGE_KEYS: ReadonlySet<string> = new Set<string>();
 
 export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
   const { t } = useTranslation();
-  const treeLinksEnabled = useFeature("tree_links");
   const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
-  const tasksEnabled =
-    useFeature("research_tasks") && !taskRestrictions?.includes("tasks");
+  const tasksEnabled = !taskRestrictions?.includes("tasks");
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
   // Open-task node indicators need the task list; skip on public trees where
   // the task endpoints require authentication.
@@ -466,15 +463,12 @@ export const FlowPanel = ({ publicView = false }: FlowPanelProps = {}) => {
     [publicView, allTrees],
   );
   const handleOpenLinkedTree = useMemo(
-    () =>
-      treeLinksEnabled
-        ? (treeId: string, memberId?: string | null) => {
-            void openLinkedTree(treeId, memberId).catch(() => {
-              toast.error(t("tree-view.linked-tree.open-error"));
-            });
-          }
-        : undefined,
-    [treeLinksEnabled, openLinkedTree, t],
+    () => (treeId: string, memberId?: string | null) => {
+      void openLinkedTree(treeId, memberId).catch(() => {
+        toast.error(t("tree-view.linked-tree.open-error"));
+      });
+    },
+    [openLinkedTree, t],
   );
 
   // Collapsed ancestors hide their descendant member nodes (handled in

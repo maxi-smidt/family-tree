@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree, require_feature
+from app.api.deps import get_current_user, get_readable_tree
 from app.db.session import get_db
 from app.models import Tree, User
 from app.schemas.presence import PresenceHeartbeat, PresenceRoster, PresenceUser
@@ -27,7 +27,6 @@ from app.services.event_payloads import PresenceUserSnapshot
 router = APIRouter(
     prefix="/trees/{tree_id}",
     tags=["presence"],
-    dependencies=[Depends(require_feature("presence"))],
 )
 
 

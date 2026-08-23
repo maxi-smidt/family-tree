@@ -12,7 +12,6 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
-    require_feature,
 )
 from app.db.session import get_db
 from app.models import ActivityLog, Tree, User
@@ -28,17 +27,12 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/trees/{tree_id}",
     tags=["activity"],
-    dependencies=[Depends(require_feature("activity_log"))],
 )
 
-# A separate router (not a route added to `router` above) so undo is gated
-# solely by its own flag: `router`'s dependencies apply to every route
-# registered on it, and stacking a second `Depends(require_feature(...))` on
-# one route would AND the two flags together instead of decoupling them.
+# Keep undo on a separate router so it can retain its own route registration.
 undo_router = APIRouter(
     prefix="/trees/{tree_id}",
     tags=["activity"],
-    dependencies=[Depends(require_feature("activity_undo"))],
 )
 
 

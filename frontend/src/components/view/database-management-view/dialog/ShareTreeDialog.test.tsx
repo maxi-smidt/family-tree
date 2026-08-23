@@ -1,6 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeSharingStore } from "@/hooks/useTreeSharingStore";
 import { type LinkedShareTree, type Tree, type TreeAccess } from "@/types/tree";
 import { ShareTreeDialog } from "./ShareTreeDialog";
@@ -49,7 +48,6 @@ const OTHER_ACCESS: TreeAccess = {
 describe("ShareTreeDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useAuthStore.setState({ features: ["sharing_invites", "tree_links"] });
     // `load` seeds access/candidates/invitations/linkedTrees in the real
     // store; here the dialog reads whatever state we seed directly, so a
     // no-op mock is enough — the point of this component test is the

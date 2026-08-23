@@ -1,6 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
@@ -11,7 +10,6 @@ import { QualityReportView } from "./QualityReportView";
 
 describe("QualityReportView research tasks", () => {
   beforeEach(() => {
-    useAuthStore.setState({ features: ["research_tasks"] });
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner" } as never,
     });

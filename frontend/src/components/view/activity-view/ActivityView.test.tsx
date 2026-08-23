@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { fireEvent, renderWithProviders, screen, within } from "@/test/utils";
 import { useActivityStore } from "@/hooks/useActivityStore";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { ApiError } from "@/services/api";
 import { Activity } from "@/types/activity";
@@ -25,7 +24,9 @@ const DELETE_ENTRY: Activity = {
   details: { snapshot: { version: 1 } },
 };
 
-function setActivityState(overrides: Partial<ReturnType<typeof useActivityStore.getState>> = {}) {
+function setActivityState(
+  overrides: Partial<ReturnType<typeof useActivityStore.getState>> = {},
+) {
   useActivityStore.setState({
     activities: [DELETE_ENTRY],
     actors: ["alice"],
@@ -45,7 +46,6 @@ function setActivityState(overrides: Partial<ReturnType<typeof useActivityStore.
 
 describe("ActivityView undo", () => {
   beforeEach(() => {
-    useAuthStore.setState({ features: ["activity_undo"] });
     useTreeStore.setState({
       selectedTree: { id: "tree-1", role: "owner" } as never,
     });
@@ -55,14 +55,6 @@ describe("ActivityView undo", () => {
   it("shows an undo button for an undoable delete when enabled for an editor", () => {
     renderWithProviders(<ActivityView />);
     expect(screen.getByRole("button", { name: "Undo" })).toBeInTheDocument();
-  });
-
-  it("hides the undo button when the activity_undo flag is off", () => {
-    useAuthStore.setState({ features: [] });
-    renderWithProviders(<ActivityView />);
-    expect(
-      screen.queryByRole("button", { name: "Undo" }),
-    ).not.toBeInTheDocument();
   });
 
   it("hides the undo button for a viewer", () => {
@@ -116,7 +108,9 @@ describe("ActivityView undo", () => {
     renderWithProviders(<ActivityView />);
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     fireEvent.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: "Undo" }),
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Undo",
+      }),
     );
 
     await vi.waitFor(() => expect(toast.warning).toHaveBeenCalled());
@@ -129,7 +123,9 @@ describe("ActivityView undo", () => {
     renderWithProviders(<ActivityView />);
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     fireEvent.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: "Undo" }),
+      within(screen.getByRole("alertdialog")).getByRole("button", {
+        name: "Undo",
+      }),
     );
 
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalled());

@@ -15,18 +15,15 @@ from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
 from app.models import Event, EventMemberLink, Member, Relation, Tree, TreeMembership
 from app.models.user import User
-from app.services.system import feature_service
 
 
 def event_updates_allowed(db: Session, tree: Tree, user: User) -> bool:
     """Whether this editor can update the derived vital-event mirror.
 
     Member dates are core data, while Events is optional and can be hidden for
-    an editor.  A disabled/restricted Events domain must therefore never turn a
-    member save into a partial failure.
+    an editor. A restricted Events domain must never turn a member save into a
+    partial failure.
     """
-    if not feature_service.is_enabled(db, "events", user):
-        return False
     membership = db.get(TreeMembership, (tree.id, user.id))
     return not (
         membership and membership.restrictions and "events" in membership.restrictions

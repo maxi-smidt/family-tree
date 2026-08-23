@@ -9,7 +9,6 @@ from app.api.deps import (
     get_readable_tree,
     get_writable_tree,
     require_domain,
-    require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
@@ -35,10 +34,7 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/trees/{tree_id}/events",
     tags=["events"],
-    dependencies=[
-        Depends(require_feature("events")),
-        Depends(require_domain("events")),
-    ],
+    dependencies=[Depends(require_domain("events"))],
 )
 
 

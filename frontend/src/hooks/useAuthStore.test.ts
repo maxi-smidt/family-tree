@@ -61,7 +61,6 @@ describe("useAuthStore session refresh", () => {
     useAuthStore.setState({
       status: "authenticated",
       user: USER,
-      features: [],
       sessionExpiringSoon: true,
       sessionRefreshFailed: true,
       reloginRequired: false,
@@ -111,7 +110,6 @@ describe("useAuthStore account workflows", () => {
     useAuthStore.setState({
       status: "authenticated",
       user: USER,
-      features: [],
       accountOperation: "idle",
       accountError: null,
     });
@@ -182,7 +180,7 @@ describe("useAuthStore init", () => {
     mocks.token = "current-token";
     mocks.get.mockReset();
     mocks.post.mockReset();
-    useAuthStore.setState({ status: "loading", user: null, features: [] });
+    useAuthStore.setState({ status: "loading", user: null });
   });
 
   afterEach(() => {
@@ -253,7 +251,9 @@ describe("useAuthStore init", () => {
   });
 
   it("resumes the session on a successful retry after a transient failure", async () => {
-    mocks.get.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    mocks.get
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
     await useAuthStore.getState().init();
     expect(useAuthStore.getState().status).toBe("unreachable");
 

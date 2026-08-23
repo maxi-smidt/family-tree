@@ -26,7 +26,6 @@ from app.services.members.member_clone import (
     reconcile_bridge_fields,
     wire_bridge,
 )
-from app.services.system import feature_service
 from app.services.tree_roles import role_for
 from app.services.unit_of_work import UnitOfWork
 
@@ -55,8 +54,6 @@ def get_link_candidates(
     ``DuplicatePair`` (reusing the tree-merge machinery) so the client can
     render the same conflict-resolution UI merge already uses.
     """
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     member = get_member(db, tree, member_id)
 
     validate_linked_tree(db, tree, user, target_tree_id)
@@ -112,8 +109,6 @@ def link_member_to_tree(
     target tree (``mode="create"``). Establishing a link writes rows in two
     trees, so it requires write access to both.
     """
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     member = get_member(db, tree, member_id)
     if member.linked_tree_id is not None:
         raise HTTPException(status_code=409, detail="Member is already linked to a tree")
@@ -247,8 +242,6 @@ def resolve_bridge_drift(
     link: ``push`` writes this member's values onto the counterpart, ``pull``
     adopts the counterpart's values. Requires write access to both trees.
     """
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     member = get_member(db, tree, member_id)
     if member.linked_member_id is None:
         raise HTTPException(status_code=400, detail="Member has no linked member")

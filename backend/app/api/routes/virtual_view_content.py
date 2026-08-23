@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.activity_query import activity_page, hidden_activity_target_types
-from app.api.deps import get_current_user, require_feature
+from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import (
     Document,
@@ -74,7 +74,6 @@ from app.services.virtual_views.virtual_view_sources import flatten_tree_ids
 router = APIRouter(
     prefix="/virtual-views",
     tags=["virtual-views"],
-    dependencies=[Depends(require_feature("virtual_views"))],
 )
 
 
@@ -157,7 +156,6 @@ def list_virtual_diseases(
 @router.get("/{view_id}/gallery/images", response_model=list[GalleryImageOut])
 def list_virtual_gallery_images(
     view_id: str,
-    _: None = Depends(require_feature("gallery")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[GalleryImageOut]:
@@ -172,7 +170,6 @@ def list_virtual_gallery_images(
 @router.get("/{view_id}/gallery/links", response_model=list[GalleryLinkOut])
 def list_virtual_gallery_links(
     view_id: str,
-    _: None = Depends(require_feature("gallery")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[GalleryLinkOut]:
@@ -208,7 +205,6 @@ def list_virtual_gallery_links(
 @router.get("/{view_id}/events", response_model=list[EventOut])
 def list_virtual_events(
     view_id: str,
-    _: None = Depends(require_feature("events")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[EventOut]:
@@ -236,7 +232,6 @@ def list_virtual_events(
 @router.get("/{view_id}/events/links", response_model=list[EventLinkOut])
 def list_virtual_event_links(
     view_id: str,
-    _: None = Depends(require_feature("events")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[EventLinkOut]:
@@ -248,7 +243,6 @@ def list_virtual_event_links(
 @router.get("/{view_id}/stories", response_model=list[StoryOut])
 def list_virtual_stories(
     view_id: str,
-    _: None = Depends(require_feature("stories")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[StoryOut]:
@@ -278,7 +272,6 @@ def list_virtual_stories(
 @router.get("/{view_id}/stories/links", response_model=list[StoryLinkOut])
 def list_virtual_story_links(
     view_id: str,
-    _: None = Depends(require_feature("stories")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[StoryLinkOut]:
@@ -292,7 +285,6 @@ def list_virtual_documents(
     view_id: str,
     # The flag/domain key is kept as "sources" for backward compatibility; the
     # feature is now presented as "Documents".
-    _: None = Depends(require_feature("sources")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[DocumentOut]:
@@ -325,7 +317,6 @@ def list_virtual_documents(
 @router.get("/{view_id}/activity", response_model=ActivityPageOut)
 def list_virtual_activity(
     view_id: str,
-    _: None = Depends(require_feature("activity_log")),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     actor: str | None = Query(default=None),
@@ -352,7 +343,6 @@ def list_virtual_activity(
 def virtual_geocode_batch(
     view_id: str,
     payload: GeocodeRequest,
-    _: None = Depends(require_feature("map")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[GeocodeOut]:
@@ -364,7 +354,6 @@ def virtual_geocode_batch(
 def virtual_geocode_preview(
     view_id: str,
     q: str = Query(..., min_length=1),
-    _: None = Depends(require_feature("map")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> GeocodeOut:
@@ -375,7 +364,6 @@ def virtual_geocode_preview(
 @router.get("/{view_id}/statistics", response_model=StatisticsReport)
 def get_virtual_statistics(
     view_id: str,
-    _: None = Depends(require_feature("statistics")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> StatisticsReport:
@@ -387,7 +375,6 @@ def get_virtual_statistics(
 @router.get("/{view_id}/quality-report", response_model=QualityReport)
 def get_virtual_quality_report(
     view_id: str,
-    _: None = Depends(require_feature("quality_report")),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> QualityReport:

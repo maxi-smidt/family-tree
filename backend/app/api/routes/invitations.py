@@ -11,7 +11,6 @@ from app.api.deps import (
     get_current_user,
     get_current_user_optional,
     get_readable_tree,
-    require_feature,
 )
 from app.db.session import get_db
 from app.models import Tree, TreeInvitation, User
@@ -33,8 +32,6 @@ from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(tags=["invitations"])
 
-_FEATURE = Depends(require_feature("sharing_invites"))
-
 
 def _inv_out(inv: TreeInvitation, *, include_token: bool = False) -> InvitationOut:
     out = InvitationOut.model_validate(inv)
@@ -51,7 +48,6 @@ def _inv_out(inv: TreeInvitation, *, include_token: bool = False) -> InvitationO
 @router.get(
     "/trees/{tree_id}/invitations",
     response_model=list[InvitationOut],
-    dependencies=[_FEATURE],
 )
 def list_invitations(
     tree: Tree = Depends(get_readable_tree),
@@ -74,7 +70,6 @@ def list_invitations(
     "/trees/{tree_id}/invitations",
     response_model=InvitationOut,
     status_code=201,
-    dependencies=[_FEATURE],
 )
 def create_invitation(
     payload: InvitationCreate,
@@ -136,7 +131,6 @@ def create_invitation(
 @router.delete(
     "/trees/{tree_id}/invitations/{invitation_id}",
     status_code=204,
-    dependencies=[_FEATURE],
 )
 def revoke_invitation(
     invitation_id: str,

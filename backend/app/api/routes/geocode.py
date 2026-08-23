@@ -7,7 +7,6 @@ from app.api.deps import (
     get_readable_tree,
     get_writable_tree,
     require_domain,
-    require_feature,
 )
 from app.db.session import get_db
 from app.models import Tree
@@ -27,7 +26,7 @@ from app.services.media.geocoding import (
 router = APIRouter(
     prefix="/trees/{tree_id}/geocode",
     tags=["geocode"],
-    dependencies=[Depends(require_feature("map")), Depends(require_domain("map"))],
+    dependencies=[Depends(require_domain("map"))],
 )
 
 

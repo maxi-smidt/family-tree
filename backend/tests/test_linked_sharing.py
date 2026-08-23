@@ -6,7 +6,6 @@ the owner can grant/revoke the same role on the anchor tree plus a batch of
 (typically linked) trees in one call.
 """
 
-from app.services.system import feature_service
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
 
 
@@ -118,22 +117,6 @@ def test_linked_trees_non_owner_403s(client, db):
         f"{API}/trees/{main.id}/access/linked-trees", headers=auth(editor)
     )
     assert res.status_code == 403
-
-
-def test_linked_trees_feature_off_404s(client, db):
-    owner = make_user(db, "owner")
-    main = make_tree(db, owner, "Main")
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.get(
-            f"{API}/trees/{main.id}/access/linked-trees", headers=auth(owner)
-        )
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
-
 
 # --- POST /access/batch -----------------------------------------------------
 
@@ -304,25 +287,6 @@ def test_batch_grant_non_owner_actor_403s(client, db):
     assert res.status_code == 403
 
 
-def test_batch_grant_feature_off_404s(client, db):
-    owner = make_user(db, "owner")
-    bob = make_user(db, "bob")
-    befriend(db, owner, bob)
-    main = make_tree(db, owner, "Main")
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.post(
-            f"{API}/trees/{main.id}/access/batch",
-            headers=auth(owner),
-            json={"username": "bob", "role": "editor", "tree_ids": [main.id]},
-        )
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
-
-
 # --- POST /access/batch-revoke ----------------------------------------------
 
 
@@ -385,22 +349,3 @@ def test_batch_revoke_non_owner_actor_403s(client, db):
         json={"user_id": bob.id, "tree_ids": [main.id]},
     )
     assert res.status_code == 403
-
-
-def test_batch_revoke_feature_off_404s(client, db):
-    owner = make_user(db, "owner")
-    bob = make_user(db, "bob")
-    main = make_tree(db, owner, "Main")
-    share(db, main, bob, "editor")
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.post(
-            f"{API}/trees/{main.id}/access/batch-revoke",
-            headers=auth(owner),
-            json={"user_id": bob.id, "tree_ids": [main.id]},
-        )
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()

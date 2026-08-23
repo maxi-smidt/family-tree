@@ -12,7 +12,6 @@ from app.services.members.bridge import (
     validate_linked_tree,
 )
 from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
-from app.services.system import feature_service
 from tests.conftest import add_member, make_tree, make_user, share
 
 
@@ -49,20 +48,6 @@ def test_sync_bridge_person_noop_when_no_identity_field_changed(db):
     # position_x is not a BRIDGE_SYNC_FIELDS member.
     status, synced_tree = sync_bridge_person(db, member, {"position_x": 5.0}, user)
     assert (status, synced_tree) == (None, None)
-
-
-def test_sync_bridge_person_noop_when_feature_disabled(db):
-    user, tree_a, _tree_b, member, _counterpart = _linked_pair(db)
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        status, synced_tree = sync_bridge_person(
-            db, member, {"first_name": "Eve"}, user
-        )
-        assert (status, synced_tree) == (None, None)
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 def test_sync_bridge_person_copies_identity_fields_onto_counterpart(db):
@@ -115,20 +100,6 @@ def test_validate_linked_tree_rejects_inaccessible_target(db):
     other = make_tree(db, other_owner, "Other")
     with pytest.raises(AccessDeniedError):
         validate_linked_tree(db, tree, user, other.id)
-
-
-def test_validate_linked_tree_404_when_feature_disabled(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-    other = make_tree(db, user, "Other")
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        with pytest.raises(NotFoundError):
-            validate_linked_tree(db, tree, user, other.id)
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 def test_validate_linked_member_allows_none(db):
@@ -204,18 +175,6 @@ def test_sync_vital_event_deletes_event_when_date_cleared(db):
     sync_vital_event(db, tree, member, "birth", None, None)
     db.commit()
     assert _birth_event(db, tree, member) is None
-
-
-def test_event_updates_allowed_false_when_events_feature_off(db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user)
-    feature_service.set_state(db, "events", "off")
-    db.commit()
-    try:
-        assert event_updates_allowed(db, tree, user) is False
-    finally:
-        feature_service.set_state(db, "events", "on")
-        db.commit()
 
 
 def test_event_updates_allowed_false_when_editor_is_restricted(db):

@@ -25,7 +25,6 @@ import { useActivityStore } from "@/hooks/useActivityStore";
 import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useStorageStore } from "@/hooks/useStorageStore";
-import { hasFeature } from "@/hooks/useAuthStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 
 export const isVirtualId = (id: string) => id.startsWith("vv_");
@@ -156,9 +155,7 @@ export const useTreeStore = create<DatabaseState>((set, get) => ({
   loadTrees: async () => {
     const [trees, virtualViews] = await Promise.all([
       api.get<Tree[]>("/trees"),
-      hasFeature("virtual_views")
-        ? TreeService.listVirtualViews().catch(() => [] as Tree[])
-        : Promise.resolve([] as Tree[]),
+      TreeService.listVirtualViews().catch(() => [] as Tree[]),
     ]);
     set({ trees, virtualViews });
     // Drop a stale selection that no longer exists / is no longer accessible.

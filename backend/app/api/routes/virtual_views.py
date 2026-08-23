@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import accessible_tree_ids, get_current_user, require_feature
+from app.api.deps import accessible_tree_ids, get_current_user
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import Tree, User
@@ -41,7 +41,6 @@ from app.services.virtual_views.virtual_view_matching import (
 router = APIRouter(
     prefix="/virtual-views",
     tags=["virtual-views"],
-    dependencies=[Depends(require_feature("virtual_views"))],
 )
 
 VIRTUAL_VIEW_SOURCES_NO_OVERLAP = "virtual_view_sources_no_overlap"

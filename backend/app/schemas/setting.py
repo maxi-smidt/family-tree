@@ -11,19 +11,7 @@ from app.core.media_config import (
     MIN_MAX_IMAGE_UPLOAD_MB,
 )
 
-FeatureState = Literal["on", "off", "beta"]
 ImageStorageMode = Literal["compressed", "original", "both"]
-
-
-class FeatureFlagOut(BaseModel):
-    name: str
-    state: FeatureState
-    allowlist: list[str]
-
-
-class FeatureFlagUpdate(BaseModel):
-    state: FeatureState | None = None
-    allowlist: list[str] | None = None
 
 
 class MediaLimits(BaseModel):

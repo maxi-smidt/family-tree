@@ -33,13 +33,6 @@ class UserOut(BaseModel):
 
 
 class CurrentUserOut(UserOut):
-    """The calling user plus their resolved feature-flag set.
-
-    Only for "who am I" responses (login/me); admin user lists stay ``UserOut``
-    since another user's feature set would be misleading there.
-    """
-
-    features: list[str] = Field(default_factory=list)
     totp_enabled: bool = False
     # Effective storage mode (user preference or admin default) and the
     # admin-allowed set so the frontend can filter available options.

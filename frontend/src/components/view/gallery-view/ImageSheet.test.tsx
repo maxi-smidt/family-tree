@@ -4,7 +4,6 @@ import i18n from "@/i18n/i18n";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useAuthStore } from "@/hooks/useAuthStore";
 import type { GalleryImage } from "@/types/gallery";
 import type { Member } from "@/types/member";
 import { ImageSheet } from "./ImageSheet";
@@ -100,7 +99,6 @@ describe("ImageSheet", () => {
       resolveUnknownFace: vi.fn().mockResolvedValue(undefined),
       removeUnknownFace: vi.fn().mockResolvedValue(undefined),
     });
-    useAuthStore.setState({ features: [] });
   });
 
   it("clears the photo date with the partial date picker and saves it as null", async () => {
@@ -147,10 +145,8 @@ describe("ImageSheet", () => {
     expect(screen.getAllByText("Unknown person").length).toBeGreaterThan(0);
   });
 
-  it("offers 'Mark as unknown person' only when research_tasks is enabled", () => {
-    const { rerender } = render(
-      <ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />,
-    );
+  it("offers 'Mark as unknown person' when research tasks are unrestricted", () => {
+    render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Tag faces" }));
     const overlay = document.querySelector(".cursor-crosshair") as Element;
@@ -159,19 +155,11 @@ describe("ImageSheet", () => {
     fireEvent.pointerUp(overlay, { clientX: 40, clientY: 40 });
 
     expect(
-      screen.queryByRole("button", { name: "Mark as unknown person" }),
-    ).not.toBeInTheDocument();
-
-    useAuthStore.setState({ features: ["research_tasks"] });
-    rerender(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
-
-    expect(
       screen.getByRole("button", { name: "Mark as unknown person" }),
     ).toBeInTheDocument();
   });
 
   it("persists a new unknown-face tag immediately when marked", async () => {
-    useAuthStore.setState({ features: ["research_tasks"] });
     render(<ImageSheet isOpen onClose={vi.fn()} image={IMAGE} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Tag faces" }));

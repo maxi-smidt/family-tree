@@ -11,7 +11,6 @@ from app.api.deps import (
     get_readable_tree,
     get_writable_tree,
     require_domain,
-    require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.core.exceptions import QuotaExceeded
@@ -61,10 +60,7 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/trees/{tree_id}/gallery",
     tags=["gallery"],
-    dependencies=[
-        Depends(require_feature("gallery")),
-        Depends(require_domain("gallery")),
-    ],
+    dependencies=[Depends(require_domain("gallery"))],
 )
 
 
@@ -354,7 +350,6 @@ def list_unknown_faces(
     "/images/{image_id}/unknown-faces",
     response_model=UnknownFaceOut,
     status_code=201,
-    dependencies=[Depends(require_feature("research_tasks"))],
 )
 def create_unknown_face(
     image_id: str,

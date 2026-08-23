@@ -10,7 +10,6 @@ import { TreeSharingService } from "@/services/TreeSharingService";
 import { AuthService, TwoFactorSetup } from "@/services/AuthService";
 import { Tree } from "@/types/tree";
 import { AuthConfig, LoginResponse, TokenResponse, User } from "@/types/user";
-import { FeatureName } from "@/lib/features";
 import { decodeJwtExp } from "@/lib/utils";
 
 type AuthStatus =
@@ -29,8 +28,6 @@ type AccountOperation =
 interface AuthState {
   status: AuthStatus;
   user: User | null;
-  /** Feature flags resolved for this user by the backend (login/me). */
-  features: string[];
   config: AuthConfig | null;
   sessionExpiringSoon: boolean;
   sessionRefreshFailed: boolean;
@@ -154,7 +151,6 @@ async function checkAuthSession(): Promise<void> {
     );
     useAuthStore.setState({
       user,
-      features: user.features ?? [],
       status: "authenticated",
       reloginRequired: false,
       sessionExpiringSoon: false,
@@ -166,7 +162,6 @@ async function checkAuthSession(): Promise<void> {
       setAuthToken(null);
       useAuthStore.setState({
         user: null,
-        features: [],
         status: "unauthenticated",
       });
       return;
@@ -179,7 +174,6 @@ function applyToken(res: TokenResponse) {
   setAuthToken(res.access_token);
   useAuthStore.setState({
     user: res.user,
-    features: res.user.features ?? [],
     status: "authenticated",
     reloginRequired: false,
     sessionExpiringSoon: false,
@@ -193,7 +187,6 @@ function applyToken(res: TokenResponse) {
 export const useAuthStore = create<AuthState>((set) => ({
   status: "loading",
   user: null,
-  features: [],
   config: null,
   sessionExpiringSoon: false,
   sessionRefreshFailed: false,
@@ -274,7 +267,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     setAuthToken(null);
     set({
       user: null,
-      features: [],
       status: "unauthenticated",
       sessionExpiringSoon: false,
       sessionRefreshFailed: false,
@@ -293,7 +285,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     ) {
       return;
     }
-    set({ user, features: user.features ?? [] });
+    set({ user });
   },
 
   refreshSession: async () => {
@@ -374,21 +366,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     const user = await runAccountOperation(set, "saving-profile", () =>
       AuthService.updateProfile(firstName, lastName),
     );
-    set({ user, features: user.features ?? [] });
+    set({ user });
   },
 
   uploadProfileImage: async (file: File) => {
     const user = await runAccountOperation(set, "uploading-profile-image", () =>
       AuthService.uploadProfileImage(file),
     );
-    set({ user, features: user.features ?? [] });
+    set({ user });
   },
 
   removeProfileImage: async () => {
     const user = await runAccountOperation(set, "removing-profile-image", () =>
       AuthService.removeProfileImage(),
     );
-    set({ user, features: user.features ?? [] });
+    set({ user });
   },
 
   loadOwnedTrees: () => AuthService.getOwnedTrees(),
@@ -453,14 +445,6 @@ async function runAccountOperation<T>(
     set({ accountOperation: "idle" });
   }
 }
-
-/** Reactive hook: is the feature enabled for the current user? */
-export const useFeature = (feature: FeatureName): boolean =>
-  useAuthStore((s) => s.features.includes(feature));
-
-/** Non-reactive check for store actions and other non-component code. */
-export const hasFeature = (feature: FeatureName): boolean =>
-  useAuthStore.getState().features.includes(feature);
 
 // Any 401 from the API triggers a relogin dialog instead of a hard logout,
 // so the user can re-authenticate in-place without losing UI state.

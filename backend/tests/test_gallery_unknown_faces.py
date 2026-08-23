@@ -281,29 +281,6 @@ def test_unknown_face_writes_require_editor_or_owner(client, db):
     )
 
 
-def test_research_tasks_flag_off_rejects_create_but_get_still_works(client, db):
-    admin = make_user(db, "unknown-face-admin", is_admin=True)
-    owner, tree = _setup(client, db, "unknown-face-flag-owner")
-    _create_face(client, owner, tree)
-
-    off = client.patch(
-        f"{API}/admin/features/research_tasks",
-        headers=auth(admin),
-        json={"state": "off"},
-    )
-    assert off.status_code == 200
-
-    # Existing tags stay visible.
-    listed = client.get(
-        f"{API}/trees/{tree.id}/gallery/unknown-faces", headers=auth(owner)
-    )
-    assert listed.status_code == 200
-    assert len(listed.json()) == 1
-
-    rejected = _create_face(client, owner, tree, id="face2")
-    assert rejected.status_code == 404
-
-
 def test_unknown_face_for_image_in_another_tree_is_404(client, db):
     owner, tree = _setup(client, db)
     other_owner = make_user(db, "unknown-face-other-owner")

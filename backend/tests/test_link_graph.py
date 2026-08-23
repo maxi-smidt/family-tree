@@ -1,6 +1,5 @@
 """Tests for GET /trees/{tree_id}/link-graph (issue #536)."""
 
-from app.services.system import feature_service
 from app.services.trees.tree_links import compute_link_graph
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
@@ -116,19 +115,6 @@ def test_multiple_links_between_same_pair_collapse_with_count(client, db):
     edge = body["edges"][0]
     assert edge["count"] == 2
     assert {bm["id"] for bm in edge["bridge_members"]} == {"m1", "m2"}
-
-
-def test_feature_off_returns_404(client, db):
-    user = make_user(db, "alice")
-    tree = make_tree(db, user, "T1")
-    feature_service.set_state(db, "tree_links", "off")
-    db.commit()
-    try:
-        res = client.get(f"{API}/trees/{tree.id}/link-graph", headers=auth(user))
-        assert res.status_code == 404
-    finally:
-        feature_service.set_state(db, "tree_links", "on")
-        db.commit()
 
 
 def test_non_readable_start_tree_returns_403(client, db):

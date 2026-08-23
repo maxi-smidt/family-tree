@@ -11,7 +11,6 @@ from app.schemas.family import MemberOut, MemberSubtreeCreate
 from app.schemas.tree import MemberSubtreeOut, TreeOut
 from app.services.members.member_access import get_member
 from app.services.members.member_subtrees import create_linked_subtree
-from app.services.system import feature_service
 
 router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 
@@ -35,8 +34,6 @@ def create_member_subtree(
     and the two rows point at each other via linked_tree_id/linked_member_id,
     so navigation works in both directions and lands on the counterpart.
     """
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     member = get_member(db, tree, member_id)
     if member.linked_tree_id is not None:
         raise HTTPException(status_code=409, detail="Member is already linked to a tree")

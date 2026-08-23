@@ -25,7 +25,6 @@ import { ViewLayout } from "@/components/layout/ViewLayout";
 import { useQualityReportStore } from "@/hooks/useQualityReportStore";
 import { useTaskStore } from "@/hooks/useTaskStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -326,8 +325,7 @@ export const QualityReportView = () => {
     useQualityReportStore();
   const canWrite = useTreeStore((s) => s.selectedTree?.role !== "viewer");
   const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
-  const tasksEnabled =
-    useFeature("research_tasks") && !restrictions?.includes("tasks");
+  const tasksEnabled = !restrictions?.includes("tasks");
 
   useEffect(() => {
     if (!report) {

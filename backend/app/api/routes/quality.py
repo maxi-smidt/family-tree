@@ -10,7 +10,6 @@ from app.api.deps import (
     get_current_user,
     get_readable_tree,
     get_writable_tree,
-    require_feature,
 )
 from app.db.session import get_db
 from app.models import Tree, User
@@ -25,7 +24,6 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/trees/{tree_id}",
     tags=["quality"],
-    dependencies=[Depends(require_feature("quality_report"))],
 )
 
 
@@ -37,14 +35,10 @@ def _bridge_drift_issues(
     Needs the db (counterpart rows live in other trees), so it runs here
     rather than in the pure ``run_quality_checks``. The comparison happens
     server-side only — field *names* are reported, never the other tree's
-    values — and the whole check is dormant while tree_links is off.
+    values — and the whole check is available whenever linked members exist.
     """
     linked = [m for m in members if m.linked_member_id]
     if not linked:
-        return []
-    from app.services.system import feature_service  # noqa: PLC0415
-
-    if not feature_service.is_enabled(db, "tree_links", user):
         return []
     counterparts = {
         c.id: c

@@ -37,7 +37,6 @@ import {
   Plus,
 } from "lucide-react";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { createMember, Member } from "@/types/member";
@@ -77,8 +76,7 @@ export const MemberControls = ({
     setShowTaskIndicators,
   } = useFamilyTreeSettings();
   const taskRestrictions = useTreeStore((s) => s.selectedTree?.restrictions);
-  const tasksEnabled =
-    useFeature("research_tasks") && !taskRestrictions?.includes("tasks");
+  const tasksEnabled = !taskRestrictions?.includes("tasks");
   const {
     batchSetCollapsed,
     windowed,

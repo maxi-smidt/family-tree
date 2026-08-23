@@ -10,7 +10,6 @@ from app.api.deps import (
     get_readable_tree,
     get_writable_tree,
     require_domain,
-    require_feature,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.base import utcnow_iso
@@ -32,10 +31,7 @@ from app.services.unit_of_work import UnitOfWork
 router = APIRouter(
     prefix="/trees/{tree_id}/tasks",
     tags=["tasks"],
-    dependencies=[
-        Depends(require_feature("research_tasks")),
-        Depends(require_domain("tasks")),
-    ],
+    dependencies=[Depends(require_domain("tasks"))],
 )
 
 

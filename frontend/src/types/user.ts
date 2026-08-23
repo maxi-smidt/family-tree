@@ -14,8 +14,6 @@ export interface User {
   /** Absolute purge deadline; non-null means the account is pending deletion. */
   deletion_scheduled_for?: string | null;
   deletion_requested_by?: string | null;
-  /** Resolved feature-flag set; only present on login/me responses. */
-  features?: string[];
   /** Whether TOTP 2FA is active on this account. */
   totp_enabled?: boolean;
   /** Per-user storage quota overrides (null = use instance default; 0 = unlimited). */

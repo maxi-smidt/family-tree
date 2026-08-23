@@ -7,12 +7,12 @@ import re
 from collections import defaultdict
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree, require_feature
+from app.api.deps import get_current_user, get_readable_tree
 from app.db.session import get_db
 from app.models import Tree, User
 from app.models.family import Member
@@ -33,7 +33,6 @@ from app.services.cache import (
     cache_set_json,
     stats_key,
 )
-from app.services.system import feature_service
 from app.services.trees.statistics import AGE_BUCKETS, compute_statistics
 from app.services.trees.statistics import decade_label as _decade_label
 from app.services.trees.statistics import extract_year as _extract_year
@@ -42,7 +41,6 @@ from app.services.trees.tree_links import reachable_linked_trees
 router = APIRouter(
     prefix="/trees/{tree_id}",
     tags=["statistics"],
-    dependencies=[Depends(require_feature("statistics"))],
 )
 
 WIDGET_MAX_CATEGORIES = 12
@@ -418,9 +416,6 @@ async def get_combined_statistics(
     the single-tree route, but keeping it uncached avoids invalidation
     fan-out across every tree in the link graph.
     """
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
-
     return await run_in_threadpool(_load_and_compute_combined, db, tree, user)
 
 
@@ -437,15 +432,8 @@ async def get_custom_widget_aggregations(
     """Return safe, capped pivots for custom statistics widgets.
 
     The linked scope shares the exact traversal and bridge-person
-    de-duplication used by ``/statistics/combined``.  Its feature check is
-    deliberately here (rather than the router) because normal, single-tree
-    custom widgets remain available when tree-in-tree links are disabled.
+    de-duplication used by ``/statistics/combined``.
     """
-    if payload.scope == "linked" and not feature_service.is_enabled(
-        db, "tree_links", user
-    ):
-        raise HTTPException(status_code=404, detail="Not found")
-
     return await run_in_threadpool(
         _load_custom_widget_aggregations, db, tree, user, payload
     )

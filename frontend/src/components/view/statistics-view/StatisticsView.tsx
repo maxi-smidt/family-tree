@@ -9,7 +9,6 @@ import { useStatisticsStore } from "@/hooks/useStatisticsStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useTreeStore } from "@/hooks/useTreeStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
@@ -90,9 +89,8 @@ export const StatisticsView = () => {
   const refreshStories = useStoryStore((s) => s.refreshStories);
   const selectedTreeId = useTreeStore((s) => s.selectedTree?.id);
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
-  const treeLinksEnabled = useFeature("tree_links");
   const hasLinkedMembers = members.some((m) => m.linkedTreeId);
-  const showScopeToggle = treeLinksEnabled && hasLinkedMembers;
+  const showScopeToggle = hasLinkedMembers;
   const combinedReport =
     scope === "linked" ? (report as CombinedStatisticsReport | null) : null;
 

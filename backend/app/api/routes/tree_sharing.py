@@ -21,8 +21,7 @@ from app.schemas.tree import (
 from app.services.activity.activity import record_activity
 from app.services.collaboration import friendships, notification_service
 from app.services.event_bus import publish_tree_event
-from app.services.system import feature_service
-from app.services.system.feature_service import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
+from app.services.trees.restrictions import DEFAULT_RESTRICTIONS, RESTRICTABLE_DOMAINS
 from app.services.trees.tree_access import list_tree_access
 from app.services.trees.tree_links import reachable_linked_trees
 from app.services.unit_of_work import UnitOfWork
@@ -204,8 +203,6 @@ def list_linked_share_trees(
     than silently omitting them; trees the actor cannot read at all are
     skipped so their existence isn't leaked.
     """
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can share a tree")
 
@@ -254,8 +251,6 @@ def share_trees_batch(
     """Grant one user the same role across the anchor tree and a batch of
     (typically linked) trees in a single call. All-or-nothing: every tree_id
     is validated before any grant is applied."""
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can share a tree")
     if payload.role not in ("viewer", "editor"):
@@ -348,8 +343,6 @@ def revoke_access_batch(
     """Revoke one user's access across a batch of (typically linked) trees in
     a single call. Trees without an existing membership for the user are
     silently skipped."""
-    if not feature_service.is_enabled(db, "tree_links", user):
-        raise HTTPException(status_code=404, detail="Not found")
     if tree.owner_id != user.id and not user.is_admin:
         raise HTTPException(status_code=403, detail="Only the owner can manage sharing")
     if len(payload.tree_ids) > _BATCH_TREE_IDS_MAX:

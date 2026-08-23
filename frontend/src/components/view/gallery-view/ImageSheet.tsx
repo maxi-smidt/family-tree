@@ -19,7 +19,6 @@ import { PartialDatePicker } from "@/components/ui/partial-date-picker";
 import { useTranslation } from "react-i18next";
 import { MemberPicker } from "@/components/shared/member-sheet/MemberPicker";
 import { useTreeStore } from "@/hooks/useTreeStore";
-import { useFeature } from "@/hooks/useAuthStore";
 import {
   Tooltip,
   TooltipContent,
@@ -108,9 +107,10 @@ export const ImageSheet = ({
   const unknownFaces =
     galleryImages.find((candidate) => candidate.id === image.id)
       ?.unknownFaces ?? image.unknownFaces;
-  const treeRole = useTreeStore((state) => state.selectedTree?.role);
+  const selectedTree = useTreeStore((state) => state.selectedTree);
+  const treeRole = selectedTree?.role;
   const canWrite = treeRole !== "viewer";
-  const researchTasksEnabled = useFeature("research_tasks");
+  const researchTasksEnabled = !selectedTree?.restrictions?.includes("tasks");
   const [formData, setFormData] = useState<Partial<GalleryImage>>(image);
   const [tagMode, setTagMode] = useState(false);
   const [draftRegion, setDraftRegion] = useState<FaceRegion | null>(null);
