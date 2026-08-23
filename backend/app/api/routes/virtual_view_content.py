@@ -283,8 +283,6 @@ def list_virtual_story_links(
 @router.get("/{view_id}/documents", response_model=list[DocumentOut])
 def list_virtual_documents(
     view_id: str,
-    # The flag/domain key is kept as "sources" for backward compatibility; the
-    # feature is now presented as "Documents".
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[DocumentOut]:

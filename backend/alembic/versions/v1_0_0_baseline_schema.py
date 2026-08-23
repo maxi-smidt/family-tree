@@ -96,6 +96,12 @@ def upgrade() -> None:
     sa.UniqueConstraint('oauth_subject')
     )
     op.create_index(op.f('ix_users_username'), 'users', ['username'], unique=True)
+    op.create_table('feature_flag_overrides',
+    sa.Column('feature', sa.String(length=64), nullable=False),
+    sa.Column('user_id', sa.String(length=36), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('feature', 'user_id')
+    )
     op.create_table('friendships',
     sa.Column('requester_id', sa.String(length=36), nullable=False),
     sa.Column('addressee_id', sa.String(length=36), nullable=False),
@@ -434,6 +440,7 @@ def downgrade() -> None:
     op.drop_index('ix_friendships_requester_id', table_name='friendships')
     op.drop_index('ix_friendships_addressee_id', table_name='friendships')
     op.drop_table('friendships')
+    op.drop_table('feature_flag_overrides')
     op.drop_index(op.f('ix_users_username'), table_name='users')
     op.drop_table('users')
     op.drop_table('relation_types')

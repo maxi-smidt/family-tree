@@ -28,7 +28,7 @@ router = APIRouter(
 
 
 def _bridge_drift_issues(
-    db: Session, user: User, members: list[Member]
+    db: Session, members: list[Member]
 ) -> list[QualityIssue]:
     """Bridge persons whose two rows have drifted apart.
 
@@ -77,7 +77,6 @@ def _bridge_drift_issues(
 def get_quality_report(
     include_dismissed: bool = False,
     tree: Tree = Depends(get_readable_tree),
-    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Return a non-destructive data-quality report for the tree.
@@ -99,7 +98,7 @@ def get_quality_report(
         ).all()
     )
     raw_issues = run_quality_checks(members, relations, events, event_links)
-    raw_issues += _bridge_drift_issues(db, user, members)
+    raw_issues += _bridge_drift_issues(db, members)
 
     dismissed_ids = set(
         db.scalars(

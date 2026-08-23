@@ -29,12 +29,6 @@ router = APIRouter(
     tags=["activity"],
 )
 
-# Keep undo on a separate router so it can retain its own route registration.
-undo_router = APIRouter(
-    prefix="/trees/{tree_id}",
-    tags=["activity"],
-)
-
 
 @router.get("/activity", response_model=ActivityPageOut)
 def list_activity(
@@ -63,7 +57,7 @@ def list_activity(
     )
 
 
-@undo_router.post(
+@router.post(
     "/activity/{entry_id}/undo",
     response_model=ActivityUndoOut,
     response_model_exclude_none=True,

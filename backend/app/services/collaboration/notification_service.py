@@ -84,7 +84,7 @@ def create_notification(
 ) -> None:
     """Persist a notification for user_id and push it live over SSE.
 
-        Never raises — a failure here must not break the triggering request.
+    Never raises — a failure here must not break the triggering request.
     """
     try:
         with UnitOfWork(db) as uow:
