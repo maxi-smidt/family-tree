@@ -80,18 +80,16 @@ def _rename_schema() -> None:
                 )
             )
 
-    if bind.dialect.name != "sqlite":
         for old_name, new_name in INDEX_RENAMES:
-            op.rename_index(old_name, new_name)
+            op.execute(sa.text(f'ALTER INDEX "{old_name}" RENAME TO "{new_name}"'))
 
 
 def _restore_schema() -> None:
     bind = op.get_bind()
-    if bind.dialect.name != "sqlite":
-        for old_name, new_name in reversed(INDEX_RENAMES):
-            op.rename_index(new_name, old_name)
-
     if bind.dialect.name == "postgresql":
+        for old_name, new_name in reversed(INDEX_RENAMES):
+            op.execute(sa.text(f'ALTER INDEX "{new_name}" RENAME TO "{old_name}"'))
+
         for table, old_name, new_name in reversed(CONSTRAINT_RENAMES):
             op.execute(
                 sa.text(
