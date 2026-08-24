@@ -8,7 +8,7 @@ from app.models import (
     Story,
     StoryDocumentLink,
 )
-from app.services.trees.merge import merge_trees
+from app.services.workspaces.merge import merge_trees
 from tests.conftest import add_member, make_tree, make_user
 
 
@@ -23,9 +23,9 @@ def test_merge_dedupes_identical_members(db):
 
     merged = merge_trees(db, user, "Merged", tree_a.id, tree_b.id)
 
-    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    members = db.query(Member).filter(Member.workspace_id == merged.id).all()
     names = sorted((m.first_name.lower(), m.last_name.lower()) for m in members)
-    # Ada (matched across both trees) collapses into one; Bob stays separate.
+    # Ada (matched across both workspaces) collapses into one; Bob stays separate.
     assert names == [("ada", "doe"), ("bob", "doe")]
 
 
@@ -44,7 +44,7 @@ def test_merge_remaps_relations_and_regenerates_ids(db):
     add_member(db, source, "parent", first_name="Pa", gender="m")
     db.add(
         Relation(
-            tree_id=source.id,
+            workspace_id=source.id,
             from_member_id="child",
             to_member_id="parent",
             relation_type="parent",
@@ -54,13 +54,13 @@ def test_merge_remaps_relations_and_regenerates_ids(db):
 
     merged = merge_trees(db, user, "Copy", source.id, None)
 
-    members = db.query(Member).filter(Member.tree_id == merged.id).all()
+    members = db.query(Member).filter(Member.workspace_id == merged.id).all()
     assert {m.id for m in members}.isdisjoint({"child", "parent"})  # ids regenerated
     child = next(m for m in members if m.first_name == "Kid")
     assert child.middle_names == "Middle"
     assert child.baptismal_name == "Baptismal"
 
-    relations = db.query(Relation).filter(Relation.tree_id == merged.id).all()
+    relations = db.query(Relation).filter(Relation.workspace_id == merged.id).all()
     assert len(relations) == 1
     id_by_name = {m.first_name: m.id for m in members}
     assert relations[0].from_member_id == id_by_name["Kid"]
@@ -73,18 +73,29 @@ def test_merge_copies_documents_into_new_tree(db):
     add_member(db, source, "m1", first_name="Ada", gender="f")
     now = utcnow_iso()
     db.add(
-        Story(id="s1", tree_id=source.id, title="Tale", created_at=now, updated_at=now)
+        Story(
+            id="s1", workspace_id=source.id, title="Tale", created_at=now, updated_at=now
+        )
     )
     db.add(
         Document(
-            id="doc1", tree_id=source.id, title="Census", description="notes",
-            created_at=now, updated_at=now,
+            id="doc1",
+            workspace_id=source.id,
+            title="Census",
+            description="notes",
+            created_at=now,
+            updated_at=now,
         )
     )
     db.add(
         DocumentFile(
-            id="df1", tree_id=source.id, document_id="doc1", kind="link",
-            filename="Record", url="https://example.com/record", created_at=now,
+            id="df1",
+            workspace_id=source.id,
+            document_id="doc1",
+            kind="link",
+            filename="Record",
+            url="https://example.com/record",
+            created_at=now,
         )
     )
     db.add(DocumentMemberLink(document_id="doc1", member_id="m1"))
@@ -93,7 +104,7 @@ def test_merge_copies_documents_into_new_tree(db):
 
     merged = merge_trees(db, user, "Copy", source.id, None)
 
-    docs = db.query(Document).filter(Document.tree_id == merged.id).all()
+    docs = db.query(Document).filter(Document.workspace_id == merged.id).all()
     assert len(docs) == 1
     copied = docs[0]
     assert copied.id != "doc1"  # ids regenerated
@@ -102,7 +113,7 @@ def test_merge_copies_documents_into_new_tree(db):
 
     files = db.query(DocumentFile).filter(DocumentFile.document_id == copied.id).all()
     assert len(files) == 1
-    assert files[0].tree_id == merged.id
+    assert files[0].workspace_id == merged.id
     assert files[0].kind == "link"
     assert files[0].url == "https://example.com/record"
 
@@ -111,12 +122,12 @@ def test_merge_copies_documents_into_new_tree(db):
     member_links = db.query(DocumentMemberLink).filter_by(document_id=copied.id).all()
     assert len(member_links) == 1
     linked_member = db.get(Member, member_links[0].member_id)
-    assert linked_member.tree_id == merged.id
+    assert linked_member.workspace_id == merged.id
 
     story_links = db.query(StoryDocumentLink).filter_by(document_id=copied.id).all()
     assert len(story_links) == 1
     linked_story = db.get(Story, story_links[0].story_id)
-    assert linked_story.tree_id == merged.id
+    assert linked_story.workspace_id == merged.id
 
 
 def test_merge_requires_owned_or_shared_source(db):

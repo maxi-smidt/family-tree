@@ -23,7 +23,7 @@ describe("api — postForm timeout", () => {
     }) as unknown as typeof fetch;
 
     const assertion = expect(
-      api.postForm("/trees/t1/documents/uploads", new FormData(), 1000),
+      api.postForm("/workspaces/t1/documents/uploads", new FormData(), 1000),
     ).rejects.toThrow();
 
     await vi.advanceTimersByTimeAsync(1000);
@@ -39,7 +39,7 @@ describe("api — postForm timeout", () => {
     );
 
     const result = await api.postForm(
-      "/trees/t1/documents/uploads",
+      "/workspaces/t1/documents/uploads",
       new FormData(),
       1000,
     );
@@ -101,7 +101,7 @@ describe("api — 401 classification", () => {
     ) as unknown as typeof fetch;
 
     const error = await api
-      .get("/trees/public-tree-1")
+      .get("/workspaces/public-tree-1")
       .catch((err: unknown) => err);
 
     expect(error).toBeInstanceOf(ApiError);
@@ -119,7 +119,7 @@ describe("api — 401 classification", () => {
     ) as unknown as typeof fetch;
 
     const error = await api
-      .post("/trees/public-tree-1/public/unlock", { password: "wrong" })
+      .post("/workspaces/public-tree-1/public/unlock", { password: "wrong" })
       .catch((err: unknown) => err);
 
     expect(error).toBeInstanceOf(ApiError);
@@ -136,7 +136,7 @@ describe("api — 401 classification", () => {
     ) as unknown as typeof fetch;
 
     const error = await api
-      .postForm("/trees/import", new FormData())
+      .postForm("/workspaces/import", new FormData())
       .catch((err: unknown) => err);
 
     expect(error).toBeInstanceOf(ApiError);

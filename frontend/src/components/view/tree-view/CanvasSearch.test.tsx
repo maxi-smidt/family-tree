@@ -29,8 +29,8 @@ const OTHER_TREE_MEMBER = {
   lastName: "Huber",
   maidenName: "Leitner",
   dateOfBirth: "1954-03-12",
-  treeId: "shared-tree",
-  treeName: "Shared family",
+  workspaceId: "shared-tree",
+  workspaceName: "Shared family",
 } as MemberSearchHitDB;
 
 describe("CanvasSearch", () => {
@@ -46,7 +46,7 @@ describe("CanvasSearch", () => {
       <CanvasSearch
         members={[CURRENT_MEMBER]}
         onLocate={vi.fn()}
-        treeId="current-tree"
+        workspaceId="current-tree"
         onOpenOtherTree={onOpenOtherTree}
       />,
     );
@@ -68,7 +68,7 @@ describe("CanvasSearch", () => {
     });
 
     expect(screen.getByText("Current tree")).toBeInTheDocument();
-    expect(screen.getByText("Other accessible trees")).toBeInTheDocument();
+    expect(screen.getByText("Other accessible workspaces")).toBeInTheDocument();
     expect(screen.getByText("Shared family")).toBeInTheDocument();
 
     fireEvent.click(
@@ -99,7 +99,7 @@ describe("CanvasSearch", () => {
       <CanvasSearch
         members={[member]}
         onLocate={vi.fn()}
-        treeId="current-tree"
+        workspaceId="current-tree"
         onOpenOtherTree={vi.fn()}
       />,
     );
@@ -125,7 +125,7 @@ describe("CanvasSearch", () => {
       <CanvasSearch
         members={[member]}
         onLocate={vi.fn()}
-        treeId="current-tree"
+        workspaceId="current-tree"
         onOpenOtherTree={vi.fn()}
       />,
     );
@@ -151,7 +151,7 @@ describe("CanvasSearch", () => {
       <CanvasSearch
         members={[member]}
         onLocate={vi.fn()}
-        treeId="current-tree"
+        workspaceId="current-tree"
         onOpenOtherTree={vi.fn()}
       />,
     );

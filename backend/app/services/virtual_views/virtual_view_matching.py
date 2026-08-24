@@ -11,7 +11,7 @@ Two normalisation tiers:
 A key is excluded from matching when a *single* source tree has 2+ members
 with the same key (same-named twins / duplicates — ambiguous; never auto-merge).
 
-A match group spans members from ≥2 distinct trees that share the same key.
+A match group spans members from ≥2 distinct workspaces that share the same key.
 Groups are persisted in ``virtual_view_member_matches``; the group_id is a
 deterministic sha256 hash of the sorted member ids so recomputing with identical
 membership yields the same id (position overlays remain valid).
@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 from app.db.base import utcnow_iso
 from app.models import Member
 from app.models.virtual_view import VirtualViewMemberMatch, VirtualViewPosition
-from app.services.virtual_views.virtual_view_sources import flatten_tree_ids
+from app.services.virtual_views.virtual_view_sources import flatten_workspace_ids
 
 if TYPE_CHECKING:
     from app.models.virtual_view import VirtualView
@@ -82,34 +82,34 @@ def group_id_for(member_ids: list[str]) -> str:
 
 
 def compute_match_groups(
-    db: Session, source_tree_ids: list[str]
+    db: Session, source_workspace_ids: list[str]
 ) -> list[list[Member]]:
-    """Return groups of members (one list per group) that overlap across trees.
+    """Return groups of members (one list per group) that overlap across workspaces.
 
-    Each group contains members from ≥2 distinct source trees that share the
+    Each group contains members from ≥2 distinct source workspaces that share the
     same normalised key. Members whose key is ambiguous within a single tree
     (twins / duplicates) are excluded.
     """
     members = list(
         db.scalars(
-            select(Member).where(Member.tree_id.in_(source_tree_ids))
+            select(Member).where(Member.workspace_id.in_(source_workspace_ids))
         ).all()
     )
 
-    # Map key → { tree_id → [member, ...] }
+    # Map key → { workspace_id → [member, ...] }
     key_buckets: dict[tuple, dict[str, list[Member]]] = defaultdict(
         lambda: defaultdict(list)
     )
     for m in members:
         for key in _member_keys(m):
-            key_buckets[key][m.tree_id].append(m)
+            key_buckets[key][m.workspace_id].append(m)
 
     groups: list[list[Member]] = []
     for _key, by_tree in key_buckets.items():
         # Exclude keys that are ambiguous within any single tree.
         if any(len(ms) > 1 for ms in by_tree.values()):
             continue
-        # Must span ≥2 distinct trees to be a match group.
+        # Must span ≥2 distinct workspaces to be a match group.
         if len(by_tree) < 2:
             continue
         # One member per tree in a group (ambiguity guard ensures this).
@@ -132,10 +132,10 @@ def persist_matches(db: Session, view: VirtualView) -> int:
 
     Returns the number of match groups found.
     """
-    # Sources may be real trees or nested virtual views — flatten the DAG to the
+    # Sources may be real workspaces or nested virtual views — flatten the DAG to the
     # underlying real tree ids before matching so nesting behaves like a flat
-    # composite of the same trees.
-    source_ids = flatten_tree_ids(db, view)
+    # composite of the same workspaces.
+    source_ids = flatten_workspace_ids(db, view)
 
     # Wipe old match rows (cascade would only fire on member deletion; we also
     # need a clean slate when sources change).
@@ -155,7 +155,7 @@ def persist_matches(db: Session, view: VirtualView) -> int:
         gid = group_id_for(member_ids)
         valid_node_ids.add(gid)
         # Primary = member whose tree has the lowest position in source_order.
-        primary = min(group, key=lambda m: source_order.get(m.tree_id, 999))
+        primary = min(group, key=lambda m: source_order.get(m.workspace_id, 999))
         for m in group:
             db.add(
                 VirtualViewMemberMatch(

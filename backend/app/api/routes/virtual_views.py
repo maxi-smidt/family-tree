@@ -9,10 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import accessible_tree_ids, get_current_user
+from app.api.deps import accessible_workspace_ids, get_current_user
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import Tree, User
+from app.models import User, Workspace
 from app.models.virtual_view import VirtualView, VirtualViewMemberMatch, VirtualViewSource
 from app.schemas.virtual_view import (
     RecomputeMatchesResult,
@@ -53,22 +53,20 @@ def _source_out(
     accessible_ids: set[str],
 ) -> VirtualViewSourceOut:
     """Describe one configured source (a real tree or a nested virtual view)."""
-    if src.tree_id is not None:
-        tree = db.get(Tree, src.tree_id)
+    if src.workspace_id is not None:
+        tree = db.get(Workspace, src.workspace_id)
         return VirtualViewSourceOut(
-            tree_id=src.tree_id,
-            tree_name=(tree or Tree(name="")).name,
-            accessible=src.tree_id in accessible_ids,
+            workspace_id=src.workspace_id,
+            workspace_name=(tree or Workspace(name="")).name,
+            accessible=src.workspace_id in accessible_ids,
             kind="tree",
             is_virtual=False,
         )
     nested = db.get(VirtualView, src.source_view_id or "")
-    accessible = nested is not None and (
-        nested.owner_id == user.id or user.is_admin
-    )
+    accessible = nested is not None and (nested.owner_id == user.id or user.is_admin)
     return VirtualViewSourceOut(
-        tree_id=src.source_view_id or "",
-        tree_name=nested.name if nested else "",
+        workspace_id=src.source_view_id or "",
+        workspace_name=nested.name if nested else "",
         accessible=accessible,
         kind="view",
         is_virtual=True,
@@ -79,10 +77,8 @@ def _view_out(
     db: Session, view: VirtualView, user: User, accessible_ids: set[str] | None = None
 ) -> VirtualViewOut:
     if accessible_ids is None:
-        accessible_ids = set(accessible_tree_ids(db, user))
-    sources = [
-        _source_out(db, src, user, accessible_ids) for src in view.sources
-    ]
+        accessible_ids = set(accessible_workspace_ids(db, user))
+    sources = [_source_out(db, src, user, accessible_ids) for src in view.sources]
     return VirtualViewOut(
         id=view.id,
         name=view.name,
@@ -102,15 +98,13 @@ def list_virtual_views(
         views = list(db.scalars(select(VirtualView)).all())
     else:
         views = list(
-            db.scalars(
-                select(VirtualView).where(VirtualView.owner_id == user.id)
-            ).all()
+            db.scalars(select(VirtualView).where(VirtualView.owner_id == user.id)).all()
         )
     views.sort(
         key=lambda v: (view_last_opened(db, v.id, user.id) or "", v.created_at),
         reverse=True,
     )
-    accessible_ids = set(accessible_tree_ids(db, user))
+    accessible_ids = set(accessible_workspace_ids(db, user))
     return [_view_out(db, v, user, accessible_ids) for v in views]
 
 
@@ -123,13 +117,11 @@ def create_virtual_view(
     if not payload.name.strip():
         raise HTTPException(status_code=400, detail="A name is required")
     resolved = classify_and_validate_sources(
-        db, user, payload.source_tree_ids, target_view_id=None
+        db, user, payload.source_workspace_ids, target_view_id=None
     )
     groups = compute_match_groups(db, flatten_resolved(db, resolved))
     if not groups:
-        raise HTTPException(
-            status_code=409, detail=VIRTUAL_VIEW_SOURCES_NO_OVERLAP
-        )
+        raise HTTPException(status_code=409, detail=VIRTUAL_VIEW_SOURCES_NO_OVERLAP)
 
     view = VirtualView(
         name=payload.name.strip(),
@@ -143,9 +135,13 @@ def create_virtual_view(
         db.flush()
         persist_matches(db, view)
         record_admin_audit(
-            db, actor=user, action="create", subject_type="virtual_view",
-            subject_id=view.id, subject_label=view.name,
-            details={"source_ids": payload.source_tree_ids},
+            db,
+            actor=user,
+            action="create",
+            subject_type="virtual_view",
+            subject_id=view.id,
+            subject_label=view.name,
+            details={"source_ids": payload.source_workspace_ids},
         )
     db.refresh(view)
     return _view_out(db, view, user)
@@ -175,16 +171,16 @@ def update_virtual_view(
         raise HTTPException(status_code=403, detail="Only the owner can update a view")
     before = {
         "name": view.name,
-        "source_ids": [src.tree_id or src.source_view_id for src in view.sources],
+        "source_ids": [src.workspace_id or src.source_view_id for src in view.sources],
     }
     with UnitOfWork(db):
         if payload.name is not None:
             if not payload.name.strip():
                 raise HTTPException(status_code=400, detail="A name is required")
             view.name = payload.name.strip()
-        if payload.source_tree_ids is not None:
+        if payload.source_workspace_ids is not None:
             resolved = classify_and_validate_sources(
-                db, user, payload.source_tree_ids, target_view_id=view.id
+                db, user, payload.source_workspace_ids, target_view_id=view.id
             )
             groups = compute_match_groups(db, flatten_resolved(db, resolved))
             if not groups:
@@ -198,21 +194,25 @@ def update_virtual_view(
             db.flush()
             # The sources relationship was loaded before the delete/re-add above;
             # expire it so persist_matches sees the new source list, not the stale
-            # collection (otherwise matches are computed against the old trees).
+            # collection (otherwise matches are computed against the old workspaces).
             db.expire(view, ["sources"])
             persist_matches(db, view)
-        if payload.name is not None or payload.source_tree_ids is not None:
+        if payload.name is not None or payload.source_workspace_ids is not None:
             after = {
                 "name": view.name,
                 "source_ids": (
-                    payload.source_tree_ids
-                    if payload.source_tree_ids is not None
+                    payload.source_workspace_ids
+                    if payload.source_workspace_ids is not None
                     else before["source_ids"]
                 ),
             }
             record_admin_audit(
-                db, actor=user, action="update", subject_type="virtual_view",
-                subject_id=view.id, subject_label=view.name,
+                db,
+                actor=user,
+                action="update",
+                subject_type="virtual_view",
+                subject_id=view.id,
+                subject_label=view.name,
                 details={"before": before, "after": after},
             )
     db.refresh(view)
@@ -232,8 +232,12 @@ def delete_virtual_view(
         raise HTTPException(status_code=403, detail="Only the owner can delete a view")
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=user, action="delete", subject_type="virtual_view",
-            subject_id=view.id, subject_label=view.name,
+            db,
+            actor=user,
+            action="delete",
+            subject_type="virtual_view",
+            subject_id=view.id,
+            subject_label=view.name,
         )
         db.delete(view)
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useJobStore } from "@/hooks/useJobStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
-import { pickFile, useTreeManager } from "@/hooks/useTreeManager";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
+import { pickFile, useWorkspaceManager } from "@/hooks/useWorkspaceManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -58,29 +58,29 @@ import { VirtualViewDialog } from "@/components/view/database-management-view/di
 import { PasswordDialog } from "@/components/shared/dialog/PasswordDialog";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { ViewLayout } from "@/components/layout/ViewLayout";
 
 export const DatabaseManagementView = () => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "database-management-view",
   });
-  const trees = useTreeStore((s) => s.trees);
-  const virtualViews = useTreeStore((s) => s.virtualViews);
-  const selectedTree = useTreeStore((s) => s.selectedTree);
-  const selectTree = useTreeStore((s) => s.selectTree);
-  const renameTree = useTreeStore((s) => s.renameTree);
-  const deleteVirtualView = useTreeStore((s) => s.deleteVirtualView);
-  const renameVirtualView = useTreeStore((s) => s.renameVirtualView);
-  const recomputeMatches = useTreeStore((s) => s.recomputeMatches);
-  const loadTrees = useTreeStore((s) => s.loadTrees);
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const virtualViews = useWorkspaceStore((s) => s.virtualViews);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
+  const selectTree = useWorkspaceStore((s) => s.selectTree);
+  const renameTree = useWorkspaceStore((s) => s.renameTree);
+  const deleteVirtualView = useWorkspaceStore((s) => s.deleteVirtualView);
+  const renameVirtualView = useWorkspaceStore((s) => s.renameVirtualView);
+  const recomputeMatches = useWorkspaceStore((s) => s.recomputeMatches);
+  const loadTrees = useWorkspaceStore((s) => s.loadTrees);
   const {
     exportDatabase,
     importDatabase,
     inspectImport,
     exportGedcom,
     importGedcom,
-  } = useTreeManager();
+  } = useWorkspaceManager();
   const [isImporting, setIsImporting] = useState(false);
   const importPct = useJobStore((s) => s.activeJobPct);
 
@@ -90,13 +90,13 @@ export const DatabaseManagementView = () => {
     useState(false);
   const [isMergeDialogOpen, setIsMergeDialogOpen] = useState(false);
   const [isVirtualViewDialogOpen, setIsVirtualViewDialogOpen] = useState(false);
-  const [editingVirtualView, setEditingVirtualView] = useState<Tree | null>(
+  const [editingVirtualView, setEditingVirtualView] = useState<Workspace | null>(
     null,
   );
-  const [duplicateTree, setDuplicateTree] = useState<Tree | null>(null);
-  const [extractTree, setExtractTree] = useState<Tree | null>(null);
-  const [linkGraphTree, setLinkGraphTree] = useState<Tree | null>(null);
-  const [shareTree, setShareTree] = useState<Tree | null>(null);
+  const [duplicateTree, setDuplicateTree] = useState<Workspace | null>(null);
+  const [extractTree, setExtractTree] = useState<Workspace | null>(null);
+  const [linkGraphTree, setLinkGraphTree] = useState<Workspace | null>(null);
+  const [shareTree, setShareTree] = useState<Workspace | null>(null);
   const [passwordDialogState, setPasswordDialogState] = useState<{
     isOpen: boolean;
     mode: "export" | "import";
@@ -151,7 +151,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportDatabase = async (database: Tree) => {
+  const handleExportDatabase = async (database: Workspace) => {
     const password = await askPassword("export");
     if (password === undefined) return; // cancelled
     try {
@@ -177,7 +177,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleExportGedcom = async (database: Tree) => {
+  const handleExportGedcom = async (database: Workspace) => {
     try {
       await exportGedcom(database);
     } catch (err) {
@@ -186,7 +186,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleStartRename = (database: Tree) => {
+  const handleStartRename = (database: Workspace) => {
     setEditingDatabaseId(database.id);
     setEditingName(database.name);
   };
@@ -196,7 +196,7 @@ export const DatabaseManagementView = () => {
     setEditingName("");
   };
 
-  const handleSaveRename = async (database: Tree) => {
+  const handleSaveRename = async (database: Workspace) => {
     if (!editingName.trim()) {
       toast.error(t("toast-rename-empty"));
       return;
@@ -212,7 +212,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleSelectDatabase = async (database: Tree) => {
+  const handleSelectDatabase = async (database: Workspace) => {
     if (selectedTree?.id !== database.id) {
       try {
         await selectTree(database);
@@ -223,7 +223,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleCopyId = async (database: Tree) => {
+  const handleCopyId = async (database: Workspace) => {
     try {
       await navigator.clipboard.writeText(database.id);
       toast.success(t("toast-id-copied"));
@@ -233,7 +233,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleOpenRemoveDialog = async (database: Tree) => {
+  const handleOpenRemoveDialog = async (database: Workspace) => {
     try {
       await selectTree(database);
     } catch {
@@ -243,12 +243,12 @@ export const DatabaseManagementView = () => {
     setIsRemoveDatabaseDialogOpen(true);
   };
 
-  const handleDeleteVirtualView = async (view: Tree) => {
+  const handleDeleteVirtualView = async (view: Workspace) => {
     await deleteVirtualView(view);
     toast.success(t("toast-virtual-view-deleted"));
   };
 
-  const handleRecomputeMatches = async (view: Tree) => {
+  const handleRecomputeMatches = async (view: Workspace) => {
     try {
       const { mergedMemberCount } = await recomputeMatches(view);
       toast.success(t("toast-recompute-success", { count: mergedMemberCount }));
@@ -257,7 +257,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleSelectVirtualView = async (view: Tree) => {
+  const handleSelectVirtualView = async (view: Workspace) => {
     if (selectedTree?.id !== view.id) {
       try {
         await selectTree(view);
@@ -267,7 +267,7 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const handleRenameVirtualView = async (view: Tree, name: string) => {
+  const handleRenameVirtualView = async (view: Workspace, name: string) => {
     if (!name.trim()) {
       toast.error(t("toast-rename-empty"));
       return;
@@ -283,10 +283,10 @@ export const DatabaseManagementView = () => {
     }
   };
 
-  const ownedDatabases = trees.filter((d) => d.role === "owner");
-  const sharedDatabases = trees.filter((d) => d.role !== "owner");
+  const ownedDatabases = workspaces.filter((d) => d.role === "owner");
+  const sharedDatabases = workspaces.filter((d) => d.role !== "owner");
 
-  const renderStatusCell = (database: Tree) => {
+  const renderStatusCell = (database: Workspace) => {
     if (database.role === "owner") {
       if (database.shared_count && database.shared_count > 0) {
         return (
@@ -310,7 +310,7 @@ export const DatabaseManagementView = () => {
     return <Badge variant="outline">{t(`role-${database.role}`)}</Badge>;
   };
 
-  const renderRow = (database: Tree) => {
+  const renderRow = (database: Workspace) => {
     const isOwned = database.role === "owner";
     const isSelected = selectedTree?.id === database.id;
     return (
@@ -416,7 +416,7 @@ export const DatabaseManagementView = () => {
                 )}
                 <DropdownMenuItem onSelect={() => setLinkGraphTree(database)}>
                   <Network className="h-4 w-4" />
-                  {t("linked-trees-graph-button")}
+                  {t("linked-workspaces-graph-button")}
                 </DropdownMenuItem>
                 {database.role !== "viewer" && (
                   <DropdownMenuItem
@@ -458,7 +458,7 @@ export const DatabaseManagementView = () => {
 
   const renderSection = (
     heading: string,
-    rows: Tree[],
+    rows: Workspace[],
     emptyLabel: string,
     statusHeader: string,
   ) => (
@@ -519,7 +519,7 @@ export const DatabaseManagementView = () => {
                 {t("create-button")}
               </DropdownMenuItem>
               <DropdownMenuItem
-                disabled={trees.length < 2}
+                disabled={workspaces.length < 2}
                 onSelect={() => {
                   setEditingVirtualView(null);
                   setIsVirtualViewDialogOpen(true);
@@ -554,7 +554,7 @@ export const DatabaseManagementView = () => {
             variant="outline"
             size="sm"
             onClick={() => setIsMergeDialogOpen(true)}
-            disabled={trees.length < 2}
+            disabled={workspaces.length < 2}
           >
             <GitMerge className="h-4 w-4" />
             {t("merge-button")}
@@ -691,7 +691,7 @@ export const DatabaseManagementView = () => {
                           <TableCell>
                             <div className="flex flex-wrap gap-1">
                               {view.sources?.map((src) => (
-                                <Tooltip key={src.tree_id}>
+                                <Tooltip key={src.workspace_id}>
                                   <TooltipTrigger asChild>
                                     <Badge
                                       variant={
@@ -705,7 +705,7 @@ export const DatabaseManagementView = () => {
                                       {src.is_virtual && (
                                         <Layers className="h-3 w-3" />
                                       )}
-                                      {src.tree_name}
+                                      {src.workspace_name}
                                     </Badge>
                                   </TooltipTrigger>
                                   {!src.accessible && (

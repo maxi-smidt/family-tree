@@ -4,7 +4,7 @@ Usage inside a mutation route (before the existing db.commit()):
 
     record_activity(
         db,
-        tree_id=tree.id,
+        workspace_id=tree.id,
         actor=user,
         action="create",
         target_type="member",
@@ -124,7 +124,7 @@ def member_delete_snapshot(
     if counterpart is not None:
         bridge: BridgeSnapshot = {
             "counterpart_member_id": counterpart.id,
-            "counterpart_tree_id": counterpart.tree_id,
+            "counterpart_workspace_id": counterpart.workspace_id,
         }
         snapshot["bridge"] = bridge
     return {"snapshot": snapshot}
@@ -266,7 +266,7 @@ def document_file_delete_snapshot(
 def record_activity(
     db: Session,
     *,
-    tree_id: str,
+    workspace_id: str,
     actor: User,
     action: str,
     target_type: str,
@@ -282,7 +282,7 @@ def record_activity(
     that ignore the return value are unaffected.
     """
     row = ActivityLog(
-        tree_id=tree_id,
+        workspace_id=workspace_id,
         actor_id=actor.id,
         actor_username=actor.username,
         action=action,

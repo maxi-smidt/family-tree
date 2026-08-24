@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     )
 
     # --- General -----------------------------------------------------------
-    APP_NAME: str = "Family Tree"
+    APP_NAME: str = "Family Workspace"
     APP_VERSION: str = "dev"
     APP_REVISION: str = "dev"
     APP_BUILD_DATE: str = ""

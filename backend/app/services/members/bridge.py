@@ -1,4 +1,4 @@
-"""Bridge persons — the pair of member rows linked across two trees.
+"""Bridge persons — the pair of member rows linked across two workspaces.
 
 A tree-in-tree link stores the same human as one row per tree
 (``Member.linked_member_id`` points at the counterpart). Person-level facts
@@ -12,10 +12,10 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AccessDeniedError, InvalidInputError, NotFoundError
 from app.models.family import Member
-from app.models.tree import Tree
 from app.models.user import User
-from app.services.media.storage import copy_media_to_tree
-from app.services.tree_roles import role_for
+from app.models.workspace import Workspace
+from app.services.media.storage import copy_media_to_workspace
+from app.services.workspace_roles import role_for
 
 # Person-level fields mirrored between the two rows of a bridge person.
 # Everything view- or link-related (positions, collapse state, the link ids
@@ -65,23 +65,23 @@ def copy_bridge_fields(src: Member, dst: Member) -> None:
     for key in BRIDGE_SYNC_FIELDS:
         value = getattr(src, key)
         if key == "image_data" and value:
-            value = copy_media_to_tree(value, dst.tree_id)
+            value = copy_media_to_workspace(value, dst.workspace_id)
         setattr(dst, key, value)
 
 
 def validate_linked_tree(
-    db: Session, tree: Tree, user: User, linked_tree_id: str | None
+    db: Session, tree: Workspace, user: User, linked_workspace_id: str | None
 ) -> None:
     """Validate a tree-in-tree link target before it is persisted.
 
     A null id (clearing the link) is always allowed. Otherwise the target must
     exist and be readable by the user, and a member may not link to its own tree.
     """
-    if linked_tree_id is None:
+    if linked_workspace_id is None:
         return
-    if linked_tree_id == tree.id:
+    if linked_workspace_id == tree.id:
         raise InvalidInputError("A member cannot link to its own tree")
-    target = db.get(Tree, linked_tree_id)
+    target = db.get(Workspace, linked_workspace_id)
     if target is None:
         raise NotFoundError("Linked tree not found")
     if (
@@ -94,7 +94,7 @@ def validate_linked_tree(
 
 def validate_linked_member(
     db: Session,
-    linked_tree_id: str | None,
+    linked_workspace_id: str | None,
     linked_member_id: str | None,
     member_id: str | None,
 ) -> None:
@@ -102,22 +102,22 @@ def validate_linked_member(
 
     ``linked_member_id`` identifies the row in the linked tree that represents
     the same person (the bridge person), so it must live inside
-    ``linked_tree_id``. Access is already covered by ``validate_linked_tree``.
+    ``linked_workspace_id``. Access is already covered by ``validate_linked_tree``.
     """
     if linked_member_id is None:
         return
-    if linked_tree_id is None:
+    if linked_workspace_id is None:
         raise InvalidInputError("A linked member requires a linked tree")
     if linked_member_id == member_id:
         raise InvalidInputError("A member cannot link to itself")
     target = db.get(Member, linked_member_id)
-    if target is None or target.tree_id != linked_tree_id:
+    if target is None or target.workspace_id != linked_workspace_id:
         raise InvalidInputError("Linked member is not part of the linked tree")
 
 
 def sync_bridge_person(
     db: Session, member: Member, changes: dict, user: User
-) -> tuple[str | None, Tree | None]:
+) -> tuple[str | None, Workspace | None]:
     """Mirror identity-field edits onto the counterpart row of a bridge person.
 
     The two rows represent the same human, so person-level facts edited on one
@@ -138,7 +138,7 @@ def sync_bridge_person(
     counterpart = db.get(Member, member.linked_member_id)
     if counterpart is None:
         return None, None
-    target_tree = db.get(Tree, counterpart.tree_id)
+    target_tree = db.get(Workspace, counterpart.workspace_id)
     if target_tree is None:
         return None, None
     if not user.is_admin and role_for(db, target_tree, user) not in (
@@ -149,7 +149,7 @@ def sync_bridge_person(
     for key, value in synced.items():
         if key == "image_data" and value:
             # Media files are tree-scoped: copy the file into the
-            # counterpart's tree instead of sharing the URL across trees.
-            value = copy_media_to_tree(value, counterpart.tree_id)
+            # counterpart's tree instead of sharing the URL across workspaces.
+            value = copy_media_to_workspace(value, counterpart.workspace_id)
         setattr(counterpart, key, value)
     return "synced", target_tree

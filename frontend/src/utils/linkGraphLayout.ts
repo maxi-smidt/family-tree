@@ -3,10 +3,10 @@ import type { Edge, Node } from "@xyflow/react";
 import { Position } from "@xyflow/react";
 
 /**
- * Small, self-contained dagre layout for the linked-trees graph dialog.
+ * Small, self-contained dagre layout for the linked-workspaces graph dialog.
  *
  * Deliberately separate from `utils/layoutUtils.ts` (which lays out family
- * members) — this graph has different semantics (trees, not people) and a
+ * members) — this graph has different semantics (workspaces, not people) and a
  * much simpler shape: fixed-size nodes, left-to-right, and cycles are legal
  * (A links to B which links back to A). Dagre tolerates cycles by breaking
  * them internally when ranking, so no special handling is needed here.

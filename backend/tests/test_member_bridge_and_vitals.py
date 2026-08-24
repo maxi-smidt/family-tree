@@ -5,7 +5,7 @@ single-member update workflow and member merge (#893)."""
 import pytest
 
 from app.core.exceptions import AccessDeniedError, InvalidInputError, NotFoundError
-from app.models import Event, EventMemberLink, TreeMembership
+from app.models import Event, EventMemberLink, WorkspaceMembership
 from app.services.members.bridge import (
     sync_bridge_person,
     validate_linked_member,
@@ -21,12 +21,10 @@ def _linked_pair(db, first_name="Ada", last_name="Lovelace"):
     tree_b = make_tree(db, user, "B")
     # Both rows must exist before either can point at the other's id (FK).
     member = add_member(db, tree_a, "m1", first_name=first_name, last_name=last_name)
-    counterpart = add_member(
-        db, tree_b, "m2", first_name=first_name, last_name=last_name
-    )
-    member.linked_tree_id = tree_b.id
+    counterpart = add_member(db, tree_b, "m2", first_name=first_name, last_name=last_name)
+    member.linked_workspace_id = tree_b.id
     member.linked_member_id = "m2"
-    counterpart.linked_tree_id = tree_a.id
+    counterpart.linked_workspace_id = tree_a.id
     counterpart.linked_member_id = "m1"
     db.commit()
     return user, tree_a, tree_b, member, counterpart
@@ -129,11 +127,16 @@ def test_validate_linked_member_rejects_member_outside_linked_tree(db):
 
 
 def _birth_event(db, tree, member):
-    return db.query(Event).join(EventMemberLink).filter(
-        Event.tree_id == tree.id,
-        Event.event_type == "birth",
-        EventMemberLink.member_id == member.id,
-    ).one_or_none()
+    return (
+        db.query(Event)
+        .join(EventMemberLink)
+        .filter(
+            Event.workspace_id == tree.id,
+            Event.event_type == "birth",
+            EventMemberLink.member_id == member.id,
+        )
+        .one_or_none()
+    )
 
 
 def test_sync_vital_event_creates_event_when_a_date_is_set(db):
@@ -182,8 +185,11 @@ def test_event_updates_allowed_false_when_editor_is_restricted(db):
     editor = make_user(db, "bob")
     tree = make_tree(db, owner)
     db.add(
-        TreeMembership(
-            tree_id=tree.id, user_id=editor.id, role="editor", restrictions=["events"]
+        WorkspaceMembership(
+            workspace_id=tree.id,
+            user_id=editor.id,
+            role="editor",
+            restrictions=["events"],
         )
     )
     db.commit()

@@ -62,13 +62,9 @@ class MediaItem(BaseModel):
     def _hashes_match_decoded_data(self) -> MediaItem:
         raw = base64.b64decode(self.data, validate=True)
         if self.size_bytes != len(raw):
-            raise ValueError(
-                f"Backup media size does not match for {self.path}"
-            )
+            raise ValueError(f"Backup media size does not match for {self.path}")
         if self.sha256 != hashlib.sha256(raw).hexdigest():
-            raise ValueError(
-                f"Backup media hash does not match for {self.path}"
-            )
+            raise ValueError(f"Backup media hash does not match for {self.path}")
         return self
 
 
@@ -119,12 +115,8 @@ class BackupBundle(BaseModel):
         for path, inline in inline_by_path.items():
             expected = manifest_by_path[path]
             if inline.size_bytes != expected.size_bytes:
-                raise ValueError(
-                    f"Backup media size does not match manifest for {path}"
-                )
+                raise ValueError(f"Backup media size does not match manifest for {path}")
             if inline.sha256 != expected.sha256:
-                raise ValueError(
-                    f"Backup media hash does not match manifest for {path}"
-                )
+                raise ValueError(f"Backup media hash does not match manifest for {path}")
 
         return self

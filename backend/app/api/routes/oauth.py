@@ -48,9 +48,7 @@ async def callback(request: Request, db: Session = Depends(get_db)):
     if user is None:
         return RedirectResponse(f"{settings.FRONTEND_URL}/#oauth_error=nouser")
     if user.deletion_requested_at is not None:
-        return RedirectResponse(
-            f"{settings.FRONTEND_URL}/#oauth_error=pending_deletion"
-        )
+        return RedirectResponse(f"{settings.FRONTEND_URL}/#oauth_error=pending_deletion")
 
     with UnitOfWork(db):
         record_admin_audit(
@@ -70,10 +68,7 @@ def _provision_user(db: Session, userinfo: dict) -> User | None:
     subject = userinfo["sub"]
     email = userinfo.get("email")
     username = (
-        userinfo.get("preferred_username")
-        or email
-        or userinfo.get("nickname")
-        or subject
+        userinfo.get("preferred_username") or email or userinfo.get("nickname") or subject
     )
     groups = userinfo.get("groups") or []
     is_admin = settings.AUTHENTIK_ADMIN_GROUP in groups

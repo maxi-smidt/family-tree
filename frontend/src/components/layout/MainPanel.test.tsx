@@ -10,7 +10,7 @@ import { useAuthStore } from "@/hooks/useAuthStore";
 import { useFriendStore } from "@/hooks/useFriendStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useTabPreferences } from "@/hooks/useTabPreferences";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { type User } from "@/types/user";
@@ -73,8 +73,8 @@ describe("MainPanel", () => {
   beforeEach(() => {
     localStorage.clear();
 
-    useTreeStore.setState({
-      trees: [],
+    useWorkspaceStore.setState({
+      workspaces: [],
       virtualViews: [],
       selectedTree: undefined,
       metadata: {},
@@ -126,7 +126,7 @@ describe("MainPanel", () => {
   });
 
   it("opens Gallery and Documents from the Media tab menu", async () => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
     render(<MainPanel />);
@@ -155,7 +155,7 @@ describe("MainPanel", () => {
   it("restores the selected Media section after a refresh", async () => {
     localStorage.setItem("ft_active_tab", "media-view");
     localStorage.setItem("ft_active_media_section", "documents");
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "tree-1", role: "owner", restrictions: [] } as never,
     });
     render(<MainPanel />);

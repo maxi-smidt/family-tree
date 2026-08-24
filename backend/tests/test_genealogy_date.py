@@ -26,6 +26,7 @@ from app.services.interchange.gedcom.genealogy_date import (
 # 1. ISO date sort-key derivation
 # ---------------------------------------------------------------------------
 
+
 class TestIsoSortKey:
     def test_full_iso_date(self):
         assert sort_key("1950-06-15") == "1950-06-15"
@@ -53,6 +54,7 @@ class TestIsoSortKey:
 # 2. GEDCOM-style date sort-key derivation
 # ---------------------------------------------------------------------------
 
+
 class TestGedcomSortKey:
     def test_dd_mon_yyyy(self):
         assert sort_key("15 JUN 1950") == "1950-06-15"
@@ -79,6 +81,7 @@ class TestGedcomSortKey:
 # ---------------------------------------------------------------------------
 # 3. Qualifier detection
 # ---------------------------------------------------------------------------
+
 
 class TestQualifierDetection:
     def test_exact_plain_iso(self):
@@ -166,6 +169,7 @@ class TestQualifierDetection:
 # 4. Year extraction from fuzzy / qualified strings
 # ---------------------------------------------------------------------------
 
+
 class TestFuzzyYearExtraction:
     def test_about_gives_year_sort_key(self):
         assert sort_key("about 1850") == "1850-00-00"
@@ -193,6 +197,7 @@ class TestFuzzyYearExtraction:
 # ---------------------------------------------------------------------------
 # 5. Edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestEdgeCases:
     def test_none_returns_none(self):

@@ -5,7 +5,7 @@ import { useEventStore } from "@/hooks/useEventStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberStore } from "@/hooks/useMemberStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import type { Document } from "@/types/document";
 import { DocumentsView } from "./DocumentsView";
 
@@ -61,7 +61,7 @@ const documents: Document[] = [
 
 describe("DocumentsView", () => {
   beforeEach(() => {
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       isReady: true,
       selectedTree: { id: "tree-1", role: "owner" } as never,
     });

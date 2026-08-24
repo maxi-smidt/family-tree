@@ -15,10 +15,10 @@ import { API_URL } from "../playwright.config";
 
 async function exportTree(
   token: string,
-  treeId: string,
+  workspaceId: string,
   password?: string,
 ): Promise<ArrayBuffer> {
-  const exportRes = await fetch(`${API_URL}/trees/${treeId}/export`, {
+  const exportRes = await fetch(`${API_URL}/workspaces/${workspaceId}/export`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -47,15 +47,15 @@ async function importBundle(
   form.append("name", name);
   if (password) form.append("password", password);
 
-  const importRes = await fetch(`${API_URL}/trees/import`, {
+  const importRes = await fetch(`${API_URL}/workspaces/import`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
     body: form,
   });
   expect(importRes.status).toBe(202);
   const { job_id } = (await importRes.json()) as { job_id: string };
-  const treeId = await waitForJob(token, job_id);
-  const treeRes = await fetch(`${API_URL}/trees/${treeId}`, {
+  const workspaceId = await waitForJob(token, job_id);
+  const treeRes = await fetch(`${API_URL}/workspaces/${workspaceId}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   expect(treeRes.ok).toBe(true);
@@ -64,10 +64,10 @@ async function importBundle(
 
 async function expectFamilyMembers(
   api: { get<T = unknown>(path: string): Promise<T> },
-  treeId: string,
+  workspaceId: string,
 ) {
   const members = await api.get<Array<{ firstName?: string }>>(
-    `/trees/${treeId}/members`,
+    `/workspaces/${workspaceId}/members`,
   );
   const names = members.map((m) => m.firstName);
   expect(names).toEqual(expect.arrayContaining(["Alice", "Bob", "Charlie"]));
@@ -119,7 +119,7 @@ test("import inspect — returns bundle metadata without committing", async ({
     "export.treedb",
   );
 
-  const inspectRes = await fetch(`${API_URL}/trees/import/inspect`, {
+  const inspectRes = await fetch(`${API_URL}/workspaces/import/inspect`, {
     method: "POST",
     headers: { Authorization: `Bearer ${adminApi.token}` },
     body: formData,
@@ -187,7 +187,7 @@ test("encrypted export — wrong passphrase is rejected", async ({
   form.append("password", "wrong-passphrase");
   form.append("name", "ShouldNotImport");
 
-  const importRes = await fetch(`${API_URL}/trees/import`, {
+  const importRes = await fetch(`${API_URL}/workspaces/import`, {
     method: "POST",
     headers: { Authorization: `Bearer ${adminApi.token}` },
     body: form,
@@ -229,7 +229,7 @@ test("GEDCOM import — members are created from .ged file", async ({
     );
     form.append("name", "E2E-GEDCOM-Imported");
 
-    const importRes = await fetch(`${API_URL}/trees/import-gedcom`, {
+    const importRes = await fetch(`${API_URL}/workspaces/import-gedcom`, {
       method: "POST",
       headers: { Authorization: `Bearer ${adminApi.token}` },
       body: form,
@@ -238,7 +238,7 @@ test("GEDCOM import — members are created from .ged file", async ({
     const { job_id } = (await importRes.json()) as { job_id: string };
     importedId = await waitForJob(adminApi.token, job_id);
 
-    const treeRes = await fetch(`${API_URL}/trees/${importedId}`, {
+    const treeRes = await fetch(`${API_URL}/workspaces/${importedId}`, {
       headers: { Authorization: `Bearer ${adminApi.token}` },
     });
     expect(treeRes.ok).toBe(true);
@@ -247,7 +247,7 @@ test("GEDCOM import — members are created from .ged file", async ({
 
     const members = await adminApi.get<
       Array<{ firstName?: string; lastName?: string }>
-    >(`/trees/${importedId}/members`);
+    >(`/workspaces/${importedId}/members`);
     expect(members).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ firstName: "Gedcom", lastName: "Doe" }),

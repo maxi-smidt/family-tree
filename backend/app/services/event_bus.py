@@ -30,9 +30,9 @@ from typing import Any, cast
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import TreeMembership
-from app.models.tree import Tree
+from app.models import WorkspaceMembership
 from app.models.user import User
+from app.models.workspace import Workspace
 from app.services.event_payloads import EventPayload, SSEEnvelope
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ _CHANNEL_PATTERN = f"{_CHANNEL_PREFIX}*"
 
 # Events that represent a real tree mutation and should briefly highlight the
 # actor's presence avatar on every active collaborator's canvas.
-_PRESENCE_ACTIVITY_EVENTS = {"tree.content_changed", "tree.layout_changed"}
+_PRESENCE_ACTIVITY_EVENTS = {"workspace.content_changed", "workspace.layout_changed"}
 
 
 def _channel(user_id: str) -> str:
@@ -54,9 +54,7 @@ def _channel(user_id: str) -> str:
 
 class EventBus:
     def __init__(self) -> None:
-        self._subscribers: dict[str, set[asyncio.Queue[SSEEnvelope]]] = defaultdict(
-            set
-        )
+        self._subscribers: dict[str, set[asyncio.Queue[SSEEnvelope]]] = defaultdict(set)
         self._loop: asyncio.AbstractEventLoop | None = None
 
         # The single shared pubsub object used by the listener task. It holds
@@ -110,9 +108,7 @@ class EventBus:
         self._subscribers[user_id].add(queue)
         return queue
 
-    def unsubscribe(
-        self, user_id: str, queue: "asyncio.Queue[SSEEnvelope]"
-    ) -> None:
+    def unsubscribe(self, user_id: str, queue: "asyncio.Queue[SSEEnvelope]") -> None:
         """Remove *queue* from the user's subscriber set.
 
         Purely local — the listener's pattern subscription is never mutated.
@@ -175,9 +171,7 @@ class EventBus:
     # Internal dispatch (always runs on the event-loop thread)
     # ------------------------------------------------------------------
 
-    def _dispatch(
-        self, user_ids: list[str], event: SSEEnvelope
-    ) -> None:
+    def _dispatch(self, user_ids: list[str], event: SSEEnvelope) -> None:
         """Runs on the event-loop thread; never blocks."""
         for user_id in user_ids:
             queues = self._subscribers.get(user_id)
@@ -257,9 +251,7 @@ class EventBus:
             except asyncio.CancelledError:
                 raise  # propagate cancellation — do not retry
             except Exception:
-                logger.exception(
-                    "Redis SSE listener error — retrying in %.1fs", backoff
-                )
+                logger.exception("Redis SSE listener error — retrying in %.1fs", backoff)
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
             else:
@@ -286,7 +278,7 @@ class EventBus:
             # Derive the user_id from the channel name "events:{user_id}".
             if not channel.startswith(_CHANNEL_PREFIX):
                 continue
-            user_id = channel[len(_CHANNEL_PREFIX):]
+            user_id = channel[len(_CHANNEL_PREFIX) :]
 
             try:
                 event: SSEEnvelope = json.loads(payload)
@@ -324,23 +316,25 @@ def admin_user_ids(db: Session) -> list[str]:
     )
 
 
-def tree_audience(db: Session, tree: Tree) -> set[str]:
+def workspace_audience(db: Session, tree: Workspace) -> set[str]:
     """Return the set of user IDs that have access to *tree*.
 
-    Includes the owner plus every TreeMembership row.
+    Includes the owner plus every WorkspaceMembership row.
     """
     member_ids = set(
         db.scalars(
-            select(TreeMembership.user_id).where(TreeMembership.tree_id == tree.id)
+            select(WorkspaceMembership.user_id).where(
+                WorkspaceMembership.workspace_id == tree.id
+            )
         ).all()
     )
     member_ids.add(tree.owner_id)
     return member_ids
 
 
-def publish_tree_event(
+def publish_workspace_event(
     db: Session,
-    tree: Tree,
+    tree: Workspace,
     event_type: str,
     data: EventPayload,
     extra_user_ids: Iterable[str] = (),
@@ -351,8 +345,8 @@ def publish_tree_event(
     propagate into the HTTP request path.
     """
     try:
-        audience = tree_audience(db, tree) | set(extra_user_ids)
-        actor_id = db.info.get("tree_event_actor_id")
+        audience = workspace_audience(db, tree) | set(extra_user_ids)
+        actor_id = db.info.get("workspace_event_actor_id")
         event_data: EventPayload = data
         if event_type in _PRESENCE_ACTIVITY_EVENTS and isinstance(actor_id, str):
             # Both members of _PRESENCE_ACTIVITY_EVENTS declare actor_user_id
@@ -361,4 +355,4 @@ def publish_tree_event(
             event_data = cast(EventPayload, {**data, "actor_user_id": actor_id})
         event_bus.publish(audience, event_type, event_data)
     except Exception:
-        logger.exception("publish_tree_event failed (event_type=%s)", event_type)
+        logger.exception("publish_workspace_event failed (event_type=%s)", event_type)

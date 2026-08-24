@@ -44,17 +44,19 @@ def _media_root(tmp_path, monkeypatch):
     return tmp_path
 
 
-def _tree_media_files(media_root, tree_id):
+def _tree_media_files(media_root, workspace_id):
     """Persisted (non-temp) files directly under the tree's media dir."""
-    tree_dir = media_root / "media" / tree_id
+    tree_dir = media_root / "media" / workspace_id
     if not tree_dir.is_dir():
         return []
     return [p for p in tree_dir.iterdir() if p.is_file() and not p.name.startswith(".")]
 
 
-def _post_image(client, tree_id, headers, *, image=("p.png", _PNG_BYTES, "image/png")):
+def _post_image(
+    client, workspace_id, headers, *, image=("p.png", _PNG_BYTES, "image/png")
+):
     return client.post(
-        f"{API}/trees/{tree_id}/gallery/images",
+        f"{API}/workspaces/{workspace_id}/gallery/images",
         data={"id": "img-1"},
         files={"image": image},
         headers=headers,
@@ -67,7 +69,7 @@ def test_streamed_upload_creates_image_and_links(client, db, _media_root):
     add_member(db, tree, "m1", first_name="Ada", last_name="Doe")
 
     res = client.post(
-        f"{API}/trees/{tree.id}/gallery/images",
+        f"{API}/workspaces/{tree.id}/gallery/images",
         data={"id": "img-1", "title": "A Photo", "member_ids": "m1"},
         files={"image": ("p.png", _PNG_BYTES, "image/png")},
         headers=auth(owner),
@@ -80,7 +82,7 @@ def test_streamed_upload_creates_image_and_links(client, db, _media_root):
     assert not body["imageData"].startswith("data:")
 
     links = client.get(
-        f"{API}/trees/{tree.id}/gallery/links", headers=auth(owner)
+        f"{API}/workspaces/{tree.id}/gallery/links", headers=auth(owner)
     ).json()
     assert links == [
         {
@@ -128,7 +130,9 @@ def test_over_quota_upload_deletes_streamed_bytes(client, db, _media_root):
     assert res.status_code == 413
     # The image row was never created and the streamed bytes were cleaned up.
     assert (
-        client.get(f"{API}/trees/{tree.id}/gallery/images", headers=auth(owner)).json()
+        client.get(
+            f"{API}/workspaces/{tree.id}/gallery/images", headers=auth(owner)
+        ).json()
         == []
     )
     assert _tree_media_files(_media_root, tree.id) == []
@@ -187,7 +191,7 @@ def test_upload_explicit_created_at_overrides_exif(client, db, _media_root):
     tree = make_tree(db, owner)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/gallery/images",
+        f"{API}/workspaces/{tree.id}/gallery/images",
         data={"id": "img-1", "created_at": "1955"},
         files={
             "image": (
@@ -225,7 +229,7 @@ def test_patch_sets_and_clears_created_at(client, db, _media_root):
     _post_image(client, tree.id, auth(owner))
 
     res = client.patch(
-        f"{API}/trees/{tree.id}/gallery/images/img-1",
+        f"{API}/workspaces/{tree.id}/gallery/images/img-1",
         json={"createdAt": "1950-06"},
         headers=auth(owner),
     )
@@ -233,7 +237,7 @@ def test_patch_sets_and_clears_created_at(client, db, _media_root):
     assert res.json()["createdAt"] == "1950-06"
 
     res = client.patch(
-        f"{API}/trees/{tree.id}/gallery/images/img-1",
+        f"{API}/workspaces/{tree.id}/gallery/images/img-1",
         json={"createdAt": None},
         headers=auth(owner),
     )

@@ -27,9 +27,9 @@ from app.models import (
     LegalAcceptance,
     Member,
     RelationType,
-    Tree,
-    TreeMembership,
     User,
+    Workspace,
+    WorkspaceMembership,
 )
 from app.services.system.settings_service import DEFAULT_LEGAL_VERSION, get_setting
 
@@ -80,7 +80,7 @@ def db(session_factory) -> Session:
 @pytest.fixture(autouse=True)
 def patch_background_session(session_factory, monkeypatch):
     """Background tasks create their own SessionLocal; redirect to the test DB."""
-    import app.api.routes.tree_jobs as _tree_jobs_routes
+    import app.api.routes.workspace_jobs as _tree_jobs_routes
     import app.services.interchange.bundles.tree_bundle_import as _bundle_import
     import app.services.interchange.gedcom.tree_gedcom_import as _gedcom_import
     import app.services.system.job_service as _job_svc
@@ -116,7 +116,7 @@ def owner(db) -> User:
 
 
 @pytest.fixture()
-def tree(db, owner) -> Tree:
+def tree(db, owner) -> Workspace:
     return make_tree(db, owner)
 
 
@@ -177,23 +177,23 @@ def auth(user: User) -> dict[str, str]:
 
 
 def make_tree(
-    db: Session, owner: User, name: str = "Tree", tree_id: str | None = None
-) -> Tree:
-    kw = {"id": tree_id} if tree_id else {}
-    tree = Tree(name=name, owner_id=owner.id, **kw)
+    db: Session, owner: User, name: str = "Workspace", workspace_id: str | None = None
+) -> Workspace:
+    kw = {"id": workspace_id} if workspace_id else {}
+    tree = Workspace(name=name, owner_id=owner.id, **kw)
     db.add(tree)
     db.commit()
     db.refresh(tree)
     return tree
 
 
-def share(db: Session, tree: Tree, user: User, role: str = "editor") -> None:
-    db.add(TreeMembership(tree_id=tree.id, user_id=user.id, role=role))
+def share(db: Session, tree: Workspace, user: User, role: str = "editor") -> None:
+    db.add(WorkspaceMembership(workspace_id=tree.id, user_id=user.id, role=role))
     db.commit()
 
 
-def add_member(db: Session, tree: Tree, member_id: str, **kw) -> Member:
-    member = Member(id=member_id, tree_id=tree.id, **kw)
+def add_member(db: Session, tree: Workspace, member_id: str, **kw) -> Member:
+    member = Member(id=member_id, workspace_id=tree.id, **kw)
     db.add(member)
     db.commit()
     return member
@@ -207,7 +207,7 @@ def befriend(db: Session, a: User, b: User, status: str = "accepted") -> Friends
 
 
 def wait_for_job(client: TestClient, headers: dict, job_id: str) -> str:
-    """Resolve a background job to its result_tree_id.
+    """Resolve a background job to its result_workspace_id.
 
     TestClient runs background tasks synchronously, so by the time a 202
     response is received the job is already complete.
@@ -218,4 +218,4 @@ def wait_for_job(client: TestClient, headers: dict, job_id: str) -> str:
     assert data["status"] == "done", (
         f"Job {job_id} status={data['status']} error={data.get('error')}"
     )
-    return data["result_tree_id"]
+    return data["result_workspace_id"]

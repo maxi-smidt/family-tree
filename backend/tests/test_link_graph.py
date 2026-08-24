@@ -1,12 +1,12 @@
-"""Tests for GET /trees/{tree_id}/link-graph (issue #536)."""
+"""Tests for GET /workspaces/{workspace_id}/link-graph (issue #536)."""
 
-from app.services.trees.tree_links import compute_link_graph
+from app.services.workspaces.workspace_links import compute_link_graph
 from tests.conftest import API, add_member, auth, make_tree, make_user, share
 
 
 def _link(db, tree, member_id, target_tree, **kw):
     return add_member(
-        db, tree, member_id, linked_tree_id=target_tree.id, first_name="A", **kw
+        db, tree, member_id, linked_workspace_id=target_tree.id, first_name="A", **kw
     )
 
 
@@ -18,7 +18,7 @@ def test_chain_fully_accessible_returns_all_nodes_and_edges(client, db):
     _link(db, t1, "m1", t2, last_name="One")
     _link(db, t2, "m2", t3, last_name="Two")
 
-    res = client.get(f"{API}/trees/{t1.id}/link-graph", headers=auth(user))
+    res = client.get(f"{API}/workspaces/{t1.id}/link-graph", headers=auth(user))
     assert res.status_code == 200
     body = res.json()
 
@@ -38,8 +38,8 @@ def test_chain_fully_accessible_returns_all_nodes_and_edges(client, db):
     assert other["accessible"] is True
     assert other["name"] == "T2"
 
-    edge = next(e for e in body["edges"] if e["source_tree_id"] == t1.id)
-    assert edge["target_tree_id"] == t2.id
+    edge = next(e for e in body["edges"] if e["source_workspace_id"] == t1.id)
+    assert edge["target_workspace_id"] == t2.id
     assert edge["count"] == 1
     assert edge["bridge_members"][0]["id"] == "m1"
     assert edge["bridge_members"][0]["name"] == "A One"
@@ -52,14 +52,14 @@ def test_cycle_terminates_and_returns_both_edges(client, db):
     _link(db, a, "m1", b)
     _link(db, b, "m2", a)
 
-    res = client.get(f"{API}/trees/{a.id}/link-graph", headers=auth(user))
+    res = client.get(f"{API}/workspaces/{a.id}/link-graph", headers=auth(user))
     assert res.status_code == 200
     body = res.json()
 
     node_ids = {n["id"] for n in body["nodes"]}
     assert node_ids == {a.id, b.id}
     assert len(body["edges"]) == 2
-    pairs = {(e["source_tree_id"], e["target_tree_id"]) for e in body["edges"]}
+    pairs = {(e["source_workspace_id"], e["target_workspace_id"]) for e in body["edges"]}
     assert pairs == {(a.id, b.id), (b.id, a.id)}
 
 
@@ -70,7 +70,7 @@ def test_link_to_inaccessible_tree_is_placeholder(client, db):
     private_other = make_tree(db, stranger, "Strangers")
     _link(db, main, "m1", private_other)
 
-    res = client.get(f"{API}/trees/{main.id}/link-graph", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{main.id}/link-graph", headers=auth(owner))
     assert res.status_code == 200
     body = res.json()
 
@@ -91,7 +91,7 @@ def test_link_to_inaccessible_tree_accessible_via_shared_membership(client, db):
     share(db, shared_other, owner, "viewer")
     _link(db, main, "m1", shared_other)
 
-    res = client.get(f"{API}/trees/{main.id}/link-graph", headers=auth(owner))
+    res = client.get(f"{API}/workspaces/{main.id}/link-graph", headers=auth(owner))
     assert res.status_code == 200
     body = res.json()
     other_node = next(n for n in body["nodes"] if n["id"] == shared_other.id)
@@ -107,7 +107,7 @@ def test_multiple_links_between_same_pair_collapse_with_count(client, db):
     _link(db, t1, "m1", t2, last_name="One")
     _link(db, t1, "m2", t2, last_name="Two")
 
-    res = client.get(f"{API}/trees/{t1.id}/link-graph", headers=auth(user))
+    res = client.get(f"{API}/workspaces/{t1.id}/link-graph", headers=auth(user))
     assert res.status_code == 200
     body = res.json()
 
@@ -122,13 +122,13 @@ def test_non_readable_start_tree_returns_403(client, db):
     stranger = make_user(db, "bob")
     tree = make_tree(db, owner, "Private")
 
-    res = client.get(f"{API}/trees/{tree.id}/link-graph", headers=auth(stranger))
+    res = client.get(f"{API}/workspaces/{tree.id}/link-graph", headers=auth(stranger))
     assert res.status_code == 403
 
 
 def test_missing_start_tree_returns_404(client, db):
     user = make_user(db, "alice")
-    res = client.get(f"{API}/trees/does-not-exist/link-graph", headers=auth(user))
+    res = client.get(f"{API}/workspaces/does-not-exist/link-graph", headers=auth(user))
     assert res.status_code == 404
 
 
@@ -136,7 +136,7 @@ def test_no_linked_trees_returns_only_current_node(client, db):
     user = make_user(db, "alice")
     tree = make_tree(db, user, "Solo")
 
-    res = client.get(f"{API}/trees/{tree.id}/link-graph", headers=auth(user))
+    res = client.get(f"{API}/workspaces/{tree.id}/link-graph", headers=auth(user))
     assert res.status_code == 200
     body = res.json()
     assert len(body["nodes"]) == 1

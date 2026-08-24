@@ -14,10 +14,7 @@ import sqlalchemy as sa
 
 def _load_migration_module():
     path = (
-        Path(__file__).resolve().parents[1]
-        / "alembic"
-        / "versions"
-        / "v1_7_0_release.py"
+        Path(__file__).resolve().parents[1] / "alembic" / "versions" / "v1_7_0_release.py"
     )
     spec = importlib.util.spec_from_file_location("remove_announcement_settings", path)
     assert spec and spec.loader
@@ -57,14 +54,16 @@ def test_cleanup_removes_only_obsolete_announcement_settings(engine):
                 {"key": "announcement_title", "value": "Title"},
                 {"key": "announcement_body", "value": "Body"},
                 {"key": "announcement_version", "value": "1.2.3"},
-                {"key": "instance_name", "value": "Family Tree"},
+                {"key": "instance_name", "value": "Family Workspace"},
             ],
         )
 
         migration.remove_obsolete_announcement_settings(connection)
 
-        remaining_keys = connection.execute(
-            sa.select(settings.c.key).order_by(settings.c.key)
-        ).scalars().all()
+        remaining_keys = (
+            connection.execute(sa.select(settings.c.key).order_by(settings.c.key))
+            .scalars()
+            .all()
+        )
 
     assert remaining_keys == ["instance_name"]

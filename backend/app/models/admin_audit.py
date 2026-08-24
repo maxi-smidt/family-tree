@@ -1,4 +1,4 @@
-"""Instance-wide audit entries that are intentionally independent of trees."""
+"""Instance-wide audit entries that are intentionally independent of workspaces."""
 
 from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column

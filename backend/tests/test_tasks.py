@@ -24,7 +24,7 @@ def _create_task(client, user, tree, task_id="t1", member_ids=None, **overrides)
         **overrides,
     }
     return client.post(
-        f"{API}/trees/{tree.id}/tasks", headers=auth(user), json=payload
+        f"{API}/workspaces/{tree.id}/tasks", headers=auth(user), json=payload
     )
 
 
@@ -37,7 +37,7 @@ def test_create_and_list_task(client, db):
     assert body["done"] is False
     assert body["done_at"] is None
 
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(user)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(user)).json()
     assert [t["id"] for t in tasks] == ["t1"]
     assert tasks[0]["member_ids"] == ["m1"]
 
@@ -69,12 +69,12 @@ def test_set_links_replaces_existing(client, db):
     user, tree = _setup(client, db)
     _create_task(client, user, tree)
     res = client.put(
-        f"{API}/trees/{tree.id}/tasks/t1/links",
+        f"{API}/workspaces/{tree.id}/tasks/t1/links",
         headers=auth(user),
         json={"member_ids": ["m2"]},
     )
     assert res.status_code == 204
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(user)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(user)).json()
     assert tasks[0]["member_ids"] == ["m2"]
 
 
@@ -83,7 +83,7 @@ def test_complete_and_reopen_task(client, db):
     _create_task(client, user, tree)
 
     res = client.patch(
-        f"{API}/trees/{tree.id}/tasks/t1",
+        f"{API}/workspaces/{tree.id}/tasks/t1",
         headers=auth(user),
         json={
             "title": "Find birth record",
@@ -100,7 +100,7 @@ def test_complete_and_reopen_task(client, db):
 
     # Reopening clears done_at even if the client still sends one.
     res = client.patch(
-        f"{API}/trees/{tree.id}/tasks/t1",
+        f"{API}/workspaces/{tree.id}/tasks/t1",
         headers=auth(user),
         json={
             "title": "Find birth record",
@@ -119,10 +119,9 @@ def test_done_without_done_at_is_stamped_server_side(client, db):
     user, tree = _setup(client, db)
     _create_task(client, user, tree)
     res = client.patch(
-        f"{API}/trees/{tree.id}/tasks/t1",
+        f"{API}/workspaces/{tree.id}/tasks/t1",
         headers=auth(user),
-        json={"title": "Find birth record", "notes": None, "done": True,
-              "done_at": None},
+        json={"title": "Find birth record", "notes": None, "done": True, "done_at": None},
     )
     assert res.status_code == 200
     body = res.json()
@@ -133,9 +132,9 @@ def test_done_without_done_at_is_stamped_server_side(client, db):
 def test_delete_task(client, db):
     user, tree = _setup(client, db)
     _create_task(client, user, tree)
-    res = client.delete(f"{API}/trees/{tree.id}/tasks/t1", headers=auth(user))
+    res = client.delete(f"{API}/workspaces/{tree.id}/tasks/t1", headers=auth(user))
     assert res.status_code == 204
-    tasks = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(user)).json()
+    tasks = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(user)).json()
     assert tasks == []
 
 
@@ -145,17 +144,19 @@ def test_tasks_scoped_to_tree(client, db):
     _create_task(client, user, tree)
 
     assert (
-        client.get(f"{API}/trees/{other.id}/tasks", headers=auth(user)).json() == []
+        client.get(f"{API}/workspaces/{other.id}/tasks", headers=auth(user)).json() == []
     )
     # Cross-tree access to the task id 404s.
     res = client.patch(
-        f"{API}/trees/{other.id}/tasks/t1",
+        f"{API}/workspaces/{other.id}/tasks/t1",
         headers=auth(user),
         json={"title": "x", "notes": None, "done": False, "done_at": None},
     )
     assert res.status_code == 404
     assert (
-        client.delete(f"{API}/trees/{other.id}/tasks/t1", headers=auth(user)).status_code
+        client.delete(
+            f"{API}/workspaces/{other.id}/tasks/t1", headers=auth(user)
+        ).status_code
         == 404
     )
 
@@ -166,27 +167,29 @@ def test_viewer_reads_but_cannot_write(client, db):
     share(db, tree, viewer, role="viewer")
     _create_task(client, user, tree)
 
-    res = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(viewer))
+    res = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(viewer))
     assert res.status_code == 200
     assert len(res.json()) == 1
 
     assert _create_task(client, viewer, tree, task_id="t2").status_code == 403
     res = client.patch(
-        f"{API}/trees/{tree.id}/tasks/t1",
+        f"{API}/workspaces/{tree.id}/tasks/t1",
         headers=auth(viewer),
         json={"title": "x", "notes": None, "done": True, "done_at": "2026"},
     )
     assert res.status_code == 403
     assert (
         client.put(
-            f"{API}/trees/{tree.id}/tasks/t1/links",
+            f"{API}/workspaces/{tree.id}/tasks/t1/links",
             headers=auth(viewer),
             json={"member_ids": []},
         ).status_code
         == 403
     )
     assert (
-        client.delete(f"{API}/trees/{tree.id}/tasks/t1", headers=auth(viewer)).status_code
+        client.delete(
+            f"{API}/workspaces/{tree.id}/tasks/t1", headers=auth(viewer)
+        ).status_code
         == 403
     )
 
@@ -199,39 +202,39 @@ def test_editor_can_write(client, db):
 
 
 def test_restricted_domain_hides_routes(client, db):
-    from app.models.tree import TreeMembership
+    from app.models.workspace import WorkspaceMembership
 
     user, tree = _setup(client, db)
     restricted = make_user(db, "dave")
     share(db, tree, restricted, role="editor")
-    membership = db.get(TreeMembership, (tree.id, restricted.id))
+    membership = db.get(WorkspaceMembership, (tree.id, restricted.id))
     membership.restrictions = ["tasks"]
     db.commit()
 
-    res = client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(restricted))
+    res = client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(restricted))
     assert res.status_code == 404
     assert _create_task(client, restricted, tree).status_code == 404
     # The owner is unaffected.
     assert (
-        client.get(f"{API}/trees/{tree.id}/tasks", headers=auth(user)).status_code
+        client.get(f"{API}/workspaces/{tree.id}/tasks", headers=auth(user)).status_code
         == 200
     )
 
 
 def test_restricted_domain_hides_task_activity(client, db):
-    from app.models.tree import TreeMembership
+    from app.models.workspace import WorkspaceMembership
 
     user, tree = _setup(client, db)
     restricted = make_user(db, "dave")
     share(db, tree, restricted, role="viewer")
-    membership = db.get(TreeMembership, (tree.id, restricted.id))
+    membership = db.get(WorkspaceMembership, (tree.id, restricted.id))
     membership.restrictions = ["tasks"]
     db.commit()
 
     assert _create_task(client, user, tree).status_code == 201
 
     activity = client.get(
-        f"{API}/trees/{tree.id}/activity", headers=auth(restricted)
+        f"{API}/workspaces/{tree.id}/activity", headers=auth(restricted)
     )
     assert activity.status_code == 200
     assert activity.json()["entries"] == []
@@ -242,16 +245,20 @@ def test_task_changes_write_activity(client, db):
     user, tree = _setup(client, db)
     _create_task(client, user, tree)
     client.patch(
-        f"{API}/trees/{tree.id}/tasks/t1",
+        f"{API}/workspaces/{tree.id}/tasks/t1",
         headers=auth(user),
-        json={"title": "Find birth record", "notes": None, "done": True,
-              "done_at": "2026-02-01T00:00:00Z"},
+        json={
+            "title": "Find birth record",
+            "notes": None,
+            "done": True,
+            "done_at": "2026-02-01T00:00:00Z",
+        },
     )
-    client.delete(f"{API}/trees/{tree.id}/tasks/t1", headers=auth(user))
+    client.delete(f"{API}/workspaces/{tree.id}/tasks/t1", headers=auth(user))
 
     rows = db.scalars(
         select(ActivityLog).where(
-            ActivityLog.tree_id == tree.id, ActivityLog.target_type == "task"
+            ActivityLog.workspace_id == tree.id, ActivityLog.target_type == "task"
         )
     ).all()
     assert [r.action for r in rows] == ["create", "update", "delete"]

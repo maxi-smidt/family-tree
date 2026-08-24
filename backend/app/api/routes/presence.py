@@ -15,23 +15,23 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_tree
+from app.api.deps import get_current_user, get_readable_workspace
 from app.db.session import get_db
-from app.models import Tree, User
+from app.models import User, Workspace
 from app.schemas.presence import PresenceHeartbeat, PresenceRoster, PresenceUser
 from app.services.collaboration import presence_service
 from app.services.collaboration.presence_service import PresenceEntry
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.event_payloads import PresenceUserSnapshot
 
 router = APIRouter(
-    prefix="/trees/{tree_id}",
+    prefix="/workspaces/{workspace_id}",
     tags=["presence"],
 )
 
 
 def _resolve_and_publish(
-    db: Session, tree: Tree, entries: list[PresenceEntry]
+    db: Session, tree: Workspace, entries: list[PresenceEntry]
 ) -> list[PresenceUser]:
     """Resolve display names, publish ``presence.updated``, return the roster.
 
@@ -74,12 +74,12 @@ def _resolve_and_publish(
         )
     roster.sort(key=lambda u: (u.display_name.casefold(), u.user_id))
 
-    publish_tree_event(
+    publish_workspace_event(
         db,
         tree,
         "presence.updated",
         {
-            "tree_id": tree.id,
+            "workspace_id": tree.id,
             "users": [
                 PresenceUserSnapshot(
                     user_id=u.user_id,
@@ -98,7 +98,7 @@ def _resolve_and_publish(
 @router.post("/presence", response_model=PresenceRoster)
 async def heartbeat(
     payload: PresenceHeartbeat,
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PresenceRoster:
@@ -106,12 +106,12 @@ async def heartbeat(
     await presence_service.touch(tree.id, user.id, payload.editing_member_id)
     entries = await presence_service.active_entries(tree.id)
     roster = await run_in_threadpool(_resolve_and_publish, db, tree, entries)
-    return PresenceRoster(tree_id=tree.id, users=roster)
+    return PresenceRoster(workspace_id=tree.id, users=roster)
 
 
 @router.delete("/presence", status_code=204)
 async def leave(
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:

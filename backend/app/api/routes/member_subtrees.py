@@ -3,16 +3,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_writable_tree
+from app.api.deps import get_current_user, get_writable_workspace
 from app.db.session import get_db
-from app.models import Tree
+from app.models import Workspace
 from app.models.user import User
 from app.schemas.family import MemberOut, MemberSubtreeCreate
-from app.schemas.tree import MemberSubtreeOut, TreeOut
+from app.schemas.workspace import MemberSubtreeOut, WorkspaceOut
 from app.services.members.member_access import get_member
 from app.services.members.member_subtrees import create_linked_subtree
 
-router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
+router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
 
 @router.post(
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 def create_member_subtree(
     member_id: str,
     payload: MemberSubtreeCreate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -31,20 +31,20 @@ def create_member_subtree(
 
     The member becomes the "bridge person": a clone of their identity fields
     (including a copied photo) is created as the sole member of the new tree,
-    and the two rows point at each other via linked_tree_id/linked_member_id,
+    and the two rows point at each other via linked_workspace_id/linked_member_id,
     so navigation works in both directions and lands on the counterpart.
     """
     member = get_member(db, tree, member_id)
-    if member.linked_tree_id is not None:
+    if member.linked_workspace_id is not None:
         raise HTTPException(status_code=409, detail="Member is already linked to a tree")
     name = payload.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail="A name is required")
 
     new_tree = create_linked_subtree(
-        db, source_tree=tree, member=member, owner=user, name=name
+        db, source_workspace=tree, member=member, owner=user, name=name
     )
     return MemberSubtreeOut(
-        tree=TreeOut.model_validate(new_tree),
+        workspace=WorkspaceOut.model_validate(new_tree),
         anchor=MemberOut.model_validate(member),
     )

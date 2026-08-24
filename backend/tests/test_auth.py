@@ -19,9 +19,7 @@ def test_login_success_and_me(client, db):
 
 def test_login_wrong_password(client, db):
     make_user(db, "alice", password="pw123456")
-    res = client.post(
-        f"{API}/auth/login", json={"username": "alice", "password": "nope"}
-    )
+    res = client.post(f"{API}/auth/login", json={"username": "alice", "password": "nope"})
     assert res.status_code == 401
 
 

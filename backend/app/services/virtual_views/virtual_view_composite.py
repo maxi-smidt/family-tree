@@ -1,7 +1,7 @@
-"""Compose a virtual view's live content from its flattened source trees.
+"""Compose a virtual view's live content from its flattened source workspaces.
 
 Every feature a normal tree exposes works on a virtual tree by reading rows
-whose ``tree_id`` is in the flattened source set and remapping member ids
+whose ``workspace_id`` is in the flattened source set and remapping member ids
 through the persisted match groups. Two id schemes:
 
   * Links (gallery / events / stories / documents) use the *node* id map so
@@ -15,7 +15,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import Member, MemberDisease, Relation, Tree
+from app.models import Member, MemberDisease, Relation, Workspace
 from app.models.virtual_view import (
     VirtualView,
     VirtualViewMemberMatch,
@@ -24,7 +24,7 @@ from app.models.virtual_view import (
 from app.schemas.family import DiseaseOut, MemberOut, RelationOut
 from app.schemas.virtual_view import VirtualMemberOut
 from app.services.virtual_views.virtual_view_matching import persist_matches
-from app.services.virtual_views.virtual_view_sources import flatten_tree_ids
+from app.services.virtual_views.virtual_view_sources import flatten_workspace_ids
 
 
 def ensure_matches(db: Session, view: VirtualView) -> None:
@@ -67,10 +67,8 @@ def primary_member_map(db: Session, view: VirtualView) -> dict[str, str]:
 
 
 def aggregate(db: Session, source_ids: list[str], model: type) -> list:
-    """All rows of a tree-scoped *model* across the flattened source trees."""
-    return list(
-        db.scalars(select(model).where(model.tree_id.in_(source_ids))).all()
-    )
+    """All rows of a tree-scoped *model* across the flattened source workspaces."""
+    return list(db.scalars(select(model).where(model.workspace_id.in_(source_ids))).all())
 
 
 def remap_member_links(
@@ -81,14 +79,12 @@ def remap_member_links(
     other_attr: str,
 ) -> list[tuple[str, str]]:
     """``(other_id, node_id)`` pairs with the member side remapped + de-duped."""
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     id_map = build_id_map(db, view)
     rows = db.execute(
-        select(
-            getattr(link_model, other_attr), getattr(link_model, member_attr)
-        )
+        select(getattr(link_model, other_attr), getattr(link_model, member_attr))
         .join(Member, Member.id == getattr(link_model, member_attr))
-        .where(Member.tree_id.in_(source_ids))
+        .where(Member.workspace_id.in_(source_ids))
     ).all()
     seen: set[tuple[str, str]] = set()
     out: list[tuple[str, str]] = []
@@ -104,7 +100,7 @@ def remap_member_links(
 
 def analytics_members(db: Session, view: VirtualView) -> list[Member]:
     """Distinct people (match groups collapsed to their primary member)."""
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     members = aggregate(db, source_ids, Member)
     primary_map = primary_member_map(db, view)
     return [m for m in members if primary_map.get(m.id, m.id) == m.id]
@@ -114,7 +110,7 @@ def analytics_relations(
     db: Session, view: VirtualView, primary_map: dict[str, str]
 ) -> list[Relation]:
     """Relations remapped onto primary member ids, self-loops + dupes dropped."""
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     seen: set[tuple[str, str, str]] = set()
     out: list[Relation] = []
     for r in aggregate(db, source_ids, Relation):
@@ -128,7 +124,7 @@ def analytics_relations(
         seen.add(key)
         out.append(
             Relation(
-                tree_id=view.id,
+                workspace_id=view.id,
                 from_member_id=f,
                 to_member_id=t,
                 relation_type=r.relation_type,
@@ -147,13 +143,13 @@ def _coalesce(*values: str | None) -> str | None:
 
 def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMemberOut]:
     """Build merged member list with position overlay applied."""
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     source_order = {tid: i for i, tid in enumerate(source_ids)}
 
     rows = db.execute(
-        select(Member, Tree.name)
-        .join(Tree, Tree.id == Member.tree_id)
-        .where(Member.tree_id.in_(source_ids))
+        select(Member, Workspace.name)
+        .join(Workspace, Workspace.id == Member.workspace_id)
+        .where(Member.workspace_id.in_(source_ids))
     ).all()
 
     id_map = build_id_map(db, view)
@@ -162,9 +158,9 @@ def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMembe
     # Determine if any overlay positions exist (hasLayout check happens via metadata).
     # Group members by their node_id (group_id for matched, member.id for unmatched).
     by_node: dict[str, list[tuple[Member, str]]] = {}
-    for m, tree_name in rows:
+    for m, workspace_name in rows:
         node_id = id_map.get(m.id, m.id)
-        by_node.setdefault(node_id, []).append((m, tree_name))
+        by_node.setdefault(node_id, []).append((m, workspace_name))
 
     # Load match group info keyed by group_id → [member_id in primary order]
     match_rows = db.execute(
@@ -180,14 +176,14 @@ def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMembe
             group_primary[r.group_id] = r.member_id
 
     # X-offset fallback for when no overlay exists (first load before alignment).
-    # Each tree is normalized to start at its own slot so the gap between trees
+    # Each tree is normalized to start at its own slot so the gap between workspaces
     # is always exactly GAP, regardless of where members originally sat in the DB.
     GAP = 600.0
     x_offset = 0.0
     tree_offsets: dict[str, float] = {}
     tree_min_x: dict[str, float] = {}
     for tid in source_ids:
-        tree_members = [m for m, _ in rows if m.tree_id == tid]
+        tree_members = [m for m, _ in rows if m.workspace_id == tid]
         tree_offsets[tid] = x_offset
         if tree_members:
             min_x = min(m.position_x for m in tree_members)
@@ -199,7 +195,7 @@ def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMembe
         item: tuple[str, list[tuple[Member, str]]],
     ) -> tuple[int, str]:
         nid, node_rows = item
-        return (min(source_order.get(m.tree_id, 999) for m, _ in node_rows), nid)
+        return (min(source_order.get(m.workspace_id, 999) for m, _ in node_rows), nid)
 
     result: list[VirtualMemberOut] = []
     for node_id, member_rows in sorted(by_node.items(), key=_node_sort_key):
@@ -215,7 +211,7 @@ def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMembe
             m, _ = pair
             if m.id == _pid:
                 return -1
-            return source_order.get(m.tree_id, 999)
+            return source_order.get(m.workspace_id, 999)
 
         member_rows_sorted = sorted(member_rows, key=_sort_key)
         primary_m, primary_tree_name = member_rows_sorted[0]
@@ -234,8 +230,8 @@ def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMembe
         if node_id in overlay:
             pos_x, pos_y = overlay[node_id]
         else:
-            offset = tree_offsets.get(primary_m.tree_id, 0.0)
-            min_x_tree = tree_min_x.get(primary_m.tree_id, 0.0)
+            offset = tree_offsets.get(primary_m.workspace_id, 0.0)
+            min_x_tree = tree_min_x.get(primary_m.workspace_id, 0.0)
             pos_x = primary_m.position_x - min_x_tree + offset
             pos_y = primary_m.position_y
 
@@ -251,17 +247,17 @@ def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMembe
         out["dateOfDeath"] = coalesced_dod
         out["additionalData"] = coalesced_add
 
-        source_tree_ids = [m.tree_id for m, _ in member_rows_sorted]
-        source_tree_names = [tn for _, tn in member_rows_sorted]
+        source_workspace_ids = [m.workspace_id for m, _ in member_rows_sorted]
+        source_workspace_names = [tn for _, tn in member_rows_sorted]
         merged_from_ids = [m.id for m in all_members]
 
         result.append(
             VirtualMemberOut(
                 **out,
-                sourceTreeId=primary_m.tree_id,
-                sourceTreeName=primary_tree_name,
-                sourceTreeIds=source_tree_ids,
-                sourceTreeNames=source_tree_names,
+                sourceWorkspaceId=primary_m.workspace_id,
+                sourceWorkspaceName=primary_tree_name,
+                sourceWorkspaceIds=source_workspace_ids,
+                sourceWorkspaceNames=source_workspace_names,
                 mergedFromIds=merged_from_ids if is_merged else [],
                 isMerged=is_merged,
             )
@@ -271,13 +267,11 @@ def build_composite_members(db: Session, view: VirtualView) -> list[VirtualMembe
 
 def build_composite_relations(db: Session, view: VirtualView) -> list[RelationOut]:
     """Merge relations across sources, remapped onto composite node ids."""
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     id_map = build_id_map(db, view)
 
     raw = list(
-        db.scalars(
-            select(Relation).where(Relation.tree_id.in_(source_ids))
-        ).all()
+        db.scalars(select(Relation).where(Relation.workspace_id.in_(source_ids))).all()
     )
 
     # A merged node's parent edges must come from a single source member so the
@@ -301,7 +295,7 @@ def build_composite_relations(db: Session, view: VirtualView) -> list[RelationOu
     tree_by_member: dict[str, str] = (
         dict(
             db.execute(
-                select(Member.id, Member.tree_id).where(Member.id.in_(merged_ids))
+                select(Member.id, Member.workspace_id).where(Member.id.in_(merged_ids))
             ).all()
         )
         if merged_ids
@@ -322,9 +316,7 @@ def build_composite_relations(db: Session, view: VirtualView) -> list[RelationOu
                 source_order.get(tree_by_member.get(t[1], ""), 999),
             ),
         )
-        chosen = next(
-            (mid for _, mid in ordered if mid in members_with_parents), None
-        )
+        chosen = next((mid for _, mid in ordered if mid in members_with_parents), None)
         if chosen is not None:
             parent_source_by_group[gid] = chosen
 
@@ -360,13 +352,13 @@ def build_composite_relations(db: Session, view: VirtualView) -> list[RelationOu
 
 def build_composite_diseases(db: Session, view: VirtualView) -> list[DiseaseOut]:
     """Merge disease records across sources, remapped + de-duped by node."""
-    source_ids = flatten_tree_ids(db, view)
+    source_ids = flatten_workspace_ids(db, view)
     id_map = build_id_map(db, view)
     diseases = list(
         db.scalars(
             select(MemberDisease)
             .join(Member, Member.id == MemberDisease.member_id)
-            .where(Member.tree_id.in_(source_ids))
+            .where(Member.workspace_id.in_(source_ids))
         ).all()
     )
     seen: set[tuple[str, str]] = set()

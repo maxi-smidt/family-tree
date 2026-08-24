@@ -22,7 +22,7 @@ import { useDocumentStore } from "@/hooks/useDocumentStore";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
 import { useDeferredStoreLoad } from "@/hooks/useDeferredStoreLoad";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { useMemberEditors } from "@/hooks/usePresenceStore";
 import { UnsavedChangesDialog } from "@/components/shared/dialog/UnsavedChangesDialog";
@@ -57,7 +57,7 @@ export const MemberSheet = ({
   const { refreshEvents, initialized: eventsInitialized } = useEventStore();
   const { refreshStories, initialized: storiesInitialized } = useStoryStore();
   const { refreshTasks, initialized: tasksInitialized } = useTaskStore();
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions);
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions);
   const tasksEnabled = !restrictions?.includes("tasks");
   const { refreshDocuments, initialized: documentsInitialized } =
     useDocumentStore();
@@ -65,9 +65,9 @@ export const MemberSheet = ({
     useGalleryStore();
   const setMapFocus = useNavigationStore((s) => s.setMapFocus);
   const navigateTo = useNavigationStore((s) => s.navigateTo);
-  const treeId = useTreeStore((s) => s.selectedTree?.id);
+  const workspaceId = useWorkspaceStore((s) => s.selectedTree?.id);
   const savedSheetState = useMemberSheetStore((s) =>
-    treeId ? s.openSheets[treeId] : undefined,
+    workspaceId ? s.openSheets[workspaceId] : undefined,
   );
   const setOpenSheet = useMemberSheetStore((s) => s.setOpenSheet);
   const clearOpenSheet = useMemberSheetStore((s) => s.clearOpenSheet);
@@ -101,8 +101,8 @@ export const MemberSheet = ({
   }, [isNewMember, member?.id]);
 
   useEffect(() => {
-    if (!isOpen || !member || isNewMember || !treeId) return;
-    setOpenSheet(treeId, {
+    if (!isOpen || !member || isNewMember || !workspaceId) return;
+    setOpenSheet(workspaceId, {
       memberId: member.id,
       tab: savedSheetState?.memberId === member.id ? activeTab : "identity",
       mode: isViewingEditMode ? "edit" : "view",
@@ -115,7 +115,7 @@ export const MemberSheet = ({
     member?.id,
     savedSheetState?.memberId,
     setOpenSheet,
-    treeId,
+    workspaceId,
   ]);
 
   // Fetch full member detail when the sheet opens for an existing member.
@@ -163,8 +163,8 @@ export const MemberSheet = ({
       setNewMemberTab(tab);
       return;
     }
-    if (!treeId) return;
-    setOpenSheet(treeId, {
+    if (!workspaceId) return;
+    setOpenSheet(workspaceId, {
       memberId: member.id,
       tab,
       mode: isViewingEditMode ? "edit" : "view",
@@ -173,7 +173,7 @@ export const MemberSheet = ({
 
   const closeSheet = async () => {
     if (!isNewMember) await flushAutosaveRef.current();
-    if (treeId) clearOpenSheet(treeId);
+    if (workspaceId) clearOpenSheet(workspaceId);
     onClose();
   };
 
@@ -295,7 +295,7 @@ export const MemberSheet = ({
               </div>
             ) : isViewingEditMode ? (
               <EditMode
-                key={`${treeId ?? "no-tree"}:${member.id}`}
+                key={`${workspaceId ?? "no-tree"}:${member.id}`}
                 member={member}
                 isNew={isNewMember}
                 onSaved={async (data) => {

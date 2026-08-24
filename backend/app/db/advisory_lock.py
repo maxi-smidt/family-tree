@@ -56,9 +56,7 @@ def single_leader(key: int, *, engine: Engine | None = None) -> Iterator[bool]:
     try:
         try:
             held = bool(
-                conn.execute(
-                    text("SELECT pg_try_advisory_lock(:k)"), {"k": key}
-                ).scalar()
+                conn.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": key}).scalar()
             )
         except Exception:
             # No advisory-lock support (e.g. SQLite) or a transient DB error —

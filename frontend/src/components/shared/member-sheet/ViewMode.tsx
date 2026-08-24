@@ -9,7 +9,7 @@ import {
 import { AuthenticatedImage } from "@/components/ui/AuthenticatedImage";
 import { FamilyNodeContent } from "@/components/view/tree-view/node/FamilyNodeContent";
 import { useGalleryStore } from "@/hooks/useGalleryStore";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useEventStore } from "@/hooks/useEventStore";
 import { useStoryStore } from "@/hooks/useStoryStore";
 import { useTaskStore } from "@/hooks/useTaskStore";
@@ -56,7 +56,7 @@ export const ViewMode = ({
   const { getEventsByMember } = useEventStore();
   const { getStoriesByMember } = useStoryStore();
   const { getTasksByMember } = useTaskStore();
-  const restrictions = useTreeStore((s) => s.selectedTree?.restrictions ?? []);
+  const restrictions = useWorkspaceStore((s) => s.selectedTree?.restrictions ?? []);
   const galleryEnabled = !restrictions.includes("gallery");
   const eventsEnabled = !restrictions.includes("events");
   const storiesEnabled = !restrictions.includes("stories");

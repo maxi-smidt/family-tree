@@ -42,8 +42,12 @@ def create_user(
     db.flush()
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=current, action="create", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=current,
+            action="create",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"is_admin": user.is_admin},
         )
     db.refresh(user)
@@ -103,8 +107,12 @@ def update_user(
     with UnitOfWork(db) as uow:
         if changed:
             record_admin_audit(
-                db, actor=current, action="update", subject_type="user",
-                subject_id=user.id, subject_label=user.username,
+                db,
+                actor=current,
+                action="update",
+                subject_type="user",
+                subject_id=user.id,
+                subject_label=user.username,
                 details={"changes": changed},
             )
         if deactivated:
@@ -131,8 +139,12 @@ def reset_password(
     _reset_local_password(user, payload.password)
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=current, action="update", subject_type="password",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=current,
+            action="update",
+            subject_type="password",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"admin_reset": True},
         )
     db.refresh(user)
@@ -162,8 +174,12 @@ def delete_user(
     schedule_deletion(db, user, requested_by=current.id)
     with UnitOfWork(db) as uow:
         record_admin_audit(
-            db, actor=current, action="delete", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=current,
+            action="delete",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"scheduled": True},
         )
         uow.after_commit(
@@ -189,8 +205,12 @@ def reset_totp(
         user.totp_secret = None
         user.totp_recovery_codes = None
         record_admin_audit(
-            db, actor=current, action="update", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=current,
+            action="update",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"two_factor_reset": True},
         )
     db.refresh(user)
@@ -212,8 +232,12 @@ def cancel_deletion(
         user.deletion_scheduled_for = None
         user.deletion_requested_by = None
         record_admin_audit(
-            db, actor=current, action="update", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=current,
+            action="update",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"deletion_cancelled": True},
         )
     db.refresh(user)

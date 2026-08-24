@@ -6,7 +6,7 @@ tree viewer. It is locale-aware (``?locale=de|en``, default ``de``), falling
 back to German when the requested locale's body is empty. ``POST
 /legal/accept`` records a durable audit row (username, version, locale,
 content hashes, IP, user-agent) and flips the per-user fast-lookup flag used
-by the blocking gate (see ``app.api.deps.get_writable_tree`` and
+by the blocking gate (see ``app.api.deps.get_writable_workspace`` and
 ``user_has_accepted_legal``) — re-acceptance is triggered only by a
 ``legal_version`` change, never by locale. ``GET /legal/versions[/...]``
 exposes the immutable snapshot history (see ``LegalDocumentVersion``) to
@@ -130,9 +130,7 @@ def accept_legal(
 def list_legal_versions(db: Session = Depends(get_db)):
     """Admin-only: the full immutable snapshot history, newest first."""
     rows = db.scalars(
-        select(LegalDocumentVersion).order_by(
-            LegalDocumentVersion.published_at.desc()
-        )
+        select(LegalDocumentVersion).order_by(LegalDocumentVersion.published_at.desc())
     ).all()
     return rows
 

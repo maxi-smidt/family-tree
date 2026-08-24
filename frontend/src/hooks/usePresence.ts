@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { isVirtualId, useTreeStore } from "@/hooks/useTreeStore";
+import { isVirtualId, useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import {
   setEditingMember,
@@ -16,8 +16,8 @@ import {
  * endpoint).
  */
 export function usePresence(): void {
-  const treeId = useTreeStore((s) => s.selectedTree?.id);
-  const activeTreeId = treeId && !isVirtualId(treeId) ? treeId : null;
+  const workspaceId = useWorkspaceStore((s) => s.selectedTree?.id);
+  const activeTreeId = workspaceId && !isVirtualId(workspaceId) ? workspaceId : null;
 
   useEffect(() => {
     if (!activeTreeId) return;

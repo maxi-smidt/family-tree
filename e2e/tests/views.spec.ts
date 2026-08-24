@@ -136,7 +136,7 @@ test("map view — renders without calling external geocode service", async ({
 }) => {
   const tree = await seedTree("E2E-MapView");
   // Add a member with a birthplace
-  await adminApi.post(`/trees/${tree.id}/members`, {
+  await adminApi.post(`/workspaces/${tree.id}/members`, {
     id: randomUUID(),
     firstName: "Map",
     lastName: "Person",
@@ -154,7 +154,7 @@ test("map view — renders without calling external geocode service", async ({
     });
   });
   // Also intercept the internal geocode endpoint
-  await adminPage.route(`**/api/trees/*/geocode**`, (route) => {
+  await adminPage.route(`**/api/workspaces/*/geocode**`, (route) => {
     void route.fulfill({
       status: 200,
       contentType: "application/json",

@@ -84,7 +84,6 @@ def health_app(tmp_path):
         connect_args={"check_same_thread": False},
     )
 
-
     fapp = FastAPI()
 
     @fapp.get(f"{settings.API_PREFIX}/health/ready")

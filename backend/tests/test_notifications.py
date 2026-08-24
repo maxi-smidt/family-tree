@@ -59,7 +59,7 @@ def test_invitation_received_notification(client, db):
     tree = make_tree(db, alice)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/invitations",
+        f"{API}/workspaces/{tree.id}/invitations",
         json={"role": "viewer", "email": bob.email},
         headers=auth(alice),
     )
@@ -71,8 +71,8 @@ def test_invitation_received_notification(client, db):
     assert body["total"] == 1
     assert body["entries"][0]["type"] == "invitation_received"
     assert body["entries"][0]["payload"] == {
-        "tree_id": tree.id,
-        "tree_name": tree.name,
+        "workspace_id": tree.id,
+        "workspace_name": tree.name,
     }
 
 
@@ -83,7 +83,7 @@ def test_tree_shared_notification_on_new_grant_only(client, db):
     tree = make_tree(db, alice)
 
     res = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         json={"username": "bob", "role": "viewer"},
         headers=auth(alice),
     )
@@ -94,8 +94,8 @@ def test_tree_shared_notification_on_new_grant_only(client, db):
     assert body["total"] == 1
     assert body["entries"][0]["type"] == "tree_shared"
     assert body["entries"][0]["payload"] == {
-        "tree_id": tree.id,
-        "tree_name": tree.name,
+        "workspace_id": tree.id,
+        "workspace_name": tree.name,
         "role": "viewer",
         "actor_username": "alice",
     }
@@ -103,7 +103,7 @@ def test_tree_shared_notification_on_new_grant_only(client, db):
     # Re-sharing (role change on an existing membership) is not a new grant,
     # so it must not create a second notification.
     res = client.post(
-        f"{API}/trees/{tree.id}/access",
+        f"{API}/workspaces/{tree.id}/access",
         json={"username": "bob", "role": "editor"},
         headers=auth(alice),
     )
@@ -118,15 +118,17 @@ def test_tree_unshared_notification(client, db):
     tree = make_tree(db, alice)
     share(db, tree, bob, role="viewer")
 
-    res = client.delete(f"{API}/trees/{tree.id}/access/{bob.id}", headers=auth(alice))
+    res = client.delete(
+        f"{API}/workspaces/{tree.id}/access/{bob.id}", headers=auth(alice)
+    )
     assert res.status_code == 204
 
     body = client.get(f"{API}/notifications", headers=auth(bob)).json()
     assert body["total"] == 1
     assert body["entries"][0]["type"] == "tree_unshared"
     assert body["entries"][0]["payload"] == {
-        "tree_id": tree.id,
-        "tree_name": tree.name,
+        "workspace_id": tree.id,
+        "workspace_name": tree.name,
     }
 
 
@@ -134,15 +136,15 @@ def test_batch_share_and_revoke_notify_per_tree(client, db):
     alice = make_user(db, "alice")
     bob = make_user(db, "bob")
     befriend(db, alice, bob, status="accepted")
-    tree_a = make_tree(db, alice, name="Tree A")
-    tree_b = make_tree(db, alice, name="Tree B")
+    tree_a = make_tree(db, alice, name="Workspace A")
+    tree_b = make_tree(db, alice, name="Workspace B")
 
     res = client.post(
-        f"{API}/trees/{tree_a.id}/access/batch",
+        f"{API}/workspaces/{tree_a.id}/access/batch",
         json={
             "username": "bob",
             "role": "viewer",
-            "tree_ids": [tree_a.id, tree_b.id],
+            "workspace_ids": [tree_a.id, tree_b.id],
         },
         headers=auth(alice),
     )
@@ -150,15 +152,15 @@ def test_batch_share_and_revoke_notify_per_tree(client, db):
 
     body = client.get(f"{API}/notifications", headers=auth(bob)).json()
     assert body["total"] == 2
-    types_and_trees = {(e["type"], e["payload"]["tree_id"]) for e in body["entries"]}
+    types_and_trees = {(e["type"], e["payload"]["workspace_id"]) for e in body["entries"]}
     assert types_and_trees == {
         ("tree_shared", tree_a.id),
         ("tree_shared", tree_b.id),
     }
 
     res = client.post(
-        f"{API}/trees/{tree_a.id}/access/batch-revoke",
-        json={"user_id": bob.id, "tree_ids": [tree_a.id, tree_b.id]},
+        f"{API}/workspaces/{tree_a.id}/access/batch-revoke",
+        json={"user_id": bob.id, "workspace_ids": [tree_a.id, tree_b.id]},
         headers=auth(alice),
     )
     assert res.status_code == 204
@@ -166,7 +168,9 @@ def test_batch_share_and_revoke_notify_per_tree(client, db):
     body = client.get(f"{API}/notifications", headers=auth(bob)).json()
     assert body["total"] == 4
     unshared_trees = {
-        e["payload"]["tree_id"] for e in body["entries"] if e["type"] == "tree_unshared"
+        e["payload"]["workspace_id"]
+        for e in body["entries"]
+        if e["type"] == "tree_unshared"
     }
     assert unshared_trees == {tree_a.id, tree_b.id}
 
@@ -181,7 +185,9 @@ def test_list_pagination_and_counts(client, db):
     for name in ("alice", "carol", "dave"):
         make_user(db, name)
         notification_service.create_notification(
-            db, bob.id, "friend_request_received",
+            db,
+            bob.id,
+            "friend_request_received",
             FriendRequestReceivedPayload(requester_id="x", requester_username=name),
         )
 
@@ -216,14 +222,14 @@ def test_mark_read_marks_one_and_404_for_other_user(client, db):
     alice = make_user(db, "alice")
     bob = make_user(db, "bob")
     notification_service.create_notification(
-        db, bob.id, "friend_request_received",
-        FriendRequestReceivedPayload(
-            requester_id=alice.id, requester_username="alice"
-        ),
+        db,
+        bob.id,
+        "friend_request_received",
+        FriendRequestReceivedPayload(requester_id=alice.id, requester_username="alice"),
     )
-    notif_id = client.get(f"{API}/notifications", headers=auth(bob)).json()[
-        "entries"
-    ][0]["id"]
+    notif_id = client.get(f"{API}/notifications", headers=auth(bob)).json()["entries"][0][
+        "id"
+    ]
 
     # Another user cannot mark someone else's notification read.
     res = client.post(f"{API}/notifications/{notif_id}/read", headers=auth(alice))
@@ -245,7 +251,9 @@ def test_mark_all_read_clears_unread(client, db):
     bob = make_user(db, "bob")
     for name in ("alice", "carol"):
         notification_service.create_notification(
-            db, bob.id, "friend_request_received",
+            db,
+            bob.id,
+            "friend_request_received",
             FriendRequestReceivedPayload(requester_id="x", requester_username=name),
         )
 
@@ -266,10 +274,10 @@ def test_retention_caps_at_100_per_user(db):
     alice = make_user(db, "alice")
     for i in range(105):
         notification_service.create_notification(
-            db, alice.id, "friend_request_received",
+            db,
+            alice.id,
+            "friend_request_received",
             FriendRequestReceivedPayload(requester_id="x", requester_username=f"u{i}"),
         )
-    count = (
-        db.query(Notification).filter(Notification.user_id == alice.id).count()
-    )
+    count = db.query(Notification).filter(Notification.user_id == alice.id).count()
     assert count == 100

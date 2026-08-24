@@ -3,14 +3,14 @@
 Tracks *who* is currently active in each tree — a lightweight, ephemeral
 counterpart to the SSE event bus.  Clients POST heartbeats (~every 30 s, and
 whenever they open/close a member sheet in edit mode); the registry keeps
-``tree_id -> {user_id: {last_seen, editing_member_id}}`` with TTL expiry so a
+``workspace_id -> {user_id: {last_seen, editing_member_id}}`` with TTL expiry so a
 client that goes away without unsubscribing simply falls out of the roster.
 
 Two interchangeable backends, chosen exactly like the event bus:
 
 * **In-process** (default / ``REDIS_URL`` unset): a module-level dict.  Correct
   for single-worker deployments.
-* **Redis** (``REDIS_URL`` set): one hash per tree (``presence:{tree_id}``) with
+* **Redis** (``REDIS_URL`` set): one hash per tree (``presence:{workspace_id}``) with
   a field per user, so every worker in the pool sees the same roster.  The whole
   key carries a TTL as a backstop that clears an abandoned tree entirely.
 
@@ -38,8 +38,8 @@ PRESENCE_TTL_SECONDS = 65
 _KEY_PREFIX = "presence:"
 
 
-def _key(tree_id: str) -> str:
-    return f"{_KEY_PREFIX}{tree_id}"
+def _key(workspace_id: str) -> str:
+    return f"{_KEY_PREFIX}{workspace_id}"
 
 
 class PresenceEntry(TypedDict):
@@ -56,7 +56,7 @@ class _PresenceRecord(TypedDict):
     editing: str | None
 
 
-# In-process store: tree_id -> user_id -> presence record.
+# In-process store: workspace_id -> user_id -> presence record.
 # Only ever touched from the event-loop thread, so no lock is needed.
 _store: dict[str, dict[str, _PresenceRecord]] = {}
 
@@ -70,24 +70,24 @@ def _now() -> float:
 # ---------------------------------------------------------------------------
 
 
-def _mem_touch(tree_id: str, user_id: str, editing_member_id: str | None) -> None:
-    _store.setdefault(tree_id, {})[user_id] = {
+def _mem_touch(workspace_id: str, user_id: str, editing_member_id: str | None) -> None:
+    _store.setdefault(workspace_id, {})[user_id] = {
         "last_seen": _now(),
         "editing": editing_member_id,
     }
 
 
-def _mem_leave(tree_id: str, user_id: str) -> None:
-    users = _store.get(tree_id)
+def _mem_leave(workspace_id: str, user_id: str) -> None:
+    users = _store.get(workspace_id)
     if users is None:
         return
     users.pop(user_id, None)
     if not users:
-        _store.pop(tree_id, None)
+        _store.pop(workspace_id, None)
 
 
-def _mem_entries(tree_id: str) -> list[PresenceEntry]:
-    users = _store.get(tree_id)
+def _mem_entries(workspace_id: str) -> list[PresenceEntry]:
+    users = _store.get(workspace_id)
     if not users:
         return []
     cutoff = _now() - PRESENCE_TTL_SECONDS
@@ -101,7 +101,7 @@ def _mem_entries(tree_id: str) -> list[PresenceEntry]:
     for user_id in stale:
         users.pop(user_id, None)
     if not users:
-        _store.pop(tree_id, None)
+        _store.pop(workspace_id, None)
     return fresh
 
 
@@ -111,9 +111,9 @@ def _mem_entries(tree_id: str) -> list[PresenceEntry]:
 
 
 async def _redis_touch(
-    redis, tree_id: str, user_id: str, editing_member_id: str | None
+    redis, workspace_id: str, user_id: str, editing_member_id: str | None
 ) -> None:
-    key = _key(tree_id)
+    key = _key(workspace_id)
     value = json.dumps({"last_seen": _now(), "editing": editing_member_id})
     await redis.hset(key, user_id, value)
     # Backstop TTL on the whole key so an abandoned tree clears itself; each
@@ -121,12 +121,12 @@ async def _redis_touch(
     await redis.expire(key, PRESENCE_TTL_SECONDS)
 
 
-async def _redis_leave(redis, tree_id: str, user_id: str) -> None:
-    await redis.hdel(_key(tree_id), user_id)
+async def _redis_leave(redis, workspace_id: str, user_id: str) -> None:
+    await redis.hdel(_key(workspace_id), user_id)
 
 
-async def _redis_entries(redis, tree_id: str) -> list[PresenceEntry]:
-    key = _key(tree_id)
+async def _redis_entries(redis, workspace_id: str) -> list[PresenceEntry]:
+    key = _key(workspace_id)
     raw: dict[str, str] = await redis.hgetall(key)
     if not raw:
         return []
@@ -164,36 +164,36 @@ def reset() -> None:
     _store.clear()
 
 
-async def touch(tree_id: str, user_id: str, editing_member_id: str | None) -> None:
-    """Record/refresh *user_id*'s presence in *tree_id*.  Never raises."""
+async def touch(workspace_id: str, user_id: str, editing_member_id: str | None) -> None:
+    """Record/refresh *user_id*'s presence in *workspace_id*.  Never raises."""
     from app.db.redis import get_redis  # local import to avoid circular deps
 
     redis = get_redis()
     if redis is None:
-        _mem_touch(tree_id, user_id, editing_member_id)
+        _mem_touch(workspace_id, user_id, editing_member_id)
         return
     try:
-        await _redis_touch(redis, tree_id, user_id, editing_member_id)
+        await _redis_touch(redis, workspace_id, user_id, editing_member_id)
     except Exception:
-        logger.warning("presence touch failed for tree %r", tree_id, exc_info=True)
+        logger.warning("presence touch failed for tree %r", workspace_id, exc_info=True)
 
 
-async def leave(tree_id: str, user_id: str) -> None:
-    """Remove *user_id* from *tree_id*'s roster.  Never raises."""
+async def leave(workspace_id: str, user_id: str) -> None:
+    """Remove *user_id* from *workspace_id*'s roster.  Never raises."""
     from app.db.redis import get_redis  # local import
 
     redis = get_redis()
     if redis is None:
-        _mem_leave(tree_id, user_id)
+        _mem_leave(workspace_id, user_id)
         return
     try:
-        await _redis_leave(redis, tree_id, user_id)
+        await _redis_leave(redis, workspace_id, user_id)
     except Exception:
-        logger.warning("presence leave failed for tree %r", tree_id, exc_info=True)
+        logger.warning("presence leave failed for tree %r", workspace_id, exc_info=True)
 
 
-async def active_entries(tree_id: str) -> list[PresenceEntry]:
-    """Return the non-expired roster for *tree_id*, pruning stale entries.
+async def active_entries(workspace_id: str) -> list[PresenceEntry]:
+    """Return the non-expired roster for *workspace_id*, pruning stale entries.
 
     Returns an empty list (never raises) when Redis is unavailable or errors.
     """
@@ -201,11 +201,11 @@ async def active_entries(tree_id: str) -> list[PresenceEntry]:
 
     redis = get_redis()
     if redis is None:
-        return _mem_entries(tree_id)
+        return _mem_entries(workspace_id)
     try:
-        return await _redis_entries(redis, tree_id)
+        return await _redis_entries(redis, workspace_id)
     except Exception:
         logger.warning(
-            "presence active_entries failed for tree %r", tree_id, exc_info=True
+            "presence active_entries failed for tree %r", workspace_id, exc_info=True
         )
         return []

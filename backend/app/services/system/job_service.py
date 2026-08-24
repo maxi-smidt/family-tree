@@ -52,7 +52,7 @@ def run_job[**P](
     """Run fn(progress_cb, *args, **kwargs) and track it as a background job.
 
     Called from a Starlette background task (runs in a threadpool thread).
-    fn must return the result_tree_id (str) on success and raise on failure.
+    fn must return the result_workspace_id (str) on success and raise on failure.
     fn is responsible for its own DB session. ``*args``/``**kwargs`` are tied
     via ``ParamSpec`` to fn's own parameters (everything after its leading
     ``progress_cb``), so a call-site/fn signature mismatch is a static type
@@ -76,15 +76,15 @@ def run_job[**P](
             job.updated_at = utcnow_iso()
             event_bus.publish([user_id], "job.progress", {"job_id": job_id, "pct": pct})
 
-        result_tree_id: str = fn(progress_cb, *args, **kwargs)
+        result_workspace_id: str = fn(progress_cb, *args, **kwargs)
 
         job.status = "done"
         job.progress_pct = 100
-        job.result_tree_id = result_tree_id
+        job.result_workspace_id = result_workspace_id
         job.updated_at = utcnow_iso()
         job_db.commit()  # allowlisted-commit: see module docstring
         event_bus.publish(
-            [user_id], "job.done", {"job_id": job_id, "tree_id": result_tree_id}
+            [user_id], "job.done", {"job_id": job_id, "workspace_id": result_workspace_id}
         )
 
     except Exception as exc:

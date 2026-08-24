@@ -64,6 +64,7 @@ def test_scheduled_backup_emits_backup_completed():
         mock_svc.create_backup.return_value = mock_record
 
         from app.services.system.backups.backup_scheduler import _run_if_due
+
         _run_if_due()
 
     mock_bus.publish.assert_called_once_with(
@@ -105,6 +106,7 @@ def test_failed_backup_does_not_emit():
         mock_svc.create_backup.return_value = mock_record
 
         from app.services.system.backups.backup_scheduler import _run_if_due
+
         _run_if_due()
 
     mock_bus.publish.assert_not_called()
@@ -131,6 +133,7 @@ def test_sweep_with_purges_emits_purge_ran():
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         from app.services.system.deletion_sweeper import _run_sweep_once
+
         _run_sweep_once()
 
     mock_bus.publish.assert_called_once_with(
@@ -154,6 +157,7 @@ def test_sweep_with_no_purges_does_not_emit():
         mock_session_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         from app.services.system.deletion_sweeper import _run_sweep_once
+
         _run_sweep_once()
 
     mock_bus.publish.assert_not_called()

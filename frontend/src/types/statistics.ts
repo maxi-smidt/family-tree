@@ -22,7 +22,7 @@ export interface NameCount {
 }
 
 export interface StatisticsReport {
-  tree_id: string;
+  workspace_id: string;
   total_members: number;
   members_with_birth_date: number;
   members_with_death_date: number;
@@ -37,11 +37,11 @@ export interface StatisticsReport {
 /**
  * Statistics aggregated across the anchor tree and every tree reachable via
  * tree-in-tree links (bridge persons counted once). Superset of
- * `StatisticsReport` — `tree_id` stays the anchor tree's id.
+ * `StatisticsReport` — `workspace_id` stays the anchor tree's id.
  */
 export interface CombinedStatisticsReport extends StatisticsReport {
   tree_count: number;
-  included_tree_ids: string[];
+  included_workspace_ids: string[];
 }
 
 export type StatisticsScope = "tree" | "linked";

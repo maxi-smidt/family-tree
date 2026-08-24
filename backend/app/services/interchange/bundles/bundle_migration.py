@@ -71,9 +71,7 @@ def _migrate_v2_to_v3(bundle: TreeBundleV2) -> TreeBundleV3:
 
     member_names: dict[str, str] = {}
     for m in bundle.get("members", []):
-        name = " ".join(
-            p for p in (m.get("first_name"), m.get("last_name")) if p
-        ).strip()
+        name = " ".join(p for p in (m.get("first_name"), m.get("last_name")) if p).strip()
         member_names[m.get("id")] = name or m.get("id")
 
     citation_lines: dict[str, list[str]] = {}

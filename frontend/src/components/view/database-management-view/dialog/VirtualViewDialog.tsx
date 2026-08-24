@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Layers } from "lucide-react";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import {
   Dialog,
   DialogContent,
@@ -13,24 +13,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 import { ApiError } from "@/services/api";
 
 type Props = {
   isOpen: boolean;
   onClose: () => void;
   /** When provided, the dialog is in edit-sources mode for this view. */
-  view?: Tree | null;
+  view?: Workspace | null;
 };
 
 export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
   const { t } = useTranslation(undefined, {
     keyPrefix: "dialog.virtual-view",
   });
-  const trees = useTreeStore((s) => s.trees);
-  const virtualViews = useTreeStore((s) => s.virtualViews);
-  const createVirtualView = useTreeStore((s) => s.createVirtualView);
-  const updateVirtualViewSources = useTreeStore(
+  const workspaces = useWorkspaceStore((s) => s.workspaces);
+  const virtualViews = useWorkspaceStore((s) => s.virtualViews);
+  const createVirtualView = useWorkspaceStore((s) => s.createVirtualView);
+  const updateVirtualViewSources = useWorkspaceStore(
     (s) => s.updateVirtualViewSources,
   );
 
@@ -53,7 +53,7 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
         if (seen.has(id)) continue;
         seen.add(id);
         byId.get(id)?.sources?.forEach((s) => {
-          if (s.is_virtual) stack.push(s.tree_id);
+          if (s.is_virtual) stack.push(s.workspace_id);
         });
       }
       return false;
@@ -62,14 +62,14 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
   }, [view, virtualViews]);
   const [name, setName] = useState(view?.name ?? "");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(view?.sources?.map((s) => s.tree_id) ?? []),
+    new Set(view?.sources?.map((s) => s.workspace_id) ?? []),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setName(view?.name ?? "");
-      setSelectedIds(new Set(view?.sources?.map((s) => s.tree_id) ?? []));
+      setSelectedIds(new Set(view?.sources?.map((s) => s.workspace_id) ?? []));
     }
   }, [isOpen, view]);
 
@@ -142,7 +142,7 @@ export const VirtualViewDialog = ({ isOpen, onClose, view }: Props) => {
           <div className="flex flex-col gap-1.5">
             <Label>{t("sources-label")}</Label>
             <div className="flex flex-col gap-2 max-h-56 overflow-y-auto border rounded-md p-2">
-              {trees.map((tree) => (
+              {workspaces.map((tree) => (
                 <label
                   key={tree.id}
                   className="flex items-center gap-2 cursor-pointer"

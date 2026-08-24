@@ -82,7 +82,7 @@ export function buildInitialResolutionState(
 
 /**
  * Convert the map of per-pair UI state into the `resolutions` array expected
- * by POST /trees/merge.
+ * by POST /workspaces/merge.
  *
  * Only pairs that are not using the server default need a resolution entry,
  * but we send all to keep the logic simple.

@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useTutorialStore } from "@/hooks/useTutorialStore";
 import { useNavigationStore } from "@/hooks/useNavigationStore";
 import { useFamilyTreeSettings } from "@/hooks/useFamilyTreeSettings";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 
 const CREATE_TREE_SELECTOR = '[data-tutorial="create-tree"]';
 const CREATE_DIALOG_SELECTOR = '[data-tutorial="create-dialog"]';
@@ -59,7 +59,7 @@ function waitForElement(
 }
 
 function waitForSelectedTree(timeoutMs = TREE_CREATE_WAIT_MS): Promise<void> {
-  if (useTreeStore.getState().selectedTree) return Promise.resolve();
+  if (useWorkspaceStore.getState().selectedTree) return Promise.resolve();
 
   return new Promise((resolve, reject) => {
     let unsubscribe: (() => void) | undefined;
@@ -68,7 +68,7 @@ function waitForSelectedTree(timeoutMs = TREE_CREATE_WAIT_MS): Promise<void> {
       reject(new Error("Timed out waiting for the created tree"));
     }, timeoutMs);
 
-    unsubscribe = useTreeStore.subscribe((state) => {
+    unsubscribe = useWorkspaceStore.subscribe((state) => {
       if (!state.selectedTree) return;
       window.clearTimeout(timeoutId);
       unsubscribe?.();
@@ -107,7 +107,7 @@ export const TutorialTour = () => {
   useEffect(() => {
     if (!isRunning) return;
 
-    const hadTreeOnStart = useTreeStore.getState().selectedTree !== undefined;
+    const hadTreeOnStart = useWorkspaceStore.getState().selectedTree !== undefined;
     const sidebarOpenOnStart = useFamilyTreeSettings.getState().sidebarOpen;
     const tabsSelector = currentTabsSelector();
 
@@ -326,7 +326,7 @@ export const TutorialTour = () => {
         },
       },
 
-      // Tree management. Next navigates to friends; Back returns to the tree.
+      // Workspace management. Next navigates to friends; Back returns to the tree.
       {
         element: NEW_TREE_SELECTOR,
         popover: {

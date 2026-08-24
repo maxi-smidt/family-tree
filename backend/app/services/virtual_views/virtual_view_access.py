@@ -16,7 +16,7 @@ from app.api.deps import role_for
 from app.core.exceptions import AccessDeniedError, ConflictError, NotFoundError
 from app.db.base import utcnow_iso
 from app.db.upsert import upsert_row
-from app.models import Tree, User
+from app.models import User, Workspace
 from app.models.virtual_view import VirtualView, VirtualViewUserState
 
 VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED = "virtual_view_source_access_revoked"
@@ -41,11 +41,9 @@ def check_source_access(
     if len(view.sources) < 2:
         raise ConflictError(VIRTUAL_VIEW_SOURCES_MISSING)
     for src in view.sources:
-        if src.tree_id is not None:
-            tree = db.get(Tree, src.tree_id)
-            if tree is None or (
-                not user.is_admin and role_for(db, tree, user) is None
-            ):
+        if src.workspace_id is not None:
+            tree = db.get(Workspace, src.workspace_id)
+            if tree is None or (not user.is_admin and role_for(db, tree, user) is None):
                 raise AccessDeniedError(VIRTUAL_VIEW_SOURCE_ACCESS_REVOKED)
         else:
             nested = db.get(VirtualView, src.source_view_id)

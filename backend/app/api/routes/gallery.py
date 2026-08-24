@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_current_user,
-    get_readable_tree,
-    get_writable_tree,
+    get_readable_workspace,
+    get_writable_workspace,
     require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -22,7 +22,7 @@ from app.models import (
     GalleryUnknownFace,
     Member,
     MemberTask,
-    Tree,
+    Workspace,
 )
 from app.models.user import User
 from app.schemas.content import (
@@ -41,7 +41,7 @@ from app.services.documents.content_links import (
     replace_gallery_member_links,
     replace_member_links,
 )
-from app.services.event_bus import event_bus, publish_tree_event
+from app.services.event_bus import event_bus, publish_workspace_event
 from app.services.media.storage import (
     ImageTooLarge,
     UnsupportedImageType,
@@ -51,34 +51,35 @@ from app.services.media.storage import (
 )
 from app.services.media.storage_usage import (
     check_media_quota,
-    check_tree_quota,
+    check_workspace_quota,
     media_warning,
 )
 from app.services.system.settings_service import effective_storage_mode, get_media_limits
 from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
-    prefix="/trees/{tree_id}/gallery",
+    prefix="/workspaces/{workspace_id}/gallery",
     tags=["gallery"],
     dependencies=[Depends(require_domain("gallery"))],
 )
 
 
-def _get_image(db: Session, tree: Tree, image_id: str) -> GalleryImage:
+def _get_image(db: Session, tree: Workspace, image_id: str) -> GalleryImage:
     image = db.get(GalleryImage, image_id)
-    if image is None or image.tree_id != tree.id:
+    if image is None or image.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Image not found")
     return image
+
 
 @router.get("/images", response_model=list[GalleryImageOut])
 def list_images(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     statement = (
         select(GalleryImage)
-        .where(GalleryImage.tree_id == tree.id)
+        .where(GalleryImage.workspace_id == tree.id)
         .order_by(GalleryImage.uploaded_at, GalleryImage.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -87,13 +88,13 @@ def list_images(
 @router.get("/links", response_model=list[GalleryLinkOut])
 def list_links(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     statement = (
         select(GalleryMemberLink)
         .join(GalleryImage, GalleryImage.id == GalleryMemberLink.gallery_image_id)
-        .where(GalleryImage.tree_id == tree.id)
+        .where(GalleryImage.workspace_id == tree.id)
         .order_by(GalleryMemberLink.gallery_image_id, GalleryMemberLink.member_id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -108,7 +109,7 @@ async def create_image(
     created_at: str | None = Form(default=None),
     uploaded_at: str | None = Form(default=None),
     member_ids: list[str] = Form(default=[]),
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -151,7 +152,7 @@ async def create_image(
     now = utcnow_iso()
     image_row = GalleryImage(
         id=id,
-        tree_id=tree.id,
+        workspace_id=tree.id,
         image_data=new_image_url,
         title=title,
         description=description,
@@ -171,8 +172,12 @@ async def create_image(
                 member_ids=member_ids,
             )
             record_activity(
-                db, tree_id=tree.id, actor=user, action="create",
-                target_type="gallery_image", target_id=image_row.id,
+                db,
+                workspace_id=tree.id,
+                actor=user,
+                action="create",
+                target_type="gallery_image",
+                target_id=image_row.id,
                 target_label=image_row.title,
             )
     except Exception:
@@ -184,13 +189,15 @@ async def create_image(
         delete_media(new_image_url)
         raise
     db.refresh(image_row)
-    publish_tree_event(db, tree, "activity.entry_added", {"tree_id": tree.id})
+    publish_workspace_event(db, tree, "activity.entry_added", {"workspace_id": tree.id})
     warning = media_warning(db, tree)
     if warning:
         event_bus.publish([tree.owner_id], "storage.warning", warning)
-    publish_tree_event(
-        db, tree, "tree.content_changed",
-        {"tree_id": tree.id, "domain": "gallery"},
+    publish_workspace_event(
+        db,
+        tree,
+        "workspace.content_changed",
+        {"workspace_id": tree.id, "domain": "gallery"},
     )
     return image_row
 
@@ -199,7 +206,7 @@ async def create_image(
 def update_image(
     image_id: str,
     payload: GalleryImageUpdate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -214,18 +221,25 @@ def update_image(
         setattr(image, key, value)
     with UnitOfWork(db) as uow:
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="gallery_image",
+            target_id=image.id,
+            target_label=image.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "gallery"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "gallery"},
             )
         )
     db.refresh(image)
@@ -235,7 +249,7 @@ def update_image(
 @router.delete("/images/{image_id}", status_code=204)
 def delete_image(
     image_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -243,20 +257,27 @@ def delete_image(
     image_url = image.image_data
     with UnitOfWork(db) as uow:
         record_activity(
-            db, tree_id=tree.id, actor=user, action="delete",
-            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="delete",
+            target_type="gallery_image",
+            target_id=image.id,
+            target_label=image.title,
             details=gallery_delete_snapshot(db, image),
         )
         db.delete(image)
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "gallery"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "gallery"},
             )
         )
         uow.after_commit(lambda: trash_media(image_url))
@@ -266,7 +287,7 @@ def delete_image(
 def set_links(
     image_id: str,
     payload: GalleryLinksSet,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -280,8 +301,13 @@ def set_links(
             links=payload.links,
         )
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="gallery_image",
+            target_id=image.id,
+            target_label=image.title,
         )
 
 
@@ -305,7 +331,7 @@ def set_links(
 
 
 def _open_linked_task(
-    db: Session, tree: Tree, face: GalleryUnknownFace
+    db: Session, tree: Workspace, face: GalleryUnknownFace
 ) -> MemberTask | None:
     """The face's research task, only while it is still open in this tree.
 
@@ -316,17 +342,17 @@ def _open_linked_task(
     if not face.task_id:
         return None
     task = db.get(MemberTask, face.task_id)
-    if task is None or task.tree_id != tree.id or task.done:
+    if task is None or task.workspace_id != tree.id or task.done:
         return None
     return task
 
 
-def _get_unknown_face(db: Session, tree: Tree, face_id: str) -> GalleryUnknownFace:
+def _get_unknown_face(db: Session, tree: Workspace, face_id: str) -> GalleryUnknownFace:
     face = db.get(GalleryUnknownFace, face_id)
     if face is None:
         raise HTTPException(status_code=404, detail="Face not found")
     image = db.get(GalleryImage, face.gallery_image_id)
-    if image is None or image.tree_id != tree.id:
+    if image is None or image.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Face not found")
     return face
 
@@ -334,13 +360,13 @@ def _get_unknown_face(db: Session, tree: Tree, face_id: str) -> GalleryUnknownFa
 @router.get("/unknown-faces", response_model=list[UnknownFaceOut])
 def list_unknown_faces(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     statement = (
         select(GalleryUnknownFace)
         .join(GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id)
-        .where(GalleryImage.tree_id == tree.id)
+        .where(GalleryImage.workspace_id == tree.id)
         .order_by(GalleryUnknownFace.gallery_image_id, GalleryUnknownFace.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -355,7 +381,7 @@ def list_unknown_faces(
 def create_unknown_face(
     image_id: str,
     payload: UnknownFaceCreate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -366,11 +392,11 @@ def create_unknown_face(
         f'Identify unknown person in "{image.title or image_id}"'
     )
     notes = payload.task_notes or None
-    check_tree_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
+    check_workspace_quota(db, tree, len(str({"title": title, "notes": notes}).encode()))
 
     task = MemberTask(
         id=str(uuid4()),
-        tree_id=tree.id,
+        workspace_id=tree.id,
         title=title,
         notes=notes,
         done=False,
@@ -393,27 +419,42 @@ def create_unknown_face(
 
     with UnitOfWork(db) as uow:
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="gallery_image",
+            target_id=image.id,
+            target_label=image.title,
         )
         record_activity(
-            db, tree_id=tree.id, actor=user, action="create",
-            target_type="task", target_id=task.id, target_label=task.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="create",
+            target_type="task",
+            target_id=task.id,
+            target_label=task.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "gallery"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "gallery"},
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "task"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "task"},
             )
         )
     db.refresh(face)
@@ -424,7 +465,7 @@ def create_unknown_face(
 def update_unknown_face(
     face_id: str,
     payload: UnknownFaceUpdate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -437,18 +478,25 @@ def update_unknown_face(
     face.h = payload.h
     with UnitOfWork(db) as uow:
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="gallery_image",
+            target_id=image.id,
+            target_label=image.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "gallery"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "gallery"},
             )
         )
     db.refresh(face)
@@ -463,7 +511,7 @@ def update_unknown_face(
 def resolve_unknown_face(
     face_id: str,
     payload: UnknownFaceResolve,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -471,7 +519,7 @@ def resolve_unknown_face(
     face = _get_unknown_face(db, tree, face_id)
     image = db.get(GalleryImage, face.gallery_image_id)
     member = db.get(Member, payload.member_id)
-    if member is None or member.tree_id != tree.id:
+    if member is None or member.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Member not found")
 
     existing_link = db.get(GalleryMemberLink, (face.gallery_image_id, member.id))
@@ -498,32 +546,46 @@ def resolve_unknown_face(
         task.done = True
         task.done_at = utcnow_iso()
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="task", target_id=task.id, target_label=task.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="task",
+            target_id=task.id,
+            target_label=task.title,
         )
 
     with UnitOfWork(db) as uow:
         db.delete(face)
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="gallery_image",
+            target_id=image.id,
+            target_label=image.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "gallery"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "gallery"},
             )
         )
         if task_changed:
             uow.after_commit(
-                lambda: publish_tree_event(
-                    db, tree, "tree.content_changed",
-                    {"tree_id": tree.id, "domain": "task"},
+                lambda: publish_workspace_event(
+                    db,
+                    tree,
+                    "workspace.content_changed",
+                    {"workspace_id": tree.id, "domain": "task"},
                 )
             )
 
@@ -535,7 +597,7 @@ def resolve_unknown_face(
 )
 def delete_unknown_face(
     face_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -547,32 +609,46 @@ def delete_unknown_face(
     task_changed = task is not None
     if task is not None:
         record_activity(
-            db, tree_id=tree.id, actor=user, action="delete",
-            target_type="task", target_id=task.id, target_label=task.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="delete",
+            target_type="task",
+            target_id=task.id,
+            target_label=task.title,
         )
         db.delete(task)
 
     with UnitOfWork(db) as uow:
         db.delete(face)
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="gallery_image", target_id=image.id, target_label=image.title,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="gallery_image",
+            target_id=image.id,
+            target_label=image.title,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed",
-                {"tree_id": tree.id, "domain": "gallery"},
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "gallery"},
             )
         )
         if task_changed:
             uow.after_commit(
-                lambda: publish_tree_event(
-                    db, tree, "tree.content_changed",
-                    {"tree_id": tree.id, "domain": "task"},
+                lambda: publish_workspace_event(
+                    db,
+                    tree,
+                    "workspace.content_changed",
+                    {"workspace_id": tree.id, "domain": "task"},
                 )
             )

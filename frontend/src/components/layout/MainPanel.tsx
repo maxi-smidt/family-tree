@@ -90,10 +90,10 @@ import {
   resolveTabs,
 } from "@/lib/tabs";
 import { filterViewsByRestrictions } from "@/lib/contentRestrictions";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { usePresence } from "@/hooks/usePresence";
-import { TreeBreadcrumb } from "@/components/layout/TreeBreadcrumb";
+import { WorkspaceBreadcrumb } from "@/components/layout/WorkspaceBreadcrumb";
 import { readMemberSheetDeepLink } from "@/utils/memberSheetState";
 
 const ACTIVE_TAB_STORAGE_KEY = "ft_active_tab";
@@ -166,7 +166,7 @@ export const MainPanel = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingView]);
 
-  const selectedTreeId = useTreeStore((s) => s.selectedTree?.id);
+  const selectedTreeId = useWorkspaceStore((s) => s.selectedTree?.id);
   const hasOpenMemberSheet = useMemberSheetStore((s) =>
     selectedTreeId ? Boolean(s.openSheets[selectedTreeId]) : false,
   );
@@ -230,7 +230,7 @@ export const MainPanel = () => {
     if (user) void loadIncomingFriends();
   }, [user, loadIncomingFriends]);
 
-  const selectedTree = useTreeStore((s) => s.selectedTree);
+  const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const restrictions = selectedTree?.restrictions ?? [];
   const galleryAvailable = !restrictions.includes("gallery");
   const documentsAvailable = !restrictions.includes("sources");
@@ -283,7 +283,7 @@ export const MainPanel = () => {
       onValueChange={handleTabChange}
       className="h-full flex flex-col"
     >
-      <TreeBreadcrumb />
+      <WorkspaceBreadcrumb />
       <div
         className="ml-16 mr-4 mt-3 flex-none md:hidden flex items-center gap-2"
         data-tutorial="views-tabs-mobile"
@@ -320,7 +320,7 @@ export const MainPanel = () => {
         // flex-1 + min-w-0 + truncate so tabs shrink with an ellipsis under
         // that cap instead of overflowing; overflow-x-auto is just a safety
         // net for the pathological case where even truncated labels don't
-        // fit (matches TreeBreadcrumb's approach to the same problem).
+        // fit (matches WorkspaceBreadcrumb's approach to the same problem).
         className="ml-16 mt-3 hidden md:inline-flex max-w-[calc(100%-8rem)] overflow-x-auto"
         data-tutorial="views-tabs"
       >

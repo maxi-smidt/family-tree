@@ -9,10 +9,10 @@ Usage example::
 
     from app.services.cache import cache_get_json, cache_set_json, stats_key
 
-    data = await cache_get_json(stats_key(tree_id))
+    data = await cache_get_json(stats_key(workspace_id))
     if data is None:
         data = compute_heavy_thing()
-        await cache_set_json(stats_key(tree_id), data, STATS_TTL_SECONDS)
+        await cache_set_json(stats_key(workspace_id), data, STATS_TTL_SECONDS)
 """
 
 from __future__ import annotations
@@ -38,9 +38,9 @@ STATS_TTL_SECONDS = 300
 # ---------------------------------------------------------------------------
 
 
-def stats_key(tree_id: str) -> str:
-    """Return the Redis key for the statistics cache of *tree_id*."""
-    return f"cache:stats:{tree_id}"
+def stats_key(workspace_id: str) -> str:
+    """Return the Redis key for the statistics cache of *workspace_id*."""
+    return f"cache:stats:{workspace_id}"
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +112,7 @@ async def cache_delete(*keys: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def invalidate_stats(tree_id: str) -> None:
+def invalidate_stats(workspace_id: str) -> None:
     """Best-effort cache invalidation for a tree's statistics key.
 
     Designed to be called from **sync** FastAPI route handlers (which run in
@@ -131,10 +131,10 @@ def invalidate_stats(tree_id: str) -> None:
     if loop is None or loop.is_closed():
         return
     try:
-        asyncio.run_coroutine_threadsafe(cache_delete(stats_key(tree_id)), loop)
+        asyncio.run_coroutine_threadsafe(cache_delete(stats_key(workspace_id)), loop)
     except Exception:
         logger.warning(
             "invalidate_stats: failed to schedule cache delete for tree %r",
-            tree_id,
+            workspace_id,
             exc_info=True,
         )

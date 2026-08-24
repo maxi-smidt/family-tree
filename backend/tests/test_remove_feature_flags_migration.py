@@ -52,7 +52,7 @@ def test_removes_feature_settings_and_legacy_override_table():
             [
                 {"key": "feature.gallery", "value": "off"},
                 {"key": "feature.statistics", "value": "beta"},
-                {"key": "instance_name", "value": "Family Tree"},
+                {"key": "instance_name", "value": "Family Workspace"},
             ],
         )
         connection.execute(
@@ -62,9 +62,11 @@ def test_removes_feature_settings_and_legacy_override_table():
 
         migration.remove_feature_flag_storage(connection)
 
-        remaining_keys = connection.execute(
-            sa.select(settings.c.key).order_by(settings.c.key)
-        ).scalars().all()
+        remaining_keys = (
+            connection.execute(sa.select(settings.c.key).order_by(settings.c.key))
+            .scalars()
+            .all()
+        )
         remaining_tables = set(sa.inspect(connection).get_table_names())
 
     engine.dispose()

@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import (
     get_current_user,
-    get_readable_tree,
-    get_writable_tree,
+    get_readable_workspace,
+    get_writable_workspace,
     require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
-from app.models import Event, EventDocumentLink, EventMemberLink, Tree
+from app.models import Event, EventDocumentLink, EventMemberLink, Workspace
 from app.models.user import User
 from app.schemas.content import (
     DocumentIdsSet,
@@ -27,20 +27,20 @@ from app.services.documents.content_links import (
     replace_document_links,
     replace_member_links,
 )
-from app.services.event_bus import publish_tree_event
-from app.services.media.storage_usage import check_tree_quota
+from app.services.event_bus import publish_workspace_event
+from app.services.media.storage_usage import check_workspace_quota
 from app.services.unit_of_work import UnitOfWork
 
 router = APIRouter(
-    prefix="/trees/{tree_id}/events",
+    prefix="/workspaces/{workspace_id}/events",
     tags=["events"],
     dependencies=[Depends(require_domain("events"))],
 )
 
 
-def _get_event(db: Session, tree: Tree, event_id: str) -> Event:
+def _get_event(db: Session, tree: Workspace, event_id: str) -> Event:
     event = db.get(Event, event_id)
-    if event is None or event.tree_id != tree.id:
+    if event is None or event.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Event not found")
     return event
 
@@ -84,11 +84,13 @@ def _events_out(db: Session, events: list[Event]) -> list[EventOut]:
 @router.get("", response_model=list[EventOut])
 def list_events(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     statement = (
-        select(Event).where(Event.tree_id == tree.id).order_by(Event.created_at, Event.id)
+        select(Event)
+        .where(Event.workspace_id == tree.id)
+        .order_by(Event.created_at, Event.id)
     )
     events = db.scalars(apply_pagination(statement, pagination)).all()
     return _events_out(db, list(events))
@@ -97,13 +99,13 @@ def list_events(
 @router.get("/links", response_model=list[EventLinkOut])
 def list_links(
     pagination: Pagination = Depends(pagination_params),
-    tree: Tree = Depends(get_readable_tree),
+    tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
     statement = (
         select(EventMemberLink)
         .join(Event, Event.id == EventMemberLink.event_id)
-        .where(Event.tree_id == tree.id)
+        .where(Event.workspace_id == tree.id)
         .order_by(EventMemberLink.event_id, EventMemberLink.member_id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -112,15 +114,15 @@ def list_links(
 @router.post("", response_model=EventOut, status_code=201)
 def create_event(
     payload: EventCreate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
-    check_tree_quota(db, tree, len(str(data).encode()))
+    check_workspace_quota(db, tree, len(str(data).encode()))
     with UnitOfWork(db) as uow:
-        event = Event(tree_id=tree.id, **data)
+        event = Event(workspace_id=tree.id, **data)
         db.add(event)
         db.flush()  # event row must exist before its links reference it
         replace_member_links(
@@ -132,17 +134,25 @@ def create_event(
             member_ids=member_ids,
         )
         record_activity(
-            db, tree_id=tree.id, actor=user, action="create",
-            target_type="event", target_id=event.id, target_label=event.event_type,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="create",
+            target_type="event",
+            target_id=event.id,
+            target_label=event.event_type,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "event"},
             )
         )
     db.refresh(event)
@@ -153,7 +163,7 @@ def create_event(
 def update_event(
     event_id: str,
     payload: EventUpdate,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -162,17 +172,25 @@ def update_event(
         for key, value in payload.model_dump().items():
             setattr(event, key, value)
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="event", target_id=event.id, target_label=event.event_type,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="event",
+            target_id=event.id,
+            target_label=event.event_type,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "event"},
             )
         )
     db.refresh(event)
@@ -182,26 +200,34 @@ def update_event(
 @router.delete("/{event_id}", status_code=204)
 def delete_event(
     event_id: str,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     event = _get_event(db, tree, event_id)
     with UnitOfWork(db) as uow:
         record_activity(
-            db, tree_id=tree.id, actor=user, action="delete",
-            target_type="event", target_id=event.id, target_label=event.event_type,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="delete",
+            target_type="event",
+            target_id=event.id,
+            target_label=event.event_type,
             details=event_delete_snapshot(db, event),
         )
         db.delete(event)
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "event"},
             )
         )
 
@@ -210,7 +236,7 @@ def delete_event(
 def set_links(
     event_id: str,
     payload: LinksSet,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -226,17 +252,25 @@ def set_links(
             member_ids=payload.member_ids,
         )
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="event", target_id=event.id, target_label=event.event_type,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="event",
+            target_id=event.id,
+            target_label=event.event_type,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "event"},
             )
         )
 
@@ -245,7 +279,7 @@ def set_links(
 def set_documents(
     event_id: str,
     payload: DocumentIdsSet,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -261,16 +295,24 @@ def set_documents(
             document_ids=payload.document_ids,
         )
         record_activity(
-            db, tree_id=tree.id, actor=user, action="update",
-            target_type="event", target_id=event.id, target_label=event.event_type,
+            db,
+            workspace_id=tree.id,
+            actor=user,
+            action="update",
+            target_type="event",
+            target_id=event.id,
+            target_label=event.event_type,
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "tree.content_changed", {"tree_id": tree.id, "domain": "event"}
+            lambda: publish_workspace_event(
+                db,
+                tree,
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "event"},
             )
         )

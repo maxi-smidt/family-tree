@@ -1,9 +1,9 @@
-"""Tests for the linked-trees batch sharing endpoints (issue #537).
+"""Tests for the linked-workspaces batch sharing endpoints (issue #537).
 
 These are a convenience batch operation layered on top of the existing
 per-tree sharing model: every tree keeps its own explicit access list, but
 the owner can grant/revoke the same role on the anchor tree plus a batch of
-(typically linked) trees in one call.
+(typically linked) workspaces in one call.
 """
 
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
@@ -11,11 +11,11 @@ from tests.conftest import API, add_member, auth, befriend, make_tree, make_user
 
 def _link(db, tree, member_id, target_tree, **kw):
     return add_member(
-        db, tree, member_id, linked_tree_id=target_tree.id, first_name="A", **kw
+        db, tree, member_id, linked_workspace_id=target_tree.id, first_name="A", **kw
     )
 
 
-# --- GET /access/linked-trees ----------------------------------------------
+# --- GET /access/linked-workspaces ----------------------------------------------
 
 
 def test_linked_trees_lists_manageable_and_non_manageable(client, db):
@@ -29,11 +29,11 @@ def test_linked_trees_lists_manageable_and_non_manageable(client, db):
     _link(db, main, "m2", others_linked)
 
     res = client.get(
-        f"{API}/trees/{main.id}/access/linked-trees", headers=auth(owner)
+        f"{API}/workspaces/{main.id}/access/linked-workspaces", headers=auth(owner)
     )
     assert res.status_code == 200
     body = res.json()
-    by_id = {t["tree_id"]: t for t in body}
+    by_id = {t["workspace_id"]: t for t in body}
 
     assert main.id not in by_id  # anchor tree excluded
     assert by_id[owned_linked.id]["manageable"] is True
@@ -50,7 +50,7 @@ def test_linked_trees_unreadable_trees_are_hidden(client, db):
     _link(db, main, "m1", private_other)
 
     res = client.get(
-        f"{API}/trees/{main.id}/access/linked-trees", headers=auth(owner)
+        f"{API}/workspaces/{main.id}/access/linked-workspaces", headers=auth(owner)
     )
     assert res.status_code == 200
     assert res.json() == []
@@ -66,7 +66,7 @@ def test_linked_trees_reports_target_role_with_username(client, db):
     share(db, linked, bob, "editor")
 
     res = client.get(
-        f"{API}/trees/{main.id}/access/linked-trees",
+        f"{API}/workspaces/{main.id}/access/linked-workspaces",
         headers=auth(owner),
         params={"username": "bob"},
     )
@@ -80,12 +80,12 @@ def test_linked_trees_username_owner_of_linked_tree(client, db):
     bob = make_user(db, "bob")
     befriend(db, owner, bob)
     main = make_tree(db, owner, "Main")
-    bobs_tree = make_tree(db, bob, "Bobs Tree")
+    bobs_tree = make_tree(db, bob, "Bobs Workspace")
     share(db, bobs_tree, owner, "viewer")
     _link(db, main, "m1", bobs_tree)
 
     res = client.get(
-        f"{API}/trees/{main.id}/access/linked-trees",
+        f"{API}/workspaces/{main.id}/access/linked-workspaces",
         headers=auth(owner),
         params={"username": "bob"},
     )
@@ -100,7 +100,7 @@ def test_linked_trees_nonexistent_username_404s(client, db):
     main = make_tree(db, owner, "Main")
 
     res = client.get(
-        f"{API}/trees/{main.id}/access/linked-trees",
+        f"{API}/workspaces/{main.id}/access/linked-workspaces",
         headers=auth(owner),
         params={"username": "ghost"},
     )
@@ -114,9 +114,10 @@ def test_linked_trees_non_owner_403s(client, db):
     share(db, main, editor, "editor")
 
     res = client.get(
-        f"{API}/trees/{main.id}/access/linked-trees", headers=auth(editor)
+        f"{API}/workspaces/{main.id}/access/linked-workspaces", headers=auth(editor)
     )
     assert res.status_code == 403
+
 
 # --- POST /access/batch -----------------------------------------------------
 
@@ -132,12 +133,12 @@ def test_batch_grant_happy_path(client, db):
     _link(db, main, "m2", linked2)
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(owner),
         json={
             "username": "bob",
             "role": "editor",
-            "tree_ids": [main.id, linked1.id, linked2.id],
+            "workspace_ids": [main.id, linked1.id, linked2.id],
         },
     )
     assert res.status_code == 200
@@ -145,7 +146,7 @@ def test_batch_grant_happy_path(client, db):
     assert roles["bob"] == "editor"
 
     for t in (main, linked1, linked2):
-        access = client.get(f"{API}/trees/{t.id}/access", headers=auth(owner)).json()
+        access = client.get(f"{API}/workspaces/{t.id}/access", headers=auth(owner)).json()
         bob_entry = next(m for m in access if m["username"] == "bob")
         assert bob_entry["role"] == "editor"
 
@@ -156,24 +157,24 @@ def test_batch_grant_all_or_nothing_rollback(client, db):
     bob = make_user(db, "bob")
     main = make_tree(db, owner, "Main")
     linked_good = make_tree(db, owner, "LinkedGood")
-    # A tree bob already owns -> triggers a 400 for this specific tree_id
+    # A tree bob already owns -> triggers a 400 for this specific workspace_id
     # (admin actor, so the owner-of-target-tree check is what fires).
     bobs_tree = make_tree(db, bob, "BobsTree")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(admin),
         json={
             "username": "bob",
             "role": "editor",
-            "tree_ids": [main.id, linked_good.id, bobs_tree.id],
+            "workspace_ids": [main.id, linked_good.id, bobs_tree.id],
         },
     )
     assert res.status_code == 400
 
-    # Nothing was granted anywhere, including on the valid trees.
+    # Nothing was granted anywhere, including on the valid workspaces.
     for t in (main, linked_good):
-        access = client.get(f"{API}/trees/{t.id}/access", headers=auth(owner)).json()
+        access = client.get(f"{API}/workspaces/{t.id}/access", headers=auth(owner)).json()
         assert "bob" not in {m["username"] for m in access}
 
 
@@ -186,12 +187,12 @@ def test_batch_grant_non_owned_tree_403s(client, db):
     strangers_tree = make_tree(db, stranger, "StrangersTree")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(owner),
         json={
             "username": "bob",
             "role": "editor",
-            "tree_ids": [main.id, strangers_tree.id],
+            "workspace_ids": [main.id, strangers_tree.id],
         },
     )
     assert res.status_code == 403
@@ -204,12 +205,12 @@ def test_batch_grant_friendship_gate_enforced(client, db):
     linked = make_tree(db, owner, "Linked")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(owner),
         json={
             "username": "bob",
             "role": "editor",
-            "tree_ids": [main.id, linked.id],
+            "workspace_ids": [main.id, linked.id],
         },
     )
     assert res.status_code == 403
@@ -225,16 +226,18 @@ def test_batch_grant_role_update_path(client, db):
     share(db, linked, bob, "viewer")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(owner),
         json={
             "username": "bob",
             "role": "editor",
-            "tree_ids": [main.id, linked.id],
+            "workspace_ids": [main.id, linked.id],
         },
     )
     assert res.status_code == 200
-    access = client.get(f"{API}/trees/{linked.id}/access", headers=auth(owner)).json()
+    access = client.get(
+        f"{API}/workspaces/{linked.id}/access", headers=auth(owner)
+    ).json()
     bob_entry = next(m for m in access if m["username"] == "bob")
     assert bob_entry["role"] == "editor"
 
@@ -246,9 +249,9 @@ def test_batch_grant_invalid_role_400s(client, db):
     main = make_tree(db, owner, "Main")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(owner),
-        json={"username": "bob", "role": "superuser", "tree_ids": [main.id]},
+        json={"username": "bob", "role": "superuser", "workspace_ids": [main.id]},
     )
     assert res.status_code == 400
 
@@ -260,12 +263,12 @@ def test_batch_grant_too_many_trees_400s(client, db):
     main = make_tree(db, owner, "Main")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(owner),
         json={
             "username": "bob",
             "role": "editor",
-            "tree_ids": [main.id] * 101,
+            "workspace_ids": [main.id] * 101,
         },
     )
     assert res.status_code == 400
@@ -280,9 +283,9 @@ def test_batch_grant_non_owner_actor_403s(client, db):
     share(db, main, editor, "editor")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch",
+        f"{API}/workspaces/{main.id}/access/batch",
         headers=auth(editor),
-        json={"username": "bob", "role": "editor", "tree_ids": [main.id]},
+        json={"username": "bob", "role": "editor", "workspace_ids": [main.id]},
     )
     assert res.status_code == 403
 
@@ -302,17 +305,17 @@ def test_batch_revoke_removes_and_skips_absent(client, db):
     # bob has no membership on linked_without.
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch-revoke",
+        f"{API}/workspaces/{main.id}/access/batch-revoke",
         headers=auth(owner),
         json={
             "user_id": bob.id,
-            "tree_ids": [main.id, linked_with.id, linked_without.id],
+            "workspace_ids": [main.id, linked_with.id, linked_without.id],
         },
     )
     assert res.status_code == 204
 
     for t in (main, linked_with):
-        access = client.get(f"{API}/trees/{t.id}/access", headers=auth(owner)).json()
+        access = client.get(f"{API}/workspaces/{t.id}/access", headers=auth(owner)).json()
         assert "bob" not in {m["username"] for m in access}
 
 
@@ -325,13 +328,13 @@ def test_batch_revoke_non_owned_tree_403s(client, db):
     share(db, main, bob, "editor")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch-revoke",
+        f"{API}/workspaces/{main.id}/access/batch-revoke",
         headers=auth(owner),
-        json={"user_id": bob.id, "tree_ids": [main.id, strangers_tree.id]},
+        json={"user_id": bob.id, "workspace_ids": [main.id, strangers_tree.id]},
     )
     assert res.status_code == 403
     # Nothing should have been revoked given the all-or-nothing validation.
-    access = client.get(f"{API}/trees/{main.id}/access", headers=auth(owner)).json()
+    access = client.get(f"{API}/workspaces/{main.id}/access", headers=auth(owner)).json()
     assert "bob" in {m["username"] for m in access}
 
 
@@ -344,8 +347,8 @@ def test_batch_revoke_non_owner_actor_403s(client, db):
     share(db, main, bob, "editor")
 
     res = client.post(
-        f"{API}/trees/{main.id}/access/batch-revoke",
+        f"{API}/workspaces/{main.id}/access/batch-revoke",
         headers=auth(editor),
-        json={"user_id": bob.id, "tree_ids": [main.id]},
+        json={"user_id": bob.id, "workspace_ids": [main.id]},
     )
     assert res.status_code == 403

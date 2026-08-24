@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useTaskStore } from "./useTaskStore";
-import { useTreeStore } from "./useTreeStore";
+import { useWorkspaceStore } from "./useWorkspaceStore";
 import { clearTaskStore } from "./taskStoreRegistry";
-import { TreeService } from "@/services/TreeService";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { ResearchTaskDB } from "@/types/task";
-import { Tree } from "@/types/tree";
+import { Workspace } from "@/types/workspace";
 
-vi.mock("@/services/TreeService");
+vi.mock("@/services/WorkspaceService");
 
 const TREE_ID = "tree-task";
-const TREE: Tree = { id: TREE_ID, name: "Task Tree", role: "owner" };
+const TREE: Workspace = { id: TREE_ID, name: "Task Workspace", role: "owner" };
 
 const TASK_DB: ResearchTaskDB = {
   id: "t1",
@@ -28,7 +28,7 @@ beforeEach(() => {
     openTaskMemberIds: new Set(),
     initialized: false,
   });
-  useTreeStore.setState({ selectedTree: undefined });
+  useWorkspaceStore.setState({ selectedTree: undefined });
 });
 
 describe("useTaskStore — refreshTasks", () => {
@@ -38,12 +38,12 @@ describe("useTaskStore — refreshTasks", () => {
     await useTaskStore.getState().refreshTasks();
 
     expect(useTaskStore.getState().tasks).toHaveLength(0);
-    expect(TreeService.getTasks).not.toHaveBeenCalled();
+    expect(WorkspaceService.getTasks).not.toHaveBeenCalled();
   });
 
   it("fetches and maps tasks with linked members", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.getTasks).mockResolvedValue([TASK_DB]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getTasks).mockResolvedValue([TASK_DB]);
 
     await useTaskStore.getState().refreshTasks();
 
@@ -56,12 +56,12 @@ describe("useTaskStore — refreshTasks", () => {
   });
 
   it("skips the API for virtual views and marks the store initialized", async () => {
-    const view: Tree = { id: "vv_1", name: "View", role: "viewer" };
-    useTreeStore.setState({ selectedTree: view });
+    const view: Workspace = { id: "vv_1", name: "View", role: "viewer" };
+    useWorkspaceStore.setState({ selectedTree: view });
 
     await useTaskStore.getState().refreshTasks("vv_1");
 
-    expect(TreeService.getTasks).not.toHaveBeenCalled();
+    expect(WorkspaceService.getTasks).not.toHaveBeenCalled();
     expect(useTaskStore.getState().initialized).toBe(true);
   });
 
@@ -70,11 +70,11 @@ describe("useTaskStore — refreshTasks", () => {
     const pending = new Promise<ResearchTaskDB[]>((r) => {
       resolve = r;
     });
-    vi.mocked(TreeService.getTasks).mockReturnValue(pending);
-    useTreeStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.getTasks).mockReturnValue(pending);
+    useWorkspaceStore.setState({ selectedTree: TREE });
 
     const p = useTaskStore.getState().refreshTasks(TREE_ID);
-    useTreeStore.setState({
+    useWorkspaceStore.setState({
       selectedTree: { id: "other", name: "Other", role: "owner" },
     });
     resolve([TASK_DB]);
@@ -101,16 +101,16 @@ describe("useTaskStore — refreshTasks", () => {
 });
 
 describe("useTaskStore — addTask", () => {
-  it("calls TreeService.addTask with linked members then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.addTask).mockResolvedValue(TASK_DB);
-    vi.mocked(TreeService.getTasks).mockResolvedValue([TASK_DB]);
+  it("calls WorkspaceService.addTask with linked members then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.addTask).mockResolvedValue(TASK_DB);
+    vi.mocked(WorkspaceService.getTasks).mockResolvedValue([TASK_DB]);
 
     await useTaskStore
       .getState()
       .addTask(["m1", "m2"], { title: "Find birth record" });
 
-    expect(TreeService.addTask).toHaveBeenCalledWith(
+    expect(WorkspaceService.addTask).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String),
       "Find birth record",
@@ -118,17 +118,17 @@ describe("useTaskStore — addTask", () => {
       expect.any(String),
       ["m1", "m2"],
     );
-    expect(TreeService.getTasks).toHaveBeenCalled();
+    expect(WorkspaceService.getTasks).toHaveBeenCalled();
   });
 
   it("creates a tree-level task with no linked members", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.addTask).mockResolvedValue(TASK_DB);
-    vi.mocked(TreeService.getTasks).mockResolvedValue([]);
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.addTask).mockResolvedValue(TASK_DB);
+    vi.mocked(WorkspaceService.getTasks).mockResolvedValue([]);
 
     await useTaskStore.getState().addTask([], { title: "Scan family bible" });
 
-    expect(TreeService.addTask).toHaveBeenCalledWith(
+    expect(WorkspaceService.addTask).toHaveBeenCalledWith(
       TREE_ID,
       expect.any(String),
       "Scan family bible",
@@ -141,13 +141,13 @@ describe("useTaskStore — addTask", () => {
   it("does nothing when no tree is selected", async () => {
     await useTaskStore.getState().addTask([], { title: "Orphan" });
 
-    expect(TreeService.addTask).not.toHaveBeenCalled();
+    expect(WorkspaceService.addTask).not.toHaveBeenCalled();
   });
 });
 
 describe("useTaskStore — updateTask", () => {
   it("updates fields and replaces member links", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
     useTaskStore.setState({
       tasks: [
         {
@@ -161,15 +161,15 @@ describe("useTaskStore — updateTask", () => {
         },
       ],
     });
-    vi.mocked(TreeService.updateTask).mockResolvedValue(TASK_DB);
-    vi.mocked(TreeService.setTaskLinks).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getTasks).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.updateTask).mockResolvedValue(TASK_DB);
+    vi.mocked(WorkspaceService.setTaskLinks).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getTasks).mockResolvedValue([]);
 
     await useTaskStore
       .getState()
       .updateTask("t1", { title: "Updated", notes: "n" }, ["m2"]);
 
-    expect(TreeService.updateTask).toHaveBeenCalledWith(
+    expect(WorkspaceService.updateTask).toHaveBeenCalledWith(
       TREE_ID,
       "t1",
       "Updated",
@@ -177,7 +177,7 @@ describe("useTaskStore — updateTask", () => {
       false,
       null,
     );
-    expect(TreeService.setTaskLinks).toHaveBeenCalledWith(TREE_ID, "t1", [
+    expect(WorkspaceService.setTaskLinks).toHaveBeenCalledWith(TREE_ID, "t1", [
       "m2",
     ]);
   });
@@ -185,7 +185,7 @@ describe("useTaskStore — updateTask", () => {
 
 describe("useTaskStore — setTaskDone", () => {
   it("marks the task done with a done_at timestamp", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
     useTaskStore.setState({
       tasks: [
         {
@@ -199,15 +199,15 @@ describe("useTaskStore — setTaskDone", () => {
         },
       ],
     });
-    vi.mocked(TreeService.updateTask).mockResolvedValue({
+    vi.mocked(WorkspaceService.updateTask).mockResolvedValue({
       ...TASK_DB,
       done: true,
     });
-    vi.mocked(TreeService.getTasks).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.getTasks).mockResolvedValue([]);
 
     await useTaskStore.getState().setTaskDone("t1", true);
 
-    expect(TreeService.updateTask).toHaveBeenCalledWith(
+    expect(WorkspaceService.updateTask).toHaveBeenCalledWith(
       TREE_ID,
       "t1",
       "Find birth record",
@@ -218,7 +218,7 @@ describe("useTaskStore — setTaskDone", () => {
   });
 
   it("clears done_at when reopening", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
+    useWorkspaceStore.setState({ selectedTree: TREE });
     useTaskStore.setState({
       tasks: [
         {
@@ -232,12 +232,12 @@ describe("useTaskStore — setTaskDone", () => {
         },
       ],
     });
-    vi.mocked(TreeService.updateTask).mockResolvedValue(TASK_DB);
-    vi.mocked(TreeService.getTasks).mockResolvedValue([]);
+    vi.mocked(WorkspaceService.updateTask).mockResolvedValue(TASK_DB);
+    vi.mocked(WorkspaceService.getTasks).mockResolvedValue([]);
 
     await useTaskStore.getState().setTaskDone("t1", false);
 
-    expect(TreeService.updateTask).toHaveBeenCalledWith(
+    expect(WorkspaceService.updateTask).toHaveBeenCalledWith(
       TREE_ID,
       "t1",
       "Find birth record",
@@ -249,15 +249,15 @@ describe("useTaskStore — setTaskDone", () => {
 });
 
 describe("useTaskStore — removeTask", () => {
-  it("calls TreeService.removeTask then refreshes", async () => {
-    useTreeStore.setState({ selectedTree: TREE });
-    vi.mocked(TreeService.removeTask).mockResolvedValue(undefined);
-    vi.mocked(TreeService.getTasks).mockResolvedValue([]);
+  it("calls WorkspaceService.removeTask then refreshes", async () => {
+    useWorkspaceStore.setState({ selectedTree: TREE });
+    vi.mocked(WorkspaceService.removeTask).mockResolvedValue(undefined);
+    vi.mocked(WorkspaceService.getTasks).mockResolvedValue([]);
 
     await useTaskStore.getState().removeTask("t1");
 
-    expect(TreeService.removeTask).toHaveBeenCalledWith(TREE_ID, "t1");
-    expect(TreeService.getTasks).toHaveBeenCalled();
+    expect(WorkspaceService.removeTask).toHaveBeenCalledWith(TREE_ID, "t1");
+    expect(WorkspaceService.getTasks).toHaveBeenCalled();
   });
 });
 
@@ -284,7 +284,7 @@ describe("useTaskStore — selectors", () => {
     {
       id: "t3",
       linkedMemberIds: [],
-      title: "Tree-level",
+      title: "Workspace-level",
       notes: "",
       done: false,
       createdAt: "2026-01-03T00:00:00Z",

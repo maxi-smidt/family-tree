@@ -71,8 +71,8 @@ function unionId(firstId: string, secondId: string) {
   return `union-${[firstId, secondId].sort().join("-")}`;
 }
 
-async function getMembers(api: ApiClient, treeId: string) {
-  return api.get<MemberDetails[]>(`/trees/${treeId}/members`);
+async function getMembers(api: ApiClient, workspaceId: string) {
+  return api.get<MemberDetails[]>(`/workspaces/${workspaceId}/members`);
 }
 
 canvasTest(
@@ -90,7 +90,7 @@ canvasTest(
     const createResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        response.url().endsWith(`/api/trees/${ownedTree.id}/members`),
+        response.url().endsWith(`/api/workspaces/${ownedTree.id}/members`),
     );
     await sheet.getByRole("button", { name: "Create member" }).click();
     const created = (await (await createResponse).json()) as { id: string };
@@ -171,7 +171,7 @@ canvasTest(
         response.request().method() !== "PATCH" ||
         !response
           .url()
-          .endsWith(`/api/trees/${ownedTree.id}/members/${member.id}`)
+          .endsWith(`/api/workspaces/${ownedTree.id}/members/${member.id}`)
       ) {
         return false;
       }
@@ -258,7 +258,7 @@ canvasTest(
     await expect(edge(page, `e:${parent.id}:${child.id}`)).toHaveCount(1);
 
     await secondApi.delete(
-      `/trees/${ownedTree.id}/relations?from_member_id=${child.id}` +
+      `/workspaces/${ownedTree.id}/relations?from_member_id=${child.id}` +
         `&to_member_id=${parent.id}&relation_type=parent`,
     );
     await page.reload();
@@ -266,7 +266,7 @@ canvasTest(
     await expect(memberNode(page, child.id)).toBeVisible();
 
     await secondApi.delete(
-      `/trees/${ownedTree.id}/relations?from_member_id=${partnerA.id}` +
+      `/workspaces/${ownedTree.id}/relations?from_member_id=${partnerA.id}` +
         `&to_member_id=${partnerB.id}&relation_type=partner`,
     );
     await page.reload();
@@ -276,8 +276,8 @@ canvasTest(
   },
 );
 
-async function getRelations(api: ApiClient, treeId: string) {
-  return api.get<RelationRecord[]>(`/trees/${treeId}/relations`);
+async function getRelations(api: ApiClient, workspaceId: string) {
+  return api.get<RelationRecord[]>(`/workspaces/${workspaceId}/relations`);
 }
 
 interface RelationRecord {
@@ -286,11 +286,11 @@ interface RelationRecord {
   relation_type: string;
 }
 
-async function deleteEdgeViaCanvas(page: Page, treeId: string, edgeId: string) {
+async function deleteEdgeViaCanvas(page: Page, workspaceId: string, edgeId: string) {
   const deleteResponse = page.waitForResponse(
     (response) =>
       response.request().method() === "DELETE" &&
-      response.url().includes(`/api/trees/${treeId}/relations`),
+      response.url().includes(`/api/workspaces/${workspaceId}/relations`),
     { timeout: 15_000 },
   );
   // React Flow renders a wide, transparent interaction path per edge that is
@@ -544,7 +544,7 @@ canvasTest(
     const collapseResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
-        response.url().endsWith(`/api/trees/${ownedTree.id}/members/collapsed`),
+        response.url().endsWith(`/api/workspaces/${ownedTree.id}/members/collapsed`),
     );
     await collapse.click();
     await collapseResponse;
@@ -563,7 +563,7 @@ canvasTest(
     const expandResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "PATCH" &&
-        response.url().endsWith(`/api/trees/${ownedTree.id}/members/collapsed`),
+        response.url().endsWith(`/api/workspaces/${ownedTree.id}/members/collapsed`),
     );
     await expand.click();
     await expandResponse;
@@ -603,7 +603,7 @@ canvasTest(
     const addResponse = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
-        response.url().endsWith(`/api/trees/${ownedTree.id}/diseases`),
+        response.url().endsWith(`/api/workspaces/${ownedTree.id}/diseases`),
     );
     await dialog.getByRole("button", { name: "Add", exact: true }).click();
     const added = (await (await addResponse).json()) as DiseaseRecord;
@@ -618,7 +618,7 @@ canvasTest(
         response.request().method() === "PATCH" &&
         response
           .url()
-          .endsWith(`/api/trees/${ownedTree.id}/diseases/${added.id}`),
+          .endsWith(`/api/workspaces/${ownedTree.id}/diseases/${added.id}`),
     );
     await dialog.getByRole("button", { name: "Update" }).click();
     await updateResponse;
@@ -632,13 +632,13 @@ canvasTest(
         response.request().method() === "DELETE" &&
         response
           .url()
-          .endsWith(`/api/trees/${ownedTree.id}/diseases/${added.id}`),
+          .endsWith(`/api/workspaces/${ownedTree.id}/diseases/${added.id}`),
     );
     await dialog.getByRole("button", { name: "Delete" }).click();
     await deleteResponse;
     await expect(diseases).not.toContainText("Hemophilia A");
     expect(
-      await secondApi.get<DiseaseRecord[]>(`/trees/${ownedTree.id}/diseases`),
+      await secondApi.get<DiseaseRecord[]>(`/workspaces/${ownedTree.id}/diseases`),
     ).toHaveLength(0);
   },
 );
@@ -677,7 +677,7 @@ canvasTest(
         response.request().method() === "PATCH" &&
         response
           .url()
-          .endsWith(`/api/trees/${ownedTree.id}/members/${parent.id}`),
+          .endsWith(`/api/workspaces/${ownedTree.id}/members/${parent.id}`),
     );
     await page.getByPlaceholder("Search members…").press("Enter");
     await expandAncestorResponse;

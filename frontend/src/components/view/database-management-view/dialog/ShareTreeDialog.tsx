@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTreeStore } from "@/hooks/useTreeStore";
+import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { formatDate } from "@/utils/dateUtils";
 import {
   Dialog,
@@ -53,25 +53,25 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { useTreeSharingStore } from "@/hooks/useTreeSharingStore";
+import { useWorkspaceSharingStore } from "@/hooks/useWorkspaceSharingStore";
 import { cn } from "@/lib/utils";
 import {
-  LinkedShareTree,
+  LinkedShareWorkspace,
   RESTRICTABLE_DOMAINS,
   ShareCandidate,
   ShareRole,
-  Tree,
-  TreeAccess,
-  TreeInvitation,
-} from "@/types/tree";
+  Workspace,
+  WorkspaceAccess,
+  WorkspaceInvitation,
+} from "@/types/workspace";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
 
 type Props = {
-  tree: Tree;
+  tree: Workspace;
   isOpen: boolean;
   onClose: () => void;
-  onTreeUpdated?: (tree: Tree) => void;
+  onTreeUpdated?: (tree: Workspace) => void;
 };
 
 type StagedUser = ShareCandidate & { role: ShareRole };
@@ -92,37 +92,37 @@ export const ShareTreeDialog = ({
   const treeRef = useRef(tree);
   treeRef.current = tree;
 
-  const access = useTreeSharingStore((state) => state.access);
-  const candidates = useTreeSharingStore((state) => state.candidates);
-  const invitations = useTreeSharingStore((state) => state.invitations);
-  const linkedTrees = useTreeSharingStore((state) => state.linkedTrees);
-  const loadSharing = useTreeSharingStore((state) => state.load);
-  const grantAccess = useTreeSharingStore((state) => state.grantAccess);
-  const revokeAccess = useTreeSharingStore((state) => state.revokeAccess);
-  const updateMemberRestrictions = useTreeSharingStore(
+  const access = useWorkspaceSharingStore((state) => state.access);
+  const candidates = useWorkspaceSharingStore((state) => state.candidates);
+  const invitations = useWorkspaceSharingStore((state) => state.invitations);
+  const linkedTrees = useWorkspaceSharingStore((state) => state.linkedTrees);
+  const loadSharing = useWorkspaceSharingStore((state) => state.load);
+  const grantAccess = useWorkspaceSharingStore((state) => state.grantAccess);
+  const revokeAccess = useWorkspaceSharingStore((state) => state.revokeAccess);
+  const updateMemberRestrictions = useWorkspaceSharingStore(
     (state) => state.updateMemberRestrictions,
   );
-  const transferOwnership = useTreeSharingStore(
+  const transferOwnership = useWorkspaceSharingStore(
     (state) => state.transferOwnership,
   );
-  const revertTransfer = useTreeSharingStore((state) => state.revertTransfer);
-  const createInvitation = useTreeSharingStore(
+  const revertTransfer = useWorkspaceSharingStore((state) => state.revertTransfer);
+  const createInvitation = useWorkspaceSharingStore(
     (state) => state.createInvitation,
   );
-  const revokeInvitation = useTreeSharingStore(
+  const revokeInvitation = useWorkspaceSharingStore(
     (state) => state.revokeInvitation,
   );
-  const setPublicAccess = useTreeSharingStore((state) => state.setPublicAccess);
-  const setPublicPassword = useTreeSharingStore(
+  const setPublicAccess = useWorkspaceSharingStore((state) => state.setPublicAccess);
+  const setPublicPassword = useWorkspaceSharingStore(
     (state) => state.setPublicPassword,
   );
-  const getLinkedShareTrees = useTreeSharingStore(
+  const getLinkedShareTrees = useWorkspaceSharingStore(
     (state) => state.getLinkedShareTrees,
   );
-  const grantAccessBatch = useTreeSharingStore(
+  const grantAccessBatch = useWorkspaceSharingStore(
     (state) => state.grantAccessBatch,
   );
-  const revokeAccessBatch = useTreeSharingStore(
+  const revokeAccessBatch = useWorkspaceSharingStore(
     (state) => state.revokeAccessBatch,
   );
   const [staged, setStaged] = useState<StagedUser[]>([]);
@@ -160,7 +160,7 @@ export const ShareTreeDialog = ({
     return null;
   }, [publicPasswordInput, t]);
 
-  // Linked trees (issue #537): grant/revoke access on linked trees together
+  // Linked workspaces (issue #537): grant/revoke access on linked workspaces together
   // with the anchor tree, as a convenience batch operation.
   const [shareLinkedToo, setShareLinkedToo] = useState(false);
   const [selectedLinkedIds, setSelectedLinkedIds] = useState<Set<string>>(
@@ -168,7 +168,7 @@ export const ShareTreeDialog = ({
   );
   const [revokeLinkedOpen, setRevokeLinkedOpen] = useState(false);
   const [revokeLinkedCandidates, setRevokeLinkedCandidates] = useState<
-    LinkedShareTree[]
+    LinkedShareWorkspace[]
   >([]);
   const [revokeLinkedSelectedIds, setRevokeLinkedSelectedIds] = useState<
     Set<string>
@@ -234,7 +234,7 @@ export const ShareTreeDialog = ({
   // Default every manageable linked tree to checked whenever the list (re)loads.
   useEffect(() => {
     setSelectedLinkedIds(
-      new Set(manageableLinkedTrees.map((lt) => lt.tree_id)),
+      new Set(manageableLinkedTrees.map((lt) => lt.workspace_id)),
     );
   }, [manageableLinkedTrees]);
 
@@ -275,10 +275,10 @@ export const ShareTreeDialog = ({
     }
   };
 
-  const handleRoleChange = async (member: TreeAccess, role: ShareRole) => {
+  const handleRoleChange = async (member: WorkspaceAccess, role: ShareRole) => {
     try {
       const updated = await grantAccess(tree.id, member.username, role);
-      useTreeSharingStore.setState({ access: updated });
+      useWorkspaceSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
       toast.error(t("share-error"));
@@ -286,7 +286,7 @@ export const ShareTreeDialog = ({
   };
 
   const handleRestrictionToggle = async (
-    member: TreeAccess,
+    member: WorkspaceAccess,
     domain: string,
     accessible: boolean,
   ) => {
@@ -300,7 +300,7 @@ export const ShareTreeDialog = ({
         member.user_id,
         next,
       );
-      useTreeSharingStore.setState({ access: updated });
+      useWorkspaceSharingStore.setState({ access: updated });
     } catch (err) {
       console.error(err);
       toast.error(t("restrictions-error"));
@@ -319,14 +319,14 @@ export const ShareTreeDialog = ({
         if (revocable.length > 0) {
           setRevokeLinkedCandidates(revocable);
           setRevokeLinkedSelectedIds(
-            new Set(revocable.map((lt) => lt.tree_id)),
+            new Set(revocable.map((lt) => lt.workspace_id)),
           );
           setRevokeTarget({ userId, username });
           setRevokeLinkedOpen(true);
           return;
         }
       } catch (err) {
-        // Fall through to a plain revoke if the linked-trees lookup fails —
+        // Fall through to a plain revoke if the linked-workspaces lookup fails —
         // it's a convenience add-on, not a prerequisite for revoking access.
         console.error(err);
       }
@@ -374,38 +374,38 @@ export const ShareTreeDialog = ({
     }
   };
 
-  const toggleRevokeLinkedId = (treeId: string) => {
+  const toggleRevokeLinkedId = (workspaceId: string) => {
     setRevokeLinkedSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(treeId)) {
-        next.delete(treeId);
+      if (next.has(workspaceId)) {
+        next.delete(workspaceId);
       } else {
-        next.add(treeId);
+        next.add(workspaceId);
       }
       return next;
     });
   };
 
-  const toggleSelectedLinkedId = (treeId: string) => {
+  const toggleSelectedLinkedId = (workspaceId: string) => {
     setSelectedLinkedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(treeId)) {
-        next.delete(treeId);
+      if (next.has(workspaceId)) {
+        next.delete(workspaceId);
       } else {
-        next.add(treeId);
+        next.add(workspaceId);
       }
       return next;
     });
   };
 
   const showUndoToast = (
-    treeId: string,
-    treeName: string,
+    workspaceId: string,
+    workspaceName: string,
     username: string,
     undoAvailableUntil: string,
   ) => {
     const deadline = new Date(undoAvailableUntil).getTime();
-    const toastId = `transfer-undo-${treeId}`;
+    const toastId = `transfer-undo-${workspaceId}`;
     let cancelled = false;
 
     const renderToast = () => {
@@ -418,7 +418,7 @@ export const ShareTreeDialog = ({
       toast(t("transfer-undo-title"), {
         id: toastId,
         description: t("transfer-undo-description", {
-          name: treeName,
+          name: workspaceName,
           username,
         }),
         duration: deadline - Date.now() + 500,
@@ -432,11 +432,11 @@ export const ShareTreeDialog = ({
           label: t("transfer-undo-button", { seconds: remaining }),
           onClick: () => {
             cancelled = true;
-            void revertTransfer(treeId)
+            void revertTransfer(workspaceId)
               .then(() => {
                 toast.dismiss(toastId);
                 toast.success(t("transfer-reverted"));
-                void useTreeStore.getState().loadTrees();
+                void useWorkspaceStore.getState().loadTrees();
               })
               .catch(() => {
                 cancelled = false;
@@ -459,7 +459,7 @@ export const ShareTreeDialog = ({
       );
       setConfirmTransferOpen(false);
       setTransferTo("");
-      await useTreeStore.getState().loadTrees();
+      await useWorkspaceStore.getState().loadTrees();
       onClose();
       if (result.undo_available_until) {
         showUndoToast(
@@ -576,9 +576,9 @@ export const ShareTreeDialog = ({
     }
   };
 
-  const inviteStatusBadge = (status: TreeInvitation["status"]) => {
+  const inviteStatusBadge = (status: WorkspaceInvitation["status"]) => {
     const variants: Record<
-      TreeInvitation["status"],
+      WorkspaceInvitation["status"],
       "default" | "secondary" | "destructive" | "outline"
     > = {
       pending: "default",
@@ -819,14 +819,14 @@ export const ShareTreeDialog = ({
                     <div className="space-y-1 pl-2">
                       {manageableLinkedTrees.map((lt) => (
                         <label
-                          key={lt.tree_id}
+                          key={lt.workspace_id}
                           className="flex items-center gap-2 text-sm"
                         >
                           <input
                             type="checkbox"
                             className="h-4 w-4 accent-primary"
-                            checked={selectedLinkedIds.has(lt.tree_id)}
-                            onChange={() => toggleSelectedLinkedId(lt.tree_id)}
+                            checked={selectedLinkedIds.has(lt.workspace_id)}
+                            onChange={() => toggleSelectedLinkedId(lt.workspace_id)}
                           />
                           <span>{lt.name}</span>
                           <span className="text-xs text-muted-foreground">
@@ -838,7 +838,7 @@ export const ShareTreeDialog = ({
                       ))}
                       {nonManageableLinkedTrees.map((lt) => (
                         <label
-                          key={lt.tree_id}
+                          key={lt.workspace_id}
                           className="flex items-center gap-2 text-sm text-muted-foreground"
                         >
                           <input
@@ -1204,7 +1204,7 @@ export const ShareTreeDialog = ({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Revoke-with-linked-trees confirmation */}
+      {/* Revoke-with-linked-workspaces confirmation */}
       <AlertDialog
         open={revokeLinkedOpen}
         onOpenChange={handleRevokeLinkedOpenChange}
@@ -1223,14 +1223,14 @@ export const ShareTreeDialog = ({
           <div className="space-y-1">
             {revokeLinkedCandidates.map((lt) => (
               <label
-                key={lt.tree_id}
+                key={lt.workspace_id}
                 className="flex items-center gap-2 text-sm"
               >
                 <input
                   type="checkbox"
                   className="h-4 w-4 accent-primary"
-                  checked={revokeLinkedSelectedIds.has(lt.tree_id)}
-                  onChange={() => toggleRevokeLinkedId(lt.tree_id)}
+                  checked={revokeLinkedSelectedIds.has(lt.workspace_id)}
+                  onChange={() => toggleRevokeLinkedId(lt.workspace_id)}
                 />
                 <span>{lt.name}</span>
               </label>

@@ -58,16 +58,16 @@ from app.models import (
     Story,
     StoryDocumentLink,
     StoryMemberLink,
-    Tree,
-    TreeInvitation,
-    TreeMembership,
-    TreeUserState,
     User,
     VirtualView,
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewSource,
     VirtualViewUserState,
+    Workspace,
+    WorkspaceInvitation,
+    WorkspaceMembership,
+    WorkspaceUserState,
 )
 from app.models.backup import BackupRecord
 from app.schemas.backup import BackupBundle, MediaItem
@@ -90,11 +90,11 @@ BACKUP_MODELS: tuple[type, ...] = (
     AppSetting,
     LegalDocumentVersion,
     GeocodeCache,
-    Tree,
+    Workspace,
     Member,
-    TreeMembership,
-    TreeInvitation,
-    TreeUserState,
+    WorkspaceMembership,
+    WorkspaceInvitation,
+    WorkspaceUserState,
     Friendship,
     Relation,
     MemberDisease,
@@ -212,9 +212,7 @@ def _collect_bundle(db: Session) -> BackupBundle:
         manifest={
             "format": BACKUP_FORMAT,
             "version": BACKUP_VERSION,
-            "table_row_counts": {
-                name: len(rows) for name, rows in tables.items()
-            },
+            "table_row_counts": {name: len(rows) for name, rows in tables.items()},
             "media": [
                 {"path": item.path, "size_bytes": item.size_bytes, "sha256": item.sha256}
                 for item in media
@@ -236,7 +234,7 @@ def _expected_table_names() -> set[str]:
 LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
     {
         DocumentUpload.__tablename__,
-        TreeUserState.__tablename__,
+        WorkspaceUserState.__tablename__,
         VirtualViewUserState.__tablename__,
     }
 )
@@ -253,7 +251,7 @@ def _migrate_legacy_last_opened(
 
     ``bulk_insert_mappings`` silently ignores dict keys that aren't mapped
     columns, so without this the ``last_opened`` values embedded in an old
-    ``trees``/``virtual_views`` row would just vanish on restore instead of
+    ``workspaces``/``virtual_views`` row would just vanish on restore instead of
     landing in the new per-user state table. Mirrors the owner-seeding the
     Alembic migration did for rows already in the live database. No-op when
     *target_table* is already present — that backup was taken by a build new
@@ -291,7 +289,9 @@ def _backfill_legacy_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, A
     counts = manifest.get("table_row_counts") if isinstance(manifest, dict) else None
     if not isinstance(tables, dict) or not isinstance(counts, dict):
         return bundle_dict
-    _migrate_legacy_last_opened(tables, "trees", "tree_user_states", "tree_id")
+    _migrate_legacy_last_opened(
+        tables, "workspaces", "workspace_user_states", "workspace_id"
+    )
     _migrate_legacy_last_opened(
         tables, "virtual_views", "virtual_view_user_states", "view_id"
     )
@@ -407,8 +407,7 @@ def _media_root_is_empty(media_root: Path) -> bool:
 
 def _database_is_empty(db: Session) -> bool:
     return all(
-        db.scalar(select(func.count()).select_from(model)) == 0
-        for model in BACKUP_MODELS
+        db.scalar(select(func.count()).select_from(model)) == 0 for model in BACKUP_MODELS
     )
 
 

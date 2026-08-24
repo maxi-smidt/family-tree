@@ -1,8 +1,8 @@
-"""Resolve a virtual view's source DAG to the underlying real trees.
+"""Resolve a virtual view's source DAG to the underlying real workspaces.
 
-A virtual view's sources may be real trees *or* other virtual views. The whole
+A virtual view's sources may be real workspaces *or* other virtual views. The whole
 feature treats nesting as sugar: a single flatten pass expands the DAG into an
-ordered, de-duplicated list of real ``tree_id``s, and everything else (matching,
+ordered, de-duplicated list of real ``workspace_id``s, and everything else (matching,
 composite members / relations / diseases, and the parity feature endpoints)
 operates on that flattened set. So a view over ``{A, vv1}`` with ``vv1 = {B, C}``
 behaves exactly like ``{A, B, C}``.
@@ -22,7 +22,7 @@ class VirtualViewCycleError(Exception):
     """Raised when a virtual view's sources would form a cycle."""
 
 
-def flatten_tree_ids(
+def flatten_workspace_ids(
     db: Session, view: VirtualView, _seen: set[str] | None = None
 ) -> list[str]:
     """Ordered, de-duplicated real tree ids underlying *view*.
@@ -43,23 +43,21 @@ def flatten_tree_ids(
 
     result: list[str] = []
     for src in view.sources:
-        if src.tree_id is not None:
-            if src.tree_id not in result:
-                result.append(src.tree_id)
+        if src.workspace_id is not None:
+            if src.workspace_id not in result:
+                result.append(src.workspace_id)
         elif src.source_view_id is not None:
             nested = db.get(VirtualView, src.source_view_id)
             if nested is None:
                 continue
-            for tid in flatten_tree_ids(db, nested, _seen):
+            for tid in flatten_workspace_ids(db, nested, _seen):
                 if tid not in result:
                     result.append(tid)
     _seen.discard(view.id)
     return result
 
 
-def view_closure(
-    db: Session, view_id: str, _seen: set[str] | None = None
-) -> set[str]:
+def view_closure(db: Session, view_id: str, _seen: set[str] | None = None) -> set[str]:
     """All virtual-view ids reachable from *view_id*, inclusive of itself.
 
     Used to reject cycles before they are persisted: a view ``V`` may not list a

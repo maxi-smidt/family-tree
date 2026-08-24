@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from app.schemas.family import MemberOut
 
 
-class TreeMergePreviewRequest(BaseModel):
+class WorkspaceMergePreviewRequest(BaseModel):
     source_a: str
     source_b: str | None = None
 
@@ -22,7 +22,7 @@ class DuplicatePair(BaseModel):
     default_action: Literal["merge", "keep_both"]
 
 
-class TreeMergePreview(BaseModel):
+class WorkspaceMergePreview(BaseModel):
     total_members: int
     merged_count: int
     duplicates: list[DuplicatePair]

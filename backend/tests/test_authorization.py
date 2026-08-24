@@ -14,11 +14,13 @@ def test_viewer_can_read_but_not_write(client, db):
     share(db, tree, viewer, "viewer")
 
     assert (
-        client.get(f"{API}/trees/{tree.id}/members", headers=auth(viewer)).status_code
+        client.get(
+            f"{API}/workspaces/{tree.id}/members", headers=auth(viewer)
+        ).status_code
         == 200
     )
     blocked = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(viewer),
         json=_member_payload(),
     )
@@ -32,7 +34,7 @@ def test_editor_can_write(client, db):
     share(db, tree, editor, "editor")
 
     res = client.post(
-        f"{API}/trees/{tree.id}/members",
+        f"{API}/workspaces/{tree.id}/members",
         headers=auth(editor),
         json=_member_payload(),
     )
@@ -45,7 +47,9 @@ def test_stranger_has_no_access(client, db):
     tree = make_tree(db, owner)
 
     assert (
-        client.get(f"{API}/trees/{tree.id}/members", headers=auth(stranger)).status_code
+        client.get(
+            f"{API}/workspaces/{tree.id}/members", headers=auth(stranger)
+        ).status_code
         == 403
     )
 
@@ -57,7 +61,7 @@ def test_admin_has_full_access_to_any_tree(client, db):
 
     assert (
         client.post(
-            f"{API}/trees/{tree.id}/members",
+            f"{API}/workspaces/{tree.id}/members",
             headers=auth(admin),
             json=_member_payload(),
         ).status_code
@@ -68,4 +72,4 @@ def test_admin_has_full_access_to_any_tree(client, db):
 def test_requests_require_authentication(client, db):
     owner = make_user(db, "owner")
     tree = make_tree(db, owner)
-    assert client.get(f"{API}/trees/{tree.id}/members").status_code == 401
+    assert client.get(f"{API}/workspaces/{tree.id}/members").status_code == 401

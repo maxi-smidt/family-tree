@@ -7,13 +7,7 @@ from app.services.interchange.gedcom.gedcom import parse_gedcom
 from app.services.interchange.gedcom.gedcom_encoding import decode_gedcom_bytes
 
 # A minimal GEDCOM snippet used across encoding tests.
-_SAMPLE_GEDCOM = (
-    "0 HEAD\n"
-    "1 CHAR UNICODE\n"
-    "0 @I1@ INDI\n"
-    "1 NAME John /Doe/\n"
-    "0 TRLR\n"
-)
+_SAMPLE_GEDCOM = "0 HEAD\n1 CHAR UNICODE\n0 @I1@ INDI\n1 NAME John /Doe/\n0 TRLR\n"
 
 
 class TestDecodeGedcomBytes:

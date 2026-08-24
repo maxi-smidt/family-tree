@@ -6,16 +6,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_writable_tree
+from app.api.deps import get_current_user, get_writable_workspace
 from app.db.session import get_db
-from app.models import Member, Tree
+from app.models import Member, Workspace
 from app.models.user import User
 from app.schemas.family import BridgeSyncRequest, MemberLinkRequest, MemberOut
 from app.schemas.merge import DuplicatePair, LinkCandidatesOut
-from app.schemas.tree import MemberSubtreeOut, TreeOut
+from app.schemas.workspace import MemberSubtreeOut, WorkspaceOut
 from app.services.activity.activity import record_activity
 from app.services.cache import invalidate_stats
-from app.services.event_bus import publish_tree_event
+from app.services.event_bus import publish_workspace_event
 from app.services.members.bridge import copy_bridge_fields, validate_linked_tree
 from app.services.members.member_access import get_member
 from app.services.members.member_clone import (
@@ -26,10 +26,10 @@ from app.services.members.member_clone import (
     reconcile_bridge_fields,
     wire_bridge,
 )
-from app.services.tree_roles import role_for
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspace_roles import role_for
 
-router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
+router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
 
 @router.get(
@@ -38,12 +38,12 @@ router = APIRouter(prefix="/trees/{tree_id}", tags=["members"])
 )
 def get_link_candidates(
     member_id: str,
-    target_tree_id: str = Query(...),
-    tree: Tree = Depends(get_writable_tree),
+    target_workspace_id: str = Query(...),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """List same-named members of ``target_tree_id`` that could be the bridge
+    """List same-named members of ``target_workspace_id`` that could be the bridge
     counterpart for ``member_id`` — i.e. candidates for ``POST .../link``
     with ``mode="existing"``.
 
@@ -56,8 +56,8 @@ def get_link_candidates(
     """
     member = get_member(db, tree, member_id)
 
-    validate_linked_tree(db, tree, user, target_tree_id)
-    target = db.get(Tree, target_tree_id)
+    validate_linked_tree(db, tree, user, target_workspace_id)
+    target = db.get(Workspace, target_workspace_id)
     if target is None:
         raise HTTPException(status_code=404, detail="Linked tree not found")
     # Candidates are only useful if the caller can actually link one, which
@@ -68,10 +68,10 @@ def get_link_candidates(
     source_name_key = member_name_key(member)
     source_exact_key = member_key(member)
     candidates: list[DuplicatePair] = []
-    for candidate in db.scalars(select(Member).where(Member.tree_id == target.id)):
+    for candidate in db.scalars(select(Member).where(Member.workspace_id == target.id)):
         if candidate.id == member.id:
             continue
-        if candidate.linked_tree_id is not None:
+        if candidate.linked_workspace_id is not None:
             continue
         if member_name_key(candidate) != source_name_key:
             continue
@@ -96,7 +96,7 @@ def get_link_candidates(
 def link_member_to_tree(
     member_id: str,
     payload: MemberLinkRequest,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -107,14 +107,14 @@ def link_member_to_tree(
     bridge person on both sides: either an existing member the caller asserts
     is the same person (``mode="existing"``), or a fresh clone seeded into the
     target tree (``mode="create"``). Establishing a link writes rows in two
-    trees, so it requires write access to both.
+    workspaces, so it requires write access to both.
     """
     member = get_member(db, tree, member_id)
-    if member.linked_tree_id is not None:
+    if member.linked_workspace_id is not None:
         raise HTTPException(status_code=409, detail="Member is already linked to a tree")
 
-    validate_linked_tree(db, tree, user, payload.linked_tree_id)
-    target = db.get(Tree, payload.linked_tree_id)
+    validate_linked_tree(db, tree, user, payload.linked_workspace_id)
+    target = db.get(Workspace, payload.linked_workspace_id)
     if target is None:
         raise HTTPException(status_code=404, detail="Linked tree not found")
     # Establishing a bridge writes the counterpart row too, so read access to
@@ -136,14 +136,14 @@ def link_member_to_tree(
                 detail="counterpart_member_id is required for mode=existing",
             )
         counterpart = db.get(Member, payload.counterpart_member_id)
-        if counterpart is None or counterpart.tree_id != target.id:
+        if counterpart is None or counterpart.workspace_id != target.id:
             raise HTTPException(
                 status_code=400,
                 detail="Counterpart member is not part of the linked tree",
             )
         if counterpart.id == member.id:
             raise HTTPException(status_code=400, detail="A member cannot link to itself")
-        if counterpart.linked_tree_id is not None:
+        if counterpart.linked_workspace_id is not None:
             raise HTTPException(
                 status_code=400,
                 detail="Counterpart member is already linked to a tree",
@@ -165,18 +165,18 @@ def link_member_to_tree(
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="update",
             target_type="member",
             target_id=member.id,
             target_label=label,
-            details={"after": {"linked_tree_id": target.id}},
+            details={"after": {"linked_workspace_id": target.id}},
         )
         if payload.mode == "create":
             record_activity(
                 db,
-                tree_id=target.id,
+                workspace_id=target.id,
                 actor=user,
                 action="create",
                 target_type="member",
@@ -186,46 +186,46 @@ def link_member_to_tree(
         else:
             record_activity(
                 db,
-                tree_id=target.id,
+                workspace_id=target.id,
                 actor=user,
                 action="update",
                 target_type="member",
                 target_id=counterpart.id,
                 target_label=counterpart_label,
-                details={"after": {"linked_tree_id": tree.id}},
+                details={"after": {"linked_workspace_id": tree.id}},
             )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
-            )
-        )
-        uow.after_commit(
-            lambda: publish_tree_event(
-                db, target, "activity.entry_added", {"tree_id": target.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
+                db, target, "activity.entry_added", {"workspace_id": target.id}
+            )
+        )
+        uow.after_commit(
+            lambda: publish_workspace_event(
                 db,
                 tree,
-                "tree.content_changed",
-                {"tree_id": tree.id, "domain": "member"},
+                "workspace.content_changed",
+                {"workspace_id": tree.id, "domain": "member"},
             )
         )
         uow.after_commit(lambda: invalidate_stats(tree.id))
         uow.after_commit(
-            lambda: publish_tree_event(
+            lambda: publish_workspace_event(
                 db,
                 target,
-                "tree.content_changed",
-                {"tree_id": target.id, "domain": "member"},
+                "workspace.content_changed",
+                {"workspace_id": target.id, "domain": "member"},
             )
         )
         uow.after_commit(lambda: invalidate_stats(target.id))
     db.refresh(member)
     db.refresh(target)
     return MemberSubtreeOut(
-        tree=TreeOut.model_validate(target),
+        workspace=WorkspaceOut.model_validate(target),
         anchor=MemberOut.model_validate(member),
     )
 
@@ -234,13 +234,13 @@ def link_member_to_tree(
 def resolve_bridge_drift(
     member_id: str,
     payload: BridgeSyncRequest,
-    tree: Tree = Depends(get_writable_tree),
+    tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Resolve bridge-person drift by copying person-level fields across the
     link: ``push`` writes this member's values onto the counterpart, ``pull``
-    adopts the counterpart's values. Requires write access to both trees.
+    adopts the counterpart's values. Requires write access to both workspaces.
     """
     member = get_member(db, tree, member_id)
     if member.linked_member_id is None:
@@ -248,7 +248,7 @@ def resolve_bridge_drift(
     counterpart = db.get(Member, member.linked_member_id)
     if counterpart is None:
         raise HTTPException(status_code=404, detail="Linked member not found")
-    other_tree = db.get(Tree, counterpart.tree_id)
+    other_tree = db.get(Workspace, counterpart.workspace_id)
     if other_tree is None:
         raise HTTPException(status_code=404, detail="Linked tree not found")
     if not user.is_admin and role_for(db, other_tree, user) not in (
@@ -266,7 +266,7 @@ def resolve_bridge_drift(
     with UnitOfWork(db) as uow:
         record_activity(
             db,
-            tree_id=tree.id,
+            workspace_id=tree.id,
             actor=user,
             action="update",
             target_type="member",
@@ -275,17 +275,17 @@ def resolve_bridge_drift(
             details={"after": {"bridge_sync": payload.direction}},
         )
         uow.after_commit(
-            lambda: publish_tree_event(
-                db, tree, "activity.entry_added", {"tree_id": tree.id}
+            lambda: publish_workspace_event(
+                db, tree, "activity.entry_added", {"workspace_id": tree.id}
             )
         )
         for t in (tree, other_tree):
             uow.after_commit(
-                lambda t=t: publish_tree_event(
+                lambda t=t: publish_workspace_event(
                     db,
                     t,
-                    "tree.content_changed",
-                    {"tree_id": t.id, "domain": "member"},
+                    "workspace.content_changed",
+                    {"workspace_id": t.id, "domain": "member"},
                 )
             )
             uow.after_commit(lambda t=t: invalidate_stats(t.id))

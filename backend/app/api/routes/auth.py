@@ -134,8 +134,12 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
 
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=user, action="create", subject_type="auth_login",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="create",
+            subject_type="auth_login",
+            subject_id=user.id,
+            subject_label=user.username,
         )
     token = create_access_token(user.id)
     return LoginResponse(access_token=token, user=_current_user_out(db, user))
@@ -187,8 +191,12 @@ def verify_totp(
 
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=user, action="create", subject_type="auth_login",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="create",
+            subject_type="auth_login",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"two_factor": True},
         )
     token = create_access_token(user.id)
@@ -221,8 +229,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     db.flush()
     with UnitOfWork(db):
         record_admin_audit(
-            db, actor=user, action="create", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="create",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"self_registration": True, "is_admin": is_first},
         )
     db.refresh(user)
@@ -268,9 +280,7 @@ async def upload_profile_image(
     """Stream, validate and persist a private profile image for the caller."""
     old_filename = user.profile_image
     try:
-        filename = await store_profile_image_upload(
-            user.id, image, get_media_limits(db)
-        )
+        filename = await store_profile_image_upload(user.id, image, get_media_limits(db))
     except ImageTooLarge as exc:
         raise HTTPException(status_code=413, detail=str(exc)) from exc
     except (UnsupportedImageType, ValueError) as exc:
@@ -335,9 +345,7 @@ def delete_account(
             select(func.count()).select_from(User).where(User.is_admin.is_(True))
         )
         if admin_count <= 1:
-            raise HTTPException(
-                status_code=400, detail="cannot_delete_last_admin"
-            )
+            raise HTTPException(status_code=400, detail="cannot_delete_last_admin")
 
     if user.auth_provider == "local":
         if not payload.password:
@@ -357,8 +365,12 @@ def delete_account(
     with UnitOfWork(db):
         schedule_deletion(db, user, requested_by=user.id)
         record_admin_audit(
-            db, actor=user, action="delete", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="delete",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"scheduled": True, "self_service": True},
         )
     return user
@@ -400,8 +412,12 @@ def restore_account(
         user.deletion_scheduled_for = None
         user.deletion_requested_by = None
         record_admin_audit(
-            db, actor=user, action="update", subject_type="user",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="user",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"restored": True},
         )
     db.refresh(user)
@@ -424,8 +440,12 @@ def change_password(
     with UnitOfWork(db):
         user.hashed_password = hash_password(payload.new_password)
         record_admin_audit(
-            db, actor=user, action="update", subject_type="password",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="password",
+            subject_id=user.id,
+            subject_label=user.username,
         )
 
 
@@ -510,8 +530,12 @@ def enable_totp(
     with UnitOfWork(db):
         user.totp_enabled = True
         record_admin_audit(
-            db, actor=user, action="update", subject_type="two_factor",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="two_factor",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"enabled": True},
         )
     return TotpEnableResponse(totp_enabled=True)
@@ -542,7 +566,11 @@ def disable_totp(
         user.totp_secret = None
         user.totp_recovery_codes = None
         record_admin_audit(
-            db, actor=user, action="update", subject_type="two_factor",
-            subject_id=user.id, subject_label=user.username,
+            db,
+            actor=user,
+            action="update",
+            subject_type="two_factor",
+            subject_id=user.id,
+            subject_label=user.username,
             details={"enabled": False},
         )

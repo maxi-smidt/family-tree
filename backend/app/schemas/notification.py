@@ -13,13 +13,13 @@ from pydantic import BaseModel
 
 
 class InvitationReceivedPayload(BaseModel):
-    tree_id: str
-    tree_name: str
+    workspace_id: str
+    workspace_name: str
 
 
-class TreeUnsharedPayload(BaseModel):
-    tree_id: str
-    tree_name: str
+class WorkspaceUnsharedPayload(BaseModel):
+    workspace_id: str
+    workspace_name: str
 
 
 class FriendRequestReceivedPayload(BaseModel):
@@ -32,23 +32,23 @@ class FriendRequestAcceptedPayload(BaseModel):
     addressee_username: str
 
 
-class TreeSharedPayload(BaseModel):
-    tree_id: str
-    tree_name: str
+class WorkspaceSharedPayload(BaseModel):
+    workspace_id: str
+    workspace_name: str
     role: str
     actor_username: str
 
 
 # Structurally overlapping members (e.g. InvitationReceivedPayload and
-# TreeUnsharedPayload both are {tree_id, tree_name}) still round-trip the
+# WorkspaceUnsharedPayload both are {workspace_id, workspace_name}) still round-trip the
 # same JSON either way pydantic's smart-union picks, since Pydantic favors
 # the member that consumes every key with none discarded.
 NotificationPayload = (
     InvitationReceivedPayload
-    | TreeUnsharedPayload
+    | WorkspaceUnsharedPayload
     | FriendRequestReceivedPayload
     | FriendRequestAcceptedPayload
-    | TreeSharedPayload
+    | WorkspaceSharedPayload
 )
 
 
