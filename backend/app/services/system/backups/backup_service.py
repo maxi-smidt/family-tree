@@ -242,6 +242,11 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         DocumentUpload.__tablename__,
         WorkspaceUserState.__tablename__,
         VirtualViewUserState.__tablename__,
+        # Sections (#982) landed after v2 was already in development; a v2
+        # backup taken before this table existed must stay restorable too.
+        Section.__tablename__,
+        SectionMember.__tablename__,
+        SectionPosition.__tablename__,
     }
 )
 

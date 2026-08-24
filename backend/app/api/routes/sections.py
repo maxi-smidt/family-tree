@@ -1,6 +1,7 @@
 """CRUD for sections, their membership, and their per-section layout (#982)."""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_workspace, get_writable_workspace
@@ -24,6 +25,7 @@ from app.services.sections import (
     create_section,
     get_section,
     list_sections,
+    member_counts,
     replace_section_members,
     section_out,
     suggest_sections_for_member,
@@ -72,9 +74,14 @@ def get_section_suggestions(
     tree: Workspace = Depends(get_readable_workspace),
     db: Session = Depends(get_db),
 ):
+    suggestions = suggest_sections_for_member(db, tree, member_id)
+    counts = member_counts(db, [section.id for section, _ in suggestions])
     return [
-        SectionSuggestion(section=section_out(section), matched_via_member_ids=via)
-        for section, via in suggest_sections_for_member(db, tree, member_id)
+        SectionSuggestion(
+            section=section_out(section, counts.get(section.id, 0)),
+            matched_via_member_ids=via,
+        )
+        for section, via in suggestions
     ]
 
 
@@ -85,25 +92,30 @@ def post_section(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    with UnitOfWork(db) as uow:
-        section = create_section(
-            db,
-            tree,
-            name=payload.name,
-            root_member_id=payload.root_member_id,
-            direction=payload.direction,
-        )
-        record_activity(
-            db,
-            workspace_id=tree.id,
-            actor=user,
-            action="create",
-            target_type="section",
-            target_id=section.id,
-            target_label=section.name,
-        )
-        uow.after_commit(lambda: _activity_added(db, tree))
-        uow.after_commit(lambda: _content_changed(db, tree))
+    try:
+        with UnitOfWork(db) as uow:
+            section = create_section(
+                db,
+                tree,
+                name=payload.name,
+                root_member_id=payload.root_member_id,
+                direction=payload.direction,
+            )
+            record_activity(
+                db,
+                workspace_id=tree.id,
+                actor=user,
+                action="create",
+                target_type="section",
+                target_id=section.id,
+                target_label=section.name,
+            )
+            uow.after_commit(lambda: _activity_added(db, tree))
+            uow.after_commit(lambda: _content_changed(db, tree))
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409, detail="A section with this name already exists"
+        ) from exc
     db.refresh(section)
     return section_out(section, len(section.members))
 
@@ -127,19 +139,26 @@ def patch_section(
     db: Session = Depends(get_db),
 ):
     section = get_section(db, tree, section_id)
-    with UnitOfWork(db) as uow:
-        update_section(db, tree, section, name=payload.name, position=payload.position)
-        record_activity(
-            db,
-            workspace_id=tree.id,
-            actor=user,
-            action="update",
-            target_type="section",
-            target_id=section.id,
-            target_label=section.name,
-        )
-        uow.after_commit(lambda: _activity_added(db, tree))
-        uow.after_commit(lambda: _content_changed(db, tree))
+    try:
+        with UnitOfWork(db) as uow:
+            update_section(
+                db, tree, section, name=payload.name, position=payload.position
+            )
+            record_activity(
+                db,
+                workspace_id=tree.id,
+                actor=user,
+                action="update",
+                target_type="section",
+                target_id=section.id,
+                target_label=section.name,
+            )
+            uow.after_commit(lambda: _activity_added(db, tree))
+            uow.after_commit(lambda: _content_changed(db, tree))
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=409, detail="A section with this name already exists"
+        ) from exc
     db.refresh(section)
     return section_out(section, len(section.members))
 
@@ -203,7 +222,7 @@ def patch_section_positions(
         return
     items = [(p.member_id, p.position_x, p.position_y) for p in payload]
     with UnitOfWork(db) as uow:
-        upsert_section_positions(db, tree, section, items)
+        upsert_section_positions(db, section, items)
         uow.after_commit(
             lambda: publish_workspace_event(
                 db, tree, "workspace.layout_changed", {"workspace_id": tree.id}

@@ -23,11 +23,14 @@ def upgrade() -> None:
         sa.Column("id", sa.String(length=36), nullable=False),
         sa.Column("workspace_id", sa.String(length=36), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("name_normalized", sa.String(length=255), nullable=False),
         sa.Column("position", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.String(length=40), nullable=False),
         sa.ForeignKeyConstraint(["workspace_id"], ["workspaces.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("workspace_id", "name", name="uq_section_workspace_name"),
+        sa.UniqueConstraint(
+            "workspace_id", "name_normalized", name="uq_section_workspace_name"
+        ),
     )
     op.create_index(
         op.f("ix_sections_workspace_id"), "sections", ["workspace_id"], unique=False

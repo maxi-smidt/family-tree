@@ -26,6 +26,7 @@ from app.models import (
 )
 from app.schemas.extract import Direction
 from app.schemas.section import SectionOut, SectionOverlap, SectionPreview
+from app.services.members.member_access import get_member
 from app.services.workspaces.subtree_selection import collect_member_ids
 
 
@@ -40,7 +41,7 @@ def section_out(section: Section, member_count: int = 0) -> SectionOut:
     )
 
 
-def _member_counts(db: Session, section_ids: list[str]) -> dict[str, int]:
+def member_counts(db: Session, section_ids: list[str]) -> dict[str, int]:
     if not section_ids:
         return {}
     return dict(
@@ -60,7 +61,7 @@ def list_sections(db: Session, tree: Workspace) -> list[SectionOut]:
             .order_by(Section.position, Section.created_at)
         )
     )
-    counts = _member_counts(db, [s.id for s in sections])
+    counts = member_counts(db, [s.id for s in sections])
     return [section_out(s, counts.get(s.id, 0)) for s in sections]
 
 
@@ -74,8 +75,15 @@ def get_section(db: Session, tree: Workspace, section_id: str) -> Section:
 def _validate_name(
     db: Session, tree: Workspace, name: str, *, exclude_id: str | None = None
 ) -> str:
+    """Fast pre-check for a friendly 409 in the common case.
+
+    The actual guarantee is the DB's unique constraint on
+    ``(workspace_id, name_normalized)`` (see ``models.section``) plus the
+    route's ``IntegrityError`` handler — this check alone cannot close a
+    same-millisecond race between two concurrent creates.
+    """
     query = select(Section.id).where(
-        Section.workspace_id == tree.id, func.lower(Section.name) == name.lower()
+        Section.workspace_id == tree.id, Section.name_normalized == name.strip().lower()
     )
     if exclude_id is not None:
         query = query.where(Section.id != exclude_id)
@@ -189,11 +197,7 @@ def suggest_sections_for_member(
     """Sections to suggest for ``member_id``, based on the sections their
     parents/partners already belong to (any relation, since only "parent" is
     a directionally special type — see subtree_selection.py)."""
-    member = db.scalar(
-        select(Member).where(Member.workspace_id == tree.id, Member.id == member_id)
-    )
-    if member is None:
-        raise NotFoundError("Member not found in this workspace")
+    get_member(db, tree, member_id)
 
     relations = db.scalars(
         select(Relation).where(
@@ -210,14 +214,16 @@ def suggest_sections_for_member(
 
     already_in = set(
         db.scalars(
-            select(SectionMember.section_id).where(SectionMember.member_id == member_id)
+            select(SectionMember.section_id)
+            .join(Section, Section.id == SectionMember.section_id)
+            .where(Section.workspace_id == tree.id, SectionMember.member_id == member_id)
         )
     )
     matches: dict[str, set[str]] = {}
     for section_id, related_member_id in db.execute(
-        select(SectionMember.section_id, SectionMember.member_id).where(
-            SectionMember.member_id.in_(related_ids)
-        )
+        select(SectionMember.section_id, SectionMember.member_id)
+        .join(Section, Section.id == SectionMember.section_id)
+        .where(Section.workspace_id == tree.id, SectionMember.member_id.in_(related_ids))
     ).all():
         if section_id in already_in:
             continue
@@ -247,40 +253,63 @@ def replace_section_members(
     db: Session, tree: Workspace, section: Section, member_ids: list[str]
 ) -> None:
     db.query(SectionMember).filter(SectionMember.section_id == section.id).delete()
-    if not member_ids:
-        return
-    valid_ids = db.scalars(
-        select(Member.id).where(
-            Member.workspace_id == tree.id, Member.id.in_(set(member_ids))
+    valid_ids: set[str] = set()
+    if member_ids:
+        valid_ids = set(
+            db.scalars(
+                select(Member.id).where(
+                    Member.workspace_id == tree.id, Member.id.in_(set(member_ids))
+                )
+            )
         )
-    ).all()
-    for mid in valid_ids:
-        db.add(SectionMember(section_id=section.id, member_id=mid))
+        for mid in valid_ids:
+            db.add(SectionMember(section_id=section.id, member_id=mid))
+    # A layout overlay only means something for a current member; drop any
+    # left over from before this replace (mirrors virtual_view_matching.py's
+    # pruning of orphaned position overlays on membership change).
+    db.query(SectionPosition).filter(
+        SectionPosition.section_id == section.id,
+        SectionPosition.member_id.notin_(valid_ids),
+    ).delete(synchronize_session=False)
 
 
 def upsert_section_positions(
-    db: Session,
-    tree: Workspace,
-    section: Section,
-    items: list[tuple[str, float, float]],
+    db: Session, section: Section, items: list[tuple[str, float, float]]
 ) -> None:
+    """Persist positions for members already assigned to ``section``.
+
+    Silently drops items for anyone not currently a member — a layout
+    overlay for someone not in the section would be meaningless.
+    """
     if not items:
         return
+    member_section_ids = {member_id for member_id, _, _ in items}
     valid_ids = set(
         db.scalars(
-            select(Member.id).where(
-                Member.workspace_id == tree.id,
-                Member.id.in_({member_id for member_id, _, _ in items}),
+            select(SectionMember.member_id).where(
+                SectionMember.section_id == section.id,
+                SectionMember.member_id.in_(member_section_ids),
             )
         )
     )
+    if not valid_ids:
+        return
+    existing = {
+        p.member_id: p
+        for p in db.scalars(
+            select(SectionPosition).where(
+                SectionPosition.section_id == section.id,
+                SectionPosition.member_id.in_(valid_ids),
+            )
+        )
+    }
     for member_id, position_x, position_y in items:
         if member_id not in valid_ids:
             continue
-        existing = db.get(SectionPosition, (section.id, member_id))
-        if existing is not None:
-            existing.position_x = position_x
-            existing.position_y = position_y
+        row = existing.get(member_id)
+        if row is not None:
+            row.position_x = position_x
+            row.position_y = position_y
         else:
             db.add(
                 SectionPosition(
