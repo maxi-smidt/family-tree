@@ -55,6 +55,9 @@ from app.models import (
     Relation,
     RelationType,
     RestoreMarker,
+    Section,
+    SectionMember,
+    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -92,6 +95,9 @@ BACKUP_MODELS: tuple[type, ...] = (
     GeocodeCache,
     Workspace,
     Member,
+    Section,
+    SectionMember,
+    SectionPosition,
     WorkspaceMembership,
     WorkspaceInvitation,
     WorkspaceUserState,
@@ -236,6 +242,11 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         DocumentUpload.__tablename__,
         WorkspaceUserState.__tablename__,
         VirtualViewUserState.__tablename__,
+        # Sections (#982) landed after v2 was already in development; a v2
+        # backup taken before this table existed must stay restorable too.
+        Section.__tablename__,
+        SectionMember.__tablename__,
+        SectionPosition.__tablename__,
     }
 )
 
