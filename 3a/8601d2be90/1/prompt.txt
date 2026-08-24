@@ -1,0 +1,44 @@
+/review #1026
+
+---
+
+<task-notification>
+<task-id>a129f02bfd6a2baac</task-id>
+<output-file>/tmp/claude-1000/-home-codex-projects-family-tree/31363e59-ce15-4805-9ec4-33c642cf12c5/tasks/a129f02bfd6a2baac.output</output-file>
+<status>completed</status>
+<summary>Agent "/code-review #1026" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Reusing effort level **high** (your last one) — type a level to change it, e.g. `/code-review high`.
+
+The `ReportFindings` tool isn't available in this session, so findings are below. Scope: `git diff origin/release/v2...HEAD` for PR #1026 (8 files, +926/−127). I verified each finding empirically with throwaway tests (since removed); `ruff` and the neighborhood test files pass as claimed.
+
+## Findings
+
+**1. `backend/app/api/routes/members.py:504` — medium.** `_empty_neighborhood()` hardcodes `total_member_count: 0`, but with the new `sections` param it is now reachable on a *non-empty* workspace: `pick_default_root` returns `None` whenever the filter resolves to no sections (unknown/foreign ids → `()`) or names only empty sections. Verified: a 3-member workspace filtered by an empty section returns `{"members": [], "root_id": "", "total_member_count": 0}`. Before this PR the branch only fired when the workspace genuinely had no members, so the field was always truthful. The SPA's `totalMemberCount` (used for the windowed-mode "X of Y" display) is set from it, so it will report an empty workspace. Pass `total_count` through instead of `0`.
+
+**2. `backend/app/api/routes/members.py:545` — medium.** `relations_within(db, tree.id, page.delivered_ids)` recomputes and re-sends *every* relation among *everything delivered so far* on each page, while `members` is correctly per-page. Verified on an 8-member chain at `budget=2`: page 0 → 1 relation, page 1 → 3, page 2 → 5, page 3 → 7, i.e. the last page ships all 7 for 2 new members. Over a full 20 000-member chain that is O(n²) rows fetched and bytes sent (the final page carries the entire relation set). Sending only relations with at least one endpoint in `page.member_ids` (other endpoint in `delivered`) preserves the cross-page-edge property the tests check while keeping each edge to one page.
+
+**3. `backend/app/services/workspaces/neighborhood.py:346` — medium.** In `pick_default_root`, joining `SectionMember` onto the `GROUP BY Relation.from_member_id` aggregate fans each relation row out once per matching section, so `count()` measures *relations × sections*, not connectivity. Verified: with sections A/B/C/D, member `dup` (1 relation, in 4 filtered sections → count 4) is picked over `hub` (3 relations, in 1 section → count 3). Any multi-section filter can land the default focus on a nearly isolated member. Restrict the member set with a `SectionMember` subquery/`EXISTS` (or `IN (select member_id …)`) instead of a join.
+
+**4. `backend/app/services/workspaces/neighborhood.py:273` (+ `members.py:559`) — medium.** `continuation_counts` returns `Section.name` and a live member count with no visibility gate, on an endpoint guarded by `get_readable_workspace_public`. Verified: an **unauthenticated** request to a public workspace returned `{"section_name": "Secret Branch", "remaining_count": 3}`, while `GET /workspaces/{id}/sections` for the same anonymous caller returns `401`. Ids are UUIDs so this needs a leaked/remembered section id (e.g. a collaborator whose share was revoked on a still-public workspace), but it inverts the boundary the sections router enforces, and it contradicts `resolve_section_ids`'s own stated rule that "which ids exist in a workspace is not something a filter should reveal" — a valid id now confirms existence *and* yields its name. Suppress section-scoped continuations (or their names) when `public_only(...)`.
+
+**5. `backend/app/services/workspaces/neighborhood.py:269-271` — medium.** The unfiltered continuation is `total_member_count - len(delivered_ids)`, which counts members not reachable from the root at all. Verified: 3 members where `m2` is disconnected, `up=5 down=5` → `truncated: false`, `next_cursor: null`, yet `continuations: [{remaining_count: 1}]`. Any workspace with a single disconnected member produces a permanent "1 more" the cursor chain can never deliver. Same shape for the filtered branch (my anon probe above: complete traversal, `next_cursor: null`, "3 more"). The schema docstring calls this out, but #1015 will render a load-more affordance that cannot resolve — either suppress continuations when `has_more` is false, or return a flag distinguishing "more pages" from "more in scope".
+
+**6. `backend/app/services/workspaces/neighborhood.py:199-201` — low/medium.** Every page re-walks the entire prefix (`_sequence(..., ceiling + 1)`), and `budget` is client-controlled down to `1`. A caller who pages a 20 000-member chain at `budget=1` forces 20 000 requests each doing up to 20 000 node visits plus ~40 chunked queries per BFS level — roughly O(n²) ≈ 2×10⁸ node visits of server work from one cheap client loop, with no endpoint rate limit (explicitly deferred in the PR). A floor on `budget` (e.g. `ge=50`) would bound the chain length cheaply without waiting for rate limiting.
+
+**7. `backend/app/api/routes/members.py:503` — low.** When `root` is omitted, the default root is recomputed on every page and folded into `query_fingerprint`. `graph_revision` deliberately does not detect re-pointing an existing edge (counts unchanged) — but that same mutation can change which member wins `pick_default_root`, which changes `root_id`, which changes the query fingerprint. The caller then gets `400 "Invalid or expired cursor"` (documented as tampered/malformed) rather than the `409 stale_cursor` the situation actually is, so a client that only restarts on 409 will surface a hard error instead. Binding the cursor to the resolved `root_id` as a separate claim (mismatch → stale, not invalid) would separate the two.
+
+**8. `backend/alembic/versions/v2_0_0_relation_traversal_indexes.py:19` — low.** `op.create_index` on `relations` runs non-concurrently, and `alembic upgrade head` runs automatically on backend startup (per AGENTS.md). On a large existing deployment the two index builds take a `SHARE` lock and block all writes to `relations` for the duration of container start. Worth at least a note in the migration, or building them with `postgresql_concurrently=True` outside the migration transaction.
+
+## Things I checked and cleared
+
+- The append-only sequence invariant holds: `frontier` for level *n+1* is the full `_admissible(candidates)` set regardless of how much `emit` truncated, so a larger budget extends the same prefix. Paging coverage/idempotence verified on chains.
+- `has_more` off-by-one is correct — the `ceiling + 1` probe distinguishes "exactly full" from "more", and the last page correctly reports `truncated: false`.
+- `_parent_step`'s up/down column swap matches the from=child/to=parent convention.
+- No empty-page infinite loop: if the sequence shrinks under an undetected graph change, `has_more` goes false and the chain terminates.
+- `db.get(WorkspaceMembership, (tree.id, user.id))` matches the model's PK order.
+- The Alembic graph stays linear (`v2_0_0_sections` → `v2_0_0_relation_idx`, single head).
+- `continuation_counts`' `ORDER BY Section.position` under `GROUP BY Section.id` is legal in Postgres (PK functional dependency).
+- Response additions are purely additive; `frontend/src/services/WorkspaceService.ts` and `useMemberStore.ts` keep working, and `truncated` retains its old meaning at the default budget.</result>
+<usage><subagent_tokens>110526</subagent_tokens><tool_uses>33</tool_uses><duration_ms>516343</duration_ms></usage>
+</task-notification>

@@ -3,7 +3,7 @@
   "checkpoint_id": "3a8601d2be90",
   "strategy": "manual-commit",
   "branch": "feat/983-neighborhood-sections",
-  "checkpoints_count": 1,
+  "checkpoints_count": 2,
   "files_touched": [
     "backend/alembic/versions/v2_0_0_relation_traversal_indexes.py",
     "backend/app/api/routes/members.py",
@@ -18,13 +18,20 @@
       "compact_transcript": "/3a/8601d2be90/0/transcript.jsonl",
       "content_hash": "/3a/8601d2be90/0/content_hash.txt",
       "prompt": "/3a/8601d2be90/0/prompt.txt"
+    },
+    {
+      "metadata": "/3a/8601d2be90/1/metadata.json",
+      "transcript": "/3a/8601d2be90/1/full.jsonl",
+      "compact_transcript": "/3a/8601d2be90/1/transcript.jsonl",
+      "content_hash": "/3a/8601d2be90/1/content_hash.txt",
+      "prompt": "/3a/8601d2be90/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 6,
-    "cache_creation_tokens": 19490,
-    "cache_read_tokens": 113672,
-    "output_tokens": 1221,
-    "api_call_count": 3
+    "input_tokens": 48,
+    "cache_creation_tokens": 183217,
+    "cache_read_tokens": 3553991,
+    "output_tokens": 16405,
+    "api_call_count": 24
   }
 }
