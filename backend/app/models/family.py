@@ -1,6 +1,6 @@
 """Core genealogy tables."""
 
-from sqlalchemy import Boolean, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
@@ -82,6 +82,23 @@ class Member(Base):
 
 class Relation(Base):
     __tablename__ = "relations"
+    __table_args__ = (
+        # The neighborhood traversal steps a generation at a time, filtering by
+        # workspace + relation type on one endpoint at a time; these keep both
+        # directions an index lookup instead of a scan (#983).
+        Index(
+            "ix_relations_workspace_type_from",
+            "workspace_id",
+            "relation_type",
+            "from_member_id",
+        ),
+        Index(
+            "ix_relations_workspace_type_to",
+            "workspace_id",
+            "relation_type",
+            "to_member_id",
+        ),
+    )
 
     workspace_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True

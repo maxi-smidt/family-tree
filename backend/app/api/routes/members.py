@@ -20,7 +20,7 @@ from app.api.deps import (
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.core.exceptions import QuotaExceeded
 from app.db.session import get_db
-from app.models import Event, EventMemberLink, Member, Relation, Workspace
+from app.models import Event, EventMemberLink, Member, Workspace
 from app.models.user import User
 from app.schemas.family import (
     MemberCollapsedUpdate,
@@ -29,6 +29,7 @@ from app.schemas.family import (
     MemberPositionUpdate,
     MemberSurfaceOut,
     MemberUpdate,
+    NeighborhoodContinuation,
     NeighborhoodOut,
     RelationOut,
 )
@@ -66,8 +67,20 @@ from app.services.members.member_vitals import event_updates_allowed, sync_vital
 from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspaces.neighborhood import (
-    collect_neighborhood_ids,
+    MAX_NEIGHBORHOOD_NODES,
+    MAX_NEIGHBORHOOD_TOTAL,
+    NeighborhoodQuery,
+    collect_neighborhood_page,
+    continuation_counts,
+    graph_revision,
     pick_default_root,
+    relations_for_page,
+    resolve_section_ids,
+)
+from app.services.workspaces.neighborhood_cursor import (
+    decode_cursor,
+    encode_cursor,
+    visibility_fingerprint,
 )
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
@@ -450,39 +463,53 @@ def search_members(
     return [MemberSurfaceOut(**row._mapping) for row in rows]
 
 
+def _empty_neighborhood(total_count: int) -> NeighborhoodOut:
+    return NeighborhoodOut(
+        members=[],
+        relations=[],
+        root_id="",
+        truncated=False,
+        total_member_count=total_count,
+    )
+
+
 @router.get("/members/neighborhood", response_model=NeighborhoodOut)
 def get_neighborhood(
     root: str | None = Query(None),
     up: int = Query(3, ge=0, le=20),
     down: int = Query(3, ge=0, le=20),
     partners: bool = Query(True),
+    sections: list[str] | None = Query(None),
+    budget: int = Query(MAX_NEIGHBORHOOD_NODES, ge=1, le=MAX_NEIGHBORHOOD_NODES),
+    cursor: str | None = Query(None),
     tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
-    """Return a bounded BFS neighborhood around *root*.  Declared before
-    ``/members/{member_id}`` so the literal ``neighborhood`` path is not
+    """Return one bounded page of the neighborhood around *root*.  Declared
+    before ``/members/{member_id}`` so the literal ``neighborhood`` path is not
     captured as a member id.
 
-    When *root* is omitted the most-connected member is chosen automatically.
+    When *root* is omitted the most-connected member in scope is chosen
+    automatically. ``sections`` restricts the traversal to those sections;
+    ``budget`` caps this page; ``cursor`` — replayed with the *same* request
+    parameters — continues where the previous page stopped. A cursor whose
+    graph or focus root has moved on returns 409 ``stale_cursor`` (restart the
+    traversal); one that does not belong to this request returns 400.
     """
     total_count: int = (
         db.scalar(select(func.count(Member.id)).where(Member.workspace_id == tree.id))
         or 0
     )
-
     if total_count == 0:
-        return NeighborhoodOut(
-            members=[], relations=[], root_id="", truncated=False, total_member_count=0
-        )
+        return _empty_neighborhood(0)
 
-    root_id = root
+    section_ids = resolve_section_ids(db, tree.id, sections)
+    root_id = root if root is not None else pick_default_root(db, tree.id, section_ids)
     if root_id is None:
-        root_id = pick_default_root(db, tree.id)
-    if root_id is None:
-        return NeighborhoodOut(
-            members=[], relations=[], root_id="", truncated=False, total_member_count=0
-        )
+        # Reachable on a populated workspace: a section filter can resolve to
+        # nothing, or name only empty sections.
+        return _empty_neighborhood(total_count)
 
     if (
         db.scalar(
@@ -492,32 +519,68 @@ def get_neighborhood(
     ):
         raise HTTPException(status_code=404, detail="Root member not found")
 
-    member_ids, truncated = collect_neighborhood_ids(
-        db, tree.id, root_id, up, down, partners
+    query = NeighborhoodQuery(
+        root_id=root_id,
+        up=up,
+        down=down,
+        include_partners=partners,
+        section_ids=section_ids,
+        budget=budget,
     )
+    visibility = visibility_fingerprint(db, tree, user)
+    revision = graph_revision(db, tree.id)
+    offset = (
+        decode_cursor(cursor, tree.id, query, visibility=visibility, revision=revision)
+        if cursor
+        else 0
+    )
+
+    page = collect_neighborhood_page(db, tree.id, query, offset)
 
     public = public_only(db, tree, user)
     columns = PUBLIC_MEMBER_COLUMNS if public else MEMBER_SURFACE_COLUMNS
-    surface_stmt = (
+    member_rows = db.execute(
         select(*columns)
-        .where(Member.workspace_id == tree.id, Member.id.in_(member_ids))
+        .where(Member.workspace_id == tree.id, Member.id.in_(page.member_ids))
         .order_by(Member.id)
-    )
-    member_rows = db.execute(surface_stmt).all()
+    ).all()
     members = (
         public_member_payloads(member_rows)
         if public
         else [MemberSurfaceOut(**row._mapping) for row in member_rows]
     )
+    relations = relations_for_page(db, tree.id, page.member_ids, page.delivered_ids)
 
-    relations = list(
-        db.scalars(
-            select(Relation).where(
-                Relation.workspace_id == tree.id,
-                Relation.from_member_id.in_(member_ids),
-                Relation.to_member_id.in_(member_ids),
-            )
+    next_offset = offset + len(page.member_ids)
+    next_cursor = (
+        encode_cursor(
+            tree.id,
+            query,
+            visibility=visibility,
+            revision=revision,
+            offset=next_offset,
         )
+        if page.has_more and next_offset < MAX_NEIGHBORHOOD_TOTAL
+        else None
+    )
+    # Only what this page actually left behind: a scope the traversal cannot
+    # reach anyway (a disconnected member, a section member off the focus
+    # branch) must not show up as a "load more" the cursor can never satisfy.
+    # Section names and counts also stay out of public responses — reading
+    # sections needs an authenticated grant (see the sections router).
+    continuations = (
+        [
+            NeighborhoodContinuation(
+                section_id=section_id,
+                section_name=section_name,
+                remaining_count=remaining,
+            )
+            for section_id, section_name, remaining in continuation_counts(
+                db, tree.id, section_ids, page.delivered_ids, total_count
+            )
+        ]
+        if page.has_more and not (public and section_ids is not None)
+        else []
     )
 
     if public:
@@ -529,16 +592,20 @@ def get_neighborhood(
                     for relation in relations
                 ],
                 "root_id": root_id,
-                "truncated": truncated,
+                "truncated": page.has_more,
                 "total_member_count": total_count,
+                "next_cursor": next_cursor,
+                "continuations": [c.model_dump() for c in continuations],
             }
         )
     return NeighborhoodOut(
         members=members,
         relations=[RelationOut.model_validate(r) for r in relations],
         root_id=root_id,
-        truncated=truncated,
+        truncated=page.has_more,
         total_member_count=total_count,
+        next_cursor=next_cursor,
+        continuations=continuations,
     )
 
 
