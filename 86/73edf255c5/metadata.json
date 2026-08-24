@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "8673edf255c5",
+  "strategy": "manual-commit",
+  "branch": "feat/983-neighborhood-sections",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "backend/alembic/versions/v2_0_0_relation_traversal_indexes.py",
+    "backend/app/api/routes/members.py",
+    "backend/app/core/security.py",
+    "backend/app/models/family.py",
+    "backend/app/schemas/family.py",
+    "backend/app/services/workspaces/neighborhood.py",
+    "backend/app/services/workspaces/neighborhood_cursor.py",
+    "backend/tests/test_neighborhood_paging.py"
+  ],
+  "sessions": [
+    {
+      "metadata": "/86/73edf255c5/0/metadata.json",
+      "transcript": "/86/73edf255c5/0/full.jsonl",
+      "compact_transcript": "/86/73edf255c5/0/transcript.jsonl",
+      "content_hash": "/86/73edf255c5/0/content_hash.txt",
+      "prompt": "/86/73edf255c5/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 146,
+    "cache_creation_tokens": 147180,
+    "cache_read_tokens": 6943092,
+    "output_tokens": 47907,
+    "api_call_count": 73
+  }
+}
