@@ -31,6 +31,7 @@ from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.notification import Notification
 from app.models.quality import QualityIssueDismissal
+from app.models.section import Section, SectionMember, SectionPosition
 from app.models.setting import AppSetting
 from app.models.user import User
 from app.models.virtual_view import (
@@ -89,4 +90,7 @@ __all__ = [
     "LegalDocumentVersion",
     "QualityIssueDismissal",
     "Notification",
+    "Section",
+    "SectionMember",
+    "SectionPosition",
 ]

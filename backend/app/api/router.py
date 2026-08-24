@@ -29,6 +29,7 @@ from app.api.routes import (
     quality,
     relation_types,
     search,
+    sections,
     settings,
     sse,
     statistics,
@@ -61,6 +62,7 @@ api_router.include_router(workspace_public.router)
 api_router.include_router(workspace_sharing.router)
 api_router.include_router(workspace_jobs.router)
 api_router.include_router(workspace_transfer.router)
+api_router.include_router(sections.router)
 api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
 api_router.include_router(virtual_views.router)
