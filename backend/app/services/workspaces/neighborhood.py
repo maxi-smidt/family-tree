@@ -208,26 +208,45 @@ def collect_neighborhood_page(
     )
 
 
-def relations_within(
-    db: Session, workspace_id: str, member_ids: Sequence[str]
+def relations_for_page(
+    db: Session, workspace_id: str, page_ids: Sequence[str], delivered_ids: Sequence[str]
 ) -> list[Relation]:
-    """Every relation with both endpoints among *member_ids*.
+    """The relations this page adds to what the caller already holds.
 
-    Chunked on the ``from`` side only, so each row is fetched exactly once.
+    Both endpoints must be delivered, and at least one must be new on this
+    page: an edge crossing a page boundary ships with the later of its two
+    endpoints, and an edge wholly inside earlier pages is not re-sent — so each
+    edge travels exactly once over a cursor chain instead of the whole
+    accumulated set travelling on every page.
     """
-    delivered = set(member_ids)
+    delivered = set(delivered_ids)
     relations: list[Relation] = []
-    for chunk in _chunks(member_ids):
-        relations.extend(
-            relation
-            for relation in db.scalars(
-                select(Relation).where(
-                    Relation.workspace_id == workspace_id,
+    seen: set[tuple[str, str, str]] = set()
+    for chunk in _chunks(page_ids):
+        for relation in db.scalars(
+            select(Relation).where(
+                Relation.workspace_id == workspace_id,
+                or_(
                     Relation.from_member_id.in_(chunk),
-                )
+                    Relation.to_member_id.in_(chunk),
+                ),
             )
-            if relation.to_member_id in delivered
-        )
+        ):
+            if (
+                relation.from_member_id not in delivered
+                or relation.to_member_id not in delivered
+            ):
+                continue
+            # A relation touching two members of different chunks comes back
+            # from both queries.
+            key = (
+                relation.from_member_id,
+                relation.to_member_id,
+                relation.relation_type,
+            )
+            if key not in seen:
+                seen.add(key)
+                relations.append(relation)
     return relations
 
 
@@ -343,12 +362,14 @@ def pick_default_root(
     )
     member_stmt = select(Member.id).where(Member.workspace_id == workspace_id)
     if section_ids is not None:
-        stmt = stmt.join(
-            SectionMember, SectionMember.member_id == Relation.from_member_id
-        ).where(SectionMember.section_id.in_(section_ids))
-        member_stmt = member_stmt.join(
-            SectionMember, SectionMember.member_id == Member.id
-        ).where(SectionMember.section_id.in_(section_ids))
+        # Restrict with a subquery rather than a join: joining fans each
+        # relation out once per section the member belongs to, which would
+        # count section memberships instead of connections.
+        in_sections = select(SectionMember.member_id).where(
+            SectionMember.section_id.in_(section_ids)
+        )
+        stmt = stmt.where(Relation.from_member_id.in_(in_sections))
+        member_stmt = member_stmt.where(Member.id.in_(in_sections))
 
     row = db.execute(stmt).first()
     if row is not None:

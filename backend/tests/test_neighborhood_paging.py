@@ -44,7 +44,7 @@ def _section(client, tree, user, name, member_ids):
 def _neighborhood(client, tree, user, **params):
     r = client.get(
         f"{API}/workspaces/{tree.id}/members/neighborhood",
-        headers=auth(user),
+        headers=auth(user) if user else {},
         params={"partners": "false", **params},
     )
     return r
@@ -288,3 +288,102 @@ def test_fully_loaded_neighborhood_reports_no_continuation(db, client):
     data = _neighborhood(client, tree, user, root="m0", up=2, down=0).json()
     assert data["continuations"] == []
     assert data["next_cursor"] is None
+
+
+def test_empty_section_filter_still_reports_the_workspace_size(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _chain(db, client, user, tree, n=3)
+    section_id = _section(client, tree, user, "Nobody", [])
+
+    data = _neighborhood(client, tree, user, sections=[section_id]).json()
+    assert data["members"] == []
+    assert data["total_member_count"] == 3
+
+
+def test_unreachable_members_do_not_produce_a_continuation(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _chain(db, client, user, tree, n=2)
+    add_member(db, tree, "loner")
+
+    data = _neighborhood(client, tree, user, root="m0", up=5, down=5).json()
+    # The traversal is complete; "1 more" the cursor chain could never deliver
+    # would just be a dead load-more button.
+    assert data["truncated"] is False
+    assert data["continuations"] == []
+
+
+def test_public_callers_get_no_section_continuations(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _chain(db, client, user, tree, n=5)
+    section_id = _section(client, tree, user, "Secret Branch", ["m0", "m1", "m2", "m3"])
+    client.patch(
+        f"{API}/workspaces/{tree.id}/public",
+        json={"public_role": "viewer"},
+        headers=auth(user),
+    )
+
+    data = _neighborhood(
+        client, tree, None, root="m0", up=4, down=0, budget=2, sections=[section_id]
+    ).json()
+    assert data["truncated"] is True
+    assert data["continuations"] == []
+
+
+def test_each_relation_is_sent_once_across_the_cursor_chain(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _chain(db, client, user, tree, n=8)
+
+    seen: list[tuple[str, str]] = []
+    cursor = None
+    while True:
+        params = {"root": "m0", "up": 7, "down": 0, "budget": 2}
+        if cursor:
+            params["cursor"] = cursor
+        data = _neighborhood(client, tree, user, **params).json()
+        seen.extend(
+            (rel["from_member_id"], rel["to_member_id"]) for rel in data["relations"]
+        )
+        cursor = data["next_cursor"]
+        if cursor is None:
+            break
+
+    assert sorted(seen) == [(f"m{i}", f"m{i + 1}") for i in range(7)]
+
+
+def test_default_root_ignores_how_many_sections_a_member_is_in(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    for member_id in ("hub", "a", "b", "c", "dup", "z"):
+        add_member(db, tree, member_id)
+    for child in ("a", "b", "c"):
+        _relate(client, tree, user, child, "hub")
+    _relate(client, tree, user, "dup", "z")
+
+    everyone = _section(
+        client, tree, user, "Everyone", ["hub", "a", "b", "c", "dup", "z"]
+    )
+    extras = [_section(client, tree, user, name, ["dup"]) for name in ("B", "C", "D")]
+
+    # "dup" has one relation but four section memberships; "a" has one relation
+    # and one. Neither may outrank a member with more actual connections.
+    data = _neighborhood(client, tree, user, sections=[everyone, *extras]).json()
+    assert data["root_id"] in {"a", "b", "c"}
+
+
+def test_changing_the_focus_root_asks_for_a_restart(db, client):
+    user = make_user(db, "alice")
+    tree = make_tree(db, user)
+    _chain(db, client, user, tree, n=5)
+
+    cursor = _neighborhood(client, tree, user, root="m0", up=4, down=0, budget=2).json()[
+        "next_cursor"
+    ]
+    r = _neighborhood(
+        client, tree, user, root="m1", up=4, down=0, budget=2, cursor=cursor
+    )
+    assert r.status_code == 409
+    assert r.json()["detail"] == "stale_cursor"

@@ -67,8 +67,8 @@ def visibility_fingerprint(db: Session, tree: Workspace, user: User | None) -> s
 
 
 def query_fingerprint(query: NeighborhoodQuery) -> str:
+    """The request shape, minus the focus root — see ``decode_cursor``."""
     return _digest(
-        query.root_id,
         query.up,
         query.down,
         query.include_partners,
@@ -90,6 +90,7 @@ def encode_cursor(
         {
             "alg_version": ALGORITHM_VERSION,
             "visibility": visibility,
+            "root": query.root_id,
             "query": query_fingerprint(query),
             "revision": revision,
             "offset": offset,
@@ -108,8 +109,11 @@ def decode_cursor(
     """Return the offset carried by *token*.
 
     Raises ``InvalidCursorError`` unless the cursor was minted by this
-    algorithm, for this workspace, this caller's current visibility, and this
-    exact request; ``StaleCursorError`` when only the graph moved on.
+    algorithm, for this workspace, this caller's current visibility, and the
+    same request shape. A different focus root raises ``StaleCursorError``
+    instead: when the caller let the server pick the root, an edit the graph
+    revision cannot see can still move that pick, and "restart the traversal"
+    is the honest answer to that — not "your cursor is invalid".
     """
     try:
         claims = decode_neighborhood_cursor(token)
@@ -126,6 +130,6 @@ def decode_cursor(
         or offset < 0
     ):
         raise InvalidCursorError()
-    if claims.get("revision") != revision:
+    if claims.get("revision") != revision or claims.get("root") != query.root_id:
         raise StaleCursorError()
     return offset

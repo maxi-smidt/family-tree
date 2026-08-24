@@ -74,7 +74,7 @@ from app.services.workspaces.neighborhood import (
     continuation_counts,
     graph_revision,
     pick_default_root,
-    relations_within,
+    relations_for_page,
     resolve_section_ids,
 )
 from app.services.workspaces.neighborhood_cursor import (
@@ -463,9 +463,13 @@ def search_members(
     return [MemberSurfaceOut(**row._mapping) for row in rows]
 
 
-def _empty_neighborhood() -> NeighborhoodOut:
+def _empty_neighborhood(total_count: int) -> NeighborhoodOut:
     return NeighborhoodOut(
-        members=[], relations=[], root_id="", truncated=False, total_member_count=0
+        members=[],
+        relations=[],
+        root_id="",
+        truncated=False,
+        total_member_count=total_count,
     )
 
 
@@ -489,20 +493,23 @@ def get_neighborhood(
     When *root* is omitted the most-connected member in scope is chosen
     automatically. ``sections`` restricts the traversal to those sections;
     ``budget`` caps this page; ``cursor`` — replayed with the *same* request
-    parameters — continues where the previous page stopped, and is rejected
-    (409) once the graph has moved on.
+    parameters — continues where the previous page stopped. A cursor whose
+    graph or focus root has moved on returns 409 ``stale_cursor`` (restart the
+    traversal); one that does not belong to this request returns 400.
     """
     total_count: int = (
         db.scalar(select(func.count(Member.id)).where(Member.workspace_id == tree.id))
         or 0
     )
     if total_count == 0:
-        return _empty_neighborhood()
+        return _empty_neighborhood(0)
 
     section_ids = resolve_section_ids(db, tree.id, sections)
     root_id = root if root is not None else pick_default_root(db, tree.id, section_ids)
     if root_id is None:
-        return _empty_neighborhood()
+        # Reachable on a populated workspace: a section filter can resolve to
+        # nothing, or name only empty sections.
+        return _empty_neighborhood(total_count)
 
     if (
         db.scalar(
@@ -542,7 +549,7 @@ def get_neighborhood(
         if public
         else [MemberSurfaceOut(**row._mapping) for row in member_rows]
     )
-    relations = relations_within(db, tree.id, page.delivered_ids)
+    relations = relations_for_page(db, tree.id, page.member_ids, page.delivered_ids)
 
     next_offset = offset + len(page.member_ids)
     next_cursor = (
@@ -556,14 +563,25 @@ def get_neighborhood(
         if page.has_more and next_offset < MAX_NEIGHBORHOOD_TOTAL
         else None
     )
-    continuations = [
-        NeighborhoodContinuation(
-            section_id=section_id, section_name=section_name, remaining_count=remaining
-        )
-        for section_id, section_name, remaining in continuation_counts(
-            db, tree.id, section_ids, page.delivered_ids, total_count
-        )
-    ]
+    # Only what this page actually left behind: a scope the traversal cannot
+    # reach anyway (a disconnected member, a section member off the focus
+    # branch) must not show up as a "load more" the cursor can never satisfy.
+    # Section names and counts also stay out of public responses — reading
+    # sections needs an authenticated grant (see the sections router).
+    continuations = (
+        [
+            NeighborhoodContinuation(
+                section_id=section_id,
+                section_name=section_name,
+                remaining_count=remaining,
+            )
+            for section_id, section_name, remaining in continuation_counts(
+                db, tree.id, section_ids, page.delivered_ids, total_count
+            )
+        ]
+        if page.has_more and not (public and section_ids is not None)
+        else []
+    )
 
     if public:
         return JSONResponse(

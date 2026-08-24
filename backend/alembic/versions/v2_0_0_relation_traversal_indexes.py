@@ -17,6 +17,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Built non-concurrently, so each takes a SHARE lock on ``relations`` for
+    # the duration. Migrations run at container start before the app serves
+    # traffic, so this only stalls writes from another replica mid-deploy.
     op.create_index(
         "ix_relations_workspace_type_from",
         "relations",
