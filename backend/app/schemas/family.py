@@ -328,9 +328,28 @@ class DiseaseUpdate(BaseModel):
 
 
 # --- Neighborhood view -----------------------------------------------------
+class NeighborhoodContinuation(BaseModel):
+    """What was left out of this page and where — "42 more in North America".
+
+    ``remaining_count`` is the number of readable members of that scope not yet
+    delivered. It is a count over the scope, not over what the traversal can
+    still reach from the focus root: an exact reachable count would need the
+    unbounded walk the budget exists to prevent.
+    """
+
+    #: ``None`` for the workspace-wide scope (no section filter in effect).
+    section_id: str | None = None
+    section_name: str | None = None
+    remaining_count: int
+
+
 class NeighborhoodOut(BaseModel):
     members: list[MemberSurfaceOut]
     relations: list[RelationOut]
     root_id: str
     truncated: bool
     total_member_count: int
+    #: Cursor that resumes this traversal where the page stopped; ``None`` when
+    #: nothing is left or the cursor chain has hit its ceiling.
+    next_cursor: str | None = None
+    continuations: list[NeighborhoodContinuation] = []

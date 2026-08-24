@@ -21,6 +21,7 @@ _ACCESS_AUDIENCE = "family-tree-api"
 _TOTP_AUDIENCE = "family-tree-totp"
 _PUBLIC_TREE_AUDIENCE = "family-tree-public-tree"
 _SSE_AUDIENCE = "family-tree-sse"
+_NEIGHBORHOOD_AUDIENCE = "family-tree-neighborhood"
 
 
 def _create_token(
@@ -146,6 +147,31 @@ def decode_public_tree_token(token: str) -> tuple[str, int]:
     if not isinstance(access_version, int):
         raise jwt.InvalidTokenError("Missing public-tree access version")
     return data["sub"], access_version
+
+
+# ---------------------------------------------------------------------------
+# Neighborhood continuation cursors. Opaque to the client, but signed and
+# short-lived so a tampered, expired, or cross-principal cursor is rejected
+# rather than replayed against another caller's graph.
+# ---------------------------------------------------------------------------
+
+_CURSOR_PHASE = "neighborhood_cursor"
+_CURSOR_MINUTES = 30
+
+
+def create_neighborhood_cursor(workspace_id: str, claims: dict[str, str | int]) -> str:
+    return _create_token(
+        workspace_id,
+        audience=_NEIGHBORHOOD_AUDIENCE,
+        token_type=_CURSOR_PHASE,
+        expires_delta=timedelta(minutes=_CURSOR_MINUTES),
+        extra_claims=claims,
+    )
+
+
+def decode_neighborhood_cursor(token: str) -> dict:
+    """Validate a neighborhood cursor; return its claims or raise InvalidTokenError."""
+    return _decode_token(token, audience=_NEIGHBORHOOD_AUDIENCE, token_type=_CURSOR_PHASE)
 
 
 # ---------------------------------------------------------------------------
