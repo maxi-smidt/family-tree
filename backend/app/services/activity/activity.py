@@ -39,6 +39,7 @@ from app.models.content import (
     StoryMemberLink,
 )
 from app.models.family import Member, MemberDisease, Relation
+from app.models.provenance import ContentType
 from app.models.user import User
 from app.services.activity.activity_snapshots import (
     BridgeSnapshot,
@@ -52,6 +53,7 @@ from app.services.activity.activity_snapshots import (
     RelationSnapshot,
     StorySnapshot,
 )
+from app.services.provenance import scope_snapshot
 
 # Version of the delete-snapshot payload shape stored in ``details``
 # (see docs/ACTIVITY_AUDIT.md §b). Bump when the shape changes so a future
@@ -115,6 +117,9 @@ def member_delete_snapshot(
         "member": row_to_dict(member),
         "relations": [row_to_dict(r) for r in relations],
         "diseases": [row_to_dict(d) for d in diseases],
+        "content_scopes": scope_snapshot(
+            db, [(ContentType.DISEASE, d.id) for d in diseases]
+        ),
         "task_links": [row_to_dict(r) for r in task_links],
         "event_links": [row_to_dict(r) for r in event_links],
         "story_links": [row_to_dict(r) for r in story_links],
@@ -146,6 +151,7 @@ def event_delete_snapshot(db: Session, event: Event) -> DeleteSnapshot[EventSnap
     snapshot: EventSnapshot = {
         "version": SNAPSHOT_VERSION,
         "event": row_to_dict(event),
+        "content_scopes": scope_snapshot(db, [(ContentType.EVENT, event.id)]),
         "member_links": [row_to_dict(r) for r in member_links],
         "document_links": [row_to_dict(r) for r in document_links],
     }
@@ -167,6 +173,7 @@ def story_delete_snapshot(db: Session, story: Story) -> DeleteSnapshot[StorySnap
     snapshot: StorySnapshot = {
         "version": SNAPSHOT_VERSION,
         "story": row_to_dict(story),
+        "content_scopes": scope_snapshot(db, [(ContentType.STORY, story.id)]),
         "member_links": [row_to_dict(r) for r in member_links],
         "document_links": [row_to_dict(r) for r in document_links],
     }
@@ -191,6 +198,9 @@ def gallery_delete_snapshot(
     snapshot: GalleryImageSnapshot = {
         "version": SNAPSHOT_VERSION,
         "gallery_image": row_to_dict(image),
+        "content_scopes": scope_snapshot(
+            db, [(ContentType.GALLERY_IMAGE, image.id)]
+        ),
         "member_links": [row_to_dict(r) for r in member_links],
         "trashed_media": [image.image_data] if image.image_data else [],
     }
@@ -220,6 +230,7 @@ def document_delete_snapshot(
     snapshot: DocumentSnapshot = {
         "version": SNAPSHOT_VERSION,
         "document": row_to_dict(document),
+        "content_scopes": scope_snapshot(db, [(ContentType.DOCUMENT, document.id)]),
         "files": [row_to_dict(f) for f in files],
         "member_links": [row_to_dict(r) for r in member_links],
         "event_links": [row_to_dict(r) for r in event_links],
@@ -238,11 +249,14 @@ def relation_delete_snapshot(relation: Relation) -> DeleteSnapshot[RelationSnaps
     return {"snapshot": snapshot}
 
 
-def disease_delete_snapshot(disease: MemberDisease) -> DeleteSnapshot[DiseaseSnapshot]:
+def disease_delete_snapshot(
+    db: Session, disease: MemberDisease
+) -> DeleteSnapshot[DiseaseSnapshot]:
     """Pre-image of a bare disease-record delete (no cascade children)."""
     snapshot: DiseaseSnapshot = {
         "version": SNAPSHOT_VERSION,
         "disease": row_to_dict(disease),
+        "content_scopes": scope_snapshot(db, [(ContentType.DISEASE, disease.id)]),
     }
     return {"snapshot": snapshot}
 

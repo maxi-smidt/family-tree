@@ -21,6 +21,11 @@ class Section(Base):
         UniqueConstraint(
             "workspace_id", "name_normalized", name="uq_section_workspace_name"
         ),
+        # Redundant as a uniqueness rule (``id`` is already the PK), but it is
+        # the parent key content provenance points at, letting the database
+        # reject a scope whose section lives in another workspace — see
+        # ``models.provenance.ContentScope``.
+        UniqueConstraint("workspace_id", "id", name="uq_section_workspace_id_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)

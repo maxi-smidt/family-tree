@@ -154,7 +154,7 @@ def delete_disease(
             target_type="disease",
             target_id=disease_id,
             target_label=disease.name,
-            details=disease_delete_snapshot(disease),
+            details=disease_delete_snapshot(db, disease),
         )
         db.delete(disease)
         uow.after_commit(

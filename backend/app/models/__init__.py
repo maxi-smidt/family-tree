@@ -30,6 +30,7 @@ from app.models.friendship import Friendship
 from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.notification import Notification
+from app.models.provenance import ContentScope, ContentType
 from app.models.quality import QualityIssueDismissal
 from app.models.section import Section, SectionMember, SectionPosition
 from app.models.setting import AppSetting
@@ -93,4 +94,6 @@ __all__ = [
     "Section",
     "SectionMember",
     "SectionPosition",
+    "ContentScope",
+    "ContentType",
 ]

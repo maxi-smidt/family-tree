@@ -7,6 +7,7 @@ from app.api.routes import (
     admin_audit,
     auth,
     backups,
+    content_scopes,
     documents,
     events,
     export_import,
@@ -63,6 +64,7 @@ api_router.include_router(workspace_sharing.router)
 api_router.include_router(workspace_jobs.router)
 api_router.include_router(workspace_transfer.router)
 api_router.include_router(sections.router)
+api_router.include_router(content_scopes.router)
 api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
 api_router.include_router(virtual_views.router)
