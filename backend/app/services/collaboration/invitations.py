@@ -47,6 +47,7 @@ def accept_invitation(
 
     with UnitOfWork(db):
         if inv.section_id is not None:
+            tree = db.get(Workspace, inv.workspace_id)
             grant = db.scalar(
                 select(WorkspaceSectionGrant).where(
                     WorkspaceSectionGrant.workspace_id == inv.workspace_id,
@@ -55,13 +56,16 @@ def accept_invitation(
                 )
             )
             if grant is None:
-                grant = WorkspaceSectionGrant(
-                    workspace_id=inv.workspace_id,
-                    user_id=user.id,
-                    section_id=inv.section_id,
-                    role=inv.role,
-                )
-                db.add(grant)
+                # Don't add a grant if the user owns the tree — same guard as
+                # the workspace-wide branch below.
+                if tree is not None and tree.owner_id != user.id:
+                    grant = WorkspaceSectionGrant(
+                        workspace_id=inv.workspace_id,
+                        user_id=user.id,
+                        section_id=inv.section_id,
+                        role=inv.role,
+                    )
+                    db.add(grant)
             elif invite_rank > _ROLE_RANK.get(grant.role, 0):
                 grant.role = inv.role
             result = grant

@@ -92,7 +92,12 @@ class WorkspaceInvitation(Base):
         # Same composite-FK pattern as ``ContentScope``/``WorkspaceSectionGrant``:
         # the DB rejects a scope pointing into another workspace. NULL
         # ``section_id`` (the default, unscoped invitation) is left unchecked
-        # by MATCH SIMPLE semantics.
+        # by MATCH SIMPLE semantics. RESTRICT, like every other scope FK here
+        # — an invitation row survives its own resolution
+        # (accepted/revoked/expired) purely for status history, so
+        # ``delete_section`` explicitly clears a *resolved* one's
+        # ``section_id`` first rather than relying on implicit cascading
+        # semantics; a still-*pending* invitation keeps blocking the delete.
         ForeignKeyConstraint(
             ["workspace_id", "section_id"],
             ["sections.workspace_id", "sections.id"],
@@ -179,6 +184,12 @@ class WorkspaceSectionPublicLink(Base):
     of these can coexist so consolidating same-owner trees preserves every
     legacy public link — each with its own password, role, and access
     version — instead of merging them into one more-permissive link.
+
+    A row here is always live: revoking one deletes it (see
+    ``app.services.workspaces.public_links.revoke_section_public_link``)
+    rather than soft-marking it, mirroring ``WorkspaceSectionGrant`` — so a
+    revoked link doesn't outlive its usefulness and permanently block its
+    section from ever being deleted the way a merely-flagged row would.
     """
 
     __tablename__ = "workspace_section_public_links"
@@ -209,4 +220,3 @@ class WorkspaceSectionPublicLink(Base):
     # link's tokens.
     access_version: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[str] = mapped_column(String(40), default=utcnow_iso)
-    revoked_at: Mapped[str | None] = mapped_column(String(40), nullable=True)

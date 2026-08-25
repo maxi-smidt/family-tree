@@ -148,17 +148,23 @@ def best_role(db: Session, workspace_id: str, user_id: str) -> str | None:
 def permitted_section_ids(
     db: Session, workspace_id: str, user_id: str
 ) -> set[str] | None:
-    """Sections this user may act in, or ``None`` for unrestricted
-    (workspace-wide) access.
+    """Sections this user may *write* into, or ``None`` for unrestricted
+    (an editor-level workspace-wide grant).
 
     Feeds ``app.services.provenance.resolve_origin_section``: a user with no
-    workspace-wide grant can never have new content default to workspace-wide
-    origin, only to one of the sections they actually hold a grant in.
+    editor-level workspace-wide grant can never have new content default to
+    workspace-wide origin, only to a section they hold an *editor* grant in.
+    A non-editor grant (workspace-wide or scoped) contributes nothing here —
+    otherwise a workspace-wide viewer grant sitting alongside one section's
+    editor grant would be misread as "no restriction", handing that editor
+    write access to every other section too.
     """
-    grants = user_grants(db, workspace_id, user_id)
-    if any(g.section_id is None for g in grants):
+    editor_grants = [
+        g for g in user_grants(db, workspace_id, user_id) if g.role == "editor"
+    ]
+    if any(g.section_id is None for g in editor_grants):
         return None
-    return {g.section_id for g in grants if g.section_id is not None}
+    return {g.section_id for g in editor_grants}
 
 
 def restricts_domain(db: Session, workspace_id: str, user_id: str, domain: str) -> bool:

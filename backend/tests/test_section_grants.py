@@ -98,9 +98,9 @@ def test_resolver_never_synthesizes_role_and_restrictions_across_grants(db):
 def test_unlinked_content_in_a_section_excludes_a_collaborator_scoped_elsewhere(
     db,
 ):
-    """A collaborator scoped only to section B must never have section A in
-    their permitted set — the resolver-level guarantee behind "unlinked
-    content from one constituent tree never leaks to another's collaborator"."""
+    """A collaborator scoped only to section B must never resolve a grant for
+    section A — the resolver-level guarantee behind "unlinked content from
+    one constituent tree never leaks to another's collaborator"."""
     alice = make_user(db, "alice")
     bob = make_user(db, "bob")
     tree = make_tree(db, alice)
@@ -108,9 +108,23 @@ def test_unlinked_content_in_a_section_excludes_a_collaborator_scoped_elsewhere(
     section_b = _section(db, tree, "B")
     _grant(db, tree, section_b, bob, role="viewer")
 
-    permitted = permitted_section_ids(db, tree.id, bob.id)
-    assert permitted == {section_b.id}
-    assert section_a.id not in permitted
+    assert effective_grant(db, tree.id, bob.id, section_id=section_b.id) is not None
+    assert effective_grant(db, tree.id, bob.id, section_id=section_a.id) is None
+
+
+def test_permitted_section_ids_only_counts_editor_grants(db):
+    """permitted_section_ids feeds write-scoping, so a viewer-only section
+    grant (unlike an editor one) contributes nothing to it — visibility and
+    write permission are different questions."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    viewer_section = _section(db, tree, "Viewer")
+    editor_section = _section(db, tree, "Editor")
+    _grant(db, tree, viewer_section, bob, role="viewer")
+    _grant(db, tree, editor_section, bob, role="editor")
+
+    assert permitted_section_ids(db, tree.id, bob.id) == {editor_section.id}
 
 
 # ---------------------------------------------------------------------------
@@ -161,6 +175,39 @@ def test_section_scoped_editor_cannot_write_outside_permitted_sections(client, d
     denied = client.post(
         f"{API}/workspaces/{tree.id}/members?origin_section_id={out_of_scope.id}",
         json={"id": "m-out-of-scope", "firstName": "Out"},
+        headers=auth(bob),
+    )
+    assert denied.status_code == 400, denied.text
+
+
+def test_workspace_wide_viewer_grant_does_not_unlock_writes_to_every_section(
+    client, db
+):
+    """A workspace-wide *viewer* grant must not be misread as "no section
+    restriction" just because it has no section_id — only an editor-level
+    grant (workspace-wide or scoped) may widen permitted_section_ids."""
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    in_scope = _section(db, tree, "In scope")
+    out_of_scope = _section(db, tree, "Out of scope")
+    share(db, tree, bob, role="viewer")  # workspace-wide, but read-only
+    _grant(db, tree, in_scope, bob, role="editor")
+
+    assert permitted_section_ids(db, tree.id, bob.id) == {in_scope.id}
+
+    ok = client.post(
+        f"{API}/workspaces/{tree.id}/members?origin_section_id={in_scope.id}",
+        json={"id": "m-in-scope-2", "firstName": "In"},
+        headers=auth(bob),
+    )
+    assert ok.status_code == 201, ok.text
+
+    denied = client.post(
+        f"{API}/workspaces/{tree.id}/members?origin_section_id={out_of_scope.id}",
+        json={"id": "m-out-of-scope-2", "firstName": "Out"},
         headers=auth(bob),
     )
     assert denied.status_code == 400, denied.text
@@ -313,6 +360,40 @@ def test_section_with_a_pending_invitation_cannot_be_deleted(client, db):
     assert deleted.status_code == 409
 
 
+def test_section_deletable_once_its_pending_invitation_is_revoked(client, db):
+    """A *resolved* invitation must never permanently pin its section — only
+    a still-pending one blocks the delete."""
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+
+    inv = client.post(
+        f"{API}/workspaces/{tree.id}/invitations",
+        headers=auth(alice),
+        json={"role": "editor", "section_id": section.id},
+    ).json()
+
+    revoked = client.delete(
+        f"{API}/workspaces/{tree.id}/invitations/{inv['id']}", headers=auth(alice)
+    )
+    assert revoked.status_code == 204
+
+    deleted = client.delete(
+        f"{API}/workspaces/{tree.id}/sections/{section.id}", headers=auth(alice)
+    )
+    assert deleted.status_code == 204
+
+    # The revoked invitation's own status history survives the section going
+    # away — only its section_id, no longer meaningful, is cleared.
+    db.expire_all()
+    surviving = db.scalar(
+        select(WorkspaceInvitation).where(WorkspaceInvitation.id == inv["id"])
+    )
+    assert surviving is not None
+    assert surviving.revoked_at is not None
+    assert surviving.section_id is None
+
+
 # ---------------------------------------------------------------------------
 # Invitations carry section scope through acceptance
 # ---------------------------------------------------------------------------
@@ -428,12 +509,6 @@ def test_two_section_public_links_are_independently_passworded(client, db):
     set_section_public_link_password(link_b, "password-b1")
     db.commit()
 
-    # Workspace has no public_role set: still readable, because *some* public
-    # grant exists (coarse gate — which section a caller may see is #984's job).
-    denied = client.get(f"{API}/workspaces/{tree.id}")
-    assert denied.status_code == 401
-    assert denied.json()["detail"] == "public_password_required"
-
     # Wrong link's password doesn't unlock this one.
     wrong = client.post(
         f"{API}/workspaces/{tree.id}/public/unlock",
@@ -456,10 +531,38 @@ def test_two_section_public_links_are_independently_passworded(client, db):
     token_b = ok_b.json()["token"]
     assert token_a != token_b
 
-    granted = client.get(
-        f"{API}/workspaces/{tree.id}", headers={"X-Public-Workspace-Token": token_a}
+
+def test_section_public_link_does_not_grant_full_anonymous_workspace_read(client, db):
+    """A section-scoped public link must not become a back door to the whole
+    workspace: unlocking it must not satisfy the coarse anonymous read gate
+    while the workspace-wide link stays disabled — full per-section content
+    filtering for anonymous readers is #984's job, not #993's."""
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    link = create_section_public_link(db, workspace_id=tree.id, section_id=section.id)
+    set_section_public_link_password(link, "section-password")
+    db.commit()
+
+    # No workspace-wide public link: anonymous reads are refused outright,
+    # not merely password-gated.
+    denied = client.get(f"{API}/workspaces/{tree.id}")
+    assert denied.status_code == 401
+    assert denied.json()["detail"] == "Not authenticated"
+
+    unlocked = client.post(
+        f"{API}/workspaces/{tree.id}/public/unlock",
+        json={"password": "section-password", "link_id": link.id},
     )
-    assert granted.status_code == 200
+    assert unlocked.status_code == 200
+    token = unlocked.json()["token"]
+
+    # The section link's own token proves its password was correct, but must
+    # not unlock the coarse, unscoped workspace read either.
+    still_denied = client.get(
+        f"{API}/workspaces/{tree.id}", headers={"X-Public-Workspace-Token": token}
+    )
+    assert still_denied.status_code == 401
 
 
 def test_revoking_one_section_public_link_does_not_affect_another(client, db):
@@ -473,7 +576,7 @@ def test_revoking_one_section_public_link_does_not_affect_another(client, db):
 
     assert {g.id for g in active_public_grants(db, tree)} == {link_a.id, link_b.id}
 
-    revoke_section_public_link(link_a)
+    revoke_section_public_link(db, link_a)
     db.commit()
 
     remaining = {g.id for g in active_public_grants(db, tree)}

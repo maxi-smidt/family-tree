@@ -49,8 +49,9 @@ class SectionDependents(BaseModel):
 
     Deleting a section must never turn its content into workspace-wide
     content, so scoped content blocks the delete until it is explicitly
-    reassigned or removed. Grants, invitations, and public links (#993) block
-    it the same way — they must be reassigned or revoked first.
+    reassigned or removed. Grants and public links (#993) block it the same
+    way — they must be revoked first. ``invitation_count`` counts only
+    *pending* invitations; an already-resolved one needs no action.
     """
 
     section_id: str

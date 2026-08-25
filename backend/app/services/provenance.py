@@ -43,7 +43,6 @@ from app.models import (
     Section,
     Story,
     Workspace,
-    WorkspaceMembership,
     WorkspaceSectionGrant,
     WorkspaceSectionPublicLink,
 )
@@ -300,39 +299,25 @@ def scope_audience(db: Session, tree: Workspace, section_id: str | None) -> list
     A concrete section narrows the audience to whoever holds a workspace-wide
     grant plus whoever holds a grant naming that section specifically (#993).
     """
+    # workspace_audience already covers the owner and every workspace-wide
+    # grant holder — the part of the audience that is scope-independent.
     principals = workspace_audience(db, tree)
-    if section_id is None:
-        principals = principals | set(
-            db.scalars(
-                select(WorkspaceSectionGrant.user_id).where(
-                    WorkspaceSectionGrant.workspace_id == tree.id
-                )
-            )
+    section_grant_query = select(WorkspaceSectionGrant.user_id).where(
+        WorkspaceSectionGrant.workspace_id == tree.id
+    )
+    if section_id is not None:
+        section_grant_query = section_grant_query.where(
+            WorkspaceSectionGrant.section_id == section_id
         )
-    else:
-        workspace_wide = set(
-            db.scalars(
-                select(WorkspaceMembership.user_id).where(
-                    WorkspaceMembership.workspace_id == tree.id
-                )
-            )
-        )
-        section_scoped = set(
-            db.scalars(
-                select(WorkspaceSectionGrant.user_id).where(
-                    WorkspaceSectionGrant.workspace_id == tree.id,
-                    WorkspaceSectionGrant.section_id == section_id,
-                )
-            )
-        )
-        principals = {tree.owner_id} | workspace_wide | section_scoped
+    principals = principals | set(db.scalars(section_grant_query))
     if tree.public_role:
         principals = principals | {"public"}
+    # Every WorkspaceSectionPublicLink row is by definition live (see
+    # app.services.workspaces.public_links), so no revoked/status filter.
     if section_id is not None and db.scalar(
         select(WorkspaceSectionPublicLink.id).where(
             WorkspaceSectionPublicLink.workspace_id == tree.id,
             WorkspaceSectionPublicLink.section_id == section_id,
-            WorkspaceSectionPublicLink.revoked_at.is_(None),
         )
     ):
         principals = principals | {"public"}

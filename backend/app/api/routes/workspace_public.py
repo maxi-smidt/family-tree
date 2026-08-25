@@ -137,7 +137,15 @@ def unlock_public_tree(
     ``payload.link_id`` selects which grant to attempt: the workspace-wide
     link (default), or one of this workspace's independent
     ``WorkspaceSectionPublicLink`` grants (#993) — each has its own password,
-    so unlocking one never unlocks another.
+    rate limit, and access version, so unlocking, exhausting attempts on, or
+    revoking one never affects another.
+
+    A section-link token only proves *that* grant's password was correct; it
+    does not (yet) unlock ``get_readable_workspace_public`` — see
+    ``app.api.deps._public_access_ok``. Wiring it into the coarse workspace
+    read gate is deferred to #984's real per-section content filter, so a
+    section link cannot read more than its section by exposing the whole
+    workspace in the meantime.
     """
     client_ip = request.client.host if request.client else "unknown"
     limiter_key = f"{client_ip}:{workspace_id}:{payload.link_id or 'workspace'}"

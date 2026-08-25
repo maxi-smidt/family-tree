@@ -62,17 +62,27 @@ def _preview(db: Session, tree: Workspace, payload: RescopeRequest) -> RescopePr
             audience_before_by_scope[scope.section_id] = scope_audience(
                 db, tree, scope.section_id
             )
+        audience_before = audience_before_by_scope[scope.section_id]
+        # Leaving a section for workspace-wide is *structurally* widening
+        # regardless of who happens to hold a grant today — a future
+        # workspace-wide or differently-scoped grant would immediately reach
+        # it, which today's snapshot of audience_before/after can't show.
+        # An actual audience comparison catches the rest: moving between two
+        # sections (neither None) can add readers who weren't in the
+        # from-section even though neither side is workspace-wide.
+        leaves_for_workspace_wide = (
+            scope.section_id is not None and payload.section_id is None
+        )
         changes.append(
             RescopeChange(
                 content_type=scope.content_type,
                 content_id=scope.content_id,
                 from_section_id=scope.section_id,
                 to_section_id=payload.section_id,
-                audience_before=audience_before_by_scope[scope.section_id],
+                audience_before=audience_before,
                 audience_after=audience_after,
-                # Only leaving a section widens the audience; entering or
-                # switching one keeps it inside a section's collaborators.
-                widens=scope.section_id is not None and payload.section_id is None,
+                widens=leaves_for_workspace_wide
+                or not set(audience_after) <= set(audience_before),
             )
         )
     return RescopePreview(changes=changes)

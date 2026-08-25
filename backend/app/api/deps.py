@@ -11,7 +11,7 @@ from app.models import User, Workspace, WorkspaceMembership, WorkspaceSectionGra
 from app.services.provenance import bind_origin_section, resolve_origin_section
 from app.services.workspace_roles import role_for
 from app.services.workspaces.grants import permitted_section_ids, restricts_domain
-from app.services.workspaces.public_links import active_public_grants
+from app.services.workspaces.public_links import WORKSPACE_LINK_ID
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -104,29 +104,32 @@ def get_current_user_optional(
     return user
 
 
-def _public_access_ok(
-    db: Session, tree: Workspace, public_token: str | None
-) -> bool:
-    """True if some active public grant needs no password, or the supplied
-    unlock token is valid for one of this workspace's active grants (the
-    workspace-wide link or a section-scoped ``WorkspaceSectionPublicLink``,
-    #993). Each grant's password is independent, so unlocking one never
-    unlocks another.
+def _public_access_ok(tree: Workspace, public_token: str | None) -> bool:
+    """True if the workspace-wide public link needs no password, or the
+    supplied unlock token is valid for it.
+
+    Deliberately narrower than "some active public grant, any scope": a
+    section-scoped ``WorkspaceSectionPublicLink`` (#993) unlocks and mints
+    its own token (see ``workspace_public.unlock_public_tree``), but that
+    token must not grant this coarse, unscoped read of the *whole*
+    workspace — there is no per-section content filter yet to keep it to its
+    own section (that choke point is #984's job). Wiring it in here first
+    would let anyone who knew one constituent tree's old public password
+    read every other section a consolidated workspace now contains.
     """
-    grants = active_public_grants(db, tree)
-    if not grants:
-        return False
-    if any(g.password_hash is None for g in grants):
+    if not tree.public_password_hash:
         return True
     if not public_token:
         return False
     try:
         workspace_id, access_version, grant_id = decode_public_tree_token(public_token)
+        return (
+            workspace_id == tree.id
+            and grant_id == WORKSPACE_LINK_ID
+            and access_version == tree.public_access_version
+        )
     except Exception:  # noqa: BLE001 - any decode failure means no access
         return False
-    if workspace_id != tree.id:
-        return False
-    return any(g.id == grant_id and g.access_version == access_version for g in grants)
 
 
 def _resolve_workspace(
@@ -143,8 +146,8 @@ def _resolve_workspace(
 
     if user is None:
         # Anonymous requests succeed only for public read-only workspaces.
-        if not write and active_public_grants(db, tree):
-            if not _public_access_ok(db, tree, public_token):
+        if not write and tree.public_role == "viewer":
+            if not _public_access_ok(tree, public_token):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="public_password_required",
@@ -166,8 +169,8 @@ def _resolve_workspace(
     # authenticated users who have no explicit membership.
     role = role_for(db, tree, user)
     if role is None:
-        if not write and active_public_grants(db, tree):
-            if not _public_access_ok(db, tree, public_token):
+        if not write and tree.public_role == "viewer":
+            if not _public_access_ok(tree, public_token):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="public_password_required",

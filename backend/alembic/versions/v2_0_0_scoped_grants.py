@@ -82,12 +82,16 @@ def upgrade() -> None:
         sa.Column("password_hash", sa.String(length=255), nullable=True),
         sa.Column("access_version", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.String(length=40), nullable=False),
-        sa.Column("revoked_at", sa.String(length=40), nullable=True),
         sa.ForeignKeyConstraint(["workspace_id"], ["workspaces.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(
             ["workspace_id", "section_id"],
             ["sections.workspace_id", "sections.id"],
             name="fk_section_public_links_section",
+            # RESTRICT (unlike the invitations FK above) is safe here: a
+            # row only ever exists while its link is live — revoking one
+            # deletes it (see revoke_section_public_link) — so RESTRICT
+            # correctly blocks section deletion only while a *live* link
+            # still references it.
             ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id"),
