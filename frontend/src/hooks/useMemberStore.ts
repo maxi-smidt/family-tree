@@ -26,6 +26,11 @@ import {
 
 const WINDOWED_MODE_THRESHOLD = 2_000;
 
+// Bumped on every refreshMembers() call so a slower earlier fetch (e.g. a
+// focus change superseded by another before it returns) cannot overwrite the
+// members a later call already committed.
+let memberRefreshVersion = 0;
+
 // New-member creation still has its own relationship setup flow. Existing
 // member edits use the atomic member PATCH endpoint instead.
 async function syncVitalEventAfterCreate(
@@ -335,6 +340,9 @@ export const useMemberStore = create<MemberState>((set, get) => ({
   },
 
   refreshMembers: async (workspaceId = activeTreeId()) => {
+    const version = ++memberRefreshVersion;
+    const stale = () => !isActiveTree(workspaceId) || version !== memberRefreshVersion;
+
     if (!workspaceId) {
       set({
         members: [],
@@ -366,7 +374,7 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           neighborhoodUp,
           neighborhoodDown,
         );
-        if (!isActiveTree(workspaceId)) return;
+        if (stale()) return;
         set({
           members: buildAppMembers(nb.members, nb.relations, workspaceId),
           detailLoadedIds: new Set<string>(),
@@ -385,7 +393,38 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       set({ windowed: false, focusRootId: null, windowedForTreeId: null });
     }
 
-    // Normal mode: full load
+    // Ask the bounded endpoint first — its total_member_count comes from an
+    // indexed count query, not a full scan — so a large workspace is never
+    // fetched in full just to discover it is large. Virtual views don't
+    // expose this endpoint (it would 404), so skip straight to the full load.
+    if (!isVirtualId(workspaceId)) {
+      try {
+        const nb = await WorkspaceService.getNeighborhood(
+          workspaceId,
+          undefined,
+          neighborhoodUp,
+          neighborhoodDown,
+        );
+        if (stale()) return;
+        if (nb.total_member_count > WINDOWED_MODE_THRESHOLD) {
+          set({
+            windowed: true,
+            windowedForTreeId: workspaceId,
+            members: buildAppMembers(nb.members, nb.relations, workspaceId),
+            detailLoadedIds: new Set<string>(),
+            focusRootId: nb.root_id || null,
+            neighborhoodTruncated: nb.truncated,
+            totalMemberCount: nb.total_member_count,
+          });
+          return;
+        }
+      } catch {
+        // Probe failed — fall through to the full load below.
+      }
+    }
+
+    // Small/medium workspace (or the probe above didn't resolve): full load,
+    // mapped off the main thread (worker) so the UI never blocks.
     const [membersResult, relationsResult] = await Promise.allSettled([
       WorkspaceService.getMembers(workspaceId, true),
       WorkspaceService.getRelations(workspaceId),
@@ -398,65 +437,20 @@ export const useMemberStore = create<MemberState>((set, get) => ({
       return;
     }
 
-    if (!isActiveTree(workspaceId)) return;
+    if (stale()) return;
 
     const memberRows = membersResult.value;
     const relations = relationsResult.value;
 
-    // Virtual views don't expose the neighborhood/search endpoints, so never
-    // auto-enter windowed mode for them — it would 404 and fall back to a full
-    // load anyway. Real workspaces over the threshold switch to the windowed view.
-    if (memberRows.length > WINDOWED_MODE_THRESHOLD && !isVirtualId(workspaceId)) {
-      // Auto-enter windowed mode: load neighborhood with default root
-      set({
-        windowed: true,
-        windowedForTreeId: workspaceId,
-        totalMemberCount: memberRows.length,
-      });
-      try {
-        const nb = await WorkspaceService.getNeighborhood(
-          workspaceId,
-          undefined,
-          neighborhoodUp,
-          neighborhoodDown,
-        );
-        if (!isActiveTree(workspaceId)) return;
-        set({
-          members: buildAppMembers(nb.members, nb.relations, workspaceId),
-          detailLoadedIds: new Set<string>(),
-          focusRootId: nb.root_id || null,
-          neighborhoodTruncated: nb.truncated,
-          totalMemberCount: nb.total_member_count,
-        });
-      } catch {
-        // Neighborhood load failed — fall back to the full dataset without
-        // windowed UI, mapped off the main thread since it can be large.
-        const appMembers = await buildAppMembersOffThread(
-          memberRows,
-          relations,
-          workspaceId,
-        );
-        if (!isActiveTree(workspaceId)) return;
-        set({
-          windowed: false,
-          windowedForTreeId: null,
-          members: appMembers,
-          detailLoadedIds: new Set<string>(),
-          totalMemberCount: memberRows.length,
-        });
-      }
-      return;
-    }
-
-    // Normal mode: full load. Map off the main thread (worker) for large
-    // datasets so the UI never blocks; falls back to synchronous mapping.
     const appMembers = await buildAppMembersOffThread(
       memberRows,
       relations,
       workspaceId,
     );
-    if (!isActiveTree(workspaceId)) return;
+    if (stale()) return;
     set({
+      windowed: false,
+      windowedForTreeId: null,
       members: appMembers,
       detailLoadedIds: new Set<string>(),
       totalMemberCount: memberRows.length,

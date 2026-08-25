@@ -65,6 +65,10 @@ beforeEach(() => {
     detailLoadedIds: new Set<string>(),
     undoStack: [],
     redoStack: [],
+    windowed: false,
+    windowedForTreeId: null,
+    focusRootId: null,
+    totalMemberCount: 0,
   });
   useEventStore.setState({ events: [], initialized: false });
   useWorkspaceStore.setState({ selectedTree: undefined });
@@ -72,6 +76,16 @@ beforeEach(() => {
   vi.mocked(WorkspaceService.getEvents).mockResolvedValue([]);
   vi.mocked(WorkspaceService.getEventMemberLinks).mockResolvedValue([]);
   vi.mocked(WorkspaceService.addEvent).mockResolvedValue(undefined);
+  // Default: below the windowed threshold, so refreshMembers() falls through
+  // to the full load below after probing. Tests exercising the windowed path
+  // override this with mockResolvedValueOnce.
+  vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValue({
+    members: [],
+    relations: [],
+    root_id: "",
+    truncated: false,
+    total_member_count: 0,
+  });
 });
 
 describe("useMemberStore — refreshMembers", () => {
@@ -110,6 +124,85 @@ describe("useMemberStore — refreshMembers", () => {
     expect(WorkspaceService.getRelations).toHaveBeenCalledWith(TREE_ID);
     // getDiseases is no longer called on refreshMembers — it is deferred to fetchMemberDetail
     expect(WorkspaceService.getDiseases).not.toHaveBeenCalled();
+  });
+
+  it("probes the bounded neighborhood endpoint before ever fetching the full member/relation set", async () => {
+    selectTree();
+    mockServiceEmpty();
+
+    await useMemberStore.getState().refreshMembers();
+
+    expect(WorkspaceService.getNeighborhood).toHaveBeenCalledWith(
+      TREE_ID,
+      undefined,
+      expect.any(Number),
+      expect.any(Number),
+    );
+    // Small workspace (below the windowed threshold): the probe alone isn't
+    // enough to render the canvas, so a full load still follows.
+    expect(WorkspaceService.getMembers).toHaveBeenCalledWith(TREE_ID, true);
+    expect(useMemberStore.getState().windowed).toBe(false);
+  });
+
+  it("enters windowed mode straight from the probe for a large workspace, without ever fetching the full graph", async () => {
+    selectTree();
+    vi.mocked(WorkspaceService.getNeighborhood).mockResolvedValueOnce({
+      members: [MEMBER_DB_ROW],
+      relations: [],
+      root_id: "m1",
+      truncated: true,
+      total_member_count: 5_000,
+    });
+
+    await useMemberStore.getState().refreshMembers();
+
+    expect(WorkspaceService.getMembers).not.toHaveBeenCalled();
+    expect(WorkspaceService.getRelations).not.toHaveBeenCalled();
+    const state = useMemberStore.getState();
+    expect(state.windowed).toBe(true);
+    expect(state.totalMemberCount).toBe(5_000);
+    expect(state.members).toHaveLength(1);
+  });
+
+  it("discards a stale in-flight refresh when a newer one has already committed", async () => {
+    selectTree();
+    let resolveFirst: (value: {
+      members: never[];
+      relations: never[];
+      root_id: string;
+      truncated: boolean;
+      total_member_count: number;
+    }) => void = () => {};
+    const first = new Promise((resolve) => {
+      resolveFirst = resolve;
+    });
+    vi.mocked(WorkspaceService.getNeighborhood)
+      .mockReturnValueOnce(first as never)
+      .mockResolvedValueOnce({
+        members: [MEMBER_DB_ROW],
+        relations: [],
+        root_id: "m1",
+        truncated: true,
+        total_member_count: 5_000,
+      });
+
+    const firstCall = useMemberStore.getState().refreshMembers();
+    const secondCall = useMemberStore.getState().refreshMembers();
+    await secondCall;
+    expect(useMemberStore.getState().totalMemberCount).toBe(5_000);
+
+    resolveFirst({
+      members: [],
+      relations: [],
+      root_id: "",
+      truncated: false,
+      total_member_count: 1,
+    });
+    await firstCall;
+
+    // The slower, superseded first call must not overwrite what the second
+    // (later) call already committed.
+    expect(useMemberStore.getState().totalMemberCount).toBe(5_000);
   });
 });
 
