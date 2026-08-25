@@ -24,6 +24,7 @@ from app.core.config import settings
 from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
 from app.core.rate_limit import neighborhood_rate_limiter
+from app.core.request_ip import client_ip
 from app.db.session import get_db
 from app.models import Event, EventMemberLink, Member, Workspace
 from app.models.user import User
@@ -525,7 +526,7 @@ def get_neighborhood(
     anonymous one, so the client IP stands in for the principal there.
     """
     if context.principal == PUBLIC_PRINCIPAL:
-        principal_key = f"ip:{request.client.host if request.client else 'unknown'}"
+        principal_key = f"ip:{client_ip(request) or 'unknown'}"
     else:
         principal_key = context.principal
     rate_key = f"{tree.id}:{principal_key}"

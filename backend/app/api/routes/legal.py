@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
+from app.core.request_ip import client_ip
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import LegalAcceptance, LegalDocumentVersion, User
@@ -47,24 +48,6 @@ def _normalize_locale(locale: str | None) -> str:
     if locale and locale in LEGAL_LOCALES:
         return locale
     return LEGAL_DEFAULT_LOCALE
-
-
-def _client_ip(request: Request) -> str | None:
-    """Best-effort client IP, preferring proxy headers nginx sets.
-
-    Preference order: first hop of ``X-Forwarded-For``, then ``X-Real-IP``,
-    then the raw socket peer (``request.client.host``). See
-    ``frontend/nginx.conf`` for the headers nginx forwards.
-    """
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        first_hop = forwarded_for.split(",")[0].strip()
-        if first_hop:
-            return first_hop
-    real_ip = request.headers.get("x-real-ip")
-    if real_ip:
-        return real_ip.strip()
-    return request.client.host if request.client else None
 
 
 @router.get("/public", response_model=LegalPublicDocuments)
@@ -108,7 +91,7 @@ def accept_legal(
                 version=current_version,
                 locale=resolved_locale,
                 accepted_at=utcnow_iso(),
-                ip_address=_client_ip(request),
+                ip_address=client_ip(request),
                 user_agent=request.headers.get("user-agent"),
                 terms_hash=content_hash(terms_body) if terms_body else None,
                 privacy_hash=content_hash(privacy_body) if privacy_body else None,
