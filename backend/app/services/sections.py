@@ -23,6 +23,9 @@ from app.models import (
     SectionMember,
     SectionPosition,
     Workspace,
+    WorkspaceInvitation,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
 )
 from app.schemas.extract import Direction
 from app.schemas.provenance import SectionDependents
@@ -149,11 +152,45 @@ def update_section(
     return section
 
 
+def _grant_dependent_counts(db: Session, section_id: str) -> tuple[int, int, int]:
+    grant_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(WorkspaceSectionGrant)
+            .where(WorkspaceSectionGrant.section_id == section_id)
+        )
+        or 0
+    )
+    invitation_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(WorkspaceInvitation)
+            .where(WorkspaceInvitation.section_id == section_id)
+        )
+        or 0
+    )
+    public_link_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(WorkspaceSectionPublicLink)
+            .where(WorkspaceSectionPublicLink.section_id == section_id)
+        )
+        or 0
+    )
+    return grant_count, invitation_count, public_link_count
+
+
 def section_dependents(db: Session, section: Section) -> SectionDependents:
+    grant_count, invitation_count, public_link_count = _grant_dependent_counts(
+        db, section.id
+    )
     return SectionDependents(
         section_id=section.id,
         member_count=member_counts(db, [section.id]).get(section.id, 0),
         content_scope_counts=section_scope_counts(db, section.id),
+        grant_count=grant_count,
+        invitation_count=invitation_count,
+        public_link_count=public_link_count,
     )
 
 
@@ -167,7 +204,20 @@ def delete_section(
     first. Letting the section go and leaving the content workspace-wide would
     hand it to every collaborator — which is precisely what the database's
     RESTRICT on ``content_scopes`` refuses.
+
+    Grants, invitations, and public links scoped here (#993) are the same
+    story: reassigning their scope isn't well-defined (unlike content, a
+    grant has no natural "next section"), so they must be explicitly revoked
+    first — RESTRICT is the backstop for a race with this pre-check.
     """
+    grant_count, invitation_count, public_link_count = _grant_dependent_counts(
+        db, section.id
+    )
+    if grant_count or invitation_count or public_link_count:
+        raise ConflictError(
+            "Section still has grants, invitations, or public links; "
+            "revoke them before deleting"
+        )
     if section_scope_counts(db, section.id):
         if reassign_scope_to is None:
             raise ConflictError(

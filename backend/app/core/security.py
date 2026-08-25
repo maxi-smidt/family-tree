@@ -128,25 +128,34 @@ _PUBLIC_TREE_PHASE = "public_tree"
 _PUBLIC_TREE_TOKEN_HOURS = 12
 
 
-def create_public_tree_token(workspace_id: str, access_version: int) -> str:
+def create_public_tree_token(
+    workspace_id: str, access_version: int, grant_id: str = "workspace"
+) -> str:
+    """``grant_id`` identifies which public grant was unlocked: "workspace"
+    for the workspace-wide link, or a ``WorkspaceSectionPublicLink`` id
+    (#993) — so rotating or revoking one grant cannot unlock or revoke
+    another (see ``app.services.workspaces.public_links``)."""
     return _create_token(
         workspace_id,
         audience=_PUBLIC_TREE_AUDIENCE,
         token_type=_PUBLIC_TREE_PHASE,
         expires_delta=timedelta(hours=_PUBLIC_TREE_TOKEN_HOURS),
-        extra_claims={"access_version": access_version},
+        extra_claims={"access_version": access_version, "grant_id": grant_id},
     )
 
 
-def decode_public_tree_token(token: str) -> tuple[str, int]:
-    """Validate a public-tree unlock token; return tree id and access version."""
+def decode_public_tree_token(token: str) -> tuple[str, int, str]:
+    """Validate a public-tree unlock token; return (tree id, access version,
+    grant id). A token minted before #993 carries no ``grant_id`` claim and
+    is treated as the workspace-wide link, its only possible meaning then."""
     data = _decode_token(
         token, audience=_PUBLIC_TREE_AUDIENCE, token_type=_PUBLIC_TREE_PHASE
     )
     access_version = data.get("access_version")
     if not isinstance(access_version, int):
         raise jwt.InvalidTokenError("Missing public-tree access version")
-    return data["sub"], access_version
+    grant_id = data.get("grant_id") or "workspace"
+    return data["sub"], access_version, grant_id
 
 
 # ---------------------------------------------------------------------------

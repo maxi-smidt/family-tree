@@ -7,9 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.core.security import decode_access_token, decode_public_tree_token
 from app.db.session import get_db
-from app.models import User, Workspace, WorkspaceMembership
+from app.models import User, Workspace, WorkspaceMembership, WorkspaceSectionGrant
 from app.services.provenance import bind_origin_section, resolve_origin_section
 from app.services.workspace_roles import role_for
+from app.services.workspaces.grants import permitted_section_ids, restricts_domain
+from app.services.workspaces.public_links import active_public_grants
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -64,7 +66,10 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
 def require_domain(domain: str):
     """Hide a content domain from a restricted shared-tree member.
 
-    Owners, admins, and public viewers have no membership row and always pass.
+    Owners, admins, and public viewers have no grant at all and always pass.
+    A user with several grants (#993) passes as long as at least one of them
+    doesn't restrict the domain — fine per-section domain enforcement is
+    #984's job; this stays the coarse workspace-level gate it always was.
     """
     from app.services.workspaces.restrictions import RESTRICTABLE_DOMAINS
 
@@ -76,8 +81,7 @@ def require_domain(domain: str):
         user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
     ) -> None:
-        membership = db.get(WorkspaceMembership, (workspace_id, user.id))
-        if membership and membership.restrictions and domain in membership.restrictions:
+        if restricts_domain(db, workspace_id, user.id, domain):
             raise HTTPException(status_code=404, detail="Not found")
 
     return dependency
@@ -100,18 +104,29 @@ def get_current_user_optional(
     return user
 
 
-def _public_access_ok(tree: Workspace, public_token: str | None) -> bool:
-    """True if the tree needs no public password, or the supplied unlock token
-    is valid for this tree."""
-    if not tree.public_password_hash:
+def _public_access_ok(
+    db: Session, tree: Workspace, public_token: str | None
+) -> bool:
+    """True if some active public grant needs no password, or the supplied
+    unlock token is valid for one of this workspace's active grants (the
+    workspace-wide link or a section-scoped ``WorkspaceSectionPublicLink``,
+    #993). Each grant's password is independent, so unlocking one never
+    unlocks another.
+    """
+    grants = active_public_grants(db, tree)
+    if not grants:
+        return False
+    if any(g.password_hash is None for g in grants):
         return True
     if not public_token:
         return False
     try:
-        workspace_id, access_version = decode_public_tree_token(public_token)
-        return workspace_id == tree.id and access_version == tree.public_access_version
+        workspace_id, access_version, grant_id = decode_public_tree_token(public_token)
     except Exception:  # noqa: BLE001 - any decode failure means no access
         return False
+    if workspace_id != tree.id:
+        return False
+    return any(g.id == grant_id and g.access_version == access_version for g in grants)
 
 
 def _resolve_workspace(
@@ -128,8 +143,8 @@ def _resolve_workspace(
 
     if user is None:
         # Anonymous requests succeed only for public read-only workspaces.
-        if not write and tree.public_role == "viewer":
-            if not _public_access_ok(tree, public_token):
+        if not write and active_public_grants(db, tree):
+            if not _public_access_ok(db, tree, public_token):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="public_password_required",
@@ -151,8 +166,8 @@ def _resolve_workspace(
     # authenticated users who have no explicit membership.
     role = role_for(db, tree, user)
     if role is None:
-        if not write and tree.public_role == "viewer":
-            if not _public_access_ok(tree, public_token):
+        if not write and active_public_grants(db, tree):
+            if not _public_access_ok(db, tree, public_token):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="public_password_required",
@@ -206,7 +221,17 @@ def get_writable_workspace(
             detail="Legal terms must be accepted before making changes",
         )
     tree = _resolve_workspace(db, workspace_id, user, write=True)
-    bind_origin_section(db, resolve_origin_section(db, tree, origin_section_id))
+    permitted = (
+        None
+        if user.is_admin or tree.owner_id == user.id
+        else permitted_section_ids(db, tree.id, user.id)
+    )
+    bind_origin_section(
+        db,
+        resolve_origin_section(
+            db, tree, origin_section_id, permitted_section_ids=permitted
+        ),
+    )
     return tree
 
 
@@ -217,7 +242,14 @@ def explicit_workspace_ids(db: Session, user: User) -> list[str]:
             WorkspaceMembership.user_id == user.id
         )
     ).all()
-    return list({*owned, *shared})
+    # A user with only a section-scoped grant (#993) has no WorkspaceMembership
+    # row at all, so they'd otherwise be missing from their own workspace list.
+    section_scoped = db.scalars(
+        select(WorkspaceSectionGrant.workspace_id).where(
+            WorkspaceSectionGrant.user_id == user.id
+        )
+    ).all()
+    return list({*owned, *shared, *section_scoped})
 
 
 def accessible_workspace_ids(db: Session, user: User) -> list[str]:

@@ -73,12 +73,19 @@ class WorkspaceMerge(BaseModel):
 
 
 class WorkspaceMemberOut(BaseModel):
-    """A user that has access to a tree, with their role."""
+    """A user that has access to a tree, with their role.
+
+    A user with several grants (#993) — a workspace-wide membership plus one
+    or more section-scoped grants — appears as one row per grant, each with
+    its own ``section_id``, role, and restrictions; never merged into one.
+    """
 
     user_id: str
     username: str
     role: str  # "owner", "editor" or "viewer"
     restrictions: list[str] = Field(default_factory=list)
+    # None = workspace-wide grant (every row before #993).
+    section_id: str | None = None
 
 
 class MemberSubtreeOut(FamilyTreeBaseModel):
@@ -105,6 +112,9 @@ class InvitationCreate(BaseModel):
     email: str | None = None
     role: str = "editor"
     expires_in_days: int | None = None
+    # None = the invitation grants workspace-wide access on acceptance
+    # (the default). A section id scopes the grant it creates instead (#993).
+    section_id: str | None = None
 
 
 class InvitationOut(BaseModel):
@@ -114,6 +124,7 @@ class InvitationOut(BaseModel):
     workspace_id: str
     email: str | None = None
     role: str
+    section_id: str | None = None
     created_at: str
     expires_at: str | None = None
     accepted_at: str | None = None
@@ -160,6 +171,9 @@ class PublicPasswordUpdate(BaseModel):
 
 class PublicWorkspaceUnlock(BaseModel):
     password: str
+    # None = the workspace-wide public link; otherwise a
+    # WorkspaceSectionPublicLink id (#993).
+    link_id: str | None = None
 
     @field_validator("password")
     @classmethod

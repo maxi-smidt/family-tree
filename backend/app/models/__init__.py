@@ -46,6 +46,8 @@ from app.models.workspace import (
     Workspace,
     WorkspaceInvitation,
     WorkspaceMembership,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
     WorkspaceUserState,
 )
 
@@ -57,6 +59,8 @@ __all__ = [
     "Workspace",
     "WorkspaceMembership",
     "WorkspaceInvitation",
+    "WorkspaceSectionGrant",
+    "WorkspaceSectionPublicLink",
     "WorkspaceUserState",
     "Friendship",
     "VirtualView",

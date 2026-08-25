@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models import User, Workspace, WorkspaceMembership
 from app.schemas.workspace import WorkspaceOut
 from app.services.workspace_roles import role_for
+from app.services.workspaces.grants import best_grant
 from app.services.workspaces.workspace_state import workspace_last_opened
 
 
@@ -33,8 +34,10 @@ def tree_out(
         )
     out.shared_count = shared_count or 0
     if user is not None and out.role not in ("owner",) and not user.is_admin:
-        membership = db.get(WorkspaceMembership, (tree.id, user.id))
-        out.restrictions = list(membership.restrictions or []) if membership else []
+        # From the same grant role_for used (#993) — never a synthesis of
+        # one grant's role with another's restrictions.
+        grant = best_grant(db, tree.id, user.id)
+        out.restrictions = list(grant.restrictions) if grant else []
     out.public_password_protected = tree.public_password_hash is not None
     if isinstance(last_opened, _Unset):
         last_opened = (

@@ -6,7 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_workspace
-from app.core.rate_limit import public_unlock_rate_limiter
+from app.core.rate_limit import (
+    public_unlock_aggregate_rate_limiter,
+    public_unlock_rate_limiter,
+)
 from app.core.security import (
     create_public_tree_token,
     hash_password,
@@ -26,6 +29,7 @@ from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_workspace_event
 from app.services.system.admin_audit import record_admin_audit
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.public_links import resolve_public_grant
 from app.services.workspaces.workspace_view import tree_out
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -127,29 +131,46 @@ def unlock_public_tree(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Anonymous: verify a public tree's password and return a short-lived
-    unlock token to be sent as the X-Public-Workspace-Token header."""
+    """Anonymous: verify a public grant's password and return a short-lived
+    unlock token to be sent as the X-Public-Workspace-Token header.
+
+    ``payload.link_id`` selects which grant to attempt: the workspace-wide
+    link (default), or one of this workspace's independent
+    ``WorkspaceSectionPublicLink`` grants (#993) — each has its own password,
+    so unlocking one never unlocks another.
+    """
     client_ip = request.client.host if request.client else "unknown"
-    limiter_key = f"{client_ip}:{workspace_id}"
+    limiter_key = f"{client_ip}:{workspace_id}:{payload.link_id or 'workspace'}"
     retry_after = public_unlock_rate_limiter.retry_after(limiter_key)
-    if retry_after is not None:
+    aggregate_retry_after = public_unlock_aggregate_rate_limiter.retry_after(client_ip)
+    if retry_after is not None or aggregate_retry_after is not None:
         raise HTTPException(
             status_code=429,
             detail="Too many public unlock attempts",
-            headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+            headers={
+                "Retry-After": str(
+                    max(1, math.ceil(max(retry_after or 0, aggregate_retry_after or 0)))
+                )
+            },
         )
 
+    def _record_failure() -> None:
+        public_unlock_rate_limiter.record_failure(limiter_key)
+        public_unlock_aggregate_rate_limiter.record_failure(client_ip)
+
     tree = db.get(Workspace, workspace_id)
-    if tree is None or tree.public_role != "viewer" or tree.public_password_hash is None:
-        # Run a dummy bcrypt verify so timing does not reveal whether the tree
-        # exists / is protected, then answer uniformly.
+    grant = resolve_public_grant(db, tree, payload.link_id) if tree else None
+    if grant is None or grant.password_hash is None:
+        # Run a dummy bcrypt verify so timing does not reveal whether the
+        # workspace/grant exists or is protected, then answer uniformly.
         run_dummy_verify(payload.password)
-        public_unlock_rate_limiter.record_failure(limiter_key)
+        _record_failure()
         raise HTTPException(status_code=404, detail="Not found")
-    if not verify_password(payload.password, tree.public_password_hash):
-        public_unlock_rate_limiter.record_failure(limiter_key)
+    if not verify_password(payload.password, grant.password_hash):
+        _record_failure()
         raise HTTPException(status_code=401, detail="invalid_public_password")
     public_unlock_rate_limiter.reset(limiter_key)
+    public_unlock_aggregate_rate_limiter.reset(client_ip)
     return PublicWorkspaceUnlockResult(
-        token=create_public_tree_token(tree.id, tree.public_access_version)
+        token=create_public_tree_token(tree.id, grant.access_version, grant.id)
     )
