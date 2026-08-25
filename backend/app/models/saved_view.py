@@ -100,12 +100,22 @@ class SavedViewSection(Base):
     """One section included in a saved view's traversal filter.
 
     ``workspace_id`` is denormalized from the owning ``SavedView`` (immutable
-    once written) purely so this table can carry the same composite
-    same-workspace FK every other section-scoped table does.
+    once written) so this table can carry two composite same-workspace FKs —
+    one back to the owning ``SavedView``, one to the ``Section`` — that
+    together force both to actually share a workspace. A plain single-column
+    FK on ``saved_view_id`` would leave ``workspace_id`` unchecked against the
+    view's own, letting a row point at a view in one workspace while naming a
+    section from another.
     """
 
     __tablename__ = "saved_view_sections"
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["workspace_id", "saved_view_id"],
+            ["saved_views.workspace_id", "saved_views.id"],
+            ondelete="CASCADE",
+            name="fk_saved_view_sections_view",
+        ),
         ForeignKeyConstraint(
             ["workspace_id", "section_id"],
             ["sections.workspace_id", "sections.id"],
@@ -114,9 +124,7 @@ class SavedViewSection(Base):
         ),
     )
 
-    saved_view_id: Mapped[str] = mapped_column(
-        String(40), ForeignKey("saved_views.id", ondelete="CASCADE"), primary_key=True
-    )
+    saved_view_id: Mapped[str] = mapped_column(String(40), primary_key=True)
     section_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     workspace_id: Mapped[str] = mapped_column(String(36))
 

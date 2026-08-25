@@ -35,7 +35,12 @@ from app.models.saved_view import (
     SavedViewSection,
     SavedViewUserState,
 )
-from app.schemas.saved_view import SavedViewCreate, SavedViewOut, SavedViewUpdate
+from app.schemas.saved_view import (
+    SavedViewCreate,
+    SavedViewOut,
+    SavedViewPositionItem,
+    SavedViewUpdate,
+)
 from app.services.workspaces.visibility import (
     WorkspaceAccessContext,
     resolve_access_context,
@@ -291,37 +296,64 @@ def saved_view_out(
         created_at=view.created_at,
         updated_at=view.updated_at,
         last_opened=last_opened,
+        positions=[
+            SavedViewPositionItem(
+                node_id=p.node_id, position_x=p.position_x, position_y=p.position_y
+            )
+            for p in view.positions
+        ],
     )
 
 
-def degrade_saved_views_for_member(db: Session, member_id: str) -> None:
+def degrade_saved_views_for_member(
+    db: Session, workspace_id: str, member_id: str
+) -> None:
     """Repair saved views before a member is deleted.
 
     The focus-member FK is RESTRICT (see ``models.saved_view``), so a member
     referenced by any saved view would otherwise block its own deletion —
     clear the reference (and this member's position overlay, now meaningless)
     first, degrading each affected view instead of losing it or the member.
+
+    ``node_id`` on a position overlay is an unvalidated string (real member
+    id or a synthetic anchor — see ``models.saved_view.SavedViewPosition``),
+    so its cleanup is scoped through ``workspace_id`` explicitly rather than
+    matching ``member_id`` globally: nothing stops a client writing another
+    workspace's member id there, and this must never reach across workspaces
+    to delete an unrelated view's overlay.
     """
-    db.query(SavedView).filter(SavedView.focus_member_id == member_id).update(
-        {SavedView.focus_member_id: None}, synchronize_session=False
-    )
-    db.query(SavedViewPosition).filter(SavedViewPosition.node_id == member_id).delete(
-        synchronize_session=False
-    )
+    db.query(SavedView).filter(
+        SavedView.workspace_id == workspace_id, SavedView.focus_member_id == member_id
+    ).update({SavedView.focus_member_id: None}, synchronize_session=False)
+    view_ids = select(SavedView.id).where(SavedView.workspace_id == workspace_id)
+    db.query(SavedViewPosition).filter(
+        SavedViewPosition.node_id == member_id,
+        SavedViewPosition.saved_view_id.in_(view_ids),
+    ).delete(synchronize_session=False)
 
 
-def repoint_saved_views_for_merge(db: Session, keep_id: str, remove_id: str) -> None:
+def repoint_saved_views_for_merge(
+    db: Session, workspace_id: str, keep_id: str, remove_id: str
+) -> None:
     """Carry ``remove``'s saved-view references onto ``keep`` before an
     in-place member merge deletes ``remove`` — a merge means "these are the
     same person now", so a view degrades only if ``keep`` truly has nothing
     there yet, never just because the id it was pointing at changed.
+
+    Scoped through ``workspace_id`` for the same reason as
+    ``degrade_saved_views_for_member``: ``node_id`` is an unvalidated string,
+    not necessarily a member of this workspace at all.
     """
-    db.query(SavedView).filter(SavedView.focus_member_id == remove_id).update(
-        {SavedView.focus_member_id: keep_id}, synchronize_session=False
-    )
+    db.query(SavedView).filter(
+        SavedView.workspace_id == workspace_id, SavedView.focus_member_id == remove_id
+    ).update({SavedView.focus_member_id: keep_id}, synchronize_session=False)
+    view_ids = select(SavedView.id).where(SavedView.workspace_id == workspace_id)
     moved = list(
         db.scalars(
-            select(SavedViewPosition).where(SavedViewPosition.node_id == remove_id)
+            select(SavedViewPosition).where(
+                SavedViewPosition.node_id == remove_id,
+                SavedViewPosition.saved_view_id.in_(view_ids),
+            )
         )
     )
     for row in moved:

@@ -64,7 +64,10 @@ def upgrade() -> None:
         sa.Column("section_id", sa.String(length=36), nullable=False),
         sa.Column("workspace_id", sa.String(length=36), nullable=False),
         sa.ForeignKeyConstraint(
-            ["saved_view_id"], ["saved_views.id"], ondelete="CASCADE"
+            ["workspace_id", "saved_view_id"],
+            ["saved_views.workspace_id", "saved_views.id"],
+            ondelete="CASCADE",
+            name="fk_saved_view_sections_view",
         ),
         sa.ForeignKeyConstraint(
             ["workspace_id", "section_id"],

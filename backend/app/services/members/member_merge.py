@@ -428,6 +428,6 @@ def merge_members_in_place(
         }
     }
 
-    repoint_saved_views_for_merge(db, keep.id, remove.id)
+    repoint_saved_views_for_merge(db, tree.id, keep.id, remove.id)
     db.delete(remove)
     return keep, details, counterpart, bridge_outcome

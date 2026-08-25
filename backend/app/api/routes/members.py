@@ -763,7 +763,7 @@ def delete_member(
         target_label=label,
         details=member_delete_snapshot(db, member, counterpart),
     )
-    degrade_saved_views_for_member(db, member.id)
+    degrade_saved_views_for_member(db, tree.id, member.id)
     db.delete(member)
     with UnitOfWork(db) as uow:
         uow.after_commit(

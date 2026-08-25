@@ -225,6 +225,13 @@ def test_positions_upsert_and_state(client, db):
     )
     assert res.status_code == 204
 
+    reloaded = client.get(
+        f"{API}/workspaces/{tree.id}/saved-views/{view['id']}", headers=auth(user)
+    ).json()
+    assert reloaded["positions"] == [
+        {"node_id": "root", "position_x": 10.0, "position_y": 20.0}
+    ]
+
     state_res = client.patch(
         f"{API}/workspaces/{tree.id}/saved-views/{view['id']}/state",
         headers=auth(user),
@@ -257,6 +264,39 @@ def test_deleting_focus_member_degrades_view_instead_of_blocking_delete(client, 
         f"{API}/workspaces/{tree.id}/saved-views/{view['id']}", headers=auth(user)
     ).json()
     assert reloaded["focus_member_id"] is None
+
+
+def test_deleting_member_only_cleans_up_positions_in_its_own_workspace(client, db):
+    """A saved view's position overlay accepts arbitrary node ids (real
+    member or synthetic), so cleanup on member delete must never reach into
+    an unrelated workspace just because some other view's node id happens to
+    match the deleted member's id (#986)."""
+    user = make_user(db)
+    tree_a = make_tree(db, user, name="A")
+    tree_b = make_tree(db, user, name="B")
+    add_member(db, tree_a, "member-a")
+    add_member(db, tree_b, "member-b")
+    view_b = _create(client, user, tree_b).json()
+
+    # tree_b's view uses tree_a's member id as an (unvalidated) node id.
+    res = client.patch(
+        f"{API}/workspaces/{tree_b.id}/saved-views/{view_b['id']}/positions",
+        headers=auth(user),
+        json=[{"node_id": "member-a", "position_x": 1.0, "position_y": 2.0}],
+    )
+    assert res.status_code == 204
+
+    del_res = client.delete(
+        f"{API}/workspaces/{tree_a.id}/members/member-a", headers=auth(user)
+    )
+    assert del_res.status_code == 204
+
+    reloaded = client.get(
+        f"{API}/workspaces/{tree_b.id}/saved-views/{view_b['id']}", headers=auth(user)
+    ).json()
+    assert reloaded["positions"] == [
+        {"node_id": "member-a", "position_x": 1.0, "position_y": 2.0}
+    ]
 
 
 def test_deleting_section_narrows_view_instead_of_blocking_delete(client, db):

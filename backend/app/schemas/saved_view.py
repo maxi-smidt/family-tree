@@ -12,6 +12,12 @@ def _require_name(value: str) -> str:
     return value
 
 
+class SavedViewPositionItem(BaseModel):
+    node_id: str
+    position_x: float
+    position_y: float
+
+
 class SavedViewOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -33,6 +39,10 @@ class SavedViewOut(BaseModel):
     created_at: str
     updated_at: str
     last_opened: str | None = None
+    # The canvas layout overlay (#986 P1): written via PATCH .../positions and
+    # otherwise invisible anywhere else, so it has to come back on read or a
+    # reopened view can never restore its saved arrangement.
+    positions: list[SavedViewPositionItem] = []
 
 
 class SavedViewCreate(BaseModel):
@@ -83,12 +93,6 @@ class SavedViewUpdate(BaseModel):
         if value is not None and (value < 0 or value > 20):
             raise ValueError("Depth must be between 0 and 20")
         return value
-
-
-class SavedViewPositionItem(BaseModel):
-    node_id: str
-    position_x: float
-    position_y: float
 
 
 class SavedViewUserStateOut(BaseModel):
