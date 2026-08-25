@@ -204,6 +204,38 @@ describe("useMemberStore — refreshMembers", () => {
     // (later) call already committed.
     expect(useMemberStore.getState().totalMemberCount).toBe(5_000);
   });
+
+  it("does not fall back to a full load for a stale probe failure", async () => {
+    selectTree();
+    let rejectFirst: (reason: unknown) => void = () => {};
+    const first = new Promise((_resolve, reject) => {
+      rejectFirst = reject;
+    });
+    vi.mocked(WorkspaceService.getNeighborhood)
+      .mockReturnValueOnce(first as never)
+      .mockResolvedValueOnce({
+        members: [MEMBER_DB_ROW],
+        relations: [],
+        root_id: "m1",
+        truncated: true,
+        total_member_count: 5_000,
+      });
+
+    const firstCall = useMemberStore.getState().refreshMembers();
+    const secondCall = useMemberStore.getState().refreshMembers();
+    await secondCall;
+    expect(useMemberStore.getState().totalMemberCount).toBe(5_000);
+
+    // The superseded first call's probe now fails. It must not start the
+    // O(workspace) full-load fallback — that fetch's result would just be
+    // discarded, but the fetch itself is exactly what this change removes.
+    rejectFirst(new Error("network error"));
+    await firstCall;
+
+    expect(WorkspaceService.getMembers).not.toHaveBeenCalled();
+    expect(WorkspaceService.getRelations).not.toHaveBeenCalled();
+    expect(useMemberStore.getState().totalMemberCount).toBe(5_000);
+  });
 });
 
 describe("useMemberStore — addMember", () => {

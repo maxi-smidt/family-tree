@@ -419,7 +419,10 @@ export const useMemberStore = create<MemberState>((set, get) => ({
           return;
         }
       } catch {
-        // Probe failed — fall through to the full load below.
+        // Probe failed — fall through to the full load below, unless a newer
+        // call has already superseded this one (no point starting an
+        // O(workspace) fetch whose result would just be discarded).
+        if (stale()) return;
       }
     }
 
