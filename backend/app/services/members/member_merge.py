@@ -49,6 +49,7 @@ from app.services.members.member_clone import (
     norm,
     to_snake_case,
 )
+from app.services.saved_views.saved_views import repoint_saved_views_for_merge
 
 BridgeOutcome = Literal["inherited", "dissolved"]
 
@@ -427,5 +428,6 @@ def merge_members_in_place(
         }
     }
 
+    repoint_saved_views_for_merge(db, keep.id, remove.id)
     db.delete(remove)
     return keep, details, counterpart, bridge_outcome

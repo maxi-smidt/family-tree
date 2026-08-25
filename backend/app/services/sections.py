@@ -32,6 +32,7 @@ from app.schemas.provenance import SectionDependents
 from app.schemas.section import SectionOut, SectionOverlap, SectionPreview
 from app.services.members.member_access import get_member
 from app.services.provenance import reassign_section_scopes, section_scope_counts
+from app.services.saved_views.saved_views import drop_saved_view_section
 from app.services.workspaces.subtree_selection import collect_member_ids
 
 
@@ -253,6 +254,7 @@ def delete_section(
             db, from_section_id=section.id, to_section_id=target.id
         )
         db.flush()
+    drop_saved_view_section(db, section.id)
     db.delete(section)
 
 
