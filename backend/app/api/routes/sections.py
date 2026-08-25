@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models import Workspace
 from app.models.user import User
 from app.schemas.extract import Direction
+from app.schemas.provenance import SectionDependents
 from app.schemas.section import (
     SectionCreate,
     SectionMembersSet,
@@ -23,10 +24,12 @@ from app.services.event_bus import publish_workspace_event
 from app.services.sections import (
     compute_section_preview,
     create_section,
+    delete_section,
     get_section,
     list_sections,
     member_counts,
     replace_section_members,
+    section_dependents,
     section_out,
     suggest_sections_for_member,
     update_section,
@@ -163,9 +166,20 @@ def patch_section(
     return section_out(section, len(section.members))
 
 
-@router.delete("/{section_id}", status_code=204)
-def delete_section(
+@router.get("/{section_id}/dependents", response_model=SectionDependents)
+def get_section_dependents(
     section_id: str,
+    tree: Workspace = Depends(get_readable_workspace),
+    db: Session = Depends(get_db),
+):
+    """What deleting this section would have to account for first."""
+    return section_dependents(db, get_section(db, tree, section_id))
+
+
+@router.delete("/{section_id}", status_code=204)
+def remove_section(
+    section_id: str,
+    reassign_scope_to: str | None = None,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -181,7 +195,7 @@ def delete_section(
             target_id=section.id,
             target_label=section.name,
         )
-        db.delete(section)
+        delete_section(db, tree, section, reassign_scope_to=reassign_scope_to)
         uow.after_commit(lambda: _activity_added(db, tree))
         uow.after_commit(lambda: _content_changed(db, tree))
 

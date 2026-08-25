@@ -27,6 +27,7 @@ from app.core.exceptions import (
 )
 from app.db.base import utcnow_iso
 from app.models import (
+    ContentType,
     DocumentFile,
     Event,
     GalleryImage,
@@ -45,6 +46,7 @@ from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import media_disk_usage, move_media_to_tree
 from app.services.members.member_clone import clone_member, wire_bridge
+from app.services.provenance import rehome_scopes
 from app.services.system.job_service import ProgressCallback
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspaces.subtree_documents import (
@@ -250,11 +252,19 @@ def extract_subtree(
     _progress(60)
 
     # --- Diseases (tree-scoped rows of moved members follow them) ---
+    moved_disease_ids: list[str] = []
     for d in db.scalars(
         select(MemberDisease).where(MemberDisease.workspace_id == tree.id)
     ):
         if d.member_id in moved:
             d.workspace_id = new_tree.id
+            moved_disease_ids.append(d.id)
+    rehome_scopes(
+        db,
+        content_type=ContentType.DISEASE,
+        content_ids=moved_disease_ids,
+        workspace_id=new_tree.id,
+    )
 
     # --- Gallery / events / stories ---
     # Entities whose member links ALL point at moved members follow the move
@@ -274,6 +284,12 @@ def extract_subtree(
         ):
             img.workspace_id = new_tree.id
             img.image_data = move_media_to_tree(img.image_data, new_tree.id)
+        rehome_scopes(
+            db,
+            content_type=ContentType.GALLERY_IMAGE,
+            content_ids=moved_image_ids,
+            workspace_id=new_tree.id,
+        )
         # Unknown-face rows follow their image automatically (they're reached
         # only through gallery_image_id, which is unchanged), but the research
         # task they created lives in MemberTask, which never moves with this
@@ -314,6 +330,12 @@ def extract_subtree(
             )
         ):
             e.workspace_id = new_tree.id
+        rehome_scopes(
+            db,
+            content_type=ContentType.EVENT,
+            content_ids=moved_event_ids,
+            workspace_id=new_tree.id,
+        )
     for lnk in stale_event_links:
         db.delete(lnk)
     _progress(78)
@@ -328,6 +350,12 @@ def extract_subtree(
             )
         ):
             s.workspace_id = new_tree.id
+        rehome_scopes(
+            db,
+            content_type=ContentType.STORY,
+            content_ids=moved_story_ids,
+            workspace_id=new_tree.id,
+        )
     for lnk in stale_story_links:
         db.delete(lnk)
     _progress(84)

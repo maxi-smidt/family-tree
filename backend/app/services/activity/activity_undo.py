@@ -44,6 +44,7 @@ from app.services.activity.activity_snapshots import (
     RowSnapshot,
     StorySnapshot,
 )
+from app.services.provenance import restore_scopes
 
 
 class UndoConflict(Exception):
@@ -188,6 +189,7 @@ def restore_member(
         disease_count += 1
     if disease_count:
         result.restored["diseases"] = disease_count
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
 
     _restore_member_links(
         db,
@@ -303,6 +305,7 @@ def restore_disease(
     if _in_tree(db, Member, disease["member_id"], tree.id) is None:
         raise UndoConflict(f"member {disease['member_id']} no longer exists")
     db.add(MemberDisease(**disease))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     return RestoreResult(main_id=disease["id"], restored={"disease": disease["id"]})
 
 
@@ -317,6 +320,7 @@ def restore_event(db: Session, tree: Workspace, snapshot: EventSnapshot) -> Rest
     if db.get(Event, event_id) is not None:
         raise UndoConflict(f"event {event_id} already exists")
     db.add(Event(**event_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(main_id=event_id, restored={"event": event_id})
 
     count = 0
@@ -357,6 +361,7 @@ def restore_story(db: Session, tree: Workspace, snapshot: StorySnapshot) -> Rest
     if db.get(Story, story_id) is not None:
         raise UndoConflict(f"story {story_id} already exists")
     db.add(Story(**story_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(main_id=story_id, restored={"story": story_id})
 
     count = 0
@@ -404,6 +409,7 @@ def restore_gallery_image(
     if db.get(GalleryImage, image_id) is not None:
         raise UndoConflict(f"gallery image {image_id} already exists")
     db.add(GalleryImage(**image_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(
         main_id=image_id,
         restored={"gallery_image": image_id},
@@ -435,6 +441,7 @@ def restore_document(
     if db.get(Document, doc_id) is not None:
         raise UndoConflict(f"document {doc_id} already exists")
     db.add(Document(**doc_data))
+    restore_scopes(db, tree, snapshot.get("content_scopes", {}))
     result = RestoreResult(
         main_id=doc_id,
         restored={"document": doc_id},

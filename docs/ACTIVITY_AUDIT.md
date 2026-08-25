@@ -124,6 +124,15 @@ row plus every link table that cascades away with it.
 ="document_file"`), built inline from `delete_snapshot(document_file=...,
 trashed_media=...)` since it's a single row with no link tables of its own.
 
+**Content provenance (issue #1023).** Every snapshot of a record that carries
+an origin scope (event, story, gallery image, document, disease — and the
+diseases inside a member snapshot) also stores a `content_scopes` map keyed
+`"<content_type>:<content_id>"`, so an undo puts the record back into the
+section it came from instead of restoring it workspace-wide. The key is
+optional, so pre-#1023 snapshots still restore under `version: 1`; they simply
+come back workspace-wide, as does any record whose section has been deleted in
+the meantime.
+
 **Media trash/retention (issue #760).** Gallery and document deletes used to
 call `delete_media`, unlinking the bytes immediately — a row snapshot alone
 couldn't restore those. Both call sites now use `trash_media`

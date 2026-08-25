@@ -14,7 +14,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import ConflictError, NotFoundError
+from app.core.exceptions import ConflictError, InvalidInputError, NotFoundError
 from app.db.base import new_uuid, utcnow_iso
 from app.models import (
     Member,
@@ -25,8 +25,10 @@ from app.models import (
     Workspace,
 )
 from app.schemas.extract import Direction
+from app.schemas.provenance import SectionDependents
 from app.schemas.section import SectionOut, SectionOverlap, SectionPreview
 from app.services.members.member_access import get_member
+from app.services.provenance import reassign_section_scopes, section_scope_counts
 from app.services.workspaces.subtree_selection import collect_member_ids
 
 
@@ -145,6 +147,40 @@ def update_section(
     if position is not None:
         section.position = position
     return section
+
+
+def section_dependents(db: Session, section: Section) -> SectionDependents:
+    return SectionDependents(
+        section_id=section.id,
+        member_count=member_counts(db, [section.id]).get(section.id, 0),
+        content_scope_counts=section_scope_counts(db, section.id),
+    )
+
+
+def delete_section(
+    db: Session, tree: Workspace, section: Section, *, reassign_scope_to: str | None
+) -> None:
+    """Delete a section, never widening the audience of what it held.
+
+    Content whose provenance points here has to go somewhere explicit: the
+    caller either names another section to take it over or deletes the content
+    first. Letting the section go and leaving the content workspace-wide would
+    hand it to every collaborator — which is precisely what the database's
+    RESTRICT on ``content_scopes`` refuses.
+    """
+    if section_scope_counts(db, section.id):
+        if reassign_scope_to is None:
+            raise ConflictError(
+                "Section still holds content; reassign its scope before deleting"
+            )
+        target = get_section(db, tree, reassign_scope_to)
+        if target.id == section.id:
+            raise InvalidInputError("Cannot reassign a section's content to itself")
+        reassign_section_scopes(
+            db, from_section_id=section.id, to_section_id=target.id
+        )
+        db.flush()
+    db.delete(section)
 
 
 def _boundary_member_ids(relations: list[Relation], primary: set[str]) -> set[str]:

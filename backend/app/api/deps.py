@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token, decode_public_tree_token
 from app.db.session import get_db
 from app.models import User, Workspace, WorkspaceMembership
+from app.services.provenance import bind_origin_section, resolve_origin_section
 from app.services.workspace_roles import role_for
 
 _bearer = HTTPBearer(auto_error=False)
@@ -186,9 +187,17 @@ def get_readable_workspace_public(
 
 def get_writable_workspace(
     workspace_id: str,
+    origin_section_id: str | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Workspace:
+    """Authorize a write and bind the origin scope its content inherits.
+
+    ``origin_section_id`` names the section the caller is working in. Binding
+    it here rather than in each route means every content write in the API —
+    and every write a route delegates to a service — records provenance
+    through the same path (#1023).
+    """
     from app.services.system.settings_service import user_has_accepted_legal
 
     if not user_has_accepted_legal(db, user):
@@ -196,7 +205,9 @@ def get_writable_workspace(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Legal terms must be accepted before making changes",
         )
-    return _resolve_workspace(db, workspace_id, user, write=True)
+    tree = _resolve_workspace(db, workspace_id, user, write=True)
+    bind_origin_section(db, resolve_origin_section(db, tree, origin_section_id))
+    return tree
 
 
 def explicit_workspace_ids(db: Session, user: User) -> list[str]:

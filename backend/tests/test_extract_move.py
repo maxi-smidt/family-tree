@@ -281,6 +281,81 @@ def test_move_diseases_follow_their_member(db):
     assert db.get(MemberDisease, "d-stays").workspace_id == tree.id
 
 
+def test_move_relocates_content_scopes_and_drops_the_old_section(db):
+    """#1023: content that physically relocates to the new tree must take its
+    provenance with it, not leave a scope pointing at the tree it left."""
+    from app.models import ContentScope, Section
+    from app.services.provenance import scope_of
+
+    user = make_user(db, "alice")
+    tree = make_family(db, user)
+    now = utcnow_iso()
+
+    db.add(
+        MemberDisease(
+            id="d-moved",
+            workspace_id=tree.id,
+            member_id="c1",
+            name="Condition",
+            carrier_status="affected",
+        )
+    )
+    db.add(GalleryImage(id="img-moved", workspace_id=tree.id, title="moved"))
+    db.add(GalleryMemberLink(gallery_image_id="img-moved", member_id="c1"))
+    db.add(
+        Event(
+            id="ev-moved",
+            workspace_id=tree.id,
+            event_type="birth",
+            date="2000-01-01",
+            created_at=now,
+        )
+    )
+    db.add(EventMemberLink(event_id="ev-moved", member_id="c1"))
+    db.add(
+        Story(
+            id="st-moved",
+            workspace_id=tree.id,
+            title="Moved",
+            created_at=now,
+            updated_at=now,
+        )
+    )
+    db.add(StoryMemberLink(story_id="st-moved", member_id="c1"))
+    db.add(Section(id="sec-origin", workspace_id=tree.id, name="Origin"))
+    db.commit()
+
+    # Give each a real origin section before the move, so the test can prove
+    # the section is dropped rather than trivially staying None.
+    for content_type, content_id in [
+        ("disease", "d-moved"),
+        ("gallery_image", "img-moved"),
+        ("event", "ev-moved"),
+        ("story", "st-moved"),
+    ]:
+        db.get(ContentScope, (content_type, content_id)).section_id = "sec-origin"
+    db.commit()
+
+    new_tree = extract_subtree(
+        db,
+        user,
+        req(
+            source_workspace_id=tree.id, root_member_id="root", direction="direct_family"
+        ),
+    )
+
+    for content_type, content_id in [
+        ("disease", "d-moved"),
+        ("gallery_image", "img-moved"),
+        ("event", "ev-moved"),
+        ("story", "st-moved"),
+    ]:
+        scope = scope_of(db, content_type, content_id)
+        assert scope.workspace_id == new_tree.id
+        # sec-origin only exists in the source tree; it cannot follow.
+        assert scope.section_id is None
+
+
 def test_move_wholly_linked_content_moves_mixed_content_stays(db):
     user = make_user(db, "alice")
     tree = make_family(db, user)

@@ -32,6 +32,7 @@ from app.models import (
     AdminAuditLog,
     AppSetting,
     BackgroundJob,
+    ContentScope,
     Document,
     DocumentFile,
     DocumentMemberLink,
@@ -98,6 +99,7 @@ BACKUP_MODELS: tuple[type, ...] = (
     Section,
     SectionMember,
     SectionPosition,
+    ContentScope,
     WorkspaceMembership,
     WorkspaceInvitation,
     WorkspaceUserState,
@@ -247,6 +249,7 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         Section.__tablename__,
         SectionMember.__tablename__,
         SectionPosition.__tablename__,
+        ContentScope.__tablename__,
     }
 )
 

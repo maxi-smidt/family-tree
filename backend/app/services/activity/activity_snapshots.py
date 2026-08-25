@@ -17,6 +17,10 @@ from typing import NotRequired, TypedDict
 # without hand-typing every model's columns — out of scope here.
 RowSnapshot = dict[str, object]
 
+# Origin scopes captured before a delete, keyed "<content_type>:<content_id>"
+# so one restore can carry the provenance of several records (#1023).
+ContentScopes = dict[str, str | None]
+
 
 class BridgeSnapshot(TypedDict):
     counterpart_member_id: str
@@ -41,6 +45,7 @@ class MemberSnapshot(TypedDict):
     gallery_links: list[RowSnapshot]
     document_links: list[RowSnapshot]
     bridge: NotRequired[BridgeSnapshot]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class RelationSnapshot(TypedDict):
@@ -51,6 +56,7 @@ class RelationSnapshot(TypedDict):
 class DiseaseSnapshot(TypedDict):
     version: int
     disease: RowSnapshot
+    content_scopes: NotRequired[ContentScopes]
 
 
 class EventSnapshot(TypedDict):
@@ -58,6 +64,7 @@ class EventSnapshot(TypedDict):
     event: RowSnapshot
     member_links: list[RowSnapshot]
     document_links: list[RowSnapshot]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class StorySnapshot(TypedDict):
@@ -65,6 +72,7 @@ class StorySnapshot(TypedDict):
     story: RowSnapshot
     member_links: list[RowSnapshot]
     document_links: list[RowSnapshot]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class GalleryImageSnapshot(TypedDict):
@@ -72,6 +80,7 @@ class GalleryImageSnapshot(TypedDict):
     gallery_image: RowSnapshot
     member_links: list[RowSnapshot]
     trashed_media: list[str]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class DocumentSnapshot(TypedDict):
@@ -82,6 +91,7 @@ class DocumentSnapshot(TypedDict):
     event_links: list[RowSnapshot]
     story_links: list[RowSnapshot]
     trashed_media: list[str]
+    content_scopes: NotRequired[ContentScopes]
 
 
 class DocumentFileSnapshot(TypedDict):
