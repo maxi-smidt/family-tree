@@ -48,7 +48,9 @@ def _preview(db: Session, tree: Workspace, payload: RescopeRequest) -> RescopePr
         if section is None or section.workspace_id != tree.id:
             raise HTTPException(status_code=404, detail="Section not found")
 
-    after = scope_audience(db, tree, payload.section_id)
+    # scope_audience doesn't narrow by section yet (that arrives with #993),
+    # so every side of every change shares this one workspace-wide audience.
+    audience = scope_audience(db, tree, payload.section_id)
     changes: list[RescopeChange] = []
     for item in payload.items:
         scope = scope_of(db, item.content_type, item.content_id)
@@ -60,8 +62,8 @@ def _preview(db: Session, tree: Workspace, payload: RescopeRequest) -> RescopePr
                 content_id=scope.content_id,
                 from_section_id=scope.section_id,
                 to_section_id=payload.section_id,
-                audience_before=scope_audience(db, tree, scope.section_id),
-                audience_after=after,
+                audience_before=audience,
+                audience_after=audience,
                 # Only leaving a section widens the audience; entering or
                 # switching one keeps it inside a section's collaborators.
                 widens=scope.section_id is not None and payload.section_id is None,

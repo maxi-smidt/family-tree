@@ -532,6 +532,18 @@ def test_a_scoped_caller_never_gets_a_workspace_wide_origin(client, db):
     )
 
 
+def test_a_scoped_caller_with_no_permitted_sections_is_rejected_not_widened(client, db):
+    """An empty permitted set must never fall back to workspace-wide."""
+    from app.core.exceptions import InvalidInputError
+    from app.services.provenance import resolve_origin_section
+
+    user = make_user(db)
+    tree = make_tree(db, user)
+
+    with pytest.raises(InvalidInputError):
+        resolve_origin_section(db, tree, None, permitted_section_ids=set())
+
+
 def test_a_scoped_caller_cannot_name_a_section_outside_their_scope(client, db):
     from app.core.exceptions import InvalidInputError
     from app.services.provenance import resolve_origin_section

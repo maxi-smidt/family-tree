@@ -43,8 +43,8 @@ from app.models import (
     Section,
     Story,
     Workspace,
-    WorkspaceMembership,
 )
+from app.services.event_bus import workspace_audience
 
 # Content models that carry an independent origin scope. Anything not listed
 # here inherits its audience from a parent — see ``models.provenance``.
@@ -106,12 +106,18 @@ def resolve_origin_section(
         return None
     # A scoped caller with no stated context lands in their first permitted
     # section by display order — narrow and reproducible, never workspace-wide.
-    return db.scalar(
+    resolved = db.scalar(
         select(Section.id)
         .where(Section.workspace_id == tree.id, Section.id.in_(permitted_section_ids))
         .order_by(Section.position, Section.created_at, Section.id)
         .limit(1)
     )
+    if resolved is None:
+        # permitted_section_ids was empty, or named sections that no longer
+        # exist: there is no in-scope section to fall back to, and falling
+        # back to workspace-wide would violate the guarantee above.
+        raise InvalidInputError("No permitted section to assign as origin")
+    return resolved
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +244,30 @@ def reassign_section_scopes(
     )
 
 
+def rehome_scopes(
+    db: Session,
+    *,
+    content_type: ContentType,
+    content_ids: Iterable[str],
+    workspace_id: str,
+) -> None:
+    """Move existing scopes to ``workspace_id`` for content relocated by a
+    workspace-crossing operation other than normal create/delete (e.g. sub-tree
+    extraction), whose origin section — scoped to the tree it's leaving —
+    cannot follow it.
+    """
+    ids = list(content_ids)
+    if not ids:
+        return
+    db.query(ContentScope).filter(
+        ContentScope.content_type == str(content_type),
+        ContentScope.content_id.in_(ids),
+    ).update(
+        {ContentScope.workspace_id: workspace_id, ContentScope.section_id: None},
+        synchronize_session=False,
+    )
+
+
 def rescope_content(
     db: Session,
     tree: Workspace,
@@ -269,16 +299,9 @@ def scope_audience(db: Session, tree: Workspace, section_id: str | None) -> list
     shape.
     """
     del section_id
-    principals = {tree.owner_id}
-    principals.update(
-        db.scalars(
-            select(WorkspaceMembership.user_id).where(
-                WorkspaceMembership.workspace_id == tree.id
-            )
-        )
-    )
+    principals = workspace_audience(db, tree)
     if tree.public_role:
-        principals.add("public")
+        principals = principals | {"public"}
     return sorted(principals)
 
 
