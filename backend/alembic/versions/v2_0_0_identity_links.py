@@ -20,6 +20,7 @@ Revises: v2_0_0_scoped_grants
 Create Date: 2026-08-25 00:00:00.000000
 
 """
+
 import json
 import uuid
 from datetime import UTC, datetime
@@ -44,10 +45,20 @@ def migrate_legacy_bridges_to_identity_links(conn: sa.engine.Connection) -> int:
     regardless of which side is scanned first. Returns the number created.
     """
     meta = sa.MetaData()
-    meta.reflect(bind=conn, only=["members", "identity_links", "workspaces", "notifications"])
+    meta.reflect(
+        bind=conn,
+        only=[
+            "members",
+            "identity_links",
+            "identity_link_events",
+            "workspaces",
+            "notifications",
+        ],
+    )
     members = meta.tables["members"]
     counterpart = members.alias("counterpart")
     links = meta.tables["identity_links"]
+    events = meta.tables["identity_link_events"]
     workspaces = meta.tables["workspaces"]
     notifications = meta.tables["notifications"]
 
@@ -72,8 +83,12 @@ def migrate_legacy_bridges_to_identity_links(conn: sa.engine.Connection) -> int:
         if (a_id, b_id) in seen_pairs:
             continue
         seen_pairs.add((a_id, b_id))
-        workspace_a_id = row.workspace_id if a_id == row.id else row.counterpart_workspace_id
-        workspace_b_id = row.counterpart_workspace_id if a_id == row.id else row.workspace_id
+        workspace_a_id = (
+            row.workspace_id if a_id == row.id else row.counterpart_workspace_id
+        )
+        workspace_b_id = (
+            row.counterpart_workspace_id if a_id == row.id else row.workspace_id
+        )
 
         link_id = str(uuid.uuid4())
         conn.execute(
@@ -100,6 +115,18 @@ def migrate_legacy_bridges_to_identity_links(conn: sa.engine.Connection) -> int:
             )
         )
         created += 1
+        conn.execute(
+            events.insert().values(
+                id=str(uuid.uuid4()),
+                identity_link_id=link_id,
+                action="migrate",
+                actor_id=None,
+                from_status=None,
+                to_status="verified",
+                reason="Migrated from a legacy tree-in-tree bridge",
+                created_at=now,
+            )
+        )
 
         for workspace_id in (workspace_a_id, workspace_b_id):
             owner_id = conn.execute(
@@ -131,7 +158,9 @@ def migrate_legacy_bridges_to_identity_links(conn: sa.engine.Connection) -> int:
 
 
 def upgrade() -> None:
-    op.create_unique_constraint("uq_member_workspace_id_id", "members", ["workspace_id", "id"])
+    op.create_unique_constraint(
+        "uq_member_workspace_id_id", "members", ["workspace_id", "id"]
+    )
 
     op.create_table(
         "identity_links",
@@ -254,8 +283,12 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_table("identity_link_idempotency_keys")
 
-    op.drop_index("ix_identity_link_blocks_blocked_user_id", table_name="identity_link_blocks")
-    op.drop_index("ix_identity_link_blocks_workspace_id", table_name="identity_link_blocks")
+    op.drop_index(
+        "ix_identity_link_blocks_blocked_user_id", table_name="identity_link_blocks"
+    )
+    op.drop_index(
+        "ix_identity_link_blocks_workspace_id", table_name="identity_link_blocks"
+    )
     op.drop_table("identity_link_blocks")
 
     op.drop_index("ix_identity_link_events_created_at", table_name="identity_link_events")

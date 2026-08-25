@@ -1,16 +1,20 @@
 """Tests for the identity-link lifecycle (#985) — see app.services.identity_links."""
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.core.exceptions import AccessDeniedError, ConflictError, InvalidInputError
+from app.models import Section, SectionMember, WorkspaceSectionGrant
 from app.models.identity_link import (
     IdentityLinkEvent,
     IdentityLinkStatus,
     IdentityLinkVerificationBasis,
 )
+from app.schemas.identity_link import DecideIdentityLinkRequest
 from app.services.identity_links import (
     approve_link,
+    can_read_member,
     expire_stale_proposals,
     get_link_between,
     is_blocked,
@@ -21,7 +25,16 @@ from app.services.identity_links import (
     revoke_link,
 )
 from app.services.members.member_merge import merge_members_in_place
-from tests.conftest import add_member, make_tree, make_user, share
+from tests.conftest import API, add_member, auth, make_tree, make_user, share
+
+
+def test_decision_reason_is_bounded_to_the_database_column():
+    """IdentityLink.decision_reason is String(500); an over-length value must
+    be rejected as a validation error here, not surfaced as a DB write
+    failure once it reaches the service."""
+    DecideIdentityLinkRequest(reason="x" * 500)  # must not raise
+    with pytest.raises(ValidationError):
+        DecideIdentityLinkRequest(reason="x" * 501)
 
 
 def _cross_owner_pair(db):
@@ -164,6 +177,18 @@ def test_reject_reopens_on_a_fresh_propose(db):
     assert link.decision_reason is None
     assert link.decided_at is None
 
+    # The reopen's audit event records where it came from, not a fabricated
+    # "initial creation" (from_status=None would be indistinguishable from a
+    # brand-new proposal).
+    events = db.scalars(
+        select(IdentityLinkEvent)
+        .where(IdentityLinkEvent.identity_link_id == link.id)
+        .order_by(IdentityLinkEvent.created_at)
+    ).all()
+    assert [e.action for e in events] == ["propose", "reject", "propose"]
+    assert events[-1].from_status == IdentityLinkStatus.REJECTED
+    assert events[-1].to_status == IdentityLinkStatus.PROPOSED
+
 
 # --- revoke -------------------------------------------------------------------
 
@@ -205,6 +230,30 @@ def test_propose_idempotency_key_replays_the_first_result(db):
         select(IdentityLinkEvent).where(IdentityLinkEvent.identity_link_id == first.id)
     ).all()
     assert len(events) == 1
+
+
+def test_idempotency_conflict_replays_the_winner_instead_of_raising(db):
+    """Simulates the race where two requests with the same key both miss the
+    pre-check (neither's row exists yet): once the winner's idempotency row
+    has landed, a losing IntegrityError/StaleDataError must replay it rather
+    than surface a spurious 409 to the loser."""
+    from app.services.identity_links import _replay_or_raise  # noqa: PLC0415
+
+    owner_a, owner_b, tree_a, tree_b, member_a, member_b = _cross_owner_pair(db)
+    winner = propose_link(
+        db, owner_a, tree_a, member_a, tree_b, member_b, idempotency_key="req-1"
+    )
+
+    replayed = _replay_or_raise(
+        db, owner_a.id, "propose", "req-1", "Identity link already exists", ValueError()
+    )
+    assert replayed.id == winner.id
+
+    # No matching idempotency row: the loser really did lose, so it raises.
+    with pytest.raises(ConflictError):
+        _replay_or_raise(
+            db, owner_a.id, "propose", "req-nonexistent", "conflict", ValueError()
+        )
 
 
 # --- expiry --------------------------------------------------------------------
@@ -270,6 +319,56 @@ def test_counterpart_is_a_protected_placeholder_without_read_access(db):
     assert out.self.member_id == member_a.id
 
 
+def test_section_scoped_grant_excluding_the_member_still_degrades_to_protected(db):
+    """A section-scoped grant is not a workspace-wide role: a viewer scoped to
+    a section that doesn't contain the counterpart must not see them, even
+    though a coarse role_for(...) check on the workspace would say "viewer"."""
+    owner_a, owner_b, tree_a, tree_b, member_a, member_b = _cross_owner_pair(db)
+    propose_link(db, owner_a, tree_a, member_a, tree_b, member_b)
+
+    other_section = Section(workspace_id=tree_b.id, name="Elsewhere")
+    db.add(other_section)
+    db.commit()
+    scoped_viewer = make_user(db, "dana")
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree_b.id,
+            section_id=other_section.id,
+            user_id=scoped_viewer.id,
+            role="viewer",
+        )
+    )
+    db.commit()
+
+    assert can_read_member(db, tree_b, member_b.id, scoped_viewer) is False
+
+    [out] = list_links_for_member(db, scoped_viewer, member_a)
+    assert out.counterpart_protected is True
+    assert out.counterpart is None
+
+
+def test_section_scoped_grant_including_the_member_can_read_it(db):
+    owner_a, owner_b, tree_a, tree_b, member_a, member_b = _cross_owner_pair(db)
+    propose_link(db, owner_a, tree_a, member_a, tree_b, member_b)
+
+    section = Section(workspace_id=tree_b.id, name="Home")
+    db.add(section)
+    db.commit()
+    db.add(SectionMember(section_id=section.id, member_id=member_b.id))
+    scoped_viewer = make_user(db, "dana")
+    db.add(
+        WorkspaceSectionGrant(
+            workspace_id=tree_b.id,
+            section_id=section.id,
+            user_id=scoped_viewer.id,
+            role="viewer",
+        )
+    )
+    db.commit()
+
+    assert can_read_member(db, tree_b, member_b.id, scoped_viewer) is True
+
+
 def test_counterpart_is_visible_with_read_access(db):
     owner_a, owner_b, tree_a, tree_b, member_a, member_b = _cross_owner_pair(db)
     propose_link(db, owner_a, tree_a, member_a, tree_b, member_b)
@@ -307,3 +406,35 @@ def test_merge_drops_the_duplicate_link_when_keep_already_has_one(db):
     # Only "keep"'s own pre-existing link to member_b survives.
     assert get_link_between(db, "keep", "mb") is not None
     assert get_link_between(db, "ma", "mb") is None
+
+
+# --- route-level non-enumeration -----------------------------------------------
+
+
+def test_propose_route_gives_identical_responses_for_missing_and_hidden_targets(
+    client, db
+):
+    """A caller must not be able to tell "no such member" apart from "that
+    member exists but you can't see it" — both are the proposer's target
+    validation failing, not a lookup they're entitled to an answer on."""
+    owner_a = make_user(db, "alice")
+    owner_b = make_user(db, "bob")
+    tree_a = make_tree(db, owner_a, "A")
+    tree_b = make_tree(db, owner_b, "B")  # not shared with owner_a
+    add_member(db, tree_a, "ma", first_name="Ada")
+    add_member(db, tree_b, "mb", first_name="Ada")
+    headers = auth(owner_a)
+
+    resp_missing = client.post(
+        f"{API}/workspaces/{tree_a.id}/members/ma/identity-links",
+        json={"target_workspace_id": tree_b.id, "target_member_id": "does-not-exist"},
+        headers=headers,
+    )
+    resp_hidden = client.post(
+        f"{API}/workspaces/{tree_a.id}/members/ma/identity-links",
+        json={"target_workspace_id": tree_b.id, "target_member_id": "mb"},
+        headers=headers,
+    )
+
+    assert resp_missing.status_code == resp_hidden.status_code == 403
+    assert resp_missing.json() == resp_hidden.json()

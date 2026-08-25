@@ -60,6 +60,9 @@ class IdentityLinkAction(StrEnum):
     REJECT = "reject"
     REVOKE = "revoke"
     EXPIRE = "expire"
+    # System-authored: a legacy bridge pair converted by
+    # alembic/versions/v2_0_0_identity_links.py, not a user action.
+    MIGRATE = "migrate"
 
 
 class IdentityLink(Base):

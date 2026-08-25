@@ -52,22 +52,23 @@ from app.schemas.notification import (
 from app.services.collaboration.notification_service import create_notification
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspace_roles import role_for
+from app.services.workspaces.visibility import resolve_access_context
 
 logger = logging.getLogger(__name__)
 
 
-def can_read_workspace(db: Session, workspace: Workspace, user: User) -> bool:
-    """True when ``user`` has some standing read access to ``workspace``.
+def can_read_member(
+    db: Session, workspace: Workspace, member_id: str, user: User
+) -> bool:
+    """True when ``user`` can read this specific member of ``workspace``.
 
-    Deliberately coarser than the full public-link/password flow
-    (``app.api.deps``): good enough to gate proposing/viewing a link, not a
-    substitute for the read routes' own authorization.
+    Goes through the #984 visibility resolver rather than a coarse
+    workspace-level role check: a section-scoped grant that excludes this
+    member, or a password-gated public link that was never unlocked, must
+    not count as read access here even though the user has *some* standing
+    in the workspace.
     """
-    return (
-        user.is_admin
-        or role_for(db, workspace, user) is not None
-        or workspace.public_role is not None
-    )
+    return resolve_access_context(db, workspace, user).can_read_member(db, member_id)
 
 
 def is_blocked(db: Session, workspace_id: str, user_id: str) -> bool:
@@ -157,6 +158,29 @@ def _store_idempotency(
             actor_id=actor_id, action=action, key=key, identity_link_id=link_id
         )
     )
+
+
+def _replay_or_raise(
+    db: Session,
+    actor_id: str,
+    action: str,
+    idempotency_key: str | None,
+    message: str,
+    exc: Exception,
+) -> IdentityLink:
+    """Called from an ``IntegrityError``/``StaleDataError`` handler after
+    ``UnitOfWork`` has rolled back the failed attempt.
+
+    Two requests carrying the same idempotency key can both miss
+    ``_check_idempotency`` before either commits (neither's row exists yet),
+    so the loser must not be told "conflict" for what is really a duplicate
+    of the winner's own request — re-check here and replay the winner's
+    result when the key matches.
+    """
+    replay = _check_idempotency(db, actor_id, action, idempotency_key)
+    if replay is not None:
+        return replay
+    raise ConflictError(message) from exc
 
 
 def _expire_single(db: Session, link: IdentityLink) -> None:
@@ -278,7 +302,7 @@ def propose_link(
         )
     if target_member.workspace_id != target_workspace.id:
         raise InvalidInputError("Target member is not part of the target workspace")
-    if not can_read_workspace(db, target_workspace, actor) or is_blocked(
+    if not can_read_member(db, target_workspace, target_member.id, actor) or is_blocked(
         db, target_workspace.id, actor.id
     ):
         raise AccessDeniedError("Cannot propose a link to this member")
@@ -317,6 +341,7 @@ def propose_link(
         )
 
         now = utcnow_iso()
+        from_status = link.status if link is not None else None
         if link is None:
             link = IdentityLink(
                 id=new_uuid(),
@@ -349,7 +374,13 @@ def propose_link(
             db.add(link)
             db.flush()
             _record_event(
-                db, link, IdentityLinkAction.PROPOSE, actor.id, None, link.status, None
+                db,
+                link,
+                IdentityLinkAction.PROPOSE,
+                actor.id,
+                from_status,
+                link.status,
+                None,
             )
             _store_idempotency(
                 db, actor.id, IdentityLinkAction.PROPOSE, idempotency_key, link.id
@@ -365,11 +396,23 @@ def propose_link(
         db.refresh(link)
         return link
     except IntegrityError as exc:
-        raise ConflictError("Identity link already exists") from exc
+        return _replay_or_raise(
+            db,
+            actor.id,
+            IdentityLinkAction.PROPOSE,
+            idempotency_key,
+            "Identity link already exists",
+            exc,
+        )
     except StaleDataError as exc:
-        raise ConflictError(
-            "Identity link changed concurrently; reload and retry"
-        ) from exc
+        return _replay_or_raise(
+            db,
+            actor.id,
+            IdentityLinkAction.PROPOSE,
+            idempotency_key,
+            "Identity link changed concurrently; reload and retry",
+            exc,
+        )
 
 
 def approve_link(
@@ -395,9 +438,14 @@ def approve_link(
             if link.status == IdentityLinkStatus.VERIFIED:
                 uow.after_commit(lambda: _notify_decision(db, link, actor.id))
     except StaleDataError as exc:
-        raise ConflictError(
-            "Identity link changed concurrently; reload and retry"
-        ) from exc
+        return _replay_or_raise(
+            db,
+            actor.id,
+            IdentityLinkAction.APPROVE,
+            idempotency_key,
+            "Identity link changed concurrently; reload and retry",
+            exc,
+        )
     db.refresh(link)
     return link
 
@@ -455,9 +503,14 @@ def reject_link(
             )
             uow.after_commit(lambda: _notify_decision(db, link, actor.id))
     except StaleDataError as exc:
-        raise ConflictError(
-            "Identity link changed concurrently; reload and retry"
-        ) from exc
+        return _replay_or_raise(
+            db,
+            actor.id,
+            IdentityLinkAction.REJECT,
+            idempotency_key,
+            "Identity link changed concurrently; reload and retry",
+            exc,
+        )
     db.refresh(link)
     return link
 
@@ -503,9 +556,14 @@ def revoke_link(
             )
             uow.after_commit(lambda: _notify_decision(db, link, actor.id))
     except StaleDataError as exc:
-        raise ConflictError(
-            "Identity link changed concurrently; reload and retry"
-        ) from exc
+        return _replay_or_raise(
+            db,
+            actor.id,
+            IdentityLinkAction.REVOKE,
+            idempotency_key,
+            "Identity link changed concurrently; reload and retry",
+            exc,
+        )
     db.refresh(link)
     return link
 
@@ -570,10 +628,12 @@ def to_identity_link_out(
     )
 
     other_workspace = db.get(Workspace, other_workspace_id)
-    # Losing read access to the other workspace degrades the counterpart to a
-    # protected placeholder — the link row itself is untouched (#985).
-    protected = other_workspace is None or not can_read_workspace(
-        db, other_workspace, viewer
+    # Losing read access to the counterpart *member* — whole-workspace access
+    # revoked, narrowed to a section that excludes them, or an unlocked
+    # public link losing its unlock — degrades it to a protected placeholder.
+    # The link row itself is untouched (#985).
+    protected = other_workspace is None or not can_read_member(
+        db, other_workspace, other_member_id, viewer
     )
     counterpart_out = None
     if not protected:

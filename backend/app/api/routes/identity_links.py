@@ -16,7 +16,7 @@ from app.api.deps import (
     get_workspace_access_write,
     get_writable_workspace,
 )
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import AccessDeniedError, NotFoundError
 from app.core.rate_limit import (
     identity_link_propose_aggregate_rate_limiter,
     identity_link_propose_rate_limiter,
@@ -113,11 +113,10 @@ def propose_identity_link(
         or target_member is None
         or target_member.workspace_id != target_workspace.id
     ):
-        # Same message regardless of which lookup failed — see
-        # app.services.identity_links.propose_link's non-enumeration note.
-        raise HTTPException(
-            status_code=404, detail="Cannot propose a link to this member"
-        )
+        # Same exception type, status, and message propose_link itself raises
+        # for "exists but unreadable/blocked" — a missing target must be
+        # indistinguishable from one the caller simply can't see (#985).
+        raise AccessDeniedError("Cannot propose a link to this member")
 
     ip = client_ip(request) or "unknown"
     limiter_key = f"{user.id}:{target_workspace.id}"

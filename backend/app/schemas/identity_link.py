@@ -1,6 +1,6 @@
 """Schemas for identity links (#985) — see app.services.identity_links."""
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProposeIdentityLinkRequest(BaseModel):
@@ -9,7 +9,9 @@ class ProposeIdentityLinkRequest(BaseModel):
 
 
 class DecideIdentityLinkRequest(BaseModel):
-    reason: str | None = None
+    # Matches IdentityLink.decision_reason (String(500)) so an over-length
+    # value is rejected as a 422 here instead of failing the write.
+    reason: str | None = Field(default=None, max_length=500)
 
 
 class RejectIdentityLinkRequest(DecideIdentityLinkRequest):

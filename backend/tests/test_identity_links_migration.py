@@ -84,6 +84,18 @@ def _build_schema() -> sa.MetaData:
         sa.Column("version", sa.Integer),
         sa.UniqueConstraint("member_a_id", "member_b_id"),
     )
+    sa.Table(
+        "identity_link_events",
+        meta,
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("identity_link_id", sa.String(36)),
+        sa.Column("action", sa.String(20)),
+        sa.Column("actor_id", sa.String(36), nullable=True),
+        sa.Column("from_status", sa.String(20), nullable=True),
+        sa.Column("to_status", sa.String(20)),
+        sa.Column("reason", sa.String(500), nullable=True),
+        sa.Column("created_at", sa.String(40)),
+    )
     return meta
 
 
@@ -178,6 +190,27 @@ def test_migrates_each_bridge_pair_exactly_once(engine):
         assert link.verification_basis == "legacy_dual_write_access"
         assert link.verified_at is not None
         assert link.version == 0
+
+
+def test_records_an_audit_event_per_migrated_link(engine):
+    meta = _reflect(engine)
+    with engine.begin() as conn:
+        _seed(conn, meta)
+        migration.migrate_legacy_bridges_to_identity_links(conn)
+
+    docs = _reflect(engine).tables
+    with engine.connect() as conn:
+        links = conn.execute(sa.select(docs["identity_links"])).mappings().all()
+        events = conn.execute(sa.select(docs["identity_link_events"])).mappings().all()
+
+    assert len(events) == len(links) == 2
+    events_by_link = {e.identity_link_id: e for e in events}
+    for link in links:
+        event = events_by_link[link.id]
+        assert event.action == "migrate"
+        assert event.actor_id is None
+        assert event.from_status is None
+        assert event.to_status == "verified"
 
 
 def test_notifies_each_distinct_current_owner_once(engine):
