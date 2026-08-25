@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import shutil
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -462,6 +463,22 @@ def _fsync_dir(path: Path) -> None:
         os.close(fd)
 
 
+def _iter_media_files(root: Path) -> Iterator[Path]:
+    """Yield every regular file under *root* in a deterministic order.
+
+    Sorts each directory's entries before descending into it, so at most one
+    directory's worth of names is ever held in memory — unlike
+    ``sorted(root.rglob("*"))``, which would materialize every path in the
+    tree up front.
+    """
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames.sort()
+        for filename in sorted(filenames):
+            path = Path(dirpath) / filename
+            if path.is_file() and not path.is_symlink():
+                yield path
+
+
 def _write_media_frames(writer: ArchiveWriter, path: Path, relative: str) -> int:
     """Stream one media file out as chunk frames, hashing it as it goes.
 
@@ -542,9 +559,7 @@ def _write_streaming_archive(db: Session, filepath: Path) -> None:
         media_bytes_total = 0
         root = settings.media_root
         if root.exists():
-            for path in sorted(
-                p for p in root.rglob("*") if p.is_file() and not p.is_symlink()
-            ):
+            for path in _iter_media_files(root):
                 relative = safe_relative_media_path(
                     path.relative_to(root).as_posix()
                 ).as_posix()
@@ -652,6 +667,15 @@ class _MediaStager:
         active["written"] += len(raw)
         active["next_index"] += 1
 
+        # Checked on every chunk — including a still-in-progress file's bytes
+        # so far — rather than only once a file finishes, so an oversized
+        # single file is rejected as it streams instead of after it has
+        # already been written to staging in full.
+        if self.media_bytes_total + active["written"] > MAX_TOTAL_MEDIA_BYTES:
+            raise BackupValidationError(
+                "Backup archive exceeds the maximum total media size"
+            )
+
         if not final:
             return
 
@@ -670,11 +694,11 @@ class _MediaStager:
         self._seen_paths.add(path)
         self.media_count += 1
         self.media_bytes_total += active["written"]
-        if self.media_bytes_total > MAX_TOTAL_MEDIA_BYTES:
-            raise BackupValidationError(
-                "Backup archive exceeds the maximum total media size"
-            )
         self._active = None
+
+    def is_incomplete(self) -> bool:
+        """True if a media file's chunks were interrupted before its final one."""
+        return self._active is not None
 
     def close_incomplete(self) -> None:
         if self._active is not None and self._active["handle"] is not None:
@@ -747,15 +771,26 @@ def _consume_streaming_archive(
     With both ``None`` this is a pure self-verify pass: it never writes to
     disk or touches the database, only recomputing counts and media hashes
     from the decrypted frames and checking them against the archive's own
-    manifest. Bounded to O(one frame) of memory regardless of the archive's
-    total size. Returns the manifest record on success.
+    manifest. Bounded to O(one frame) of memory, plus O(the members table's
+    self-referencing links — see ``deferred_member_links`` below), regardless
+    of the archive's total size. Returns the manifest record on success.
     """
     seen_meta = False
     manifest_record: dict[str, Any] | None = None
     table_counts: dict[str, int] = dict.fromkeys(_expected_table_names(), 0)
     row_count_total = 0
     media = _MediaStager(staging_root)
+    # Rows are inserted with linked_member_id nulled out (see
+    # _insert_row_batch) because the target member may not exist yet; the
+    # deferred pairs collected here are patched in once every members row
+    # has been inserted, rather than held until the whole archive is done.
     deferred_member_links: list[dict[str, str | None]] = []
+    last_row_table: str | None = None
+
+    def _flush_deferred_member_links() -> None:
+        if db is not None and deferred_member_links:
+            db.bulk_update_mappings(Member, deferred_member_links)
+            deferred_member_links.clear()
 
     try:
         for record in iter_archive_frames(filepath):
@@ -783,6 +818,9 @@ def _consume_streaming_archive(
                     raise BackupValidationError(
                         f"Backup archive references an unknown table {table!r}"
                     )
+                if table != last_row_table and last_row_table == Member.__tablename__:
+                    _flush_deferred_member_links()
+                last_row_table = table
                 row_count_total += len(rows)
                 if row_count_total > MAX_TOTAL_ROWS:
                     raise BackupValidationError(
@@ -794,6 +832,10 @@ def _consume_streaming_archive(
             elif kind == "media":
                 media.handle_chunk(record)
             elif kind == "manifest":
+                if media.is_incomplete():
+                    raise BackupValidationError(
+                        "Backup archive manifest arrived with an incomplete media file"
+                    )
                 manifest_record = record
             else:
                 raise BackupValidationError(
@@ -806,8 +848,7 @@ def _consume_streaming_archive(
             )
         _validate_manifest_totals(manifest_record, table_counts, row_count_total, media)
 
-        if db is not None and deferred_member_links:
-            db.bulk_update_mappings(Member, deferred_member_links)
+        _flush_deferred_member_links()
     finally:
         media.close_incomplete()
 

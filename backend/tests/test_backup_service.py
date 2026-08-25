@@ -1,5 +1,6 @@
 """Integration coverage for encrypted full-instance backup and restore."""
 
+import base64
 import hashlib
 import shutil
 
@@ -27,7 +28,7 @@ from app.models import (
     WorkspaceInvitation,
     WorkspaceUserState,
 )
-from app.services.crypto_export import decrypt_bundle, encrypt_bundle
+from app.services.crypto_export import encrypt_bundle
 from app.services.system.backups import backup_service, streaming_archive
 from tests.conftest import add_member, make_tree, make_user
 
@@ -190,7 +191,9 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     assert manifest["table_row_counts"]["geocode_cache"] == 1
 
     # This simulates a blank-instance recovery in the same database/volume.
-    backup_service.restore_backup_file(db, backup_path, replace=True, media_root=media_root)
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
 
     assert db.get(Member, first.id).linked_member_id == second.id
     assert db.get(Member, second.id).linked_member_id == first.id
@@ -706,7 +709,9 @@ def test_create_backup_writes_streaming_archive(db, tmp_path, monkeypatch):
     assert not list(backup_service.BACKUP_DIR.glob(".*.tmp"))
 
 
-def test_restore_backup_file_dispatches_legacy_bundle_by_header(db, tmp_path, monkeypatch):
+def test_restore_backup_file_dispatches_legacy_bundle_by_header(
+    db, tmp_path, monkeypatch
+):
     """A pre-existing format version 2 file still restores through the same
     entry point new streaming archives use."""
     media_root = tmp_path / "media"
@@ -725,7 +730,9 @@ def test_restore_backup_file_dispatches_legacy_bundle_by_header(db, tmp_path, mo
     db.commit()
     shutil.rmtree(media_root, ignore_errors=True)
 
-    backup_service.restore_backup_file(db, backup_path, replace=False, media_root=media_root)
+    backup_service.restore_backup_file(
+        db, backup_path, replace=False, media_root=media_root
+    )
 
     assert db.get(Member, "member-1") is not None
 
@@ -902,7 +909,9 @@ def test_streaming_backup_chunks_large_media_across_multiple_frames(
     db.commit()
     shutil.rmtree(media_root)
 
-    backup_service.restore_backup_file(db, backup_path, replace=False, media_root=media_root)
+    backup_service.restore_backup_file(
+        db, backup_path, replace=False, media_root=media_root
+    )
 
     assert (tree_media / "photo.jpg").read_bytes() == content
 
@@ -979,3 +988,121 @@ def test_restore_streaming_backup_failure_during_swap_reverts_media(
     assert db.get(Member, "member-1") is not None
     assert not backup_service._journal_path(media_root).is_file()
     assert not list(media_root.parent.glob(f"{media_root.name}.restore-*"))
+
+
+def test_consume_streaming_archive_rejects_manifest_with_incomplete_media(tmp_path):
+    """A manifest that arrives while a media file is still mid-stream must be
+    rejected, not accepted with the partial file silently installed."""
+    path = tmp_path / "archive.bin"
+    with streaming_archive.ArchiveWriter(path) as writer:
+        _write_meta_frame(writer)
+        writer.write_frame(
+            {
+                "t": "media",
+                "path": "photo.jpg",
+                "chunk_index": 0,
+                "final": False,
+                "data": base64.b64encode(b"partial").decode("ascii"),
+            }
+        )
+        writer.write_frame(
+            {
+                "t": "manifest",
+                "format": streaming_archive.STREAM_FORMAT,
+                "version": streaming_archive.STREAM_FORMAT_VERSION,
+                "table_row_counts": {},
+                "row_count_total": 0,
+                "media_count": 0,
+                "media_bytes_total": 0,
+            }
+        )
+        writer.close()
+
+    with pytest.raises(backup_service.BackupValidationError):
+        backup_service.verify_archive(path)
+
+
+def test_media_stager_enforces_byte_limit_before_file_completes(monkeypatch):
+    """The total-media-bytes ceiling is checked as each chunk streams in, not
+    only once a file finishes — otherwise a single oversized file would be
+    written to staging in full before ever being rejected."""
+    monkeypatch.setattr(backup_service, "MAX_TOTAL_MEDIA_BYTES", 5)
+    stager = backup_service._MediaStager(None)
+
+    with pytest.raises(backup_service.BackupValidationError):
+        stager.handle_chunk(
+            {
+                "t": "media",
+                "path": "big.bin",
+                "chunk_index": 0,
+                "final": False,
+                "data": base64.b64encode(b"12345678").decode("ascii"),
+            }
+        )
+
+
+def test_iter_media_files_is_deterministic_and_complete(tmp_path):
+    root = tmp_path / "media"
+    (root / "b").mkdir(parents=True)
+    (root / "a").mkdir(parents=True)
+    (root / "a" / "2.txt").write_bytes(b"2")
+    (root / "a" / "1.txt").write_bytes(b"1")
+    (root / "b" / "3.txt").write_bytes(b"3")
+    (root / "top.txt").write_bytes(b"0")
+
+    first = [
+        p.relative_to(root).as_posix() for p in backup_service._iter_media_files(root)
+    ]
+    second = [
+        p.relative_to(root).as_posix() for p in backup_service._iter_media_files(root)
+    ]
+
+    assert first == second
+    assert set(first) == {"top.txt", "a/1.txt", "a/2.txt", "b/3.txt"}
+    assert first.index("a/1.txt") < first.index("a/2.txt")
+
+
+def test_deferred_member_links_are_flushed_and_restored_correctly(
+    db, tmp_path, monkeypatch
+):
+    """Linked-member FK patches (deferred because the target may not exist
+    yet at insert time) still land correctly once bounded per-table flushing
+    replaces holding every pair for the whole archive."""
+    media_root = tmp_path / "media"
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    admin = make_user(db, "admin", is_admin=True)
+    tree = make_tree(db, admin)
+    first = add_member(db, tree, "member-1")
+    second = add_member(db, tree, "member-2")
+    first.linked_member_id = second.id
+    second.linked_member_id = first.id
+    db.commit()
+
+    record = backup_service.create_backup(db, actor=admin)
+    assert record.status == "success"
+    backup_path = backup_service.BACKUP_DIR / record.filename
+
+    flushed_mappings = []
+    original_bulk_update = db.bulk_update_mappings
+
+    def _spy(model, mappings):
+        mappings = list(mappings)
+        flushed_mappings.extend(mappings)
+        return original_bulk_update(model, mappings)
+
+    monkeypatch.setattr(db, "bulk_update_mappings", _spy)
+
+    for model in reversed(backup_service.BACKUP_MODELS):
+        db.execute(delete(model))
+    db.commit()
+    shutil.rmtree(media_root, ignore_errors=True)
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=False, media_root=media_root
+    )
+
+    assert len(flushed_mappings) == 2
+    assert db.get(Member, "member-1").linked_member_id == "member-2"
+    assert db.get(Member, "member-2").linked_member_id == "member-1"
