@@ -20,7 +20,12 @@ MAGIC = b"FTREE1"
 FLAG_PASSWORD = 0x01
 
 
-def _derive_key(secret: str, salt: bytes) -> bytes:
+def derive_key(secret: str, salt: bytes) -> bytes:
+    """Derive a 32-byte AES-256 key from *secret* with scrypt.
+
+    Shared with ``streaming_archive`` so instance backups use the same KDF
+    parameters as tree exports.
+    """
     kdf = Scrypt(salt=salt, length=32, n=2**14, r=8, p=1)
     return kdf.derive(secret.encode("utf-8"))
 
@@ -30,7 +35,7 @@ def encrypt_bundle(bundle: Mapping[str, object], password: str | None) -> bytes:
     salt = os.urandom(16)
     nonce = os.urandom(12)
     secret = password if password else settings.SECRET_KEY
-    key = _derive_key(secret, salt)
+    key = derive_key(secret, salt)
     ciphertext = AESGCM(key).encrypt(nonce, plaintext, None)
     flags = FLAG_PASSWORD if password else 0
     return MAGIC + bytes([flags]) + salt + nonce + ciphertext
@@ -50,7 +55,7 @@ def decrypt_bundle(blob: bytes, password: str | None) -> dict[str, object]:
         raise PermissionError("Password required")
 
     secret = password if password_protected else settings.SECRET_KEY
-    key = _derive_key(secret, salt)
+    key = derive_key(secret, salt)
     plaintext = AESGCM(key).decrypt(nonce, ciphertext, None)
     return json.loads(plaintext.decode("utf-8"))
 
