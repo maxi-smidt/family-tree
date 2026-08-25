@@ -460,6 +460,7 @@ If your changes require database schema modifications:
 
 ## Additional Resources
 
+- **[Performance](./PERFORMANCE.md)**: Neighborhood API query-count/latency/memory budgets, fixture and benchmark tooling
 - **[i18n Guide](./I18N_GUIDE.md)**: Translation conventions and patterns
 - **FastAPI**: [Documentation](https://fastapi.tiangolo.com/)
 - **SQLAlchemy**: [Documentation](https://docs.sqlalchemy.org/)
