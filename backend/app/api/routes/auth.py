@@ -116,10 +116,10 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)
     user = db.scalar(select(User).where(User.username == payload.username))
     if user is None or user.hashed_password is None:
         run_dummy_verify(payload.password)
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not verify_password(payload.password, user.hashed_password):
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
@@ -183,7 +183,7 @@ def verify_totp(
     else:
         remaining = consume_recovery_code(code, user.totp_recovery_codes or [])
         if remaining is None:
-            login_rate_limiter.record_failure(rate_key)
+            login_rate_limiter.record_hit(rate_key)
             raise HTTPException(status_code=401, detail="Invalid code")
         with UnitOfWork(db):
             user.totp_recovery_codes = remaining
@@ -396,10 +396,10 @@ def restore_account(
     user = db.scalar(select(User).where(User.username == payload.username))
     if user is None or user.hashed_password is None:
         run_dummy_verify(payload.password)
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
     if not verify_password(payload.password, user.hashed_password):
-        login_rate_limiter.record_failure(rate_key)
+        login_rate_limiter.record_hit(rate_key)
         raise HTTPException(status_code=401, detail="Incorrect username or password")
 
     if user.deletion_requested_at is None:

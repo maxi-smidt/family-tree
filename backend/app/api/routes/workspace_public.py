@@ -165,8 +165,8 @@ def unlock_public_tree(
         )
 
     def _record_failure() -> None:
-        public_unlock_rate_limiter.record_failure(limiter_key)
-        public_unlock_aggregate_rate_limiter.record_failure(client_ip)
+        public_unlock_rate_limiter.record_hit(limiter_key)
+        public_unlock_aggregate_rate_limiter.record_hit(client_ip)
 
     tree = db.get(Workspace, workspace_id)
     grant = resolve_public_grant(db, tree, payload.link_id) if tree else None

@@ -132,6 +132,13 @@ class Settings(BaseSettings):
     PUBLIC_UNLOCK_AGGREGATE_MAX_ATTEMPTS: int = 30
     PUBLIC_UNLOCK_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
 
+    # Request-volume throttle for GET .../members/neighborhood (#1032), keyed
+    # by user id (or client IP for anonymous/public callers) + workspace.
+    # Generous enough that normal canvas panning and inline expansion (#989)
+    # never come close; it exists to bound a scripted replay/paginate loop.
+    NEIGHBORHOOD_MAX_REQUESTS: int = 120
+    NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS: int = 60
+
     # Seed admin account, created on first start if no users exist.
     FIRST_ADMIN_USERNAME: str = "admin"
     FIRST_ADMIN_PASSWORD: str = "admin"

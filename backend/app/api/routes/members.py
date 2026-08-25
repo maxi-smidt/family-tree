@@ -6,7 +6,7 @@ own sibling modules (``member_relations``, ``member_diseases``,
 itself plus the read surfaces (list/search/neighborhood) and merge.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -23,6 +23,8 @@ from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.core.config import settings
 from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
+from app.core.rate_limit import neighborhood_rate_limiter
+from app.core.request_ip import client_ip
 from app.db.session import get_db
 from app.models import Event, EventMemberLink, Member, Workspace
 from app.models.user import User
@@ -86,7 +88,7 @@ from app.services.workspaces.neighborhood_cursor import (
     encode_cursor,
     visibility_fingerprint,
 )
-from app.services.workspaces.visibility import WorkspaceAccessContext
+from app.services.workspaces.visibility import PUBLIC_PRINCIPAL, WorkspaceAccessContext
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
@@ -490,6 +492,7 @@ def _empty_neighborhood(total_count: int) -> NeighborhoodOut:
 
 @router.get("/members/neighborhood", response_model=NeighborhoodOut)
 def get_neighborhood(
+    request: Request,
     root: str | None = Query(None),
     up: int = Query(3, ge=0, le=20),
     down: int = Query(3, ge=0, le=20),
@@ -517,7 +520,25 @@ def get_neighborhood(
     is bounded by ``context``'s resolved visibility boundary (#984), not just
     by ``sections``: that query param is a view filter the caller chooses,
     never an access grant.
+
+    Rate limited per principal + workspace (#1032): ``context.principal`` is a
+    user id for an authenticated caller, but always the same literal for every
+    anonymous one, so the client IP stands in for the principal there.
     """
+    if context.principal == PUBLIC_PRINCIPAL:
+        principal_key = f"ip:{client_ip(request) or 'unknown'}"
+    else:
+        principal_key = context.principal
+    rate_key = f"{tree.id}:{principal_key}"
+    retry_after = neighborhood_rate_limiter.retry_after(rate_key)
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many neighborhood requests. Please try again later.",
+            headers={"Retry-After": str(int(retry_after) + 1)},
+        )
+    neighborhood_rate_limiter.record_hit(rate_key)
+
     visible_section_ids = context.visible_section_ids()
     with statement_timeout(db, settings.NEIGHBORHOOD_QUERY_TIMEOUT_MS):
         count_filters = [Member.workspace_id == tree.id]
