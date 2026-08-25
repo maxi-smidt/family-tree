@@ -1,5 +1,5 @@
-"""Background loop that periodically purges expired pending-deletion users and
-trashed media.
+"""Background loop that periodically purges expired pending-deletion users,
+trashed media, and stale identity-link proposals.
 
 Started from the FastAPI ``lifespan`` ([app.main]). It runs one sweep at startup
 and then every ``DELETION_SWEEP_INTERVAL_SECONDS``. Each purge is sync
@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.db.advisory_lock import single_leader
 from app.db.session import SessionLocal
 from app.services.event_bus import admin_user_ids, event_bus
+from app.services.identity_links import expire_stale_proposals
 from app.services.media.storage import MEDIA_TRASH_TTL_SECONDS, purge_expired_media_trash
 from app.services.system.user_purge import purge_due_users
 
@@ -40,6 +41,10 @@ def _run_sweep_once() -> None:
     purged_media = purge_expired_media_trash(MEDIA_TRASH_TTL_SECONDS)
     if purged_media > 0:
         logger.info("Purged %d expired trashed media file(s)", purged_media)
+    with SessionLocal() as db:
+        expired_links = expire_stale_proposals(db)
+        if expired_links > 0:
+            logger.info("Expired %d stale identity-link proposal(s)", expired_links)
 
 
 def _sweep_if_leader() -> None:

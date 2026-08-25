@@ -1,6 +1,6 @@
 """Core genealogy tables."""
 
-from sqlalchemy import Boolean, Float, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
@@ -8,6 +8,13 @@ from app.db.base import Base
 
 class Member(Base):
     __tablename__ = "members"
+    __table_args__ = (
+        # Redundant as a uniqueness rule (``id`` is already the PK), but it is
+        # the parent key ``IdentityLink`` points at, letting the database
+        # reject a link whose endpoint's workspace doesn't match the member it
+        # names — see ``models.identity_link.IdentityLink``.
+        UniqueConstraint("workspace_id", "id", name="uq_member_workspace_id_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     workspace_id: Mapped[str] = mapped_column(

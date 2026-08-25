@@ -14,6 +14,7 @@ from app.api.routes import (
     friends,
     gallery,
     geocode,
+    identity_links,
     invitations,
     jobs,
     legal,
@@ -76,6 +77,7 @@ api_router.include_router(member_relations.router)
 api_router.include_router(member_diseases.router)
 api_router.include_router(member_subtrees.router)
 api_router.include_router(member_links.router)
+api_router.include_router(identity_links.router)
 api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)
