@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_readable_workspace_public,
+    get_workspace_access,
+    get_workspace_access_write,
     get_writable_workspace,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -19,6 +21,7 @@ from app.services.cache import invalidate_stats
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage_usage import check_workspace_quota
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
@@ -27,11 +30,20 @@ router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 def list_relations(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace_public),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
+    # A relation crossing out of scope must not surface as a placeholder edge
+    # to an invisible member — both endpoints must be visible.
+    filters = [Relation.workspace_id == tree.id]
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        visible = select(Member.id).where(Member.workspace_id == tree.id, member_filter)
+        filters.append(Relation.from_member_id.in_(visible))
+        filters.append(Relation.to_member_id.in_(visible))
     statement = (
         select(Relation)
-        .where(Relation.workspace_id == tree.id)
+        .where(*filters)
         .order_by(
             Relation.from_member_id,
             Relation.to_member_id,
@@ -46,6 +58,7 @@ def add_relation(
     payload: RelationCreate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     from_member = db.scalar(
@@ -66,6 +79,10 @@ def add_relation(
         raise HTTPException(status_code=404, detail="to_member_id not found in this tree")
     if db.get(RelationType, payload.relation_type) is None:
         raise HTTPException(status_code=404, detail="Unknown relation_type")
+    # A relation touches two member scopes at once — writing it requires an
+    # editor grant reaching each endpoint independently (#984).
+    context.require_write_member(db, from_member.id, mode="edit")
+    context.require_write_member(db, to_member.id, mode="edit")
 
     key = (tree.id, payload.from_member_id, payload.to_member_id, payload.relation_type)
     relation = db.get(Relation, key)
@@ -109,10 +126,13 @@ def remove_relation(
     relation_type: str,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     relation = db.get(Relation, (tree.id, from_member_id, to_member_id, relation_type))
     if relation is not None:
+        context.require_write_member(db, from_member_id, mode="edit")
+        context.require_write_member(db, to_member_id, mode="edit")
         label = f"{from_member_id} → {to_member_id} ({relation_type})"
         with UnitOfWork(db) as uow:
             record_activity(

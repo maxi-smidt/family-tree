@@ -13,15 +13,11 @@ from __future__ import annotations
 import hashlib
 
 import jwt
-from sqlalchemy.orm import Session
 
 from app.core.exceptions import ConflictError, InvalidInputError
 from app.core.security import create_neighborhood_cursor, decode_neighborhood_cursor
-from app.models import Workspace, WorkspaceMembership
-from app.models.user import User
-from app.services.members.member_access import public_only
-from app.services.workspace_roles import role_for
 from app.services.workspaces.neighborhood import ALGORITHM_VERSION, NeighborhoodQuery
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 
 class InvalidCursorError(InvalidInputError):
@@ -48,22 +44,16 @@ def _digest(*parts: object) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
-def visibility_fingerprint(db: Session, tree: Workspace, user: User | None) -> str:
+def visibility_fingerprint(context: WorkspaceAccessContext) -> str:
     """Identify the caller *and* the extent of what they may currently read.
 
-    Revoking a share, changing a role or its restrictions, or rotating a public
-    link all change this, which retires every cursor issued under the old
-    access. Section-scoped grants fold in here once #984 lands.
+    Built from the resolved ``WorkspaceAccessContext`` (#984): revoking a
+    share, changing a role or its restrictions — workspace-wide or on any one
+    section grant — or rotating a public link all change one of
+    ``context.fingerprint_parts()``, which retires every cursor issued under
+    the old access.
     """
-    if user is None or public_only(db, tree, user):
-        return _digest("public", tree.public_access_version)
-    membership = db.get(WorkspaceMembership, (tree.id, user.id))
-    return _digest(
-        "user",
-        user.id,
-        role_for(db, tree, user),
-        sorted(membership.restrictions or []) if membership else [],
-    )
+    return _digest("access", *context.fingerprint_parts())
 
 
 def query_fingerprint(query: NeighborhoodQuery) -> str:

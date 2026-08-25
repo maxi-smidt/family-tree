@@ -8,13 +8,15 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_readable_workspace,
+    get_workspace_access_authenticated,
+    get_workspace_access_write,
     get_writable_workspace,
     require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.base import utcnow_iso
 from app.db.session import get_db
-from app.models import MemberTask, MemberTaskLink, Workspace
+from app.models import ContentType, MemberTask, MemberTaskLink, Workspace
 from app.models.user import User
 from app.schemas.content import (
     LinksSet,
@@ -26,7 +28,9 @@ from app.services.activity.activity import record_activity
 from app.services.documents.content_links import replace_member_links
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage_usage import check_workspace_quota
+from app.services.provenance import origin_section
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(
     prefix="/workspaces/{workspace_id}/tasks",
@@ -34,11 +38,18 @@ router = APIRouter(
     dependencies=[Depends(require_domain("tasks"))],
 )
 
+_DOMAIN = "tasks"
 
-def _get_task(db: Session, tree: Workspace, task_id: str) -> MemberTask:
+
+def _get_task(
+    db: Session, tree: Workspace, task_id: str, context: WorkspaceAccessContext
+) -> MemberTask:
+    """Load a task for a *write* — see events._get_event for why the #984
+    visibility/write check lives here rather than a separate GET route."""
     task = db.get(MemberTask, task_id)
     if task is None or task.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Task not found")
+    context.require_write_content(db, ContentType.TASK, task_id, domain=_DOMAIN)
     return task
 
 
@@ -90,12 +101,17 @@ def _notify(db: Session, tree: Workspace) -> None:
 def list_tasks(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
-    statement = (
-        select(MemberTask)
-        .where(MemberTask.workspace_id == tree.id)
-        .order_by(MemberTask.created_at, MemberTask.id)
+    filters = [MemberTask.workspace_id == tree.id]
+    content_filter = context.content_filter(
+        ContentType.TASK, MemberTask.id, domain=_DOMAIN
+    )
+    if content_filter is not None:
+        filters.append(content_filter)
+    statement = select(MemberTask).where(*filters).order_by(
+        MemberTask.created_at, MemberTask.id
     )
     tasks = db.scalars(apply_pagination(statement, pagination)).all()
     return _tasks_out(db, list(tasks))
@@ -106,8 +122,10 @@ def create_task(
     payload: MemberTaskCreate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
+    context.require_write_scope(origin_section(db), domain=_DOMAIN)
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
     check_workspace_quota(db, tree, len(str(data).encode()))
@@ -143,9 +161,10 @@ def update_task(
     payload: MemberTaskUpdate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    task = _get_task(db, tree, task_id)
+    task = _get_task(db, tree, task_id, context)
     for key, value in payload.model_dump().items():
         setattr(task, key, value)
     # Keep done/done_at consistent regardless of what the client sends.
@@ -174,10 +193,11 @@ def set_links(
     payload: LinksSet,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of members linked to this task."""
-    task = _get_task(db, tree, task_id)
+    task = _get_task(db, tree, task_id, context)
     with UnitOfWork(db) as uow:
         replace_member_links(
             db,
@@ -204,9 +224,10 @@ def delete_task(
     task_id: str,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    task = _get_task(db, tree, task_id)
+    task = _get_task(db, tree, task_id, context)
     with UnitOfWork(db) as uow:
         record_activity(
             db,

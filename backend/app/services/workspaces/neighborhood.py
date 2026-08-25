@@ -51,6 +51,14 @@ class NeighborhoodQuery:
     # Sorted for a stable cursor fingerprint; ``None`` means "no filter".
     section_ids: tuple[str, ...] | None
     budget: int
+    # #984: the caller's access boundary — ``None`` means unrestricted (every
+    # section visible). Deliberately excluded from ``query_fingerprint``: it
+    # is not a shape the caller chose, and ``visibility_fingerprint()``
+    # already retires a cursor when a principal's grants change. Kept
+    # separate from ``section_ids`` (the view filter) throughout this module
+    # so a request that asks to see everything still only ever *walks*
+    # through what the caller may actually read.
+    visible_section_ids: frozenset[str] | None = None
 
 
 @dataclass
@@ -123,8 +131,14 @@ def _admissible(
     workspace_id: str,
     candidates: set[str],
     section_ids: Sequence[str] | None,
+    visible_section_ids: frozenset[str] | None,
 ) -> set[str]:
-    """The candidates that exist in this workspace and pass the section filter."""
+    """The candidates that exist in this workspace, pass the section *view*
+    filter (``section_ids``), and fall inside the caller's *access* boundary
+    (``visible_section_ids``) — two independent conditions (#984): a request
+    may legitimately ask to see everything it can read, so the access check
+    can never be satisfied by reusing the view filter's section-id list.
+    """
     if not candidates:
         return set()
     allowed: set[str] = set()
@@ -133,10 +147,20 @@ def _admissible(
             Member.workspace_id == workspace_id, Member.id.in_(chunk)
         )
         if section_ids is not None:
-            stmt = (
-                stmt.join(SectionMember, SectionMember.member_id == Member.id)
-                .where(SectionMember.section_id.in_(section_ids))
-                .distinct()
+            stmt = stmt.where(
+                Member.id.in_(
+                    select(SectionMember.member_id).where(
+                        SectionMember.section_id.in_(section_ids)
+                    )
+                )
+            )
+        if visible_section_ids is not None:
+            stmt = stmt.where(
+                Member.id.in_(
+                    select(SectionMember.member_id).where(
+                        SectionMember.section_id.in_(visible_section_ids)
+                    )
+                )
             )
         allowed.update(db.scalars(stmt))
     return allowed
@@ -180,14 +204,24 @@ def _sequence(
             if not candidates:
                 break
             examined |= candidates
-            frontier = _admissible(db, workspace_id, candidates, query.section_ids)
+            frontier = _admissible(
+                db,
+                workspace_id,
+                candidates,
+                query.section_ids,
+                query.visible_section_ids,
+            )
             if not frontier:
                 break
             complete = emit(frontier)
 
     if query.include_partners and complete:
         peers = _peer_step(db, workspace_id, set(order))
-        complete = emit(_admissible(db, workspace_id, peers, query.section_ids))
+        complete = emit(
+            _admissible(
+                db, workspace_id, peers, query.section_ids, query.visible_section_ids
+            )
+        )
 
     return order, complete
 
@@ -251,7 +285,11 @@ def relations_for_page(
 
 
 def resolve_section_ids(
-    db: Session, workspace_id: str, section_ids: Sequence[str] | None
+    db: Session,
+    workspace_id: str,
+    section_ids: Sequence[str] | None,
+    *,
+    visible_section_ids: frozenset[str] | None = None,
 ) -> tuple[str, ...] | None:
     """Validate section filters against *workspace_id*, sorted and deduplicated.
 
@@ -259,19 +297,25 @@ def resolve_section_ids(
     nothing it named exists here — a filter that matches nobody, never a
     silently widened view. Unknown ids are dropped rather than rejected: which
     ids exist in a workspace is not something a filter should reveal.
+
+    ``visible_section_ids`` (#984) — the caller's access boundary, ``None``
+    for unrestricted — is intersected in for the same reason: a section a
+    scoped caller cannot read must drop out of the filter rather than surface
+    as "matches nothing" (which would at least confirm the id exists).
     """
     if section_ids is None:
         return None
     requested = sorted(set(section_ids))[:MAX_SECTION_FILTERS]
-    return tuple(
-        sorted(
-            db.scalars(
-                select(Section.id).where(
-                    Section.workspace_id == workspace_id, Section.id.in_(requested)
-                )
+    resolved = set(
+        db.scalars(
+            select(Section.id).where(
+                Section.workspace_id == workspace_id, Section.id.in_(requested)
             )
         )
     )
+    if visible_section_ids is not None:
+        resolved &= visible_section_ids
+    return tuple(sorted(resolved))
 
 
 def continuation_counts(
@@ -284,6 +328,12 @@ def continuation_counts(
     """``(section_id, section_name, remaining)`` per scope still holding members.
 
     Without section filters that is a single workspace-wide entry.
+
+    Counts only readable members (#984) by construction rather than by
+    filtering here: the caller passes an already visibility-intersected
+    ``section_ids`` (see ``resolve_section_ids``) and an already
+    visibility-filtered ``total_member_count``, and every member of a
+    section the caller may name is, by definition, a member they may read.
     """
     if section_ids is None:
         remaining = total_member_count - len(delivered_ids)
@@ -345,12 +395,18 @@ def graph_revision(db: Session, workspace_id: str) -> str:
 
 
 def pick_default_root(
-    db: Session, workspace_id: str, section_ids: Sequence[str] | None = None
+    db: Session,
+    workspace_id: str,
+    section_ids: Sequence[str] | None = None,
+    *,
+    visible_section_ids: frozenset[str] | None = None,
 ) -> str | None:
     """Return the id of the most-connected member in scope, or ``None``.
 
     With section filters the pick is made inside those sections, so the default
-    focus never lands on someone the requested view does not show.
+    focus never lands on someone the requested view does not show. Same for
+    ``visible_section_ids`` (#984): a scoped caller's default root always
+    lands inside what they may actually read, filter or not.
     """
     relation_count = func.count().label("cnt")
     stmt = (
@@ -361,12 +417,14 @@ def pick_default_root(
         .limit(1)
     )
     member_stmt = select(Member.id).where(Member.workspace_id == workspace_id)
-    if section_ids is not None:
+    for scope in (section_ids, visible_section_ids):
+        if scope is None:
+            continue
         # Restrict with a subquery rather than a join: joining fans each
         # relation out once per section the member belongs to, which would
         # count section memberships instead of connections.
         in_sections = select(SectionMember.member_id).where(
-            SectionMember.section_id.in_(section_ids)
+            SectionMember.section_id.in_(scope)
         )
         stmt = stmt.where(Relation.from_member_id.in_(in_sections))
         member_stmt = member_stmt.where(Member.id.in_(in_sections))

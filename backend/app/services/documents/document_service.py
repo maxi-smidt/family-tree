@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session
 from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
 from app.models import (
+    ContentType,
     Document,
     DocumentFile,
     DocumentMemberLink,
@@ -50,7 +51,12 @@ from app.services.documents.document_save_plan import (
 )
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage import delete_media
+from app.services.provenance import origin_section
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
+
+# The domain gate documents share with the rest of the "sources" surface.
+DOMAIN = "sources"
 
 __all__ = ["external_link_url", "prune_stale_uploads", "save_document"]
 
@@ -210,6 +216,7 @@ def save_document(
     *,
     tree: Workspace,
     user: User,
+    context: WorkspaceAccessContext,
     document_id: str,
     payload: DocumentSave,
 ) -> Document:
@@ -225,6 +232,12 @@ def save_document(
     if existing is not None and existing.workspace_id != tree.id:
         raise NotFoundError("Document not found")
     is_create = existing is None
+    if is_create:
+        context.require_write_scope(origin_section(db), domain=DOMAIN)
+    else:
+        context.require_write_content(
+            db, ContentType.DOCUMENT, document_id, domain=DOMAIN
+        )
 
     plan = build_save_plan(
         db, tree=tree, document_id=document_id, is_create=is_create, payload=payload

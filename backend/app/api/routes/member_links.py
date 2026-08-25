@@ -6,7 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_writable_workspace
+from app.api.deps import (
+    get_current_user,
+    get_workspace_access_write,
+    get_writable_workspace,
+)
 from app.db.session import get_db
 from app.models import Member, Workspace
 from app.models.user import User
@@ -28,6 +32,7 @@ from app.services.members.member_clone import (
 )
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspace_roles import role_for
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
@@ -41,6 +46,7 @@ def get_link_candidates(
     target_workspace_id: str = Query(...),
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """List same-named members of ``target_workspace_id`` that could be the bridge
@@ -55,6 +61,7 @@ def get_link_candidates(
     render the same conflict-resolution UI merge already uses.
     """
     member = get_member(db, tree, member_id)
+    context.require_write_member(db, member.id)
 
     validate_linked_tree(db, tree, user, target_workspace_id)
     target = db.get(Workspace, target_workspace_id)
@@ -98,6 +105,7 @@ def link_member_to_tree(
     payload: MemberLinkRequest,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Establish a tree-in-tree bridge between this member and a target tree.
@@ -110,6 +118,7 @@ def link_member_to_tree(
     workspaces, so it requires write access to both.
     """
     member = get_member(db, tree, member_id)
+    context.require_write_member(db, member.id)
     if member.linked_workspace_id is not None:
         raise HTTPException(status_code=409, detail="Member is already linked to a tree")
 
@@ -236,6 +245,7 @@ def resolve_bridge_drift(
     payload: BridgeSyncRequest,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Resolve bridge-person drift by copying person-level fields across the
@@ -243,6 +253,7 @@ def resolve_bridge_drift(
     adopts the counterpart's values. Requires write access to both workspaces.
     """
     member = get_member(db, tree, member_id)
+    context.require_write_member(db, member.id)
     if member.linked_member_id is None:
         raise HTTPException(status_code=400, detail="Member has no linked member")
     counterpart = db.get(Member, member.linked_member_id)

@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_readable_workspace,
+    get_workspace_access_authenticated,
+    get_workspace_access_write,
     get_writable_workspace,
     require_domain,
 )
@@ -17,6 +19,7 @@ from app.core.exceptions import QuotaExceeded
 from app.db.base import utcnow_iso
 from app.db.session import get_db
 from app.models import (
+    ContentType,
     GalleryImage,
     GalleryMemberLink,
     GalleryUnknownFace,
@@ -54,8 +57,10 @@ from app.services.media.storage_usage import (
     check_workspace_quota,
     media_warning,
 )
+from app.services.provenance import origin_section
 from app.services.system.settings_service import effective_storage_mode, get_media_limits
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(
     prefix="/workspaces/{workspace_id}/gallery",
@@ -63,11 +68,18 @@ router = APIRouter(
     dependencies=[Depends(require_domain("gallery"))],
 )
 
+_DOMAIN = "gallery"
 
-def _get_image(db: Session, tree: Workspace, image_id: str) -> GalleryImage:
+
+def _get_image(
+    db: Session, tree: Workspace, image_id: str, context: WorkspaceAccessContext
+) -> GalleryImage:
+    """Load an image for a *write* — see events._get_event for why the #984
+    visibility/write check lives here rather than a separate GET route."""
     image = db.get(GalleryImage, image_id)
     if image is None or image.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Image not found")
+    context.require_write_content(db, ContentType.GALLERY_IMAGE, image_id, domain=_DOMAIN)
     return image
 
 
@@ -75,11 +87,18 @@ def _get_image(db: Session, tree: Workspace, image_id: str) -> GalleryImage:
 def list_images(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
+    filters = [GalleryImage.workspace_id == tree.id]
+    content_filter = context.content_filter(
+        ContentType.GALLERY_IMAGE, GalleryImage.id, domain=_DOMAIN
+    )
+    if content_filter is not None:
+        filters.append(content_filter)
     statement = (
         select(GalleryImage)
-        .where(GalleryImage.workspace_id == tree.id)
+        .where(*filters)
         .order_by(GalleryImage.uploaded_at, GalleryImage.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -89,12 +108,19 @@ def list_images(
 def list_links(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
+    filters = [GalleryImage.workspace_id == tree.id]
+    content_filter = context.content_filter(
+        ContentType.GALLERY_IMAGE, GalleryImage.id, domain=_DOMAIN
+    )
+    if content_filter is not None:
+        filters.append(content_filter)
     statement = (
         select(GalleryMemberLink)
         .join(GalleryImage, GalleryImage.id == GalleryMemberLink.gallery_image_id)
-        .where(GalleryImage.workspace_id == tree.id)
+        .where(*filters)
         .order_by(GalleryMemberLink.gallery_image_id, GalleryMemberLink.member_id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -111,6 +137,7 @@ async def create_image(
     member_ids: list[str] = Form(default=[]),
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Stream an uploaded gallery image to disk, then record its row.
@@ -121,6 +148,7 @@ async def create_image(
     intact before the row is written. The row and its member links commit as one
     unit; a rejection or a failed commit removes the stored bytes.
     """
+    context.require_write_scope(origin_section(db), domain=_DOMAIN)
     limits = get_media_limits(db)
     user_mode = StoredUserPreferences.model_validate(
         user.preferences or {}
@@ -208,9 +236,10 @@ def update_image(
     payload: GalleryImageUpdate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    image = _get_image(db, tree, image_id)
+    image = _get_image(db, tree, image_id, context)
     changes = payload.model_dump(exclude_unset=True)
     # Image bytes are immutable after upload: they only ever come from the
     # streaming POST /images endpoint. The editor echoes back the existing
@@ -251,9 +280,10 @@ def delete_image(
     image_id: str,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    image = _get_image(db, tree, image_id)
+    image = _get_image(db, tree, image_id, context)
     image_url = image.image_data
     with UnitOfWork(db) as uow:
         record_activity(
@@ -289,10 +319,11 @@ def set_links(
     payload: GalleryLinksSet,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of members and optional face regions on an image."""
-    image = _get_image(db, tree, image_id)
+    image = _get_image(db, tree, image_id, context)
     with UnitOfWork(db):
         replace_gallery_member_links(
             db,
@@ -347,13 +378,17 @@ def _open_linked_task(
     return task
 
 
-def _get_unknown_face(db: Session, tree: Workspace, face_id: str) -> GalleryUnknownFace:
+def _get_unknown_face(
+    db: Session, tree: Workspace, face_id: str, context: WorkspaceAccessContext
+) -> GalleryUnknownFace:
+    """Load a face for a *write*. A face has no scope of its own — it
+    inherits its parent image's (see ``app.models.provenance``) — so the
+    #984 check is the owning image's, via ``_get_image``.
+    """
     face = db.get(GalleryUnknownFace, face_id)
     if face is None:
         raise HTTPException(status_code=404, detail="Face not found")
-    image = db.get(GalleryImage, face.gallery_image_id)
-    if image is None or image.workspace_id != tree.id:
-        raise HTTPException(status_code=404, detail="Face not found")
+    _get_image(db, tree, face.gallery_image_id, context)
     return face
 
 
@@ -361,12 +396,19 @@ def _get_unknown_face(db: Session, tree: Workspace, face_id: str) -> GalleryUnkn
 def list_unknown_faces(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
+    filters = [GalleryImage.workspace_id == tree.id]
+    content_filter = context.content_filter(
+        ContentType.GALLERY_IMAGE, GalleryImage.id, domain=_DOMAIN
+    )
+    if content_filter is not None:
+        filters.append(content_filter)
     statement = (
         select(GalleryUnknownFace)
         .join(GalleryImage, GalleryImage.id == GalleryUnknownFace.gallery_image_id)
-        .where(GalleryImage.workspace_id == tree.id)
+        .where(*filters)
         .order_by(GalleryUnknownFace.gallery_image_id, GalleryUnknownFace.id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -383,10 +425,15 @@ def create_unknown_face(
     payload: UnknownFaceCreate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Tag a face region as an unknown person, creating its research task."""
-    image = _get_image(db, tree, image_id)
+    image = _get_image(db, tree, image_id, context)
+    # The task this creates lands in the caller's request-level origin
+    # section (like any other new content), which is a separate domain
+    # ("tasks") from the image it's tagged on.
+    context.require_write_scope(origin_section(db), domain="tasks")
 
     title = payload.task_title or (
         f'Identify unknown person in "{image.title or image_id}"'
@@ -467,10 +514,11 @@ def update_unknown_face(
     payload: UnknownFaceUpdate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Redraw an unknown-face region. Never creates or touches a task."""
-    face = _get_unknown_face(db, tree, face_id)
+    face = _get_unknown_face(db, tree, face_id, context)
     image = db.get(GalleryImage, face.gallery_image_id)
     face.x = payload.x
     face.y = payload.y
@@ -513,14 +561,16 @@ def resolve_unknown_face(
     payload: UnknownFaceResolve,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Turn an unknown-face tag into a member link and close its task."""
-    face = _get_unknown_face(db, tree, face_id)
+    face = _get_unknown_face(db, tree, face_id, context)
     image = db.get(GalleryImage, face.gallery_image_id)
     member = db.get(Member, payload.member_id)
     if member is None or member.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Member not found")
+    context.require_read_member(db, member.id)
 
     existing_link = db.get(GalleryMemberLink, (face.gallery_image_id, member.id))
     if existing_link is not None:
@@ -543,6 +593,7 @@ def resolve_unknown_face(
     task = _open_linked_task(db, tree, face)
     task_changed = task is not None
     if task is not None:
+        context.require_write_content(db, ContentType.TASK, task.id, domain="tasks")
         task.done = True
         task.done_at = utcnow_iso()
         record_activity(
@@ -599,15 +650,17 @@ def delete_unknown_face(
     face_id: str,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Remove an unknown-face tag, deleting its task only if still open."""
-    face = _get_unknown_face(db, tree, face_id)
+    face = _get_unknown_face(db, tree, face_id, context)
     image = db.get(GalleryImage, face.gallery_image_id)
 
     task = _open_linked_task(db, tree, face)
     task_changed = task is not None
     if task is not None:
+        context.require_write_content(db, ContentType.TASK, task.id, domain="tasks")
         record_activity(
             db,
             workspace_id=tree.id,

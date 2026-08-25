@@ -3,7 +3,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_writable_workspace
+from app.api.deps import (
+    get_current_user,
+    get_workspace_access_write,
+    get_writable_workspace,
+)
 from app.db.session import get_db
 from app.models import Workspace
 from app.models.user import User
@@ -11,6 +15,7 @@ from app.schemas.family import MemberOut, MemberSubtreeCreate
 from app.schemas.workspace import MemberSubtreeOut, WorkspaceOut
 from app.services.members.member_access import get_member
 from app.services.members.member_subtrees import create_linked_subtree
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
@@ -25,6 +30,7 @@ def create_member_subtree(
     payload: MemberSubtreeCreate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Create a new tree seeded with a copy of this member and link both ways.
@@ -35,6 +41,7 @@ def create_member_subtree(
     so navigation works in both directions and lands on the counterpart.
     """
     member = get_member(db, tree, member_id)
+    context.require_write_member(db, member.id)
     if member.linked_workspace_id is not None:
         raise HTTPException(status_code=409, detail="Member is already linked to a tree")
     name = payload.name.strip()
