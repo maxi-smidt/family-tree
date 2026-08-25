@@ -107,7 +107,7 @@ class GedcomParseResult(TypedDict):
 
 class BundleMemberRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     gender: str | None
     academic_title: str | None
     first_name: str | None
@@ -128,14 +128,12 @@ class BundleMemberRow(TypedDict, total=False):
     deceased: bool
     adopted: bool
     is_collapsed: bool
-    linked_tree_id: str | None
-    linked_member_id: str | None
     position_x: float
     position_y: float
 
 
 class BundleRelationRow(TypedDict, total=False):
-    tree_id: str
+    workspace_id: str
     from_member_id: str
     to_member_id: str
     relation_type: str
@@ -152,7 +150,7 @@ class BundleRelationTypeRow(TypedDict, total=False):
 
 class BundleDiseaseRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     member_id: str
     name: str | None
     carrier_status: str | None
@@ -163,7 +161,7 @@ class BundleDiseaseRow(TypedDict, total=False):
 
 class BundleTaskRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     title: str | None
     notes: str | None
     done: bool
@@ -178,7 +176,7 @@ class BundleTaskLinkRow(TypedDict, total=False):
 
 class BundleGalleryImageRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     image_data: str | None
     title: str | None
     description: str | None
@@ -208,7 +206,7 @@ class BundleUnknownFaceRow(TypedDict, total=False):
 
 class BundleEventRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     event_type: str | None
     date: str | None
     location: str | None
@@ -223,7 +221,7 @@ class BundleEventLinkRow(TypedDict, total=False):
 
 class BundleStoryRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     title: str | None
     content: str | None
     date: str | None
@@ -238,7 +236,7 @@ class BundleStoryLinkRow(TypedDict, total=False):
 
 class BundleDocumentRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     title: str | None
     document_date: str | None
     description: str | None
@@ -248,7 +246,7 @@ class BundleDocumentRow(TypedDict, total=False):
 
 class BundleDocumentFileRow(TypedDict, total=False):
     id: str
-    tree_id: str
+    workspace_id: str
     document_id: str
     kind: str | None
     filename: str | None
@@ -271,6 +269,54 @@ class BundleEventDocumentLinkRow(TypedDict, total=False):
 class BundleStoryDocumentLinkRow(TypedDict, total=False):
     story_id: str
     document_id: str
+
+
+class BundleSectionRow(TypedDict, total=False):
+    id: str
+    workspace_id: str
+    name: str
+    position: int
+    created_at: str | None
+
+
+class BundleSectionMemberRow(TypedDict, total=False):
+    section_id: str
+    member_id: str
+
+
+class BundleSectionPositionRow(TypedDict, total=False):
+    section_id: str
+    member_id: str
+    position_x: float
+    position_y: float
+
+
+class BundleSavedViewRow(TypedDict, total=False):
+    id: str
+    workspace_id: str
+    owner_id: str
+    name: str
+    focus_member_id: str | None
+    ancestor_depth: int
+    descendant_depth: int
+    include_partners: bool
+    filters: dict[str, object]
+    config_version: int
+    created_at: str | None
+    updated_at: str | None
+
+
+class BundleSavedViewSectionRow(TypedDict, total=False):
+    saved_view_id: str
+    section_id: str
+    workspace_id: str
+
+
+class BundleSavedViewPositionRow(TypedDict, total=False):
+    saved_view_id: str
+    node_id: str
+    position_x: float
+    position_y: float
 
 
 # ---------------------------------------------------------------------------
@@ -337,5 +383,44 @@ class TreeBundleV4(TypedDict, total=False):
     story_document_links: list[BundleStoryDocumentLinkRow]
 
 
-TreeBundle = TreeBundleV2 | TreeBundleV3 | TreeBundleV4
+class TreeBundleV5(TypedDict, total=False):
+    """Current bundle shape produced by ``export_tree``.
+
+    Adds sections, their explicit membership/layout overlay, and saved views —
+    the workspace concepts introduced by #982/#986 that a v4 bundle predates.
+    Cross-workspace identity links are deliberately never part of this format;
+    see the "Identity links" note in ``export_import.export_tree``.
+    """
+
+    version: int
+    app_version: str
+    exported_at: str
+    tree: dict[str, str]
+    members: list[BundleMemberRow]
+    relations: list[BundleRelationRow]
+    relation_types: list[BundleRelationTypeRow]
+    diseases: list[BundleDiseaseRow]
+    tasks: list[BundleTaskRow]
+    task_links: list[BundleTaskLinkRow]
+    gallery_images: list[BundleGalleryImageRow]
+    gallery_links: list[BundleGalleryLinkRow]
+    unknown_faces: list[BundleUnknownFaceRow]
+    events: list[BundleEventRow]
+    event_links: list[BundleEventLinkRow]
+    stories: list[BundleStoryRow]
+    story_links: list[BundleStoryLinkRow]
+    documents: list[BundleDocumentRow]
+    document_files: list[BundleDocumentFileRow]
+    document_member_links: list[BundleDocumentMemberLinkRow]
+    event_document_links: list[BundleEventDocumentLinkRow]
+    story_document_links: list[BundleStoryDocumentLinkRow]
+    sections: list[BundleSectionRow]
+    section_members: list[BundleSectionMemberRow]
+    section_positions: list[BundleSectionPositionRow]
+    saved_views: list[BundleSavedViewRow]
+    saved_view_sections: list[BundleSavedViewSectionRow]
+    saved_view_positions: list[BundleSavedViewPositionRow]
+
+
+TreeBundle = TreeBundleV2 | TreeBundleV3 | TreeBundleV4 | TreeBundleV5
 """Any bundle version that ``migrate_bundle`` knows how to read."""

@@ -5,6 +5,12 @@ than the native bundle import
 (``app.services.interchange.bundles.tree_bundle_import``) — GEDCOM carries
 only members and relations — but shares the same quota-enforcement and
 rollback contract.
+
+GEDCOM import always creates a new workspace, like the native bundle
+importer; it never merges into an existing one (#1016 scoped that out —
+matching sections/members from an arbitrary GEDCOM file into an existing
+workspace's own is a separate, product-level feature, not part of this
+migration to the workspace contract).
 """
 
 from __future__ import annotations
@@ -13,7 +19,7 @@ from uuid import uuid4
 
 from app.db.base import utcnow_iso
 from app.db.session import SessionLocal
-from app.models import Member, Relation, User, Workspace
+from app.models import Member, Relation, Section, SectionMember, User, Workspace
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_workspace_event
 from app.services.interchange.bundles.bundle_types import GedcomParseResult
@@ -26,6 +32,11 @@ from app.services.media.storage import delete_workspace_media
 from app.services.system.job_service import ProgressCallback
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspaces.workspace_state import mark_workspace_opened
+
+# Name of the single section a GEDCOM import seeds with every member it
+# brings in — deterministic and always available, since GEDCOM itself has no
+# notion of sections to read one from.
+DEFAULT_SECTION_NAME = "All members"
 
 
 def do_import_gedcom(
@@ -85,6 +96,21 @@ def do_import_gedcom(
         ]
         bulk_insert_chunked(db, Relation, relation_dicts)
         progress_cb(90)
+
+        if inserted_member_ids:
+            section = Section(
+                id=str(uuid4()),
+                workspace_id=tree.id,
+                name=DEFAULT_SECTION_NAME,
+                position=0,
+                created_at=utcnow_iso(),
+            )
+            db.add(section)
+            db.flush()
+            db.add_all(
+                SectionMember(section_id=section.id, member_id=member_id)
+                for member_id in inserted_member_ids
+            )
 
         enforce_import_quota(db, tree)
         user = db.get(User, user_id)

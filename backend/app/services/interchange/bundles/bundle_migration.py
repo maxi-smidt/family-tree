@@ -16,7 +16,7 @@ from app.services.interchange.bundles.bundle_types import (
     TreeBundle,
     TreeBundleV2,
     TreeBundleV3,
-    TreeBundleV4,
+    TreeBundleV5,
 )
 
 # Bundle schema version. Bump this **and** add a ``migrate_bundle`` step whenever
@@ -28,7 +28,11 @@ from app.services.interchange.bundles.bundle_types import (
 #   v4 (v1.8+):   gallery_links gain face regions; tasks / task_links
 #                 (research tasks); unknown_faces (gallery unknown-person
 #                 tags, issue #736)
-BUNDLE_VERSION = 4
+#   v5 (v2.0+):   sections / section_members / section_positions;
+#                 saved_views / saved_view_sections / saved_view_positions
+#                 (#1016) — a bundle never carries identity links or the
+#                 legacy member bridge fields, see export_import.export_tree.
+BUNDLE_VERSION = 5
 
 
 def _fold_source_description(source: dict, citation_lines: list[str]) -> str | None:
@@ -163,7 +167,7 @@ def _migrate_v2_to_v3(bundle: TreeBundleV2) -> TreeBundleV3:
     return migrated
 
 
-def migrate_bundle(bundle: TreeBundle) -> TreeBundleV4:
+def migrate_bundle(bundle: TreeBundle) -> TreeBundleV5:
     """Bring an older bundle up to BUNDLE_VERSION.
 
     Add a migration step here and bump BUNDLE_VERSION when the bundle schema
@@ -189,10 +193,23 @@ def migrate_bundle(bundle: TreeBundle) -> TreeBundleV4:
         migrated["unknown_faces"] = bundle.get("unknown_faces", [])
         migrated["version"] = 4
         bundle = migrated
+    if bundle.get("version", 1) < 5:
+        # v4 → v5: sections and saved views didn't exist yet, so an older
+        # bundle simply has none — a bare tree's worth of content with no
+        # organizational overlay to carry forward.
+        migrated = dict(bundle)
+        migrated["sections"] = bundle.get("sections", [])
+        migrated["section_members"] = bundle.get("section_members", [])
+        migrated["section_positions"] = bundle.get("section_positions", [])
+        migrated["saved_views"] = bundle.get("saved_views", [])
+        migrated["saved_view_sections"] = bundle.get("saved_view_sections", [])
+        migrated["saved_view_positions"] = bundle.get("saved_view_positions", [])
+        migrated["version"] = 5
+        bundle = migrated
     return bundle
 
 
-def validate_and_migrate(bundle: TreeBundle) -> TreeBundleV4:
+def validate_and_migrate(bundle: TreeBundle) -> TreeBundleV5:
     version = bundle.get("version", 1)
     if version > BUNDLE_VERSION:
         raise InvalidInputError(
