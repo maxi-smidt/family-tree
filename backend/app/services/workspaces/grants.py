@@ -112,6 +112,17 @@ def _best(grants: list[Grant]) -> Grant | None:
     )
 
 
+def resolve_grant(grants: list[Grant], section_id: str | None) -> Grant | None:
+    """Public entry point for #984: the grant governing ``section_id`` from an
+    already-fetched grant list, without a further DB round-trip.
+
+    Same rule as ``effective_grant``, split out so a request-scoped resolver
+    (``app.services.workspaces.visibility``) can fetch a principal's grants
+    once and evaluate them against many sections/records.
+    """
+    return _best(_applicable(grants, section_id))
+
+
 def effective_grant(
     db: Session, workspace_id: str, user_id: str, *, section_id: str | None = None
 ) -> Grant | None:

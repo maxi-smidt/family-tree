@@ -5,13 +5,17 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token, decode_public_tree_token
+from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models import User, Workspace, WorkspaceMembership, WorkspaceSectionGrant
 from app.services.provenance import bind_origin_section, resolve_origin_section
 from app.services.workspace_roles import role_for
 from app.services.workspaces.grants import permitted_section_ids, restricts_domain
-from app.services.workspaces.public_links import WORKSPACE_LINK_ID
+from app.services.workspaces.public_links import resolve_public_grant_for_read
+from app.services.workspaces.visibility import (
+    WorkspaceAccessContext,
+    resolve_access_context,
+)
 
 _bearer = HTTPBearer(auto_error=False)
 
@@ -104,32 +108,17 @@ def get_current_user_optional(
     return user
 
 
-def _public_access_ok(tree: Workspace, public_token: str | None) -> bool:
-    """True if the workspace-wide public link needs no password, or the
-    supplied unlock token is valid for it.
+def _public_access_ok(db: Session, tree: Workspace, public_token: str | None) -> bool:
+    """True when some active public grant — workspace-wide or one of #993's
+    section-scoped links — governs this anonymous read.
 
-    Deliberately narrower than "some active public grant, any scope": a
-    section-scoped ``WorkspaceSectionPublicLink`` (#993) unlocks and mints
-    its own token (see ``workspace_public.unlock_public_tree``), but that
-    token must not grant this coarse, unscoped read of the *whole*
-    workspace — there is no per-section content filter yet to keep it to its
-    own section (that choke point is #984's job). Wiring it in here first
-    would let anyone who knew one constituent tree's old public password
-    read every other section a consolidated workspace now contains.
+    Only proves a grant exists; it does not say *which* records it reaches.
+    Every read route narrows further through the ``WorkspaceAccessContext``
+    built from the same grant (see ``get_workspace_access``/#984), so a
+    section link's own password unlocks only its own section rather than the
+    whole consolidated workspace.
     """
-    if not tree.public_password_hash:
-        return True
-    if not public_token:
-        return False
-    try:
-        workspace_id, access_version, grant_id = decode_public_tree_token(public_token)
-        return (
-            workspace_id == tree.id
-            and grant_id == WORKSPACE_LINK_ID
-            and access_version == tree.public_access_version
-        )
-    except Exception:  # noqa: BLE001 - any decode failure means no access
-        return False
+    return resolve_public_grant_for_read(db, tree, public_token) is not None
 
 
 def _resolve_workspace(
@@ -145,15 +134,19 @@ def _resolve_workspace(
         raise HTTPException(status_code=404, detail="Workspace not found")
 
     if user is None:
-        # Anonymous requests succeed only for public read-only workspaces.
-        if not write and tree.public_role == "viewer":
-            if not _public_access_ok(tree, public_token):
+        # Anonymous requests succeed only for a read against an active public
+        # grant — workspace-wide, or (#984) a token proving a section-scoped
+        # link's own password. *Which* records that reaches is narrowed later
+        # by the WorkspaceAccessContext built from the same grant.
+        if not write:
+            if _public_access_ok(db, tree, public_token):
+                return tree
+            if tree.public_role == "viewer":
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="public_password_required",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            return tree
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
@@ -169,14 +162,15 @@ def _resolve_workspace(
     # authenticated users who have no explicit membership.
     role = role_for(db, tree, user)
     if role is None:
-        if not write and tree.public_role == "viewer":
-            if not _public_access_ok(tree, public_token):
+        if not write:
+            if _public_access_ok(db, tree, public_token):
+                return tree
+            if tree.public_role == "viewer":
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="public_password_required",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
-            return tree
         raise HTTPException(status_code=403, detail="No access to this tree")
     if write and role == "viewer":
         raise HTTPException(status_code=403, detail="Read-only access to this tree")
@@ -236,6 +230,39 @@ def get_writable_workspace(
         ),
     )
     return tree
+
+
+def get_workspace_access(
+    tree: Workspace = Depends(get_readable_workspace_public),
+    user: User | None = Depends(get_current_user_optional),
+    db: Session = Depends(get_db),
+    public_token: str | None = Header(None, alias="X-Public-Workspace-Token"),
+) -> WorkspaceAccessContext:
+    """The #984 visibility resolver for a public-or-authenticated read.
+
+    Depending on ``get_readable_workspace_public`` (rather than resolving the
+    grant from scratch) guarantees the coarse gate already ran — this only
+    narrows *which* records that access reaches.
+    """
+    return resolve_access_context(db, tree, user, public_token=public_token)
+
+
+def get_workspace_access_authenticated(
+    tree: Workspace = Depends(get_readable_workspace),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WorkspaceAccessContext:
+    """Like ``get_workspace_access``, for routes with no anonymous surface."""
+    return resolve_access_context(db, tree, user)
+
+
+def get_workspace_access_write(
+    tree: Workspace = Depends(get_writable_workspace),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> WorkspaceAccessContext:
+    """Like ``get_workspace_access``, resolved behind the write gate."""
+    return resolve_access_context(db, tree, user)
 
 
 def explicit_workspace_ids(db: Session, user: User) -> list[str]:

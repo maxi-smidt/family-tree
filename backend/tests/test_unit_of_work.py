@@ -25,7 +25,15 @@ from app.schemas.content import EventCreate, LinksSet, MemberTaskCreate, StoryCr
 from app.schemas.family import DiseaseCreate, MemberCreate
 from app.schemas.workspace import WorkspaceCreate, WorkspaceShare
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 from tests.conftest import add_member, befriend, make_tree, make_user
+
+
+def _owner_context(tree: Workspace, owner) -> WorkspaceAccessContext:
+    """These tests call route functions directly, bypassing FastAPI's
+    dependency injection, so the #984 access context has to be built by hand
+    — the owner is always unrestricted."""
+    return WorkspaceAccessContext(tree.id, owner.id, True)
 
 _TS = "2000-01-01T00:00:00Z"
 
@@ -121,6 +129,7 @@ def test_create_story_commit_failure_leaves_no_row_and_publishes_nothing(
                 StoryCreate(id="s1", title="A tale", created_at=_TS, updated_at=_TS),
                 tree=tree,
                 user=owner,
+                context=_owner_context(tree, owner),
                 db=db,
             )
     published.assert_not_called()
@@ -140,13 +149,16 @@ def test_delete_story_commit_failure_leaves_story_intact(db, owner, monkeypatch)
         StoryCreate(id="s2", title="Keep me", created_at=_TS, updated_at=_TS),
         tree=tree,
         user=owner,
+        context=_owner_context(tree, owner),
         db=db,
     )
 
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
     with patch("app.api.routes.stories.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
-            delete_story("s2", tree=tree, user=owner, db=db)
+            delete_story(
+                "s2", tree=tree, user=owner, context=_owner_context(tree, owner), db=db
+            )
     published.assert_not_called()
 
     # No manual db.rollback() here: the UnitOfWork must have already rolled
@@ -166,6 +178,7 @@ def test_create_event_commit_failure_leaves_no_row_and_publishes_nothing(
                 EventCreate(id="e1", event_type="birth", date="2000", created_at=_TS),
                 tree=tree,
                 user=owner,
+                context=_owner_context(tree, owner),
                 db=db,
             )
     published.assert_not_called()
@@ -185,13 +198,16 @@ def test_delete_event_commit_failure_leaves_event_intact(db, owner, monkeypatch)
         EventCreate(id="e2", event_type="birth", date="2000", created_at=_TS),
         tree=tree,
         user=owner,
+        context=_owner_context(tree, owner),
         db=db,
     )
 
     monkeypatch.setattr(db, "commit", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
     with patch("app.api.routes.events.publish_workspace_event") as published:
         with pytest.raises(RuntimeError):
-            delete_event("e2", tree=tree, user=owner, db=db)
+            delete_event(
+                "e2", tree=tree, user=owner, context=_owner_context(tree, owner), db=db
+            )
     published.assert_not_called()
 
     # No manual db.rollback() here: the UnitOfWork must have already rolled
@@ -219,6 +235,7 @@ def test_create_story_link_failure_rolls_back_the_whole_mutation(
                     ),
                     tree=tree,
                     user=owner,
+                    context=_owner_context(tree, owner),
                     db=db,
                 )
     published.assert_not_called()
@@ -234,15 +251,19 @@ def test_set_links_on_event_emits_content_changed(db, owner):
     """Regression: set_links used to commit without publishing at all, so
     collaborators never saw a live update for a member-link change."""
     tree = make_tree(db, owner)
+    context = _owner_context(tree, owner)
     create_event(
         EventCreate(id="e3", event_type="birth", date="2000", created_at=_TS),
         tree=tree,
         user=owner,
+        context=context,
         db=db,
     )
 
     with patch("app.api.routes.events.publish_workspace_event") as published:
-        set_links("e3", LinksSet(member_ids=[]), tree=tree, user=owner, db=db)
+        set_links(
+            "e3", LinksSet(member_ids=[]), tree=tree, user=owner, context=context, db=db
+        )
 
     event_types = [c.args[2] for c in published.call_args_list]
     assert "workspace.content_changed" in event_types
@@ -287,6 +308,7 @@ def test_create_task_commit_failure_leaves_no_row_and_notifies_nothing(
                 MemberTaskCreate(id="t1", title="Do it", created_at=_TS),
                 tree=tree,
                 user=owner,
+                context=_owner_context(tree, owner),
                 db=db,
             )
     notified.assert_not_called()
@@ -313,6 +335,7 @@ def test_add_disease_commit_failure_leaves_no_row_and_publishes_nothing(
                 ),
                 tree=tree,
                 user=owner,
+                context=_owner_context(tree, owner),
                 db=db,
             )
     published.assert_not_called()

@@ -1124,6 +1124,7 @@ def test_subtree_survives_deletion_of_bridge_member(db):
     another tree — but dissolves the now-broken tree-in-tree link so the
     surviving counterpart becomes an ordinary member again."""
     from app.api.routes.members import delete_member
+    from app.services.workspaces.visibility import WorkspaceAccessContext
 
     user = make_user(db, "alice")
     tree = make_family(db, user)
@@ -1141,7 +1142,8 @@ def test_subtree_survives_deletion_of_bridge_member(db):
 
     # Delete the bridge member through the route/service layer (writable-tree
     # dependency already resolved to `tree` for the owning user).
-    delete_member(member_id="root", tree=tree, user=user, db=db)
+    context = WorkspaceAccessContext(tree.id, user.id, True)
+    delete_member(member_id="root", tree=tree, user=user, context=context, db=db)
     db.commit()
 
     # The bridge member itself is gone from the source tree.

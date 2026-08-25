@@ -15,6 +15,8 @@ from app.api.deps import (
     get_current_user,
     get_current_user_optional,
     get_readable_workspace_public,
+    get_workspace_access,
+    get_workspace_access_write,
     get_writable_workspace,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
@@ -82,6 +84,7 @@ from app.services.workspaces.neighborhood_cursor import (
     encode_cursor,
     visibility_fingerprint,
 )
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(prefix="/workspaces/{workspace_id}", tags=["members"])
 
@@ -92,28 +95,25 @@ def list_members(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
     surface: bool = Query(False),
 ):
+    filters = [Member.workspace_id == tree.id]
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        filters.append(member_filter)
     if public_only(db, tree, user):
-        stmt = (
-            select(*PUBLIC_MEMBER_COLUMNS)
-            .where(Member.workspace_id == tree.id)
-            .order_by(Member.id)
-        )
+        stmt = select(*PUBLIC_MEMBER_COLUMNS).where(*filters).order_by(Member.id)
         rows = db.execute(apply_pagination(stmt, pagination)).all()
         return JSONResponse(content=public_member_payloads(rows))
     if surface:
-        stmt = (
-            select(*MEMBER_SURFACE_COLUMNS)
-            .where(Member.workspace_id == tree.id)
-            .order_by(Member.id)
-        )
+        stmt = select(*MEMBER_SURFACE_COLUMNS).where(*filters).order_by(Member.id)
         return [
             MemberSurfaceOut(**row._mapping)
             for row in db.execute(apply_pagination(stmt, pagination)).all()
         ]
-    statement = select(Member).where(Member.workspace_id == tree.id).order_by(Member.id)
+    statement = select(Member).where(*filters).order_by(Member.id)
     return db.scalars(apply_pagination(statement, pagination)).all()
 
 
@@ -206,12 +206,14 @@ def create_member(
 def update_member_positions(
     payload: list[MemberPositionUpdate],
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Persist many member positions in one round-trip (re-layout / drag).
 
     Declared before ``/members/{member_id}`` so the literal ``positions`` path
-    isn't captured as a member id. Unknown ids are silently skipped.
+    isn't captured as a member id. Unknown ids, and ids the caller may not
+    edit, are silently skipped.
     """
     if not payload:
         return
@@ -221,6 +223,7 @@ def update_member_positions(
         for m in db.scalars(
             select(Member).where(Member.workspace_id == tree.id, Member.id.in_(ids))
         )
+        if context.can_write_member(db, m.id, mode="edit")
     }
     with UnitOfWork(db) as uow:
         for p in payload:
@@ -239,12 +242,14 @@ def update_member_positions(
 def update_member_collapsed(
     payload: list[MemberCollapsedUpdate],
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Persist collapse/expand state for many members in one round-trip.
 
     Declared before ``/members/{member_id}`` so the literal ``collapsed`` path
-    isn't captured as a member id. Unknown ids are silently skipped.
+    isn't captured as a member id. Unknown ids, and ids the caller may not
+    edit, are silently skipped.
     """
     if not payload:
         return
@@ -254,6 +259,7 @@ def update_member_collapsed(
         for m in db.scalars(
             select(Member).where(Member.workspace_id == tree.id, Member.id.in_(ids))
         )
+        if context.can_write_member(db, m.id, mode="edit")
     }
     with UnitOfWork(db):
         for p in payload:
@@ -294,6 +300,7 @@ def merge_members(
     payload: MemberMergeRequest,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Merge two members of this tree in place (#729).
@@ -305,6 +312,10 @@ def merge_members(
     ``/members/{member_id}`` — like ``positions``/``collapsed`` — so the
     literal ``merge`` path segment isn't captured as a member id.
     """
+    context.require_write_member(db, payload.keep_id, mode="edit")
+    # remove_id's row disappears from every section it was in, so it needs
+    # the stricter "editor everywhere it's assigned" delete-level check.
+    context.require_write_member(db, payload.remove_id, mode="delete")
     keep = get_member_row(db, tree, payload.keep_id)
     remove = get_member_row(db, tree, payload.remove_id)
     merged, details, counterpart, bridge_outcome = merge_members_in_place(
@@ -441,6 +452,7 @@ def search_members(
     limit: int = Query(20, ge=1, le=50),
     tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
     """Full-text name search scoped to the tree.  Declared before
@@ -448,12 +460,13 @@ def search_members(
     as a member id."""
     public = public_only(db, tree, user)
     columns = PUBLIC_MEMBER_COLUMNS if public else MEMBER_SURFACE_COLUMNS
+    filters = [Member.workspace_id == tree.id, member_name_search_clause(q)]
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        filters.append(member_filter)
     stmt = (
         select(*columns)
-        .where(
-            Member.workspace_id == tree.id,
-            member_name_search_clause(q),
-        )
+        .where(*filters)
         .order_by(Member.last_name, Member.first_name)
         .limit(limit)
     )
@@ -484,6 +497,7 @@ def get_neighborhood(
     cursor: str | None = Query(None),
     tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
     """Return one bounded page of the neighborhood around *root*.  Declared
@@ -496,19 +510,36 @@ def get_neighborhood(
     parameters — continues where the previous page stopped. A cursor whose
     graph or focus root has moved on returns 409 ``stale_cursor`` (restart the
     traversal); one that does not belong to this request returns 400.
+
+    Every member this endpoint can return — root, page, continuation counts —
+    is bounded by ``context``'s resolved visibility boundary (#984), not just
+    by ``sections``: that query param is a view filter the caller chooses,
+    never an access grant.
     """
+    visible_section_ids = context.visible_section_ids()
+    count_filters = [Member.workspace_id == tree.id]
+    member_filter = context.member_filter()
+    if member_filter is not None:
+        count_filters.append(member_filter)
     total_count: int = (
-        db.scalar(select(func.count(Member.id)).where(Member.workspace_id == tree.id))
-        or 0
+        db.scalar(select(func.count(Member.id)).where(*count_filters)) or 0
     )
     if total_count == 0:
         return _empty_neighborhood(0)
 
-    section_ids = resolve_section_ids(db, tree.id, sections)
-    root_id = root if root is not None else pick_default_root(db, tree.id, section_ids)
+    section_ids = resolve_section_ids(
+        db, tree.id, sections, visible_section_ids=visible_section_ids
+    )
+    root_id = (
+        root
+        if root is not None
+        else pick_default_root(
+            db, tree.id, section_ids, visible_section_ids=visible_section_ids
+        )
+    )
     if root_id is None:
         # Reachable on a populated workspace: a section filter can resolve to
-        # nothing, or name only empty sections.
+        # nothing, or name only sections/members the caller cannot read.
         return _empty_neighborhood(total_count)
 
     if (
@@ -516,6 +547,7 @@ def get_neighborhood(
             select(Member.id).where(Member.id == root_id, Member.workspace_id == tree.id)
         )
         is None
+        or not context.can_read_member(db, root_id)
     ):
         raise HTTPException(status_code=404, detail="Root member not found")
 
@@ -526,8 +558,9 @@ def get_neighborhood(
         include_partners=partners,
         section_ids=section_ids,
         budget=budget,
+        visible_section_ids=visible_section_ids,
     )
-    visibility = visibility_fingerprint(db, tree, user)
+    visibility = visibility_fingerprint(context)
     revision = graph_revision(db, tree.id)
     offset = (
         decode_cursor(cursor, tree.id, query, visibility=visibility, revision=revision)
@@ -614,10 +647,12 @@ def get_member(
     member_id: str,
     tree: Workspace = Depends(get_readable_workspace_public),
     user: User | None = Depends(get_current_user_optional),
+    context: WorkspaceAccessContext = Depends(get_workspace_access),
     db: Session = Depends(get_db),
 ):
     if public_only(db, tree, user):
         raise HTTPException(status_code=404, detail="Member not found")
+    context.require_read_member(db, member_id)
     return get_member_row(db, tree, member_id)
 
 
@@ -629,6 +664,7 @@ def get_member_merge_preview(
     member_id: str,
     other: str = Query(...),
     tree: Workspace = Depends(get_writable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Field conflicts + transfer counts for a same-tree member merge (#729).
@@ -637,6 +673,8 @@ def get_member_merge_preview(
     the one that would be removed; the merge itself is symmetric in what it
     computes here, only ``POST /members/merge`` cares which id is which.
     """
+    context.require_read_member(db, member_id)
+    context.require_read_member(db, other)
     keep = get_member_row(db, tree, member_id)
     remove = get_member_row(db, tree, other)
     if keep.id == remove.id:
@@ -650,8 +688,10 @@ def update_member(
     payload: MemberUpdate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
+    context.require_write_member(db, member_id, mode="edit")
     result = update_member_service(
         db, tree=tree, user=user, member_id=member_id, payload=payload
     )
@@ -665,8 +705,10 @@ def delete_member(
     member_id: str,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
+    context.require_write_member(db, member_id, mode="delete")
     member = get_member_row(db, tree, member_id)
     # Deleting one half of a bridge person dissolves the tree-in-tree link: the
     # surviving counterpart becomes an ordinary member again. The FK only SET

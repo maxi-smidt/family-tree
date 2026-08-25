@@ -9,10 +9,11 @@ without merging them into one more-permissive link.
 
 Both shapes are normalized into ``PublicGrant`` so callers don't care which
 table a given link lives in. ``active_public_grants``/``resolve_public_grant``
-verify a grant's own password/version correctly for both, but only the
-workspace-wide grant currently unlocks the coarse anonymous read gate in
-``app.api.deps`` — see ``_public_access_ok`` there for why wiring a section
-link into it too has to wait for #984's real per-section content filter.
+verify a grant's own password/version correctly for both;
+``resolve_public_grant_for_read`` is what ``app.api.deps`` uses to decide
+*which* grant — workspace-wide or one specific section — governs an anonymous
+request, now that #984's visibility resolver enforces the section boundary on
+every read path a section grant reaches.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import InvalidInputError
-from app.core.security import hash_password
+from app.core.security import decode_public_tree_token, hash_password
 from app.models import Workspace, WorkspaceSectionPublicLink
 
 # Sentinel id for the workspace-wide link (the ``Workspace`` row's own
@@ -100,6 +101,38 @@ def resolve_public_grant(
         password_hash=link.password_hash,
         access_version=link.access_version,
     )
+
+
+def resolve_public_grant_for_read(
+    db: Session, tree: Workspace, public_token: str | None
+) -> PublicGrant | None:
+    """The public grant governing an anonymous *read*, or ``None`` to deny it.
+
+    With a token, it must decode for this workspace and match a currently
+    active grant's id and access version exactly — the same check
+    ``unlock_public_tree`` runs, so a stale or foreign token never resolves.
+    Without one, only the workspace-wide grant can apply, and only when it
+    carries no password — the exact anonymous-access shape that predates
+    section-scoped links, preserved so an unprotected workspace-wide link
+    keeps working with no token round-trip.
+    """
+    if public_token:
+        try:
+            workspace_id, access_version, grant_id = decode_public_tree_token(
+                public_token
+            )
+        except Exception:  # noqa: BLE001 - any decode failure means no access
+            return None
+        if workspace_id != tree.id:
+            return None
+        grant = resolve_public_grant(db, tree, grant_id)
+        if grant is None or grant.access_version != access_version:
+            return None
+        return grant
+    workspace_grant = _workspace_grant(tree)
+    if workspace_grant is not None and workspace_grant.password_hash is None:
+        return workspace_grant
+    return None
 
 
 # ---------------------------------------------------------------------------

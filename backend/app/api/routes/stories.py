@@ -7,12 +7,14 @@ from sqlalchemy.orm import Session
 from app.api.deps import (
     get_current_user,
     get_readable_workspace,
+    get_workspace_access_authenticated,
+    get_workspace_access_write,
     get_writable_workspace,
     require_domain,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
 from app.db.session import get_db
-from app.models import Story, StoryDocumentLink, StoryMemberLink, Workspace
+from app.models import ContentType, Story, StoryDocumentLink, StoryMemberLink, Workspace
 from app.models.user import User
 from app.schemas.content import (
     DocumentIdsSet,
@@ -29,7 +31,9 @@ from app.services.documents.content_links import (
 )
 from app.services.event_bus import publish_workspace_event
 from app.services.media.storage_usage import check_workspace_quota
+from app.services.provenance import origin_section
 from app.services.unit_of_work import UnitOfWork
+from app.services.workspaces.visibility import WorkspaceAccessContext
 
 router = APIRouter(
     prefix="/workspaces/{workspace_id}/stories",
@@ -37,11 +41,18 @@ router = APIRouter(
     dependencies=[Depends(require_domain("stories"))],
 )
 
+_DOMAIN = "stories"
 
-def _get_story(db: Session, tree: Workspace, story_id: str) -> Story:
+
+def _get_story(
+    db: Session, tree: Workspace, story_id: str, context: WorkspaceAccessContext
+) -> Story:
+    """Load a story for a *write* — see events._get_event for why the #984
+    visibility/write check lives here rather than a separate GET route."""
     story = db.get(Story, story_id)
     if story is None or story.workspace_id != tree.id:
         raise HTTPException(status_code=404, detail="Story not found")
+    context.require_write_content(db, ContentType.STORY, story_id, domain=_DOMAIN)
     return story
 
 
@@ -85,13 +96,14 @@ def _stories_out(db: Session, stories: list[Story]) -> list[StoryOut]:
 def list_stories(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
-    statement = (
-        select(Story)
-        .where(Story.workspace_id == tree.id)
-        .order_by(Story.created_at, Story.id)
-    )
+    filters = [Story.workspace_id == tree.id]
+    content_filter = context.content_filter(ContentType.STORY, Story.id)
+    if content_filter is not None:
+        filters.append(content_filter)
+    statement = select(Story).where(*filters).order_by(Story.created_at, Story.id)
     stories = db.scalars(apply_pagination(statement, pagination)).all()
     return _stories_out(db, list(stories))
 
@@ -100,12 +112,17 @@ def list_stories(
 def list_links(
     pagination: Pagination = Depends(pagination_params),
     tree: Workspace = Depends(get_readable_workspace),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_authenticated),
     db: Session = Depends(get_db),
 ):
+    filters = [Story.workspace_id == tree.id]
+    content_filter = context.content_filter(ContentType.STORY, Story.id)
+    if content_filter is not None:
+        filters.append(content_filter)
     statement = (
         select(StoryMemberLink)
         .join(Story, Story.id == StoryMemberLink.story_id)
-        .where(Story.workspace_id == tree.id)
+        .where(*filters)
         .order_by(StoryMemberLink.story_id, StoryMemberLink.member_id)
     )
     return db.scalars(apply_pagination(statement, pagination)).all()
@@ -116,8 +133,10 @@ def create_story(
     payload: StoryCreate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
+    context.require_write_scope(origin_section(db), domain=_DOMAIN)
     data = payload.model_dump()
     member_ids = data.pop("member_ids")
     check_workspace_quota(db, tree, len(str(data).encode()))
@@ -165,9 +184,10 @@ def update_story(
     payload: StoryUpdate,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    story = _get_story(db, tree, story_id)
+    story = _get_story(db, tree, story_id, context)
     with UnitOfWork(db) as uow:
         for key, value in payload.model_dump().items():
             setattr(story, key, value)
@@ -202,9 +222,10 @@ def delete_story(
     story_id: str,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
-    story = _get_story(db, tree, story_id)
+    story = _get_story(db, tree, story_id, context)
     with UnitOfWork(db) as uow:
         record_activity(
             db,
@@ -238,10 +259,11 @@ def set_links(
     payload: LinksSet,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of members linked to this story."""
-    story = _get_story(db, tree, story_id)
+    story = _get_story(db, tree, story_id, context)
     with UnitOfWork(db) as uow:
         replace_member_links(
             db,
@@ -281,10 +303,11 @@ def set_documents(
     payload: DocumentIdsSet,
     tree: Workspace = Depends(get_writable_workspace),
     user: User = Depends(get_current_user),
+    context: WorkspaceAccessContext = Depends(get_workspace_access_write),
     db: Session = Depends(get_db),
 ):
     """Replace the full set of documents linked to this story."""
-    story = _get_story(db, tree, story_id)
+    story = _get_story(db, tree, story_id, context)
     with UnitOfWork(db) as uow:
         replace_document_links(
             db,
