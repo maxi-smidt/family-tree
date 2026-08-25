@@ -43,6 +43,8 @@ from app.models import (
     Section,
     Story,
     Workspace,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
 )
 from app.services.event_bus import workspace_audience
 
@@ -291,16 +293,33 @@ def rescope_content(
 def scope_audience(db: Session, tree: Workspace, section_id: str | None) -> list[str]:
     """The principals that can read content in this scope, sorted.
 
-    ``section_id`` is accepted but does not narrow the result yet: section
-    scoping of *grants* arrives with #993, so today every principal with
-    workspace access reads the whole workspace and both sides of a re-scope
-    preview report the same audience. That is the truth right now, and it
-    becomes a real difference without this function or its callers changing
-    shape.
+    ``section_id=None`` (workspace-wide origin) is readable by everyone with
+    any access to the workspace, scoped or not — it was created outside any
+    section and every principal with workspace access could already see it.
+    A concrete section narrows the audience to whoever holds a workspace-wide
+    grant plus whoever holds a grant naming that section specifically (#993).
     """
-    del section_id
+    # workspace_audience already covers the owner and every workspace-wide
+    # grant holder — the part of the audience that is scope-independent.
     principals = workspace_audience(db, tree)
+    section_grant_query = select(WorkspaceSectionGrant.user_id).where(
+        WorkspaceSectionGrant.workspace_id == tree.id
+    )
+    if section_id is not None:
+        section_grant_query = section_grant_query.where(
+            WorkspaceSectionGrant.section_id == section_id
+        )
+    principals = principals | set(db.scalars(section_grant_query))
     if tree.public_role:
+        principals = principals | {"public"}
+    # Every WorkspaceSectionPublicLink row is by definition live (see
+    # app.services.workspaces.public_links), so no revoked/status filter.
+    if section_id is not None and db.scalar(
+        select(WorkspaceSectionPublicLink.id).where(
+            WorkspaceSectionPublicLink.workspace_id == tree.id,
+            WorkspaceSectionPublicLink.section_id == section_id,
+        )
+    ):
         principals = principals | {"public"}
     return sorted(principals)
 

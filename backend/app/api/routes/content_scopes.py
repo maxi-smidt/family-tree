@@ -48,25 +48,41 @@ def _preview(db: Session, tree: Workspace, payload: RescopeRequest) -> RescopePr
         if section is None or section.workspace_id != tree.id:
             raise HTTPException(status_code=404, detail="Section not found")
 
-    # scope_audience doesn't narrow by section yet (that arrives with #993),
-    # so every side of every change shares this one workspace-wide audience.
-    audience = scope_audience(db, tree, payload.section_id)
+    # Destination audience is shared by every item in the request; each
+    # item's *current* audience depends on its own from-section, which can
+    # differ per item, so it's resolved (and cached) per distinct scope.
+    audience_after = scope_audience(db, tree, payload.section_id)
+    audience_before_by_scope: dict[str | None, list[str]] = {}
     changes: list[RescopeChange] = []
     for item in payload.items:
         scope = scope_of(db, item.content_type, item.content_id)
         if scope is None or scope.workspace_id != tree.id:
             raise HTTPException(status_code=404, detail="Content scope not found")
+        if scope.section_id not in audience_before_by_scope:
+            audience_before_by_scope[scope.section_id] = scope_audience(
+                db, tree, scope.section_id
+            )
+        audience_before = audience_before_by_scope[scope.section_id]
+        # Leaving a section for workspace-wide is *structurally* widening
+        # regardless of who happens to hold a grant today — a future
+        # workspace-wide or differently-scoped grant would immediately reach
+        # it, which today's snapshot of audience_before/after can't show.
+        # An actual audience comparison catches the rest: moving between two
+        # sections (neither None) can add readers who weren't in the
+        # from-section even though neither side is workspace-wide.
+        leaves_for_workspace_wide = (
+            scope.section_id is not None and payload.section_id is None
+        )
         changes.append(
             RescopeChange(
                 content_type=scope.content_type,
                 content_id=scope.content_id,
                 from_section_id=scope.section_id,
                 to_section_id=payload.section_id,
-                audience_before=audience,
-                audience_after=audience,
-                # Only leaving a section widens the audience; entering or
-                # switching one keeps it inside a section's collaborators.
-                widens=scope.section_id is not None and payload.section_id is None,
+                audience_before=audience_before,
+                audience_after=audience_after,
+                widens=leaves_for_workspace_wide
+                or not set(audience_after) <= set(audience_before),
             )
         )
     return RescopePreview(changes=changes)

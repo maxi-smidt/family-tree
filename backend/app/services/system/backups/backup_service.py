@@ -71,6 +71,8 @@ from app.models import (
     Workspace,
     WorkspaceInvitation,
     WorkspaceMembership,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
     WorkspaceUserState,
 )
 from app.models.backup import BackupRecord
@@ -102,6 +104,8 @@ BACKUP_MODELS: tuple[type, ...] = (
     ContentScope,
     WorkspaceMembership,
     WorkspaceInvitation,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
     WorkspaceUserState,
     Friendship,
     Relation,
@@ -250,6 +254,11 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         SectionMember.__tablename__,
         SectionPosition.__tablename__,
         ContentScope.__tablename__,
+        # Scoped grants/public links/invitation scope (#993) landed after v2
+        # was already in development; a v2 backup taken before these existed
+        # must stay restorable too.
+        WorkspaceSectionGrant.__tablename__,
+        WorkspaceSectionPublicLink.__tablename__,
     }
 )
 

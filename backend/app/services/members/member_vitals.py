@@ -13,15 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundError
 from app.db.base import utcnow_iso
-from app.models import (
-    Event,
-    EventMemberLink,
-    Member,
-    Relation,
-    Workspace,
-    WorkspaceMembership,
-)
+from app.models import Event, EventMemberLink, Member, Relation, Workspace
 from app.models.user import User
+from app.services.workspaces.grants import restricts_domain
 
 
 def event_updates_allowed(db: Session, tree: Workspace, user: User) -> bool:
@@ -31,10 +25,7 @@ def event_updates_allowed(db: Session, tree: Workspace, user: User) -> bool:
     an editor. A restricted Events domain must never turn a member save into a
     partial failure.
     """
-    membership = db.get(WorkspaceMembership, (tree.id, user.id))
-    return not (
-        membership and membership.restrictions and "events" in membership.restrictions
-    )
+    return not restricts_domain(db, tree.id, user.id, "events")
 
 
 def sync_vital_event(

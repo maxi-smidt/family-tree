@@ -23,6 +23,9 @@ from app.models import (
     SectionMember,
     SectionPosition,
     Workspace,
+    WorkspaceInvitation,
+    WorkspaceSectionGrant,
+    WorkspaceSectionPublicLink,
 )
 from app.schemas.extract import Direction
 from app.schemas.provenance import SectionDependents
@@ -149,11 +152,62 @@ def update_section(
     return section
 
 
+def _pending_invitations_query(section_id: str):
+    # Accepted/revoked/expired invitations survive purely as status history
+    # (see WorkspaceInvitation) and never need explicit owner action before a
+    # delete — only a still-pending one, which could still be accepted into a
+    # grant for this section, does. Expiry is deliberately not checked here:
+    # an expired-but-not-yet-revoked invitation still requires the explicit
+    # revoke #993 asks for, the same as a live one.
+    return select(WorkspaceInvitation).where(
+        WorkspaceInvitation.section_id == section_id,
+        WorkspaceInvitation.revoked_at.is_(None),
+        WorkspaceInvitation.accepted_at.is_(None),
+    )
+
+
+def _grant_dependent_counts(db: Session, section_id: str) -> tuple[int, int, int]:
+    grant_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(WorkspaceSectionGrant)
+            .where(WorkspaceSectionGrant.section_id == section_id)
+        )
+        or 0
+    )
+    invitation_count = (
+        db.scalar(
+            select(func.count()).select_from(
+                _pending_invitations_query(section_id).subquery()
+            )
+        )
+        or 0
+    )
+    # Every WorkspaceSectionPublicLink row is by definition live — revoking
+    # one deletes it (see app.services.workspaces.public_links) — so no
+    # status filter is needed here the way pending invitations need one.
+    public_link_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(WorkspaceSectionPublicLink)
+            .where(WorkspaceSectionPublicLink.section_id == section_id)
+        )
+        or 0
+    )
+    return grant_count, invitation_count, public_link_count
+
+
 def section_dependents(db: Session, section: Section) -> SectionDependents:
+    grant_count, invitation_count, public_link_count = _grant_dependent_counts(
+        db, section.id
+    )
     return SectionDependents(
         section_id=section.id,
         member_count=member_counts(db, [section.id]).get(section.id, 0),
         content_scope_counts=section_scope_counts(db, section.id),
+        grant_count=grant_count,
+        invitation_count=invitation_count,
+        public_link_count=public_link_count,
     )
 
 
@@ -167,7 +221,26 @@ def delete_section(
     first. Letting the section go and leaving the content workspace-wide would
     hand it to every collaborator — which is precisely what the database's
     RESTRICT on ``content_scopes`` refuses.
+
+    Grants and public links scoped here (#993) are the same story: reassigning
+    their scope isn't well-defined (unlike content, a grant has no natural
+    "next section"), so they must be explicitly revoked first — RESTRICT is
+    the backstop for a race with this pre-check. A *pending* invitation is
+    the same; an already-resolved one is pure status history with nothing
+    left to revoke, so its ``section_id`` is cleared here rather than left to
+    block the delete forever.
     """
+    grant_count, invitation_count, public_link_count = _grant_dependent_counts(
+        db, section.id
+    )
+    if grant_count or invitation_count or public_link_count:
+        raise ConflictError(
+            "Section still has grants, pending invitations, or public links; "
+            "revoke them before deleting"
+        )
+    db.query(WorkspaceInvitation).filter(
+        WorkspaceInvitation.section_id == section.id
+    ).update({WorkspaceInvitation.section_id: None}, synchronize_session=False)
     if section_scope_counts(db, section.id):
         if reassign_scope_to is None:
             raise ConflictError(

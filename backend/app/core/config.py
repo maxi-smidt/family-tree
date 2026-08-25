@@ -113,9 +113,18 @@ class Settings(BaseSettings):
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
 
-    # Brute-force protection for password-gated public-tree unlocks.
+    # Brute-force protection for password-gated public-tree unlocks, keyed by
+    # client IP + workspace + grant (so a workspace's several independent
+    # public links (#993) each get their own budget).
     PUBLIC_UNLOCK_MAX_ATTEMPTS: int = 5
     PUBLIC_UNLOCK_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
+
+    # A second, coarser budget keyed by client IP alone, across every
+    # workspace/grant, so spraying attempts across many targets from one IP
+    # is still bounded even though each individual target stays under its
+    # own limit.
+    PUBLIC_UNLOCK_AGGREGATE_MAX_ATTEMPTS: int = 30
+    PUBLIC_UNLOCK_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS: int = 900  # 15 minutes
 
     # Seed admin account, created on first start if no users exist.
     FIRST_ADMIN_USERNAME: str = "admin"

@@ -118,3 +118,9 @@ public_unlock_rate_limiter = RateLimiter(
     settings.PUBLIC_UNLOCK_MAX_ATTEMPTS,
     settings.PUBLIC_UNLOCK_RATE_LIMIT_WINDOW_SECONDS,
 )
+
+# Per-IP aggregate budget across every workspace/grant — see #993.
+public_unlock_aggregate_rate_limiter = RateLimiter(
+    settings.PUBLIC_UNLOCK_AGGREGATE_MAX_ATTEMPTS,
+    settings.PUBLIC_UNLOCK_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS,
+)

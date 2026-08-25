@@ -13,7 +13,7 @@ from app.api.deps import (
     get_readable_workspace,
 )
 from app.db.session import get_db
-from app.models import User, Workspace, WorkspaceInvitation
+from app.models import Section, User, Workspace, WorkspaceInvitation
 from app.schemas.notification import InvitationReceivedPayload
 from app.schemas.workspace import (
     InvitationAcceptResult,
@@ -84,6 +84,10 @@ def create_invitation(
         )
     if payload.role not in ("viewer", "editor"):
         raise HTTPException(status_code=400, detail="Invalid role")
+    if payload.section_id is not None:
+        section = db.get(Section, payload.section_id)
+        if section is None or section.workspace_id != tree.id:
+            raise HTTPException(status_code=404, detail="Section not found")
 
     expires_at = None
     if payload.expires_in_days is not None:
@@ -96,6 +100,7 @@ def create_invitation(
         token=secrets.token_urlsafe(32),
         email=payload.email,
         role=payload.role,
+        section_id=payload.section_id,
         created_by=user.id,
         expires_at=expires_at,
     )
