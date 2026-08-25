@@ -20,6 +20,8 @@ from app.api.deps import (
     get_writable_workspace,
 )
 from app.api.pagination import Pagination, apply_pagination, pagination_params
+from app.core.config import settings
+from app.core.db_timeout import statement_timeout
 from app.core.exceptions import QuotaExceeded
 from app.db.session import get_db
 from app.models import Event, EventMemberLink, Member, Workspace
@@ -517,104 +519,110 @@ def get_neighborhood(
     never an access grant.
     """
     visible_section_ids = context.visible_section_ids()
-    count_filters = [Member.workspace_id == tree.id]
-    member_filter = context.member_filter()
-    if member_filter is not None:
-        count_filters.append(member_filter)
-    total_count: int = (
-        db.scalar(select(func.count(Member.id)).where(*count_filters)) or 0
-    )
-    if total_count == 0:
-        return _empty_neighborhood(0)
-
-    section_ids = resolve_section_ids(
-        db, tree.id, sections, visible_section_ids=visible_section_ids
-    )
-    root_id = (
-        root
-        if root is not None
-        else pick_default_root(
-            db, tree.id, section_ids, visible_section_ids=visible_section_ids
+    with statement_timeout(db, settings.NEIGHBORHOOD_QUERY_TIMEOUT_MS):
+        count_filters = [Member.workspace_id == tree.id]
+        member_filter = context.member_filter()
+        if member_filter is not None:
+            count_filters.append(member_filter)
+        total_count: int = (
+            db.scalar(select(func.count(Member.id)).where(*count_filters)) or 0
         )
-    )
-    if root_id is None:
-        # Reachable on a populated workspace: a section filter can resolve to
-        # nothing, or name only sections/members the caller cannot read.
-        return _empty_neighborhood(total_count)
+        if total_count == 0:
+            return _empty_neighborhood(0)
 
-    if (
-        db.scalar(
-            select(Member.id).where(Member.id == root_id, Member.workspace_id == tree.id)
+        section_ids = resolve_section_ids(
+            db, tree.id, sections, visible_section_ids=visible_section_ids
         )
-        is None
-        or not context.can_read_member(db, root_id)
-    ):
-        raise HTTPException(status_code=404, detail="Root member not found")
-
-    query = NeighborhoodQuery(
-        root_id=root_id,
-        up=up,
-        down=down,
-        include_partners=partners,
-        section_ids=section_ids,
-        budget=budget,
-        visible_section_ids=visible_section_ids,
-    )
-    visibility = visibility_fingerprint(context)
-    revision = graph_revision(db, tree.id)
-    offset = (
-        decode_cursor(cursor, tree.id, query, visibility=visibility, revision=revision)
-        if cursor
-        else 0
-    )
-
-    page = collect_neighborhood_page(db, tree.id, query, offset)
-
-    public = public_only(db, tree, user)
-    columns = PUBLIC_MEMBER_COLUMNS if public else MEMBER_SURFACE_COLUMNS
-    member_rows = db.execute(
-        select(*columns)
-        .where(Member.workspace_id == tree.id, Member.id.in_(page.member_ids))
-        .order_by(Member.id)
-    ).all()
-    members = (
-        public_member_payloads(member_rows)
-        if public
-        else [MemberSurfaceOut(**row._mapping) for row in member_rows]
-    )
-    relations = relations_for_page(db, tree.id, page.member_ids, page.delivered_ids)
-
-    next_offset = offset + len(page.member_ids)
-    next_cursor = (
-        encode_cursor(
-            tree.id,
-            query,
-            visibility=visibility,
-            revision=revision,
-            offset=next_offset,
-        )
-        if page.has_more and next_offset < MAX_NEIGHBORHOOD_TOTAL
-        else None
-    )
-    # Only what this page actually left behind: a scope the traversal cannot
-    # reach anyway (a disconnected member, a section member off the focus
-    # branch) must not show up as a "load more" the cursor can never satisfy.
-    # Section names and counts also stay out of public responses — reading
-    # sections needs an authenticated grant (see the sections router).
-    continuations = (
-        [
-            NeighborhoodContinuation(
-                section_id=section_id,
-                section_name=section_name,
-                remaining_count=remaining,
+        root_id = (
+            root
+            if root is not None
+            else pick_default_root(
+                db, tree.id, section_ids, visible_section_ids=visible_section_ids
             )
-            for section_id, section_name, remaining in continuation_counts(
-                db, tree.id, section_ids, page.delivered_ids, total_count
+        )
+        if root_id is None:
+            # Reachable on a populated workspace: a section filter can resolve
+            # to nothing, or name only sections/members the caller cannot read.
+            return _empty_neighborhood(total_count)
+
+        if (
+            db.scalar(
+                select(Member.id).where(
+                    Member.id == root_id, Member.workspace_id == tree.id
+                )
             )
-        ]
-        if page.has_more and not (public and section_ids is not None)
-        else []
-    )
+            is None
+            or not context.can_read_member(db, root_id)
+        ):
+            raise HTTPException(status_code=404, detail="Root member not found")
+
+        query = NeighborhoodQuery(
+            root_id=root_id,
+            up=up,
+            down=down,
+            include_partners=partners,
+            section_ids=section_ids,
+            budget=budget,
+            visible_section_ids=visible_section_ids,
+        )
+        visibility = visibility_fingerprint(context)
+        revision = graph_revision(db, tree.id)
+        offset = (
+            decode_cursor(
+                cursor, tree.id, query, visibility=visibility, revision=revision
+            )
+            if cursor
+            else 0
+        )
+
+        page = collect_neighborhood_page(db, tree.id, query, offset)
+
+        public = public_only(db, tree, user)
+        columns = PUBLIC_MEMBER_COLUMNS if public else MEMBER_SURFACE_COLUMNS
+        member_rows = db.execute(
+            select(*columns)
+            .where(Member.workspace_id == tree.id, Member.id.in_(page.member_ids))
+            .order_by(Member.id)
+        ).all()
+        members = (
+            public_member_payloads(member_rows)
+            if public
+            else [MemberSurfaceOut(**row._mapping) for row in member_rows]
+        )
+        relations = relations_for_page(db, tree.id, page.member_ids, page.delivered_ids)
+
+        next_offset = offset + len(page.member_ids)
+        next_cursor = (
+            encode_cursor(
+                tree.id,
+                query,
+                visibility=visibility,
+                revision=revision,
+                offset=next_offset,
+            )
+            if page.has_more and next_offset < MAX_NEIGHBORHOOD_TOTAL
+            else None
+        )
+        # Only what this page actually left behind: a scope the traversal
+        # cannot reach anyway (a disconnected member, a section member off
+        # the focus branch) must not show up as a "load more" the cursor can
+        # never satisfy. Section names and counts also stay out of public
+        # responses — reading sections needs an authenticated grant (see the
+        # sections router).
+        continuations = (
+            [
+                NeighborhoodContinuation(
+                    section_id=section_id,
+                    section_name=section_name,
+                    remaining_count=remaining,
+                )
+                for section_id, section_name, remaining in continuation_counts(
+                    db, tree.id, section_ids, page.delivered_ids, total_count
+                )
+            ]
+            if page.has_more and not (public and section_ids is not None)
+            else []
+        )
 
     if public:
         return JSONResponse(
