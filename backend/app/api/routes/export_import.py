@@ -47,6 +47,12 @@ from app.models import (
     MemberTaskLink,
     Relation,
     RelationType,
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    Section,
+    SectionMember,
+    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -67,7 +73,7 @@ from app.services.interchange.bundles.bundle_types import (
     BundleMemberRow,
     BundleRelationRow,
     TreeBundle,
-    TreeBundleV4,
+    TreeBundleV5,
 )
 from app.services.interchange.bundles.tree_bundle_import import do_import
 from app.services.interchange.gedcom import gedcom
@@ -99,6 +105,12 @@ def export_tree(
     members: list[BundleMemberRow] = _rows(db, Member, tree.id)
     for m in members:
         m["image_data"] = media_url_to_data_url(m.get("image_data"))
+        # Identity links (#1016): a bundle never discloses the legacy
+        # cross-workspace bridge pointer — it may name a member on another
+        # workspace the importer has no access to, and it becomes stale the
+        # moment the member is re-imported under a new id anyway.
+        m.pop("linked_workspace_id", None)
+        m.pop("linked_member_id", None)
     gallery: list[BundleGalleryImageRow] = _rows(db, GalleryImage, tree.id)
     for g in gallery:
         g["image_data"] = media_url_to_data_url(g.get("image_data"))
@@ -108,7 +120,7 @@ def export_tree(
         if f.get("kind") == "file":
             f["url"] = media_url_to_data_url(f.get("url"))
 
-    bundle: TreeBundleV4 = {
+    bundle: TreeBundleV5 = {
         "version": BUNDLE_VERSION,
         "app_version": settings.APP_VERSION,
         "exported_at": utcnow_iso(),
@@ -136,6 +148,15 @@ def export_tree(
         "document_member_links": _document_link_rows(db, DocumentMemberLink, tree.id),
         "event_document_links": _document_link_rows(db, EventDocumentLink, tree.id),
         "story_document_links": _document_link_rows(db, StoryDocumentLink, tree.id),
+        "sections": _rows(db, Section, tree.id),
+        "section_members": _link_rows(db, SectionMember, Section, tree.id),
+        "section_positions": _link_rows(db, SectionPosition, Section, tree.id),
+        # Saved views are a personal arrangement of the exporting owner's
+        # workspace, not shared configuration tied to any one user — importing
+        # them re-parents each view to the importing user (see do_import).
+        "saved_views": _rows(db, SavedView, tree.id),
+        "saved_view_sections": _rows(db, SavedViewSection, tree.id),
+        "saved_view_positions": _saved_view_position_rows(db, tree.id),
     }
 
     blob = crypto_export.encrypt_bundle(bundle, payload.password or None)
@@ -196,6 +217,27 @@ def _document_link_rows(
     ).all()
     cols = [c.key for c in sa_inspect(link_model).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]
+
+
+def _saved_view_position_rows(db: Session, workspace_id: str) -> list[dict[str, object]]:
+    """Saved-view layout overlay rows for *workspace_id*, reached through
+    SavedView since the table itself carries no ``workspace_id``."""
+    from sqlalchemy import inspect as sa_inspect
+
+    items = db.scalars(
+        select(SavedViewPosition)
+        .join(SavedView, SavedView.id == SavedViewPosition.saved_view_id)
+        .where(SavedView.workspace_id == workspace_id)
+    ).all()
+    cols = [c.key for c in sa_inspect(SavedViewPosition).mapper.column_attrs]
+    return [{c: getattr(i, c) for c in cols} for i in items]
+
+
+# Identity links are deliberately never exported: a link's counterpart member
+# may live on a workspace this bundle's importer cannot reach, and importing
+# one verbatim would recreate a "verified" cross-workspace link without that
+# workspace's consent. See the member bridge-field strip in export_tree above
+# for the same rule applied to the legacy (pre-identity-link) bridge pointer.
 
 
 @router.post("/import/inspect")

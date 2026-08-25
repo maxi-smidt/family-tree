@@ -73,6 +73,36 @@ EXPECTED_BUNDLE_KEYS = {
         "event_document_links",
         "story_document_links",
     },
+    5: {
+        "version",
+        "app_version",
+        "exported_at",
+        "tree",
+        "members",
+        "relations",
+        "relation_types",
+        "diseases",
+        "tasks",
+        "task_links",
+        "gallery_images",
+        "gallery_links",
+        "unknown_faces",
+        "events",
+        "event_links",
+        "stories",
+        "story_links",
+        "documents",
+        "document_files",
+        "document_member_links",
+        "event_document_links",
+        "story_document_links",
+        "sections",
+        "section_members",
+        "section_positions",
+        "saved_views",
+        "saved_view_sections",
+        "saved_view_positions",
+    },
 }
 
 
@@ -834,3 +864,155 @@ def test_import_pre_v17_bundle_migrates_sources_to_documents(client, db):
     assert len(attach_doc["story_ids"]) == 1
     assert len(attach_doc["files"]) == 1
     assert attach_doc["files"][0]["kind"] == "file"
+
+
+def test_native_export_import_preserves_sections_and_saved_views(client, db):
+    """A section (with explicit membership + layout overlay) and a saved view
+    referencing it must round-trip into the new workspace under fresh ids."""
+    owner = make_user(db, "section-export-owner")
+    tree = make_tree(db, owner, "Sections tree")
+    headers = auth(owner)
+
+    member = client.post(
+        f"{API}/workspaces/{tree.id}/members",
+        headers=headers,
+        json={"id": "m1", "firstName": "Ada", "lastName": "Lovelace"},
+    )
+    assert member.status_code == 201
+
+    section = client.post(
+        f"{API}/workspaces/{tree.id}/sections",
+        headers=headers,
+        json={"name": "Branch A"},
+    )
+    assert section.status_code == 201, section.text
+    section_id = section.json()["id"]
+
+    assert (
+        client.put(
+            f"{API}/workspaces/{tree.id}/sections/{section_id}/members",
+            headers=headers,
+            json={"member_ids": ["m1"]},
+        ).status_code
+        == 204
+    )
+    assert (
+        client.patch(
+            f"{API}/workspaces/{tree.id}/sections/{section_id}/members/positions",
+            headers=headers,
+            json=[{"member_id": "m1", "position_x": 12.5, "position_y": -3.0}],
+        ).status_code
+        == 204
+    )
+
+    view = client.post(
+        f"{API}/workspaces/{tree.id}/saved-views",
+        headers=headers,
+        json={
+            "name": "My view",
+            "focus_member_id": "m1",
+            "section_ids": [section_id],
+        },
+    )
+    assert view.status_code == 201, view.text
+    assert (
+        client.patch(
+            f"{API}/workspaces/{tree.id}/saved-views/{view.json()['id']}/positions",
+            headers=headers,
+            json=[{"node_id": "m1", "position_x": 1.0, "position_y": 2.0}],
+        ).status_code
+        == 204
+    )
+
+    exported = client.post(f"{API}/workspaces/{tree.id}/export", headers=headers, json={})
+    assert exported.status_code == 200
+
+    imported = client.post(
+        f"{API}/workspaces/import",
+        headers=headers,
+        files={
+            "file": (
+                "sections.treedb",
+                io.BytesIO(exported.content),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert imported.status_code == 202, imported.text
+    new_workspace_id = wait_for_job(client, headers, imported.json()["job_id"])
+
+    new_members = client.get(
+        f"{API}/workspaces/{new_workspace_id}/members", headers=headers
+    ).json()
+    assert len(new_members) == 1
+    new_member_id = new_members[0]["id"]
+    assert new_member_id != "m1"
+
+    new_sections = client.get(
+        f"{API}/workspaces/{new_workspace_id}/sections", headers=headers
+    ).json()
+    assert len(new_sections) == 1
+    assert new_sections[0]["name"] == "Branch A"
+    assert new_sections[0]["member_count"] == 1
+    new_section_id = new_sections[0]["id"]
+    assert new_section_id != section_id
+
+    new_views = client.get(
+        f"{API}/workspaces/{new_workspace_id}/saved-views", headers=headers
+    ).json()
+    assert len(new_views) == 1
+    new_view = new_views[0]
+    assert new_view["name"] == "My view"
+    assert new_view["owner_id"] == str(owner.id)
+    assert new_view["focus_member_id"] == new_member_id
+    assert new_view["section_ids"] == [new_section_id]
+    assert len(new_view["positions"]) == 1
+    assert new_view["positions"][0]["node_id"] == new_member_id
+
+
+def test_native_export_import_never_carries_legacy_bridge_pointer(client, db):
+    """A member's legacy tree-in-tree bridge pointer must never be disclosed
+    in an export, nor reconstructed on import — it names a member id on
+    another (possibly inaccessible) workspace, and importing it verbatim
+    would recreate a cross-workspace link without that workspace's consent."""
+    owner = make_user(db, "bridge-export-owner")
+    tree = make_tree(db, owner, "Bridge tree")
+    other_tree = make_tree(db, owner, "Other tree")
+    headers = auth(owner)
+
+    other_member = Member(id="other-1", workspace_id=other_tree.id, first_name="Ghost")
+    bridged_member = Member(
+        id="m1",
+        workspace_id=tree.id,
+        first_name="Ada",
+        linked_workspace_id=other_tree.id,
+        linked_member_id="other-1",
+    )
+    db.add_all([other_member, bridged_member])
+    db.commit()
+
+    exported = client.post(f"{API}/workspaces/{tree.id}/export", headers=headers, json={})
+    assert exported.status_code == 200
+    bundle = crypto_export.decrypt_bundle(exported.content, None)
+    assert "linked_workspace_id" not in bundle["members"][0]
+    assert "linked_member_id" not in bundle["members"][0]
+
+    imported = client.post(
+        f"{API}/workspaces/import",
+        headers=headers,
+        files={
+            "file": (
+                "bridge.treedb",
+                io.BytesIO(exported.content),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert imported.status_code == 202, imported.text
+    new_workspace_id = wait_for_job(client, headers, imported.json()["job_id"])
+
+    new_member = db.scalars(
+        select(Member).where(Member.workspace_id == new_workspace_id)
+    ).one()
+    assert new_member.linked_workspace_id is None
+    assert new_member.linked_member_id is None

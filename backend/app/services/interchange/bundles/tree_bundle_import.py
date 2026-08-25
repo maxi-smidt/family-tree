@@ -33,6 +33,12 @@ from app.models import (
     MemberTaskLink,
     Relation,
     RelationType,
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    Section,
+    SectionMember,
+    SectionPosition,
     Story,
     StoryDocumentLink,
     StoryMemberLink,
@@ -41,7 +47,7 @@ from app.models import (
 )
 from app.services.activity.activity import record_activity
 from app.services.event_bus import publish_workspace_event
-from app.services.interchange.bundles.bundle_types import TreeBundleV4
+from app.services.interchange.bundles.bundle_types import TreeBundleV5
 from app.services.interchange.gedcom.genealogy_date import sort_key as _sort_key
 from app.services.media.storage import (
     delete_workspace_media,
@@ -158,7 +164,7 @@ def _import_doc_links(db, links, model, parent_key, parent_map, document_map):
 
 def do_import(
     progress_cb: ProgressCallback,
-    bundle: TreeBundleV4,
+    bundle: TreeBundleV5,
     name: str | None,
     user_id: str,
 ) -> str:
@@ -192,8 +198,13 @@ def do_import(
         member_dicts: list[dict] = []
         for i, row in enumerate(members):
             data = dict(row)
-            if "linked_tree_id" in data:
-                data["linked_workspace_id"] = data.pop("linked_tree_id")
+            # Never carry a bridge pointer into the newly imported workspace:
+            # it names a member id in another (possibly inaccessible) tree,
+            # and re-importing under fresh ids makes it stale even when it
+            # once pointed at something real. See export_tree's matching strip.
+            data.pop("linked_tree_id", None)
+            data.pop("linked_workspace_id", None)
+            data.pop("linked_member_id", None)
             data.pop("tree_id", None)
             data.pop("workspace_id", None)
             data["id"] = member_map[row["id"]]
@@ -233,10 +244,36 @@ def do_import(
         ]
         bulk_insert_chunked(db, Relation, relation_dicts)
 
+        section_map = _remap(bundle.get("sections", []))
+        for row in bundle.get("sections", []):
+            db.add(
+                Section(
+                    id=section_map[row["id"]],
+                    workspace_id=tree.id,
+                    name=row["name"],
+                    position=row.get("position", 0),
+                    created_at=row.get("created_at") or utcnow_iso(),
+                )
+            )
+        _import_links(
+            db,
+            bundle.get("section_members", []),
+            SectionMember,
+            "section_id",
+            section_map,
+            member_map,
+        )
+        _import_links(
+            db,
+            bundle.get("section_positions", []),
+            SectionPosition,
+            "section_id",
+            section_map,
+            member_map,
+        )
+
         for row in bundle.get("diseases", []):
             data = dict(row)
-            if "linked_tree_id" in data:
-                data["linked_workspace_id"] = data.pop("linked_tree_id")
             data.pop("tree_id", None)
             data.pop("workspace_id", None)
             data["id"] = str(uuid4())
@@ -247,8 +284,6 @@ def do_import(
         task_map = _remap(bundle.get("tasks", []))
         for row in bundle.get("tasks", []):
             data = dict(row)
-            if "linked_tree_id" in data:
-                data["linked_workspace_id"] = data.pop("linked_tree_id")
             data.pop("tree_id", None)
             data.pop("workspace_id", None)
             data["id"] = task_map[row["id"]]
@@ -266,8 +301,6 @@ def do_import(
         gallery_map = _remap(bundle.get("gallery_images", []))
         for row in bundle.get("gallery_images", []):
             data = dict(row)
-            if "linked_tree_id" in data:
-                data["linked_workspace_id"] = data.pop("linked_tree_id")
             data.pop("tree_id", None)
             data.pop("workspace_id", None)
             data["id"] = gallery_map[row["id"]]
@@ -289,8 +322,6 @@ def do_import(
         event_map = _remap(bundle.get("events", []))
         for row in bundle.get("events", []):
             data = dict(row)
-            if "linked_tree_id" in data:
-                data["linked_workspace_id"] = data.pop("linked_tree_id")
             data.pop("tree_id", None)
             data.pop("workspace_id", None)
             data["id"] = event_map[row["id"]]
@@ -308,8 +339,6 @@ def do_import(
         story_map = _remap(bundle.get("stories", []))
         for row in bundle.get("stories", []):
             data = dict(row)
-            if "linked_tree_id" in data:
-                data["linked_workspace_id"] = data.pop("linked_tree_id")
             data.pop("tree_id", None)
             data.pop("workspace_id", None)
             data["id"] = story_map[row["id"]]
@@ -328,8 +357,6 @@ def do_import(
         document_map = _remap(bundle.get("documents", []))
         for row in bundle.get("documents", []):
             data = dict(row)
-            if "linked_tree_id" in data:
-                data["linked_workspace_id"] = data.pop("linked_tree_id")
             data.pop("tree_id", None)
             data.pop("workspace_id", None)
             data["id"] = document_map[row["id"]]
@@ -392,6 +419,50 @@ def do_import(
             story_map,
             document_map,
         )
+
+        # Saved views always re-parent to the importing user (see export_tree's
+        # docstring note) — the original owner may not even exist on this
+        # instance.
+        saved_view_map = _remap(bundle.get("saved_views", []))
+        for row in bundle.get("saved_views", []):
+            data = dict(row)
+            data.pop("id", None)
+            data.pop("workspace_id", None)
+            data.pop("owner_id", None)
+            focus_member_old = data.pop("focus_member_id", None)
+            db.add(
+                SavedView(
+                    id=saved_view_map[row["id"]],
+                    workspace_id=tree.id,
+                    owner_id=user_id,
+                    focus_member_id=member_map.get(focus_member_old),
+                    **data,
+                )
+            )
+        db.flush()
+        for row in bundle.get("saved_view_sections", []):
+            saved_view_id = saved_view_map.get(row.get("saved_view_id"))
+            section_id = section_map.get(row.get("section_id"))
+            if saved_view_id is not None and section_id is not None:
+                db.add(
+                    SavedViewSection(
+                        saved_view_id=saved_view_id,
+                        section_id=section_id,
+                        workspace_id=tree.id,
+                    )
+                )
+        for row in bundle.get("saved_view_positions", []):
+            saved_view_id = saved_view_map.get(row.get("saved_view_id"))
+            node_id = member_map.get(row.get("node_id"))
+            if saved_view_id is not None and node_id is not None:
+                db.add(
+                    SavedViewPosition(
+                        saved_view_id=saved_view_id,
+                        node_id=node_id,
+                        position_x=row["position_x"],
+                        position_y=row["position_y"],
+                    )
+                )
         progress_cb(90)
 
         enforce_import_quota(db, tree)

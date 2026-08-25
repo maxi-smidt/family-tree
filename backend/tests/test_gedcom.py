@@ -450,6 +450,16 @@ def test_api_gedcom_round_trip(client, db):
     assert imported_father["middleNames"] == "Albert"
     assert imported_father["baptismalName"] == "Georgius"
 
+    # A GEDCOM import always seeds one deterministic section holding every
+    # member it brought in (#1016) — GEDCOM has no section concept of its own.
+    sections_resp = client.get(
+        f"{API}/workspaces/{new_tree_id}/sections", headers=headers
+    )
+    assert sections_resp.status_code == 200
+    sections = sections_resp.json()
+    assert len(sections) == 1
+    assert sections[0]["member_count"] == len(imported_members)
+
 
 def test_gedcom_import_splits_standard_given_names():
     ged = (
