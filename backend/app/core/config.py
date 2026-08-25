@@ -139,6 +139,17 @@ class Settings(BaseSettings):
     NEIGHBORHOOD_MAX_REQUESTS: int = 120
     NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS: int = 60
 
+    # Identity-link proposals (#985): how long a proposed link waits for the
+    # other workspace's owner before a background sweep marks it expired.
+    IDENTITY_LINK_PROPOSAL_EXPIRY_DAYS: int = 30
+
+    # Abuse protection for proposing a link, keyed by proposer + target
+    # workspace (below) and, in aggregate, by client IP alone.
+    IDENTITY_LINK_PROPOSE_MAX_ATTEMPTS: int = 10
+    IDENTITY_LINK_PROPOSE_RATE_LIMIT_WINDOW_SECONDS: int = 3600  # 1 hour
+    IDENTITY_LINK_PROPOSE_AGGREGATE_MAX_ATTEMPTS: int = 50
+    IDENTITY_LINK_PROPOSE_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS: int = 3600  # 1 hour
+
     # Seed admin account, created on first start if no users exist.
     FIRST_ADMIN_USERNAME: str = "admin"
     FIRST_ADMIN_PASSWORD: str = "admin"

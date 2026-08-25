@@ -133,3 +133,18 @@ neighborhood_rate_limiter = RateLimiter(
     settings.NEIGHBORHOOD_MAX_REQUESTS,
     settings.NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS,
 )
+
+# Identity-link proposals (#985), keyed by proposer + target workspace, so
+# spamming one target with proposals is bounded without limiting a proposer
+# who is legitimately linking members across several different workspaces.
+identity_link_propose_rate_limiter = RateLimiter(
+    settings.IDENTITY_LINK_PROPOSE_MAX_ATTEMPTS,
+    settings.IDENTITY_LINK_PROPOSE_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# A second, coarser budget keyed by client IP alone, across every target —
+# mirrors public_unlock_aggregate_rate_limiter above.
+identity_link_propose_aggregate_rate_limiter = RateLimiter(
+    settings.IDENTITY_LINK_PROPOSE_AGGREGATE_MAX_ATTEMPTS,
+    settings.IDENTITY_LINK_PROPOSE_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS,
+)

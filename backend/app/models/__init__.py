@@ -27,6 +27,12 @@ from app.models.content import (
 )
 from app.models.family import Member, MemberDisease, Relation, RelationType
 from app.models.friendship import Friendship
+from app.models.identity_link import (
+    IdentityLink,
+    IdentityLinkBlock,
+    IdentityLinkEvent,
+    IdentityLinkIdempotencyKey,
+)
 from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.notification import Notification
@@ -100,4 +106,8 @@ __all__ = [
     "SectionPosition",
     "ContentScope",
     "ContentType",
+    "IdentityLink",
+    "IdentityLinkBlock",
+    "IdentityLinkEvent",
+    "IdentityLinkIdempotencyKey",
 ]

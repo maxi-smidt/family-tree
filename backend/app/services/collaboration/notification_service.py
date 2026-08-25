@@ -16,6 +16,9 @@ from app.models import Notification
 from app.schemas.notification import (
     FriendRequestAcceptedPayload,
     FriendRequestReceivedPayload,
+    IdentityLinkDecidedPayload,
+    IdentityLinkLegacyMigratedPayload,
+    IdentityLinkProposedPayload,
     InvitationReceivedPayload,
     NotificationPayload,
     WorkspaceSharedPayload,
@@ -75,6 +78,27 @@ def create_notification(
     user_id: str,
     type: Literal["tree_shared"],
     payload: WorkspaceSharedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_proposed"],
+    payload: IdentityLinkProposedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_decided"],
+    payload: IdentityLinkDecidedPayload,
+) -> None: ...
+@overload
+def create_notification(
+    db: Session,
+    user_id: str,
+    type: Literal["identity_link_legacy_migrated"],
+    payload: IdentityLinkLegacyMigratedPayload,
 ) -> None: ...
 def create_notification(
     db: Session,

@@ -40,6 +40,7 @@ from app.schemas.merge import (
     MemberMergeTransferCounts,
 )
 from app.services.activity.activity import SNAPSHOT_VERSION, member_delete_snapshot
+from app.services.identity_links import repoint_identity_links_for_merge
 from app.services.members.member_clone import (
     CONFLICT_FIELDS,
     apply_field_choices,
@@ -400,6 +401,7 @@ def merge_members_in_place(
         extra_fields=("position_x", "position_y"),
     )
     _transfer_diseases(db, keep.id, remove.id)
+    repoint_identity_links_for_merge(db, keep, remove)
 
     # --- Workspace-in-tree bridge: carry the link onto keep, else dissolve it ----
     bridge_outcome: BridgeOutcome | None = None

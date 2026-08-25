@@ -39,6 +39,30 @@ class WorkspaceSharedPayload(BaseModel):
     actor_username: str
 
 
+class IdentityLinkProposedPayload(BaseModel):
+    identity_link_id: str
+    workspace_id: str
+    workspace_name: str
+    proposer_username: str
+
+
+class IdentityLinkDecidedPayload(BaseModel):
+    identity_link_id: str
+    workspace_id: str
+    workspace_name: str
+    # "verified" | "rejected" | "revoked"
+    status: str
+
+
+class IdentityLinkLegacyMigratedPayload(BaseModel):
+    """Sent once, by the v2_0_0_identity_links migration, to each owner of a
+    tree-in-tree bridge that was converted into an identity link."""
+
+    identity_link_id: str
+    workspace_id: str
+    workspace_name: str
+
+
 # Structurally overlapping members (e.g. InvitationReceivedPayload and
 # WorkspaceUnsharedPayload both are {workspace_id, workspace_name}) still round-trip the
 # same JSON either way pydantic's smart-union picks, since Pydantic favors
@@ -49,6 +73,9 @@ NotificationPayload = (
     | FriendRequestReceivedPayload
     | FriendRequestAcceptedPayload
     | WorkspaceSharedPayload
+    | IdentityLinkProposedPayload
+    | IdentityLinkDecidedPayload
+    | IdentityLinkLegacyMigratedPayload
 )
 
 
