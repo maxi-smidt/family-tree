@@ -1,4 +1,5 @@
-"""In-memory rate limiting for sensitive endpoints (e.g. login).
+"""In-memory rate limiting for sensitive or expensive endpoints (e.g. login,
+the neighborhood graph traversal).
 
 Process-local and intentionally simple — it fits the single-instance,
 self-hosted deployment this app targets. (A multi-replica setup would need a
@@ -91,7 +92,7 @@ class RateLimiter:
                 return None
             return max(0.0, hits[0] + self.window_seconds - now)
 
-    def record_failure(self, key: str) -> None:
+    def record_hit(self, key: str) -> None:
         now = time.monotonic()
         with self._lock:
             self._maybe_sweep(now)
@@ -123,4 +124,12 @@ public_unlock_rate_limiter = RateLimiter(
 public_unlock_aggregate_rate_limiter = RateLimiter(
     settings.PUBLIC_UNLOCK_AGGREGATE_MAX_ATTEMPTS,
     settings.PUBLIC_UNLOCK_AGGREGATE_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+# Every call to the neighborhood graph endpoint counts here, not just
+# failures — it throttles request *volume* (scripted replay/paginate loops),
+# not repeated bad input. See #1032.
+neighborhood_rate_limiter = RateLimiter(
+    settings.NEIGHBORHOOD_MAX_REQUESTS,
+    settings.NEIGHBORHOOD_RATE_LIMIT_WINDOW_SECONDS,
 )
