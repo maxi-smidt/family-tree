@@ -235,10 +235,10 @@ def test_backup_failure_is_audited(db, monkeypatch):
     admin = make_user(db, "admin", is_admin=True)
     monkeypatch.setattr(backup_service, "_ensure_backup_dir", lambda: None)
 
-    def _boom(_db):
+    def _boom(_db, _filepath):
         raise RuntimeError("disk exploded")
 
-    monkeypatch.setattr(backup_service, "_collect_bundle", _boom)
+    monkeypatch.setattr(backup_service, "_write_streaming_archive", _boom)
 
     record = backup_service.create_backup(db, trigger="manual", actor=admin)
 
