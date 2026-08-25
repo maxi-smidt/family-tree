@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 1800  # seconds (30 min)
 
+    # Caps how long the neighborhood graph traversal (#983) may run in
+    # Postgres before it is cancelled; a section filter or budget within the
+    # documented ceilings should never come close to this. No-op on SQLite
+    # (tests).
+    NEIGHBORHOOD_QUERY_TIMEOUT_MS: int = 5000
+
     # Number of uvicorn worker processes (mirrors the WORKERS env the Docker
     # CMD passes to `uvicorn --workers`). Read here purely so the app can warn
     # at startup when WORKERS > 1 without REDIS_URL — a config that silently
