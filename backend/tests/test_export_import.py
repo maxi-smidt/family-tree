@@ -15,7 +15,7 @@ from app.models import (
 )
 from app.services import crypto_export
 from app.services.media.storage_usage import compute_owner_usage
-from tests.conftest import API, auth, make_tree, make_user, wait_for_job
+from tests.conftest import API, auth, make_tree, make_user, share, wait_for_job
 
 _PNG_BYTES = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
@@ -968,6 +968,86 @@ def test_native_export_import_preserves_sections_and_saved_views(client, db):
     assert new_view["section_ids"] == [new_section_id]
     assert len(new_view["positions"]) == 1
     assert new_view["positions"][0]["node_id"] == new_member_id
+
+
+def test_export_never_discloses_another_users_saved_view(client, db):
+    """An export must only ever carry the exporting user's own saved views —
+    the live API already restricts a view to its owner (list_saved_views),
+    and a portable bundle file must not be a way around that."""
+    owner = make_user(db, "shared-workspace-owner")
+    editor = make_user(db, "shared-workspace-editor")
+    tree = make_tree(db, owner, "Shared tree")
+    share(db, tree, editor, role="editor")
+
+    owner_headers = auth(owner)
+    editor_headers = auth(editor)
+
+    owner_view = client.post(
+        f"{API}/workspaces/{tree.id}/saved-views",
+        headers=owner_headers,
+        json={"name": "Owner's private view"},
+    )
+    assert owner_view.status_code == 201, owner_view.text
+
+    exported = client.post(
+        f"{API}/workspaces/{tree.id}/export", headers=editor_headers, json={}
+    )
+    assert exported.status_code == 200
+    bundle = crypto_export.decrypt_bundle(exported.content, None)
+    assert bundle["saved_views"] == []
+    assert bundle["saved_view_sections"] == []
+    assert bundle["saved_view_positions"] == []
+
+
+def test_native_export_import_preserves_synthetic_saved_view_anchor(client, db):
+    """A saved-view position anchored on a synthetic match-group id ("vm_"
+    prefix — see SavedViewPosition) names no member, so it must round-trip
+    verbatim rather than being dropped as an unresolvable member reference."""
+    owner = make_user(db, "anchor-export-owner")
+    tree = make_tree(db, owner, "Anchor tree")
+    headers = auth(owner)
+
+    view = client.post(
+        f"{API}/workspaces/{tree.id}/saved-views",
+        headers=headers,
+        json={"name": "Anchor view"},
+    )
+    assert view.status_code == 201, view.text
+    view_id = view.json()["id"]
+
+    assert (
+        client.patch(
+            f"{API}/workspaces/{tree.id}/saved-views/{view_id}/positions",
+            headers=headers,
+            json=[{"node_id": "vm_group1", "position_x": 5.0, "position_y": 6.0}],
+        ).status_code
+        == 204
+    )
+
+    exported = client.post(f"{API}/workspaces/{tree.id}/export", headers=headers, json={})
+    assert exported.status_code == 200
+
+    imported = client.post(
+        f"{API}/workspaces/import",
+        headers=headers,
+        files={
+            "file": (
+                "anchor.treedb",
+                io.BytesIO(exported.content),
+                "application/octet-stream",
+            )
+        },
+    )
+    assert imported.status_code == 202, imported.text
+    new_workspace_id = wait_for_job(client, headers, imported.json()["job_id"])
+
+    new_views = client.get(
+        f"{API}/workspaces/{new_workspace_id}/saved-views", headers=headers
+    ).json()
+    assert len(new_views) == 1
+    assert new_views[0]["positions"] == [
+        {"node_id": "vm_group1", "position_x": 5.0, "position_y": 6.0}
+    ]
 
 
 def test_native_export_import_never_carries_legacy_bridge_pointer(client, db):

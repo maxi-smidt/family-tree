@@ -100,6 +100,7 @@ def _rows(db: Session, model, workspace_id: str) -> list[dict[str, object]]:
 def export_tree(
     payload: WorkspaceExportRequest,
     tree: Workspace = Depends(get_readable_workspace),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     members: list[BundleMemberRow] = _rows(db, Member, tree.id)
@@ -151,12 +152,14 @@ def export_tree(
         "sections": _rows(db, Section, tree.id),
         "section_members": _link_rows(db, SectionMember, Section, tree.id),
         "section_positions": _link_rows(db, SectionPosition, Section, tree.id),
-        # Saved views are a personal arrangement of the exporting owner's
-        # workspace, not shared configuration tied to any one user — importing
-        # them re-parents each view to the importing user (see do_import).
-        "saved_views": _rows(db, SavedView, tree.id),
-        "saved_view_sections": _rows(db, SavedViewSection, tree.id),
-        "saved_view_positions": _saved_view_position_rows(db, tree.id),
+        # Saved views are private to their owner — the live API never shows
+        # one user's saved views to another (see list_saved_views) — so a
+        # bundle only ever carries the exporting user's own views, never a
+        # co-owner's or fellow editor's; importing re-parents each to the
+        # importing user (see do_import).
+        "saved_views": _owned_saved_view_rows(db, tree.id, user.id),
+        "saved_view_sections": _owned_saved_view_section_rows(db, tree.id, user.id),
+        "saved_view_positions": _saved_view_position_rows(db, tree.id, user.id),
     }
 
     blob = crypto_export.encrypt_bundle(bundle, payload.password or None)
@@ -219,15 +222,50 @@ def _document_link_rows(
     return [{c: getattr(i, c) for c in cols} for i in items]
 
 
-def _saved_view_position_rows(db: Session, workspace_id: str) -> list[dict[str, object]]:
-    """Saved-view layout overlay rows for *workspace_id*, reached through
-    SavedView since the table itself carries no ``workspace_id``."""
+def _owned_saved_view_rows(
+    db: Session, workspace_id: str, owner_id: str
+) -> list[dict[str, object]]:
+    """A user's own saved views in *workspace_id* — never a co-owner's or a
+    fellow editor's, mirroring ``list_saved_views``'s owner scoping."""
+    from sqlalchemy import inspect as sa_inspect
+
+    items = db.scalars(
+        select(SavedView).where(
+            SavedView.workspace_id == workspace_id, SavedView.owner_id == owner_id
+        )
+    ).all()
+    cols = [c.key for c in sa_inspect(SavedView).mapper.column_attrs]
+    return [{c: getattr(i, c) for c in cols} for i in items]
+
+
+def _owned_saved_view_section_rows(
+    db: Session, workspace_id: str, owner_id: str
+) -> list[dict[str, object]]:
+    """Section-membership rows for *owner_id*'s own saved views, reached
+    through SavedView since the table itself carries no ``owner_id``."""
+    from sqlalchemy import inspect as sa_inspect
+
+    items = db.scalars(
+        select(SavedViewSection)
+        .join(SavedView, SavedView.id == SavedViewSection.saved_view_id)
+        .where(SavedView.workspace_id == workspace_id, SavedView.owner_id == owner_id)
+    ).all()
+    cols = [c.key for c in sa_inspect(SavedViewSection).mapper.column_attrs]
+    return [{c: getattr(i, c) for c in cols} for i in items]
+
+
+def _saved_view_position_rows(
+    db: Session, workspace_id: str, owner_id: str
+) -> list[dict[str, object]]:
+    """Layout-overlay rows for *owner_id*'s own saved views in *workspace_id*,
+    reached through SavedView since the table itself carries neither
+    ``workspace_id`` nor ``owner_id``."""
     from sqlalchemy import inspect as sa_inspect
 
     items = db.scalars(
         select(SavedViewPosition)
         .join(SavedView, SavedView.id == SavedViewPosition.saved_view_id)
-        .where(SavedView.workspace_id == workspace_id)
+        .where(SavedView.workspace_id == workspace_id, SavedView.owner_id == owner_id)
     ).all()
     cols = [c.key for c in sa_inspect(SavedViewPosition).mapper.column_attrs]
     return [{c: getattr(i, c) for c in cols} for i in items]

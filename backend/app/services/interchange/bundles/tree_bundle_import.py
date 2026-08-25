@@ -453,7 +453,15 @@ def do_import(
                 )
         for row in bundle.get("saved_view_positions", []):
             saved_view_id = saved_view_map.get(row.get("saved_view_id"))
-            node_id = member_map.get(row.get("node_id"))
+            old_node_id = row.get("node_id", "")
+            # A synthetic match-group anchor (see SavedViewPosition, "vm_"
+            # prefix) names no member at all, so it carries over as-is rather
+            # than being remapped like a real member id.
+            node_id = (
+                old_node_id
+                if old_node_id.startswith("vm_")
+                else member_map.get(old_node_id)
+            )
             if saved_view_id is not None and node_id is not None:
                 db.add(
                     SavedViewPosition(
