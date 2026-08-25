@@ -60,6 +60,10 @@ from app.models import (
     Relation,
     RelationType,
     RestoreMarker,
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    SavedViewUserState,
     Section,
     SectionMember,
     SectionPosition,
@@ -143,6 +147,10 @@ BACKUP_MODELS: tuple[type, ...] = (
     VirtualViewMemberMatch,
     VirtualViewPosition,
     VirtualViewUserState,
+    SavedView,
+    SavedViewSection,
+    SavedViewPosition,
+    SavedViewUserState,
 )
 
 # Every other model registered on Base must be listed here, with a reason it
@@ -267,6 +275,12 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         # must stay restorable too.
         WorkspaceSectionGrant.__tablename__,
         WorkspaceSectionPublicLink.__tablename__,
+        # Saved views (#986) landed after v2 was already in development; a v2
+        # backup taken before these existed must stay restorable too.
+        SavedView.__tablename__,
+        SavedViewSection.__tablename__,
+        SavedViewPosition.__tablename__,
+        SavedViewUserState.__tablename__,
     }
 )
 

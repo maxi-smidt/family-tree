@@ -70,6 +70,7 @@ from app.services.members.member_search import (
 )
 from app.services.members.member_update import update_member as update_member_service
 from app.services.members.member_vitals import event_updates_allowed, sync_vital_event
+from app.services.saved_views.saved_views import degrade_saved_views_for_member
 from app.services.system.settings_service import get_media_limits
 from app.services.unit_of_work import UnitOfWork
 from app.services.workspaces.neighborhood import (
@@ -762,6 +763,7 @@ def delete_member(
         target_label=label,
         details=member_delete_snapshot(db, member, counterpart),
     )
+    degrade_saved_views_for_member(db, tree.id, member.id)
     db.delete(member)
     with UnitOfWork(db) as uow:
         uow.after_commit(

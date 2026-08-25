@@ -38,6 +38,12 @@ from app.models.legal import LegalAcceptance, LegalDocumentVersion
 from app.models.notification import Notification
 from app.models.provenance import ContentScope, ContentType
 from app.models.quality import QualityIssueDismissal
+from app.models.saved_view import (
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    SavedViewUserState,
+)
 from app.models.section import Section, SectionMember, SectionPosition
 from app.models.setting import AppSetting
 from app.models.user import User
@@ -104,6 +110,10 @@ __all__ = [
     "Section",
     "SectionMember",
     "SectionPosition",
+    "SavedView",
+    "SavedViewSection",
+    "SavedViewPosition",
+    "SavedViewUserState",
     "ContentScope",
     "ContentType",
     "IdentityLink",
