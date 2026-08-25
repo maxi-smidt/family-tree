@@ -43,7 +43,9 @@ def list_diseases(
     db: Session = Depends(get_db),
 ):
     filters = [MemberDisease.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.DISEASE, MemberDisease.id)
+    content_filter = context.content_filter(
+        ContentType.DISEASE, MemberDisease.id, domain=_DOMAIN
+    )
     if content_filter is not None:
         filters.append(content_filter)
     statement = select(MemberDisease).where(*filters).order_by(MemberDisease.id)

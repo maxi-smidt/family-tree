@@ -170,7 +170,9 @@ def list_documents(
     db: Session = Depends(get_db),
 ):
     filters = [Document.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.DOCUMENT, Document.id)
+    content_filter = context.content_filter(
+        ContentType.DOCUMENT, Document.id, domain=DOMAIN
+    )
     if content_filter is not None:
         filters.append(content_filter)
     statement = (

@@ -105,7 +105,9 @@ def list_tasks(
     db: Session = Depends(get_db),
 ):
     filters = [MemberTask.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.TASK, MemberTask.id)
+    content_filter = context.content_filter(
+        ContentType.TASK, MemberTask.id, domain=_DOMAIN
+    )
     if content_filter is not None:
         filters.append(content_filter)
     statement = select(MemberTask).where(*filters).order_by(

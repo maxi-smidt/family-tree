@@ -91,7 +91,9 @@ def list_images(
     db: Session = Depends(get_db),
 ):
     filters = [GalleryImage.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.GALLERY_IMAGE, GalleryImage.id)
+    content_filter = context.content_filter(
+        ContentType.GALLERY_IMAGE, GalleryImage.id, domain=_DOMAIN
+    )
     if content_filter is not None:
         filters.append(content_filter)
     statement = (
@@ -110,7 +112,9 @@ def list_links(
     db: Session = Depends(get_db),
 ):
     filters = [GalleryImage.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.GALLERY_IMAGE, GalleryImage.id)
+    content_filter = context.content_filter(
+        ContentType.GALLERY_IMAGE, GalleryImage.id, domain=_DOMAIN
+    )
     if content_filter is not None:
         filters.append(content_filter)
     statement = (
@@ -396,7 +400,9 @@ def list_unknown_faces(
     db: Session = Depends(get_db),
 ):
     filters = [GalleryImage.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.GALLERY_IMAGE, GalleryImage.id)
+    content_filter = context.content_filter(
+        ContentType.GALLERY_IMAGE, GalleryImage.id, domain=_DOMAIN
+    )
     if content_filter is not None:
         filters.append(content_filter)
     statement = (

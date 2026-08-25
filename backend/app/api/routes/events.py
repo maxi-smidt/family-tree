@@ -100,7 +100,7 @@ def list_events(
     db: Session = Depends(get_db),
 ):
     filters = [Event.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.EVENT, Event.id)
+    content_filter = context.content_filter(ContentType.EVENT, Event.id, domain=_DOMAIN)
     if content_filter is not None:
         filters.append(content_filter)
     statement = select(Event).where(*filters).order_by(Event.created_at, Event.id)
@@ -116,7 +116,7 @@ def list_links(
     db: Session = Depends(get_db),
 ):
     filters = [Event.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.EVENT, Event.id)
+    content_filter = context.content_filter(ContentType.EVENT, Event.id, domain=_DOMAIN)
     if content_filter is not None:
         filters.append(content_filter)
     statement = (

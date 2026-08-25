@@ -100,7 +100,7 @@ def list_stories(
     db: Session = Depends(get_db),
 ):
     filters = [Story.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.STORY, Story.id)
+    content_filter = context.content_filter(ContentType.STORY, Story.id, domain=_DOMAIN)
     if content_filter is not None:
         filters.append(content_filter)
     statement = select(Story).where(*filters).order_by(Story.created_at, Story.id)
@@ -116,7 +116,7 @@ def list_links(
     db: Session = Depends(get_db),
 ):
     filters = [Story.workspace_id == tree.id]
-    content_filter = context.content_filter(ContentType.STORY, Story.id)
+    content_filter = context.content_filter(ContentType.STORY, Story.id, domain=_DOMAIN)
     if content_filter is not None:
         filters.append(content_filter)
     statement = (

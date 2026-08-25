@@ -733,3 +733,143 @@ def test_rescope_preview_reports_the_destination_sections_audience(client, db):
     # narrowing is visible in the two audiences differing at all.
     assert bob.id in change["audience_after"]
     assert set(change["audience_after"]) <= set(change["audience_before"])
+
+
+# ---------------------------------------------------------------------------
+# content_filter honors each section's own governing grant, not the
+# caller's most permissive one (code review fix)
+# ---------------------------------------------------------------------------
+
+
+def _event(client, alice, tree, section_id=None):
+    from uuid import uuid4
+
+    payload = {
+        "id": str(uuid4()),
+        "event_type": "birth",
+        "date": "1900-01-01",
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "member_ids": [],
+    }
+    url = f"{API}/workspaces/{tree.id}/events"
+    if section_id:
+        url += f"?origin_section_id={section_id}"
+    res = client.post(url, headers=auth(alice), json=payload)
+    assert res.status_code == 201, res.text
+    return res.json()["id"]
+
+
+def test_content_filter_ignores_an_unrestricted_scoped_grant_for_workspace_wide_content(
+    client, db
+):
+    """A workspace-wide grant that restricts a domain must keep hiding
+    workspace-wide-origin content of that domain even though a *different*,
+    unrestricted section grant makes the caller pass the coarse
+    ``require_domain`` gate."""
+    from app.models import WorkspaceMembership
+    from tests.conftest import share
+
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+
+    workspace_wide_event = _event(client, alice, tree)
+    in_section_event = _event(client, alice, tree, section.id)
+
+    share(db, tree, bob, role="viewer")
+    membership = db.get(WorkspaceMembership, (tree.id, bob.id))
+    membership.restrictions = ["events"]
+    db.commit()
+    _grant(db, tree, section, bob, role="viewer")  # unrestricted
+
+    res = client.get(f"{API}/workspaces/{tree.id}/events", headers=auth(bob))
+    assert res.status_code == 200, res.text
+    ids = {e["id"] for e in res.json()}
+    assert ids == {in_section_event}
+    assert workspace_wide_event not in ids
+
+
+def test_content_filter_restriction_in_one_section_does_not_leak_into_another(
+    client, db
+):
+    """Two purely section-scoped grants, one restricted and one not — only
+    the unrestricted section's content of that domain is visible."""
+    alice = make_user(db, "alice")
+    bob = make_user(db, "bob")
+    tree = make_tree(db, alice)
+    section_a = _section(db, tree, "A")
+    section_b = _section(db, tree, "B")
+
+    event_a = _event(client, alice, tree, section_a.id)
+    event_b = _event(client, alice, tree, section_b.id)
+
+    _grant(db, tree, section_a, bob, role="viewer", restrictions=["events"])
+    _grant(db, tree, section_b, bob, role="viewer")
+
+    res = client.get(f"{API}/workspaces/{tree.id}/events", headers=auth(bob))
+    assert res.status_code == 200, res.text
+    ids = {e["id"] for e in res.json()}
+    assert ids == {event_b}
+    assert event_a not in ids
+
+
+# ---------------------------------------------------------------------------
+# An authenticated stranger admitted only through a public grant must still
+# resolve a real access context, not an empty, all-denying one (code review
+# fix)
+# ---------------------------------------------------------------------------
+
+
+def test_authenticated_non_member_can_read_an_unprotected_public_workspace(client, db):
+    from tests.conftest import add_member
+
+    alice = make_user(db, "alice")
+    stranger = make_user(db, "stranger")
+    tree = make_tree(db, alice)
+    add_member(db, tree, "m1", first_name="One")
+
+    res = client.patch(
+        f"{API}/workspaces/{tree.id}/public",
+        json={"public_role": "viewer"},
+        headers=auth(alice),
+    )
+    assert res.status_code == 200, res.text
+
+    members = client.get(f"{API}/workspaces/{tree.id}/members", headers=auth(stranger))
+    assert members.status_code == 200, members.text
+    assert {m["id"] for m in members.json()} == {"m1"}
+
+
+# ---------------------------------------------------------------------------
+# A passwordless section public link must still be unlockable (code review
+# fix) — a plain, tokenless read can only ever mean the workspace-wide link.
+# ---------------------------------------------------------------------------
+
+
+def test_passwordless_section_public_link_can_be_unlocked(client, db):
+    from tests.conftest import add_member
+
+    alice = make_user(db, "alice")
+    tree = make_tree(db, alice)
+    section = _section(db, tree)
+    add_member(db, tree, "m-in", first_name="In")
+    db.add(SectionMember(section_id=section.id, member_id="m-in"))
+    db.commit()
+    link = create_section_public_link(db, workspace_id=tree.id, section_id=section.id)
+    db.commit()
+    assert link.password_hash is None
+
+    res = client.post(
+        f"{API}/workspaces/{tree.id}/public/unlock",
+        json={"password": "ignored-but-required-by-the-schema", "link_id": link.id},
+    )
+    assert res.status_code == 200, res.text
+    token = res.json()["token"]
+
+    members = client.get(
+        f"{API}/workspaces/{tree.id}/members",
+        headers={"X-Public-Workspace-Token": token},
+    )
+    assert members.status_code == 200, members.text
+    assert {m["id"] for m in members.json()} == {"m-in"}

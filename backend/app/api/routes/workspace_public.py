@@ -140,12 +140,14 @@ def unlock_public_tree(
     rate limit, and access version, so unlocking, exhausting attempts on, or
     revoking one never affects another.
 
-    A section-link token only proves *that* grant's password was correct; it
-    does not (yet) unlock ``get_readable_workspace_public`` — see
-    ``app.api.deps._public_access_ok``. Wiring it into the coarse workspace
-    read gate is deferred to #984's real per-section content filter, so a
-    section link cannot read more than its section by exposing the whole
-    workspace in the meantime.
+    A section link created with no password (unlike the workspace-wide link,
+    which needs no token round-trip when passwordless — see
+    ``resolve_public_grant_for_read``) still has to come through here: a
+    plain, tokenless read can only ever mean *the* workspace-wide link, so a
+    section link — passworded or not — needs a token to identify *which*
+    section it's asking to read. The minted token proves the grant's
+    password (when it has one) and narrows every read to that grant's own
+    section — see ``app.services.workspaces.visibility``.
     """
     client_ip = request.client.host if request.client else "unknown"
     limiter_key = f"{client_ip}:{workspace_id}:{payload.link_id or 'workspace'}"
@@ -168,13 +170,15 @@ def unlock_public_tree(
 
     tree = db.get(Workspace, workspace_id)
     grant = resolve_public_grant(db, tree, payload.link_id) if tree else None
-    if grant is None or grant.password_hash is None:
+    if grant is None:
         # Run a dummy bcrypt verify so timing does not reveal whether the
         # workspace/grant exists or is protected, then answer uniformly.
         run_dummy_verify(payload.password)
         _record_failure()
         raise HTTPException(status_code=404, detail="Not found")
-    if not verify_password(payload.password, grant.password_hash):
+    if grant.password_hash is not None and not verify_password(
+        payload.password, grant.password_hash
+    ):
         _record_failure()
         raise HTTPException(status_code=401, detail="invalid_public_password")
     public_unlock_rate_limiter.reset(limiter_key)

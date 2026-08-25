@@ -87,18 +87,59 @@ class WorkspaceAccessContext:
         return section_id in self.scoped_section_ids
 
     def content_filter(
-        self, content_type: ContentType, id_column: ColumnElement
+        self,
+        content_type: ContentType,
+        id_column: ColumnElement,
+        *,
+        domain: str | None = None,
     ) -> ColumnElement | None:
-        """A WHERE clause selecting only visible rows of ``content_type``.
+        """A WHERE clause selecting only rows of ``content_type`` this context
+        may read.
 
-        ``None`` means no filter is needed (unrestricted caller) — the
-        common case, and the only one before any section grant exists.
+        ``domain``, when given, additionally requires that the grant
+        *governing each section* not restrict it — ``require_domain`` only
+        checked this coarsely (denying the whole route if *every* grant
+        restricts the domain); a caller who passes that gate can still hold
+        one grant that restricts a domain and another, for a different
+        section, that doesn't, and each section's content must honor its own
+        governing grant rather than the caller's most permissive one.
+
+        ``None`` means no filter is needed — the common case, and the only
+        one before any section grant or domain restriction exists.
         """
-        if self.unrestricted:
+        if self.is_owner_or_admin:
             return None
-        conditions = [ContentScope.section_id.is_(None)]
-        if self.scoped_section_ids:
-            conditions.append(ContentScope.section_id.in_(self.scoped_section_ids))
+
+        grants = list(self.grants)
+
+        def _reaches(section_id: str | None) -> bool:
+            grant = resolve_grant(grants, section_id)
+            return grant is not None and (
+                domain is None or domain not in grant.restrictions
+            )
+
+        workspace_grant = resolve_grant(grants, None)
+        if workspace_grant is not None and (
+            domain is None or domain not in workspace_grant.restrictions
+        ):
+            # The workspace-wide grant doesn't restrict this domain — it
+            # reaches every section, so nothing narrower is needed.
+            return None
+
+        conditions = []
+        # Workspace-wide-origin content has no scoped grant governing it —
+        # only a workspace-wide one could. With none at all it falls to the
+        # base "visible to anyone with any access" rule (`can_read_scope`),
+        # domain restriction and all; with one that restricts this domain
+        # (the branch above didn't return), it stays hidden regardless of
+        # what any *scoped* grant permits.
+        if workspace_grant is None:
+            conditions.append(ContentScope.section_id.is_(None))
+        allowed_sections = {sid for sid in self.scoped_section_ids if _reaches(sid)}
+        if allowed_sections:
+            conditions.append(ContentScope.section_id.in_(allowed_sections))
+        if not conditions:
+            return id_column.in_(())
         return id_column.in_(
             select(ContentScope.content_id).where(
                 ContentScope.content_type == str(content_type),
@@ -252,16 +293,24 @@ def resolve_access_context(
         if user.is_admin or user.id == tree.owner_id:
             return WorkspaceAccessContext(tree.id, user.id, True)
         grants = tuple(user_grants(db, tree.id, user.id))
-        return WorkspaceAccessContext(tree.id, user.id, False, grants)
+        if grants:
+            return WorkspaceAccessContext(tree.id, user.id, False, grants)
+        # No explicit membership or grant at all: the coarse gate
+        # (`app.api.deps._resolve_workspace`'s ``role is None`` branch) can
+        # still have admitted this authenticated user through a public
+        # grant, exactly as it would an anonymous caller — fall through and
+        # resolve that grant instead of returning an empty, all-denying
+        # context for someone the gate already let in.
 
+    principal = user.id if user is not None else PUBLIC_PRINCIPAL
     grant = resolve_public_grant_for_read(db, tree, public_token)
     if grant is None:
         # The coarse gate should already have rejected this request; resolve
         # to no access rather than raising from inside a read-side helper.
-        return WorkspaceAccessContext(tree.id, PUBLIC_PRINCIPAL, False)
+        return WorkspaceAccessContext(tree.id, principal, False)
     if grant.section_id is None:
-        return WorkspaceAccessContext(tree.id, PUBLIC_PRINCIPAL, True)
+        return WorkspaceAccessContext(tree.id, principal, True)
     public_grant = Grant(
         id=f"public:{grant.id}", section_id=grant.section_id, role="viewer"
     )
-    return WorkspaceAccessContext(tree.id, PUBLIC_PRINCIPAL, False, (public_grant,))
+    return WorkspaceAccessContext(tree.id, principal, False, (public_grant,))
