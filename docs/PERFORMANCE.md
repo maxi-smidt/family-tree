@@ -65,6 +65,15 @@ measured in (see the caveat under "Latency").
   index range scan — a true result, but not the one a real multi-tenant
   deployment sees. With the workspace at a realistic ~40% table share, every
   query in every scenario below plans as an index or bitmap-index scan.
+- A branch's founder couple can (rarely) draw zero children, which would
+  otherwise leave the *first* member created in a section connected to
+  almost nobody while the section's real growth continues from a fresh,
+  disconnected replacement founder. Each section's generator tracks its
+  current connected component as it grows and reports the root of whichever
+  one ends up largest as `founder_id` — so `root_component_size` in the
+  manifest, not `member_count` (every member ever assigned to the section,
+  including any abandoned fragment), is what the benchmark's root is
+  guaranteed to actually reach.
 
 ## Measured budgets (200k members, default `budget=1500`, `up=0, down=20,
 partners=true`, rooted at a section founder)
@@ -102,7 +111,8 @@ Docker container, reached over a forwarded `localhost` port — not a
 colocated `docker-compose` network) ranged ~100–190ms, split roughly evenly
 between the frontier walk and `relations_for_page`. Neither half is
 PostgreSQL-bound: every individual query in the `EXPLAIN ANALYZE` output
-below executes in well under a millisecond. `relations_for_page`'s share is
+below — including its highest-cardinality execution, up to the 500-id
+`_IN_CHUNK` ceiling — executes in under 4ms. `relations_for_page`'s share is
 ORM row hydration (`db.scalars(select(Relation)...)` builds ~1,500 mapped
 objects) rather than the query itself; the frontier walk's share is
 almost entirely per-query round-trip overhead (28 sequential round trips).
@@ -113,24 +123,30 @@ sandbox-specific and are the load-bearing part of this budget.
 
 ## EXPLAIN-verified plans
 
-With the fixture's realistic ~40% table share, every query PostgreSQL plans
-across all three scenarios is an index scan or bitmap-index scan — no
-sequential scan anywhere:
+`scripts.neighborhood_benchmark` explains each *distinct query shape* a
+scenario issues, and — since PostgreSQL can pick a different plan as an
+IN-list grows — always at that shape's highest-cardinality execution in the
+page, not its first (a page's first generation binds a single id; a later
+one can bind hundreds). With the fixture's realistic ~40% table share, every
+shape across all three scenarios still plans as an index scan or
+bitmap-index scan at its largest cardinality — no sequential scan anywhere:
 
 ```
-Index Scan using ix_relations_workspace_type_to on relations
+Index Scan using ix_relations_workspace_type_to on relations  (rows=1110, 500-id IN-list)
   Index Cond: ((workspace_id = $1) AND (relation_type = 'parent') AND (to_member_id = ANY ($2)))
-  Execution Time: 0.03–0.15 ms
+  Execution Time: 1.17 ms
 
-Index Scan using members_pkey on members
+Index Scan using members_pkey on members  (rows=500, 500-id IN-list)
   Index Cond: (id = ANY ($1))
   Filter: (workspace_id = $2)
-  Execution Time: 0.02–0.09 ms
+  Execution Time: 0.49 ms
 
--- relations_for_page, larger chunks:
-Bitmap Heap Scan on relations
-  ->  Bitmap Index Scan on ix_relations_workspace_type_to / relations_pkey
-  Execution Time: 0.5–3.7 ms
+-- relations_for_page, largest chunk (500 ids, both directions):
+Bitmap Heap Scan on relations  (rows=1808)
+  ->  BitmapOr
+        ->  Bitmap Index Scan on relations_pkey
+        ->  Bitmap Index Scan on ix_relations_workspace_type_to
+  Execution Time: 3.94 ms
 ```
 
 The two indexes added in #1026
@@ -140,8 +156,8 @@ scan; `relations_for_page`'s edge fetch instead rides the `relations` table's
 own primary key (`workspace_id, from_member_id, to_member_id,
 relation_type`) once its `workspace_id` filter is selective. Full plans for
 every distinct query shape are in a generated `report.md` (see "Tooling"
-above) — not checked in, since it's ~1,700 lines of raw `EXPLAIN` output tied
-to one run's specific ids and row counts.
+above) — not checked in, since it's tied to one run's specific ids and row
+counts.
 
 ## Known follow-up candidate (not fixed here)
 

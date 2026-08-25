@@ -41,14 +41,20 @@ from app.services.workspaces.neighborhood import (
 
 _SCENARIOS = ("unfiltered", "section_filtered", "cursor_chain")
 
-# Collapses an IN-list of any length to one placeholder, so two executions of
-# the same query shape with different frontier sizes count as one "shape" for
-# EXPLAIN purposes instead of one per distinct chunk length.
-_IN_LIST_RE = re.compile(r"IN \([^)]*\)")
+# Collapses a run of bound-parameter placeholders (e.g. an IN-list) of any
+# length to one marker, so two executions of the same query shape with
+# different frontier sizes count as one "shape" for EXPLAIN purposes instead
+# of one per distinct chunk length. Two passes because psycopg2's pyformat
+# placeholders (``%(name)s``) themselves contain a ``)``, so a single regex
+# matching up to the first ``)`` would stop inside the placeholder instead of
+# at the end of the IN-list.
+_PLACEHOLDER_RE = re.compile(r"%\([a-zA-Z0-9_]+\)s")
+_PLACEHOLDER_RUN_RE = re.compile(r"\?(,\s*\?)*")
 
 
 def _shape_key(statement: str) -> str:
-    return _IN_LIST_RE.sub("IN (...)", statement)
+    normalized = _PLACEHOLDER_RE.sub("?", statement)
+    return _PLACEHOLDER_RUN_RE.sub("<PARAMS>", normalized)
 
 
 @contextmanager
@@ -76,10 +82,17 @@ class PageMetrics:
 
 
 def _pick_root_section(manifest: dict, branch_index: int | None) -> dict:
+    """Pick the section whose ``founder_id`` reaches the most members.
+
+    Not ``member_count`` (every member ever assigned to the section, which
+    can include disconnected fragments left behind when a lineage ran dry
+    and was replaced — see ``neighborhood_fixture.start_component``): the
+    traversal can only walk what's actually reachable from the root.
+    """
     sections = manifest["sections"]
     if branch_index is not None:
         return sections[branch_index]
-    return max(sections, key=lambda s: s["member_count"])
+    return max(sections, key=lambda s: s["root_component_size"])
 
 
 def _run_page(
@@ -169,9 +182,17 @@ def explain_scenario(
     try:
         query = _build_query(scenario, manifest, branch_index)
         _, statements = _run_page(engine, manifest["workspace_id"], query, offset=0)
+        # Keep the highest-cardinality execution of each query shape: later
+        # generations bind IN-lists of hundreds of ids where the first is a
+        # single id, and PostgreSQL can pick a different plan (up to and
+        # including a sequential scan) as list size grows — explaining only
+        # the first occurrence would miss exactly the plan this is meant to
+        # verify.
         seen: dict[str, tuple[str, object]] = {}
         for statement, params in statements:
-            seen.setdefault(_shape_key(statement), (statement, params))
+            key = _shape_key(statement)
+            if key not in seen or len(params) > len(seen[key][1]):
+                seen[key] = (statement, params)
 
         plans = []
         with engine.connect() as conn:

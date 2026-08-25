@@ -169,19 +169,41 @@ def generate(
 
     # One founder couple per section, so each section is a genuinely large,
     # independently filterable subtree rather than a thin slice of one graph.
+    #
+    # A couple can legitimately draw zero children, which — for the very
+    # first couple in a section — would otherwise strand the manifest's
+    # ``founder_id`` on an isolated one- or two-member component while the
+    # section's real growth continues from a freshly spawned, disconnected
+    # replacement founder (a branch "runs dry" below). So each section tracks
+    # its *current* connected component (by parent/partner edges) as it
+    # grows, and the manifest reports the root of whichever component ended
+    # up largest — never just the first member created.
     branch_queue: list[list[tuple[str, str | None]]] = []
-    founders: list[str] = []
     branch_sizes = [0] * num_sections
+    component_root: list[str | None] = [None] * num_sections
+    component_size = [0] * num_sections
+    best_root: list[str | None] = [None] * num_sections
+    best_size = [0] * num_sections
     created = 0
+
+    def start_component(s: int, root_id: str) -> None:
+        if component_size[s] > best_size[s]:
+            best_size[s] = component_size[s]
+            best_root[s] = component_root[s]
+        component_root[s] = root_id
+        component_size[s] = 0
+
     for s in range(num_sections):
         a = new_member(s, first_name="Founder")
-        founders.append(a)
+        start_component(s, a)
+        component_size[s] += 1
         branch_sizes[s] += 1
         created += 1
         b = None
         if rng.random() < _PARTNER_PROBABILITY and created < target_members:
             b = new_member(s, first_name="Founder")
             relation_buf.append(_partner_row(workspace_id, a, b))
+            component_size[s] += 1
             branch_sizes[s] += 1
             created += 1
         branch_queue.append([(a, b)])
@@ -194,8 +216,11 @@ def generate(
         queue = branch_queue[s]
         if not queue:
             # A branch can run dry if every couple in it turned out
-            # childless; keep the section growing rather than stalling.
+            # childless; keep the section growing rather than stalling. This
+            # starts a fresh, disconnected component in the same section.
             a = new_member(s, first_name="Founder")
+            start_component(s, a)
+            component_size[s] += 1
             queue.append((a, None))
             branch_sizes[s] += 1
             created += 1
@@ -209,12 +234,14 @@ def generate(
             relation_buf.append(_parent_row(workspace_id, child, parent_a))
             if parent_b is not None:
                 relation_buf.append(_parent_row(workspace_id, child, parent_b))
+            component_size[s] += 1
             branch_sizes[s] += 1
             created += 1
             partner = None
             if created < target_members and rng.random() < _PARTNER_PROBABILITY:
                 partner = new_member(s, first_name="Partner")
                 relation_buf.append(_partner_row(workspace_id, child, partner))
+                component_size[s] += 1
                 branch_sizes[s] += 1
                 created += 1
             queue.append((child, partner))
@@ -230,6 +257,11 @@ def generate(
 
     flush()
 
+    for s in range(num_sections):
+        if component_size[s] > best_size[s]:
+            best_size[s] = component_size[s]
+            best_root[s] = component_root[s]
+
     return {
         "workspace_id": workspace_id,
         "owner_id": owner_id,
@@ -239,7 +271,8 @@ def generate(
             {
                 "id": sections[i]["id"],
                 "name": sections[i]["name"],
-                "founder_id": founders[i],
+                "founder_id": best_root[i],
+                "root_component_size": best_size[i],
                 "member_count": branch_sizes[i],
             }
             for i in range(num_sections)
