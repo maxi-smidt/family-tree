@@ -41,6 +41,7 @@ vi.mock("@/services/api", () => ({
   onStartupInProgress: (handler: () => void) => {
     mocks.startupInProgressHandler = handler;
   },
+  STARTUP_IN_PROGRESS_DETAIL: "startup_in_progress",
 }));
 
 import { useAuthStore } from "./useAuthStore";
@@ -258,6 +259,15 @@ describe("useAuthStore init", () => {
 
     expect(mocks.token).toBe("current-token");
     expect(useAuthStore.getState().status).toBe("starting");
+  });
+
+  it("still falls back to unreachable on a 503 unrelated to the startup gate", async () => {
+    mocks.get.mockRejectedValue(new ApiError(503, "some_other_outage"));
+
+    await useAuthStore.getState().init();
+
+    expect(mocks.token).toBe("current-token");
+    expect(useAuthStore.getState().status).toBe("unreachable");
   });
 
   it("bounds the startup /auth/config and /auth/me requests with a timeout", async () => {

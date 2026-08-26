@@ -24,7 +24,7 @@ const SCHEMA_EPOCH_MISMATCH_DETAIL = "schema_epoch_mismatch";
 /** Detail on a 503 while the backend's startup migration is still running
  *  (see app.main.StartupGateMiddleware, #1020) — routed to the maintenance
  *  screen instead of the generic "can't reach the server" retry screen. */
-const STARTUP_IN_PROGRESS_DETAIL = "startup_in_progress";
+export const STARTUP_IN_PROGRESS_DETAIL = "startup_in_progress";
 
 /** 401 details that describe an application flow (a password prompt) rather
  *  than an invalid/expired session — none of these should invalidate the

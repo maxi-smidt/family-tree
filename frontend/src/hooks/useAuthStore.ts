@@ -8,6 +8,7 @@ import {
   onStartupInProgress,
   onUnauthorized,
   setAuthToken,
+  STARTUP_IN_PROGRESS_DETAIL,
 } from "@/services/api";
 import { WorkspaceSharingService } from "@/services/WorkspaceSharingService";
 import { AuthService, TwoFactorSetup } from "@/services/AuthService";
@@ -174,11 +175,17 @@ async function checkAuthSession(): Promise<void> {
       });
       return;
     }
-    if (error instanceof ApiError && error.status === 503) {
+    if (
+      error instanceof ApiError &&
+      error.status === 503 &&
+      error.message === STARTUP_IN_PROGRESS_DETAIL
+    ) {
       // onStartupInProgress (registered below) already set status:
       // "starting" for the backend's own startup-migration gate — leave it
       // in place instead of falling through to the generic unreachable
-      // retry screen.
+      // retry screen. Any other 503 (e.g. a degraded-Redis /health/ready
+      // response reaching some other caller) falls through below like any
+      // other unreachable error.
       return;
     }
     useAuthStore.setState({ status: "unreachable" });

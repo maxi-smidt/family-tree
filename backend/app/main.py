@@ -3,6 +3,8 @@
 import asyncio
 import contextlib
 import logging
+import os
+import signal
 import time
 from contextlib import asynccontextmanager
 
@@ -11,7 +13,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -60,6 +62,30 @@ def _init_db_with_retry(retries: int = 10, delay: float = 3.0) -> None:
     init_db()  # final attempt: let the error surface
 
 
+async def _run_startup_migration_or_die() -> bool:
+    """Runs the startup migration off the event loop; returns True on
+    success.
+
+    On an unrecoverable failure (preflight, or ``_init_db_with_retry``
+    exhausting its retries), sends this process SIGTERM instead of letting
+    the exception vanish inside a background task nothing awaits before
+    shutdown — otherwise the process would stay alive forever with
+    ``runtime.is_startup_complete()`` stuck False and every ordinary route
+    503ing, instead of exiting so Compose's ``restart: unless-stopped``
+    retries from a clean process (#1020).
+    """
+    try:
+        await run_in_threadpool(_init_db_with_retry)
+        return True
+    except Exception:
+        logger.exception(
+            "Startup migration failed unrecoverably; sending SIGTERM so the "
+            "container restarts instead of serving 503 forever."
+        )
+        os.kill(os.getpid(), signal.SIGTERM)
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.services.event_bus import event_bus
@@ -95,7 +121,8 @@ async def lifespan(app: FastAPI):
         # can run for minutes, and /api/health + /api/health/migration must
         # stay reachable throughout (#1020). StartupGateMiddleware below
         # keeps every other route unavailable until this completes.
-        await run_in_threadpool(_init_db_with_retry)
+        if not await _run_startup_migration_or_die():
+            return  # already logged + signaled; nothing more to start
         sweeper = asyncio.create_task(deletion_sweep_loop())
         backup_scheduler = asyncio.create_task(backup_schedule_loop())
         # Start the Redis SSE listener when Redis is configured.  This
@@ -295,16 +322,20 @@ def _latest_migration_run() -> MigrationRun | None:
 
     Uses its own short-lived session rather than a ``get_db`` dependency: this
     route must answer even before the startup migration (and thus
-    ``migration_runs`` itself, on a first v1->v2 upgrade) exists, so a
-    missing table is treated the same as no run yet rather than a 500.
+    ``migration_runs`` itself, on a first v1->v2 upgrade) exists. Only that
+    specific, expected case (a missing table — ``ProgrammingError``) is
+    treated as "no run yet"; anything else (e.g. the database itself being
+    unreachable) propagates instead of masquerading as a legitimate
+    ``preflight`` state.
     """
-    try:
-        with SessionLocal() as db:
+    with SessionLocal() as db:
+        try:
             return db.scalars(
                 select(MigrationRun).order_by(MigrationRun.started_at.desc()).limit(1)
             ).first()
-    except Exception:
-        return None
+        except ProgrammingError:
+            db.rollback()  # allowlisted-rollback: recover from the failed probe
+            return None
 
 
 @app.get(f"{settings.API_PREFIX}/health/migration", tags=["health"])
@@ -313,5 +344,8 @@ async def health_migration():
     unauthenticated maintenance screen while StartupGateMiddleware keeps
     every other route unavailable. See app.services.migration.status for
     what is (and deliberately isn't) included."""
-    run = await run_in_threadpool(_latest_migration_run)
+    try:
+        run = await run_in_threadpool(_latest_migration_run)
+    except Exception:
+        return JSONResponse(status_code=503, content={"status": "unavailable"})
     return public_migration_status(run)
