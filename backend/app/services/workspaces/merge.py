@@ -11,10 +11,16 @@ per-pair ``resolutions`` that let callers override merge vs keep_both and
 choose field values on a conflict.
 
 The member de-duplication pass (``_merge_members``) is merge-specific and
-stays here; copying everything else (relations, diseases, tasks, gallery,
-events, stories, documents) that merely follows the member id-map is
-delegated, one focused function per content domain, to
+stays here; copying everything else (sections, relations, diseases, tasks,
+gallery, events, stories, documents) that merely follows the member id-map
+is delegated, one focused function per content domain, to
 ``app.services.workspaces.merge_copy``.
+
+#1017: sections and content origin scopes are copied into the new tree, so
+duplicating/merging preserves section organization. Scoped grants and other
+collaborators' saved views are deliberately *not* copied — like workspace
+membership, they grant other people access, and a merge/duplicate result is
+owned solely by the requesting user until they choose to share it.
 """
 
 from __future__ import annotations
@@ -48,6 +54,7 @@ from app.services.workspaces.merge_copy import (
     copy_events,
     copy_gallery,
     copy_relations,
+    copy_sections,
     copy_stories,
     copy_tasks,
 )
@@ -326,6 +333,7 @@ def merge_trees(
 
     ctx = MergeContext(new_tree_id=new_tree.id, sources=sources, member_map=member_map)
 
+    copy_sections(db, ctx)
     copy_relations(db, ctx)
     copy_diseases(db, ctx)
     copy_tasks(db, ctx)
