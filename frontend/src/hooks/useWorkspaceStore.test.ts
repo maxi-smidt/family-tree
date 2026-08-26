@@ -285,6 +285,53 @@ describe("useWorkspaceStore — connect / selectTree", () => {
     ).rejects.toBe(notFound);
   });
 
+  it("unlocks a password-protected tree under its migration-mapped id when the given id is stale (404)", async () => {
+    mockEmptySubStores();
+    const oldId = "old-tree";
+    vi.mocked(api.post).mockImplementation((path: string) => {
+      if (path === `/workspaces/${oldId}/public/unlock`) {
+        return Promise.reject(new ApiError(404, "Not found"));
+      }
+      if (path === `/workspaces/${TREE_A.id}/public/unlock`) {
+        return Promise.resolve({ token: "unlock-token" });
+      }
+      return Promise.reject(new Error(`unexpected path ${path}`));
+    });
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === `/workspaces/${TREE_A.id}`) return Promise.resolve(TREE_A);
+      if (path.includes("/metadata")) return Promise.resolve({});
+      return Promise.resolve([]);
+    });
+    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
+      TREE_A.id,
+    );
+
+    const tree = await useWorkspaceStore
+      .getState()
+      .unlockPublicTree(oldId, "secret");
+
+    expect(tree).toEqual(TREE_A);
+    expect(api.post).toHaveBeenCalledWith(
+      `/workspaces/${oldId}/public/unlock`,
+      { password: "secret" },
+    );
+    expect(api.post).toHaveBeenCalledWith(
+      `/workspaces/${TREE_A.id}/public/unlock`,
+      { password: "secret" },
+    );
+    expect(useWorkspaceStore.getState().selectedTree?.id).toBe(TREE_A.id);
+  });
+
+  it("surfaces a wrong-password 401 without attempting legacy-id resolution", async () => {
+    const unauthorized = new ApiError(401, "invalid_public_password");
+    vi.mocked(api.post).mockRejectedValue(unauthorized);
+
+    await expect(
+      useWorkspaceStore.getState().unlockPublicTree(TREE_A.id, "wrong"),
+    ).rejects.toBe(unauthorized);
+    expect(WorkspaceService.resolveLegacyWorkspaceId).not.toHaveBeenCalled();
+  });
+
   it("inserts the tree into the list when reopening one that's missing from it", async () => {
     // Mirrors clicking a "shared with you" notification for a tree that
     // loadTrees() had already dropped (e.g. from a prior connect failure) —

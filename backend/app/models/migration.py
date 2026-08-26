@@ -120,6 +120,10 @@ class MigrationMapping(Base):
         ),
         Index("ix_migration_mappings_run_id", "run_id"),
         Index("ix_migration_mappings_target_workspace_id", "target_workspace_id"),
+        # The uq_migration_mapping_source unique index above is (run_id,
+        # source_workspace_id) — useless for #1012's public legacy-id lookup,
+        # which filters by source_workspace_id alone across every run.
+        Index("ix_migration_mappings_source_workspace_id", "source_workspace_id"),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_uuid)

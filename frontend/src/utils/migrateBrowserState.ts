@@ -1,4 +1,4 @@
-import { MigrationService } from "@/services/MigrationService";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
 import { isVirtualId } from "@/hooks/useWorkspaceStore";
 import { MemberSheetState } from "@/utils/memberSheetState";
@@ -24,20 +24,27 @@ export function remapOpenSheets(
 }
 
 /** One-time v1->v2 browser-state migration (#1012), run once per browser on
- *  the first authenticated boot. Best-effort and idempotent: a failure here
- *  leaves the local flag unset so the next login retries, and must never
- *  block login or tree loading either way. */
+ *  the first authenticated boot. Resolves each open sheet's id individually
+ *  through the unauthenticated legacy-id lookup rather than the current
+ *  user's own migration reports — those are owned by whoever *owns* the
+ *  converted workspace, so a sheet left open on a tree merely shared with
+ *  this user would otherwise never be found. Best-effort and idempotent: a
+ *  failure here leaves the local flag unset so the next login retries, and
+ *  must never block login or tree loading either way. */
 export async function migrateV1BrowserState(): Promise<void> {
   if (localStorage.getItem(MIGRATION_FLAG_KEY)) return;
   try {
-    const reports = await MigrationService.listReports();
-    const idMap = new Map<string, string>();
-    for (const report of reports) {
-      for (const mapping of report.workspace_mappings) {
-        idMap.set(mapping.source_workspace_id, mapping.target_workspace_id);
-      }
-    }
     const { openSheets } = useMemberSheetStore.getState();
+    const staleIds = Object.keys(openSheets).filter((id) => !isVirtualId(id));
+    const idMap = new Map<string, string>();
+    await Promise.all(
+      staleIds.map(async (id) => {
+        const targetId = await WorkspaceService.resolveLegacyWorkspaceId(
+          id,
+        ).catch(() => null);
+        if (targetId) idMap.set(id, targetId);
+      }),
+    );
     useMemberSheetStore.setState({
       openSheets: remapOpenSheets(openSheets, idMap),
     });

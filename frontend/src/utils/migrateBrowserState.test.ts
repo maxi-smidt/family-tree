@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemberSheetState } from "@/utils/memberSheetState";
 import { useMemberSheetStore } from "@/hooks/useMemberSheetStore";
-import { MigrationService } from "@/services/MigrationService";
+import { WorkspaceService } from "@/services/WorkspaceService";
 import { migrateV1BrowserState, remapOpenSheets } from "./migrateBrowserState";
 
-vi.mock("@/services/MigrationService");
+vi.mock("@/services/WorkspaceService");
 
 const SHEET: MemberSheetState = {
   memberId: "member-1",
@@ -38,7 +38,7 @@ describe("migrateV1BrowserState", () => {
   beforeEach(() => {
     localStorage.removeItem(FLAG_KEY);
     useMemberSheetStore.setState({ openSheets: {} });
-    vi.mocked(MigrationService.listReports).mockReset();
+    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockReset();
   });
 
   afterEach(() => {
@@ -46,22 +46,45 @@ describe("migrateV1BrowserState", () => {
     useMemberSheetStore.setState({ openSheets: {} });
   });
 
-  it("remaps open sheets using every report's mappings and sets the one-time flag", async () => {
+  it("remaps each open sheet's id individually and sets the one-time flag", async () => {
     useMemberSheetStore.setState({ openSheets: { "old-tree": SHEET } });
-    vi.mocked(MigrationService.listReports).mockResolvedValue([
-      {
-        id: "report-1",
-        workspace_mappings: [
-          { source_workspace_id: "old-tree", target_workspace_id: "new-tree" },
-        ],
-      },
-    ]);
+    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
+      "new-tree",
+    );
+
+    await migrateV1BrowserState();
+
+    expect(WorkspaceService.resolveLegacyWorkspaceId).toHaveBeenCalledWith(
+      "old-tree",
+    );
+    expect(useMemberSheetStore.getState().openSheets).toEqual({
+      "new-tree": SHEET,
+    });
+    expect(localStorage.getItem(FLAG_KEY)).toBe("1");
+  });
+
+  it("resolves a sheet on a workspace merely shared with (not owned by) this user", async () => {
+    // Regression: this must not depend on the current user's own migration
+    // reports, which are scoped to workspaces *they* own.
+    useMemberSheetStore.setState({ openSheets: { "shared-old-tree": SHEET } });
+    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockResolvedValue(
+      "shared-new-tree",
+    );
 
     await migrateV1BrowserState();
 
     expect(useMemberSheetStore.getState().openSheets).toEqual({
-      "new-tree": SHEET,
+      "shared-new-tree": SHEET,
     });
+  });
+
+  it("never resolves a vv_ (virtual view) entry — it's dropped outright", async () => {
+    useMemberSheetStore.setState({ openSheets: { vv_stale: SHEET } });
+
+    await migrateV1BrowserState();
+
+    expect(WorkspaceService.resolveLegacyWorkspaceId).not.toHaveBeenCalled();
+    expect(useMemberSheetStore.getState().openSheets).toEqual({});
     expect(localStorage.getItem(FLAG_KEY)).toBe("1");
   });
 
@@ -71,16 +94,18 @@ describe("migrateV1BrowserState", () => {
 
     await migrateV1BrowserState();
 
-    expect(MigrationService.listReports).not.toHaveBeenCalled();
+    expect(WorkspaceService.resolveLegacyWorkspaceId).not.toHaveBeenCalled();
     expect(useMemberSheetStore.getState().openSheets).toEqual({
       "old-tree": SHEET,
     });
   });
 
-  it("leaves state and the flag untouched when the reports fetch fails", async () => {
+  it("leaves state and the flag untouched when resolution fails unexpectedly", async () => {
     useMemberSheetStore.setState({ openSheets: { "old-tree": SHEET } });
-    vi.mocked(MigrationService.listReports).mockRejectedValue(
-      new Error("network error"),
+    vi.mocked(WorkspaceService.resolveLegacyWorkspaceId).mockImplementation(
+      () => {
+        throw new Error("unexpected");
+      },
     );
     vi.spyOn(console, "error").mockImplementation(() => {});
 
