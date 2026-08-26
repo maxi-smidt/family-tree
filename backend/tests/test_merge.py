@@ -1,15 +1,23 @@
 from app.db.base import utcnow_iso
 from app.models import (
+    ContentScope,
     Document,
     DocumentFile,
     DocumentMemberLink,
+    Event,
     Member,
     Relation,
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    Section,
+    SectionMember,
+    SectionPosition,
     Story,
     StoryDocumentLink,
 )
 from app.services.workspaces.merge import merge_trees
-from tests.conftest import add_member, make_tree, make_user
+from tests.conftest import add_member, make_tree, make_user, share
 
 
 def test_merge_dedupes_identical_members(db):
@@ -128,6 +136,167 @@ def test_merge_copies_documents_into_new_tree(db):
     assert len(story_links) == 1
     linked_story = db.get(Story, story_links[0].story_id)
     assert linked_story.workspace_id == merged.id
+
+
+def test_merge_copies_sections_and_membership(db):
+    user = make_user(db, "alice")
+    source = make_tree(db, user, "Source")
+    add_member(db, source, "m1", first_name="Ada", gender="f")
+    db.add(Section(id="sec1", workspace_id=source.id, name="Paternal", position=0))
+    db.add(SectionMember(section_id="sec1", member_id="m1"))
+    db.add(
+        SectionPosition(section_id="sec1", member_id="m1", position_x=1.0, position_y=2.0)
+    )
+    db.commit()
+
+    merged = merge_trees(db, user, "Copy", source.id, None)
+
+    sections = db.query(Section).filter(Section.workspace_id == merged.id).all()
+    assert len(sections) == 1
+    section = sections[0]
+    assert section.id != "sec1"
+    assert section.name == "Paternal"
+
+    new_member = db.query(Member).filter(Member.workspace_id == merged.id).one()
+    members = db.query(SectionMember).filter_by(section_id=section.id).all()
+    assert [m.member_id for m in members] == [new_member.id]
+
+    positions = db.query(SectionPosition).filter_by(section_id=section.id).all()
+    assert len(positions) == 1
+    assert positions[0].member_id == new_member.id
+    assert positions[0].position_x == 1.0
+    assert positions[0].position_y == 2.0
+
+
+def test_merge_dedupes_same_named_sections_across_sources(db):
+    user = make_user(db, "alice")
+    tree_a = make_tree(db, user, "A")
+    tree_b = make_tree(db, user, "B")
+    add_member(db, tree_a, "a1", first_name="Ada", gender="f")
+    add_member(db, tree_b, "b1", first_name="Bob", gender="m")
+    db.add(Section(id="sec_a", workspace_id=tree_a.id, name="Paternal", position=0))
+    db.add(SectionMember(section_id="sec_a", member_id="a1"))
+    db.add(Section(id="sec_b", workspace_id=tree_b.id, name="paternal", position=0))
+    db.add(SectionMember(section_id="sec_b", member_id="b1"))
+    db.commit()
+
+    merged = merge_trees(db, user, "Merged", tree_a.id, tree_b.id)
+
+    sections = db.query(Section).filter(Section.workspace_id == merged.id).all()
+    assert len(sections) == 1
+    members = db.query(SectionMember).filter_by(section_id=sections[0].id).all()
+    assert len(members) == 2  # both source members folded into the one section
+
+
+def test_merge_preserves_content_section_scope(db):
+    user = make_user(db, "alice")
+    source = make_tree(db, user, "Source")
+    add_member(db, source, "m1", first_name="Ada", gender="f")
+    db.add(Section(id="sec1", workspace_id=source.id, name="Paternal", position=0))
+    db.add(SectionMember(section_id="sec1", member_id="m1"))
+    db.commit()
+
+    now = utcnow_iso()
+    db.add(
+        Event(
+            id="e1",
+            workspace_id=source.id,
+            event_type="birth",
+            date="2020-01-01",
+            created_at=now,
+        )
+    )
+    db.add(
+        ContentScope(
+            content_type="event",
+            content_id="e1",
+            workspace_id=source.id,
+            section_id="sec1",
+            created_at=now,
+        )
+    )
+    db.commit()
+    # Clear the identity map so ``scope_of``'s lookup below issues a real
+    # SELECT (as it would in a fresh request session) instead of resolving
+    # from memory — the case that must not race with autoflush (#1017).
+    db.expire_all()
+
+    merged = merge_trees(db, user, "Copy", source.id, None)
+
+    event = db.query(Event).filter(Event.workspace_id == merged.id).one()
+    section = db.query(Section).filter(Section.workspace_id == merged.id).one()
+    scope = db.get(ContentScope, ("event", event.id))
+    assert scope is not None
+    assert scope.section_id == section.id
+
+
+def test_merge_copies_requesters_own_saved_view(db):
+    user = make_user(db, "alice")
+    source = make_tree(db, user, "Source")
+    add_member(db, source, "m1", first_name="Ada", gender="f")
+    db.add(Section(id="sec1", workspace_id=source.id, name="Paternal", position=0))
+    db.add(SectionMember(section_id="sec1", member_id="m1"))
+    db.commit()
+
+    db.add(
+        SavedView(
+            id="sv1",
+            workspace_id=source.id,
+            owner_id=user.id,
+            name="My View",
+            focus_member_id="m1",
+        )
+    )
+    db.add(
+        SavedViewSection(saved_view_id="sv1", section_id="sec1", workspace_id=source.id)
+    )
+    db.add(
+        SavedViewPosition(
+            saved_view_id="sv1", node_id="m1", position_x=3.0, position_y=4.0
+        )
+    )
+    db.commit()
+
+    merged = merge_trees(db, user, "Copy", source.id, None)
+
+    views = db.query(SavedView).filter(SavedView.workspace_id == merged.id).all()
+    assert len(views) == 1
+    view = views[0]
+    assert view.id != "sv1"
+    assert view.name == "My View"
+    new_member = db.query(Member).filter(Member.workspace_id == merged.id).one()
+    assert view.focus_member_id == new_member.id
+
+    new_section = db.query(Section).filter(Section.workspace_id == merged.id).one()
+    sections = db.query(SavedViewSection).filter_by(saved_view_id=view.id).all()
+    assert [s.section_id for s in sections] == [new_section.id]
+
+    positions = db.query(SavedViewPosition).filter_by(saved_view_id=view.id).all()
+    assert len(positions) == 1
+    assert positions[0].node_id == new_member.id
+    assert positions[0].position_x == 3.0
+
+
+def test_merge_does_not_copy_other_users_saved_views(db):
+    owner = make_user(db, "owner")
+    collaborator = make_user(db, "carol")
+    source = make_tree(db, owner, "Source")
+    share(db, source, collaborator)
+    add_member(db, source, "m1", first_name="Ada", gender="f")
+    db.add(
+        SavedView(
+            id="sv1",
+            workspace_id=source.id,
+            owner_id=collaborator.id,
+            name="Carol's View",
+        )
+    )
+    db.commit()
+
+    merged = merge_trees(db, owner, "Copy", source.id, None)
+
+    views = db.query(SavedView).filter(SavedView.workspace_id == merged.id).all()
+    assert views == []
 
 
 def test_merge_requires_owned_or_shared_source(db):
