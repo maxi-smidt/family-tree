@@ -1772,6 +1772,18 @@
     "description": "This tab is running an outdated version of the app. Reload the page to continue.",
     "reload": "Reload"
   },
+  "maintenance": {
+    "title": "Upgrading Family Tree",
+    "phase": {
+      "preflight": "Preparing the upgrade…",
+      "backup": "Backing up your data…",
+      "migrating": "Migrating your data…",
+      "validating": "Verifying the migration…",
+      "complete": "Finishing up…"
+    },
+    "failed-description": "The upgrade needs attention. Please contact your administrator.",
+    "step": "Step {{current}} of {{total}}"
+  },
   "admin": {
     "title": "Administration",
     "back": "Back",

@@ -21,6 +21,11 @@ export const FRONTEND_SCHEMA_EPOCH = 2;
 const SCHEMA_EPOCH_HEADER = "X-Schema-Epoch";
 const SCHEMA_EPOCH_MISMATCH_DETAIL = "schema_epoch_mismatch";
 
+/** Detail on a 503 while the backend's startup migration is still running
+ *  (see app.main.StartupGateMiddleware, #1020) — routed to the maintenance
+ *  screen instead of the generic "can't reach the server" retry screen. */
+const STARTUP_IN_PROGRESS_DETAIL = "startup_in_progress";
+
 /** 401 details that describe an application flow (a password prompt) rather
  *  than an invalid/expired session — none of these should invalidate the
  *  signed-in user's session or open the global re-login dialog. */
@@ -76,6 +81,15 @@ let schemaEpochMismatchHandler: (() => void) | null = null;
  *  state, not per-caller error handling. */
 export function onSchemaEpochMismatch(handler: () => void) {
   schemaEpochMismatchHandler = handler;
+}
+
+let startupInProgressHandler: (() => void) | null = null;
+
+/** Fires on every 503 the backend returns while its startup migration is
+ *  still running (see STARTUP_IN_PROGRESS_DETAIL) — the global maintenance
+ *  state, not per-caller error handling. */
+export function onStartupInProgress(handler: () => void) {
+  startupInProgressHandler = handler;
 }
 
 export class ApiError extends Error {
@@ -165,6 +179,9 @@ async function request<T>(
     }
     if (response.status === 409 && detail === SCHEMA_EPOCH_MISMATCH_DETAIL) {
       schemaEpochMismatchHandler?.();
+    }
+    if (response.status === 503 && detail === STARTUP_IN_PROGRESS_DETAIL) {
+      startupInProgressHandler?.();
     }
     throw new ApiError(response.status, detail);
   }

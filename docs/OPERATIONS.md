@@ -275,6 +275,11 @@ docker compose logs backend --tail 100   # the Alembic error is at the top of th
 
 ### Upgrading from v1.x to v2.0.0
 
+> For the pre-upgrade planning runbook — compatibility, stopping old v1
+> writers, image-digest pinning, your own off-host copy, and monitoring a
+> run in progress — see [UPGRADE_V2.md](UPGRADE_V2.md). This section covers
+> what the backend does automatically and how to recover from a failure.
+
 The v2.0.0 cutover consolidates every user's separate trees into shared
 workspaces with sections — a one-time, in-place data conversion, not just a
 schema migration. The **general advice above does not apply to it**: once

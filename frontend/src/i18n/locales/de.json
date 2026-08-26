@@ -1772,6 +1772,18 @@
     "description": "Dieser Tab verwendet eine veraltete Version der App. Lade die Seite neu, um fortzufahren.",
     "reload": "Neu laden"
   },
+  "maintenance": {
+    "title": "Family Tree wird aktualisiert",
+    "phase": {
+      "preflight": "Aktualisierung wird vorbereitet …",
+      "backup": "Daten werden gesichert …",
+      "migrating": "Daten werden migriert …",
+      "validating": "Migration wird überprüft …",
+      "complete": "Wird abgeschlossen …"
+    },
+    "failed-description": "Die Aktualisierung erfordert Aufmerksamkeit. Bitte wenden Sie sich an Ihren Administrator.",
+    "step": "Schritt {{current}} von {{total}}"
+  },
   "admin": {
     "title": "Verwaltung",
     "back": "Zurück",

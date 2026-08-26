@@ -5,6 +5,7 @@ import {
   FRONTEND_SCHEMA_EPOCH,
   getAuthToken,
   onSchemaEpochMismatch,
+  onStartupInProgress,
   onUnauthorized,
   setAuthToken,
 } from "@/services/api";
@@ -19,7 +20,8 @@ type AuthStatus =
   | "authenticated"
   | "unauthenticated"
   | "unreachable"
-  | "upgrade-required";
+  | "upgrade-required"
+  | "starting";
 type AccountOperation =
   | "idle"
   | "setting-up-two-factor"
@@ -170,6 +172,13 @@ async function checkAuthSession(): Promise<void> {
         user: null,
         status: "unauthenticated",
       });
+      return;
+    }
+    if (error instanceof ApiError && error.status === 503) {
+      // onStartupInProgress (registered below) already set status:
+      // "starting" for the backend's own startup-migration gate — leave it
+      // in place instead of falling through to the generic unreachable
+      // retry screen.
       return;
     }
     useAuthStore.setState({ status: "unreachable" });
@@ -479,4 +488,12 @@ onUnauthorized(() => {
 // init()-time check above — same terminal, non-retrying state either way.
 onSchemaEpochMismatch(() => {
   useAuthStore.setState({ status: "upgrade-required" });
+});
+
+// Fires from any request while the backend's own startup migration is still
+// running (#1020) — the session/token is left untouched, so once it
+// finishes the next auth check (see MaintenanceScreen) picks up right where
+// the user left off instead of forcing a fresh sign-in.
+onStartupInProgress(() => {
+  useAuthStore.setState({ status: "starting" });
 });

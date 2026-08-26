@@ -1,7 +1,15 @@
 """Legal ``MigrationRun`` transitions: row-locked and optimistic, so an
 impossible regression (e.g. resuming a ``finalized`` run, skipping a phase)
 fails closed instead of silently overwriting a further-along state.
+
+Every transition also emits an operator-facing log line (run id, phase,
+elapsed time since the run started) — the durable state lives in the row
+itself, so these are for tailing progress/diagnosing a stall in real time,
+not a second source of truth (#1020).
 """
+
+import logging
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -17,6 +25,8 @@ from app.models.migration import (
     MigrationRun,
     MigrationStatus,
 )
+
+logger = logging.getLogger("app.migration")
 
 # Anything not listed here is an impossible regression.
 _LEGAL_STATUS_TRANSITIONS: dict[str, set[str]] = {
@@ -51,6 +61,10 @@ def _flush(db: Session) -> None:
         ) from exc
 
 
+def _elapsed_seconds(started_at: str) -> float:
+    return (datetime.now(UTC) - datetime.fromisoformat(started_at)).total_seconds()
+
+
 def transition_status(db: Session, run_id: str, to_status: str) -> MigrationRun:
     run = _locked_run(db, run_id)
     if to_status not in _LEGAL_STATUS_TRANSITIONS.get(run.status, set()):
@@ -64,6 +78,7 @@ def transition_status(db: Session, run_id: str, to_status: str) -> MigrationRun:
         raise InvalidInputError(
             f"Cannot complete a migration run still in phase {run.phase!r}"
         )
+    from_status = run.status
     now = utcnow_iso()
     run.status = to_status
     run.updated_at = now
@@ -71,6 +86,14 @@ def transition_status(db: Session, run_id: str, to_status: str) -> MigrationRun:
     if to_status == MigrationStatus.COMPLETE:
         run.completed_at = now
     _flush(db)
+    logger.info(
+        "migration_status run_id=%s status=%s->%s phase=%s elapsed_s=%.1f",
+        run.id,
+        from_status,
+        to_status,
+        run.phase,
+        _elapsed_seconds(run.started_at),
+    )
     return run
 
 
@@ -86,11 +109,20 @@ def advance_phase(db: Session, run_id: str, to_phase: str) -> MigrationRun:
         raise InvalidInputError(
             f"Cannot advance migration phase from {run.phase!r} to {to_phase!r}"
         )
+    from_phase = run.phase
     now = utcnow_iso()
     run.phase = to_phase
     run.updated_at = now
     run.heartbeat_at = now
     _flush(db)
+    if to_phase != from_phase:
+        logger.info(
+            "migration_phase run_id=%s phase=%s->%s elapsed_s=%.1f",
+            run.id,
+            from_phase,
+            to_phase,
+            _elapsed_seconds(run.started_at),
+        )
     return run
 
 
@@ -103,6 +135,12 @@ def checkpoint(db: Session, run_id: str, data: dict) -> MigrationRun:
     run.updated_at = utcnow_iso()
     run.heartbeat_at = run.updated_at
     _flush(db)
+    logger.info(
+        "migration_checkpoint run_id=%s phase=%s keys=%s",
+        run.id,
+        run.phase,
+        sorted(data) if isinstance(data, dict) else type(data).__name__,
+    )
     return run
 
 
@@ -122,6 +160,13 @@ def fail_run(
     run.failure_code = failure_code
     run.failure_detail = failure_detail
     _flush(db)
+    logger.warning(
+        "migration_failed run_id=%s phase=%s recoverable=%s failure_code=%s",
+        run.id,
+        run.phase,
+        recoverable,
+        failure_code,
+    )
     return run
 
 
