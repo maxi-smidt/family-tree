@@ -57,6 +57,13 @@ def transition_status(db: Session, run_id: str, to_status: str) -> MigrationRun:
         raise InvalidInputError(
             f"Cannot transition migration run from {run.status!r} to {to_status!r}"
         )
+    if to_status == MigrationStatus.COMPLETE and run.phase != MigrationPhase.VALIDATING:
+        # Completion means every phase ran, not just that nothing failed yet —
+        # otherwise an admin could finalize (and unlock artifact pruning) on a
+        # run that never converted or validated anything.
+        raise InvalidInputError(
+            f"Cannot complete a migration run still in phase {run.phase!r}"
+        )
     now = utcnow_iso()
     run.status = to_status
     run.updated_at = now

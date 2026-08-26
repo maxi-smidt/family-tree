@@ -76,6 +76,19 @@ def test_transition_status_failed_is_terminal(db):
         transition_status(db, run.id, MigrationStatus.RUNNING)
 
 
+def test_transition_status_rejects_completion_before_validating_phase(db):
+    run = _make_run(db, phase=MigrationPhase.CONVERTING)
+    with pytest.raises(InvalidInputError):
+        transition_status(db, run.id, MigrationStatus.COMPLETE)
+
+
+def test_transition_status_allows_completion_from_validating_phase(db):
+    run = _make_run(db, phase=MigrationPhase.VALIDATING)
+    completed = transition_status(db, run.id, MigrationStatus.COMPLETE)
+    assert completed.status == MigrationStatus.COMPLETE
+    assert completed.completed_at is not None
+
+
 def test_finalize_requires_automated_completion(db):
     run = _make_run(db)  # still "running"
     with pytest.raises(InvalidInputError):

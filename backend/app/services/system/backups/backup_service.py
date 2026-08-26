@@ -329,6 +329,14 @@ LEGACY_OPTIONAL_TABLES: frozenset[str] = frozenset(
         SavedViewSection.__tablename__,
         SavedViewPosition.__tablename__,
         SavedViewUserState.__tablename__,
+        # Durable migration state (#997) landed after v2 was already in
+        # development; a v2 backup taken before these existed must stay
+        # restorable too.
+        MigrationRun.__tablename__,
+        MigrationMapping.__tablename__,
+        MigrationReport.__tablename__,
+        MigrationConflict.__tablename__,
+        MigrationIdempotencyKey.__tablename__,
     }
 )
 
