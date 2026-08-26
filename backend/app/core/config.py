@@ -207,24 +207,32 @@ def get_settings() -> Settings:
 
 settings = get_settings()
 
+_INSECURE_SECRETS = {
+    "change-me-in-production",
+    "change-me-please-generate-a-long-random-value",
+    "dev-secret-change-me",
+    "e2e-secret-not-for-production",
+}
+
+
+def is_secret_key_weak(secret: str) -> bool:
+    """Shared with the migration preflight (#994): a backup encrypted with a
+    placeholder/short key is only as safe as that key, regardless of
+    ``ENVIRONMENT``."""
+    secret = secret.strip()
+    return (
+        len(secret) < 32
+        or secret.lower() in _INSECURE_SECRETS
+        or secret.lower().startswith("change-me")
+    )
+
 
 def validate_production_credentials(config: Settings = settings) -> None:
     """Refuse to start production with known placeholders or weak secrets."""
     if config.ENVIRONMENT.lower() != "production":
         return
 
-    secret = config.SECRET_KEY.strip()
-    insecure_secrets = {
-        "change-me-in-production",
-        "change-me-please-generate-a-long-random-value",
-        "dev-secret-change-me",
-        "e2e-secret-not-for-production",
-    }
-    if (
-        len(secret) < 32
-        or secret.lower() in insecure_secrets
-        or secret.lower().startswith("change-me")
-    ):
+    if is_secret_key_weak(config.SECRET_KEY):
         raise RuntimeError(
             "SECRET_KEY must be a unique random value of at least 32 characters "
             "in production"

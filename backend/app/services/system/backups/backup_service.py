@@ -37,6 +37,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.exceptions import ConflictError
 from app.db.base import new_uuid, utcnow_iso
 from app.models import (
     ActivityLog,
@@ -100,6 +101,7 @@ from app.models import (
     WorkspaceUserState,
 )
 from app.models.backup import BackupRecord
+from app.models.migration import MigrationStatus
 from app.schemas.backup import BackupBundle, MediaItem
 from app.services.crypto_export import decrypt_bundle
 from app.services.system.admin_audit import record_admin_audit
@@ -1344,7 +1346,26 @@ def list_backups(db: Session) -> list[BackupRecord]:
     )
 
 
+def _is_unfinalized_pre_migration_backup(db: Session, record: BackupRecord) -> bool:
+    """A ``pre_migration`` backup (see ``app.services.migration.orchestrator``,
+    #994) is the only rollback path for a v2 conversion until an operator
+    finalizes that run, so it must survive both scheduled pruning and manual
+    deletion until then. A failed attempt holds no usable rollback data and
+    is never protected, regardless of whether a run references it."""
+    if record.trigger != "pre_migration" or record.status != "success":
+        return False
+    run = db.scalars(
+        select(MigrationRun).where(MigrationRun.backup_id == record.id)
+    ).first()
+    return run is None or run.status != MigrationStatus.FINALIZED
+
+
 def delete_backup(db: Session, record: BackupRecord) -> None:
+    if _is_unfinalized_pre_migration_backup(db, record):
+        raise ConflictError(
+            "Cannot delete the pre-migration backup before its migration run "
+            "is finalized"
+        )
     if record.filename:
         filepath = BACKUP_DIR / record.filename
         if filepath.is_file():
@@ -1354,13 +1375,15 @@ def delete_backup(db: Session, record: BackupRecord) -> None:
 
 
 def prune_backups(db: Session, keep: int) -> None:
-    successful = list(
-        db.scalars(
+    successful = [
+        record
+        for record in db.scalars(
             select(BackupRecord)
             .where(BackupRecord.status == "success")
             .order_by(BackupRecord.created_at.desc())
         ).all()
-    )
+        if not _is_unfinalized_pre_migration_backup(db, record)
+    ]
     for record in successful[keep:]:
         logger.info("Pruning old backup: %s", record.filename)
         delete_backup(db, record)
