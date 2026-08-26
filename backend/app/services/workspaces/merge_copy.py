@@ -34,6 +34,9 @@ from app.models import (
     MemberTask,
     MemberTaskLink,
     Relation,
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
     Section,
     SectionMember,
     SectionPosition,
@@ -81,9 +84,15 @@ def _carry_scope(
 ) -> None:
     """Preserve a copied record's section origin, remapped into the new tree.
 
-    Read and written right alongside the copy it describes so the provenance
-    flush listener (``app.services.provenance``) finds this scope already
-    pending for ``new_id`` and leaves its own workspace-wide default alone.
+    Called *before* ``db.add()``-ing the copy itself (``new_id`` need only be
+    generated first). ``app.db.session.SessionLocal`` disables autoflush, so
+    ``scope_of``'s read below can't currently flush an already-pending,
+    not-yet-scoped copy and let the provenance listener
+    (``app.services.provenance``) stamp it with the workspace-wide default
+    ahead of this function's own insert — but ordering it this way keeps that
+    invariant true by construction rather than by relying on session config,
+    since the two would otherwise collide as a duplicate primary key on the
+    next flush.
     """
     source_scope = scope_of(db, content_type, source_id)
     section_id = (
@@ -175,6 +184,76 @@ def copy_sections(db: Session, ctx: MergeContext) -> None:
                 )
 
 
+def copy_saved_views(db: Session, ctx: MergeContext, owner_id: str) -> None:
+    """Copy the requesting user's own saved views into the new tree.
+
+    Only views owned by ``owner_id`` (the person doing the merge/duplicate)
+    are copied. Other collaborators' saved views, like scoped grants, are
+    never copied — they exist to give *other people* access or a
+    configuration of their own, and a merge/duplicate result is owned
+    solely by the requester until shared. Must run after ``copy_sections``
+    (``section_map``) and the member merge pass (``member_map``).
+    """
+    for t in ctx.sources:
+        views = db.scalars(
+            select(SavedView).where(
+                SavedView.workspace_id == t.id, SavedView.owner_id == owner_id
+            )
+        )
+        for v in views:
+            new_id = f"sv_{uuid4()}"
+            focus_member_id = (
+                ctx.member_map.get(v.focus_member_id) if v.focus_member_id else None
+            )
+            db.add(
+                SavedView(
+                    id=new_id,
+                    workspace_id=ctx.new_tree_id,
+                    owner_id=owner_id,
+                    name=v.name,
+                    focus_member_id=focus_member_id,
+                    ancestor_depth=v.ancestor_depth,
+                    descendant_depth=v.descendant_depth,
+                    include_partners=v.include_partners,
+                    filters=v.filters,
+                    config_version=v.config_version,
+                    created_at=v.created_at,
+                    updated_at=v.updated_at,
+                )
+            )
+            db.flush()  # saved view before its sections/positions
+
+            for vs in db.scalars(
+                select(SavedViewSection).where(SavedViewSection.saved_view_id == v.id)
+            ):
+                sec = ctx.section_map.get(vs.section_id)
+                if sec:
+                    db.add(
+                        SavedViewSection(
+                            saved_view_id=new_id,
+                            section_id=sec,
+                            workspace_id=ctx.new_tree_id,
+                        )
+                    )
+
+            for vp in db.scalars(
+                select(SavedViewPosition).where(SavedViewPosition.saved_view_id == v.id)
+            ):
+                # node_id is usually a member id; a synthetic match-group
+                # anchor from a virtual-view conversion (#987) has no
+                # counterpart here and is dropped rather than guessed at.
+                mid = ctx.member_map.get(vp.node_id)
+                if mid:
+                    db.add(
+                        SavedViewPosition(
+                            saved_view_id=new_id,
+                            node_id=mid,
+                            position_x=vp.position_x,
+                            position_y=vp.position_y,
+                        )
+                    )
+
+
 def copy_relations(db: Session, ctx: MergeContext) -> None:
     seen: set[tuple] = set()
     for t in ctx.sources:
@@ -211,6 +290,7 @@ def copy_diseases(db: Session, ctx: MergeContext) -> None:
                 continue
             seen.add(key)
             new_id = str(uuid4())
+            _carry_scope(db, ctx, ContentType.DISEASE, d.id, new_id)
             db.add(
                 MemberDisease(
                     id=new_id,
@@ -223,7 +303,6 @@ def copy_diseases(db: Session, ctx: MergeContext) -> None:
                     notes=d.notes,
                 )
             )
-            _carry_scope(db, ctx, ContentType.DISEASE, d.id, new_id)
 
 
 def copy_tasks(db: Session, ctx: MergeContext) -> None:
@@ -258,6 +337,7 @@ def copy_tasks(db: Session, ctx: MergeContext) -> None:
             new_task_id = str(uuid4())
             seen[key] = new_task_id
             ctx.task_id_map[task.id] = new_task_id
+            _carry_scope(db, ctx, ContentType.TASK, task.id, new_task_id)
             db.add(
                 MemberTask(
                     id=new_task_id,
@@ -269,7 +349,6 @@ def copy_tasks(db: Session, ctx: MergeContext) -> None:
                     done_at=task.done_at,
                 )
             )
-            _carry_scope(db, ctx, ContentType.TASK, task.id, new_task_id)
             for mid in mapped_members:
                 db.add(MemberTaskLink(task_id=new_task_id, member_id=mid))
 
@@ -288,6 +367,7 @@ def copy_gallery(db: Session, ctx: MergeContext) -> None:
         ):
             new_id = str(uuid4())
             ctx.image_map[img.id] = new_id
+            _carry_scope(db, ctx, ContentType.GALLERY_IMAGE, img.id, new_id)
             db.add(
                 GalleryImage(
                     id=new_id,
@@ -299,7 +379,6 @@ def copy_gallery(db: Session, ctx: MergeContext) -> None:
                     uploaded_at=img.uploaded_at,
                 )
             )
-            _carry_scope(db, ctx, ContentType.GALLERY_IMAGE, img.id, new_id)
     db.flush()  # gallery images before their links
 
     seen_links: set[tuple] = set()
@@ -356,6 +435,7 @@ def copy_events(db: Session, ctx: MergeContext) -> None:
         for e in db.scalars(select(Event).where(Event.workspace_id == t.id)):
             new_id = str(uuid4())
             ctx.event_map[e.id] = new_id
+            _carry_scope(db, ctx, ContentType.EVENT, e.id, new_id)
             db.add(
                 Event(
                     id=new_id,
@@ -367,7 +447,6 @@ def copy_events(db: Session, ctx: MergeContext) -> None:
                     created_at=e.created_at,
                 )
             )
-            _carry_scope(db, ctx, ContentType.EVENT, e.id, new_id)
     db.flush()  # events before their links
 
     seen: set[tuple] = set()
@@ -391,6 +470,7 @@ def copy_stories(db: Session, ctx: MergeContext) -> None:
         for s in db.scalars(select(Story).where(Story.workspace_id == t.id)):
             new_id = str(uuid4())
             ctx.story_map[s.id] = new_id
+            _carry_scope(db, ctx, ContentType.STORY, s.id, new_id)
             db.add(
                 Story(
                     id=new_id,
@@ -401,7 +481,6 @@ def copy_stories(db: Session, ctx: MergeContext) -> None:
                     updated_at=s.updated_at,
                 )
             )
-            _carry_scope(db, ctx, ContentType.STORY, s.id, new_id)
     db.flush()  # stories before their links
 
     seen: set[tuple] = set()
@@ -432,6 +511,7 @@ def copy_documents(db: Session, ctx: MergeContext) -> None:
         for doc in db.scalars(select(Document).where(Document.workspace_id == t.id)):
             new_id = str(uuid4())
             ctx.document_map[doc.id] = new_id
+            _carry_scope(db, ctx, ContentType.DOCUMENT, doc.id, new_id)
             db.add(
                 Document(
                     id=new_id,
@@ -443,7 +523,6 @@ def copy_documents(db: Session, ctx: MergeContext) -> None:
                     updated_at=doc.updated_at,
                 )
             )
-            _carry_scope(db, ctx, ContentType.DOCUMENT, doc.id, new_id)
     db.flush()  # documents before their files/links
 
     for t in ctx.sources:
