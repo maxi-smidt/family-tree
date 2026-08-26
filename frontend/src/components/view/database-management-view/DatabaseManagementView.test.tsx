@@ -21,7 +21,6 @@ const openRowMenu = () => {
 const setTrees = (workspaces: Workspace[]) => {
   useWorkspaceStore.setState({
     workspaces,
-    virtualViews: [],
     selectedTree: undefined,
     renameTree: vi.fn(),
   });

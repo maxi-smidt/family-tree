@@ -1,8 +1,6 @@
 import { create } from "zustand";
-import { ApiError } from "@/services/api";
 import { WorkspaceSharingService } from "@/services/WorkspaceSharingService";
 import {
-  LinkedShareWorkspace,
   ShareRole,
   Workspace,
   WorkspaceAccess,
@@ -11,7 +9,6 @@ import {
 
 interface SharingLoadOptions {
   includeInvitations: boolean;
-  includeLinkedTrees: boolean;
 }
 
 interface WorkspaceSharingState {
@@ -19,7 +16,6 @@ interface WorkspaceSharingState {
   access: WorkspaceAccess[];
   candidates: Array<{ user_id: string; username: string }>;
   invitations: WorkspaceInvitation[];
-  linkedTrees: LinkedShareWorkspace[];
   loading: boolean;
   error: string | null;
   load: (workspaceId: string, options: SharingLoadOptions) => Promise<void>;
@@ -32,7 +28,6 @@ interface WorkspaceSharingState {
   revokeInvitation: (workspaceId: string, invitationId: string) => Promise<void>;
   setPublicAccess: (workspaceId: string, publicRole: "viewer" | null) => Promise<Workspace>;
   setPublicPassword: (workspaceId: string, password: string | null) => Promise<Workspace>;
-  getLinkedShareTrees: (workspaceId: string, username?: string) => Promise<LinkedShareWorkspace[]>;
   grantAccessBatch: (workspaceId: string, username: string, role: ShareRole, workspaceIds: string[]) => Promise<WorkspaceAccess[]>;
   revokeAccessBatch: (workspaceId: string, userId: string, workspaceIds: string[]) => Promise<void>;
 }
@@ -49,7 +44,7 @@ export const useWorkspaceSharingStore = create<WorkspaceSharingState>((set, get)
       loading: true,
       error: null,
       ...(switchingTrees
-        ? { access: [], candidates: [], invitations: [], linkedTrees: [] }
+        ? { access: [], candidates: [], invitations: [] }
         : {}),
     });
     try {
@@ -67,25 +62,18 @@ export const useWorkspaceSharingStore = create<WorkspaceSharingState>((set, get)
     access: [],
     candidates: [],
     invitations: [],
-    linkedTrees: [],
     loading: false,
     error: null,
 
     load: async (workspaceId, options) => {
       const data = await run(workspaceId, async () => {
-        const [sharing, invitations, linkedTrees] = await Promise.all([
+        const [sharing, invitations] = await Promise.all([
           WorkspaceSharingService.getSharingData(workspaceId),
           options.includeInvitations
             ? WorkspaceSharingService.listInvitations(workspaceId)
             : Promise.resolve([]),
-          options.includeLinkedTrees
-            ? WorkspaceSharingService.getLinkedShareTrees(workspaceId).catch((error) => {
-                if (error instanceof ApiError && error.status === 404) return [];
-                throw error;
-              })
-            : Promise.resolve([]),
         ]);
-        return { ...sharing, invitations, linkedTrees };
+        return { ...sharing, invitations };
       });
       if (get().workspaceId === workspaceId) {
         set(data);
@@ -114,8 +102,6 @@ export const useWorkspaceSharingStore = create<WorkspaceSharingState>((set, get)
       run(workspaceId, () => WorkspaceSharingService.setPublicAccess(workspaceId, publicRole)),
     setPublicPassword: (workspaceId, password) =>
       run(workspaceId, () => WorkspaceSharingService.setPublicPassword(workspaceId, password)),
-    getLinkedShareTrees: (workspaceId, username) =>
-      run(workspaceId, () => WorkspaceSharingService.getLinkedShareTrees(workspaceId, username)),
     grantAccessBatch: (workspaceId, username, role, workspaceIds) =>
       run(workspaceId, () =>
         WorkspaceSharingService.grantAccessBatch(workspaceId, username, role, workspaceIds),

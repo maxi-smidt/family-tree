@@ -729,7 +729,6 @@ def _insert_row_batch(
     db: Session,
     table: str,
     rows: list[Any],
-    deferred_member_links: list[dict[str, str | None]],
 ) -> None:
     model = _MODEL_BY_TABLE[table]
     if not all(isinstance(row, dict) for row in rows):
@@ -737,13 +736,6 @@ def _insert_row_batch(
             f"Backup archive contains a malformed row for {table}"
         )
     prepared = [dict(row) for row in rows]
-    if model is Member:
-        for row in prepared:
-            if row.get("linked_member_id") is not None:
-                deferred_member_links.append(
-                    {"id": row["id"], "linked_member_id": row["linked_member_id"]}
-                )
-                row["linked_member_id"] = None
     if model is MigrationRun:
         # See the matching comment in _insert_rows: BackupRecord is never
         # part of a restorable archive, so a restored run's backup_id/
@@ -799,26 +791,14 @@ def _consume_streaming_archive(
     With both ``None`` this is a pure self-verify pass: it never writes to
     disk or touches the database, only recomputing counts and media hashes
     from the decrypted frames and checking them against the archive's own
-    manifest. Bounded to O(one frame) of memory, plus O(the members table's
-    self-referencing links — see ``deferred_member_links`` below), regardless
-    of the archive's total size. Returns the manifest record on success.
+    manifest. Bounded to O(one frame) of memory, regardless of the archive's
+    total size. Returns the manifest record on success.
     """
     seen_meta = False
     manifest_record: dict[str, Any] | None = None
     table_counts: dict[str, int] = dict.fromkeys(_expected_table_names(), 0)
     row_count_total = 0
     media = _MediaStager(staging_root)
-    # Rows are inserted with linked_member_id nulled out (see
-    # _insert_row_batch) because the target member may not exist yet; the
-    # deferred pairs collected here are patched in once every members row
-    # has been inserted, rather than held until the whole archive is done.
-    deferred_member_links: list[dict[str, str | None]] = []
-    last_row_table: str | None = None
-
-    def _flush_deferred_member_links() -> None:
-        if db is not None and deferred_member_links:
-            db.bulk_update_mappings(Member, deferred_member_links)
-            deferred_member_links.clear()
 
     try:
         for record in iter_archive_frames(filepath):
@@ -846,9 +826,6 @@ def _consume_streaming_archive(
                     raise BackupValidationError(
                         f"Backup archive references an unknown table {table!r}"
                     )
-                if table != last_row_table and last_row_table == Member.__tablename__:
-                    _flush_deferred_member_links()
-                last_row_table = table
                 row_count_total += len(rows)
                 if row_count_total > MAX_TOTAL_ROWS:
                     raise BackupValidationError(
@@ -856,7 +833,7 @@ def _consume_streaming_archive(
                     )
                 table_counts[table] += len(rows)
                 if db is not None:
-                    _insert_row_batch(db, table, rows, deferred_member_links)
+                    _insert_row_batch(db, table, rows)
             elif kind == "media":
                 media.handle_chunk(record)
             elif kind == "manifest":
@@ -875,8 +852,6 @@ def _consume_streaming_archive(
                 "Backup archive is truncated or missing its manifest"
             )
         _validate_manifest_totals(manifest_record, table_counts, row_count_total, media)
-
-        _flush_deferred_member_links()
     finally:
         media.close_incomplete()
 
@@ -1037,17 +1012,9 @@ def _sweep_orphaned_media_dirs(media_root: Path) -> None:
 
 
 def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
-    """Restore rows while deferring the one nullable self-reference."""
-    linked_members: list[dict[str, str | None]] = []
+    """Restore rows for every backed-up model."""
     for model in BACKUP_MODELS:
         rows = [dict(row) for row in tables[model.__tablename__]]
-        if model is Member:
-            for row in rows:
-                if row.get("linked_member_id") is not None:
-                    linked_members.append(
-                        {"id": row["id"], "linked_member_id": row["linked_member_id"]}
-                    )
-                    row["linked_member_id"] = None
         if model is MigrationRun:
             # BackupRecord is deliberately excluded from every restorable
             # archive (see BACKUP_EXCLUDED_MODELS below), so a restored run's
@@ -1059,8 +1026,6 @@ def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
                 row["backup_path"] = None
         if rows:
             db.bulk_insert_mappings(model, rows)
-    if linked_members:
-        db.bulk_update_mappings(Member, linked_members)
 
 
 def restore_bundle(

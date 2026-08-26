@@ -34,18 +34,6 @@ export interface StatisticsReport {
   top_last_names: NameCount[];
 }
 
-/**
- * Statistics aggregated across the anchor tree and every tree reachable via
- * tree-in-tree links (bridge persons counted once). Superset of
- * `StatisticsReport` — `workspace_id` stays the anchor tree's id.
- */
-export interface CombinedStatisticsReport extends StatisticsReport {
-  tree_count: number;
-  included_workspace_ids: string[];
-}
-
-export type StatisticsScope = "tree" | "linked";
-
 /** Closed API contract for the safe, backend-driven custom-widget pivot. */
 export interface CustomWidgetAggregationConfig {
   id: string;

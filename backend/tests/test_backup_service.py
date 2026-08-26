@@ -93,9 +93,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
     friend = make_user(db, "friend")
     tree = make_tree(db, admin)
     first = add_member(db, tree, "member-1", first_name="Ada")
-    second = add_member(db, tree, "member-2", first_name="Grace")
-    first.linked_member_id = second.id
-    second.linked_member_id = first.id
+    add_member(db, tree, "member-2", first_name="Grace")
     db.add(Friendship(requester_id=admin.id, addressee_id=friend.id))
     db.add(
         WorkspaceInvitation(
@@ -199,8 +197,7 @@ def test_backup_restores_full_instance_and_media(db, tmp_path, monkeypatch):
         db, backup_path, replace=True, media_root=media_root
     )
 
-    assert db.get(Member, first.id).linked_member_id == second.id
-    assert db.get(Member, second.id).linked_member_id == first.id
+    assert db.get(Member, first.id) is not None
     assert db.get(WorkspaceInvitation, "invite-1") is not None
     assert db.get(QualityIssueDismissal, "dismissal-1") is not None
     assert db.get(GeocodeCache, "Vienna") is not None
@@ -1064,52 +1061,6 @@ def test_iter_media_files_is_deterministic_and_complete(tmp_path):
     assert first == second
     assert set(first) == {"top.txt", "a/1.txt", "a/2.txt", "b/3.txt"}
     assert first.index("a/1.txt") < first.index("a/2.txt")
-
-
-def test_deferred_member_links_are_flushed_and_restored_correctly(
-    db, tmp_path, monkeypatch
-):
-    """Linked-member FK patches (deferred because the target may not exist
-    yet at insert time) still land correctly once bounded per-table flushing
-    replaces holding every pair for the whole archive."""
-    media_root = tmp_path / "media"
-    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
-    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
-
-    admin = make_user(db, "admin", is_admin=True)
-    tree = make_tree(db, admin)
-    first = add_member(db, tree, "member-1")
-    second = add_member(db, tree, "member-2")
-    first.linked_member_id = second.id
-    second.linked_member_id = first.id
-    db.commit()
-
-    record = backup_service.create_backup(db, actor=admin)
-    assert record.status == "success"
-    backup_path = backup_service.BACKUP_DIR / record.filename
-
-    flushed_mappings = []
-    original_bulk_update = db.bulk_update_mappings
-
-    def _spy(model, mappings):
-        mappings = list(mappings)
-        flushed_mappings.extend(mappings)
-        return original_bulk_update(model, mappings)
-
-    monkeypatch.setattr(db, "bulk_update_mappings", _spy)
-
-    for model in reversed(backup_service.BACKUP_MODELS):
-        db.execute(delete(model))
-    db.commit()
-    shutil.rmtree(media_root, ignore_errors=True)
-
-    backup_service.restore_backup_file(
-        db, backup_path, replace=False, media_root=media_root
-    )
-
-    assert len(flushed_mappings) == 2
-    assert db.get(Member, "member-1").linked_member_id == "member-2"
-    assert db.get(Member, "member-2").linked_member_id == "member-1"
 
 
 # --- pre-migration backup retention (#994) ----------------------------------

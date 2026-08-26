@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -284,6 +284,19 @@ def _staging_session_factory() -> sessionmaker:
         cursor.close()
 
     Base.metadata.create_all(engine)
+    with engine.begin() as conn:
+        # #1021 removed Member.linked_workspace_id/linked_member_id from the
+        # live ORM model (and the DDL that dropped them from a real,
+        # finalized v2 database), but every genuine v1 archive still carries
+        # them, and _migrate_legacy_bridges_to_identity_links below reads
+        # them via reflection. This staging DB must look like a real
+        # not-yet-converted instance, so add them back here.
+        conn.execute(
+            text('ALTER TABLE members ADD COLUMN "linked_workspace_id" VARCHAR(36)')
+        )
+        conn.execute(
+            text('ALTER TABLE members ADD COLUMN "linked_member_id" VARCHAR(36)')
+        )
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
@@ -323,6 +336,33 @@ def convert_v1_bundle(bundle_dict: dict[str, Any]) -> BackupBundle:
         try:
             with session_factory() as staging_db:
                 _insert_rows(staging_db, v2_tables)
+                staging_db.flush()
+
+                # _insert_rows uses the ORM-level Member.__table__.insert()
+                # by way of bulk_insert_mappings, and the live Member model
+                # no longer maps linked_workspace_id/linked_member_id
+                # (#1021) — bulk_insert_mappings silently drops any dict key
+                # that isn't a mapped column, so those two values never made
+                # it into the staging row. Patch them in directly (the
+                # column itself was added back onto this staging schema in
+                # _staging_session_factory) before the bridge migration
+                # below reads them.
+                for row in v2_tables.get("members", []):
+                    if row.get("linked_workspace_id") is None and row.get(
+                        "linked_member_id"
+                    ) is None:
+                        continue
+                    staging_db.execute(
+                        text(
+                            "UPDATE members SET linked_workspace_id = :w, "
+                            "linked_member_id = :m WHERE id = :id"
+                        ),
+                        {
+                            "w": row.get("linked_workspace_id"),
+                            "m": row.get("linked_member_id"),
+                            "id": row["id"],
+                        },
+                    )
                 staging_db.flush()
 
                 # Same order the live upgrade uses: alembic's own bridge ->

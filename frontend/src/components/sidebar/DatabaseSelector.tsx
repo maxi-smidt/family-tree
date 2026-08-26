@@ -12,7 +12,7 @@ import { SettingsField } from "@/components/sidebar/SettingsField";
 import { useWorkspaceStore } from "@/hooks/useWorkspaceStore";
 import { useUnsavedChangesStore } from "@/hooks/useUnsavedChangesStore";
 import { useTranslation } from "react-i18next";
-import { Crown, Layers, Users } from "lucide-react";
+import { Crown, Users } from "lucide-react";
 import { toast } from "sonner";
 
 export const DatabaseSelector = () => {
@@ -20,7 +20,6 @@ export const DatabaseSelector = () => {
     keyPrefix: "sidebar.database-selector",
   });
   const workspaces = useWorkspaceStore((s) => s.workspaces);
-  const virtualViews = useWorkspaceStore((s) => s.virtualViews);
   const selectedTree = useWorkspaceStore((s) => s.selectedTree);
   const selectTree = useWorkspaceStore((s) => s.selectTree);
   const guardNavigate = useUnsavedChangesStore((s) => s.guardNavigate);
@@ -29,7 +28,7 @@ export const DatabaseSelector = () => {
   const sharedTrees = workspaces.filter((db) => db.role !== "owner");
 
   const handleDatabaseChange = (dbId: string) => {
-    const item = [...workspaces, ...virtualViews].find((d) => d.id === dbId);
+    const item = workspaces.find((d) => d.id === dbId);
     if (item) {
       guardNavigate(() => {
         // Guards against a stale list entry — e.g. access was revoked since
@@ -83,25 +82,6 @@ export const DatabaseSelector = () => {
                         aria-label={t("shared")}
                       />
                       {db.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </>
-          )}
-          {virtualViews.length > 0 && (
-            <>
-              {workspaces.length > 0 && <SelectSeparator />}
-              <SelectGroup>
-                <SelectLabel>{t("virtual-views-group")}</SelectLabel>
-                {virtualViews.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    <span className="flex items-center gap-2">
-                      <Layers
-                        className="h-3.5 w-3.5 text-muted-foreground"
-                        aria-label={t("virtual-view")}
-                      />
-                      {v.name}
                     </span>
                   </SelectItem>
                 ))}

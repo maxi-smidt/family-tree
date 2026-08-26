@@ -55,16 +55,6 @@ describe("useTaskStore — refreshTasks", () => {
     expect(useTaskStore.getState().openTaskMemberIds.has("m1")).toBe(true);
   });
 
-  it("skips the API for virtual views and marks the store initialized", async () => {
-    const view: Workspace = { id: "vv_1", name: "View", role: "viewer" };
-    useWorkspaceStore.setState({ selectedTree: view });
-
-    await useTaskStore.getState().refreshTasks("vv_1");
-
-    expect(WorkspaceService.getTasks).not.toHaveBeenCalled();
-    expect(useTaskStore.getState().initialized).toBe(true);
-  });
-
   it("does not write fetched data when the tree changed mid-flight", async () => {
     let resolve!: (v: ResearchTaskDB[]) => void;
     const pending = new Promise<ResearchTaskDB[]>((r) => {

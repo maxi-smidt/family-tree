@@ -57,7 +57,6 @@ import { MemberTasks } from "./MemberTasks";
 import { MemberDocuments } from "./MemberDocuments";
 import { MemberPicker } from "./MemberPicker";
 import { MemberPhotos } from "./MemberPhotos";
-import { LinkedTreeField } from "./LinkedTreeField";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUnsavedGuard } from "@/hooks/useUnsavedGuard";
 import { MemberSheetTab } from "@/utils/memberSheetState";
@@ -192,8 +191,7 @@ export const EditMode = ({
       JSON.stringify(formData.placesLived) !==
         JSON.stringify(initialData.placesLived) ||
       formData.parents.paternalParent !== initialData.parents.paternalParent ||
-      formData.parents.maternalParent !== initialData.parents.maternalParent ||
-      (formData.linkedWorkspaceId ?? null) !== (initialData.linkedWorkspaceId ?? null);
+      formData.parents.maternalParent !== initialData.parents.maternalParent;
 
     setIsDirty(dirty);
     onDirtyChange?.(dirty);
@@ -365,7 +363,7 @@ export const EditMode = ({
       try {
         const workspaceId = editorTreeIdRef.current;
         if (!workspaceId) return false;
-        const result = await updateMemberPartial(
+        await updateMemberPartial(
           editorMemberIdRef.current,
           {
             academicTitle: snapshot.academicTitle || null,
@@ -390,19 +388,11 @@ export const EditMode = ({
                 : null,
             paternalParentId: snapshot.parents.paternalParent,
             maternalParentId: snapshot.parents.maternalParent,
-            ...(snapshot.linkedWorkspaceId !== undefined
-              ? { linkedWorkspaceId: snapshot.linkedWorkspaceId }
-              : {}),
           },
           workspaceId,
         );
         if (!opts?.autosave && isCurrent()) {
           toast.success(t("toast-success"));
-        }
-        // Bridge person whose counterpart tree the editor may not write: the
-        // save worked but the linked copy drifted — say so.
-        if (isCurrent() && result?.bridgeSync === "skipped_no_access") {
-          toast.info(t("toast-bridge-sync-skipped"));
         }
         // Settle the dirty baseline on the snapshot that was actually
         // persisted — if the user kept typing during the in-flight save,
@@ -1036,15 +1026,6 @@ export const EditMode = ({
                     noResultsText={t("parent-no-results")}
                   />
                 </Field>
-
-                <LinkedTreeField
-                  currentTreeId={currentTreeId}
-                  value={formData.linkedWorkspaceId ?? null}
-                  memberName={`${formData.firstName} ${formData.lastName}`}
-                  memberId={isNew ? undefined : formData.id}
-                  formDirty={isDirty}
-                  onChange={(workspaceId) => handleChange("linkedWorkspaceId", workspaceId)}
-                />
               </FieldGroup>
             </TabsContent>
           )}

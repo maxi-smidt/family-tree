@@ -1,24 +1,17 @@
-"""Long-running tree workflows (merge, subtree extraction) and the tree-link graph."""
+"""Long-running tree workflows (workspace merge)."""
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, get_readable_workspace
+from app.api.deps import get_current_user
 from app.core.exceptions import NotFoundError
 from app.db.session import SessionLocal, get_db
-from app.models import User, Workspace
-from app.schemas.extract import SubtreeExtractRequest, SubtreePreview
+from app.models import User
 from app.schemas.job import JobStarted
 from app.schemas.merge import WorkspaceMergePreview, WorkspaceMergePreviewRequest
-from app.schemas.workspace import LinkGraphOut, WorkspaceMerge
+from app.schemas.workspace import WorkspaceMerge
 from app.services.system.job_service import ProgressCallback, create_job, run_job
-from app.services.workspaces.extract import (
-    compute_subtree_preview,
-    extract_subtree,
-    validate_move_request,
-)
 from app.services.workspaces.merge import compute_merge_preview, merge_trees
-from app.services.workspaces.workspace_links import compute_link_graph
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -79,64 +72,3 @@ def _do_merge(
         raise
     finally:
         db.close()
-
-
-@router.post("/extract-subtree/preview", response_model=SubtreePreview)
-def extract_subtree_preview(
-    payload: SubtreeExtractRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Compute a sub-tree extraction preview (no data is written)."""
-    return compute_subtree_preview(db, user, payload)
-
-
-@router.post("/extract-subtree", response_model=JobStarted, status_code=202)
-def extract_subtree_endpoint(
-    payload: SubtreeExtractRequest,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
-):
-    if not payload.name.strip():
-        raise HTTPException(status_code=400, detail="A name is required")
-    # Surface precondition failures (direction, ownership, already-linked root)
-    # as 4xx responses instead of a failed job.
-    validate_move_request(db, user, payload)
-    job = create_job(db, user.id, "extract_subtree")
-    background_tasks.add_task(run_job, job.id, user.id, _do_extract, user.id, payload)
-    return JobStarted(job_id=job.id)
-
-
-def _do_extract(
-    progress_cb: ProgressCallback,
-    user_id: str,
-    payload: SubtreeExtractRequest,
-) -> str:
-    db = SessionLocal()
-    try:
-        user = db.get(User, user_id)
-        if user is None:
-            raise NotFoundError("User not found")
-        tree = extract_subtree(db, user, payload, progress_cb)
-        return tree.id
-    except Exception:
-        # allowlisted-rollback: this background job's own session — covers a
-        # failure anywhere above, not just the callee's own UnitOfWork commit.
-        db.rollback()
-        raise
-    finally:
-        db.close()
-
-
-@router.get("/{workspace_id}/link-graph", response_model=LinkGraphOut)
-def get_link_graph(
-    tree: Workspace = Depends(get_readable_workspace),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Graph of workspaces reachable from this one via tree-in-tree member links.
-
-    See ``app.services.workspaces.workspace_links.compute_link_graph`` for the traversal.
-    """
-    return compute_link_graph(db, tree, user)

@@ -4,20 +4,17 @@ import { type Workspace } from "@/types/workspace";
 import { DatabaseSelector } from "./DatabaseSelector";
 
 let workspaces: Workspace[] = [];
-let virtualViews: Workspace[] = [];
 
 vi.mock("@/hooks/useWorkspaceStore", () => ({
   useWorkspaceStore: <T,>(
     selector: (state: {
       workspaces: Workspace[];
-      virtualViews: Workspace[];
       selectedTree: Workspace | null;
       selectTree: () => Promise<void>;
     }) => T,
   ) =>
     selector({
       workspaces,
-      virtualViews,
       selectedTree: null,
       selectTree: vi.fn(),
     }),
@@ -31,12 +28,6 @@ vi.mock("@/hooks/useUnsavedChangesStore", () => ({
 
 const OWNED_TREE: Workspace = { id: "tree-1", name: "My Workspace", role: "owner" };
 const SHARED_TREE: Workspace = { id: "tree-2", name: "Shared Workspace", role: "editor" };
-const VIEW: Workspace = {
-  id: "view-1",
-  name: "My View",
-  role: "owner",
-  is_virtual: true,
-};
 
 const renderOpen = () => {
   render(<DatabaseSelector />);
@@ -46,7 +37,6 @@ const renderOpen = () => {
 describe("DatabaseSelector", () => {
   beforeEach(() => {
     workspaces = [];
-    virtualViews = [];
   });
 
   it("shows separate groups for owned and shared workspaces", () => {
@@ -73,16 +63,5 @@ describe("DatabaseSelector", () => {
 
     expect(screen.queryByText("Your workspaces")).not.toBeInTheDocument();
     expect(screen.getByText("Shared with you")).toBeInTheDocument();
-  });
-
-  it("still shows the virtual views group alongside both tree groups", () => {
-    workspaces = [OWNED_TREE, SHARED_TREE];
-    virtualViews = [VIEW];
-    renderOpen();
-
-    expect(screen.getByText("Your workspaces")).toBeInTheDocument();
-    expect(screen.getByText("Shared with you")).toBeInTheDocument();
-    expect(screen.getByText("Virtual Views")).toBeInTheDocument();
-    expect(screen.getByText("My View")).toBeInTheDocument();
   });
 });

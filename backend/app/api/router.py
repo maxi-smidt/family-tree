@@ -20,9 +20,7 @@ from app.api.routes import (
     legal,
     media,
     member_diseases,
-    member_links,
     member_relations,
-    member_subtrees,
     members,
     migration,
     notifications,
@@ -40,8 +38,6 @@ from app.api.routes import (
     stories,
     tasks,
     users,
-    virtual_view_content,
-    virtual_views,
     workspace_jobs,
     workspace_public,
     workspace_sharing,
@@ -71,15 +67,11 @@ api_router.include_router(saved_views.router)
 api_router.include_router(content_scopes.router)
 api_router.include_router(invitations.router)
 api_router.include_router(invitations.global_router)
-api_router.include_router(virtual_views.router)
-api_router.include_router(virtual_view_content.router)
 api_router.include_router(export_import.router)
 api_router.include_router(jobs.router)
 api_router.include_router(members.router)
 api_router.include_router(member_relations.router)
 api_router.include_router(member_diseases.router)
-api_router.include_router(member_subtrees.router)
-api_router.include_router(member_links.router)
 api_router.include_router(identity_links.router)
 api_router.include_router(migration.router)
 api_router.include_router(migration.admin_router)

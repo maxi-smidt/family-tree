@@ -661,40 +661,6 @@ def test_relation_crossing_scope_is_excluded_even_though_one_end_is_visible(
     assert len(owner_res.json()) == 1
 
 
-def test_section_scoped_viewer_cannot_link_a_member_they_can_only_read(client, db):
-    """Linking a member (bridge/subtree) is a member *edit* (#984): a section
-    grant with an editor role elsewhere in the workspace doesn't authorize it
-    for a member the caller can only view."""
-    from tests.conftest import add_member
-
-    alice = make_user(db, "alice")
-    bob = make_user(db, "bob")
-    tree = make_tree(db, alice)
-    viewer_section = _section(db, tree, "Viewer")
-    editor_section = _section(db, tree, "Editor")
-    add_member(db, tree, "m-viewer", first_name="Viewer")
-    add_member(db, tree, "m-editor", first_name="Editor")
-    db.add(SectionMember(section_id=viewer_section.id, member_id="m-viewer"))
-    db.add(SectionMember(section_id=editor_section.id, member_id="m-editor"))
-    db.commit()
-    _grant(db, tree, viewer_section, bob, role="viewer")
-    _grant(db, tree, editor_section, bob, role="editor")
-
-    denied = client.post(
-        f"{API}/workspaces/{tree.id}/members/m-viewer/subtree",
-        headers=auth(bob),
-        json={"name": "New tree"},
-    )
-    assert denied.status_code == 403, denied.text
-
-    ok = client.post(
-        f"{API}/workspaces/{tree.id}/members/m-editor/subtree",
-        headers=auth(bob),
-        json={"name": "New tree"},
-    )
-    assert ok.status_code == 201, ok.text
-
-
 def test_rescope_preview_reports_the_destination_sections_audience(client, db):
     from uuid import uuid4
 

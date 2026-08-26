@@ -15,7 +15,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.models.migration import MigrationPhase, MigrationRun, MigrationStatus
 from app.services.migration import orchestrator, preflight
-from tests.conftest import make_tree, make_user
+from tests.conftest import add_legacy_bridge_columns, make_tree, make_user
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +25,15 @@ def _fake_lock(monkeypatch):
         yield
 
     monkeypatch.setattr(orchestrator, "exclusive_lock", _lock)
+
+
+@pytest.fixture(autouse=True)
+def _legacy_bridge_schema(db):
+    """``run_conversion`` always reads the legacy bridge columns (#1021
+    removed them from the ORM model, so ``Base.metadata.create_all`` no
+    longer creates them) — every test in this module needs them present,
+    matching a real not-yet-converted instance's schema."""
+    add_legacy_bridge_columns(db)
 
 
 @pytest.fixture(autouse=True)

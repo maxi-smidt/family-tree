@@ -17,7 +17,7 @@ Concretely:
 
 | Library (chunk)                           | Loaded                                      |
 | ----------------------------------------- | ------------------------------------------- |
-| `@xyflow/react` (graph)                   | on demand — tree view / linked-trees dialog |
+| `@xyflow/react` (graph)                   | on demand — tree view                       |
 | `leaflet` + `react-leaflet` (map)         | on demand — map view                        |
 | `recharts` (chart)                        | on demand — statistics view                 |
 | `react-markdown` + remark/rehype (editor) | on demand — first Markdown render           |

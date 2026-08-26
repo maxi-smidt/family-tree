@@ -1,16 +1,14 @@
 """Sharing a tree with other users: access grants, restrictions, batch ops."""
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_readable_workspace
 from app.db.session import get_db
 from app.models import User, Workspace, WorkspaceMembership
-from app.models.family import Member
 from app.schemas.notification import WorkspaceSharedPayload, WorkspaceUnsharedPayload
 from app.schemas.workspace import (
-    LinkedShareWorkspaceOut,
     MemberRestrictionsUpdate,
     ShareCandidate,
     WorkspaceAccessBatchRevoke,
@@ -27,7 +25,6 @@ from app.services.workspaces.restrictions import (
     RESTRICTABLE_DOMAINS,
 )
 from app.services.workspaces.workspace_access import list_tree_access
-from app.services.workspaces.workspace_links import reachable_linked_trees
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
@@ -198,64 +195,6 @@ def revoke_access(
                     ),
                 )
             )
-
-
-@router.get(
-    "/{workspace_id}/access/linked-workspaces",
-    response_model=list[LinkedShareWorkspaceOut],
-)
-def list_linked_share_trees(
-    tree: Workspace = Depends(get_readable_workspace),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-    username: str | None = None,
-):
-    """Trees reachable from this one via member links, for the batch-share UI.
-
-    Convenience listing only: it never grants anything by itself. Excludes the
-    anchor tree. Readable-but-not-owned linked workspaces are still included (with
-    ``manageable=False``) so the UI can show them as "can't be offered" rather
-    than silently omitting them; workspaces the actor cannot read at all are
-    skipped so their existence isn't leaked.
-    """
-    if tree.owner_id != user.id and not user.is_admin:
-        raise HTTPException(status_code=403, detail="Only the owner can share a tree")
-
-    target_user: User | None = None
-    if username is not None:
-        target_user = db.scalar(select(User).where(User.username == username))
-        if target_user is None:
-            raise HTTPException(status_code=404, detail="User not found")
-
-    linked = reachable_linked_trees(db, tree, user)
-    result: list[LinkedShareWorkspaceOut] = []
-    for t in linked:
-        member_count = (
-            db.scalar(
-                select(func.count())
-                .select_from(Member)
-                .where(Member.workspace_id == t.id)
-            )
-            or 0
-        )
-        manageable = t.owner_id == user.id or user.is_admin
-        target_role: str | None = None
-        if target_user is not None:
-            if t.owner_id == target_user.id:
-                target_role = "owner"
-            else:
-                membership = db.get(WorkspaceMembership, (t.id, target_user.id))
-                target_role = membership.role if membership else None
-        result.append(
-            LinkedShareWorkspaceOut(
-                workspace_id=t.id,
-                name=t.name,
-                member_count=member_count,
-                manageable=manageable,
-                target_role=target_role,
-            )
-        )
-    return result
 
 
 @router.post("/{workspace_id}/access/batch", response_model=list[WorkspaceMemberOut])

@@ -64,8 +64,6 @@ const MEMBER_A: MemberDB = {
   isCollapsed: 0,
   positionX: 0,
   positionY: 0,
-  linkedWorkspaceId: null,
-  linkedMemberId: null,
 };
 
 function memberB(overrides: Partial<MemberDB>): MemberDB {

@@ -106,12 +106,6 @@ def export_tree(
     members: list[BundleMemberRow] = _rows(db, Member, tree.id)
     for m in members:
         m["image_data"] = media_url_to_data_url(m.get("image_data"))
-        # Identity links (#1016): a bundle never discloses the legacy
-        # cross-workspace bridge pointer — it may name a member on another
-        # workspace the importer has no access to, and it becomes stale the
-        # moment the member is re-imported under a new id anyway.
-        m.pop("linked_workspace_id", None)
-        m.pop("linked_member_id", None)
     gallery: list[BundleGalleryImageRow] = _rows(db, GalleryImage, tree.id)
     for g in gallery:
         g["image_data"] = media_url_to_data_url(g.get("image_data"))

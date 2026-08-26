@@ -3,15 +3,14 @@
 Unlike ``app.services.workspaces.merge`` (which clones two whole *workspaces* into a brand
 new third tree), this combines two *members of the same tree*: one survives
 (``keep``), the other is removed (``remove``) after everything it owns —
-relations, content links, diseases, and an optional tree-in-tree bridge — has
-been re-pointed onto ``keep``. Field-conflict detection/resolution is reused
-from ``app.services.members.member_clone`` rather than forked.
+relations, content links, and diseases — has been re-pointed onto ``keep``.
+Field-conflict detection/resolution is reused from
+``app.services.members.member_clone`` rather than forked.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Literal
 
 from pydantic.alias_generators import to_camel
 from sqlalchemy import select
@@ -50,8 +49,6 @@ from app.services.members.member_clone import (
     to_snake_case,
 )
 from app.services.saved_views.saved_views import repoint_saved_views_for_merge
-
-BridgeOutcome = Literal["inherited", "dissolved"]
 
 
 def _merge_creates_cycle_through_keep(
@@ -322,14 +319,10 @@ def merge_members_in_place(
     keep: Member,
     remove: Member,
     fields: dict[str, FieldChoice],
-) -> tuple[Member, dict, Member | None, BridgeOutcome | None]:
+) -> tuple[Member, dict]:
     """Merge ``remove`` into ``keep`` within ``tree``; caller commits.
 
-    Returns ``(keep, activity_details, counterpart, bridge_outcome)`` —
-    ``counterpart`` is the bridge-person row in another tree, set only when
-    ``remove`` was linked to one; ``bridge_outcome`` says what happened to it
-    (``"inherited"`` onto ``keep``, or ``"dissolved"`` because ``keep`` already
-    had its own link) so the route can log it and notify that other tree.
+    Returns ``(keep, activity_details)``.
     """
     if keep.id == remove.id:
         raise InvalidInputError("Cannot merge a member with itself")
@@ -350,12 +343,7 @@ def merge_members_in_place(
         raise InvalidInputError("This merge would make this member their own ancestor")
 
     # --- Pre-image for the activity log, captured before any mutation -------
-    counterpart: Member | None = (
-        db.get(Member, remove.linked_member_id)
-        if remove.linked_member_id is not None
-        else None
-    )
-    removed_snapshot = member_delete_snapshot(db, remove, counterpart)["snapshot"]
+    removed_snapshot = member_delete_snapshot(db, remove)["snapshot"]
     keep_before = {field: getattr(keep, field) for field in CONFLICT_FIELDS}
 
     # --- Field resolution onto keep (keep=clone=ma, remove=mb) --------------
@@ -404,20 +392,6 @@ def merge_members_in_place(
     _transfer_diseases(db, keep.id, remove.id)
     repoint_identity_links_for_merge(db, keep, remove)
 
-    # --- Workspace-in-tree bridge: carry the link onto keep, else dissolve it ----
-    bridge_outcome: BridgeOutcome | None = None
-    if counterpart is not None:
-        if keep.linked_member_id is None:
-            keep.linked_workspace_id = remove.linked_workspace_id
-            keep.linked_member_id = remove.linked_member_id
-            counterpart.linked_workspace_id = keep.workspace_id
-            counterpart.linked_member_id = keep.id
-            bridge_outcome = "inherited"
-        else:
-            counterpart.linked_workspace_id = None
-            counterpart.linked_member_id = None
-            bridge_outcome = "dissolved"
-
     details = {
         "merge": {
             "version": SNAPSHOT_VERSION,
@@ -430,4 +404,4 @@ def merge_members_in_place(
 
     repoint_saved_views_for_merge(db, tree.id, keep.id, remove.id)
     db.delete(remove)
-    return keep, details, counterpart, bridge_outcome
+    return keep, details

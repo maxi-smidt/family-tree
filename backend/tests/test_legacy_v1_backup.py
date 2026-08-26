@@ -215,16 +215,24 @@ def test_v1_restore_consolidates_bridged_workspaces(db, tmp_path, monkeypatch):
     admin = make_user(db, "admin", is_admin=True)
     tree_a = make_tree(db, admin, name="Paternal line")
     tree_b = make_tree(db, admin, name="Maternal line")
-    member_a = add_member(db, tree_a, "member-a", first_name="Ada")
-    member_b = add_member(db, tree_b, "member-b", first_name="Grace")
-    member_a.linked_workspace_id = tree_b.id
-    member_a.linked_member_id = member_b.id
-    member_b.linked_workspace_id = tree_a.id
-    member_b.linked_member_id = member_a.id
+    add_member(db, tree_a, "member-a", first_name="Ada")
+    add_member(db, tree_b, "member-b", first_name="Grace")
     db.commit()
 
     bundle = backup_service._collect_bundle(db).model_dump()
     v1_bundle = _to_v1_shape(bundle)
+    # The live app's Member model no longer has these columns (#1021), so
+    # _collect_bundle can't produce them — inject them by hand, using the
+    # v1 column name (`linked_tree_id`, later renamed to
+    # `linked_workspace_id`), to simulate what a genuine v1.x bundle
+    # contains.
+    for row in v1_bundle["tables"]["members"]:
+        if row["id"] == "member-a":
+            row["linked_tree_id"] = tree_b.id
+            row["linked_member_id"] = "member-b"
+        elif row["id"] == "member-b":
+            row["linked_tree_id"] = tree_a.id
+            row["linked_member_id"] = "member-a"
 
     backup_path = tmp_path / "v1_bridged.ftbackup"
     backup_path.write_bytes(encrypt_bundle(v1_bundle, None))

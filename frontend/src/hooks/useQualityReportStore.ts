@@ -19,10 +19,6 @@ interface QualityReportState {
   setShowDismissed: (show: boolean) => void;
   dismissIssue: (issueId: string) => Promise<void>;
   restoreIssue: (issueId: string) => Promise<void>;
-  resolveBridgeDrift: (
-    memberId: string,
-    direction: "push" | "pull",
-  ) => Promise<void>;
   mergeMembers: (
     keepId: string,
     removeId: string,
@@ -65,21 +61,6 @@ export const useQualityReportStore = create<QualityReportState>((set, get) => ({
     if (!workspaceId) return;
     await WorkspaceService.restoreQualityIssue(workspaceId, issueId);
     await get().refreshReport(workspaceId);
-  },
-
-  // Resolve bridge-person drift by copying fields across the tree link
-  // ("push" = this tree wins, "pull" = the linked tree wins), then reload the
-  // report and — on pull — the members, whose fields just changed. Errors
-  // (e.g. 403 without write access to the linked tree) propagate to the view.
-  resolveBridgeDrift: async (memberId: string, direction: "push" | "pull") => {
-    const workspaceId = activeTreeId();
-    if (!workspaceId) return;
-    await WorkspaceService.resolveBridgeDrift(workspaceId, memberId, direction);
-    const tasks: Promise<void>[] = [get().refreshReport(workspaceId)];
-    if (direction === "pull") {
-      tasks.push(useMemberStore.getState().refreshMembers(workspaceId));
-    }
-    await Promise.all(tasks);
   },
 
   // Merge two members of the tree in place (#729): besides the report and

@@ -98,9 +98,8 @@ def _in_tree(db: Session, model: type, row_id: str, workspace_id: str) -> object
     that happens to reuse the same id. Every cross-reference validity check
     in this module scopes through here instead, matching the "every content
     query is scoped by workspace_id" rule the rest of the app follows. The one
-    exception is a *main row* conflict check (a global PK collision, which
-    would fail on insert regardless of tree) and the bridge counterpart,
-    which is expected to live in a different tree by design.
+    exception is a *main row* conflict check — a global PK collision, which
+    would fail on insert regardless of tree.
     """
     row = db.get(model, row_id)
     if row is not None and row.workspace_id != workspace_id:
@@ -109,7 +108,7 @@ def _in_tree(db: Session, model: type, row_id: str, workspace_id: str) -> object
 
 
 # ---------------------------------------------------------------------------
-# Member (+ relations, diseases, five link tables, bridge)
+# Member (+ relations, diseases, five link tables)
 # ---------------------------------------------------------------------------
 
 
@@ -124,42 +123,10 @@ def restore_member(
     member = _instantiate(
         Member, member_data, drop=frozenset({"date_of_birth_sort", "date_of_death_sort"})
     )
-    # Bridge pointers are re-established below (only if the counterpart still
-    # validates) — never carry a stale pointer straight through on insert.
-    member.linked_workspace_id = None
-    member.linked_member_id = None
     db.add(member)
     db.flush()
 
     result = RestoreResult(main_id=member_id, restored={"member": member_id})
-
-    bridge = snapshot.get("bridge")
-    if bridge is not None:
-        # The counterpart is expected to live in a *different* tree by
-        # design (that's the whole point of a tree-in-tree bridge), so it's
-        # scoped to the bridge's own recorded tree, not the tree being
-        # restored into.
-        counterpart = _in_tree(
-            db,
-            Member,
-            bridge["counterpart_member_id"],
-            bridge["counterpart_workspace_id"],
-        )
-        if counterpart is None:
-            result.add_skip(
-                "members",
-                f"bridge counterpart {bridge['counterpart_member_id']} no longer exists",
-            )
-        elif counterpart.linked_member_id is not None:
-            result.add_skip(
-                "members", "bridge counterpart is already linked to another member"
-            )
-        else:
-            member.linked_workspace_id = bridge["counterpart_workspace_id"]
-            member.linked_member_id = counterpart.id
-            counterpart.linked_workspace_id = tree.id
-            counterpart.linked_member_id = member_id
-            result.restored["bridge"] = counterpart.id
 
     relation_count = 0
     for rel in snapshot.get("relations", []):

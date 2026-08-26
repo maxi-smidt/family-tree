@@ -16,57 +16,14 @@ from app.models import User, Workspace
 from app.models.content import Event, EventMemberLink
 from app.models.family import Member, Relation
 from app.models.quality import QualityIssueDismissal
-from app.schemas.quality import QualityIssue, QualityReport
-from app.services.members.bridge import drift_fields
+from app.schemas.quality import QualityReport
 from app.services.unit_of_work import UnitOfWork
-from app.services.workspaces.quality_checks import issue_id_for, run_quality_checks
+from app.services.workspaces.quality_checks import run_quality_checks
 
 router = APIRouter(
     prefix="/workspaces/{workspace_id}",
     tags=["quality"],
 )
-
-
-def _bridge_drift_issues(db: Session, members: list[Member]) -> list[QualityIssue]:
-    """Bridge persons whose two rows have drifted apart.
-
-    Needs the db (counterpart rows live in other workspaces), so it runs here
-    rather than in the pure ``run_quality_checks``. The comparison happens
-    server-side only — field *names* are reported, never the other tree's
-    values — and the whole check is available whenever linked members exist.
-    """
-    linked = [m for m in members if m.linked_member_id]
-    if not linked:
-        return []
-    counterparts = {
-        c.id: c
-        for c in db.scalars(
-            select(Member).where(Member.id.in_([m.linked_member_id for m in linked]))
-        )
-    }
-    issues: list[QualityIssue] = []
-    for m in linked:
-        counterpart = counterparts.get(m.linked_member_id)
-        if counterpart is None:
-            continue
-        fields = drift_fields(m, counterpart)
-        if not fields:
-            continue
-        issues.append(
-            QualityIssue(
-                # Hash the drifted field set too, so a dismissed note comes
-                # back when *new* fields start to differ.
-                id=issue_id_for("bridge_person_drift", [m.id, *fields]),
-                issue_type="bridge_person_drift",
-                severity="warning",
-                member_ids=[m.id],
-                description=(
-                    "Differs from the linked copy in another tree: "
-                    f"{', '.join(f.replace('_', ' ') for f in fields)}."
-                ),
-            )
-        )
-    return issues
 
 
 @router.get("/quality-report", response_model=QualityReport)
@@ -94,7 +51,6 @@ def get_quality_report(
         ).all()
     )
     raw_issues = run_quality_checks(members, relations, events, event_links)
-    raw_issues += _bridge_drift_issues(db, members)
 
     dismissed_ids = set(
         db.scalars(

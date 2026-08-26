@@ -9,7 +9,7 @@ schemas and authorization logic.
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -204,6 +204,40 @@ def add_member(db: Session, tree: Workspace, member_id: str, **kw) -> Member:
     db.add(member)
     db.commit()
     return member
+
+
+def add_legacy_bridge_columns(db: Session) -> None:
+    """Add the legacy ``Member.linked_workspace_id``/``linked_member_id``
+    columns to the test schema.
+
+    #1021 removed these from the ORM model (and the test schema is built
+    from ``Base.metadata`` via ``create_all``, not real Alembic migrations —
+    see ``session_factory`` above), but a real not-yet-converted v1 instance
+    still has them physically in Postgres, since no migration ever drops
+    them until ``app.services.migration.legacy_cleanup`` runs. Tests that
+    exercise the conversion engine against that legacy shape call this first.
+    """
+    db.execute(text("ALTER TABLE members ADD COLUMN linked_workspace_id VARCHAR(36)"))
+    db.execute(text("ALTER TABLE members ADD COLUMN linked_member_id VARCHAR(36)"))
+    db.commit()
+
+
+def set_legacy_bridge(
+    db: Session,
+    member_id: str,
+    linked_workspace_id: str | None,
+    linked_member_id: str | None,
+) -> None:
+    """Write the legacy bridge columns directly (see
+    ``add_legacy_bridge_columns``) — they are no longer ORM-mapped."""
+    db.execute(
+        text(
+            "UPDATE members SET linked_workspace_id = :w, linked_member_id = :m "
+            "WHERE id = :id"
+        ),
+        {"w": linked_workspace_id, "m": linked_member_id, "id": member_id},
+    )
+    db.commit()
 
 
 def befriend(db: Session, a: User, b: User, status: str = "accepted") -> Friendship:

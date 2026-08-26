@@ -42,7 +42,6 @@ from app.models.family import Member, MemberDisease, Relation
 from app.models.provenance import ContentType
 from app.models.user import User
 from app.services.activity.activity_snapshots import (
-    BridgeSnapshot,
     DeleteSnapshot,
     DiseaseSnapshot,
     DocumentFileSnapshot,
@@ -72,18 +71,14 @@ def row_to_dict(obj: Base) -> dict:
 
 
 def member_delete_snapshot(
-    db: Session, member: Member, counterpart: Member | None = None
+    db: Session, member: Member
 ) -> DeleteSnapshot[MemberSnapshot]:
     """Full pre-image of a member row and its cascade children.
 
     Must be called BEFORE ``db.delete(member)``. Captures everything the DB
     cascade will remove: relations on either side, disease records, and the
     five content link tables (research-task rows themselves survive a member
-    delete; only their links cascade). ``counterpart`` is the bridge person in the
-    linked tree whose link pointers the delete route dissolves; its identity
-    is recorded so the tree-in-tree link can be re-established on undo.
-    Virtual-view match rows also cascade but are derived state the matching
-    service recomputes, so they are deliberately not snapshotted.
+    delete; only their links cascade).
     """
     relations = db.scalars(
         select(Relation).where(
@@ -126,12 +121,6 @@ def member_delete_snapshot(
         "gallery_links": [row_to_dict(r) for r in gallery_links],
         "document_links": [row_to_dict(r) for r in document_links],
     }
-    if counterpart is not None:
-        bridge: BridgeSnapshot = {
-            "counterpart_member_id": counterpart.id,
-            "counterpart_workspace_id": counterpart.workspace_id,
-        }
-        snapshot["bridge"] = bridge
     return {"snapshot": snapshot}
 
 

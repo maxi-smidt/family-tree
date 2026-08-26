@@ -19,7 +19,7 @@ from app.models.content import (
     StoryDocumentLink,
     StoryMemberLink,
 )
-from app.models.family import Member, MemberDisease, Relation
+from app.models.family import MemberDisease, Relation
 from app.services.workspaces.merge import merge_trees
 from tests.conftest import API, add_member, auth, befriend, make_tree, make_user, share
 
@@ -642,34 +642,6 @@ def test_delete_member_details_snapshot_full_cascade(client, db):
     assert snapshot["gallery_links"][0]["x"] == 0.1
     assert snapshot["gallery_links"][0]["h"] == 0.4
     assert snapshot["document_links"] == [{"document_id": "doc1", "member_id": "m1"}]
-
-    # Not a bridge person → no bridge key.
-    assert "bridge" not in snapshot
-
-
-def test_delete_bridge_member_snapshot_records_counterpart(client, db):
-    owner = make_user(db, "alice")
-    tree = make_tree(db, owner)
-    other = make_tree(db, owner, name="Linked")
-    add_member(db, tree, "m1", first_name="Ada")
-    add_member(db, other, "c1", first_name="Ada")
-    db.get(Member, "m1").linked_workspace_id = other.id
-    db.get(Member, "m1").linked_member_id = "c1"
-    db.get(Member, "c1").linked_workspace_id = tree.id
-    db.get(Member, "c1").linked_member_id = "m1"
-    db.commit()
-
-    res = client.delete(f"{API}/workspaces/{tree.id}/members/m1", headers=auth(owner))
-    assert res.status_code == 204
-
-    snapshot = _delete_details(db, tree.id)["snapshot"]
-    assert snapshot["bridge"] == {
-        "counterpart_member_id": "c1",
-        "counterpart_workspace_id": other.id,
-    }
-    # The member's own pointers are preserved in its row snapshot.
-    assert snapshot["member"]["linked_workspace_id"] == other.id
-    assert snapshot["member"]["linked_member_id"] == "c1"
 
 
 def test_delete_relation_details_snapshot(client, db):

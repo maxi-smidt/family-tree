@@ -37,7 +37,7 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import column, func, or_, select, table
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -78,7 +78,6 @@ from app.models import (
 from app.models.identity_link import IdentityLinkVerificationBasis
 from app.models.migration import MigrationConflictKind, MigrationPhase
 from app.services import provenance
-from app.services.members import bridge
 from app.services.members.member_merge import (
     # Reuse the merge's own cycle guard rather than forking it.
     _merge_creates_cycle_through_keep,
@@ -94,7 +93,6 @@ from app.services.saved_views.position_conversion import (
     primary_member_id,
 )
 from app.services.unit_of_work import UnitOfWork
-from app.services.virtual_views.virtual_view_sources import flatten_workspace_ids
 from app.services.workspaces.grants import VALID_ROLES, create_section_grant
 from app.services.workspaces.public_links import create_section_public_link
 from app.services.workspaces.quality_checks import issue_id_for
@@ -128,6 +126,88 @@ _PROVENANCE_MODELS: tuple[tuple[type, ContentType], ...] = (
     (MemberTask, ContentType.TASK),
     (MemberDisease, ContentType.DISEASE),
 )
+
+# ``Member.linked_workspace_id``/``linked_member_id`` are no longer mapped
+# columns (#1021 drops them once conversion has run — see
+# ``app.services.migration.legacy_cleanup``), but they still exist in the
+# database at the time this module runs, so a plain Core table is used to
+# read/write them instead of the ORM model.
+_legacy_members = table(
+    "members",
+    column("id"),
+    column("workspace_id"),
+    column("linked_workspace_id"),
+    column("linked_member_id"),
+)
+
+# Person-level fields the legacy bridge person kept mirrored between the two
+# rows of a link. Media URLs are tree-scoped (the same photo has a different
+# path in each tree), so image_data can't be compared textually and is
+# excluded here.
+_BRIDGE_DRIFT_FIELDS = {
+    "gender",
+    "academic_title",
+    "first_name",
+    "middle_names",
+    "baptismal_name",
+    "last_name",
+    "maiden_name",
+    "date_of_birth",
+    "date_of_death",
+    "deceased",
+    "adopted",
+    "additional_data",
+    "birthplace",
+    "hometown",
+    "cemetery",
+    "places_lived",
+}
+
+
+def _drift_fields(a: Member, b: Member) -> list[str]:
+    """Field names on which the two rows of a legacy bridge person disagree.
+
+    Empty string and None are treated as equal — clearing a text field on one
+    side only should not count as drift.
+    """
+    return sorted(
+        k
+        for k in _BRIDGE_DRIFT_FIELDS
+        if (getattr(a, k) or None) != (getattr(b, k) or None)
+    )
+
+
+def _flatten_workspace_ids(
+    db: Session, view: VirtualView, _seen: set[str] | None = None
+) -> list[str]:
+    """Ordered, de-duplicated real workspace ids underlying a virtual view.
+
+    Expands nested virtual-view sources depth-first in source order. Missing
+    sources (deleted workspace/view rows) contribute nothing. ``_seen`` tracks
+    the current traversal path so a genuine cycle raises; cycles were already
+    rejected at write time by the (now-removed) virtual-view router, so this
+    is purely defensive.
+    """
+    if _seen is None:
+        _seen = set()
+    if view.id in _seen:
+        raise ValueError(f"virtual view cycle at {view.id}")
+    _seen.add(view.id)
+
+    result: list[str] = []
+    for src in view.sources:
+        if src.workspace_id is not None:
+            if src.workspace_id not in result:
+                result.append(src.workspace_id)
+        elif src.source_view_id is not None:
+            nested = db.get(VirtualView, src.source_view_id)
+            if nested is None:
+                continue
+            for tid in _flatten_workspace_ids(db, nested, _seen):
+                if tid not in result:
+                    result.append(tid)
+    _seen.discard(view.id)
+    return result
 
 
 @dataclass
@@ -188,9 +268,13 @@ def _classify_legacy_bridge_links(
     """
     issues: list[dict] = []
     valid_pairs: set[tuple[str, str]] = set()
-    linked = list(db.scalars(select(Member).where(Member.linked_member_id.isnot(None))))
-    by_id = {m.id: m for m in linked}
-    for member in linked:
+    linked = {
+        row.id: row
+        for row in db.execute(
+            select(_legacy_members).where(_legacy_members.c.linked_member_id.isnot(None))
+        )
+    }
+    for member in linked.values():
         if member.linked_workspace_id == member.workspace_id:
             issues.append(
                 {
@@ -200,9 +284,13 @@ def _classify_legacy_bridge_links(
                 }
             )
             continue
-        counterpart = by_id.get(member.linked_member_id) or db.get(
-            Member, member.linked_member_id
-        )
+        counterpart = linked.get(member.linked_member_id)
+        if counterpart is None:
+            counterpart = db.execute(
+                select(_legacy_members).where(
+                    _legacy_members.c.id == member.linked_member_id
+                )
+            ).first()
         if counterpart is None or counterpart.workspace_id != member.linked_workspace_id:
             issues.append(
                 {
@@ -553,8 +641,10 @@ def _repoint_content(db: Session, source_id: str, target_id: str) -> None:
         db.query(model).filter(model.workspace_id == source_id).update(
             {model.workspace_id: target_id}, synchronize_session=False
         )
-    db.query(Member).filter(Member.linked_workspace_id == source_id).update(
-        {Member.linked_workspace_id: target_id}, synchronize_session=False
+    db.execute(
+        _legacy_members.update()
+        .where(_legacy_members.c.linked_workspace_id == source_id)
+        .values(linked_workspace_id=target_id)
     )
     db.query(BackgroundJob).filter(BackgroundJob.result_workspace_id == source_id).update(
         {BackgroundJob.result_workspace_id: target_id}, synchronize_session=False
@@ -675,7 +765,7 @@ def _collapse_pair(
     # Captured before merge_members_in_place deletes `remove` below — its
     # field values are otherwise unrecoverable, and #1018's resolution needs
     # both sides to present the canonical value beside each alternative.
-    drift = bridge.drift_fields(keep, remove)
+    drift = _drift_fields(keep, remove)
     field_values = {
         field: {keep.id: getattr(keep, field), remove.id: getattr(remove, field)}
         for field in drift
@@ -763,7 +853,7 @@ def _convert_virtual_views(
     )
 
     for view in list(db.scalars(select(VirtualView))):
-        source_ids = flatten_workspace_ids(db, view)
+        source_ids = _flatten_workspace_ids(db, view)
         if not source_ids:
             continue
         targets = {workspace_target.get(sid, sid) for sid in source_ids}

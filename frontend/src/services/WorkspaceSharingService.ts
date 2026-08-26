@@ -2,7 +2,6 @@ import { api } from "@/services/api";
 import {
   InvitationAcceptResult,
   InvitationPreview,
-  LinkedShareWorkspace,
   ShareCandidate,
   ShareRole,
   Workspace,
@@ -125,15 +124,6 @@ export const WorkspaceSharingService = {
   ): Promise<{ token: string }> {
     return api.post<{ token: string }>(`/workspaces/${workspaceId}/public/unlock`, {
       password,
-    });
-  },
-
-  getLinkedShareTrees(
-    workspaceId: string,
-    username?: string,
-  ): Promise<LinkedShareWorkspace[]> {
-    return api.get<LinkedShareWorkspace[]>(`/workspaces/${workspaceId}/access/linked-workspaces`, {
-      username,
     });
   },
 

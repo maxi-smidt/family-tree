@@ -7,11 +7,6 @@
 
 import { api, UPLOAD_STAGE_TIMEOUT_MS } from "@/services/api";
 import {
-  SubtreeExtractPayload,
-  SubtreeExtractPreview,
-  Workspace,
-} from "@/types/workspace";
-import {
   Member,
   MemberDB,
   MemberSearchHitDB,
@@ -22,10 +17,8 @@ import {
   mapMemberToDB,
 } from "@/types/member";
 import {
-  DuplicatePair,
   MemberMergePreview,
   MemberMergeRequest,
-  MergeFieldChoice,
   MergePreviewResult,
 } from "@/types/merge";
 import {
@@ -50,18 +43,14 @@ import { GeocodeCandidate, GeocodeDB } from "@/types/geocode";
 import { ActivityPageDB, ActivityUndoDB } from "@/types/activity";
 import { QualityReport } from "@/types/quality";
 import {
-  CombinedStatisticsReport,
   CustomWidgetAggregateResponse,
   CustomWidgetAggregationConfig,
   StatisticsReport,
-  StatisticsScope,
 } from "@/types/statistics";
 import { WorkspaceStorageUsageDB } from "@/types/storage";
-import { LinkGraphDB } from "@/types/linkGraph";
 import { PresenceRosterDB } from "@/types/presence";
 
-const base = (workspaceId: string) =>
-  workspaceId.startsWith("vv_") ? `/virtual-views/${workspaceId}` : `/workspaces/${workspaceId}`;
+const base = (workspaceId: string) => `/workspaces/${workspaceId}`;
 
 export interface NeighborhoodDB {
   members: MemberDB[];
@@ -70,11 +59,6 @@ export interface NeighborhoodDB {
   truncated: boolean;
   total_member_count: number;
 }
-
-export type VirtualViewInput = {
-  name: string;
-  source_workspace_ids: string[];
-};
 
 export class WorkspaceService {
   // --- Relation types ------------------------------------------------------
@@ -143,7 +127,7 @@ export class WorkspaceService {
       per_tree_limit: String(perTreeLimit),
       limit: String(limit),
     });
-    if (excludeWorkspaceId && !excludeWorkspaceId.startsWith("vv_")) {
+    if (excludeWorkspaceId) {
       params.set("exclude_workspace_id", excludeWorkspaceId);
     }
     return api.get<MemberSearchHitDB[]>(`/search?${params}`);
@@ -159,67 +143,6 @@ export class WorkspaceService {
 
   static removeMember(workspaceId: string, memberId: string) {
     return api.del(`${base(workspaceId)}/members/${memberId}`);
-  }
-
-  /** Create a new tree seeded with a copy of the member (the bridge person)
-   *  and link the two rows bidirectionally — all in one atomic request. */
-  static createMemberSubtree(workspaceId: string, memberId: string, name: string) {
-    return api.post<{ workspace: Workspace; anchor: MemberDB }>(
-      `${base(workspaceId)}/members/${memberId}/subtree`,
-      { name },
-    );
-  }
-
-  /** Establish a tree-in-tree bridge on an already-existing target tree:
-   *  either by finding a matching person already in it ("existing") or by
-   *  copying this member into it as a new bridge person ("create"). Unlike
-   *  updateMember, this always resolves a real bridge person on both sides.
-   *  `field_choices` (mode="existing" only) resolves conflicting fields
-   *  between the source member and the chosen counterpart. */
-  static linkMemberToTree(
-    workspaceId: string,
-    memberId: string,
-    body: {
-      linked_workspace_id: string;
-      mode: "existing" | "create";
-      counterpart_member_id?: string | null;
-      field_choices?: Partial<Record<string, MergeFieldChoice>>;
-    },
-  ) {
-    return api.post<{ workspace: Workspace; anchor: MemberDB }>(
-      `${base(workspaceId)}/members/${memberId}/link`,
-      body,
-    );
-  }
-
-  /** List same-named members of `targetWorkspaceId` that could be the bridge
-   *  counterpart for `memberId` — candidates for `linkMemberToTree` with
-   *  mode="existing", shaped as merge `DuplicatePair`s so the client can
-   *  reuse the merge conflict-resolution UI. */
-  static getLinkCandidates(
-    workspaceId: string,
-    memberId: string,
-    targetWorkspaceId: string,
-  ) {
-    const params = new URLSearchParams({ target_workspace_id: targetWorkspaceId });
-    return api.get<{ candidates: DuplicatePair[] }>(
-      `${base(workspaceId)}/members/${memberId}/link-candidates?${params}`,
-    );
-  }
-
-  /** Resolve bridge-person drift: "push" writes this member's values onto the
-   *  linked counterpart, "pull" adopts the counterpart's values. */
-  static resolveBridgeDrift(
-    workspaceId: string,
-    memberId: string,
-    direction: "push" | "pull",
-  ) {
-    return api.post<MemberDB>(
-      `${base(workspaceId)}/members/${memberId}/bridge-sync`,
-      {
-        direction,
-      },
-    );
   }
 
   static updateMember(
@@ -761,18 +684,6 @@ export class WorkspaceService {
     return api.del(`${base(workspaceId)}/diseases/${id}`);
   }
 
-  // --- Sub-tree extraction -------------------------------------------------
-  static previewSubtree(payload: Omit<SubtreeExtractPayload, "name">) {
-    return api.post<SubtreeExtractPreview>("/workspaces/extract-subtree/preview", {
-      ...payload,
-      name: "",
-    });
-  }
-
-  static extractSubtree(payload: SubtreeExtractPayload) {
-    return api.post<{ job_id: string }>("/workspaces/extract-subtree", payload);
-  }
-
   // --- Merge preview -------------------------------------------------------
   static previewMerge(sourceA: string, sourceB?: string) {
     return api.post<MergePreviewResult>("/workspaces/merge/preview", {
@@ -844,21 +755,13 @@ export class WorkspaceService {
     return api.get<StatisticsReport>(`${base(workspaceId)}/statistics`);
   }
 
-  static getCombinedStatistics(workspaceId: string) {
-    return api.get<CombinedStatisticsReport>(
-      `${base(workspaceId)}/statistics/combined`,
-    );
-  }
-
   static getCustomWidgetAggregations(
     workspaceId: string,
-    scope: StatisticsScope,
     widgets: CustomWidgetAggregationConfig[],
   ) {
     return api.post<CustomWidgetAggregateResponse>(
       `${base(workspaceId)}/statistics/widgets/aggregate`,
       {
-        scope,
         widgets: widgets.map(
           ({ id, chartType, dimensionId, measureId, breakdownId }) => ({
             id,
@@ -877,44 +780,7 @@ export class WorkspaceService {
     return api.get<WorkspaceStorageUsageDB>(`${base(workspaceId)}/storage`);
   }
 
-  // --- Linked-workspaces graph ----------------------------------------------------
-  static getLinkGraph(workspaceId: string) {
-    return api.get<LinkGraphDB>(`${base(workspaceId)}/link-graph`);
-  }
-
-  // --- Virtual views --------------------------------------------------------
-  static listVirtualViews() {
-    return api.get<Workspace[]>("/virtual-views");
-  }
-
-  static createVirtualView(name: string, sourceWorkspaceIds: string[]) {
-    return api.post<Workspace>("/virtual-views", {
-      name,
-      source_workspace_ids: sourceWorkspaceIds,
-    });
-  }
-
-  static updateVirtualView(
-    id: string,
-    changes: { name?: string; source_workspace_ids?: string[] },
-  ) {
-    return api.patch<Workspace>(`/virtual-views/${id}`, changes);
-  }
-
-  static deleteVirtualView(id: string) {
-    return api.del(`/virtual-views/${id}`);
-  }
-
-  static recomputeVirtualViewMatches(id: string) {
-    return api.post<{ groupCount: number; mergedMemberCount: number }>(
-      `/virtual-views/${id}/recompute-matches`,
-      {},
-    );
-  }
-
   // --- Live presence --------------------------------------------------------
-  // Presence exists only for real workspaces (never virtual views), so these use the
-  // fixed `/workspaces` prefix rather than the vv-aware `base()` helper.
   static sendPresence(
     workspaceId: string,
     editingMemberId: string | null,

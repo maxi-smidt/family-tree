@@ -18,10 +18,6 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import type { Member } from "@/types/member";
-import type {
-  CustomWidgetAggregation,
-  CustomWidgetAggregateRow,
-} from "@/types/statistics";
 import {
   aggregate,
   type AggregationResult,
@@ -35,35 +31,16 @@ import { ChartTooltipContent } from "./ChartTooltipContent";
 interface Props {
   widget: CustomWidget;
   members: Member[];
-  combinedScope: boolean;
-  aggregation?: CustomWidgetAggregation;
-  isLoading: boolean;
   t: TFunc;
 }
 
 const CHART_HEIGHT = 240;
 
-export function CustomWidgetRenderer({
-  widget,
-  members,
-  combinedScope,
-  aggregation,
-  isLoading,
-  t,
-}: Props) {
-  const result = useMemo<AggregationResult | null>(
-    () =>
-      combinedScope && aggregation
-        ? formatServerAggregation(aggregation, widget, t)
-        : combinedScope
-          ? null
-          : aggregate(members, widget, t),
-    [aggregation, combinedScope, members, t, widget],
+export function CustomWidgetRenderer({ widget, members, t }: Props) {
+  const result = useMemo<AggregationResult>(
+    () => aggregate(members, widget, t),
+    [members, t, widget],
   );
-
-  if (result === null) {
-    return isLoading ? <WidgetLoadingCard title={widget.title} /> : null;
-  }
 
   const { data, series } = result;
   if (data.length === 0 || series.length === 0) return null;
@@ -282,44 +259,6 @@ export function CustomWidgetRenderer({
   );
 }
 
-function WidgetLoadingCard({ title }: { title: string }) {
-  return (
-    <Card className="p-4" aria-busy="true">
-      <h2 className="text-sm font-medium mb-4 truncate" title={title}>
-        {title}
-      </h2>
-      <div className="h-[240px] animate-pulse rounded bg-muted" />
-    </Card>
-  );
-}
-
-function formatServerAggregation(
-  aggregation: CustomWidgetAggregation,
-  widget: CustomWidget,
-  t: TFunc,
-): AggregationResult {
-  const dimension = DIMENSION_MAP[widget.dimensionId];
-  const measure = MEASURE_MAP[widget.measureId];
-  const breakdown =
-    widget.breakdownId && widget.breakdownId !== widget.dimensionId
-      ? DIMENSION_MAP[widget.breakdownId]
-      : undefined;
-
-  return {
-    data: aggregation.data.map((row: CustomWidgetAggregateRow) => ({
-      category: dimension.formatCategory
-        ? dimension.formatCategory(row.category, t)
-        : row.category,
-      ...row.values,
-    })),
-    series: aggregation.series.map((key) => ({
-      key,
-      label: breakdown
-        ? (breakdown.formatCategory?.(key, t) ?? key)
-        : t(measure.labelKey),
-    })),
-  };
-}
 
 // Derives distinct colors for multiple series from the user's base color by
 // rotating hue; the first series always uses the chosen color exactly.
