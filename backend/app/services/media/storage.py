@@ -11,6 +11,7 @@ Filenames are random UUIDs, so the URLs are unguessable.
 
 import base64
 import binascii
+import errno
 import hashlib
 import logging
 import os
@@ -19,6 +20,7 @@ import shutil
 import tempfile
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import date
 from io import BytesIO
 from pathlib import Path
@@ -518,6 +520,206 @@ def delete_workspace_media(workspace_id: str) -> None:
         pass
 
 
+@dataclass
+class MediaRelocationReport:
+    """Result of merging one workspace's on-disk media into another's
+    (migration #995's filesystem half).
+
+    ``url_map`` covers every live and trashed *primary* file (member photos,
+    gallery images, document attachments, staged document uploads) — anything
+    a persisted media URL could reference — keyed by its pre-relocation URL.
+    ``originals/`` siblings move alongside their primary file under whatever
+    stem it lands on and are not separately keyed, since nothing references
+    them by URL directly (see ``_safe_original_files``).
+    """
+
+    url_map: dict[str, str] = field(default_factory=dict)
+    files_moved: int = 0
+    files_deduped: int = 0
+    files_renamed: int = 0
+    bytes_moved: int = 0
+
+
+def _hash_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _fsync_move(src: Path, dest: Path) -> None:
+    """Move *src* to *dest*, atomically within *dest*'s directory.
+
+    Tries a same-filesystem ``os.rename`` first (atomic, no data copy — the
+    common case, since a source and destination tree both live directly
+    under ``media_root``). Falls back to a staged copy+fsync+rename for a
+    genuinely cross-device destination, so a crash mid-copy leaves *dest*
+    either absent or fully written, never truncated, and *src* untouched.
+    """
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.rename(src, dest)
+        return
+    except OSError as exc:
+        if exc.errno != errno.EXDEV:
+            raise
+    fd, tmp_name = tempfile.mkstemp(dir=dest.parent, prefix=".migrate-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "wb") as tmp_file, src.open("rb") as src_file:
+            shutil.copyfileobj(src_file, tmp_file)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        os.replace(tmp_name, dest)
+    except BaseException:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
+    src.unlink(missing_ok=True)
+
+
+def _is_upload_temp(name: str) -> bool:
+    return name.startswith(
+        (_DOCUMENT_UPLOAD_TEMP_PREFIX, _IMAGE_UPLOAD_TEMP_PREFIX)
+    ) and name.endswith((_DOCUMENT_UPLOAD_TEMP_SUFFIX, _IMAGE_UPLOAD_TEMP_SUFFIX))
+
+
+def _relocate_one(src: Path, dest_dir: Path) -> tuple[str, bool, int]:
+    """Move *src* into *dest_dir*, deduplicating or renaming on collision.
+
+    Returns ``(final_filename, deduped, size)``. A same-named file already at
+    the destination with identical bytes is treated as already migrated
+    (*src* is simply dropped — ``deduped=True``). A same-named file with
+    different bytes never overwrites the destination: *src* is given a
+    deterministic, content-derived name instead, so replaying this after a
+    crash converges on the same result rather than accumulating random
+    renames or losing either file's bytes.
+    """
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    size = src.stat().st_size
+    dest = dest_dir / src.name
+    if not dest.exists():
+        _fsync_move(src, dest)
+        return src.name, False, size
+
+    if _hash_file(dest) == _hash_file(src):
+        src.unlink(missing_ok=True)
+        return src.name, True, size
+
+    digest = _hash_file(src)
+    prefix_len = 12
+    while prefix_len <= len(digest):
+        candidate = dest_dir / f"{src.stem}-mg{digest[:prefix_len]}{src.suffix}"
+        if not candidate.exists():
+            _fsync_move(src, candidate)
+            return candidate.name, False, size
+        if _hash_file(candidate) == digest:
+            src.unlink(missing_ok=True)
+            return candidate.name, True, size
+        prefix_len += 8
+    # Practically unreachable (would require a SHA-256 collision), but never
+    # silently drop a file: fall back to the full digest as the name.
+    candidate = dest_dir / f"{src.stem}-mg{digest}{src.suffix}"
+    if candidate.exists():
+        src.unlink(missing_ok=True)
+        return candidate.name, True, size
+    _fsync_move(src, candidate)
+    return candidate.name, False, size
+
+
+def _relocate_original(src: Path, dest_dir: Path, new_stem: str) -> None:
+    """Move an ``originals/`` sibling alongside its already-relocated primary
+    file, adopting *new_stem* so the pair still shares one stem at the
+    destination (see ``_safe_original_files``)."""
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / f"{new_stem}{src.suffix}"
+    if dest.exists():
+        if _hash_file(dest) == _hash_file(src):
+            src.unlink(missing_ok=True)
+            return
+        dest = dest_dir / f"{new_stem}-mg{_hash_file(src)[:12]}{src.suffix}"
+        if dest.exists():
+            src.unlink(missing_ok=True)
+            return
+    _fsync_move(src, dest)
+
+
+def relocate_workspace_media(
+    source_workspace_id: str, target_workspace_id: str
+) -> MediaRelocationReport:
+    """Physically merge *source_workspace_id*'s media directory into
+    *target_workspace_id*'s.
+
+    Covers live files, their ``originals/`` siblings (gallery ``"both"``
+    mode), and the ``.trash/`` retention directory (plus its own
+    ``originals/``) — everything under a tree's media directory. Leftover
+    incomplete upload-temp files are discarded rather than moved. Safe (and a
+    no-op returning an empty report) to call again for a source directory
+    that was already fully relocated or never existed, and safe to call
+    partway through a prior crashed attempt — see ``_relocate_one``.
+    """
+    report = MediaRelocationReport()
+    if source_workspace_id == target_workspace_id:
+        return report
+    try:
+        source_dir = _safe_tree_dir(source_workspace_id)
+    except ValueError:
+        return report
+    if not source_dir.is_dir():
+        return report
+    dest_dir = _tree_media_dir(target_workspace_id)
+    url_prefix = f"{MEDIA_URL_PREFIX}/{source_workspace_id}"
+    new_url_prefix = f"{MEDIA_URL_PREFIX}/{target_workspace_id}"
+
+    def _move_primary(
+        src: Path,
+        dest_files_dir: Path,
+        originals: list[Path],
+        dest_originals_dir: Path,
+    ) -> None:
+        if _is_upload_temp(src.name):
+            src.unlink(missing_ok=True)
+            return
+        final_name, deduped, size = _relocate_one(src, dest_files_dir)
+        report.url_map[f"{url_prefix}/{src.name}"] = f"{new_url_prefix}/{final_name}"
+        report.files_moved += 1
+        if deduped:
+            report.files_deduped += 1
+        else:
+            report.bytes_moved += size
+            if final_name != src.name:
+                report.files_renamed += 1
+        new_stem = Path(final_name).stem
+        for orig in originals:
+            _relocate_original(orig, dest_originals_dir, new_stem)
+
+    for entry in sorted(source_dir.iterdir(), key=lambda p: p.name):
+        if entry.is_file():
+            _move_primary(
+                entry,
+                dest_dir,
+                _safe_original_files(entry),
+                _originals_dir(target_workspace_id),
+            )
+
+    trash_dir = source_dir / MEDIA_TRASH_DIR_NAME
+    if trash_dir.is_dir():
+        dest_trash_dir = _trash_dir(dest_dir)
+        dest_trash_originals_dir = _trash_originals_dir(dest_dir)
+        trash_originals_dir = (trash_dir / "originals").resolve()
+        for entry in sorted(trash_dir.iterdir(), key=lambda p: p.name):
+            if not entry.is_file():
+                continue
+            originals = (
+                list(trash_originals_dir.glob(f"{entry.stem}.*"))
+                if trash_originals_dir.is_dir()
+                else []
+            )
+            _move_primary(entry, dest_trash_dir, originals, dest_trash_originals_dir)
+
+    shutil.rmtree(source_dir, ignore_errors=True)
+    return report
+
+
 def _profile_media_url(user_id: str, filename: str) -> str:
     return f"{MEDIA_URL_PREFIX}/{profile_storage_id(user_id)}/{filename}"
 
@@ -915,6 +1117,18 @@ def move_media_to_tree(value: str | None, new_tree_id: str) -> str | None:
         dest = _originals_dir(new_tree_id) / f"{new_stem}.{orig_ext}"
         shutil.move(orig_src, dest)
     return f"{MEDIA_URL_PREFIX}/{new_tree_id}/{filename}"
+
+
+def resolve_media_path(value: str | None) -> Path | None:
+    """Resolve a stored media URL to its canonical on-disk path, or ``None``
+    for a non-media URL or a workspace/filename that fails the safety check.
+
+    A public wrapper around ``_safe_media_path`` for callers outside this
+    module that need to verify a reference resolves (e.g. post-relocation
+    checks in ``app.services.migration.media``) without reaching into a
+    private helper.
+    """
+    return _safe_media_path(value)
 
 
 def media_disk_usage(value: str | None) -> int:
