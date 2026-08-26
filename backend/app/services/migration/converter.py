@@ -1,0 +1,948 @@
+"""The v2 database conversion engine (#987): the ``converting`` phase body.
+
+Startup locking/backup, filesystem/media conversion (#995), backup restore
+(#996), the report UI, and legacy-structure deletion (#1021) are all owned
+elsewhere; ``run_conversion`` is the piece #994 invokes in between backup and
+media relocation. It:
+
+1. Groups workspaces into same-owner components via the legacy tree-in-tree
+   bridge (``Member.linked_workspace_id``/``linked_member_id``), validating
+   link symmetry before using an edge, and picks one deterministic survivor
+   per component (``_select_survivor``).
+2. Gives every workspace exactly one default section holding all of its
+   current members, seeds content provenance for its existing content, and —
+   for every non-survivor — migrates its membership/invitations/public link
+   onto a section-scoped grant, re-points its content onto the survivor, and
+   removes the now-empty workspace row.
+3. Collapses any identity link (legacy bridge or otherwise) whose two
+   endpoints land in the same workspace as a result of step 2, via the
+   existing same-tree member-merge machinery, recording a durable conflict
+   for #1018 when the pair's fields drift.
+4. Converts a virtual view into a saved view when every one of its flattened
+   sources now lives in a single workspace, dropping (and reporting) any
+   other virtual view.
+5. Writes one ``MigrationReport`` per affected workspace owner.
+
+Every step checks for its own prior side effect before writing one (a
+``MigrationMapping``/``MigrationIdempotencyKey`` row, an existing grant, an
+existing section member, ...), so re-invoking this for the same run after a
+crash resumes cleanly instead of duplicating work — see #997's mapping/
+idempotency-key contract. The function commits after each self-contained
+step so a restart only replays the step that was interrupted.
+"""
+
+from __future__ import annotations
+
+import json
+from collections import defaultdict
+from dataclasses import dataclass, field
+
+from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.models import (
+    ActivityLog,
+    BackgroundJob,
+    ContentType,
+    Document,
+    DocumentFile,
+    DocumentUpload,
+    Event,
+    GalleryImage,
+    IdentityLink,
+    Member,
+    MemberDisease,
+    MemberTask,
+    MigrationIdempotencyKey,
+    MigrationMapping,
+    MigrationRun,
+    QualityIssueDismissal,
+    Relation,
+    SavedView,
+    SavedViewPosition,
+    SavedViewSection,
+    Section,
+    SectionMember,
+    Story,
+    VirtualView,
+    VirtualViewMemberMatch,
+    VirtualViewPosition,
+    Workspace,
+    WorkspaceInvitation,
+    WorkspaceMembership,
+    WorkspaceSectionPublicLink,
+    WorkspaceUserState,
+)
+from app.models.identity_link import IdentityLinkVerificationBasis
+from app.models.migration import MigrationConflictKind, MigrationPhase
+from app.services import provenance
+from app.services.members import bridge
+from app.services.members.member_merge import (
+    # Reuse the merge's own cycle guard rather than forking it.
+    _merge_creates_cycle_through_keep,
+    merge_members_in_place,
+)
+from app.services.migration import conflicts as conflict_service
+from app.services.migration import reports as report_service
+from app.services.saved_views.position_conversion import (
+    SavedPosition,
+    convert_positions,
+    fan_out_group,
+    group_member_ids,
+    primary_member_id,
+)
+from app.services.unit_of_work import UnitOfWork
+from app.services.virtual_views.virtual_view_sources import flatten_workspace_ids
+from app.services.workspaces.grants import VALID_ROLES, create_section_grant
+from app.services.workspaces.public_links import create_section_public_link
+from app.services.workspaces.quality_checks import issue_id_for
+
+# Content tables that carry a plain ``workspace_id`` column and nothing else
+# migration-sensitive (no dedup key, no cross-workspace uniqueness) — every
+# row of a non-survivor workspace simply moves onto the survivor. Grants,
+# invitations, public links, sections, saved views and virtual views are
+# deliberately excluded: each needs its own conversion (scoped grant, scoped
+# section reference, ...) rather than a blind column repoint.
+_WORKSPACE_SCOPED_CONTENT_MODELS: tuple[type, ...] = (
+    Member,
+    Relation,
+    MemberDisease,
+    MemberTask,
+    GalleryImage,
+    Event,
+    Story,
+    Document,
+    DocumentFile,
+    DocumentUpload,
+    ActivityLog,
+    QualityIssueDismissal,
+)
+
+_PROVENANCE_MODELS: tuple[tuple[type, ContentType], ...] = (
+    (Event, ContentType.EVENT),
+    (Story, ContentType.STORY),
+    (Document, ContentType.DOCUMENT),
+    (GalleryImage, ContentType.GALLERY_IMAGE),
+    (MemberTask, ContentType.TASK),
+    (MemberDisease, ContentType.DISEASE),
+)
+
+
+@dataclass
+class ConversionSummary:
+    components: int = 0
+    sections_created: int = 0
+    workspaces_absorbed: int = 0
+    bridge_pairs_merged: int = 0
+    bridge_pairs_conflicted: int = 0
+    invalid_bridge_links: list[dict] = field(default_factory=list)
+    saved_views_converted: int = 0
+    virtual_views_dropped: int = 0
+    reports_written: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Idempotency-key helpers (#997)
+# ---------------------------------------------------------------------------
+
+
+def _idempotent_target(db: Session, run_id: str, key: str) -> str | None:
+    row = db.get(MigrationIdempotencyKey, (run_id, MigrationPhase.CONVERTING, key))
+    return row.target_id if row is not None else None
+
+
+def _record_idempotent(
+    db: Session, run_id: str, key: str, *, target_type: str, target_id: str
+) -> None:
+    db.add(
+        MigrationIdempotencyKey(
+            run_id=run_id,
+            phase=MigrationPhase.CONVERTING,
+            key=key,
+            target_type=target_type,
+            target_id=target_id,
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
+# Step 1: same-owner components over the legacy tree-in-tree bridge
+# ---------------------------------------------------------------------------
+
+
+def _validate_bridge_links(db: Session) -> list[dict]:
+    """Classify every legacy ``Member.linked_workspace_id`` pointer.
+
+    Returns the pointers that are ``self``/``dangling``/``asymmetric`` (never
+    used as a component edge) for the owner-facing report. A pointer not
+    listed here is symmetric and valid.
+    """
+    issues: list[dict] = []
+    linked = list(db.scalars(select(Member).where(Member.linked_member_id.isnot(None))))
+    by_id = {m.id: m for m in linked}
+    for member in linked:
+        if member.linked_workspace_id == member.workspace_id:
+            issues.append(
+                {
+                    "reason": "self",
+                    "workspace_id": member.workspace_id,
+                    "member_id": member.id,
+                }
+            )
+            continue
+        counterpart = by_id.get(member.linked_member_id) or db.get(
+            Member, member.linked_member_id
+        )
+        if counterpart is None or counterpart.workspace_id != member.linked_workspace_id:
+            issues.append(
+                {
+                    "reason": "dangling",
+                    "workspace_id": member.workspace_id,
+                    "member_id": member.id,
+                }
+            )
+            continue
+        if (
+            counterpart.linked_member_id != member.id
+            or counterpart.linked_workspace_id != member.workspace_id
+        ):
+            issues.append(
+                {
+                    "reason": "asymmetric",
+                    "workspace_id": member.workspace_id,
+                    "member_id": member.id,
+                }
+            )
+    return issues
+
+
+def _same_owner_components(db: Session) -> list[list[Workspace]]:
+    """Every workspace, grouped into same-owner components.
+
+    A standalone workspace forms its own singleton component (rule 1: every
+    tree gets a workspace with one section). Edges come from *verified*
+    legacy identity links (``verification_basis=legacy_dual_write_access``)
+    between two workspaces sharing an owner — this is a superset-safe source
+    for edges: the alembic conversion that created them already dropped
+    dangling pointers, and an edge that turns out asymmetric still needs to
+    be collapsed once its two members land in one workspace (see
+    ``_collapse_bridges``), so it isn't excluded here on that basis alone.
+    """
+    workspaces = list(db.scalars(select(Workspace)))
+    by_id = {w.id: w for w in workspaces}
+    parent: dict[str, str] = {w.id: w.id for w in workspaces}
+
+    def find(x: str) -> str:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(x: str, y: str) -> None:
+        rx, ry = find(x), find(y)
+        if rx != ry:
+            parent[ry] = rx
+
+    links = db.scalars(
+        select(IdentityLink).where(
+            IdentityLink.verification_basis
+            == IdentityLinkVerificationBasis.LEGACY_DUAL_WRITE_ACCESS
+        )
+    )
+    for link in links:
+        a = by_id.get(link.workspace_a_id)
+        b = by_id.get(link.workspace_b_id)
+        if a is None or b is None or a.owner_id != b.owner_id:
+            continue
+        union(a.id, b.id)
+
+    groups: dict[str, list[Workspace]] = defaultdict(list)
+    for w in workspaces:
+        groups[find(w.id)].append(w)
+    return list(groups.values())
+
+
+def _select_survivor(db: Session, workspaces: list[Workspace]) -> tuple[Workspace, dict]:
+    """Deterministic survivor: most members, then oldest, then smallest id."""
+    counts = {
+        w.id: db.scalar(
+            select(func.count()).select_from(Member).where(Member.workspace_id == w.id)
+        )
+        or 0
+        for w in workspaces
+    }
+    ranked = sorted(workspaces, key=lambda w: (-counts[w.id], w.created_at, w.id))
+    tie_break = {
+        "candidates": [
+            {
+                "workspace_id": w.id,
+                "member_count": counts[w.id],
+                "created_at": w.created_at,
+            }
+            for w in ranked
+        ]
+    }
+    return ranked[0], tie_break
+
+
+def _ensure_mapping(
+    db: Session,
+    run_id: str,
+    source: Workspace,
+    *,
+    target_workspace_id: str,
+    is_survivor: bool,
+    tie_break: dict,
+) -> MigrationMapping:
+    existing = db.scalar(
+        select(MigrationMapping).where(
+            MigrationMapping.run_id == run_id,
+            MigrationMapping.source_workspace_id == source.id,
+        )
+    )
+    if existing is not None:
+        return existing
+    mapping = MigrationMapping(
+        run_id=run_id,
+        source_workspace_id=source.id,
+        source_workspace_name=source.name,
+        target_workspace_id=target_workspace_id,
+        is_survivor=is_survivor,
+        tie_break_inputs=tie_break,
+    )
+    db.add(mapping)
+    try:
+        with UnitOfWork(db):
+            pass
+    except IntegrityError:
+        existing = db.scalar(
+            select(MigrationMapping).where(
+                MigrationMapping.run_id == run_id,
+                MigrationMapping.source_workspace_id == source.id,
+            )
+        )
+        if existing is None:
+            raise
+        return existing
+    return mapping
+
+
+# ---------------------------------------------------------------------------
+# Step 2: default sections, provenance, access, content repoint
+# ---------------------------------------------------------------------------
+
+
+def _unique_section_name(db: Session, workspace_id: str, desired: str) -> str:
+    base = desired.strip() or "Untitled"
+    existing = set(
+        db.scalars(
+            select(Section.name_normalized).where(Section.workspace_id == workspace_id)
+        )
+    )
+    candidate = base
+    suffix = 2
+    while candidate.strip().lower() in existing:
+        candidate = f"{base} ({suffix})"
+        suffix += 1
+    return candidate
+
+
+def _next_section_position(db: Session, workspace_id: str) -> int:
+    max_position = db.scalar(
+        select(func.max(Section.position)).where(Section.workspace_id == workspace_id)
+    )
+    return 0 if max_position is None else max_position + 1
+
+
+def _ensure_default_section(
+    db: Session, run_id: str, target_workspace: Workspace, source_workspace: Workspace
+) -> Section:
+    key = f"section:{source_workspace.id}"
+    existing_id = _idempotent_target(db, run_id, key)
+    if existing_id is not None:
+        section = db.get(Section, existing_id)
+        if section is not None:
+            return section
+    section = Section(
+        workspace_id=target_workspace.id,
+        name=_unique_section_name(db, target_workspace.id, source_workspace.name),
+        position=_next_section_position(db, target_workspace.id),
+    )
+    db.add(section)
+    db.flush()
+    _record_idempotent(db, run_id, key, target_type="section", target_id=section.id)
+    with UnitOfWork(db):
+        pass
+    return section
+
+
+def _assign_section_members(
+    db: Session, section: Section, source_workspace_id: str
+) -> list[str]:
+    member_ids = list(
+        db.scalars(select(Member.id).where(Member.workspace_id == source_workspace_id))
+    )
+    already = set(
+        db.scalars(
+            select(SectionMember.member_id).where(SectionMember.section_id == section.id)
+        )
+    )
+    for member_id in member_ids:
+        if member_id not in already:
+            db.add(SectionMember(section_id=section.id, member_id=member_id))
+    with UnitOfWork(db):
+        pass
+    return member_ids
+
+
+def _seed_provenance(
+    db: Session, workspace_id: str, section_id: str, source_workspace_id: str
+) -> None:
+    for model, content_type in _PROVENANCE_MODELS:
+        for content_id in db.scalars(
+            select(model.id).where(model.workspace_id == source_workspace_id)
+        ):
+            provenance.record_scope(
+                db,
+                workspace_id=workspace_id,
+                content_type=content_type,
+                content_id=content_id,
+                section_id=section_id,
+            )
+    with UnitOfWork(db):
+        pass
+
+
+def _migrate_access(
+    db: Session, source: Workspace, survivor: Workspace, section: Section
+) -> list[dict]:
+    changes: list[dict] = []
+    for membership in db.scalars(
+        select(WorkspaceMembership).where(WorkspaceMembership.workspace_id == source.id)
+    ):
+        grant_exists = db.scalar(
+            select(WorkspaceMembership.user_id).where(
+                WorkspaceMembership.workspace_id == survivor.id,
+                WorkspaceMembership.user_id == membership.user_id,
+            )
+        )
+        if grant_exists is not None:
+            # Already has whole-workspace access on the survivor; a narrower
+            # scoped grant would never win over it (see grants._best) and
+            # widening it further is an explicit owner action, not implicit
+            # migration behaviour.
+            continue
+        changes.append(
+            {
+                "user_id": membership.user_id,
+                "role": membership.role if membership.role in VALID_ROLES else "viewer",
+                "section_id": section.id,
+                "source_workspace_id": source.id,
+            }
+        )
+        create_section_grant(
+            db,
+            workspace_id=survivor.id,
+            section_id=section.id,
+            user_id=membership.user_id,
+            role=membership.role,
+            restrictions=membership.restrictions,
+        )
+
+    for invitation in db.scalars(
+        select(WorkspaceInvitation).where(WorkspaceInvitation.workspace_id == source.id)
+    ):
+        invitation.workspace_id = survivor.id
+        if invitation.section_id is None:
+            invitation.section_id = section.id
+
+    if source.public_role is not None:
+        already = db.scalar(
+            select(WorkspaceSectionPublicLink.id).where(
+                WorkspaceSectionPublicLink.workspace_id == survivor.id,
+                WorkspaceSectionPublicLink.section_id == section.id,
+            )
+        )
+        if already is None:
+            link = create_section_public_link(
+                db,
+                workspace_id=survivor.id,
+                section_id=section.id,
+                role=source.public_role,
+            )
+            db.flush()
+            link.password_hash = source.public_password_hash
+            link.access_version = source.public_access_version
+            changes.append(
+                {
+                    "public_link": True,
+                    "section_id": section.id,
+                    "source_workspace_id": source.id,
+                }
+            )
+    with UnitOfWork(db):
+        pass
+    return changes
+
+
+def _dedupe_user_states(db: Session, source_id: str, target_id: str) -> None:
+    target_by_user = {
+        s.user_id: s
+        for s in db.scalars(
+            select(WorkspaceUserState).where(WorkspaceUserState.workspace_id == target_id)
+        )
+    }
+    for state in list(
+        db.scalars(
+            select(WorkspaceUserState).where(WorkspaceUserState.workspace_id == source_id)
+        )
+    ):
+        existing = target_by_user.get(state.user_id)
+        if existing is None:
+            state.workspace_id = target_id
+            target_by_user[state.user_id] = state
+        else:
+            if state.last_opened > existing.last_opened:
+                existing.last_opened = state.last_opened
+            db.delete(state)
+
+
+def _repoint_content(db: Session, source_id: str, target_id: str) -> None:
+    for model in _WORKSPACE_SCOPED_CONTENT_MODELS:
+        db.query(model).filter(model.workspace_id == source_id).update(
+            {model.workspace_id: target_id}, synchronize_session=False
+        )
+    db.query(Member).filter(Member.linked_workspace_id == source_id).update(
+        {Member.linked_workspace_id: target_id}, synchronize_session=False
+    )
+    db.query(BackgroundJob).filter(BackgroundJob.result_workspace_id == source_id).update(
+        {BackgroundJob.result_workspace_id: target_id}, synchronize_session=False
+    )
+    _dedupe_user_states(db, source_id, target_id)
+    db.flush()
+
+
+def _absorb_workspace(
+    db: Session, run_id: str, source: Workspace, survivor: Workspace
+) -> Section:
+    section = _ensure_default_section(db, run_id, survivor, source)
+    # Captured before any bridge collapse below, so a boundary person (about
+    # to be merged away as "remove") is still recorded as a member of this
+    # section — merge_members_in_place's own SectionMember repoint then
+    # carries that membership onto "keep" (see _collapse_pair).
+    _assign_section_members(db, section, source.id)
+    _seed_provenance(db, survivor.id, section.id, source.id)
+    return section
+
+
+# ---------------------------------------------------------------------------
+# Step 3: bridge-pair collapse
+# ---------------------------------------------------------------------------
+
+
+def _prepare_bridge_collapses(
+    db: Session, source_id: str, target_id: str
+) -> list[tuple[str, str]]:
+    """Detach every identity link touching ``source_id`` before its members'
+    ``workspace_id`` moves to ``target_id``.
+
+    ``IdentityLink`` carries a composite FK into ``members (workspace_id,
+    id)``, so bulk-repointing ``Member.workspace_id`` (see ``_repoint_
+    content``) would break it for any row still naming the old workspace. A
+    link to some other, not-yet-absorbed workspace simply follows its member
+    onto ``target_id`` here. A link whose *other* side is already
+    ``target_id`` is a same-final-workspace bridge pair — leaving it in place
+    would violate ``ck_identity_link_no_same_workspace`` the moment both
+    sides read ``target_id``, so it is deleted here and returned as a
+    ``(keep_id, remove_id)`` pair for the caller to merge once the repoint
+    below has moved both member rows (and their relations/content) into the
+    same workspace.
+    """
+    to_collapse: list[tuple[str, str]] = []
+    links = list(
+        db.scalars(
+            select(IdentityLink).where(
+                or_(
+                    IdentityLink.workspace_a_id == source_id,
+                    IdentityLink.workspace_b_id == source_id,
+                )
+            )
+        )
+    )
+    for link in links:
+        source_is_a = link.workspace_a_id == source_id
+        other_side = link.workspace_b_id if source_is_a else link.workspace_a_id
+        if other_side == target_id:
+            keep_id = link.member_b_id if source_is_a else link.member_a_id
+            remove_id = link.member_a_id if source_is_a else link.member_b_id
+            to_collapse.append((keep_id, remove_id))
+            db.delete(link)
+        elif source_is_a:
+            link.workspace_a_id = target_id
+        else:
+            link.workspace_b_id = target_id
+    db.flush()
+    return to_collapse
+
+
+def _collapse_pair(
+    db: Session, run: MigrationRun, workspace: Workspace, keep_id: str, remove_id: str
+) -> str:
+    """Merge ``remove_id`` into ``keep_id`` (both already in ``workspace``).
+
+    Returns ``"merged"`` (no drift), ``"conflict"`` (drift recorded for
+    #1018), or ``"cycle"`` (left unmerged — see below).
+    """
+    keep = db.get(Member, keep_id)
+    remove = db.get(Member, remove_id)
+    if keep is None or remove is None:
+        return "skipped"  # one side already gone via an earlier collapse
+
+    relations = list(
+        db.scalars(select(Relation).where(Relation.workspace_id == workspace.id))
+    )
+    if _merge_creates_cycle_through_keep(relations, keep.id, remove.id):
+        # The identity link is already gone (see _prepare_bridge_collapses)
+        # and a same-workspace link can never be recreated, so a blocking
+        # conflict is the only way left to keep this pair visible for manual
+        # resolution instead of silently losing the "same person" fact.
+        conflict_service.create_conflict(
+            db,
+            run_id=run.id,
+            kind=MigrationConflictKind.BRIDGE_MERGE,
+            owner_user_id=workspace.owner_id,
+            workspace_id=workspace.id,
+            source_section_id=None,
+            member_a_id=min(keep_id, remove_id),
+            member_b_id=max(keep_id, remove_id),
+            conflicting_fields=["__cycle__"],
+            conflicting_media=[],
+            blocks_finalization=True,
+        )
+        return "cycle"
+
+    drift = bridge.drift_fields(keep, remove)
+    conflicting_media = (
+        [{"member_id": remove.id, "image_data": remove.image_data}]
+        if (keep.image_data or None) != (remove.image_data or None)
+        else []
+    )
+    merge_members_in_place(db, workspace, keep, remove, fields={})
+    _fixup_quality_dismissals(db, workspace.id, keep_id, remove_id)
+
+    if drift or conflicting_media:
+        conflict_service.create_conflict(
+            db,
+            run_id=run.id,
+            kind=MigrationConflictKind.BRIDGE_MERGE,
+            owner_user_id=workspace.owner_id,
+            workspace_id=workspace.id,
+            source_section_id=None,
+            member_a_id=min(keep_id, remove_id),
+            member_b_id=max(keep_id, remove_id),
+            conflicting_fields=drift,
+            conflicting_media=conflicting_media,
+            blocks_finalization=False,
+        )
+        return "conflict"
+    return "merged"
+
+
+def _fixup_quality_dismissals(
+    db: Session, workspace_id: str, keep_id: str, remove_id: str
+) -> None:
+    for dismissal in list(
+        db.scalars(
+            select(QualityIssueDismissal).where(
+                QualityIssueDismissal.workspace_id == workspace_id
+            )
+        )
+    ):
+        member_ids = json.loads(dismissal.member_ids)
+        if remove_id not in member_ids:
+            continue
+        new_ids = sorted({keep_id if m == remove_id else m for m in member_ids})
+        new_issue_id = issue_id_for(dismissal.issue_type, new_ids)
+        duplicate = db.scalar(
+            select(QualityIssueDismissal.id).where(
+                QualityIssueDismissal.workspace_id == workspace_id,
+                QualityIssueDismissal.issue_id == new_issue_id,
+                QualityIssueDismissal.id != dismissal.id,
+            )
+        )
+        if duplicate is not None:
+            db.delete(dismissal)
+            continue
+        dismissal.member_ids = json.dumps(new_ids)
+        dismissal.issue_id = new_issue_id
+    db.flush()
+
+
+# ---------------------------------------------------------------------------
+# Step 4: virtual views -> saved views
+# ---------------------------------------------------------------------------
+
+
+def _convert_virtual_views(
+    db: Session,
+    run: MigrationRun,
+    workspace_target: dict[str, str],
+    section_of: dict[str, str],
+) -> tuple[list[dict], list[dict], dict[str, dict[str, list[dict]]]]:
+    converted: list[dict] = []
+    dropped: list[dict] = []
+    by_owner: dict[str, dict[str, list[dict]]] = defaultdict(
+        lambda: {"converted": [], "dropped": []}
+    )
+
+    for view in list(db.scalars(select(VirtualView))):
+        source_ids = flatten_workspace_ids(db, view)
+        if not source_ids:
+            continue
+        targets = {workspace_target.get(sid, sid) for sid in source_ids}
+        if len(targets) != 1:
+            info = {
+                "virtual_view_id": view.id,
+                "name": view.name,
+                "reason": "spans_multiple_workspaces",
+            }
+            dropped.append(info)
+            by_owner[view.owner_id]["dropped"].append(info)
+            for sid in source_ids:
+                target_ws = db.get(Workspace, workspace_target.get(sid, sid))
+                if target_ws is not None:
+                    by_owner[target_ws.owner_id]["dropped"].append(info)
+            continue
+
+        key = f"saved_view:{view.id}"
+        if _idempotent_target(db, run.id, key) is not None:
+            continue
+
+        target_workspace_id = next(iter(targets))
+        section_ids = [section_of[sid] for sid in source_ids if sid in section_of]
+
+        saved_view = SavedView(
+            workspace_id=target_workspace_id,
+            owner_id=view.owner_id,
+            name=view.name,
+            focus_member_id=None,
+        )
+        db.add(saved_view)
+        db.flush()
+        for section_id in section_ids:
+            db.add(
+                SavedViewSection(
+                    saved_view_id=saved_view.id,
+                    section_id=section_id,
+                    workspace_id=target_workspace_id,
+                )
+            )
+
+        positions = list(
+            db.scalars(
+                select(VirtualViewPosition).where(VirtualViewPosition.view_id == view.id)
+            )
+        )
+        direct, anchors = convert_positions(positions)
+        anchor_by_node = {a.node_id: a for a in anchors}
+        for pos in direct:
+            db.add(
+                SavedViewPosition(
+                    saved_view_id=saved_view.id,
+                    node_id=pos.node_id,
+                    position_x=pos.position_x,
+                    position_y=pos.position_y,
+                )
+            )
+
+        matches = list(
+            db.scalars(
+                select(VirtualViewMemberMatch).where(
+                    VirtualViewMemberMatch.view_id == view.id
+                )
+            )
+        )
+        for group_id in {m.group_id for m in matches}:
+            member_ids = group_member_ids(matches, group_id)
+            primary_id = primary_member_id(matches, group_id)
+            if primary_id is None:
+                continue
+            anchor = anchor_by_node.get(group_id, SavedPosition(group_id, 0.0, 0.0))
+            for pos in fan_out_group(anchor, member_ids, primary_id):
+                db.add(
+                    SavedViewPosition(
+                        saved_view_id=saved_view.id,
+                        node_id=pos.node_id,
+                        position_x=pos.position_x,
+                        position_y=pos.position_y,
+                    )
+                )
+            for other_id in sorted(mid for mid in member_ids if mid != primary_id):
+                conflict_service.create_conflict(
+                    db,
+                    run_id=run.id,
+                    kind=MigrationConflictKind.VIRTUAL_VIEW_MATCH,
+                    owner_user_id=view.owner_id,
+                    workspace_id=target_workspace_id,
+                    source_section_id=None,
+                    member_a_id=min(primary_id, other_id),
+                    member_b_id=max(primary_id, other_id),
+                    conflicting_fields=[],
+                    conflicting_media=[],
+                    blocks_finalization=False,
+                )
+
+        _record_idempotent(
+            db, run.id, key, target_type="saved_view", target_id=saved_view.id
+        )
+        info = {
+            "virtual_view_id": view.id,
+            "saved_view_id": saved_view.id,
+            "name": view.name,
+        }
+        converted.append(info)
+        by_owner[view.owner_id]["converted"].append(info)
+        with UnitOfWork(db):
+            pass
+
+    return converted, dropped, by_owner
+
+
+# ---------------------------------------------------------------------------
+# Step 5: per-owner reports
+# ---------------------------------------------------------------------------
+
+
+def _write_reports(
+    db: Session,
+    run: MigrationRun,
+    mappings_by_owner: dict[str, list[dict]],
+    grant_changes_by_owner: dict[str, list[dict]],
+    view_reports: dict[str, dict[str, list[dict]]],
+    validation_summary: dict,
+) -> int:
+    owner_ids = set(mappings_by_owner) | set(grant_changes_by_owner) | set(view_reports)
+    for owner_id in owner_ids:
+        report_service.create_report(
+            db,
+            run_id=run.id,
+            owner_user_id=owner_id,
+            workspace_mappings=mappings_by_owner.get(owner_id, []),
+            grant_changes=grant_changes_by_owner.get(owner_id, []),
+            converted_virtual_views=view_reports.get(owner_id, {}).get("converted", []),
+            dropped_virtual_views=view_reports.get(owner_id, {}).get("dropped", []),
+            media_verification={},
+            validation_summary=validation_summary,
+        )
+    return len(owner_ids)
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+
+def run_conversion(db: Session, run: MigrationRun) -> ConversionSummary:
+    """Run (or safely resume) the database-conversion phase for ``run``.
+
+    Every write below is guarded by an existence check or a persisted
+    idempotency key, so calling this again for the same run — after a crash,
+    or as the "second startup" no-op case — only ever fills in what an
+    earlier attempt did not finish; it never duplicates a workspace, section,
+    grant, merge, or report.
+    """
+    summary = ConversionSummary()
+    summary.invalid_bridge_links = _validate_bridge_links(db)
+
+    workspace_target: dict[str, str] = {}
+    section_of: dict[str, str] = {}
+    mappings_by_owner: dict[str, list[dict]] = defaultdict(list)
+    grant_changes_by_owner: dict[str, list[dict]] = defaultdict(list)
+
+    components = _same_owner_components(db)
+    summary.components = len(components)
+
+    for workspaces in components:
+        survivor, tie_break = _select_survivor(db, workspaces)
+        owner_id = survivor.owner_id
+        # Survivor first (so a collapse candidate always finds its
+        # already-in-place target-side member), then the rest in a stable
+        # order — both needed for "keep = whichever side is already at the
+        # target" (see _prepare_bridge_collapses) to be deterministic and
+        # reproducible across a replay.
+        ordered = [survivor] + sorted(
+            (w for w in workspaces if w.id != survivor.id), key=lambda w: w.id
+        )
+        for source in ordered:
+            is_survivor = source.id == survivor.id
+            mapping = _ensure_mapping(
+                db,
+                run.id,
+                source,
+                target_workspace_id=survivor.id,
+                is_survivor=is_survivor,
+                tie_break=tie_break,
+            )
+            workspace_target[source.id] = survivor.id
+
+            section = _absorb_workspace(db, run.id, source, survivor)
+            section_of[source.id] = section.id
+            # A survivor didn't move anywhere, so its mapping row's
+            # target_section_id stays null (see MigrationMapping's docstring)
+            # even though it also gets its own default section.
+            if not is_survivor and mapping.target_section_id is None:
+                mapping.target_section_id = section.id
+                with UnitOfWork(db):
+                    pass
+            if not is_survivor:
+                summary.sections_created += 1
+                grant_changes = _migrate_access(db, source, survivor, section)
+                grant_changes_by_owner[owner_id].extend(grant_changes)
+
+                to_collapse = _prepare_bridge_collapses(db, source.id, survivor.id)
+                _repoint_content(db, source.id, survivor.id)
+                for keep_id, remove_id in to_collapse:
+                    outcome = _collapse_pair(db, run, survivor, keep_id, remove_id)
+                    if outcome == "merged":
+                        summary.bridge_pairs_merged += 1
+                    elif outcome in ("conflict", "cycle"):
+                        summary.bridge_pairs_conflicted += 1
+
+                db.delete(source)
+                with UnitOfWork(db):
+                    pass
+                summary.workspaces_absorbed += 1
+
+            mappings_by_owner[owner_id].append(
+                {
+                    "source_workspace_id": source.id,
+                    "source_workspace_name": source.name,
+                    "target_workspace_id": survivor.id,
+                    "target_section_id": None if is_survivor else section.id,
+                    "is_survivor": is_survivor,
+                }
+            )
+
+    converted, dropped, view_reports = _convert_virtual_views(
+        db, run, workspace_target, section_of
+    )
+    summary.saved_views_converted = len(converted)
+    summary.virtual_views_dropped = len(dropped)
+
+    validation_summary = {
+        "invalid_bridge_links": summary.invalid_bridge_links,
+        "bridge_merges": {
+            "auto": summary.bridge_pairs_merged,
+            "conflict": summary.bridge_pairs_conflicted,
+        },
+    }
+    summary.reports_written = _write_reports(
+        db,
+        run,
+        mappings_by_owner,
+        grant_changes_by_owner,
+        view_reports,
+        validation_summary,
+    )
+    return summary
