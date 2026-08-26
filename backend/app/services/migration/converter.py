@@ -627,7 +627,12 @@ def _prepare_bridge_collapses(
 
 
 def _collapse_pair(
-    db: Session, run: MigrationRun, workspace: Workspace, keep_id: str, remove_id: str
+    db: Session,
+    run: MigrationRun,
+    workspace: Workspace,
+    keep_id: str,
+    remove_id: str,
+    source_section_id: str | None,
 ) -> str:
     """Merge ``remove_id`` into ``keep_id`` (both already in ``workspace``).
 
@@ -646,25 +651,44 @@ def _collapse_pair(
         # The identity link is already gone (see _prepare_bridge_collapses)
         # and a same-workspace link can never be recreated, so a blocking
         # conflict is the only way left to keep this pair visible for manual
-        # resolution instead of silently losing the "same person" fact.
+        # resolution instead of silently losing the "same person" fact. Both
+        # rows are still live (the merge below never ran), so there is no
+        # canonical survivor yet — resolving this conflict is a #1021+ concern,
+        # not #1018's field/photo application.
         conflict_service.create_conflict(
             db,
             run_id=run.id,
             kind=MigrationConflictKind.BRIDGE_MERGE,
             owner_user_id=workspace.owner_id,
             workspace_id=workspace.id,
-            source_section_id=None,
+            source_section_id=source_section_id,
             member_a_id=min(keep_id, remove_id),
             member_b_id=max(keep_id, remove_id),
+            canonical_member_id=None,
             conflicting_fields=["__cycle__"],
+            field_values={},
             conflicting_media=[],
             blocks_finalization=True,
         )
         return "cycle"
 
+    # Captured before merge_members_in_place deletes `remove` below — its
+    # field values are otherwise unrecoverable, and #1018's resolution needs
+    # both sides to present the canonical value beside each alternative.
     drift = bridge.drift_fields(keep, remove)
+    field_values = {
+        field: {keep.id: getattr(keep, field), remove.id: getattr(remove, field)}
+        for field in drift
+    }
     conflicting_media = (
-        [{"member_id": remove.id, "image_data": remove.image_data}]
+        [
+            {
+                "member_id": remove.id,
+                "image_data": remove.image_data,
+                "canonical_member_id": keep.id,
+                "canonical_image_data": keep.image_data,
+            }
+        ]
         if (keep.image_data or None) != (remove.image_data or None)
         else []
     )
@@ -678,10 +702,12 @@ def _collapse_pair(
             kind=MigrationConflictKind.BRIDGE_MERGE,
             owner_user_id=workspace.owner_id,
             workspace_id=workspace.id,
-            source_section_id=None,
+            source_section_id=source_section_id,
             member_a_id=min(keep_id, remove_id),
             member_b_id=max(keep_id, remove_id),
+            canonical_member_id=keep.id,
             conflicting_fields=drift,
+            field_values=field_values,
             conflicting_media=conflicting_media,
             blocks_finalization=False,
         )
@@ -990,7 +1016,9 @@ def run_conversion(db: Session, run: MigrationRun) -> ConversionSummary:
                 to_collapse = _prepare_bridge_collapses(db, source.id, survivor.id)
                 _repoint_content(db, source.id, survivor.id)
                 for keep_id, remove_id in to_collapse:
-                    outcome = _collapse_pair(db, run, survivor, keep_id, remove_id)
+                    outcome = _collapse_pair(
+                        db, run, survivor, keep_id, remove_id, section.id
+                    )
                     if outcome == "merged":
                         summary.bridge_pairs_merged += 1
                     elif outcome in ("conflict", "cycle"):
