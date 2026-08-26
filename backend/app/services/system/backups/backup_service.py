@@ -66,6 +66,11 @@ from app.models import (
     MemberDisease,
     MemberTask,
     MemberTaskLink,
+    MigrationConflict,
+    MigrationIdempotencyKey,
+    MigrationMapping,
+    MigrationReport,
+    MigrationRun,
     Notification,
     QualityIssueDismissal,
     Relation,
@@ -184,6 +189,11 @@ BACKUP_MODELS: tuple[type, ...] = (
     SavedViewSection,
     SavedViewPosition,
     SavedViewUserState,
+    MigrationRun,
+    MigrationMapping,
+    MigrationReport,
+    MigrationConflict,
+    MigrationIdempotencyKey,
 )
 
 # Every other model registered on Base must be listed here, with a reason it
