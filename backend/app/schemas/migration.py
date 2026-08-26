@@ -59,7 +59,9 @@ class MigrationConflictOut(BaseModel):
     source_section_id: str | None
     member_a_id: str
     member_b_id: str
+    canonical_member_id: str | None
     conflicting_fields: list[str]
+    field_values: dict
     conflicting_media: list[dict]
     status: str
     resolution: dict | None

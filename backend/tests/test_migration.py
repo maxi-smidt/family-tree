@@ -22,7 +22,7 @@ from app.services.migration.state_machine import (
     finalize_run,
     transition_status,
 )
-from tests.conftest import API, auth, make_user
+from tests.conftest import API, add_member, auth, make_tree, make_user
 
 
 def _make_run(db: Session, **kw) -> MigrationRun:
@@ -309,6 +309,206 @@ def test_get_conflict_denies_another_owner(db, owner):
     conflict = _make_conflict(db, run, owner)
     with pytest.raises(AccessDeniedError):
         conflict_service.get_conflict_for_owner(db, conflict.id, other)
+
+
+# --- conflict resolution applies to the canonical member (#1018) -----------
+
+
+def _make_bridge_conflict(db, run, owner, tree, keep, **kw):
+    defaults = dict(
+        run_id=run.id,
+        kind="bridge_merge",
+        owner_user_id=owner.id,
+        workspace_id=tree.id,
+        source_section_id=None,
+        member_a_id=keep.id,
+        member_b_id="removed-1",
+        canonical_member_id=keep.id,
+        conflicting_fields=[],
+        field_values={},
+        conflicting_media=[],
+    )
+    defaults.update(kw)
+    return conflict_service.create_conflict(db, **defaults)
+
+
+def test_resolve_conflict_merge_applies_the_chosen_alternate_value(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", first_name="Anna")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_fields=["first_name"],
+        field_values={"first_name": {keep.id: "Anna", "removed-1": "Annie"}},
+    )
+    conflict_service.resolve_conflict(
+        db, conflict, owner, action="merge", fields={"first_name": "b"}
+    )
+    db.refresh(keep)
+    assert keep.first_name == "Annie"
+
+
+def test_resolve_conflict_merge_choosing_a_leaves_the_member_unchanged(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", first_name="Anna")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_fields=["first_name"],
+        field_values={"first_name": {keep.id: "Anna", "removed-1": "Annie"}},
+    )
+    conflict_service.resolve_conflict(
+        db, conflict, owner, action="merge", fields={"first_name": "a"}
+    )
+    db.refresh(keep)
+    assert keep.first_name == "Anna"
+
+
+def test_resolve_conflict_merge_combines_text_fields(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", additional_data="Note A")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_fields=["additional_data"],
+        field_values={"additional_data": {keep.id: "Note A", "removed-1": "Note B"}},
+    )
+    conflict_service.resolve_conflict(
+        db, conflict, owner, action="merge", fields={"additional_data": "combine"}
+    )
+    db.refresh(keep)
+    assert keep.additional_data == "Note A\n\nNote B"
+
+
+def test_resolve_conflict_merge_rejects_combine_for_a_non_text_field(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", first_name="Anna")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_fields=["first_name"],
+        field_values={"first_name": {keep.id: "Anna", "removed-1": "Annie"}},
+    )
+    with pytest.raises(InvalidInputError):
+        conflict_service.resolve_conflict(
+            db, conflict, owner, action="merge", fields={"first_name": "combine"}
+        )
+
+
+def test_resolve_conflict_merge_applies_the_chosen_photo(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", image_data="/api/media/x/a.jpg")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_media=[
+            {
+                "member_id": "removed-1",
+                "image_data": "/api/media/x/b.jpg",
+                "canonical_member_id": keep.id,
+                "canonical_image_data": "/api/media/x/a.jpg",
+            }
+        ],
+    )
+    conflict_service.resolve_conflict(
+        db, conflict, owner, action="merge", fields={"image_data": "b"}
+    )
+    db.refresh(keep)
+    assert keep.image_data == "/api/media/x/b.jpg"
+
+
+def test_resolve_conflict_merge_detects_a_canonical_edit_made_after_migration(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", first_name="Anna")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_fields=["first_name"],
+        field_values={"first_name": {keep.id: "Anna", "removed-1": "Annie"}},
+    )
+    keep.first_name = "Anna-Edited-Post-Migration"
+    db.commit()
+
+    with pytest.raises(ConflictError):
+        conflict_service.resolve_conflict(
+            db, conflict, owner, action="merge", fields={"first_name": "b"}
+        )
+    db.refresh(keep)
+    assert keep.first_name == "Anna-Edited-Post-Migration"
+
+
+def test_resolve_conflict_merge_replay_does_not_reapply(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", first_name="Anna")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_fields=["first_name"],
+        field_values={"first_name": {keep.id: "Anna", "removed-1": "Annie"}},
+    )
+    fields = {"first_name": "b"}
+    conflict_service.resolve_conflict(db, conflict, owner, action="merge", fields=fields)
+    db.refresh(keep)
+    assert keep.first_name == "Annie"
+
+    # The member's live value no longer matches the captured baseline
+    # ("Anna") because the first call already applied "Annie" — an identical
+    # replay must short-circuit on the recorded decision rather than
+    # re-running the stale-value check against that now-stale baseline.
+    again = conflict_service.resolve_conflict(
+        db, conflict, owner, action="merge", fields=fields
+    )
+    assert again.status == MigrationConflictStatus.RESOLVED
+    db.refresh(keep)
+    assert keep.first_name == "Annie"
+
+
+def test_resolve_conflict_keep_both_does_not_touch_the_canonical_member(db, owner):
+    tree = make_tree(db, owner)
+    keep = add_member(db, tree, "keep", first_name="Anna")
+    run = _make_run(db)
+    conflict = _make_bridge_conflict(
+        db,
+        run,
+        owner,
+        tree,
+        keep,
+        conflicting_fields=["first_name"],
+        field_values={"first_name": {keep.id: "Anna", "removed-1": "Annie"}},
+    )
+    conflict_service.resolve_conflict(
+        db, conflict, owner, action="keep_both", fields={"first_name": "b"}
+    )
+    db.refresh(keep)
+    assert keep.first_name == "Anna"
 
 
 # --- routes ------------------------------------------------------------------

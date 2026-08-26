@@ -2,9 +2,14 @@
 virtual-view match suggestions surfaced for owner review.
 
 Resolving records the decision using the same field-choice shape as the
-existing merge assistant (``app.schemas.merge.MergeResolution``); applying a
-"merge" resolution to the underlying ``Member`` rows is #1018's job — this
-only makes the decision durable and exactly-once.
+existing merge assistant (``app.schemas.merge.MergeResolution``). For a
+``bridge_merge`` conflict, a ``"merge"`` action also applies the chosen
+field/photo values to the surviving ``Member`` row (#1018) — the other row
+was already deleted by the bridge collapse that created this conflict, so
+``conflict.field_values``/``conflicting_media`` (captured at that point) are
+the only remaining source for its alternative values. ``"dismiss"`` and
+``"keep_both"`` only record the decision: the canonical row already holds its
+own values, so there is nothing to apply.
 """
 
 from sqlalchemy import select
@@ -19,9 +24,22 @@ from app.core.exceptions import (
     NotFoundError,
 )
 from app.db.base import utcnow_iso
-from app.models.migration import MigrationConflict, MigrationConflictStatus
+from app.models import Member, Workspace
+from app.models.migration import (
+    MigrationConflict,
+    MigrationConflictKind,
+    MigrationConflictStatus,
+)
 from app.models.user import User
+from app.services.activity.activity import record_activity
+from app.services.cache import invalidate_stats
+from app.services.event_bus import publish_workspace_event
 from app.services.unit_of_work import UnitOfWork
+
+# additional_data/places_lived are free text, so a "combine" choice can join
+# both values instead of picking one — mirrors the same rule in
+# app.services.members.member_clone.apply_field_choices.
+_COMBINABLE_FIELDS = {"additional_data", "places_lived"}
 
 
 def get_conflict_for_owner(
@@ -45,6 +63,74 @@ def list_conflicts_for_user(db: Session, user: User) -> list[MigrationConflict]:
     )
 
 
+def _combine_text(value_a: str | None, value_b: str | None, field: str) -> str | None:
+    separator = "\n\n" if field == "additional_data" else ", "
+    seen: list[str] = []
+    for value in (value_a, value_b):
+        if (value or "").strip() and value not in seen:
+            seen.append(value)
+    return separator.join(seen) if seen else None
+
+
+def _apply_bridge_resolution(
+    db: Session, conflict: MigrationConflict, fields: dict[str, str]
+) -> Member | None:
+    """Apply a "merge" resolution's per-field/photo choices onto the
+    surviving ``Member`` row.
+
+    Raises ``ConflictError`` when the canonical member's current value for a
+    chosen field no longer matches the value captured when this conflict was
+    created — an edit made after migration must be re-reviewed rather than
+    silently overwritten.
+    """
+    if not fields or conflict.canonical_member_id is None:
+        return None
+    member = db.get(Member, conflict.canonical_member_id)
+    if member is None:
+        raise NotFoundError("Canonical member no longer exists")
+
+    for field, choice in fields.items():
+        if field == "image_data":
+            media = next(
+                (m for m in conflict.conflicting_media if "canonical_image_data" in m),
+                None,
+            )
+            if media is None:
+                continue
+            if (member.image_data or None) != (media["canonical_image_data"] or None):
+                raise ConflictError(
+                    "Canonical member changed after migration; reload and retry"
+                )
+            if choice == "a":
+                continue
+            if choice != "b":
+                raise InvalidInputError(f"Unsupported choice for image_data: {choice!r}")
+            member.image_data = media["image_data"]
+            continue
+
+        values = conflict.field_values.get(field)
+        if values is None:
+            continue
+        canonical_value = values.get(conflict.canonical_member_id)
+        if (getattr(member, field) or None) != (canonical_value or None):
+            raise ConflictError(
+                "Canonical member changed after migration; reload and retry"
+            )
+        value_a = values.get(conflict.member_a_id)
+        value_b = values.get(conflict.member_b_id)
+        if choice == "a":
+            setattr(member, field, value_a)
+        elif choice == "b":
+            setattr(member, field, value_b)
+        elif choice == "combine":
+            if field not in _COMBINABLE_FIELDS:
+                raise InvalidInputError(f"{field!r} cannot be combined")
+            setattr(member, field, _combine_text(value_a, value_b, field))
+        else:
+            raise InvalidInputError(f"Unsupported choice for {field!r}: {choice!r}")
+    return member
+
+
 def resolve_conflict(
     db: Session,
     conflict: MigrationConflict,
@@ -61,10 +147,17 @@ def resolve_conflict(
             return conflict
         raise ConflictError("Migration conflict was already resolved differently")
 
+    allowed_fields = set(conflict.conflicting_fields)
+    if conflict.conflicting_media:
+        allowed_fields.add("image_data")
     if action != "dismiss":
-        unknown = sorted(set(fields) - set(conflict.conflicting_fields))
+        unknown = sorted(set(fields) - allowed_fields)
         if unknown:
             raise InvalidInputError(f"Unknown conflict fields: {unknown}")
+
+    member = None
+    if action == "merge" and conflict.kind == MigrationConflictKind.BRIDGE_MERGE:
+        member = _apply_bridge_resolution(db, conflict, fields)
 
     conflict.status = (
         MigrationConflictStatus.DISMISSED
@@ -74,9 +167,37 @@ def resolve_conflict(
     conflict.resolution = resolution
     conflict.resolved_by = user.id
     conflict.resolved_at = utcnow_iso()
+
+    workspace = db.get(Workspace, conflict.workspace_id) if member is not None else None
     try:
-        with UnitOfWork(db):
-            pass
+        with UnitOfWork(db) as uow:
+            if member is not None:
+                label = " ".join(
+                    filter(None, [member.first_name, member.last_name])
+                ) or None
+                record_activity(
+                    db,
+                    workspace_id=conflict.workspace_id,
+                    actor=user,
+                    action="update",
+                    target_type="member",
+                    target_id=member.id,
+                    target_label=label,
+                    details={
+                        "migration_conflict_id": conflict.id,
+                        "resolution": resolution,
+                    },
+                )
+                if workspace is not None:
+                    uow.after_commit(
+                        lambda: publish_workspace_event(
+                            db,
+                            workspace,
+                            "workspace.content_changed",
+                            {"workspace_id": workspace.id, "domain": "member"},
+                        )
+                    )
+                    uow.after_commit(lambda: invalidate_stats(workspace.id))
     except StaleDataError as exc:
         raise ConflictError(
             "Migration conflict changed concurrently; reload and retry"
@@ -97,6 +218,8 @@ def create_conflict(
     member_b_id: str,
     conflicting_fields: list[str],
     conflicting_media: list[dict],
+    canonical_member_id: str | None = None,
+    field_values: dict | None = None,
     blocks_finalization: bool = False,
 ) -> MigrationConflict:
     """Idempotent: replaying the conflict-detection phase for the same
@@ -124,7 +247,9 @@ def create_conflict(
         source_section_id=source_section_id,
         member_a_id=member_a_id,
         member_b_id=member_b_id,
+        canonical_member_id=canonical_member_id,
         conflicting_fields=conflicting_fields,
+        field_values=field_values or {},
         conflicting_media=conflicting_media,
         blocks_finalization=blocks_finalization,
     )

@@ -5,10 +5,11 @@ The consolidation engine (#987), its preflight/backup step (#994), and media
 relocation (#995) write through this module instead of encoding state only
 in logs or a notification, so a crash/retry can resume the same run without
 duplicating a report, conflict, section, or identity link. Conflict
-resolution here only records the decision, using the same field-choice shape
-as the existing merge assistant (``app.schemas.merge.MergeResolution``) —
-applying a "merge" resolution to the underlying ``Member`` rows is #1018's
-job.
+resolution uses the same field-choice shape as the existing merge assistant
+(``app.schemas.merge.MergeResolution``); a "merge" resolution is applied to
+the surviving ``Member`` row via ``app.services.migration.conflicts`` (#1018),
+reading the values captured on the conflict itself since the other row was
+already deleted by the bridge collapse that created it.
 
 Retention: every table here is included in v2 instance backups (see
 ``backup_service.BACKUP_MODELS``) and nothing in this module ever deletes a
@@ -229,8 +230,21 @@ class MigrationConflict(Base):
 
     member_a_id: Mapped[str] = mapped_column(String(36))
     member_b_id: Mapped[str] = mapped_column(String(36))
+    # Whichever of member_a_id/member_b_id survived the bridge collapse that
+    # created this conflict — the row a "merge" resolution applies to. Null
+    # for a kind that never collapsed a pair (virtual_view_match) or a row
+    # predating this column.
+    canonical_member_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     conflicting_fields: Mapped[list] = mapped_column(JSON, default=list)
     conflicting_media: Mapped[list] = mapped_column(JSON, default=list)
+    # Per drifted field, the two rows' values keyed by member id (so they line
+    # up with a resolution's "a"/"b" choice regardless of which id survived):
+    # {field: {member_a_id: value, member_b_id: value}}. Captured before the
+    # non-canonical row was deleted — it is the only remaining source for the
+    # value a "merge" resolution would apply. Empty for a conflict kind that
+    # doesn't drift scalar fields (virtual_view_match) or one predating this
+    # column.
+    field_values: Mapped[dict] = mapped_column(JSON, default=dict)
 
     # A required data postcondition, not just a UX nicety: finalize refuses
     # while any pending conflict has this set. False for ordinary review

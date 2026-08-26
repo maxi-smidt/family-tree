@@ -165,6 +165,50 @@ def test_bridge_pair_drift_creates_a_pending_conflict_and_keeps_one_row(db, owne
         db.scalars(select(Member).where(Member.workspace_id.in_([tree_a.id, tree_b.id])))
     )
     assert len(remaining) == 1
+    survivor_member = remaining[0]
+
+    # #1018: the surviving row and a section for its source tree, plus both
+    # sides' values for every drifted field, are captured on the conflict —
+    # the removed row is gone by now, so this is the only place they survive.
+    assert conflict.canonical_member_id == survivor_member.id
+    section = db.scalar(select(Section).where(Section.name == "B"))
+    assert conflict.source_section_id == section.id
+    other_id = conflict.member_b_id if conflict.member_a_id == survivor_member.id else (
+        conflict.member_a_id
+    )
+    assert conflict.field_values["first_name"] == {
+        survivor_member.id: "Anna",
+        other_id: "Annie",
+    }
+
+
+def test_bridge_pair_photo_drift_is_captured_for_1018(db, owner):
+    tree_a = make_tree(db, owner, name="A")
+    tree_b = make_tree(db, owner, name="B")
+    bridge_a = add_member(
+        db, tree_a, "bridge-a", first_name="Anna", image_data="/api/media/a/photo-a.jpg"
+    )
+    bridge_b = add_member(
+        db, tree_b, "bridge-b", first_name="Anna", image_data="/api/media/b/photo-b.jpg"
+    )
+    _wire_bridge(db, bridge_a, bridge_b)
+    _identity_link(db, bridge_a, bridge_b)
+
+    run = _make_run(db)
+    run_conversion(db, run)
+
+    conflict = db.scalar(
+        select(MigrationConflict).where(MigrationConflict.run_id == run.id)
+    )
+    assert conflict is not None
+    assert conflict.conflicting_fields == []  # no scalar drift, only the photo
+    assert len(conflict.conflicting_media) == 1
+    media = conflict.conflicting_media[0]
+    photos = {"/api/media/a/photo-a.jpg", "/api/media/b/photo-b.jpg"}
+    assert media["canonical_member_id"] == conflict.canonical_member_id
+    assert media["canonical_image_data"] in photos
+    assert media["image_data"] in photos
+    assert media["canonical_image_data"] != media["image_data"]
 
 
 def test_self_linked_member_is_reported_without_forming_an_edge(db, owner):
