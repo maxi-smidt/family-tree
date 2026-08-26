@@ -114,6 +114,55 @@ def test_convert_v1_bundle_rejects_unsafe_media_path():
         raise AssertionError("expected BackupValidationError")
 
 
+def test_convert_v1_bundle_rejects_media_manifest_mismatch():
+    """Inline media not declared in the manifest (or vice versa) must fail
+    before conversion, the same as it would for a v2 bundle."""
+    bundle = _empty_v1_bundle()
+    raw = b"hello"
+    bundle["media"] = [
+        {
+            "path": "photo.jpg",
+            "size_bytes": len(raw),
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "data": base64.b64encode(raw).decode("ascii"),
+        }
+    ]
+    # manifest["media"] is left empty: it declares nothing for this file.
+
+    try:
+        legacy_v1_backup.convert_v1_bundle(bundle)
+    except backup_service.BackupValidationError:
+        pass
+    else:
+        raise AssertionError("expected BackupValidationError")
+
+
+def test_v1_bundle_missing_optional_tables_is_still_detected_and_restores(
+    db, tmp_path, monkeypatch
+):
+    """An archive taken before document_uploads/workspace_user_states/
+    virtual_view_user_states existed (mid-v1-lifecycle additions, mirroring
+    backup_service.LEGACY_OPTIONAL_TABLES on the v2 side) must stay
+    restorable rather than being rejected as an unrecognized shape."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    media_root = tmp_path / "media"
+
+    bundle = _empty_v1_bundle()
+    for name in ("document_uploads", "tree_user_states", "virtual_view_user_states"):
+        del bundle["tables"][name]
+        del bundle["manifest"]["table_row_counts"][name]
+
+    assert legacy_v1_backup.is_v1_bundle(bundle["tables"])
+
+    backup_path = tmp_path / "old_v1.ftbackup"
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+    assert db.query(MigrationRun).count() == 1
+
+
 def test_v1_restore_round_trip_single_workspace(db, tmp_path, monkeypatch):
     """A genuine v1-shaped archive (one tree, no bridge) restores as a v2
     workspace with its own default section, through the real conversion

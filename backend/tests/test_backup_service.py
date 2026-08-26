@@ -1127,6 +1127,58 @@ def _pre_migration_run(db, backup_id: str, status: str = MigrationStatus.RUNNING
     return run
 
 
+def test_restore_bundle_nulls_dangling_migration_run_backup_reference(
+    db, tmp_path, monkeypatch
+):
+    """A restored MigrationRun's backup_id/backup_path must not dangle-
+    reference a BackupRecord, which is never part of a restorable archive
+    (see BACKUP_EXCLUDED_MODELS)."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    media_root = tmp_path / "media"
+
+    make_user(db, "admin", is_admin=True)
+    _pre_migration_run(db, "some-backup-id", status=MigrationStatus.COMPLETE)
+
+    bundle = backup_service._collect_bundle(db).model_dump()
+    backup_path = tmp_path / "with_run.ftbackup"
+    backup_path.write_bytes(encrypt_bundle(bundle, None))
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+
+    restored = db.query(MigrationRun).one()
+    assert restored.backup_id is None
+    assert restored.backup_path is None
+
+
+def test_restore_streaming_backup_nulls_dangling_migration_run_backup_reference(
+    db, tmp_path, monkeypatch
+):
+    """The streaming (format version 3) restore path inserts rows through a
+    different function (_insert_row_batch, not _insert_rows) — it needs the
+    same sanitization independently."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+    media_root = tmp_path / "media"
+
+    make_user(db, "admin", is_admin=True)
+    _pre_migration_run(db, "some-backup-id", status=MigrationStatus.COMPLETE)
+
+    record = backup_service.create_backup(db, trigger="manual")
+    assert record.status == "success"
+    backup_path = backup_service.BACKUP_DIR / record.filename
+    assert backup_service._is_streaming_archive(backup_path)
+
+    backup_service.restore_backup_file(
+        db, backup_path, replace=True, media_root=media_root
+    )
+
+    restored = db.query(MigrationRun).one()
+    assert restored.backup_id is None
+    assert restored.backup_path is None
+
+
 def test_prune_backups_skips_unfinalized_pre_migration_backup(
     db, tmp_path, monkeypatch
 ):

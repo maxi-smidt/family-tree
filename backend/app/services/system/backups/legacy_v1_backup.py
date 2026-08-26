@@ -40,6 +40,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -49,6 +50,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.models import (
     ContentScope,
+    DocumentUpload,
     IdentityLink,
     IdentityLinkBlock,
     IdentityLinkEvent,
@@ -65,8 +67,10 @@ from app.models import (
     Section,
     SectionMember,
     SectionPosition,
+    VirtualViewUserState,
     WorkspaceSectionGrant,
     WorkspaceSectionPublicLink,
+    WorkspaceUserState,
 )
 from app.models.migration import MigrationPhase, MigrationStatus
 from app.schemas.backup import BackupBundle, MediaItem
@@ -144,21 +148,57 @@ _V2_ONLY_TABLES: frozenset[str] = frozenset(
 )
 
 
+# Tables that landed in BACKUP_MODELS mid-lifecycle, before the v1 -> v2
+# cutover but after some v1 releases had already shipped their own backup
+# code (mirrors backup_service.LEGACY_OPTIONAL_TABLES for the v1 side) — a
+# v1 archive taken before one of these existed must stay restorable, so
+# they're optional rather than required in the exact-table-manifest check.
+_V1_OPTIONAL_TABLE_MODELS: tuple[type, ...] = (
+    DocumentUpload,
+    WorkspaceUserState,
+    VirtualViewUserState,
+)
+_V1_OPTIONAL_TABLES: frozenset[str] = frozenset(
+    _V2_TO_V1_TABLE.get(model.__tablename__, model.__tablename__)
+    for model in _V1_OPTIONAL_TABLE_MODELS
+)
+
+
 def _v1_expected_tables() -> frozenset[str]:
-    """The exact v1 table-name manifest: every table a genuine v1 archive
-    must contain, and no other — the "explicit backup-format/schema
-    compatibility ... exact-table manifest" #996 asks for."""
+    """Every table a v1 archive may contain (required ∪ optional) — the
+    "explicit backup-format/schema compatibility ... exact-table manifest"
+    #996 asks for."""
     from app.services.system.backups.backup_service import BACKUP_MODELS
 
     v2_names = {model.__tablename__ for model in BACKUP_MODELS} - _V2_ONLY_TABLES
     return frozenset(_V2_TO_V1_TABLE.get(name, name) for name in v2_names)
 
 
+def _v1_required_tables() -> frozenset[str]:
+    return _v1_expected_tables() - _V1_OPTIONAL_TABLES
+
+
 def is_v1_bundle(tables: Any) -> bool:
-    """True when *tables* is an exact v1 (pre-cutover) table-name manifest."""
+    """True when *tables* is a v1 (pre-cutover) table-name manifest: every
+    required table present, nothing outside the known v1 table set."""
     if not isinstance(tables, dict):
         return False
-    return set(tables) == _v1_expected_tables()
+    names = set(tables)
+    return _v1_required_tables() <= names <= _v1_expected_tables()
+
+
+def _backfill_v1_optional_tables(bundle_dict: dict[str, Any]) -> dict[str, Any]:
+    """Add any ``_V1_OPTIONAL_TABLES`` missing from an older v1 archive.
+    Mutates and returns *bundle_dict* in place."""
+    tables = bundle_dict.get("tables")
+    manifest = bundle_dict.get("manifest")
+    counts = manifest.get("table_row_counts") if isinstance(manifest, dict) else None
+    if not isinstance(tables, dict) or not isinstance(counts, dict):
+        return bundle_dict
+    for name in _V1_OPTIONAL_TABLES:
+        tables.setdefault(name, [])
+        counts.setdefault(name, len(tables[name]))
+    return bundle_dict
 
 
 def _rename_v1_tables(
@@ -193,8 +233,10 @@ def _verify_v1_manifest(
     """Validate the *original* v1 archive against its own declared manifest —
     row counts and media hashes — before any conversion touches anything.
 
-    Media hash/size/path-safety checks are format-agnostic (``MediaItem``'s
-    own validators), so they're reused as-is here rather than re-derived.
+    Media hash/size/path-safety and manifest/inline-media consistency are
+    format-agnostic (``BackupBundle``'s own validators, unconcerned with
+    table names), so the whole dict is validated through it as-is rather
+    than re-deriving those checks here.
     """
     tables = bundle_dict.get("tables")
     if not isinstance(tables, dict) or not tables:
@@ -202,24 +244,22 @@ def _verify_v1_manifest(
     if not is_v1_bundle(tables):
         raise BackupValidationError("Backup does not contain every required v1 table")
 
-    manifest = bundle_dict.get("manifest")
-    counts = manifest.get("table_row_counts") if isinstance(manifest, dict) else None
-    if not isinstance(counts, dict) or set(counts) != set(tables):
-        raise BackupValidationError("Backup manifest is missing table metadata")
-    for name, rows in tables.items():
-        if not isinstance(rows, list):
-            raise BackupValidationError(f"Backup table {name!r} is not a row list")
-        if counts.get(name) != len(rows):
-            raise BackupValidationError(f"Backup row count does not match for {name}")
+    bundle_dict = _backfill_v1_optional_tables(bundle_dict)
 
     try:
-        media_items = [
-            MediaItem.model_validate(item) for item in bundle_dict.get("media") or []
-        ]
-    except Exception as exc:  # noqa: BLE001 - re-raised as the domain error below
-        raise BackupValidationError(f"Invalid backup media: {exc}") from exc
+        bundle = BackupBundle.model_validate(bundle_dict)
+    except ValidationError as exc:
+        raise BackupValidationError(
+            f"Invalid instance backup: {exc.errors(include_url=False)}"
+        ) from exc
 
-    return tables, media_items
+    if set(bundle.manifest.table_row_counts) != set(bundle.tables):
+        raise BackupValidationError("Backup manifest is missing table metadata")
+    for name, rows in bundle.tables.items():
+        if bundle.manifest.table_row_counts.get(name) != len(rows):
+            raise BackupValidationError(f"Backup row count does not match for {name}")
+
+    return bundle.tables, bundle.media
 
 
 def _materialize_media(media_items: list[MediaItem], root: Path) -> None:

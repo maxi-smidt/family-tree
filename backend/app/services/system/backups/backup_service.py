@@ -744,6 +744,14 @@ def _insert_row_batch(
                     {"id": row["id"], "linked_member_id": row["linked_member_id"]}
                 )
                 row["linked_member_id"] = None
+    if model is MigrationRun:
+        # See the matching comment in _insert_rows: BackupRecord is never
+        # part of a restorable archive, so a restored run's backup_id/
+        # backup_path would otherwise dangle-reference a row that was never
+        # brought back.
+        for row in prepared:
+            row["backup_id"] = None
+            row["backup_path"] = None
     if prepared:
         db.bulk_insert_mappings(model, prepared)
 
