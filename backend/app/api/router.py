@@ -24,6 +24,7 @@ from app.api.routes import (
     member_relations,
     member_subtrees,
     members,
+    migration,
     notifications,
     oauth,
     preferences,
@@ -80,6 +81,8 @@ api_router.include_router(member_diseases.router)
 api_router.include_router(member_subtrees.router)
 api_router.include_router(member_links.router)
 api_router.include_router(identity_links.router)
+api_router.include_router(migration.router)
+api_router.include_router(migration.admin_router)
 api_router.include_router(gallery.router)
 api_router.include_router(events.router)
 api_router.include_router(geocode.router)

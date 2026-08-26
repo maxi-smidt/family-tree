@@ -35,6 +35,13 @@ from app.models.identity_link import (
 )
 from app.models.job import BackgroundJob
 from app.models.legal import LegalAcceptance, LegalDocumentVersion
+from app.models.migration import (
+    MigrationConflict,
+    MigrationIdempotencyKey,
+    MigrationMapping,
+    MigrationReport,
+    MigrationRun,
+)
 from app.models.notification import Notification
 from app.models.provenance import ContentScope, ContentType
 from app.models.quality import QualityIssueDismissal
@@ -120,4 +127,9 @@ __all__ = [
     "IdentityLinkBlock",
     "IdentityLinkEvent",
     "IdentityLinkIdempotencyKey",
+    "MigrationRun",
+    "MigrationMapping",
+    "MigrationReport",
+    "MigrationConflict",
+    "MigrationIdempotencyKey",
 ]

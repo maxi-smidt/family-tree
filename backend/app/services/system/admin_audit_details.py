@@ -164,6 +164,15 @@ class BackupDeleteDetails(TypedDict):
 
 
 # ---------------------------------------------------------------------------
+# Migration (#997)
+# ---------------------------------------------------------------------------
+
+
+class MigrationFinalizeDetails(TypedDict):
+    target_version: str
+
+
+# ---------------------------------------------------------------------------
 # Settings
 # ---------------------------------------------------------------------------
 
@@ -239,6 +248,7 @@ AdminAuditDetails = (
     | BackupCreateSuccessDetails
     | BackupCreateFailedDetails
     | BackupDeleteDetails
+    | MigrationFinalizeDetails
     | AppSettingsUpdateDetails
     | LegalDocumentUpdateDetails
 )
