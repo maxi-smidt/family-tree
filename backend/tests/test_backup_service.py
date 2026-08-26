@@ -13,6 +13,7 @@ from app.db.base import Base
 from app.models import (
     AppSetting,
     BackgroundJob,
+    BackupRecord,
     Document,
     DocumentFile,
     DocumentUpload,
@@ -1185,3 +1186,19 @@ def test_delete_backup_allows_pre_migration_backup_once_finalized(
     backup_service.delete_backup(db, pre_migration)
 
     assert db.get(type(pre_migration), pre_migration.id) is None
+
+
+def test_prune_backups_removes_a_failed_pre_migration_backup(db, tmp_path, monkeypatch):
+    """A failed attempt holds no usable rollback data and must not block
+    pruning forever (#994 review)."""
+    monkeypatch.setattr(settings, "DATA_PATH", tmp_path)
+    monkeypatch.setattr(backup_service, "BACKUP_DIR", tmp_path / "backups")
+
+    failed = BackupRecord(trigger="pre_migration", status="failed", error="boom")
+    db.add(failed)
+    db.commit()
+
+    assert backup_service._is_unfinalized_pre_migration_backup(db, failed) is False
+    backup_service.delete_backup(db, failed)  # must not raise ConflictError
+
+    assert db.get(BackupRecord, failed.id) is None

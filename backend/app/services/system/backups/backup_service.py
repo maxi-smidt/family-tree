@@ -1350,8 +1350,9 @@ def _is_unfinalized_pre_migration_backup(db: Session, record: BackupRecord) -> b
     """A ``pre_migration`` backup (see ``app.services.migration.orchestrator``,
     #994) is the only rollback path for a v2 conversion until an operator
     finalizes that run, so it must survive both scheduled pruning and manual
-    deletion until then."""
-    if record.trigger != "pre_migration":
+    deletion until then. A failed attempt holds no usable rollback data and
+    is never protected, regardless of whether a run references it."""
+    if record.trigger != "pre_migration" or record.status != "success":
         return False
     run = db.scalars(
         select(MigrationRun).where(MigrationRun.backup_id == record.id)

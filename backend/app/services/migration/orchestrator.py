@@ -19,7 +19,10 @@ destructive has happened by the time this module runs. The actually
 destructive, hard-to-reverse step is the application-level data
 consolidation below — merging per-owner workspaces, deleting the absorbed
 rows, moving media on disk — which is why the backup is taken immediately
-before *that*, not before the schema migration.
+before *that*, not before the schema migration. One consequence: the backup
+is itself v2-shaped (``workspaces``, not ``trees``), so restoring it needs
+this same v2 image, not the v1 image being upgraded from — a genuine v1
+rollback needs the operator's own pre-upgrade snapshot instead.
 
 Rollback: see the "Upgrading from v1.x to v2.0.0" section of docs/OPERATIONS.md.
 """
@@ -33,6 +36,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.advisory_lock import exclusive_lock
+from app.db.base import utcnow_iso
 from app.models import Workspace
 from app.models.migration import (
     MIGRATION_PHASE_ORDER,
@@ -65,10 +69,32 @@ class MigrationBlockedError(RuntimeError):
 
 
 def _needs_conversion(db: Session) -> bool:
-    """True exactly when this is a v1 instance's first v2 startup: no
-    migration run has ever been recorded, and workspaces already exist (a
-    fresh install has none until a user creates one)."""
+    """True when workspaces already exist and no migration run has ever been
+    recorded — a v1 instance's first v2 startup. Only meaningful the very
+    first time this runs on a given database: see ``_record_fresh_install``
+    for why a fresh install still needs a durable marker of its own."""
     return bool(db.scalar(select(func.count()).select_from(Workspace)))
+
+
+def _record_fresh_install(db: Session) -> None:
+    """Persist a permanent "nothing to convert" marker for a fresh v2 install.
+
+    Without this, a fresh install has zero workspaces at its very first
+    startup (so ``_needs_conversion`` is False and no run is created), but a
+    user creates a workspace soon after — and every startup with no run row
+    re-evaluates ``_needs_conversion`` from scratch, so it would then read
+    True and incorrectly route native v2 data through the legacy converter.
+    """
+    run = MigrationRun(
+        source_version="none",
+        target_version=TARGET_VERSION,
+        status=MigrationStatus.FINALIZED,
+        phase=MigrationPhase.VALIDATING,
+        completed_at=utcnow_iso(),
+        finalized_at=utcnow_iso(),
+    )
+    with UnitOfWork(db):
+        db.add(run)
 
 
 def _latest_run(db: Session) -> MigrationRun | None:
@@ -143,13 +169,14 @@ def _run_migration_locked(db: Session) -> None:
             "'Upgrading from v1.x to v2.0.0' section of docs/OPERATIONS.md."
         )
     if run is None and not _needs_conversion(db):
-        return  # fresh install: nothing to convert
+        _record_fresh_install(db)
+        return
 
     # Checked for every fresh or resumed attempt, never skipped for an
     # already-finished run above — a transient failure here (e.g. low disk)
     # must not touch `run`'s persisted state, so it can simply retry cleanly
     # on the next restart.
-    preflight.run_preflight_checks()
+    preflight.run_preflight_checks(db)
 
     if run is None:
         run = MigrationRun(
@@ -159,6 +186,8 @@ def _run_migration_locked(db: Session) -> None:
             db.add(run)
     elif run.status == MigrationStatus.RECOVERABLE:
         transition_status(db, run.id, MigrationStatus.RUNNING)
+        with UnitOfWork(db):
+            pass
     # else: RUNNING — a prior process crashed mid-run; we hold the exclusive
     # lock, so resuming it here is safe.
 
@@ -171,6 +200,14 @@ def _run_migration_locked(db: Session) -> None:
             run_media_relocation(db, run)
         _ensure_phase(db, run, MigrationPhase.VALIDATING)
         transition_status(db, run.id, MigrationStatus.COMPLETE)
+        # advance_phase/transition_status only flush; every prior state
+        # change in this try block — including any left uncommitted because
+        # a phase with nothing to do never called its own UnitOfWork — must
+        # be made durable here, or closing the session (see
+        # app.db.init_db.init_db) rolls all of it back and the run appears
+        # never to have finished.
+        with UnitOfWork(db):
+            pass
         logger.info(
             "v2 migration run %s complete (backup=%s)", run.id, run.backup_path
         )
@@ -186,6 +223,10 @@ def _run_migration_locked(db: Session) -> None:
             failure_detail=str(exc)[:2000],
             recoverable=True,
         )
+        # Same durability requirement as the success path above: fail_run's
+        # writes must be committed before this session closes.
+        with UnitOfWork(db):
+            pass
         raise
 
 

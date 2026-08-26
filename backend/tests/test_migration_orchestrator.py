@@ -43,9 +43,22 @@ def _make_run(db, **kw) -> MigrationRun:
     return run
 
 
-def test_fresh_install_is_a_noop(db):
+def test_fresh_install_records_a_permanent_marker(db):
+    """A fresh install has zero workspaces at first boot but a user creates
+    one soon after; without a durable marker, a later restart would
+    misdetect that as a v1 instance needing conversion (#994 review)."""
     orchestrator.run_startup_migration(db)
-    assert db.scalar(select(MigrationRun.id)) is None
+
+    run = db.scalars(select(MigrationRun)).one()
+    assert run.status == MigrationStatus.FINALIZED
+
+    owner = make_user(db)
+    make_tree(db, owner)
+
+    orchestrator.run_startup_migration(db)
+
+    all_run_ids = db.scalars(select(MigrationRun.id)).all()
+    assert all_run_ids == [run.id]  # still just the one marker, no conversion run
 
 
 def test_already_finalized_run_is_a_noop(db):
@@ -74,11 +87,28 @@ def test_converts_a_legacy_instance_end_to_end(db):
     assert run.backup_path is not None
 
 
+def test_completion_is_committed_not_only_flushed(db):
+    """advance_phase/transition_status only flush; app.db.init_db.init_db
+    closes the session right after this call without an explicit commit of
+    its own, so anything left merely flushed here would be silently rolled
+    back and the run would appear to never have finished (#994 review)."""
+    owner = make_user(db)
+    make_tree(db, owner)
+
+    orchestrator.run_startup_migration(db)
+    db.rollback()  # discards anything not actually committed
+
+    run = db.scalars(select(MigrationRun)).one()
+    assert run.status == MigrationStatus.COMPLETE
+    assert run.phase == MigrationPhase.VALIDATING
+    assert run.backup_id is not None
+
+
 def test_preflight_failure_leaves_no_run_row(db, monkeypatch):
     owner = make_user(db)
     make_tree(db, owner)
 
-    def _boom() -> None:
+    def _boom(_db) -> None:
         raise preflight.PreflightError("not enough disk space")
 
     monkeypatch.setattr(preflight, "run_preflight_checks", _boom)
@@ -161,3 +191,21 @@ def test_conversion_failure_marks_run_recoverable_and_reraises(db, monkeypatch):
     assert run.phase == MigrationPhase.BACKUP
     assert run.failure_code == "RuntimeError"
     assert run.backup_id is not None  # the backup phase had already committed
+
+
+def test_failure_state_is_committed_not_only_flushed(db, monkeypatch):
+    owner = make_user(db)
+    make_tree(db, owner)
+
+    def _boom(_db, _run):
+        raise RuntimeError("disk exploded")
+
+    monkeypatch.setattr(orchestrator, "run_conversion", _boom)
+
+    with pytest.raises(RuntimeError, match="disk exploded"):
+        orchestrator.run_startup_migration(db)
+    db.rollback()  # discards anything not actually committed
+
+    run = db.scalars(select(MigrationRun)).one()
+    assert run.status == MigrationStatus.RECOVERABLE
+    assert run.failure_code == "RuntimeError"
