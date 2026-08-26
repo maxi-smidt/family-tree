@@ -49,6 +49,27 @@ Keep these files off-host as you would a database dump. They are encrypted with
 the instance `SECRET_KEY`, so restore them with the same key (or treat a key
 rotation as a planned migration).
 
+**Supported backup versions**: the `.ftbackup` *archive format* and the
+application's *database schema epoch* are tracked separately — an archive's
+format version can stay the same across a schema change. Format version 3 is
+the current bounded/streaming layout; format version 2 is the older
+single-JSON-bundle layout, which spans both schema epochs below.
+
+| Archive format | Schema epoch | Produced by  | Restorable by |
+| --------------- | ------------ | ------------ | -------------- |
+| version 3 (streaming) | v2 | v2.0.0+ | this version, directly |
+| version 2 (JSON bundle) | v2 | v2.0.0+ (including the pre-migration safety backup) | this version, directly |
+| version 2 (JSON bundle) | v1 | any v1.x release | this version, directly — see below |
+
+A genuine v1.x-era archive (`trees`, `tree_id`, and no `workspaces`/
+`identity_links`/... tables) is detected automatically and converted through
+the same deterministic rules the live v1 → v2 upgrade uses — table/column
+renames, tree-in-tree bridge → identity link conversion, and per-owner
+workspace consolidation — before it lands in a blank v2 target. No
+intermediate v1.x or pre-consolidation v2.0.0 install is needed. An archive
+whose table set matches neither schema epoch is rejected before anything is
+written.
+
 To restore an `.ftbackup`, stop application workers first, run migrations for
 the target version, and use the backend command against a **blank** database
 and empty `${DATA_PATH}/media` volume:
@@ -263,9 +284,10 @@ application code cannot read that schema, converted or not.
 
 **Take your own database + `${DATA_PATH}` snapshot before upgrading**, as
 [Backup & restore](#backup--restore) already advises for any major version
-jump. That snapshot — restorable with the **v1.x image you upgraded from** —
-is your only path back to actual v1, and the automated safety net below does
-not replace it.
+jump. An in-app `.ftbackup` of that v1.x instance restores straight into a
+**blank v2.0.0+ target** (see "Supported backup versions" above) — you no
+longer need the v1.x image to get back to it — but the automated safety net
+below does not replace taking that snapshot in the first place.
 
 On first startup against a v1.x database, the backend (see
 `app.services.migration.orchestrator`):
@@ -304,7 +326,9 @@ any other failed startup) and the run's status is recorded on its
     back to the moment right after the schema migration but before the data
     conversion, with no data loss, so you can investigate and retry.
   - Or go back to actual v1: restore your **own pre-upgrade snapshot** into a
-    blank instance running the **v1.x image**.
+    blank instance running the **v1.x image** — or, if that snapshot is an
+    in-app `.ftbackup`, straight into a blank v2.0.0+ instance instead (see
+    "Supported backup versions" above), no v1.x image required.
 
   ```bash
   # Option 1 — back to pre-conversion v2 data, same image:

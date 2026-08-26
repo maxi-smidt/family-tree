@@ -1040,6 +1040,15 @@ def _insert_rows(db: Session, tables: dict[str, list[dict[str, Any]]]) -> None:
                         {"id": row["id"], "linked_member_id": row["linked_member_id"]}
                     )
                     row["linked_member_id"] = None
+        if model is MigrationRun:
+            # BackupRecord is deliberately excluded from every restorable
+            # archive (see BACKUP_EXCLUDED_MODELS below), so a restored run's
+            # backup_id/backup_path would otherwise dangle-reference a
+            # backup_records row that was never brought back. Mark that
+            # recovery artifact unavailable instead of retaining the claim.
+            for row in rows:
+                row["backup_id"] = None
+                row["backup_path"] = None
         if rows:
             db.bulk_insert_mappings(model, rows)
     if linked_members:
@@ -1255,7 +1264,9 @@ def restore_backup_file(
     Streaming (format version 3) archives are restored directly. Older
     (format version 2) files are still a single encrypted JSON bundle — see
     the module docstring — so they're decrypted and validated as a whole
-    before restoring.
+    before restoring. A version-2 bundle may be a genuine v1.x-era archive
+    (v1 table/column names, predating every v2-only table) rather than a
+    v2 one; see ``legacy_v1_backup`` for that compatibility adapter.
     """
     if _is_streaming_archive(filepath):
         restore_streaming_backup(db, filepath, replace=replace, media_root=media_root)
@@ -1264,14 +1275,27 @@ def restore_backup_file(
         bundle_dict = decrypt_bundle(filepath.read_bytes(), None)
     except Exception as exc:  # noqa: BLE001
         raise BackupValidationError("Could not decrypt backup file") from exc
-    bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
     bundle_dict = _drop_legacy_feature_metadata(bundle_dict)
-    try:
-        bundle = BackupBundle.model_validate(bundle_dict)
-    except ValidationError as exc:
-        raise BackupValidationError(
-            f"Invalid instance backup: {exc.errors(include_url=False)}"
-        ) from exc
+
+    # Local import: legacy_v1_backup imports this module back (BACKUP_MODELS,
+    # _collect_bundle, _insert_rows), so importing it at module scope here
+    # would be circular.
+    from app.services.system.backups.legacy_v1_backup import (
+        convert_v1_bundle,
+        is_v1_bundle,
+    )
+
+    bundle: BackupBundle | dict[str, Any]
+    if is_v1_bundle(bundle_dict.get("tables")):
+        bundle = convert_v1_bundle(bundle_dict)
+    else:
+        bundle_dict = _backfill_legacy_optional_tables(bundle_dict)
+        try:
+            bundle = BackupBundle.model_validate(bundle_dict)
+        except ValidationError as exc:
+            raise BackupValidationError(
+                f"Invalid instance backup: {exc.errors(include_url=False)}"
+            ) from exc
     restore_bundle(db, bundle, replace=replace, media_root=media_root)
 
 
